@@ -2,6 +2,9 @@
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use std::fs;
+use std::io::Write;
+use hl7v2_core::{parse, to_json, normalize, normalize_batch, normalize_file_batch};
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator")]
@@ -105,12 +108,16 @@ fn main() {
     
     match &cli.command {
         Commands::Parse { input, json, envelope } => {
-            println!("Parsing {:?} (json: {}, envelope: {:?})", input, json, envelope);
-            // Implementation will be added later
+            match parse_command(input, *json, envelope) {
+                Ok(_) => {},
+                Err(e) => eprintln!("Error: {}", e),
+            }
         }
         Commands::Norm { input, canonical_delims, output } => {
-            println!("Normalizing {:?} (canonical_delims: {:?})", input, canonical_delims);
-            // Implementation will be added later
+            match norm_command(input, *canonical_delims, output) {
+                Ok(_) => {},
+                Err(e) => eprintln!("Error: {}", e),
+            }
         }
         Commands::Val { input, profile } => {
             println!("Validating {:?} against {:?}", input, profile);
@@ -120,9 +127,61 @@ fn main() {
             println!("Generating ACK for {:?} (mode: {:?}, code: {:?})", input, mode, code);
             // Implementation will be added later
         }
-        Commands::Gen { profile, seed, count, out } => {
+        Commands::Gen { profile: _, seed, count, out } => {
             println!("Generating {} messages with seed {} into {:?}", count, seed, out);
             // Implementation will be added later
         }
     }
+}
+
+fn parse_command(input: &PathBuf, json: bool, envelope: &Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    // Read the input file
+    let contents = fs::read(input)?;
+    
+    // Parse the HL7 message
+    let message = parse(&contents)?;
+    
+    // Convert to JSON
+    let json_value = to_json(&message);
+    
+    // Output JSON
+    if json {
+        println!("{}", serde_json::to_string_pretty(&json_value)?);
+    } else {
+        println!("{}", serde_json::to_string(&json_value)?);
+    }
+    
+    // Handle envelope if specified
+    if let Some(envelope_path) = envelope {
+        // For now, we'll just print a message
+        println!("Envelope would be written to: {:?}", envelope_path);
+    }
+    
+    Ok(())
+}
+
+fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    // Read the input file
+    let contents = fs::read(input)?;
+    
+    // Try to determine the message type by looking at the first few bytes
+    let normalized = if contents.starts_with(b"FHS") {
+        // File batch message
+        normalize_file_batch(&contents, canonical_delims)?
+    } else if contents.starts_with(b"BHS") {
+        // Batch message
+        normalize_batch(&contents, canonical_delims)?
+    } else {
+        // Regular message
+        normalize(&contents, canonical_delims)?
+    };
+    
+    // Write to output file or stdout
+    if let Some(output_path) = output {
+        fs::write(output_path, normalized)?;
+    } else {
+        std::io::stdout().write_all(&normalized)?;
+    }
+    
+    Ok(())
 }

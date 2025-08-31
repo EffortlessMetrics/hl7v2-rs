@@ -388,9 +388,9 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     let mut id = [0u8; 3];
     id.copy_from_slice(id_bytes);
     
-    // Ensure segment ID is all uppercase ASCII letters
+    // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if byte < b'A' || byte > b'Z' {
+        if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -676,6 +676,65 @@ pub fn write(msg: &Message) -> Vec<u8> {
     }
     
     result
+}
+
+/// Normalize HL7 v2 message
+/// 
+/// This function parses and rewrites an HL7 message, optionally converting
+/// it to canonical delimiters (|^~\&).
+pub fn normalize(bytes: &[u8], canonical_delims: bool) -> Result<Vec<u8>, Error> {
+    // Parse the message
+    let mut message = parse(bytes)?;
+    
+    // If canonical delimiters are requested, update the message delimiters
+    if canonical_delims {
+        message.delims = Delims::default();
+    }
+    
+    // Write the normalized message
+    Ok(write(&message))
+}
+
+/// Normalize HL7 v2 batch
+/// 
+/// This function parses and rewrites an HL7 batch message, optionally converting
+/// it to canonical delimiters (|^~\&).
+pub fn normalize_batch(bytes: &[u8], canonical_delims: bool) -> Result<Vec<u8>, Error> {
+    // Parse the batch
+    let mut batch = parse_batch(bytes)?;
+    
+    // If canonical delimiters are requested, update all message delimiters
+    if canonical_delims {
+        let canonical = Delims::default();
+        for message in &mut batch.messages {
+            message.delims = canonical.clone();
+        }
+    }
+    
+    // Write the normalized batch
+    Ok(write_batch(&batch))
+}
+
+/// Normalize HL7 v2 file batch
+/// 
+/// This function parses and rewrites an HL7 file batch message, optionally converting
+/// it to canonical delimiters (|^~\&).
+pub fn normalize_file_batch(bytes: &[u8], canonical_delims: bool) -> Result<Vec<u8>, Error> {
+    // Parse the file batch
+    let mut file_batch = parse_file_batch(bytes)?;
+    
+    // If canonical delimiters are requested, update all message delimiters
+    if canonical_delims {
+        let canonical = Delims::default();
+        for batch in &mut file_batch.batches {
+            for message in &mut batch.messages {
+                message.delims = canonical.clone();
+            }
+        }
+    }
+    
+    // Write the normalized file batch
+    Ok(write_file_batch(&file_batch))
 }
 
 /// Write batch back to HL7 v2 format
@@ -1201,4 +1260,98 @@ fn get_delimiters_from_file_batch(file_batch: &FileBatch) -> Delims {
 }
 
 #[cfg(test)]
-mod tests;
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_simple_message() {
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let message = parse(hl7_text.as_bytes()).unwrap();
+        
+        assert_eq!(message.delims.field, '|');
+        assert_eq!(message.delims.comp, '^');
+        assert_eq!(message.delims.rep, '~');
+        assert_eq!(message.delims.esc, '\\');
+        assert_eq!(message.delims.sub, '&');
+        
+        assert_eq!(message.segments.len(), 2);
+        
+        // Check MSH segment
+        assert_eq!(&message.segments[0].id, b"MSH");
+        assert_eq!(message.segments[0].fields.len(), 11); // MSH has 11 fields (not counting the field separator)
+        
+        // Check PID segment
+        assert_eq!(&message.segments[1].id, b"PID");
+        assert_eq!(message.segments[1].fields.len(), 5); // PID has 5 fields
+    }
+
+    #[test]
+    fn test_debug_segments() {
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\rPV1|1|O|OP^PAREG^CHAREG|3|||DOE^JOHN^A^III^^^^MD|^DR.^JANE^B^^^^RN|||SURG||||ADM|||||20250128152300\r";
+        println!("Testing HL7 text: {:?}", hl7_text);
+        
+        // Split into lines to see what we're getting
+        let lines: Vec<&str> = hl7_text.split('\r').filter(|line| !line.is_empty()).collect();
+        println!("Lines: {:?}", lines);
+        
+        for (i, line) in lines.iter().enumerate() {
+            println!("Line {}: '{}' (len: {})", i, line, line.len());
+            if line.len() >= 3 {
+                println!("  First 3 chars: '{}'", &line[0..3]);
+            }
+        }
+        
+        let result = parse(hl7_text.as_bytes());
+        match result {
+            Ok(message) => {
+                println!("Successfully parsed message with {} segments", message.segments.len());
+                for (i, segment) in message.segments.iter().enumerate() {
+                    let segment_id = std::str::from_utf8(&segment.id).unwrap();
+                    println!("Segment {}: {} with {} fields", i, segment_id, segment.fields.len());
+                }
+            },
+            Err(e) => {
+                println!("Error parsing message: {}", e);
+            }
+        }
+    }
+
+    #[test]
+    fn test_debug_segments_detailed() {
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\rPV1|1|O|OP^PAREG^CHAREG|3|||DOE^JOHN^A^III^^^^MD|^DR.^JANE^B^^^^RN|||SURG||||ADM|||||20250128152300\r";
+        
+        // Split into lines to see what we're getting
+        let lines: Vec<&str> = hl7_text.split('\r').filter(|line| !line.is_empty()).collect();
+        println!("Lines: {:?}", lines);
+        
+        for (i, line) in lines.iter().enumerate() {
+            println!("Line {}: '{}' (len: {})", i, line, line.len());
+            if line.len() >= 3 {
+                let segment_id = &line[0..3];
+                println!("  First 3 chars: '{}' (bytes: {:?})", segment_id, segment_id.as_bytes());
+                
+                // Check each byte
+                for (j, byte) in segment_id.bytes().enumerate() {
+                    println!("    Byte {}: {} ({})", j, byte, byte as char);
+                    if byte < b'A' || byte > b'Z' {
+                        println!("      INVALID BYTE: {} is not between A-Z", byte as char);
+                    }
+                }
+            }
+        }
+        
+        let result = parse(hl7_text.as_bytes());
+        match result {
+            Ok(message) => {
+                println!("Successfully parsed message with {} segments", message.segments.len());
+                for (i, segment) in message.segments.iter().enumerate() {
+                    let segment_id = std::str::from_utf8(&segment.id).unwrap();
+                    println!("Segment {}: {} with {} fields", i, segment_id, segment.fields.len());
+                }
+            },
+            Err(e) => {
+                println!("Error parsing message: {}", e);
+            }
+        }
+    }
+}
