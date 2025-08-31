@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::fs;
 use std::io::Write;
+use std::process;
 use hl7v2_core::{parse, to_json, normalize, normalize_batch, normalize_file_batch, write};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
@@ -108,37 +109,27 @@ enum AckCode {
 fn main() {
     let cli = Cli::parse();
     
-    match &cli.command {
+    let result = match &cli.command {
         Commands::Parse { input, json, envelope } => {
-            match parse_command(input, *json, envelope) {
-                Ok(_) => {},
-                Err(e) => eprintln!("Error: {}", e),
-            }
+            parse_command(input, *json, envelope)
         }
         Commands::Norm { input, canonical_delims, output } => {
-            match norm_command(input, *canonical_delims, output) {
-                Ok(_) => {},
-                Err(e) => eprintln!("Error: {}", e),
-            }
+            norm_command(input, *canonical_delims, output)
         }
         Commands::Val { input, profile } => {
-            match val_command(input, profile) {
-                Ok(_) => {},
-                Err(e) => eprintln!("Error: {}", e),
-            }
+            val_command(input, profile)
         }
         Commands::Ack { input, mode, code } => {
-            match ack_command(input, mode, code) {
-                Ok(_) => {},
-                Err(e) => eprintln!("Error: {}", e),
-            }
+            ack_command(input, mode, code)
         }
         Commands::Gen { profile, seed, count, out } => {
-            match gen_command(profile, *seed, *count, out) {
-                Ok(_) => {},
-                Err(e) => eprintln!("Error: {}", e),
-            }
+            gen_command(profile, *seed, *count, out)
         }
+    };
+    
+    if let Err(e) = result {
+        eprintln!("Error: {}", e);
+        process::exit(1);
     }
 }
 
