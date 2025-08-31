@@ -116,9 +116,9 @@ fn generate_segment(segment_template: &str, values: &HashMap<String, Vec<ValueSo
     let mut id = [0u8; 3];
     id.copy_from_slice(&id_bytes[0..3]);
     
-    // Ensure segment ID is all uppercase ASCII letters
+    // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if byte < b'A' || byte > b'Z' {
+        if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
             return Err(Error::InvalidSegmentId);
         }
     }

@@ -4,8 +4,9 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::fs;
 use std::io::Write;
-use hl7v2_core::{parse, to_json, normalize, normalize_batch, normalize_file_batch};
+use hl7v2_core::{parse, to_json, normalize, normalize_batch, normalize_file_batch, write};
 use hl7v2_prof::{load_profile, validate};
+use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator")]
@@ -127,12 +128,16 @@ fn main() {
             }
         }
         Commands::Ack { input, mode, code } => {
-            println!("Generating ACK for {:?} (mode: {:?}, code: {:?})", input, mode, code);
-            // Implementation will be added later
+            match ack_command(input, mode, code) {
+                Ok(_) => {},
+                Err(e) => eprintln!("Error: {}", e),
+            }
         }
-        Commands::Gen { profile: _, seed, count, out } => {
-            println!("Generating {} messages with seed {} into {:?}", count, seed, out);
-            // Implementation will be added later
+        Commands::Gen { profile, seed, count, out } => {
+            match gen_command(profile, *seed, *count, out) {
+                Ok(_) => {},
+                Err(e) => eprintln!("Error: {}", e),
+            }
         }
     }
 }
@@ -223,5 +228,59 @@ fn val_command(input: &PathBuf, profile: &PathBuf) -> Result<(), Box<dyn std::er
         }
     }
     
+    Ok(())
+}
+
+fn ack_command(input: &PathBuf, _mode: &AckMode, code: &AckCode) -> Result<(), Box<dyn std::error::Error>> {
+    // Read the HL7 message file
+    let contents = fs::read(input)?;
+    
+    // Parse the HL7 message
+    let message = parse(&contents)?;
+    
+    // Convert CLI ACK code to generator ACK code
+    let gen_ack_code = match code {
+        AckCode::AA => GenAckCode::AA,
+        AckCode::AE => GenAckCode::AE,
+        AckCode::AR => GenAckCode::AR,
+        AckCode::CA => GenAckCode::CA,
+        AckCode::CE => GenAckCode::CE,
+        AckCode::CR => GenAckCode::CR,
+    };
+    
+    // Generate the ACK message
+    // Note: The mode parameter is not currently used in the generator implementation
+    // but we could extend it in the future for enhanced ACK functionality
+    let ack_message = ack(&message, gen_ack_code)?;
+    
+    // Write the ACK message to stdout
+    let ack_bytes = write(&ack_message);
+    std::io::stdout().write_all(&ack_bytes)?;
+    
+    Ok(())
+}
+
+fn gen_command(profile: &PathBuf, seed: u64, count: usize, out: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    // Read the template YAML file
+    let template_yaml = fs::read_to_string(profile)?;
+    
+    // Parse the template from YAML
+    let template: Template = serde_yaml::from_str(&template_yaml)?;
+    
+    // Generate messages
+    let messages = generate(&template, seed, count)?;
+    
+    // Create output directory if it doesn't exist
+    fs::create_dir_all(out)?;
+    
+    // Write each message to a separate file
+    for (i, message) in messages.iter().enumerate() {
+        let filename = out.join(format!("message_{:03}.hl7", i + 1));
+        let message_bytes = write(message);
+        fs::write(&filename, &message_bytes)?;
+        println!("Generated message written to: {:?}", filename);
+    }
+    
+    println!("Successfully generated {} messages", messages.len());
     Ok(())
 }

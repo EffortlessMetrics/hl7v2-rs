@@ -13,6 +13,7 @@ categories.workspace = true
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+serde_yaml = "0.9"
 hl7v2-core = { path = "../hl7v2-core" }
 hl7v2-prof = { path = "../hl7v2-prof" }
 hl7v2-gen = { path = "../hl7v2-gen" }

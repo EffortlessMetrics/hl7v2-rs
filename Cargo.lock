@@ -218,6 +218,7 @@ dependencies = [
  "hl7v2-gen",
  "hl7v2-prof",
  "serde_json",
+ "serde_yaml",
 ]
 
 [[package]]
