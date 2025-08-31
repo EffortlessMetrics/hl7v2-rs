@@ -1,20 +1,14 @@
-message_structure: "ADT_A01"
+message_structure: "GENERIC"
 version: "2.5.1"
-parent: "GENERIC"
-message_type: "ADT^A01^ADT_A01"
 segments:
   - id: "MSH"
-  - id: "EVN"
   - id: "PID"
-  - id: "PV1"
 constraints:
   - path: "PID.3"
     required: true
   - path: "PID.5"
     components:
       min: 2
-  - path: "PV1.2"
-    required: true
 valuesets:
   - path: "PID.8"
     name: "HL70001"

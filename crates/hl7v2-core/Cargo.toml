@@ -14,3 +14,22 @@ categories.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "parsing"
+harness = false
+
+[[bench]]
+name = "mllp"
+harness = false
+
+[[bench]]
+name = "escape"
+harness = false
+
+[[bench]]
+name = "memory"
+harness = false

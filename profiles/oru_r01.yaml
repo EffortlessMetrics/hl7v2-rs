@@ -1,5 +1,6 @@
 message_structure: "ORU_R01"
 version: "2.5.1"
+parent: "GENERIC"
 message_type: "ORU^R01^ORU_R01"
 segments:
   - id: "MSH"

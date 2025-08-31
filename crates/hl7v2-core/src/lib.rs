@@ -435,11 +435,15 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
         // Currently it's being parsed incorrectly, so we need to fix it
         if !fields.is_empty() {
             // Create a field with the encoding characters as a single atomic value
+            // Use direct string construction instead of format! to avoid allocation
+            let encoding_chars = String::from_iter([
+                delims.comp, delims.rep, delims.esc, delims.sub
+            ]);
+            
             let encoding_field = Field {
                 reps: vec![Rep {
                     comps: vec![Comp {
-                        subs: vec![Atom::Text(format!("{}{}{}{}", 
-                            delims.comp, delims.rep, delims.esc, delims.sub))],
+                        subs: vec![Atom::Text(encoding_chars)],
                     }],
                 }],
             };
@@ -464,11 +468,12 @@ fn parse_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> 
         return Ok(vec![]);
     }
     
-    let field_strings: Vec<&str> = fields_str.split(delims.field).collect();
+    // Count fields first to pre-allocate the vector
+    let field_count = fields_str.matches(delims.field).count() + 1;
+    let mut fields = Vec::with_capacity(field_count);
     
-    let mut fields = Vec::new();
-    
-    for (i, field_str) in field_strings.iter().enumerate() {
+    // Use split iterator directly instead of collecting into intermediate vector
+    for (i, field_str) in fields_str.split(delims.field).enumerate() {
         let field = parse_field(field_str, delims).map_err(|e| Error::ParseError {
             segment_id: "UNKNOWN".to_string(), // This will be filled in by the caller
             field_index: i,
@@ -489,10 +494,12 @@ fn parse_field(field_str: &str, delims: &Delims) -> Result<Field, Error> {
         });
     }
     
-    let rep_strings: Vec<&str> = field_str.split(delims.rep).collect();
-    let mut reps = Vec::new();
+    // Count repetitions first to pre-allocate the vector
+    let rep_count = field_str.matches(delims.rep).count() + 1;
+    let mut reps = Vec::with_capacity(rep_count);
     
-    for (i, rep_str) in rep_strings.iter().enumerate() {
+    // Use split iterator directly instead of collecting into intermediate vector
+    for (i, rep_str) in field_str.split(delims.rep).enumerate() {
         let rep = parse_rep(rep_str, delims).map_err(|e| {
             match e {
                 Error::InvalidRepFormat { .. } => e,
@@ -525,10 +532,12 @@ fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
         });
     }
     
-    let comp_strings: Vec<&str> = rep_str.split(delims.comp).collect();
-    let mut comps = Vec::new();
+    // Count components first to pre-allocate the vector
+    let comp_count = rep_str.matches(delims.comp).count() + 1;
+    let mut comps = Vec::with_capacity(comp_count);
     
-    for (i, comp_str) in comp_strings.iter().enumerate() {
+    // Use split iterator directly instead of collecting into intermediate vector
+    for (i, comp_str) in rep_str.split(delims.comp).enumerate() {
         let comp = parse_comp(comp_str, delims).map_err(|e| {
             match e {
                 Error::InvalidCompFormat { .. } => e,
@@ -552,10 +561,12 @@ fn parse_comp(comp_str: &str, delims: &Delims) -> Result<Comp, Error> {
         });
     }
     
-    let sub_strings: Vec<&str> = comp_str.split(delims.sub).collect();
-    let mut subs = Vec::new();
+    // Count subcomponents first to pre-allocate the vector
+    let sub_count = comp_str.matches(delims.sub).count() + 1;
+    let mut subs = Vec::with_capacity(sub_count);
     
-    for (i, sub_str) in sub_strings.iter().enumerate() {
+    // Use split iterator directly instead of collecting into intermediate vector
+    for (i, sub_str) in comp_str.split(delims.sub).enumerate() {
         let atom = parse_atom(sub_str, delims).map_err(|e| {
             match e {
                 Error::InvalidSubcompFormat { .. } => e,
@@ -590,8 +601,9 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 }
 
 /// Unescape text according to HL7 v2 rules
-fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
-    let mut result = String::new();
+pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    // Pre-allocate result with estimated capacity to reduce reallocations
+    let mut result = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
     
     while let Some(ch) = chars.next() {
@@ -612,7 +624,12 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // If we don't find the closing escape character, this might be a literal backslash
                 // in the encoding characters. Let's check if this is the special case of the
                 // MSH encoding characters "^~\&"
-                if text == format!("{}{}{}{}", delims.comp, delims.rep, delims.esc, delims.sub) {
+                // Use direct comparison instead of format! to avoid allocation
+                if text.len() == 4 && 
+                   text.chars().nth(0) == Some(delims.comp) &&
+                   text.chars().nth(1) == Some(delims.rep) &&
+                   text.chars().nth(2) == Some(delims.esc) &&
+                   text.chars().nth(3) == Some(delims.sub) {
                     // This is the MSH encoding characters, treat as literal
                     result.push(delims.comp);
                     result.push(delims.rep);
@@ -897,8 +914,11 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 }
 
 /// Escape text according to HL7 v2 rules
-fn escape_text(text: &str, delims: &Delims) -> String {
-    let mut result = String::with_capacity(text.len() * 2); // Pre-allocate with some extra space
+pub fn escape_text(text: &str, delims: &Delims) -> String {
+    // Pre-calculate maximum possible size to reduce reallocations
+    // In worst case, every character might need escaping (3 chars each)
+    let max_size = text.len() * 3;
+    let mut result = String::with_capacity(max_size);
     
     for ch in text.chars() {
         match ch {
