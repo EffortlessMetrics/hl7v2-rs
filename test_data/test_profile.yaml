@@ -1,0 +1,29 @@
+message_structure: "ADT_A01"
+version: "2.5.1"
+message_type: "ADT^A01"
+segments:
+  - id: "MSH"
+  - id: "PID"
+  - id: "PV1"
+constraints:
+  - path: "PID.5.1"
+    required: true
+  - path: "PID.5.2"
+    required: true
+valuesets:
+  - path: "PID.8"
+    name: "AdministrativeSex"
+    codes:
+      - "F"
+      - "M"
+      - "U"
+datatypes:
+  - path: "PID.1"
+    type: "SI"  # Sequence ID
+  - path: "PID.8"
+    type: "ID"  # Administrative Sex
+lengths:
+  - path: "PID.5.1"
+    max: 50  # Family Name max length
+  - path: "PID.5.2"
+    max: 50  # Given Name max length

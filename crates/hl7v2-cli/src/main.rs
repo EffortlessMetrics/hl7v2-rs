@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::fs;
 use std::io::Write;
 use hl7v2_core::{parse, to_json, normalize, normalize_batch, normalize_file_batch};
+use hl7v2_prof::{load_profile, validate};
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator")]
@@ -120,8 +121,10 @@ fn main() {
             }
         }
         Commands::Val { input, profile } => {
-            println!("Validating {:?} against {:?}", input, profile);
-            // Implementation will be added later
+            match val_command(input, profile) {
+                Ok(_) => {},
+                Err(e) => eprintln!("Error: {}", e),
+            }
         }
         Commands::Ack { input, mode, code } => {
             println!("Generating ACK for {:?} (mode: {:?}, code: {:?})", input, mode, code);
@@ -181,6 +184,43 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
         fs::write(output_path, normalized)?;
     } else {
         std::io::stdout().write_all(&normalized)?;
+    }
+    
+    Ok(())
+}
+
+fn val_command(input: &PathBuf, profile: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    // Read the HL7 message file
+    let contents = fs::read(input)?;
+    
+    // Parse the HL7 message
+    let message = parse(&contents)?;
+    
+    // Read the profile YAML file
+    let profile_yaml = fs::read_to_string(profile)?;
+    
+    // Load the profile
+    let profile = load_profile(&profile_yaml)?;
+    
+    // Validate the message against the profile
+    let issues = validate(&message, &profile);
+    
+    // Output validation results
+    if issues.is_empty() {
+        println!("Validation passed: no issues found");
+    } else {
+        println!("Validation failed: {} issues found", issues.len());
+        for issue in issues {
+            let severity = match issue.severity {
+                hl7v2_prof::Severity::Error => "ERROR",
+                hl7v2_prof::Severity::Warning => "WARNING",
+            };
+            if let Some(path) = issue.path {
+                println!("  [{}] {} at {}: {}", severity, issue.code, path, issue.detail);
+            } else {
+                println!("  [{}] {}: {}", severity, issue.code, issue.detail);
+            }
+        }
     }
     
     Ok(())
