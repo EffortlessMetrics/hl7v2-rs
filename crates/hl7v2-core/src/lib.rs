@@ -88,6 +88,8 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
     
     // Parse delimiters from MSH segment
     let delims = parse_delimiters(lines[0])?;
+    println!("DEBUG: Parsed delimiters - field:'{}' comp:'{}' rep:'{}' esc:'{}' sub:'{}'", 
+             delims.field, delims.comp, delims.rep, delims.esc, delims.sub);
     
     // Parse all segments
     let mut segments = Vec::new();
@@ -104,10 +106,13 @@ fn parse_delimiters(msh: &str) -> Result<Delims, Error> {
         return Err(Error::BadDelimLength);
     }
     
+    // First, we need to unescape the MSH segment to get the correct delimiters
+    // But we need to parse the escape character first to do that
+    let esc = msh.chars().nth(6).ok_or(Error::BadDelimLength)?;
+    
     let field = msh.chars().nth(3).ok_or(Error::BadDelimLength)?;
     let comp = msh.chars().nth(4).ok_or(Error::BadDelimLength)?;
     let rep = msh.chars().nth(5).ok_or(Error::BadDelimLength)?;
-    let esc = msh.chars().nth(6).ok_or(Error::BadDelimLength)?;
     let sub = msh.chars().nth(7).ok_or(Error::BadDelimLength)?;
     
     // Check that all delimiters are distinct
@@ -148,18 +153,42 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     }
     
     // Parse fields
-    let fields_str = if line.len() > 3 {
+    let fields_str = if line.len() > 4 {
         &line[4..] // Skip segment ID and field separator
     } else {
         ""
     };
     
-    let fields = parse_fields(fields_str, delims)?;
+    let mut fields = parse_fields(fields_str, delims)?;
     
-    Ok(Segment {
-        id,
-        fields,
-    })
+    // Special handling for MSH segment
+    if &id == b"MSH" {
+        println!("DEBUG: Processing MSH segment, parsed {} fields", fields.len());
+        // MSH-2 (the encoding characters) should be treated as a single atomic value
+        // Currently it's being parsed incorrectly, so we need to fix it
+        if !fields.is_empty() {
+            // Create a field with the encoding characters as a single atomic value
+            let encoding_field = Field {
+                reps: vec![Rep {
+                    comps: vec![Comp {
+                        subs: vec![Atom::Text(format!("{}{}{}{}", 
+                            delims.comp, delims.rep, delims.esc, delims.sub))],
+                    }],
+                }],
+            };
+            // Replace the first field with the corrected encoding field
+            fields[0] = encoding_field;
+        }
+        Ok(Segment {
+            id,
+            fields,
+        })
+    } else {
+        Ok(Segment {
+            id,
+            fields,
+        })
+    }
 }
 
 /// Parse fields from a segment
@@ -168,7 +197,10 @@ fn parse_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> 
         return Ok(vec![]);
     }
     
+    println!("DEBUG: Parsing fields from: '{}'", fields_str);
     let field_strings: Vec<&str> = fields_str.split(delims.field).collect();
+    println!("DEBUG: Found {} field strings: {:?}", field_strings.len(), field_strings);
+    
     let mut fields = Vec::new();
     
     for field_str in field_strings {
@@ -242,6 +274,7 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
     
     while let Some(ch) = chars.next() {
         if ch == delims.esc {
+            println!("DEBUG: Found escape character in '{}'", text);
             // Start of escape sequence
             let mut escape_seq = String::new();
             let mut found_end = false;
@@ -256,20 +289,39 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             
             if !found_end {
                 // If we don't find the closing escape character, treat the text as-is
+                println!("DEBUG: No closing escape found, treating as-is");
                 result.push(delims.esc);
                 result.push_str(&escape_seq);
                 continue;
             }
             
+            println!("DEBUG: Processing escape sequence: '{}'", escape_seq);
+            
             // Process escape sequence
             match escape_seq.as_str() {
-                "F" => result.push(delims.field),
-                "S" => result.push(delims.comp),
-                "R" => result.push(delims.rep),
-                "E" => result.push(delims.esc),
-                "T" => result.push(delims.sub),
+                "F" => {
+                    println!("DEBUG: Escaping F to field delimiter");
+                    result.push(delims.field);
+                },
+                "S" => {
+                    println!("DEBUG: Escaping S to comp delimiter");
+                    result.push(delims.comp);
+                },
+                "R" => {
+                    println!("DEBUG: Escaping R to rep delimiter");
+                    result.push(delims.rep);
+                },
+                "E" => {
+                    println!("DEBUG: Escaping E to esc delimiter");
+                    result.push(delims.esc);
+                },
+                "T" => {
+                    println!("DEBUG: Escaping T to sub delimiter");
+                    result.push(delims.sub);
+                },
                 _ => {
                     // Unknown escape sequences are passed through
+                    println!("DEBUG: Unknown escape sequence, passing through");
                     result.push(delims.esc);
                     result.push_str(&escape_seq);
                     result.push(delims.esc);
@@ -280,6 +332,7 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
         }
     }
     
+    println!("DEBUG: Unescaped '{}' to '{}'", text, result);
     Ok(result)
 }
 
@@ -287,19 +340,38 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
 pub fn write(msg: &Message) -> Vec<u8> {
     let mut result = Vec::new();
     
-    for segment in &msg.segments {
+    for (segment_idx, segment) in msg.segments.iter().enumerate() {
         // Write segment ID
+        println!("DEBUG: Writing segment {}: ID {:?}", segment_idx, std::str::from_utf8(&segment.id));
         result.extend_from_slice(&segment.id);
         
         // Write field separator
         result.push(msg.delims.field as u8);
         
-        // Write fields
-        for (i, field) in segment.fields.iter().enumerate() {
-            if i > 0 {
-                result.push(msg.delims.field as u8);
+        // Special handling for MSH segment
+        if &segment.id == b"MSH" {
+            println!("DEBUG: MSH segment detected, fields count: {}", segment.fields.len());
+            // For MSH segment, write all fields (MSH-2 and beyond)
+            // MSH-1 (the field separator) is implicit and not stored as a field
+            for (i, field) in segment.fields.iter().enumerate() {
+                if i > 0 {
+                    result.push(msg.delims.field as u8);
+                }
+                println!("DEBUG: Writing MSH field {}: reps={}", i, field.reps.len());
+                // Special handling: for MSH segment fields, don't escape the delimiter characters
+                write_field_no_escape(field, &mut result, &msg.delims);
             }
-            write_field(field, &mut result, &msg.delims);
+        } else {
+            println!("DEBUG: Non-MSH segment, ID: {:?}, fields count: {}", 
+                     std::str::from_utf8(&segment.id), segment.fields.len());
+            // For non-MSH segments, write all fields
+            for (i, field) in segment.fields.iter().enumerate() {
+                if i > 0 {
+                    result.push(msg.delims.field as u8);
+                }
+                println!("DEBUG: Writing field {}: reps={}", i, field.reps.len());
+                write_field(field, &mut result, &msg.delims);
+            }
         }
         
         // Write segment terminator
@@ -309,7 +381,7 @@ pub fn write(msg: &Message) -> Vec<u8> {
     result
 }
 
-/// Write a field to bytes
+/// Write a field to bytes (with escaping)
 fn write_field(field: &Field, output: &mut Vec<u8>, delims: &Delims) {
     for (i, rep) in field.reps.iter().enumerate() {
         if i > 0 {
@@ -319,7 +391,17 @@ fn write_field(field: &Field, output: &mut Vec<u8>, delims: &Delims) {
     }
 }
 
-/// Write a repetition to bytes
+/// Write a field to bytes (without escaping delimiter characters)
+fn write_field_no_escape(field: &Field, output: &mut Vec<u8>, delims: &Delims) {
+    for (i, rep) in field.reps.iter().enumerate() {
+        if i > 0 {
+            output.push(delims.rep as u8);
+        }
+        write_rep_no_escape(rep, output, delims);
+    }
+}
+
+/// Write a repetition to bytes (with escaping)
 fn write_rep(rep: &Rep, output: &mut Vec<u8>, delims: &Delims) {
     for (i, comp) in rep.comps.iter().enumerate() {
         if i > 0 {
@@ -329,7 +411,17 @@ fn write_rep(rep: &Rep, output: &mut Vec<u8>, delims: &Delims) {
     }
 }
 
-/// Write a component to bytes
+/// Write a repetition to bytes (without escaping delimiter characters)
+fn write_rep_no_escape(rep: &Rep, output: &mut Vec<u8>, delims: &Delims) {
+    for (i, comp) in rep.comps.iter().enumerate() {
+        if i > 0 {
+            output.push(delims.comp as u8);
+        }
+        write_comp_no_escape(comp, output, delims);
+    }
+}
+
+/// Write a component to bytes (with escaping)
 fn write_comp(comp: &Comp, output: &mut Vec<u8>, delims: &Delims) {
     for (i, atom) in comp.subs.iter().enumerate() {
         if i > 0 {
@@ -339,13 +431,38 @@ fn write_comp(comp: &Comp, output: &mut Vec<u8>, delims: &Delims) {
     }
 }
 
-/// Write an atom to bytes
+/// Write a component to bytes (without escaping delimiter characters)
+fn write_comp_no_escape(comp: &Comp, output: &mut Vec<u8>, delims: &Delims) {
+    for (i, atom) in comp.subs.iter().enumerate() {
+        if i > 0 {
+            output.push(delims.sub as u8);
+        }
+        write_atom_no_escape(atom, output, delims);
+    }
+}
+
+/// Write an atom to bytes (with escaping)
 fn write_atom(atom: &Atom, output: &mut Vec<u8>, delims: &Delims) {
     match atom {
         Atom::Text(text) => {
             // Escape special characters
             let escaped = escape_text(text, delims);
+            println!("DEBUG: Writing atom text: '{}' -> '{}'", text, escaped);
             output.extend_from_slice(escaped.as_bytes());
+        }
+        Atom::Null => {
+            output.extend_from_slice(b"\"\"");
+        }
+    }
+}
+
+/// Write an atom to bytes (without escaping delimiter characters)
+fn write_atom_no_escape(atom: &Atom, output: &mut Vec<u8>, _delims: &Delims) {
+    match atom {
+        Atom::Text(text) => {
+            // Don't escape special characters for MSH segment fields
+            println!("DEBUG: Writing atom text (no escape): '{}'", text);
+            output.extend_from_slice(text.as_bytes());
         }
         Atom::Null => {
             output.extend_from_slice(b"\"\"");
@@ -504,8 +621,152 @@ pub enum Error {
 
 /// Get value at path (e.g., "PID.5[1].1")
 pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
-    // Simple implementation for now - will be expanded later
-    None
+    // Parse the path
+    // Format: SEGMENT.FIELD[REP].COMPONENT
+    // Examples: "PID.5.1", "PID.5[1].1", "MSH.9"
+    
+    let mut parts = path.split('.');
+    let segment_id = parts.next()?;
+    
+    // Find the segment
+    let segment = msg.segments.iter().find(|s| {
+        std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id)
+    })?;
+    
+    // Parse field index (1-based)
+    let field_part = parts.next()?;
+    let (field_index, rep_index) = parse_field_and_rep(field_part)?;
+    
+    // Special handling for MSH segments
+    if segment_id == "MSH" {
+        if field_index == 1 {
+            // MSH-1 is the field separator character
+            // We can't return a reference to a temporary string, so we don't support this case
+            // Users should access msg.delims.field directly for the field separator
+            return None;
+        } else if field_index == 2 {
+            // MSH-2 is the encoding characters
+            // This should be the first parsed field (index 0)
+            if segment.fields.is_empty() {
+                return None;
+            }
+            let field = &segment.fields[0];
+            // Get the repetition
+            if rep_index == 0 || rep_index > field.reps.len() {
+                return None;
+            }
+            let rep = &field.reps[rep_index - 1];
+            // Get the component
+            let comp_index = if let Some(comp_part) = parts.next() {
+                comp_part.parse::<usize>().ok()?
+            } else {
+                1
+            };
+            if comp_index == 0 || comp_index > rep.comps.len() {
+                return None;
+            }
+            let comp = &rep.comps[comp_index - 1];
+            // Get the subcomponent
+            if comp.subs.is_empty() {
+                return None;
+            }
+            match &comp.subs[0] {
+                Atom::Text(text) => Some(text.as_str()),
+                Atom::Null => None,
+            }
+        } else {
+            // MSH-3 and beyond
+            // Adjust index: MSH-3 maps to parsed field 1, MSH-4 to parsed field 2, etc.
+            let adjusted_field_index = field_index - 2;
+            if adjusted_field_index >= segment.fields.len() {
+                return None;
+            }
+            let field = &segment.fields[adjusted_field_index];
+            // Get the repetition
+            if rep_index == 0 || rep_index > field.reps.len() {
+                return None;
+            }
+            let rep = &field.reps[rep_index - 1];
+            // Get the component
+            let comp_index = if let Some(comp_part) = parts.next() {
+                comp_part.parse::<usize>().ok()?
+            } else {
+                1
+            };
+            if comp_index == 0 || comp_index > rep.comps.len() {
+                return None;
+            }
+            let comp = &rep.comps[comp_index - 1];
+            // Get the subcomponent
+            if comp.subs.is_empty() {
+                return None;
+            }
+            match &comp.subs[0] {
+                Atom::Text(text) => Some(text.as_str()),
+                Atom::Null => None,
+            }
+        }
+    } else {
+        // For non-MSH segments, convert directly to 0-based indexing
+        if field_index == 0 {
+            return None;
+        }
+        let zero_based_field_index = field_index - 1;
+        
+        // Get the field
+        if zero_based_field_index >= segment.fields.len() {
+            return None;
+        }
+        let field = &segment.fields[zero_based_field_index];
+        
+        // Get the repetition (convert to 0-based indexing)
+        if rep_index == 0 || rep_index > field.reps.len() {
+            return None;
+        }
+        let rep = &field.reps[rep_index - 1];
+        
+        // Parse component index if provided
+        let comp_index = if let Some(comp_part) = parts.next() {
+            comp_part.parse::<usize>().ok()?
+        } else {
+            1 // Default to first component
+        };
+        
+        // Get the component (convert to 0-based indexing)
+        if comp_index == 0 || comp_index > rep.comps.len() {
+            return None;
+        }
+        let comp = &rep.comps[comp_index - 1];
+        
+        // Get the first subcomponent as text
+        if comp.subs.is_empty() {
+            return None;
+        }
+        
+        match &comp.subs[0] {
+            Atom::Text(text) => Some(text.as_str()),
+            Atom::Null => None,
+        }
+    }
+}
+
+/// Parse field and repetition indices from a string like "5" or "5[1]"
+fn parse_field_and_rep(field_str: &str) -> Option<(usize, usize)> {
+    if let Some(bracket_pos) = field_str.find('[') {
+        // Has repetition index
+        let field_index = field_str[..bracket_pos].parse::<usize>().ok()?;
+        let rep_part = &field_str[bracket_pos + 1..];
+        if let Some(end_bracket) = rep_part.find(']') {
+            let rep_index = rep_part[..end_bracket].parse::<usize>().ok()?;
+            Some((field_index, rep_index))
+        } else {
+            None
+        }
+    } else {
+        // No repetition index, default to 1
+        let field_index = field_str.parse::<usize>().ok()?;
+        Some((field_index, 1))
+    }
 }
 
 #[cfg(test)]
