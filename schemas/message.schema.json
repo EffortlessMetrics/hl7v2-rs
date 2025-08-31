@@ -1,0 +1,93 @@
+{
+  "$id": "https://example.org/schemas/hl7v2/message.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["meta", "segments"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["delims"],
+      "properties": {
+        "version": {
+          "type": ["string", "null"]
+        },
+        "message_type": {
+          "type": ["string", "null"]
+        },
+        "control_id": {
+          "type": ["string", "null"]
+        },
+        "processing_id": {
+          "type": ["string", "null"],
+          "enum": ["P", "T", "D", null]
+        },
+        "charsets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "profile_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "delims": {
+          "type": "object",
+          "required": ["field", "comp", "rep", "esc", "sub"],
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1
+            },
+            "comp": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1
+            },
+            "rep": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1
+            },
+            "esc": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1
+            },
+            "sub": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "fields"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "segment_field.schema.json"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

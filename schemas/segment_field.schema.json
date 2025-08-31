@@ -1,0 +1,28 @@
+{
+  "$id": "https://example.org/schemas/hl7v2/segment_field.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "array",
+    "items": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          {
+            "type": "string",
+            "const": "__NULL__"
+          }
+        ]
+      }
+    }
+  }
+}

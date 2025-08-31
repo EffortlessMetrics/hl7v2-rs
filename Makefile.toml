@@ -1,0 +1,51 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.check]
+description = "Check code formatting and run clippy"
+category = "Development"
+install_crate = false
+command = "cargo"
+args = ["clippy", "--workspace", "--all-features", "--all-targets"]
+
+[tasks.test]
+description = "Run all tests"
+category = "Development"
+install_crate = false
+command = "cargo"
+args = ["test", "--workspace", "--all-features"]
+
+[tasks.bench]
+description = "Run benchmarks"
+category = "Development"
+install_crate = false
+command = "cargo"
+args = ["bench", "--workspace"]
+
+[tasks.corpus]
+description = "Generate test corpus"
+category = "Development"
+install_crate = false
+command = "cargo"
+args = ["run", "--bin", "hl7v2", "--", "gen", "--profile", "profiles/oru_r01.yaml", "--seed", "1337", "--count", "100", "--out", "corpus/"]
+
+[tasks.fmt]
+description = "Format source code"
+category = "Development"
+install_crate = false
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.doc]
+description = "Build documentation"
+category = "Development"
+install_crate = false
+command = "cargo"
+args = ["doc", "--workspace", "--all-features", "--no-deps"]
+
+[tasks.clean]
+description = "Clean build artifacts"
+category = "Development"
+install_crate = false
+command = "cargo"
+args = ["clean"]

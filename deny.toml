@@ -1,0 +1,18 @@
+# Configuration for cargo-deny
+
+[licenses]
+# List of explicitly allowed licenses
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Unicode-DFS-2016",  # Required for unicode-ident
+]
+
+[bans]
+# Deny multiple versions of the same crate
+multiple-versions = "warn"
+
+[sources]
+# What to do when encountering a crate from a registry other than crates.io
+unknown-registry = "warn"
+unknown-git = "warn"

@@ -1,0 +1,42 @@
+message_structure: "ORU_R01"
+version: "2.5.1"
+message_type: "ORU^R01^ORU_R01"
+segments:
+  - id: "MSH"
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+  - id: "OBR"
+  - id: "OBX"
+constraints:
+  - path: "PID.3"
+    required: true
+  - path: "PID.5"
+    components:
+      min: 2
+  - path: "OBR.4"
+    required: true
+  - path: "OBX.2"
+    in:
+      - "NM"
+      - "ST"
+      - "TX"
+      - "CE"
+      - "CWE"
+  - path: "OBX.5"
+    when:
+      eq: ["OBX.2", "NM"]
+    pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+valuesets:
+  - path: "PID.8"
+    name: "HL70001"
+    codes:
+      - "F"
+      - "M"
+      - "O"
+      - "U"
+      - "A"
+      - "N"
+lengths:
+  - path: "PID.5[1].1"
+    max: 80

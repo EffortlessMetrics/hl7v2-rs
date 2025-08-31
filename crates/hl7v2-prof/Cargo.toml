@@ -1,0 +1,17 @@
+[package]
+name = "hl7v2-prof"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.88"
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_yaml = "0.9"
+regex = "1.0"
+hl7v2-core = { path = "../hl7v2-core" }
