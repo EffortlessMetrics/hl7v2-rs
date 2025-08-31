@@ -6,6 +6,7 @@
 //! - Data model representation (Message, Segment, Field, etc.)
 //! - Escape sequence handling
 //! - JSON serialization
+//! - Batch message handling (FHS/BHS/BTS/FTS)
 
 /// Delimiters used in HL7 v2 messages
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,6 +36,22 @@ impl Delims {
 pub struct Message {
     pub delims: Delims,
     pub segments: Vec<Segment>,
+}
+
+/// A batch of HL7 messages
+#[derive(Debug, Clone, PartialEq)]
+pub struct Batch {
+    pub header: Option<Segment>, // BHS segment
+    pub messages: Vec<Message>,
+    pub trailer: Option<Segment>, // BTS segment
+}
+
+/// A file containing batches of HL7 messages
+#[derive(Debug, Clone, PartialEq)]
+pub struct FileBatch {
+    pub header: Option<Segment>, // FHS segment
+    pub batches: Vec<Batch>,
+    pub trailer: Option<Segment>, // FTS segment
 }
 
 /// A segment in an HL7 message
@@ -87,17 +104,244 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
     }
     
     // Parse delimiters from MSH segment
-    let delims = parse_delimiters(lines[0])?;
-    println!("DEBUG: Parsed delimiters - field:'{}' comp:'{}' rep:'{}' esc:'{}' sub:'{}'", 
-             delims.field, delims.comp, delims.rep, delims.esc, delims.sub);
+    let delims = parse_delimiters(lines[0]).map_err(|e| Error::ParseError {
+        segment_id: "MSH".to_string(),
+        field_index: 0,
+        source: Box::new(e),
+    })?;
     
     // Parse all segments
     let mut segments = Vec::new();
     for line in lines {
-        segments.push(parse_segment(line, &delims)?);
+        let segment = parse_segment(line, &delims).map_err(|e| Error::ParseError {
+            segment_id: line[..3].to_string(),
+            field_index: 0,
+            source: Box::new(e),
+        })?;
+        segments.push(segment);
     }
     
     Ok(Message { delims, segments })
+}
+
+/// Parse HL7 v2 batch from bytes
+pub fn parse_batch(bytes: &[u8]) -> Result<Batch, Error> {
+    // Convert bytes to string
+    let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
+    
+    // Split into lines (segments)
+    let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
+    
+    if lines.is_empty() {
+        return Err(Error::InvalidSegmentId);
+    }
+    
+    // Check if this is a batch (starts with BHS) or regular message (starts with MSH)
+    let first_line = lines[0];
+    if first_line.starts_with("BHS") {
+        parse_batch_with_header(&lines)
+    } else if first_line.starts_with("MSH") {
+        // This is a single message, wrap it in a batch
+        let message = parse(bytes)?;
+        Ok(Batch {
+            header: None,
+            messages: vec![message],
+            trailer: None,
+        })
+    } else {
+        Err(Error::InvalidSegmentId)
+    }
+}
+
+/// Parse HL7 v2 file batch from bytes
+pub fn parse_file_batch(bytes: &[u8]) -> Result<FileBatch, Error> {
+    // Convert bytes to string
+    let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
+    
+    // Split into lines (segments)
+    let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
+    
+    if lines.is_empty() {
+        return Err(Error::InvalidSegmentId);
+    }
+    
+    // Check if this is a file batch (starts with FHS)
+    let first_line = lines[0];
+    if first_line.starts_with("FHS") {
+        parse_file_batch_with_header(&lines)
+    } else if first_line.starts_with("BHS") || first_line.starts_with("MSH") {
+        // This is a batch or single message, wrap it in a file batch
+        let batch_data = parse_batch(bytes)?;
+        Ok(FileBatch {
+            header: None,
+            batches: vec![batch_data],
+            trailer: None,
+        })
+    } else {
+        Err(Error::InvalidSegmentId)
+    }
+}
+
+/// Parse a batch that starts with BHS
+fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
+    // First line should be BHS
+    if !lines[0].starts_with("BHS") {
+        return Err(Error::InvalidBatchHeader {
+            details: "Batch must start with BHS segment".to_string(),
+        });
+    }
+    
+    // Parse delimiters from the first MSH segment we find
+    let delims = find_and_parse_delimiters(lines).map_err(|e| Error::BatchParseError {
+        details: format!("Failed to parse delimiters: {}", e),
+    })?;
+    
+    let mut header = None;
+    let mut messages = Vec::new();
+    let mut trailer = None;
+    let mut current_message_lines = Vec::new();
+    
+    for &line in lines {
+        if line.starts_with("BHS") {
+            // Parse BHS segment
+            let bhs_segment = parse_segment(line, &delims).map_err(|e| Error::InvalidBatchHeader {
+                details: format!("Failed to parse BHS segment: {}", e),
+            })?;
+            header = Some(bhs_segment);
+        } else if line.starts_with("BTS") {
+            // Parse BTS segment
+            let bts_segment = parse_segment(line, &delims).map_err(|e| Error::InvalidBatchTrailer {
+                details: format!("Failed to parse BTS segment: {}", e),
+            })?;
+            trailer = Some(bts_segment);
+        } else if line.starts_with("MSH") {
+            // Start of a new message
+            if !current_message_lines.is_empty() {
+                // Parse the previous message
+                let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
+                    details: format!("Failed to parse message in batch: {}", e),
+                })?;
+                messages.push(message);
+                current_message_lines.clear();
+            }
+            current_message_lines.push(line);
+        } else {
+            // Part of current message
+            current_message_lines.push(line);
+        }
+    }
+    
+    // Parse the last message
+    if !current_message_lines.is_empty() {
+        let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+        let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
+            details: format!("Failed to parse final message in batch: {}", e),
+        })?;
+        messages.push(message);
+    }
+    
+    Ok(Batch {
+        header,
+        messages,
+        trailer,
+    })
+}
+
+/// Parse a file batch that starts with FHS
+fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
+    // First line should be FHS
+    if !lines[0].starts_with("FHS") {
+        return Err(Error::InvalidBatchHeader {
+            details: "File batch must start with FHS segment".to_string(),
+        });
+    }
+    
+    // Parse delimiters from the first MSH segment we find
+    let delims = find_and_parse_delimiters(lines).map_err(|e| Error::BatchParseError {
+        details: format!("Failed to parse delimiters: {}", e),
+    })?;
+    
+    let mut header = None;
+    let mut batches = Vec::new();
+    let mut trailer = None;
+    let mut current_batch_lines = Vec::new();
+    
+    for &line in lines {
+        if line.starts_with("FHS") {
+            // Parse FHS segment
+            let fhs_segment = parse_segment(line, &delims).map_err(|e| Error::InvalidBatchHeader {
+                details: format!("Failed to parse FHS segment: {}", e),
+            })?;
+            header = Some(fhs_segment);
+        } else if line.starts_with("FTS") {
+            // Parse FTS segment
+            let fts_segment = parse_segment(line, &delims).map_err(|e| Error::InvalidBatchTrailer {
+                details: format!("Failed to parse FTS segment: {}", e),
+            })?;
+            trailer = Some(fts_segment);
+        } else if line.starts_with("BHS") {
+            // Start of a new batch
+            if !current_batch_lines.is_empty() {
+                // Parse the previous batch
+                let batch_text = current_batch_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                match parse_batch(batch_text.as_bytes()) {
+                    Ok(batch) => batches.push(batch),
+                    Err(e) => {
+                        // If parsing as batch fails, try as single message
+                        let message = parse(batch_text.as_bytes()).map_err(|_| e)?;
+                        batches.push(Batch {
+                            header: None,
+                            messages: vec![message],
+                            trailer: None,
+                        });
+                    }
+                }
+                current_batch_lines.clear();
+            }
+            current_batch_lines.push(line);
+        } else if line.starts_with("MSH") && current_batch_lines.is_empty() {
+            // Start of a message when no batch has started
+            current_batch_lines.push(line);
+        } else {
+            // Part of current batch
+            current_batch_lines.push(line);
+        }
+    }
+    
+    // Parse the last batch
+    if !current_batch_lines.is_empty() {
+        let batch_text = current_batch_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+        match parse_batch(batch_text.as_bytes()) {
+            Ok(batch) => batches.push(batch),
+            Err(e) => {
+                // If parsing as batch fails, try as single message
+                let message = parse(batch_text.as_bytes()).map_err(|_| e)?;
+                batches.push(Batch {
+                    header: None,
+                    messages: vec![message],
+                    trailer: None,
+                });
+            }
+        }
+    }
+    
+    Ok(FileBatch {
+        header,
+        batches,
+        trailer,
+    })
+}
+
+/// Find and parse delimiters from the first MSH segment in the lines
+fn find_and_parse_delimiters(lines: &[&str]) -> Result<Delims, Error> {
+    for line in lines {
+        if line.starts_with("MSH") {
+            return parse_delimiters(line);
+        }
+    }
+    // If no MSH segment found, use default delimiters
+    Ok(Delims::default())
 }
 
 /// Parse delimiters from MSH segment
@@ -106,17 +350,16 @@ fn parse_delimiters(msh: &str) -> Result<Delims, Error> {
         return Err(Error::BadDelimLength);
     }
     
-    // First, we need to unescape the MSH segment to get the correct delimiters
-    // But we need to parse the escape character first to do that
-    let esc = msh.chars().nth(6).ok_or(Error::BadDelimLength)?;
-    
-    let field = msh.chars().nth(3).ok_or(Error::BadDelimLength)?;
-    let comp = msh.chars().nth(4).ok_or(Error::BadDelimLength)?;
-    let rep = msh.chars().nth(5).ok_or(Error::BadDelimLength)?;
-    let sub = msh.chars().nth(7).ok_or(Error::BadDelimLength)?;
+    // Extract the encoding characters directly without parsing them as regular fields
+    // MSH has a special format: MSH|^~\&|... where ^~\& are the encoding characters
+    let field_sep = msh.chars().nth(3).ok_or(Error::BadDelimLength)?;
+    let comp_char = msh.chars().nth(4).ok_or(Error::BadDelimLength)?;
+    let rep_char = msh.chars().nth(5).ok_or(Error::BadDelimLength)?;
+    let esc_char = msh.chars().nth(6).ok_or(Error::BadDelimLength)?;
+    let sub_char = msh.chars().nth(7).ok_or(Error::BadDelimLength)?;
     
     // Check that all delimiters are distinct
-    let delimiters = [field, comp, rep, esc, sub];
+    let delimiters = [field_sep, comp_char, rep_char, esc_char, sub_char];
     for i in 0..delimiters.len() {
         for j in (i + 1)..delimiters.len() {
             if delimiters[i] == delimiters[j] {
@@ -126,11 +369,11 @@ fn parse_delimiters(msh: &str) -> Result<Delims, Error> {
     }
     
     Ok(Delims {
-        field,
-        comp,
-        rep,
-        esc,
-        sub,
+        field: field_sep,
+        comp: comp_char,
+        rep: rep_char,
+        esc: esc_char,
+        sub: sub_char,
     })
 }
 
@@ -159,11 +402,14 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
         ""
     };
     
-    let mut fields = parse_fields(fields_str, delims)?;
+    let mut fields = parse_fields(fields_str, delims).map_err(|e| Error::ParseError {
+        segment_id: String::from_utf8_lossy(&id).to_string(),
+        field_index: 0,
+        source: Box::new(e),
+    })?;
     
     // Special handling for MSH segment
     if &id == b"MSH" {
-        println!("DEBUG: Processing MSH segment, parsed {} fields", fields.len());
         // MSH-2 (the encoding characters) should be treated as a single atomic value
         // Currently it's being parsed incorrectly, so we need to fix it
         if !fields.is_empty() {
@@ -197,14 +443,17 @@ fn parse_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> 
         return Ok(vec![]);
     }
     
-    println!("DEBUG: Parsing fields from: '{}'", fields_str);
     let field_strings: Vec<&str> = fields_str.split(delims.field).collect();
-    println!("DEBUG: Found {} field strings: {:?}", field_strings.len(), field_strings);
     
     let mut fields = Vec::new();
     
-    for field_str in field_strings {
-        fields.push(parse_field(field_str, delims)?);
+    for (i, field_str) in field_strings.iter().enumerate() {
+        let field = parse_field(field_str, delims).map_err(|e| Error::ParseError {
+            segment_id: "UNKNOWN".to_string(), // This will be filled in by the caller
+            field_index: i,
+            source: Box::new(e),
+        })?;
+        fields.push(field);
     }
     
     Ok(fields)
@@ -212,11 +461,26 @@ fn parse_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> 
 
 /// Parse a single field
 fn parse_field(field_str: &str, delims: &Delims) -> Result<Field, Error> {
+    // Validate field format
+    if field_str.contains('\n') || field_str.contains('\r') {
+        return Err(Error::InvalidFieldFormat {
+            details: "Field contains invalid line break characters".to_string(),
+        });
+    }
+    
     let rep_strings: Vec<&str> = field_str.split(delims.rep).collect();
     let mut reps = Vec::new();
     
-    for rep_str in rep_strings {
-        reps.push(parse_rep(rep_str, delims)?);
+    for (i, rep_str) in rep_strings.iter().enumerate() {
+        let rep = parse_rep(rep_str, delims).map_err(|e| {
+            match e {
+                Error::InvalidRepFormat { .. } => e,
+                _ => Error::InvalidRepFormat {
+                    details: format!("Repetition {}: {}", i, e),
+                }
+            }
+        })?;
+        reps.push(rep);
     }
     
     Ok(Field { reps })
@@ -233,11 +497,26 @@ fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
         });
     }
     
+    // Validate repetition format
+    if rep_str.contains('\n') || rep_str.contains('\r') {
+        return Err(Error::InvalidRepFormat {
+            details: "Repetition contains invalid line break characters".to_string(),
+        });
+    }
+    
     let comp_strings: Vec<&str> = rep_str.split(delims.comp).collect();
     let mut comps = Vec::new();
     
-    for comp_str in comp_strings {
-        comps.push(parse_comp(comp_str, delims)?);
+    for (i, comp_str) in comp_strings.iter().enumerate() {
+        let comp = parse_comp(comp_str, delims).map_err(|e| {
+            match e {
+                Error::InvalidCompFormat { .. } => e,
+                _ => Error::InvalidCompFormat {
+                    details: format!("Component {}: {}", i, e),
+                }
+            }
+        })?;
+        comps.push(comp);
     }
     
     Ok(Rep { comps })
@@ -245,11 +524,26 @@ fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
 
 /// Parse a component
 fn parse_comp(comp_str: &str, delims: &Delims) -> Result<Comp, Error> {
+    // Validate component format
+    if comp_str.contains('\n') || comp_str.contains('\r') {
+        return Err(Error::InvalidCompFormat {
+            details: "Component contains invalid line break characters".to_string(),
+        });
+    }
+    
     let sub_strings: Vec<&str> = comp_str.split(delims.sub).collect();
     let mut subs = Vec::new();
     
-    for sub_str in sub_strings {
-        subs.push(parse_atom(sub_str, delims)?);
+    for (i, sub_str) in sub_strings.iter().enumerate() {
+        let atom = parse_atom(sub_str, delims).map_err(|e| {
+            match e {
+                Error::InvalidSubcompFormat { .. } => e,
+                _ => Error::InvalidSubcompFormat {
+                    details: format!("Subcomponent {}: {}", i, e),
+                }
+            }
+        })?;
+        subs.push(atom);
     }
     
     Ok(Comp { subs })
@@ -260,6 +554,13 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
     // Handle NULL value
     if atom_str == "\"\"" {
         return Ok(Atom::Null);
+    }
+    
+    // Validate atom format
+    if atom_str.contains('\n') || atom_str.contains('\r') {
+        return Err(Error::InvalidSubcompFormat {
+            details: "Subcomponent contains invalid line break characters".to_string(),
+        });
     }
     
     // Unescape the text
@@ -274,7 +575,6 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
     
     while let Some(ch) = chars.next() {
         if ch == delims.esc {
-            println!("DEBUG: Found escape character in '{}'", text);
             // Start of escape sequence
             let mut escape_seq = String::new();
             let mut found_end = false;
@@ -288,40 +588,44 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             }
             
             if !found_end {
-                // If we don't find the closing escape character, treat the text as-is
-                println!("DEBUG: No closing escape found, treating as-is");
+                // If we don't find the closing escape character, this might be a literal backslash
+                // in the encoding characters. Let's check if this is the special case of the
+                // MSH encoding characters "^~\&"
+                if text == format!("{}{}{}{}", delims.comp, delims.rep, delims.esc, delims.sub) {
+                    // This is the MSH encoding characters, treat as literal
+                    result.push(delims.comp);
+                    result.push(delims.rep);
+                    result.push(delims.esc);
+                    result.push(delims.sub);
+                    // Skip the rest of the processing since we've handled the special case
+                    return Ok(result);
+                }
+                
+                // For other cases, treat the text as-is
                 result.push(delims.esc);
                 result.push_str(&escape_seq);
                 continue;
             }
             
-            println!("DEBUG: Processing escape sequence: '{}'", escape_seq);
-            
             // Process escape sequence
             match escape_seq.as_str() {
                 "F" => {
-                    println!("DEBUG: Escaping F to field delimiter");
                     result.push(delims.field);
                 },
                 "S" => {
-                    println!("DEBUG: Escaping S to comp delimiter");
                     result.push(delims.comp);
                 },
                 "R" => {
-                    println!("DEBUG: Escaping R to rep delimiter");
                     result.push(delims.rep);
                 },
                 "E" => {
-                    println!("DEBUG: Escaping E to esc delimiter");
                     result.push(delims.esc);
                 },
                 "T" => {
-                    println!("DEBUG: Escaping T to sub delimiter");
                     result.push(delims.sub);
                 },
                 _ => {
                     // Unknown escape sequences are passed through
-                    println!("DEBUG: Unknown escape sequence, passing through");
                     result.push(delims.esc);
                     result.push_str(&escape_seq);
                     result.push(delims.esc);
@@ -332,7 +636,6 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
         }
     }
     
-    println!("DEBUG: Unescaped '{}' to '{}'", text, result);
     Ok(result)
 }
 
@@ -340,9 +643,8 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
 pub fn write(msg: &Message) -> Vec<u8> {
     let mut result = Vec::new();
     
-    for (segment_idx, segment) in msg.segments.iter().enumerate() {
+    for segment in &msg.segments {
         // Write segment ID
-        println!("DEBUG: Writing segment {}: ID {:?}", segment_idx, std::str::from_utf8(&segment.id));
         result.extend_from_slice(&segment.id);
         
         // Write field separator
@@ -350,31 +652,96 @@ pub fn write(msg: &Message) -> Vec<u8> {
         
         // Special handling for MSH segment
         if &segment.id == b"MSH" {
-            println!("DEBUG: MSH segment detected, fields count: {}", segment.fields.len());
             // For MSH segment, write all fields (MSH-2 and beyond)
             // MSH-1 (the field separator) is implicit and not stored as a field
             for (i, field) in segment.fields.iter().enumerate() {
                 if i > 0 {
                     result.push(msg.delims.field as u8);
                 }
-                println!("DEBUG: Writing MSH field {}: reps={}", i, field.reps.len());
                 // Special handling: for MSH segment fields, don't escape the delimiter characters
                 write_field_no_escape(field, &mut result, &msg.delims);
             }
         } else {
-            println!("DEBUG: Non-MSH segment, ID: {:?}, fields count: {}", 
-                     std::str::from_utf8(&segment.id), segment.fields.len());
             // For non-MSH segments, write all fields
             for (i, field) in segment.fields.iter().enumerate() {
                 if i > 0 {
                     result.push(msg.delims.field as u8);
                 }
-                println!("DEBUG: Writing field {}: reps={}", i, field.reps.len());
                 write_field(field, &mut result, &msg.delims);
             }
         }
         
         // Write segment terminator
+        result.push(b'\r');
+    }
+    
+    result
+}
+
+/// Write batch back to HL7 v2 format
+pub fn write_batch(batch: &Batch) -> Vec<u8> {
+    let mut result = Vec::new();
+    
+    // Write BHS if present
+    if let Some(header) = &batch.header {
+        result.extend_from_slice(&header.id);
+        // We need to get delimiters from the first message or use defaults
+        let delims = if let Some(first_msg) = batch.messages.first() {
+            &first_msg.delims
+        } else {
+            &Delims::default()
+        };
+        result.push(delims.field as u8);
+        write_segment_fields(header, &mut result, delims);
+        result.push(b'\r');
+    }
+    
+    // Write all messages
+    for message in &batch.messages {
+        result.extend(write(message));
+    }
+    
+    // Write BTS if present
+    if let Some(trailer) = &batch.trailer {
+        result.extend_from_slice(&trailer.id);
+        let delims = if let Some(first_msg) = batch.messages.first() {
+            &first_msg.delims
+        } else {
+            &Delims::default()
+        };
+        result.push(delims.field as u8);
+        write_segment_fields(trailer, &mut result, delims);
+        result.push(b'\r');
+    }
+    
+    result
+}
+
+/// Write file batch back to HL7 v2 format
+pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
+    let mut result = Vec::new();
+    
+    // Write FHS if present
+    if let Some(header) = &file_batch.header {
+        result.extend_from_slice(&header.id);
+        // We need to get delimiters from the first message or use defaults
+        let delims = get_delimiters_from_file_batch(file_batch);
+        result.push(delims.field as u8);
+        write_segment_fields(header, &mut result, &delims);
+        result.push(b'\r');
+    }
+    
+    // Write all batches
+    for batch in &file_batch.batches {
+        result.extend(write_batch(batch));
+    }
+    
+    // Write FTS if present
+    if let Some(trailer) = &file_batch.trailer {
+        result.extend_from_slice(&trailer.id);
+        let delims = get_delimiters_from_file_batch(file_batch);
+        result.push(delims.field as u8);
+        write_segment_fields(trailer, &mut result, &delims);
         result.push(b'\r');
     }
     
@@ -447,7 +814,6 @@ fn write_atom(atom: &Atom, output: &mut Vec<u8>, delims: &Delims) {
         Atom::Text(text) => {
             // Escape special characters
             let escaped = escape_text(text, delims);
-            println!("DEBUG: Writing atom text: '{}' -> '{}'", text, escaped);
             output.extend_from_slice(escaped.as_bytes());
         }
         Atom::Null => {
@@ -461,7 +827,6 @@ fn write_atom_no_escape(atom: &Atom, output: &mut Vec<u8>, _delims: &Delims) {
     match atom {
         Atom::Text(text) => {
             // Don't escape special characters for MSH segment fields
-            println!("DEBUG: Writing atom text (no escape): '{}'", text);
             output.extend_from_slice(text.as_bytes());
         }
         Atom::Null => {
@@ -472,7 +837,7 @@ fn write_atom_no_escape(atom: &Atom, output: &mut Vec<u8>, _delims: &Delims) {
 
 /// Escape text according to HL7 v2 rules
 fn escape_text(text: &str, delims: &Delims) -> String {
-    let mut result = String::new();
+    let mut result = String::with_capacity(text.len() * 2); // Pre-allocate with some extra space
     
     for ch in text.chars() {
         match ch {
@@ -617,6 +982,50 @@ pub enum Error {
     
     #[error("Write failed")]
     WriteFailed,
+    
+    // New comprehensive error types
+    #[error("Parse error at segment {segment_id} field {field_index}: {source}")]
+    ParseError {
+        segment_id: String,
+        field_index: usize,
+        #[source]
+        source: Box<Error>,
+    },
+    
+    #[error("Invalid field format: {details}")]
+    InvalidFieldFormat {
+        details: String,
+    },
+    
+    #[error("Invalid repetition format: {details}")]
+    InvalidRepFormat {
+        details: String,
+    },
+    
+    #[error("Invalid component format: {details}")]
+    InvalidCompFormat {
+        details: String,
+    },
+    
+    #[error("Invalid subcomponent format: {details}")]
+    InvalidSubcompFormat {
+        details: String,
+    },
+    
+    #[error("Batch parsing error: {details}")]
+    BatchParseError {
+        details: String,
+    },
+    
+    #[error("Invalid batch header: {details}")]
+    InvalidBatchHeader {
+        details: String,
+    },
+    
+    #[error("Invalid batch trailer: {details}")]
+    InvalidBatchTrailer {
+        details: String,
+    },
 }
 
 /// Get value at path (e.g., "PID.5[1].1")
@@ -767,6 +1176,28 @@ fn parse_field_and_rep(field_str: &str) -> Option<(usize, usize)> {
         let field_index = field_str.parse::<usize>().ok()?;
         Some((field_index, 1))
     }
+}
+
+/// Helper function to write segment fields
+fn write_segment_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims) {
+    for (i, field) in segment.fields.iter().enumerate() {
+        if i > 0 {
+            output.push(delims.field as u8);
+        }
+        write_field(field, output, delims);
+    }
+}
+
+/// Helper function to get delimiters from a file batch
+fn get_delimiters_from_file_batch(file_batch: &FileBatch) -> Delims {
+    // Try to get delimiters from the first message in the first batch
+    if let Some(first_batch) = file_batch.batches.first() {
+        if let Some(first_message) = first_batch.messages.first() {
+            return first_message.delims.clone();
+        }
+    }
+    // Fallback to default delimiters
+    Delims::default()
 }
 
 #[cfg(test)]

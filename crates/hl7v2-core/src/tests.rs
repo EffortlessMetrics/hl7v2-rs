@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{parse, write, Atom, unescape_text, Delims, get};
+    use crate::{parse, write, Atom, unescape_text, Delims, get, parse_batch, parse_file_batch, write_batch};
 
     #[test]
     fn test_basic_segment_id() {
@@ -298,5 +298,80 @@ mod tests {
         
         // Test repetition that doesn't exist
         assert_eq!(get(&message, "PID.5[3].1"), None);
+    }
+
+    #[test]
+    fn test_batch_parsing() {
+        // Test simple batch with BHS/BTS
+        let batch_text = "BHS|^~\\&|SendingApp|SendingFac\rMSH|^~\\&|App|Fac\rPID|1||123456^^^HOSP^MR||Doe^John\rBTS|1\r";
+        let batch = parse_batch(batch_text.as_bytes()).unwrap();
+        
+        assert!(batch.header.is_some());
+        assert_eq!(batch.messages.len(), 1);
+        assert!(batch.trailer.is_some());
+        
+        // Check BHS segment
+        let bhs = batch.header.as_ref().unwrap();
+        assert_eq!(&bhs.id, b"BHS");
+        
+        // Check message
+        let message = &batch.messages[0];
+        assert_eq!(&message.segments[0].id, b"MSH");
+        assert_eq!(&message.segments[1].id, b"PID");
+        
+        // Check BTS segment
+        let bts = batch.trailer.as_ref().unwrap();
+        assert_eq!(&bts.id, b"BTS");
+    }
+
+    #[test]
+    fn test_file_batch_parsing() {
+        // Test simple file batch with FHS/FTS
+        let file_batch_text = "FHS|^~\\&|SendingApp|SendingFac\rBHS|^~\\&|BatchApp|BatchFac\rMSH|^~\\&|App|Fac\rPID|1||123456^^^HOSP^MR||Doe^John\rBTS|1\rFTS|1\r";
+        let file_batch = parse_file_batch(file_batch_text.as_bytes()).unwrap();
+        
+        assert!(file_batch.header.is_some());
+        assert_eq!(file_batch.batches.len(), 1);
+        assert!(file_batch.trailer.is_some());
+        
+        // Check FHS segment
+        let fhs = file_batch.header.as_ref().unwrap();
+        assert_eq!(&fhs.id, b"FHS");
+        
+        // Check batch
+        let batch = &file_batch.batches[0];
+        assert!(batch.header.is_some());
+        assert_eq!(batch.messages.len(), 1);
+        
+        // Check message
+        let message = &batch.messages[0];
+        assert_eq!(&message.segments[0].id, b"MSH");
+        assert_eq!(&message.segments[1].id, b"PID");
+        
+        // Check BTS segment
+        let bts = batch.trailer.as_ref().unwrap();
+        assert_eq!(&bts.id, b"BTS");
+        
+        // Check FTS segment
+        let fts = file_batch.trailer.as_ref().unwrap();
+        assert_eq!(&fts.id, b"FTS");
+    }
+
+    #[test]
+    fn test_batch_writing() {
+        // Create a batch and write it back
+        let batch_text = "BHS|^~\\&|SendingApp|SendingFac\rMSH|^~\\&|App|Fac\rPID|1||123456^^^HOSP^MR||Doe^John\rBTS|1\r";
+        let batch = parse_batch(batch_text.as_bytes()).unwrap();
+        
+        let written = write_batch(&batch);
+        let written_str = String::from_utf8(written).unwrap();
+        
+        // Parse the written batch again
+        let batch2 = parse_batch(written_str.as_bytes()).unwrap();
+        
+        // Verify the structure is preserved
+        assert!(batch2.header.is_some());
+        assert_eq!(batch2.messages.len(), 1);
+        assert!(batch2.trailer.is_some());
     }
 }
