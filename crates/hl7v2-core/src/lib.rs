@@ -124,6 +124,27 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
     Ok(Message { delims, segments })
 }
 
+/// Parse HL7 v2 message from MLLP framed bytes
+pub fn parse_mllp(bytes: &[u8]) -> Result<Message, Error> {
+    // Check if this is MLLP framed (starts with 0x0B)
+    if bytes.is_empty() || bytes[0] != 0x0B {
+        return Err(Error::InvalidCharset);
+    }
+    
+    // Find the end sequence (0x1C 0x0D)
+    let end_pos = bytes.windows(2).position(|window| window[0] == 0x1C && window[1] == 0x0D);
+    
+    if let Some(end_pos) = end_pos {
+        // Extract the HL7 message content (excluding framing bytes)
+        let hl7_content = &bytes[1..end_pos];
+        
+        // Parse the HL7 message
+        parse(hl7_content)
+    } else {
+        Err(Error::InvalidCharset)
+    }
+}
+
 /// Parse HL7 v2 batch from bytes
 pub fn parse_batch(bytes: &[u8]) -> Result<Batch, Error> {
     // Convert bytes to string
@@ -639,43 +660,67 @@ fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
     Ok(result)
 }
 
-/// Write message back to HL7 v2 format
+/// Write HL7 message to bytes
 pub fn write(msg: &Message) -> Vec<u8> {
-    let mut result = Vec::new();
+    let mut buf = Vec::new();
     
+    // Write segments
     for segment in &msg.segments {
         // Write segment ID
-        result.extend_from_slice(&segment.id);
-        
-        // Write field separator
-        result.push(msg.delims.field as u8);
+        buf.extend_from_slice(&segment.id);
         
         // Special handling for MSH segment
         if &segment.id == b"MSH" {
-            // For MSH segment, write all fields (MSH-2 and beyond)
-            // MSH-1 (the field separator) is implicit and not stored as a field
-            for (i, field) in segment.fields.iter().enumerate() {
-                if i > 0 {
-                    result.push(msg.delims.field as u8);
-                }
-                // Special handling: for MSH segment fields, don't escape the delimiter characters
-                write_field_no_escape(field, &mut result, &msg.delims);
+            // Write field separator
+            buf.push(msg.delims.field as u8);
+            
+            // Write encoding characters as a single field
+            buf.push(msg.delims.comp as u8);
+            buf.push(msg.delims.rep as u8);
+            buf.push(msg.delims.esc as u8);
+            buf.push(msg.delims.sub as u8);
+            
+            // Write the rest of the fields
+            for field in &segment.fields[1..] { // Skip the encoding characters field
+                buf.push(msg.delims.field as u8);
+                write_field(&mut buf, field, &msg.delims);
             }
         } else {
-            // For non-MSH segments, write all fields
-            for (i, field) in segment.fields.iter().enumerate() {
-                if i > 0 {
-                    result.push(msg.delims.field as u8);
-                }
-                write_field(field, &mut result, &msg.delims);
+            // Write fields
+            for field in &segment.fields {
+                buf.push(msg.delims.field as u8);
+                write_field(&mut buf, field, &msg.delims);
             }
         }
         
-        // Write segment terminator
-        result.push(b'\r');
+        // End segment with carriage return
+        buf.push(b'\r');
     }
     
-    result
+    buf
+}
+
+/// Wrap HL7 message bytes with MLLP framing
+pub fn wrap_mllp(bytes: &[u8]) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(bytes.len() + 3);
+    
+    // Add MLLP start byte (0x0B)
+    buf.push(0x0B);
+    
+    // Add HL7 message content
+    buf.extend_from_slice(bytes);
+    
+    // Add MLLP end sequence (0x1C 0x0D)
+    buf.push(0x1C);
+    buf.push(0x0D);
+    
+    buf
+}
+
+/// Write HL7 message with MLLP framing
+pub fn write_mllp(msg: &Message) -> Vec<u8> {
+    let hl7_bytes = write(msg);
+    wrap_mllp(&hl7_bytes)
 }
 
 /// Normalize HL7 v2 message
@@ -808,85 +853,42 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
 }
 
 /// Write a field to bytes (with escaping)
-fn write_field(field: &Field, output: &mut Vec<u8>, delims: &Delims) {
+fn write_field(output: &mut Vec<u8>, field: &Field, delims: &Delims) {
     for (i, rep) in field.reps.iter().enumerate() {
         if i > 0 {
             output.push(delims.rep as u8);
         }
-        write_rep(rep, output, delims);
-    }
-}
-
-/// Write a field to bytes (without escaping delimiter characters)
-fn write_field_no_escape(field: &Field, output: &mut Vec<u8>, delims: &Delims) {
-    for (i, rep) in field.reps.iter().enumerate() {
-        if i > 0 {
-            output.push(delims.rep as u8);
-        }
-        write_rep_no_escape(rep, output, delims);
+        write_rep(output, rep, delims);
     }
 }
 
 /// Write a repetition to bytes (with escaping)
-fn write_rep(rep: &Rep, output: &mut Vec<u8>, delims: &Delims) {
+fn write_rep(output: &mut Vec<u8>, rep: &Rep, delims: &Delims) {
     for (i, comp) in rep.comps.iter().enumerate() {
         if i > 0 {
             output.push(delims.comp as u8);
         }
-        write_comp(comp, output, delims);
-    }
-}
-
-/// Write a repetition to bytes (without escaping delimiter characters)
-fn write_rep_no_escape(rep: &Rep, output: &mut Vec<u8>, delims: &Delims) {
-    for (i, comp) in rep.comps.iter().enumerate() {
-        if i > 0 {
-            output.push(delims.comp as u8);
-        }
-        write_comp_no_escape(comp, output, delims);
+        write_comp(output, comp, delims);
     }
 }
 
 /// Write a component to bytes (with escaping)
-fn write_comp(comp: &Comp, output: &mut Vec<u8>, delims: &Delims) {
+fn write_comp(output: &mut Vec<u8>, comp: &Comp, delims: &Delims) {
     for (i, atom) in comp.subs.iter().enumerate() {
         if i > 0 {
             output.push(delims.sub as u8);
         }
-        write_atom(atom, output, delims);
-    }
-}
-
-/// Write a component to bytes (without escaping delimiter characters)
-fn write_comp_no_escape(comp: &Comp, output: &mut Vec<u8>, delims: &Delims) {
-    for (i, atom) in comp.subs.iter().enumerate() {
-        if i > 0 {
-            output.push(delims.sub as u8);
-        }
-        write_atom_no_escape(atom, output, delims);
+        write_atom(output, atom, delims);
     }
 }
 
 /// Write an atom to bytes (with escaping)
-fn write_atom(atom: &Atom, output: &mut Vec<u8>, delims: &Delims) {
+fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
     match atom {
         Atom::Text(text) => {
             // Escape special characters
             let escaped = escape_text(text, delims);
             output.extend_from_slice(escaped.as_bytes());
-        }
-        Atom::Null => {
-            output.extend_from_slice(b"\"\"");
-        }
-    }
-}
-
-/// Write an atom to bytes (without escaping delimiter characters)
-fn write_atom_no_escape(atom: &Atom, output: &mut Vec<u8>, _delims: &Delims) {
-    match atom {
-        Atom::Text(text) => {
-            // Don't escape special characters for MSH segment fields
-            output.extend_from_slice(text.as_bytes());
         }
         Atom::Null => {
             output.extend_from_slice(b"\"\"");
@@ -1243,7 +1245,7 @@ fn write_segment_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims
         if i > 0 {
             output.push(delims.field as u8);
         }
-        write_field(field, output, delims);
+        write_field(output, field, delims);
     }
 }
 
@@ -1353,5 +1355,67 @@ mod tests {
                 println!("Error parsing message: {}", e);
             }
         }
+    }
+    
+    #[test]
+    fn test_get_with_repetitions() {
+        // Create a message with field repetitions
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac\rPID|1||123456^^^HOSP^MR||Doe^John~Smith^Jane\r";
+        let message = parse(hl7_text.as_bytes()).unwrap();
+        
+        // Test first repetition (default)
+        assert_eq!(get(&message, "PID.5.1"), Some("Doe"));
+        assert_eq!(get(&message, "PID.5.2"), Some("John"));
+        
+        // Test second repetition
+        assert_eq!(get(&message, "PID.5[2].1"), Some("Smith"));
+        assert_eq!(get(&message, "PID.5[2].2"), Some("Jane"));
+        
+        // Test repetition that doesn's exist
+        assert_eq!(get(&message, "PID.5[3].1"), None);
+    }
+    
+    #[test]
+    fn test_mllp_parsing_and_writing() {
+        // Create a simple HL7 message
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let original_message = parse(hl7_text.as_bytes()).unwrap();
+        
+        // Wrap with MLLP framing
+        let mllp_bytes = write_mllp(&original_message);
+        
+        // Verify MLLP framing
+        assert_eq!(mllp_bytes[0], 0x0B); // Start byte
+        assert_eq!(mllp_bytes[mllp_bytes.len()-2], 0x1C); // End byte 1
+        assert_eq!(mllp_bytes[mllp_bytes.len()-1], 0x0D); // End byte 2
+        
+        // Parse from MLLP framed bytes
+        let parsed_message = parse_mllp(&mllp_bytes).unwrap();
+        
+        // Verify the messages are equivalent
+        assert_eq!(original_message.segments.len(), parsed_message.segments.len());
+        assert_eq!(std::str::from_utf8(&original_message.segments[0].id).unwrap(), 
+                   std::str::from_utf8(&parsed_message.segments[0].id).unwrap());
+        assert_eq!(std::str::from_utf8(&original_message.segments[1].id).unwrap(), 
+                   std::str::from_utf8(&parsed_message.segments[1].id).unwrap());
+    }
+    
+    #[test]
+    fn debug_normalization() {
+        // Read the MLLP file
+        let contents = std::fs::read("test_mllp.hl7").expect("Failed to read test_mllp.hl7");
+        println!("File size: {} bytes", contents.len());
+        
+        // Parse as MLLP
+        let message = parse_mllp(&contents).expect("Failed to parse MLLP");
+        println!("Successfully parsed MLLP message");
+        
+        // Write back to bytes
+        let output = write(&message);
+        println!("Output size: {} bytes", output.len());
+        
+        // Print the output as a string
+        let output_str = String::from_utf8(output).expect("Failed to convert to UTF-8");
+        println!("Output:\n{}", output_str);
     }
 }

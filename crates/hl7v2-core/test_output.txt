@@ -1,0 +1,12 @@
+﻿
+running 1 test
+File size: 141 bytes
+Successfully parsed MLLP message
+Output size: 138 bytes
+Output:
+MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1
+PID|1||123456^^^HOSP^MR||Doe^John
+test tests::debug_normalization ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
