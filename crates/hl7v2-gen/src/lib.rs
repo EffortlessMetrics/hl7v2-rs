@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use std::collections::HashMap;
-
+use sha2::{Sha256, Digest};
 
 /// Message template
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +32,19 @@ pub enum ValueSource {
     Map(std::collections::HashMap<String, String>),
     UuidV4,
     DtmNowUtc,
+    // Realistic data generation variants
+    RealisticName { gender: Option<String> }, // "M", "F", or None for any
+    RealisticAddress,
+    RealisticPhone,
+    RealisticSsn,
+    RealisticMrn, // Medical Record Number
+    RealisticIcd10,
+    RealisticLoinc,
+    RealisticMedication,
+    RealisticAllergen,
+    RealisticBloodType,
+    RealisticEthnicity,
+    RealisticRace,
     // Error injection variants for negative testing
     InvalidSegmentId,
     InvalidFieldFormat,
@@ -275,6 +288,119 @@ fn generate_value(value_source: &ValueSource, rng: &mut StdRng) -> Result<String
             let now = chrono::Utc::now();
             Ok(now.format("%Y%m%d%H%M%S").to_string())
         },
+        // Realistic data generation implementations
+        ValueSource::RealisticName { gender } => {
+            let first_names = match gender.as_deref() {
+                Some("M") => &["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"][..],
+                Some("F") => &["Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen"][..],
+                _ => &[
+                    "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", 
+                    "William", "Elizabeth", "David", "Barbara", "Richard", "Susan", "Joseph", "Jessica"
+                ][..],
+            };
+            
+            let last_names = &[
+                "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", 
+                "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson"
+            ];
+            
+            let first_name = first_names[rng.gen_range(0..first_names.len())];
+            let last_name = last_names[rng.gen_range(0..last_names.len())];
+            
+            Ok(format!("{}^{}", last_name, first_name))
+        },
+        ValueSource::RealisticAddress => {
+            let streets = &[
+                "Main St", "Oak Ave", "Pine Rd", "Elm St", "Maple Dr", "Cedar Ln", "Birch Way", 
+                "Washington St", "Lake St", "Hill St"
+            ];
+            
+            let cities = &[
+                "Anytown", "Springfield", "Riverside", "Fairview", "Centerville", 
+                "Georgetown", "Mount Pleasant", "Oakland", "Middletown", "Franklin"
+            ];
+            
+            let states = &["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA"];
+            
+            let street_number = rng.gen_range(100..9999);
+            let street = streets[rng.gen_range(0..streets.len())];
+            let city = cities[rng.gen_range(0..cities.len())];
+            let state = states[rng.gen_range(0..states.len())];
+            let zip = format!("{:05}", rng.gen_range(10000..99999));
+            
+            Ok(format!("{} {}^^{}^{}^{}^{}", street_number, street, city, state, zip, "USA"))
+        },
+        ValueSource::RealisticPhone => {
+            let area_code = rng.gen_range(200..999);
+            let exchange = rng.gen_range(200..999);
+            let number = rng.gen_range(1000..9999);
+            Ok(format!("({}){}-{}", area_code, exchange, number))
+        },
+        ValueSource::RealisticSsn => {
+            let part1 = rng.gen_range(100..999);
+            let part2 = rng.gen_range(10..99);
+            let part3 = rng.gen_range(1000..9999);
+            Ok(format!("{}-{}-{}", part1, part2, part3))
+        },
+        ValueSource::RealisticMrn => {
+            // Medical Record Number - typically 6-10 digits
+            let length = rng.gen_range(6..=10);
+            let mut mrn = String::new();
+            for _ in 0..length {
+                let digit = rng.gen_range(0..10);
+                mrn.push_str(&digit.to_string());
+            }
+            Ok(mrn)
+        },
+        ValueSource::RealisticIcd10 => {
+            // Simplified ICD-10 codes (real codes are more complex)
+            let categories = &["A00", "B01", "C02", "D03", "E04", "F05", "G06", "H07", "I08", "J09"];
+            let category = categories[rng.gen_range(0..categories.len())];
+            let subcode = rng.gen_range(0..10);
+            Ok(format!("{}.{}", category, subcode))
+        },
+        ValueSource::RealisticLoinc => {
+            // LOINC codes are numeric with 5-7 digits
+            let code = rng.gen_range(10000..9999999);
+            Ok(code.to_string())
+        },
+        ValueSource::RealisticMedication => {
+            let medications = &[
+                "Atorvastatin", "Levothyroxine", "Lisinopril", "Metformin", 
+                "Amlodipine", "Metoprolol", "Omeprazole", "Simvastatin", 
+                "Losartan", "Albuterol"
+            ];
+            let medication = medications[rng.gen_range(0..medications.len())];
+            Ok(medication.to_string())
+        },
+        ValueSource::RealisticAllergen => {
+            let allergens = &[
+                "Penicillin", "Latex", "Peanuts", "Shellfish", "Eggs", 
+                "Milk", "Tree Nuts", "Soy", "Wheat", "Bee Stings"
+            ];
+            let allergen = allergens[rng.gen_range(0..allergens.len())];
+            Ok(allergen.to_string())
+        },
+        ValueSource::RealisticBloodType => {
+            let blood_types = &["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+            let blood_type = blood_types[rng.gen_range(0..blood_types.len())];
+            Ok(blood_type.to_string())
+        },
+        ValueSource::RealisticEthnicity => {
+            let ethnicities = &[
+                "Hispanic or Latino", "Not Hispanic or Latino", "Declined to Specify"
+            ];
+            let ethnicity = ethnicities[rng.gen_range(0..ethnicities.len())];
+            Ok(ethnicity.to_string())
+        },
+        ValueSource::RealisticRace => {
+            let races = &[
+                "American Indian or Alaska Native", "Asian", "Black or African American", 
+                "Native Hawaiian or Other Pacific Islander", "White", "Declined to Specify"
+            ];
+            let race = races[rng.gen_range(0..races.len())];
+            Ok(race.to_string())
+        },
         // Error injection variants for negative testing
         ValueSource::InvalidSegmentId => Err(Error::InvalidSegmentId),
         ValueSource::InvalidFieldFormat => Err(Error::InvalidFieldFormat { details: "Injected invalid field format".to_string() }),
@@ -511,6 +637,211 @@ pub enum AckCode {
     CR, // Commit Reject
 }
 
+/// Verify that generated messages match expected hash values
+/// 
+/// This function generates messages and verifies that their SHA-256 hashes
+/// match the expected golden hash values. This is useful for testing and
+/// validation purposes.
+/// 
+/// # Arguments
+/// 
+/// * `template` - The template to use for generating messages
+/// * `seed` - The random seed for deterministic generation
+/// * `count` - The number of messages to generate
+/// * `expected_hashes` - A vector of expected SHA-256 hash values
+/// 
+/// # Returns
+/// 
+/// A vector of booleans indicating whether each message's hash matches the expected hash
+pub fn verify_golden_hashes(
+    template: &Template,
+    seed: u64,
+    count: usize,
+    expected_hashes: &[String]
+) -> Result<Vec<bool>, Error> {
+    // Generate messages
+    let messages = generate(template, seed, count)?;
+    
+    // Verify each message against its expected hash
+    let mut results = Vec::with_capacity(count);
+    for (i, message) in messages.iter().enumerate() {
+        if i < expected_hashes.len() {
+            // Convert message to string
+            let message_string = hl7v2_core::write(message);
+            
+            // Calculate SHA-256 hash
+            let mut hasher = Sha256::new();
+            hasher.update(&message_string);
+            let hash_result = hasher.finalize();
+            let hash_hex = format!("{:x}", hash_result);
+            
+            // Compare with expected hash
+            results.push(hash_hex == expected_hashes[i]);
+        } else {
+            // No expected hash provided for this message
+            results.push(false);
+        }
+    }
+    
+    Ok(results)
+}
+
+/// Generate golden hash values for a template
+/// 
+/// This function generates messages and returns their SHA-256 hash values
+/// for use as golden hashes in future verification.
+/// 
+/// # Arguments
+/// 
+/// * `template` - The template to use for generating messages
+/// * `seed` - The random seed for deterministic generation
+/// * `count` - The number of messages to generate
+/// 
+/// # Returns
+/// 
+/// A vector of SHA-256 hash values for the generated messages
+pub fn generate_golden_hashes(
+    template: &Template,
+    seed: u64,
+    count: usize
+) -> Result<Vec<String>, Error> {
+    // Generate messages
+    let messages = generate(template, seed, count)?;
+    
+    // Calculate hash for each message
+    let mut hashes = Vec::with_capacity(count);
+    for message in messages.iter() {
+        // Convert message to string
+        let message_string = hl7v2_core::write(message);
+        
+        // Calculate SHA-256 hash
+        let mut hasher = Sha256::new();
+        hasher.update(&message_string);
+        let hash_result = hasher.finalize();
+        let hash_hex = format!("{:x}", hash_result);
+        
+        hashes.push(hash_hex);
+    }
+    
+    Ok(hashes)
+}
+
+/// Generate a corpus of messages
+/// 
+/// This function generates a large set of HL7 messages with varying characteristics
+/// for testing and benchmarking purposes.
+/// 
+/// # Arguments
+/// 
+/// * `template` - The template to use for generating messages
+/// * `seed` - The random seed for deterministic generation
+/// * `count` - The number of messages to generate
+/// * `batch_size` - The number of messages to generate in each batch
+/// 
+/// # Returns
+/// 
+/// A vector of generated messages
+pub fn generate_corpus(template: &Template, seed: u64, count: usize, batch_size: usize) -> Result<Vec<Message>, Error> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut messages = Vec::with_capacity(count);
+    
+    // Generate messages in batches to manage memory usage
+    let mut generated = 0;
+    while generated < count {
+        let batch_count = std::cmp::min(batch_size, count - generated);
+        for _ in 0..batch_count {
+            let message = generate_single_message(template, &mut rng, generated)?;
+            messages.push(message);
+            generated += 1;
+        }
+    }
+    
+    Ok(messages)
+}
+
+/// Generate a diverse corpus with different message types
+/// 
+/// This function generates a corpus with different types of HL7 messages
+/// (ADT, ORU, etc.) to provide comprehensive testing data.
+/// 
+/// # Arguments
+/// 
+/// * `templates` - A vector of templates to use for generating messages
+/// * `seed` - The random seed for deterministic generation
+/// * `count` - The number of messages to generate
+/// 
+/// # Returns
+/// 
+/// A vector of generated messages with different types
+pub fn generate_diverse_corpus(templates: &[Template], seed: u64, count: usize) -> Result<Vec<Message>, Error> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut messages = Vec::with_capacity(count);
+    
+    for i in 0..count {
+        // Select a random template
+        let template_index = rng.gen_range(0..templates.len());
+        let template = &templates[template_index];
+        
+        let message = generate_single_message(template, &mut rng, i)?;
+        messages.push(message);
+    }
+    
+    Ok(messages)
+}
+
+/// Generate a corpus with specific distributions
+/// 
+/// This function generates a corpus with specific distributions of message characteristics
+/// (e.g., specific percentages of different message types, error rates, etc.)
+/// 
+/// # Arguments
+/// 
+/// * `template_distributions` - A vector of (template, percentage) pairs
+/// * `seed` - The random seed for deterministic generation
+/// * `count` - The number of messages to generate
+/// 
+/// # Returns
+/// 
+/// A vector of generated messages following the specified distributions
+pub fn generate_distributed_corpus(
+    template_distributions: &[(Template, f64)], 
+    seed: u64, 
+    count: usize
+) -> Result<Vec<Message>, Error> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut messages = Vec::with_capacity(count);
+    
+    // Normalize percentages to ensure they sum to 1.0
+    let total_percentage: f64 = template_distributions.iter().map(|(_, p)| *p).sum();
+    let normalized_distributions: Vec<(Template, f64)> = template_distributions
+        .iter()
+        .map(|(t, p)| (t.clone(), p / total_percentage))
+        .collect();
+    
+    // Create cumulative distribution
+    let mut cumulative_distribution = Vec::new();
+    let mut cumulative = 0.0;
+    for (template, percentage) in &normalized_distributions {
+        cumulative += percentage;
+        cumulative_distribution.push((template.clone(), cumulative));
+    }
+    
+    for i in 0..count {
+        // Select template based on distribution
+        let random_value = rng.gen_range(0.0..1.0);
+        let template = cumulative_distribution
+            .iter()
+            .find(|(_, cumulative)| random_value <= *cumulative)
+            .map(|(t, _)| t)
+            .unwrap_or(&normalized_distributions.last().unwrap().0);
+        
+        let message = generate_single_message(template, &mut rng, i)?;
+        messages.push(message);
+    }
+    
+    Ok(messages)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -726,5 +1057,393 @@ mod tests {
         
         // The value should be a timestamp in YYYYMMDDHHMMSS format
         // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_name_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("PID.5".to_string(), vec![ValueSource::RealisticName { gender: Some("M".to_string()) }]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic name in last^first format
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_address_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("PID.11".to_string(), vec![ValueSource::RealisticAddress]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic address
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_phone_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("PID.13".to_string(), vec![ValueSource::RealisticPhone]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic phone number
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_ssn_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("PID.19".to_string(), vec![ValueSource::RealisticSsn]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic SSN
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_mrn_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("PID.18".to_string(), vec![ValueSource::RealisticMrn]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic MRN
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_icd10_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("DG1.3".to_string(), vec![ValueSource::RealisticIcd10]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+                "DG1|1||I10.9|Hypertension||A".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic ICD-10 code
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_loinc_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("OBX.3.1".to_string(), vec![ValueSource::RealisticLoinc]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+                "OBX|1|NM|12345^Blood Pressure||120|mmHg|||||R|||20250128152312".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic LOINC code
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_medication_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("RXA.5.1".to_string(), vec![ValueSource::RealisticMedication]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+                "RXA|0|1|20250128152312|20250128152312|12345^Medication".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic medication name
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_allergen_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("AL1.3.1".to_string(), vec![ValueSource::RealisticAllergen]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+                "AL1|1|DA|Allergen||MO".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic allergen
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_blood_type_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("PID.8".to_string(), vec![ValueSource::RealisticBloodType]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic blood type
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_ethnicity_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("PID.22".to_string(), vec![ValueSource::RealisticEthnicity]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic ethnicity
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_realistic_race_generation() {
+        let mut values = std::collections::HashMap::new();
+        values.insert("PID.10".to_string(), vec![ValueSource::RealisticRace]);
+        
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
+            ],
+            values,
+        };
+        
+        let messages = generate(&template, 42, 1).unwrap();
+        assert_eq!(messages.len(), 1);
+        
+        // The value should be a realistic race
+        // For this test, we'll just verify it compiles and runs without error
+    }
+
+    #[test]
+    fn test_generate_corpus() {
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
+            ],
+            values: std::collections::HashMap::new(),
+        };
+        
+        let messages = generate_corpus(&template, 42, 10, 5).unwrap();
+        assert_eq!(messages.len(), 10);
+    }
+
+    #[test]
+    fn test_generate_diverse_corpus() {
+        let template1 = Template {
+            name: "test1".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
+            ],
+            values: std::collections::HashMap::new(),
+        };
+        
+        let template2 = Template {
+            name: "test2".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ORU^R01^ORU_R01|DEF456|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^Jane".to_string(),
+            ],
+            values: std::collections::HashMap::new(),
+        };
+        
+        let templates = vec![template1, template2];
+        let messages = generate_diverse_corpus(&templates, 42, 6).unwrap();
+        assert_eq!(messages.len(), 6);
+    }
+
+    #[test]
+    fn test_generate_distributed_corpus() {
+        let template1 = Template {
+            name: "test1".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
+            ],
+            values: std::collections::HashMap::new(),
+        };
+        
+        let template2 = Template {
+            name: "test2".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ORU^R01^ORU_R01|DEF456|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^Jane".to_string(),
+            ],
+            values: std::collections::HashMap::new(),
+        };
+        
+        let distributions = vec![(template1, 0.7), (template2, 0.3)];
+        let messages = generate_distributed_corpus(&distributions, 42, 10).unwrap();
+        assert_eq!(messages.len(), 10);
+    }
+
+    #[test]
+    fn test_generate_golden_hashes() {
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
+            ],
+            values: std::collections::HashMap::new(),
+        };
+        
+        let hashes = generate_golden_hashes(&template, 42, 3).unwrap();
+        assert_eq!(hashes.len(), 3);
+        
+        // Verify that all hashes are valid hex strings
+        for hash in hashes {
+            assert_eq!(hash.len(), 64); // SHA-256 hashes are 64 hex characters
+        }
+    }
+
+    #[test]
+    fn test_verify_golden_hashes() {
+        let template = Template {
+            name: "test".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+                "PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
+            ],
+            values: std::collections::HashMap::new(),
+        };
+        
+        // Generate golden hashes
+        let expected_hashes = generate_golden_hashes(&template, 42, 2).unwrap();
+        
+        // Verify the hashes
+        let results = verify_golden_hashes(&template, 42, 2, &expected_hashes).unwrap();
+        assert_eq!(results.len(), 2);
+        assert!(results[0]);
+        assert!(results[1]);
+        
+        // Test with incorrect hashes
+        let wrong_hashes = vec!["wrong_hash_1".to_string(), "wrong_hash_2".to_string()];
+        let results = verify_golden_hashes(&template, 42, 2, &wrong_hashes).unwrap();
+        assert_eq!(results.len(), 2);
+        assert!(!results[0]);
+        assert!(!results[1]);
     }
 }
