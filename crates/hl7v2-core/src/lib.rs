@@ -114,7 +114,7 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
     let mut segments = Vec::new();
     for line in lines {
         let segment = parse_segment(line, &delims).map_err(|e| Error::ParseError {
-            segment_id: line[..3].to_string(),
+            segment_id: if line.len() >= 3 { line[..3].to_string() } else { line.to_string() },
             field_index: 0,
             source: Box::new(e),
         })?;
