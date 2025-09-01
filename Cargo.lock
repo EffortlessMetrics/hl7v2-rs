@@ -426,6 +426,7 @@ dependencies = [
 name = "hl7v2-prof"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "hl7v2-core",
  "regex",
  "serde",
