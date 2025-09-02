@@ -81,7 +81,7 @@ fn generate_single_message(template: &Template, rng: &mut StdRng, _index: usize)
         segments.push(segment);
     }
     
-    Ok(Message { delims, segments })
+    Ok(Message { delims, segments, charsets: vec![] })
 }
 
 /// Parse delimiters from a string
@@ -426,6 +426,7 @@ pub fn ack(original: &Message, code: AckCode) -> Result<Message, Error> {
     Ok(Message {
         delims,
         segments: vec![msh_segment, msa_segment],
+        charsets: vec![]
     })
 }
 

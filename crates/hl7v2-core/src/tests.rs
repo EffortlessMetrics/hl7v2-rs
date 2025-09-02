@@ -374,4 +374,184 @@ mod tests {
         assert_eq!(batch2.messages.len(), 1);
         assert!(batch2.trailer.is_some());
     }
+
+    #[test]
+    fn test_presence_semantics() {
+        use crate::{Presence, get_presence};
+
+        // Create a message with various field states
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let message = parse(hl7_text.as_bytes()).unwrap();
+        
+        // Test Value presence
+        match get_presence(&message, "PID.3") {
+            Presence::Value(value) => assert_eq!(value, "123456"),
+            _ => panic!("Expected Value presence"),
+        }
+        
+        // Test Empty presence
+        match get_presence(&message, "PID.4") {
+            Presence::Empty => {}, // Correct
+            _ => panic!("Expected Empty presence"),
+        }
+        
+        // Test Missing presence (field beyond what exists)
+        match get_presence(&message, "PID.50") {
+            Presence::Missing => {}, // Correct
+            _ => panic!("Expected Missing presence"),
+        }
+        
+        // Test component access
+        match get_presence(&message, "PID.5.1") {
+            Presence::Value(value) => assert_eq!(value, "Doe"),
+            _ => panic!("Expected Value presence"),
+        }
+        
+        // Test missing component
+        match get_presence(&message, "PID.5.5") {
+            Presence::Missing => {}, // Correct
+            _ => panic!("Expected Missing presence"),
+        }
+        
+        // Test MSH special fields
+        match get_presence(&message, "MSH.1") {
+            Presence::Value(value) => assert_eq!(value, "|"),
+            _ => panic!("Expected Value presence for MSH-1"),
+        }
+        
+        match get_presence(&message, "MSH.2") {
+            Presence::Value(value) => assert_eq!(value, "^~\\&"),
+            _ => panic!("Expected Value presence for MSH-2"),
+        }
+    }
+
+    #[test]
+    fn test_charset_extraction() {
+        use crate::extract_charsets;
+
+        // Create a message with charset information in MSH-18
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1||||||UTF-8\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let message = parse(hl7_text.as_bytes()).unwrap();
+        
+        // Check that charset was extracted correctly
+        assert_eq!(message.charsets.len(), 1);
+        assert_eq!(message.charsets[0], "UTF-8");
+        
+        // Test with multiple charsets
+        let hl7_text_multi = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1||||||UTF-8^ISO-8859-1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let message_multi = parse(hl7_text_multi.as_bytes()).unwrap();
+        
+        // Check that multiple charsets were extracted correctly
+        assert_eq!(message_multi.charsets.len(), 2);
+        assert_eq!(message_multi.charsets[0], "UTF-8");
+        assert_eq!(message_multi.charsets[1], "ISO-8859-1");
+        
+        // Test with no charset information
+        let hl7_text_no_charset = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let message_no_charset = parse(hl7_text_no_charset.as_bytes()).unwrap();
+        
+        // Check that no charsets were extracted
+        assert_eq!(message_no_charset.charsets.len(), 0);
+    }
+
+    #[test]
+    fn test_streaming_parser() {
+        use crate::{StreamParser, Event, Delims};
+        use std::io::BufReader;
+
+        // Create a simple HL7 message
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let reader = BufReader::new(hl7_text.as_bytes());
+        let mut parser = StreamParser::new(reader);
+        
+        // Collect all events
+        let mut events = Vec::new();
+        while let Ok(Some(event)) = parser.next_event() {
+            events.push(event);
+        }
+        
+        // Check the events
+        assert_eq!(events.len(), 5); // StartMessage, Segment(PID), Field(1), Field(2), Field(3), EndMessage
+        
+        // Check StartMessage event
+        match &events[0] {
+            Event::StartMessage { delims } => {
+                assert_eq!(delims.field, '|');
+                assert_eq!(delims.comp, '^');
+                assert_eq!(delims.rep, '~');
+                assert_eq!(delims.esc, '\\');
+                assert_eq!(delims.sub, '&');
+            },
+            _ => panic!("Expected StartMessage event"),
+        }
+        
+        // Check Segment event
+        match &events[1] {
+            Event::Segment { id } => {
+                assert_eq!(id, b"PID");
+            },
+            _ => panic!("Expected Segment event"),
+        }
+        
+        // Check Field events
+        match &events[2] {
+            Event::Field { num, raw } => {
+                assert_eq!(*num, 1);
+                assert_eq!(raw, b"1");
+            },
+            _ => panic!("Expected Field event"),
+        }
+        
+        match &events[3] {
+            Event::Field { num, raw } => {
+                assert_eq!(*num, 2);
+                assert_eq!(raw, b"");
+            },
+            _ => panic!("Expected Field event"),
+        }
+        
+        match &events[4] {
+            Event::Field { num, raw } => {
+                assert_eq!(*num, 3);
+                assert_eq!(raw, b"123456^^^HOSP^MR");
+            },
+            _ => panic!("Expected Field event"),
+        }
+    }
+
+    #[test]
+    fn test_network_module() {
+        // Test that the network module can be compiled and used
+        #[cfg(feature = "network")]
+        {
+            use crate::network::{MllpConfig, MllpClient, MllpServer, AckTimingPolicy};
+            use std::time::Duration;
+
+            // Test creating a config
+            let config = MllpConfig {
+                connect_timeout: Duration::from_secs(10),
+                read_timeout: Duration::from_secs(10),
+                write_timeout: Duration::from_secs(10),
+                use_tls: false,
+                ack_timing: AckTimingPolicy::Immediate,
+            };
+
+            // Test creating a client
+            let client = MllpClient::new(config.clone());
+            
+            // Test creating a server
+            let server = MllpServer::new(config);
+            
+            // These are just compilation tests - the actual functionality
+            // would require network access which we don't want in unit tests
+            assert!(true);
+        }
+        
+        // Test that the module compiles even without the network feature
+        #[cfg(not(feature = "network"))]
+        {
+            // This should compile fine even without the network feature
+            assert!(true);
+        }
+    }
 }

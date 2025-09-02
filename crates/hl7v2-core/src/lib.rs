@@ -8,6 +8,92 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
+use serde_json;
+
+#[cfg(feature = "network")]
+pub mod network;
+
+/// Error type for HL7 v2 operations
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Invalid segment ID")]
+    InvalidSegmentId,
+    
+    #[error("Bad delimiter length")]
+    BadDelimLength,
+    
+    #[error("Duplicate delimiters")]
+    DuplicateDelims,
+    
+    #[error("Unbalanced escape")]
+    UnbalancedEscape,
+    
+    #[error("Invalid escape token")]
+    InvalidEscapeToken,
+    
+    #[error("MSH field malformed")]
+    MshFieldMalformed,
+    
+    #[error("MSH-10 missing")]
+    Msh10Missing,
+    
+    #[error("Invalid processing ID")]
+    InvalidProcessingId,
+    
+    #[error("Unrecognized version")]
+    UnrecognizedVersion,
+    
+    #[error("Invalid charset")]
+    InvalidCharset,
+    
+    #[error("Write failed")]
+    WriteFailed,
+    
+    // New comprehensive error types
+    #[error("Parse error at segment {segment_id} field {field_index}: {source}")]
+    ParseError {
+        segment_id: String,
+        field_index: usize,
+        #[source]
+        source: Box<Error>,
+    },
+    
+    #[error("Invalid field format: {details}")]
+    InvalidFieldFormat {
+        details: String,
+    },
+    
+    #[error("Invalid repetition format: {details}")]
+    InvalidRepFormat {
+        details: String,
+    },
+    
+    #[error("Invalid component format: {details}")]
+    InvalidCompFormat {
+        details: String,
+    },
+    
+    #[error("Invalid subcomponent format: {details}")]
+    InvalidSubcompFormat {
+        details: String,
+    },
+    
+    #[error("Batch parsing error: {details}")]
+    BatchParseError {
+        details: String,
+    },
+    
+    #[error("Invalid batch header: {details}")]
+    InvalidBatchHeader {
+        details: String,
+    },
+    
+    #[error("Invalid batch trailer: {details}")]
+    InvalidBatchTrailer {
+        details: String,
+    },
+}
+
 /// Delimiters used in HL7 v2 messages
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Delims {
@@ -31,11 +117,204 @@ impl Delims {
     }
 }
 
+/// Event enum for streaming parser
+#[derive(Debug, Clone, PartialEq)]
+pub enum Event {
+    /// Start of a new message with discovered delimiters
+    StartMessage { delims: Delims },
+    /// A segment with its ID
+    Segment { id: Vec<u8> },
+    /// A field with its number (1-based) and raw content
+    Field { num: u16, raw: Vec<u8> },
+    /// End of message
+    EndMessage,
+}
+
+/// Streaming parser for HL7 v2 messages
+pub struct StreamParser<D> {
+    /// Reader for input data
+    reader: D,
+    /// Current delimiters (starts with default, switches per message)
+    delims: Delims,
+    /// Buffer for accumulating data
+    buffer: Vec<u8>,
+    /// Current position in buffer
+    pos: usize,
+    /// Whether we're in pre-MSH mode
+    pre_msh: bool,
+    /// Whether we've started parsing a message
+    in_message: bool,
+    /// Queue of events to be returned
+    event_queue: std::collections::VecDeque<Event>,
+}
+
+impl<D: std::io::BufRead> StreamParser<D> {
+    /// Create a new streaming parser
+    pub fn new(reader: D) -> Self {
+        Self {
+            reader,
+            delims: Delims::default(),
+            buffer: Vec::new(),
+            pos: 0,
+            pre_msh: true,
+            in_message: false,
+            event_queue: std::collections::VecDeque::new(),
+        }
+    }
+
+    /// Get the next event from the stream
+    pub fn next_event(&mut self) -> Result<Option<Event>, Error> {
+        // First check if we have any queued events
+        if let Some(event) = self.event_queue.pop_front() {
+            return Ok(Some(event));
+        }
+
+        loop {
+            // If we're at the end of our buffer, try to read more data
+            if self.pos >= self.buffer.len() {
+                let mut temp_buf = vec![0u8; 1024];
+                match self.reader.read(&mut temp_buf) {
+                    Ok(0) => {
+                        // End of input
+                        if self.in_message {
+                            self.in_message = false;
+                            self.pre_msh = true;
+                            return Ok(Some(Event::EndMessage));
+                        }
+                        return Ok(None);
+                    }
+                    Ok(n) => {
+                        // Add the new data to our buffer
+                        self.buffer.extend_from_slice(&temp_buf[..n]);
+                    }
+                    Err(_) => return Err(Error::InvalidCharset),
+                }
+            }
+
+            // Look for a complete segment (ending with \r)
+            if let Some(cr_pos) = self.buffer[self.pos..].iter().position(|&b| b == b'\r') {
+                let segment_end = self.pos + cr_pos;
+                let segment_data = self.buffer[self.pos..segment_end].to_vec();
+                self.pos = segment_end + 1; // Skip the \r
+
+                // Check if this is an MSH segment
+                if segment_data.len() >= 3 && &segment_data[0..3] == b"MSH" {
+                    // We're starting a new message
+                    if self.in_message {
+                        // End the previous message first
+                        self.in_message = false;
+                        self.pre_msh = true;
+                        return Ok(Some(Event::EndMessage));
+                    }
+
+                    // Parse delimiters from MSH segment
+                    let new_delims = parse_delimiters(std::str::from_utf8(&segment_data).map_err(|_| Error::InvalidCharset)?)
+                        .map_err(|e| Error::ParseError {
+                            segment_id: "MSH".to_string(),
+                            field_index: 0,
+                            source: Box::new(e),
+                        })?;
+
+                    // Switch to the new delimiters for this message only
+                    self.delims = new_delims.clone();
+                    self.pre_msh = false;
+                    self.in_message = true;
+
+                    // Generate field events for MSH segment
+                    self.generate_msh_field_events(&segment_data)?;
+
+                    return Ok(Some(Event::StartMessage { delims: new_delims }));
+                }
+
+                // For any other segment
+                if self.in_message && segment_data.len() >= 3 {
+                    let segment_id = segment_data[0..3].to_vec();
+                    
+                    // Generate field events for this segment
+                    self.generate_field_events(&segment_data)?;
+                    
+                    return Ok(Some(Event::Segment { id: segment_id }));
+                } else if !self.in_message && self.pre_msh && segment_data.len() >= 3 {
+                    // We're in pre-MSH mode but this isn't an MSH segment,
+                    // so start a message with default delimiters
+                    self.delims = Delims::default();
+                    self.pre_msh = false;
+                    self.in_message = true;
+                    
+                    // Generate field events for this segment
+                    self.generate_field_events(&segment_data)?;
+                    
+                    return Ok(Some(Event::StartMessage { delims: Delims::default() }));
+                }
+            }
+
+            // If we've reached here and have no more data, we're done
+            if self.pos >= self.buffer.len() {
+                if self.in_message {
+                    self.in_message = false;
+                    self.pre_msh = true;
+                    return Ok(Some(Event::EndMessage));
+                }
+                return Ok(None);
+            }
+        }
+    }
+
+    /// Generate field events for a regular segment
+    fn generate_field_events(&mut self, segment_data: &[u8]) -> Result<(), Error> {
+        if segment_data.len() > 4 {
+            let fields_data = &segment_data[4..]; // Skip segment ID and field separator
+            let field_separator = self.delims.field as u8;
+            
+            // Split fields by the field separator
+            let fields: Vec<&[u8]> = fields_data
+                .split(|&b| b == field_separator)
+                .collect();
+            
+            // Generate field events for each field (1-based numbering)
+            for (index, field) in fields.iter().enumerate() {
+                let field_num = (index + 1) as u16;
+                self.event_queue.push_back(Event::Field { 
+                    num: field_num, 
+                    raw: field.to_vec() 
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Generate field events specifically for MSH segment
+    fn generate_msh_field_events(&mut self, segment_data: &[u8]) -> Result<(), Error> {
+        if segment_data.len() > 8 {
+            // MSH has special handling - fields start after the encoding characters
+            let fields_data = &segment_data[8..]; // Skip "MSH|^~\&"
+            let field_separator = self.delims.field as u8;
+            
+            // Split fields by the field separator
+            let fields: Vec<&[u8]> = fields_data
+                .split(|&b| b == field_separator)
+                .collect();
+            
+            // Generate field events for each field (1-based numbering)
+            for (index, field) in fields.iter().enumerate() {
+                let field_num = (index + 1) as u16;
+                self.event_queue.push_back(Event::Field { 
+                    num: field_num, 
+                    raw: field.to_vec() 
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Main message structure
 #[derive(Debug, Clone, PartialEq)]
 pub struct Message {
     pub delims: Delims,
     pub segments: Vec<Segment>,
+    /// Character sets used in the message (from MSH-18)
+    pub charsets: Vec<String>,
 }
 
 /// A batch of HL7 messages
@@ -86,6 +365,19 @@ pub enum Atom {
     Null,
 }
 
+/// Presence semantics for HL7 v2 fields
+#[derive(Debug, Clone, PartialEq)]
+pub enum Presence {
+    /// Field is not present in the message (index out of range)
+    Missing,
+    /// Field is present but empty (zero-length)
+    Empty,
+    /// Field contains a literal NULL value ("")
+    Null,
+    /// Field contains a value
+    Value(String),
+}
+
 /// Parse HL7 v2 message from bytes
 pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
     // Convert bytes to string
@@ -121,7 +413,56 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
         segments.push(segment);
     }
     
-    Ok(Message { delims, segments })
+    // Extract charset information from MSH-18 if present
+    let charsets = extract_charsets(&segments);
+    
+    Ok(Message { delims, segments, charsets })
+}
+
+/// Extract character sets from MSH-18 field
+fn extract_charsets(segments: &[Segment]) -> Vec<String> {
+    // Look for the MSH segment (should be the first one)
+    if let Some(msh_segment) = segments.first() {
+        // Check if this is an MSH segment
+        if &msh_segment.id == b"MSH" {
+            // MSH-18 is field index 17 (1-based indexing)
+            // In parsed fields, this would be index 17 (0-based indexing)
+            // But we need to account for the special MSH handling:
+            // - MSH-1 (field separator) is not a parsed field
+            // - MSH-2 (encoding characters) is parsed field 0
+            // - MSH-3 is parsed field 1
+            // - ...
+            // - MSH-18 is parsed field 17
+            
+            // So we need at least 18 parsed fields (indices 0-17)
+            if msh_segment.fields.len() > 17 {
+                let field_18 = &msh_segment.fields[17];
+                
+                // Get the first repetition
+                if !field_18.reps.is_empty() {
+                    let rep = &field_18.reps[0];
+                    
+                    // For MSH-18, we collect all components and filter out empty ones
+                    let mut charsets = Vec::new();
+                    for comp in &rep.comps {
+                        if !comp.subs.is_empty() {
+                            match &comp.subs[0] {
+                                Atom::Text(text) => {
+                                    if !text.is_empty() {
+                                        charsets.push(text.clone());
+                                    }
+                                },
+                                Atom::Null => continue, // Skip NULL values
+                            }
+                        }
+                    }
+                    
+                    return charsets;
+                }
+            }
+        }
+    }
+    vec![]
 }
 
 /// Parse HL7 v2 message from MLLP framed bytes
@@ -740,6 +1081,91 @@ pub fn write_mllp(msg: &Message) -> Vec<u8> {
     wrap_mllp(&hl7_bytes)
 }
 
+/// Write a field to bytes (with escaping)
+fn write_field(output: &mut Vec<u8>, field: &Field, delims: &Delims) {
+    for (i, rep) in field.reps.iter().enumerate() {
+        if i > 0 {
+            output.push(delims.rep as u8);
+        }
+        write_rep(output, rep, delims);
+    }
+}
+
+/// Write a repetition to bytes (with escaping)
+fn write_rep(output: &mut Vec<u8>, rep: &Rep, delims: &Delims) {
+    for (i, comp) in rep.comps.iter().enumerate() {
+        if i > 0 {
+            output.push(delims.comp as u8);
+        }
+        write_comp(output, comp, delims);
+    }
+}
+
+/// Write a component to bytes (with escaping)
+fn write_comp(output: &mut Vec<u8>, comp: &Comp, delims: &Delims) {
+    for (i, atom) in comp.subs.iter().enumerate() {
+        if i > 0 {
+            output.push(delims.sub as u8);
+        }
+        write_atom(output, atom, delims);
+    }
+}
+
+/// Write an atom to bytes (with escaping)
+fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
+    match atom {
+        Atom::Text(text) => {
+            // Escape special characters
+            let escaped = escape_text(text, delims);
+            output.extend_from_slice(escaped.as_bytes());
+        }
+        Atom::Null => {
+            output.extend_from_slice(b"\"\"");
+        }
+    }
+}
+
+/// Escape text according to HL7 v2 rules
+pub fn escape_text(text: &str, delims: &Delims) -> String {
+    // Pre-calculate maximum possible size to reduce reallocations
+    // In worst case, every character might need escaping (3 chars each)
+    let max_size = text.len() * 3;
+    let mut result = String::with_capacity(max_size);
+    
+    for ch in text.chars() {
+        match ch {
+            c if c == delims.field => {
+                result.push(delims.esc);
+                result.push('F');
+                result.push(delims.esc);
+            }
+            c if c == delims.comp => {
+                result.push(delims.esc);
+                result.push('S');
+                result.push(delims.esc);
+            }
+            c if c == delims.rep => {
+                result.push(delims.esc);
+                result.push('R');
+                result.push(delims.esc);
+            }
+            c if c == delims.esc => {
+                result.push(delims.esc);
+                result.push('E');
+                result.push(delims.esc);
+            }
+            c if c == delims.sub => {
+                result.push(delims.esc);
+                result.push('T');
+                result.push(delims.esc);
+            }
+            _ => result.push(ch),
+        }
+    }
+    
+    result
+}
+
 /// Normalize HL7 v2 message
 /// 
 /// This function parses and rewrites an HL7 message, optionally converting
@@ -867,246 +1293,6 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
     }
     
     result
-}
-
-/// Write a field to bytes (with escaping)
-fn write_field(output: &mut Vec<u8>, field: &Field, delims: &Delims) {
-    for (i, rep) in field.reps.iter().enumerate() {
-        if i > 0 {
-            output.push(delims.rep as u8);
-        }
-        write_rep(output, rep, delims);
-    }
-}
-
-/// Write a repetition to bytes (with escaping)
-fn write_rep(output: &mut Vec<u8>, rep: &Rep, delims: &Delims) {
-    for (i, comp) in rep.comps.iter().enumerate() {
-        if i > 0 {
-            output.push(delims.comp as u8);
-        }
-        write_comp(output, comp, delims);
-    }
-}
-
-/// Write a component to bytes (with escaping)
-fn write_comp(output: &mut Vec<u8>, comp: &Comp, delims: &Delims) {
-    for (i, atom) in comp.subs.iter().enumerate() {
-        if i > 0 {
-            output.push(delims.sub as u8);
-        }
-        write_atom(output, atom, delims);
-    }
-}
-
-/// Write an atom to bytes (with escaping)
-fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
-    match atom {
-        Atom::Text(text) => {
-            // Escape special characters
-            let escaped = escape_text(text, delims);
-            output.extend_from_slice(escaped.as_bytes());
-        }
-        Atom::Null => {
-            output.extend_from_slice(b"\"\"");
-        }
-    }
-}
-
-/// Escape text according to HL7 v2 rules
-pub fn escape_text(text: &str, delims: &Delims) -> String {
-    // Pre-calculate maximum possible size to reduce reallocations
-    // In worst case, every character might need escaping (3 chars each)
-    let max_size = text.len() * 3;
-    let mut result = String::with_capacity(max_size);
-    
-    for ch in text.chars() {
-        match ch {
-            c if c == delims.field => {
-                result.push(delims.esc);
-                result.push('F');
-                result.push(delims.esc);
-            }
-            c if c == delims.comp => {
-                result.push(delims.esc);
-                result.push('S');
-                result.push(delims.esc);
-            }
-            c if c == delims.rep => {
-                result.push(delims.esc);
-                result.push('R');
-                result.push(delims.esc);
-            }
-            c if c == delims.esc => {
-                result.push(delims.esc);
-                result.push('E');
-                result.push(delims.esc);
-            }
-            c if c == delims.sub => {
-                result.push(delims.esc);
-                result.push('T');
-                result.push(delims.esc);
-            }
-            _ => result.push(ch),
-        }
-    }
-    
-    result
-}
-
-/// Convert message to canonical JSON
-pub fn to_json(msg: &Message) -> serde_json::Value {
-    use serde_json::json;
-    
-    let segments: Vec<serde_json::Value> = msg
-        .segments
-        .iter()
-        .map(|segment| {
-            let segment_id = String::from_utf8_lossy(&segment.id).to_string();
-            let fields: serde_json::Map<String, serde_json::Value> = segment
-                .fields
-                .iter()
-                .enumerate()
-                .filter_map(|(index, field)| {
-                    if field.reps.is_empty() {
-                        None
-                    } else {
-                        let field_value = field_to_json(field);
-                        Some(((index + 1).to_string(), field_value))
-                    }
-                })
-                .collect();
-            
-            json!({
-                "id": segment_id,
-                "fields": fields
-            })
-        })
-        .collect();
-    
-    json!({
-        "meta": {
-            "delims": {
-                "field": msg.delims.field.to_string(),
-                "comp": msg.delims.comp.to_string(),
-                "rep": msg.delims.rep.to_string(),
-                "esc": msg.delims.esc.to_string(),
-                "sub": msg.delims.sub.to_string()
-            }
-        },
-        "segments": segments
-    })
-}
-
-/// Convert a field to JSON
-fn field_to_json(field: &Field) -> serde_json::Value {
-    use serde_json::json;
-    
-    let reps: Vec<serde_json::Value> = field
-        .reps
-        .iter()
-        .map(|rep| {
-            let comps: Vec<serde_json::Value> = rep
-                .comps
-                .iter()
-                .map(|comp| {
-                    let subs: Vec<serde_json::Value> = comp
-                        .subs
-                        .iter()
-                        .map(|atom| match atom {
-                            Atom::Text(text) => json!(text),
-                            Atom::Null => json!("__NULL__"),
-                        })
-                        .collect();
-                    json!(subs)
-                })
-                .collect();
-            json!(comps)
-        })
-        .collect();
-    
-    json!(reps)
-}
-
-/// Error type for HL7 v2 operations
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Invalid segment ID")]
-    InvalidSegmentId,
-    
-    #[error("Bad delimiter length")]
-    BadDelimLength,
-    
-    #[error("Duplicate delimiters")]
-    DuplicateDelims,
-    
-    #[error("Unbalanced escape")]
-    UnbalancedEscape,
-    
-    #[error("Invalid escape token")]
-    InvalidEscapeToken,
-    
-    #[error("MSH field malformed")]
-    MshFieldMalformed,
-    
-    #[error("MSH-10 missing")]
-    Msh10Missing,
-    
-    #[error("Invalid processing ID")]
-    InvalidProcessingId,
-    
-    #[error("Unrecognized version")]
-    UnrecognizedVersion,
-    
-    #[error("Invalid charset")]
-    InvalidCharset,
-    
-    #[error("Write failed")]
-    WriteFailed,
-    
-    // New comprehensive error types
-    #[error("Parse error at segment {segment_id} field {field_index}: {source}")]
-    ParseError {
-        segment_id: String,
-        field_index: usize,
-        #[source]
-        source: Box<Error>,
-    },
-    
-    #[error("Invalid field format: {details}")]
-    InvalidFieldFormat {
-        details: String,
-    },
-    
-    #[error("Invalid repetition format: {details}")]
-    InvalidRepFormat {
-        details: String,
-    },
-    
-    #[error("Invalid component format: {details}")]
-    InvalidCompFormat {
-        details: String,
-    },
-    
-    #[error("Invalid subcomponent format: {details}")]
-    InvalidSubcompFormat {
-        details: String,
-    },
-    
-    #[error("Batch parsing error: {details}")]
-    BatchParseError {
-        details: String,
-    },
-    
-    #[error("Invalid batch header: {details}")]
-    InvalidBatchHeader {
-        details: String,
-    },
-    
-    #[error("Invalid batch trailer: {details}")]
-    InvalidBatchTrailer {
-        details: String,
-    },
 }
 
 /// Get value at path (e.g., "PID.5[1].1")
@@ -1240,6 +1426,176 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     }
 }
 
+/// Get presence semantics for a field at path (e.g., "PID.5[1].1")
+pub fn get_presence(msg: &Message, path: &str) -> Presence {
+    // Parse the path
+    // Format: SEGMENT.FIELD[REP].COMPONENT
+    // Examples: "PID.5.1", "PID.5[1].1", "MSH.9"
+    
+    let mut parts = path.split('.');
+    let segment_id = match parts.next() {
+        Some(id) => id,
+        None => return Presence::Missing,
+    };
+    
+    // Find the segment
+    let segment = match msg.segments.iter().find(|s| {
+        std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id)
+    }) {
+        Some(seg) => seg,
+        None => return Presence::Missing,
+    };
+    
+    // Parse field index (1-based)
+    let field_part = match parts.next() {
+        Some(part) => part,
+        None => return Presence::Missing,
+    };
+    
+    let (field_index, rep_index) = match parse_field_and_rep(field_part) {
+        Some(indices) => indices,
+        None => return Presence::Missing,
+    };
+    
+    // Special handling for MSH segments
+    if segment_id == "MSH" {
+        if field_index == 1 {
+            // MSH-1 is the field separator character
+            // We treat this as a special case - present with the field separator value
+            return Presence::Value(msg.delims.field.to_string());
+        } else if field_index == 2 {
+            // MSH-2 is the encoding characters
+            // This should be the first parsed field (index 0)
+            if segment.fields.is_empty() {
+                return Presence::Missing;
+            }
+            let field = &segment.fields[0];
+            // Check repetition bounds
+            if rep_index == 0 || rep_index > field.reps.len() {
+                return Presence::Missing;
+            }
+            let rep = &field.reps[rep_index - 1];
+            // Get the component
+            let comp_index = if let Some(comp_part) = parts.next() {
+                match comp_part.parse::<usize>() {
+                    Ok(index) => index,
+                    Err(_) => return Presence::Missing,
+                }
+            } else {
+                1
+            };
+            if comp_index == 0 || comp_index > rep.comps.len() {
+                return Presence::Missing;
+            }
+            let comp = &rep.comps[comp_index - 1];
+            // Get the subcomponent
+            if comp.subs.is_empty() {
+                return Presence::Missing;
+            }
+            match &comp.subs[0] {
+                Atom::Text(text) => {
+                    if text.is_empty() {
+                        Presence::Empty
+                    } else {
+                        Presence::Value(text.clone())
+                    }
+                },
+                Atom::Null => Presence::Null,
+            }
+        } else {
+            // MSH-3 and beyond
+            // Adjust index: MSH-3 maps to parsed field 1, MSH-4 to parsed field 2, etc.
+            let adjusted_field_index = field_index - 2;
+            if adjusted_field_index >= segment.fields.len() {
+                return Presence::Missing;
+            }
+            let field = &segment.fields[adjusted_field_index];
+            // Check repetition bounds
+            if rep_index == 0 || rep_index > field.reps.len() {
+                return Presence::Missing;
+            }
+            let rep = &field.reps[rep_index - 1];
+            // Get the component
+            let comp_index = if let Some(comp_part) = parts.next() {
+                match comp_part.parse::<usize>() {
+                    Ok(index) => index,
+                    Err(_) => return Presence::Missing,
+                }
+            } else {
+                1
+            };
+            if comp_index == 0 || comp_index > rep.comps.len() {
+                return Presence::Missing;
+            }
+            let comp = &rep.comps[comp_index - 1];
+            // Get the subcomponent
+            if comp.subs.is_empty() {
+                return Presence::Missing;
+            }
+            match &comp.subs[0] {
+                Atom::Text(text) => {
+                    if text.is_empty() {
+                        Presence::Empty
+                    } else {
+                        Presence::Value(text.clone())
+                    }
+                },
+                Atom::Null => Presence::Null,
+            }
+        }
+    } else {
+        // For non-MSH segments, convert directly to 0-based indexing
+        if field_index == 0 {
+            return Presence::Missing;
+        }
+        let zero_based_field_index = field_index - 1;
+        
+        // Check field bounds
+        if zero_based_field_index >= segment.fields.len() {
+            return Presence::Missing;
+        }
+        let field = &segment.fields[zero_based_field_index];
+        
+        // Check repetition bounds
+        if rep_index == 0 || rep_index > field.reps.len() {
+            return Presence::Missing;
+        }
+        let rep = &field.reps[rep_index - 1];
+        
+        // Parse component index if provided
+        let comp_index = if let Some(comp_part) = parts.next() {
+            match comp_part.parse::<usize>() {
+                Ok(index) => index,
+                Err(_) => return Presence::Missing,
+            }
+        } else {
+            1 // Default to first component
+        };
+        
+        // Check component bounds
+        if comp_index == 0 || comp_index > rep.comps.len() {
+            return Presence::Missing;
+        }
+        let comp = &rep.comps[comp_index - 1];
+        
+        // Get the first subcomponent
+        if comp.subs.is_empty() {
+            return Presence::Missing;
+        }
+        
+        match &comp.subs[0] {
+            Atom::Text(text) => {
+                if text.is_empty() {
+                    Presence::Empty
+                } else {
+                    Presence::Value(text.clone())
+                }
+            },
+            Atom::Null => Presence::Null,
+        }
+    }
+}
+
 /// Parse field and repetition indices from a string like "5" or "5[1]"
 fn parse_field_and_rep(field_str: &str) -> Option<(usize, usize)> {
     if let Some(bracket_pos) = field_str.find('[') {
@@ -1257,6 +1613,81 @@ fn parse_field_and_rep(field_str: &str) -> Option<(usize, usize)> {
         let field_index = field_str.parse::<usize>().ok()?;
         Some((field_index, 1))
     }
+}
+
+/// Convert message to canonical JSON
+pub fn to_json(msg: &Message) -> serde_json::Value {
+    use serde_json::json;
+    
+    let segments: Vec<serde_json::Value> = msg
+        .segments
+        .iter()
+        .map(|segment| {
+            let segment_id = String::from_utf8_lossy(&segment.id).to_string();
+            let fields: serde_json::Map<String, serde_json::Value> = segment
+                .fields
+                .iter()
+                .enumerate()
+                .filter_map(|(index, field)| {
+                    if field.reps.is_empty() {
+                        None
+                    } else {
+                        let field_value = field_to_json(field);
+                        Some(((index + 1).to_string(), field_value))
+                    }
+                })
+                .collect();
+            
+            json!({
+                "id": segment_id,
+                "fields": fields
+            })
+        })
+        .collect();
+    
+    json!({
+        "meta": {
+            "delims": {
+                "field": msg.delims.field.to_string(),
+                "comp": msg.delims.comp.to_string(),
+                "rep": msg.delims.rep.to_string(),
+                "esc": msg.delims.esc.to_string(),
+                "sub": msg.delims.sub.to_string()
+            },
+            "charsets": msg.charsets
+        },
+        "segments": segments
+    })
+}
+
+/// Convert a field to JSON
+fn field_to_json(field: &Field) -> serde_json::Value {
+    use serde_json::json;
+    
+    let reps: Vec<serde_json::Value> = field
+        .reps
+        .iter()
+        .map(|rep| {
+            let comps: Vec<serde_json::Value> = rep
+                .comps
+                .iter()
+                .map(|comp| {
+                    let subs: Vec<serde_json::Value> = comp
+                        .subs
+                        .iter()
+                        .map(|atom| match atom {
+                            Atom::Text(text) => json!(text),
+                            Atom::Null => json!("__NULL__"),
+                        })
+                        .collect();
+                    json!(subs)
+                })
+                .collect();
+            json!(comps)
+        })
+        .collect();
+    
+    json!(reps)
 }
 
 /// Helper function to write segment fields
@@ -1438,4 +1869,137 @@ mod tests {
         let output_str = String::from_utf8(output).expect("Failed to convert to UTF-8");
         println!("Output:\n{}", output_str);
     }
-}
+    
+    #[test]
+    fn test_presence_semantics() {
+        // Create a message with various field types
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac\rPID|1||123456^^^HOSP^MR||Doe^John|||\r";
+        let message = parse(hl7_text.as_bytes()).unwrap();
+        
+        // Test existing field with value
+        match get_presence(&message, "PID.5.1") {
+            Presence::Value(val) => assert_eq!(val, "Doe"),
+            _ => panic!("Expected Value, got something else"),
+        }
+        
+        // Test existing field with empty value (PID.8 in our test message is empty)
+        match get_presence(&message, "PID.8.1") {
+            Presence::Empty => assert!(true),
+            _ => panic!("Expected Empty, got something else"),
+        }
+        
+        // Test missing field (PID.50 doesn't exist)
+        match get_presence(&message, "PID.50.1") {
+            Presence::Missing => assert!(true),
+            _ => panic!("Expected Missing, got something else"),
+        }
+        
+        // Test MSH-1 (special case)
+        match get_presence(&message, "MSH.1") {
+            Presence::Value(val) => assert_eq!(val, "|"),
+            _ => panic!("Expected Value for MSH.1, got something else"),
+        }
+    }
+    
+    #[test]
+    fn debug_charset_extraction() {
+        // Create a message with charset information in MSH-18
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|||||||||||||||UTF-8^ISO-8859-1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let message = parse(hl7_text.as_bytes()).unwrap();
+        
+        println!("Number of segments: {}", message.segments.len());
+        for (i, segment) in message.segments.iter().enumerate() {
+            let segment_id = std::str::from_utf8(&segment.id).unwrap();
+            println!("Segment {}: {} with {} fields", i, segment_id, segment.fields.len());
+            if segment_id == "MSH" {
+                for (j, field) in segment.fields.iter().enumerate() {
+                    println!("  Field {}: {} reps", j, field.reps.len());
+                    for (k, rep) in field.reps.iter().enumerate() {
+                        println!("    Rep {}: {} comps", k, rep.comps.len());
+                        for (l, comp) in rep.comps.iter().enumerate() {
+                            println!("      Comp {}: {} subs", l, comp.subs.len());
+                            for (m, sub) in comp.subs.iter().enumerate() {
+                                match sub {
+                                    Atom::Text(text) => println!("        Sub {}: Text({})", m, text),
+                                    Atom::Null => println!("        Sub {}: Null", m),
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Test the extract_charsets function directly
+        let charsets = extract_charsets(&message.segments);
+        println!("Extracted charsets: {:?}", charsets);
+    }
+
+    #[test]
+    fn test_charset_extraction() {
+        // Create a message with charset information in MSH-18
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|||||||||||||||UTF-8^ISO-8859-1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let message = parse(hl7_text.as_bytes()).unwrap();
+        
+        // Verify that charsets were extracted correctly
+        assert_eq!(message.charsets, vec!["UTF-8", "ISO-8859-1"]);
+        
+        // Create a message without charset information
+        let hl7_text_no_charset = "MSH|^~\\&|SendingApp|SendingFac\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let message_no_charset = parse(hl7_text_no_charset.as_bytes()).unwrap();
+        
+        // Verify that charsets is empty
+        assert!(message_no_charset.charsets.is_empty());
+        
+        // Test JSON output includes charsets
+        let json_value = to_json(&message);
+        let meta = json_value.get("meta").unwrap();
+        let charsets = meta.get("charsets").unwrap().as_array().unwrap();
+        assert_eq!(charsets.len(), 2);
+        assert_eq!(charsets[0], "UTF-8");
+        assert_eq!(charsets[1], "ISO-8859-1");
+    }
+
+    #[test]
+    fn test_streaming_parser() {
+        use std::io::BufReader;
+        use std::io::Cursor;
+        
+        // Create a simple HL7 message
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let cursor = Cursor::new(hl7_text.as_bytes());
+        let buf_reader = BufReader::new(cursor);
+        
+        let mut parser = StreamParser::new(buf_reader);
+        
+        // Collect all events
+        let mut events = Vec::new();
+        while let Ok(Some(event)) = parser.next_event() {
+            events.push(event);
+        }
+        
+        // Verify we got the expected events
+        assert!(!events.is_empty());
+        
+        // Check for StartMessage event
+        let start_event = events.iter().find(|e| matches!(e, Event::StartMessage { .. }));
+        assert!(start_event.is_some());
+        
+        // Check for Segment events (should have PID segment)
+        let segment_events: Vec<_> = events.iter().filter(|e| matches!(e, Event::Segment { .. })).collect();
+        assert_eq!(segment_events.len(), 1); // PID segment
+        
+        // Check that the segment is PID
+        if let Event::Segment { id } = &segment_events[0] {
+            assert_eq!(id, b"PID");
+        }
+        
+        // Check for Field events
+        let field_events: Vec<_> = events.iter().filter(|e| matches!(e, Event::Field { .. })).collect();
+        assert!(!field_events.is_empty());
+        
+        // Check for EndMessage event
+        let end_event = events.iter().find(|e| matches!(e, Event::EndMessage));
+        assert!(end_event.is_some());
+    }
+    }
