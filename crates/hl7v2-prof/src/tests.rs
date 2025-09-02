@@ -25,7 +25,7 @@ constraints:
     required: true
 "#;
         let p: Profile = load_profile(y).unwrap();
-        let msg = parse(&adt_a01_msg()).unwrap();
+        let msg = parse(adt_a01_msg().as_bytes()).unwrap();
         let probs = validate(&msg, &p);
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
     }
@@ -47,7 +47,7 @@ cross_field_rules:
     actions: []
 "#;
         let p: Profile = load_profile(y).unwrap();
-        let msg = parse(&adt_a01_msg()).unwrap();
+        let msg = parse(adt_a01_msg().as_bytes()).unwrap();
         let probs = validate(&msg, &p);
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
     }
