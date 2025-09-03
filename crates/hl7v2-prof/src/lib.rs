@@ -8,6 +8,25 @@ use hl7v2_core::{Error, Message};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
+/// Expression guardrails
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct ExpressionGuardrails {
+    #[serde(default)]
+    pub max_nesting_depth: Option<usize>,
+    #[serde(default)]
+    pub max_expressions: Option<usize>,
+    #[serde(default)]
+    pub allowed_functions: Option<Vec<String>>,
+    #[serde(default)]
+    pub disallowed_functions: Option<Vec<String>>,
+    #[serde(default)]
+    pub max_complexity: Option<u32>,
+    #[serde(default)]
+    pub prohibited_fields: Option<Vec<String>>,
+    #[serde(default)]
+    pub allow_field_comparisons: Option<bool>,
+}
+
 /// A conformance profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
@@ -98,6 +117,7 @@ pub struct LengthConstraint {
 pub struct ValueSet {
     pub path: String,
     pub name: String,
+    #[serde(default)]
     pub codes: Vec<String>,
 }
 
@@ -671,17 +691,19 @@ fn validate_field_in_constraint(
 
 /// Validate that a field value is in the allowed value set
 fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue>) {
-    if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
-        if !valueset.codes.contains(&value.to_string()) {
-            issues.push(Issue {
-                code: "VALUE_NOT_IN_SET",
-                severity: Severity::Error,
-                path: Some(valueset.path.clone()),
-                detail: format!(
-                    "Value '{}' for {} is not in allowed set: {:?}",
-                    value, valueset.path, valueset.codes
-                ),
-            });
+    if !valueset.codes.is_empty() {
+        if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
+            if !valueset.codes.contains(&value.to_string()) {
+                issues.push(Issue {
+                    code: "VALUE_NOT_IN_SET",
+                    severity: Severity::Error,
+                    path: Some(valueset.path.clone()),
+                    detail: format!(
+                        "Value '{}' for {} is not in allowed set: {:?}",
+                        value, valueset.path, valueset.codes
+                    ),
+                });
+            }
         }
     }
     // Note: We don't report an error if the field is missing but has a value set constraint
@@ -796,6 +818,16 @@ fn validate_advanced_data_type(
                     code: "CHECKSUM_MISMATCH",
                     severity: Severity::Error,
                     path: Some(datatype.path.clone()),
+                    detail: format!(
+                        "Value '{}' for {} does not match required checksum algorithm '{}'",
+                        value, datatype.path, checksum
+                    ),
+                });
+            }
+        }
+    }
+}
+
 /// Validate HL7 tables with precedence support
 fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
     // Create a mapping of value set names to HL7 tables
@@ -936,60 +968,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
     }
 }
 
-/// Validate an HL7 v2 message against a profile
-pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
-    let mut issues = Vec::new();
 
-    // Validate data type constraints
-    for datatype in &profile.datatypes {
-        validate_datatype_constraint(msg, datatype, &mut issues);
-    }
-
-    // Validate length constraints
-    // Validate length constraints
-    for length in &profile.lengths {
-        validate_length_constraint(msg, length, &mut issues);
-    }
-
-    // Validate HL7 tables with precedence support
-    validate_hl7_tables_with_precedence(msg, profile, &mut issues);
-
-    // Validate cross-field rules
-    for rule in &profile.cross_field_rules {
-        validate_cross_field_rule(msg, rule, profile, &mut issues);
-    }
-
-    // Validate temporal rules
-    for rule in &profile.temporal_rules {
-        validate_temporal_rule(msg, rule, &mut issues);
-    }
-
-    issues
-}
-
-            };
-
-            if !is_valid {
-                issues.push(Issue {
-                    code: "TEMPORAL_VALIDATION_ERROR",
-                    severity: Severity::Error,
-                    path: Some(rule.before.clone()),
-                    detail: if rule.allow_equal {
-                        format!(
-                            "Field {} value '{}' should be before or equal to field {} value '{}'",
-                            rule.before, before_value, rule.after, after_value
-                        )
-                    } else {
-                        format!(
-                            "Field {} value '{}' should be before field {} value '{}'",
-                            rule.before, before_value, rule.after, after_value
-                        )
-                    },
-                });
-            }
-        }
-    }
-}
 
 /// Validate custom rule
 fn validate_custom_rule(msg: &Message, rule: &CustomRule, issues: &mut Vec<Issue>) {

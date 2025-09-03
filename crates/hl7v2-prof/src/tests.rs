@@ -69,14 +69,11 @@ segments:
   - id: "PID"
   - id: "PV1"
   - id: "ORC"
-cross_field_rules:
+temporal_rules:
   - id: "date-before-datetime"
     description: "PV1 date should be before ORC datetime"
-    conditions:
-      - field: "PV1.10"
-        operator: "before"
-        value: "ORC.4"
-    actions: []
+    before: "PV1.10"
+    after: "ORC.4"
 "#;
         
         let p: Profile = load_profile(y).unwrap();
@@ -103,14 +100,12 @@ segments:
   - id: "PID"
   - id: "PV1"
   - id: "ORC"
-cross_field_rules:
+temporal_rules:
   - id: "date-before-date"
     description: "PV1 date should be before ORC date"
-    conditions:
-      - field: "PV1.10"
-        operator: "before"
-        value: "ORC.4"
-    actions: []
+    before: "PV1.10"
+    after: "ORC.4"
+    allow_equal: false
 "#;
         
         let p: Profile = load_profile(y).unwrap();
