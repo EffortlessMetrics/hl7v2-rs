@@ -6,6 +6,11 @@ This document outlines the design for implementing advanced features in the HL7v
 
 This design follows a normative approach with specific implementation requirements to ensure consistency, security, and performance across all components.
 
+**Quick Links**:
+- [ROADMAP.md](../ROADMAP.md) - Complete v1.2.0 - v2.0.0 roadmap with timelines
+- [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md) - Detailed task breakdown and sprint planning
+- [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) - Current implementation status of all features
+
 ## 1.1 Current Implementation Status
 
 ### Phase 1: Core Implementation (In Progress - 65% Complete)
