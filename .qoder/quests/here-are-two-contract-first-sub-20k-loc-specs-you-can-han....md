@@ -358,39 +358,93 @@ Each crate includes comprehensive unit tests covering:
 ## 10. Implementation Status
 
 ### 10.1 Completed Features (v1.0 - v1.1)
-- [x] Core HL7 v2 parsing
-- [x] Streaming parser with event-based API
-- [x] Zero-copy parsing optimizations
-- [x] MLLP transport framing
-- [x] Escape sequence handling
-- [x] JSON serialization
-- [x] Batch processing (FHS/BHS/BTS/FTS)
-- [x] Profile validation with inheritance
-- [x] Profile merging and conflict resolution
-- [x] Advanced validation rules (temporal, contextual)
-- [x] Message generation with templates
-- [x] Deterministic generation with seeding
-- [x] Realistic data generation
-- [x] CLI interface with all core commands
-- [x] Performance benchmarks
-- [x] Comprehensive unit tests
-- [x] MLLP protocol support
-- [x] Cycle detection in profile inheritance
 
-### 10.2 Validation Checklist
-- [x] Parse HL7 v2 messages correctly
-- [x] Handle escape sequences properly
-- [x] Support MLLP transport framing
-- [x] Validate messages against profiles
-- [x] Generate synthetic messages
-- [x] Generate ACK messages
-- [x] Normalize messages
-- [x] Convert to JSON
-- [x] Handle batch messages
-- [x] Meet performance requirements
-- [x] Pass all unit tests
-- [x] Pass all integration tests
-- [x] Meet memory usage targets
+**Core Parsing (100% of v1.1 scope)**:
+- [x] HL7 v2 message parsing with full delimiter handling
+- [x] Event-based streaming parser with delimiter switching
+- [x] MLLP frame wrapping/unwrapping
+- [x] Escape sequence handling (\F\, \S\, \R\, \E\, \T\)
+- [x] JSON serialization to canonical format
+- [x] Batch processing (BHS/BTS, FHS/FTS)
+- [x] Field access API with presence semantics
+- [x] Performance benchmarks
+
+**Profile Validation (95% of v1.1 scope)**:
+- [x] Profile loading from YAML
+- [x] Profile inheritance with parent resolution
+- [x] Profile merging with conflict resolution
+- [x] Constraint validation (required, length, pattern)
+- [x] Value set validation against HL7 tables
+- [x] Cross-field validation rules
+- [x] Temporal rules (date/time comparisons)
+- [x] Contextual rules (if/then logic)
+- [x] Advanced data type validation (CX, PN, TS, etc.)
+- [x] Custom validators (phone, email, SSN, birth date, checksums)
+- [ ] Cycle detection in profile chains
+
+**Message Generation (80% of v1.1 scope)**:
+- [x] Template-based message generation
+- [x] Deterministic seeding for reproducibility
+- [x] Realistic data generators (names, addresses, IDs, codes)
+- [x] Value distributions (fixed, lists, ranges, normal)
+- [x] Error injection (malformed segments/fields)
+- [x] Corpus generation with multi-template support
+- [x] Golden hash verification
+- [ ] Corpus manifest.json generation
+- [ ] train/val/test splitting
+
+**CLI (80% of v1.1 scope)**:
+- [x] Parse command (with JSON output, MLLP support)
+- [x] Normalize command (message normalization, MLLP)
+- [x] Validate command (profile validation, error output)
+- [x] ACK command (ACK generation with codes AA/AE/AR/etc)
+- [x] Generate command (template-based generation)
+- [x] Interactive REPL mode
+- [ ] Server mode (not started)
+- [ ] Configuration files (TOML)
+- [ ] Validation report generation
+
+### 10.2 Validation Checklist (v1.1 Features)
+
+**Core Functionality:**
+- [x] Parse HL7 v2.3-v2.9 messages correctly
+- [x] Handle standard escape sequences (\F\, \S\, \R\, \E\, \T\)
+- [x] Support MLLP transport framing (VT...FS CR)
+- [x] Handle batch messages (BHS/BTS, FHS/FTS)
+- [x] Convert messages to canonical JSON
+- [x] Normalize messages (option for canonical delimiters)
+- [x] Generate ACK messages with proper codes
+- [x] Pass comprehensive unit and integration tests
+
+**Validation & Profiles:**
+- [x] Load and apply YAML profiles
+- [x] Validate against constraint rules
+- [x] Validate against HL7 tables
+- [x] Validate data types (ST, ID, CX, PN, TS, etc.)
+- [x] Support profile inheritance and merging
+- [x] Cross-field validation rules
+
+**Generation:**
+- [x] Generate messages from templates
+- [x] Deterministic output with seeding
+- [x] Generate realistic data (names, addresses, IDs)
+- [x] Generate diverse corpora
+- [x] Error injection for test data
+- [x] Golden hash verification
+
+**Performance:**
+- [x] Parse ≥100K small messages/min
+- [x] Memory usage proportional to message size
+- [x] Sub-millisecond parsing latency
+- [x] Deterministic generation with same seed
+
+**Known Limitations:**
+- [ ] Zero-copy parsing (uses Vec internally)
+- [ ] Backpressure/bounded channels
+- [ ] Highlight escapes (\H\...\N\)
+- [ ] Remote profile loading (http, s3, gs)
+- [ ] Server mode HTTP/gRPC endpoints
+- [ ] Configuration file support
 
 ### 10.3 Performance Targets (Achieved)
 - [x] Parse ≥100K messages/minute (small messages ~200 bytes)

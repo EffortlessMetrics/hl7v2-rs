@@ -8,40 +8,57 @@ This design follows a normative approach with specific implementation requiremen
 
 ## 1.1 Current Implementation Status
 
-### Phase 1: Core Implementation (In Progress - 40% Complete)
+### Phase 1: Core Implementation (In Progress - 65% Complete)
 
 **Completed:**
-- ✅ Streaming parser with event-based API
-- ✅ Zero-copy parsing techniques
+- ✅ Streaming parser with event-based API (events, delimiter switching, basic streaming)
 - ✅ Delimiter discovery and per-message reconfiguration
-- ✅ Incremental parsing support
-- ✅ Error handling improvements
+- ✅ Basic incremental parsing (can parse sequentially, not resume across boundaries)
+- ✅ MLLP protocol (frame wrapping/unwrapping, basic transport)
+- ✅ Batch processing (BHS/BTS/FHS/FTS support)
+- ✅ Escape sequence handling (\F\, \S\, \R\, \E\, \T\)
+- ✅ JSON serialization
+- ✅ Field path access API
 
 **In Progress:**
-- 🔄 Memory bound optimization and testing
+- 🔄 Error handling (core done, server mode needs work)
 - 🔄 Performance benchmarking and validation
 
-**Pending:**
-- ⏳ MLLP backpressure implementation
-- ⏳ Advanced memory pool implementation
+**Not Implemented:**
+- ❌ True zero-copy parsing (uses Vec internally, not borrowed slices)
+- ❌ Backpressure/bounded channels for streaming
+- ❌ Memory bounds enforcement
+- ❌ Resume parsing across chunk boundaries
+- ❌ Highlight escape (\H\...\N\) and binary escapes
+- ❌ Network server (MLLP TCP, TLS) - see network.rs stubs
 
-### Phase 2: Feature Completeness (Scheduled)
+### Phase 2: Feature Completeness (In Progress - 50% Complete)
 
 **Completed:**
-- ✅ Profile inheritance mechanism
-- ✅ Profile merging and conflict resolution
-- ✅ Cycle detection in profiles
-- ✅ Advanced validation rules (temporal, contextual)
+- ✅ Profile inheritance mechanism with parent resolution
+- ✅ Profile merging with conflict resolution
+- ✅ Advanced validation rules (temporal, contextual, cross-field, custom patterns)
+- ✅ Advanced data type validation (CX, PN, TS, DT, TM, NM, SI, FT, TX)
+- ✅ Specialized validators (phone, email, SSN, birth date, checksums)
+- ✅ Message generation with templates
+- ✅ Deterministic generation with seeding
+- ✅ Realistic data generators
+- ✅ Error injection
+- ✅ Golden hash verification
+- ✅ Basic corpus generation
 
 **In Progress:**
-- 🔄 Dynamic profile loading from multiple sources
-- 🔄 Expression engine with guardrails
-- 🔄 Remote profile fetching with caching
+- 🔄 CLI command coverage (parse, val, norm, ack, gen work; missing: server, config, report)
 
-**Pending:**
-- ⏳ Fuzz testing integration
-- ⏳ Statistical distribution modeling
-- ⏳ Corpus management with manifest
+**Not Implemented:**
+- ❌ Dynamic profile loading from remote sources (no http, s3, gs)
+- ❌ Expression guardrails (no time-bound evaluation)
+- ❌ Remote profile caching (no ETag, no LRU cache)
+- ❌ Cycle detection in profile inheritance (no check for circular references)
+- ❌ Fuzz testing integration (no proptest)
+- ❌ Correlated distributions (no latent variables, no Markov chains)
+- ❌ Corpus manifest generation (no metadata tracking)
+- ❌ train/val/test splits
 
 ### Future Phases (v1.3.0 - v2.0.0)
 
@@ -254,6 +271,10 @@ fields:
 ## 7. CLI Advanced Features (v1.2.0)
 
 ### 7.1 Server Mode for Continuous Processing
+
+**Implementation Status**: ❌ **Not Started**
+
+The network module in `hl7v2-core` contains struct definitions and type signatures, but all implementations are stubs that return errors or empty results. This needs to be built out for v1.2.0.
 
 **Design Approach:**
 - Implement long-running process with HTTP/gRPC endpoints

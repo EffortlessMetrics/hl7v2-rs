@@ -4,6 +4,8 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
+> **Note**: This project is in active development. For a detailed breakdown of implemented vs. planned features, see [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+
 ## Features
 
 - Parse, normalize, and validate HL7 v2.x messages
@@ -44,8 +46,8 @@ cargo install hl7v2-cli
 # Parse an HL7 message and output canonical JSON
 hl7v2 parse <input.hl7> --json > output.json
 
-# Parse multiple messages with streaming (large files)
-hl7v2 parse <large_file.hl7> --streaming --json > output.jsonl
+# Parse MLLP-framed messages
+hl7v2 parse <input.mllp> --mllp --json > output.json
 ```
 
 ### Validate Messages
@@ -74,8 +76,8 @@ hl7v2 norm <input.hl7> --canonical-delims > output.hl7
 # Generate synthetic HL7 messages with deterministic seeding
 hl7v2 gen --profile profiles/oru_r01.yaml --seed 1337 --count 100 --out corpus/
 
-# Generate with advanced statistical distributions
-hl7v2 gen --profile profiles/oru_r01.yaml --seed 1337 --count 100 --out corpus/ --distributions
+# Generate with different template
+hl7v2 gen --template templates/adm_a01.yaml --seed 42 --count 50 --out test_data/
 ```
 
 ### Acknowledgment Generation
@@ -93,40 +95,42 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 ### Core Parsing (hl7v2-core)
 
 - **Fast, safe parsing**: Written in Rust with zero unsafe code in public APIs
-- **Streaming parser**: Memory-efficient processing of large HL7 messages
-- **Zero-copy semantics**: Minimize memory allocations and copies
-- **Escape sequence handling**: Proper support for all HL7 v2 escape sequences
-- **MLLP transport**: Built-in support for Minimal Lower Layer Protocol framing
-- **Batch processing**: Handle FHS/BHS/BTS/FTS batch structures
-- **Deterministic outputs**: Consistent, reproducible message parsing
+- **Event-based streaming parser**: Process HL7 messages as a sequence of events
+- **Escape sequence handling**: Full support for HL7 v2 escape sequences (\F\, \S\, \R\, \E\, \T\)
+- **MLLP transport**: Complete MLLP frame parsing and generation
+- **Batch processing**: Full support for FHS/BHS/BTS/FTS batch and file batch structures
+- **JSON serialization**: Convert messages to canonical JSON format
+- **Field path access**: Query message fields with path notation (e.g., "PID.5[1].1")
 
 ### Profile Validation (hl7v2-prof)
 
-- **Profile inheritance**: Compose profiles from parent profiles with conflict resolution
-- **Advanced validation rules**:
+- **Profile inheritance**: Load and compose profiles with parent resolution and merging
+- **Comprehensive validation rules**:
   - Constraint validation (required fields, patterns, lengths)
-  - Value set validation against HL7 tables
-  - Cross-field conditional rules
-  - Custom expression-based rules
-  - Temporal and contextual validation
-- **Dynamic profile loading**: Load profiles from local files or remote sources
-- **Flexible rule composition**: Merge and override validation rules
+  - HL7 table value set validation with custom tables
+  - Cross-field conditional rules (requires, prohibits, validates)
+  - Advanced data type validation (CX, PN, TS, DT, TM, etc.)
+  - Custom validation patterns (regex, checksums, formats)
+  - Temporal rules for date/time comparisons
+  - Contextual rules with if/then logic
+- **Local profile loading**: Load YAML-based profiles from files
+- **Flexible rule composition**: Merge profiles with child precedence
 
 ### Synthetic Message Generation (hl7v2-gen)
 
-- **Template-based generation**: Define templates for reproducible test data
-- **Realistic data**: Generate names, addresses, phone numbers, medical identifiers
-- **Statistical distributions**: Support for uniform, normal, and categorical distributions
-- **Deterministic seeding**: Same seed produces identical output
-- **Error injection**: Generate intentionally malformed messages for testing
-- **Corpus management**: Create diverse test datasets with metadata tracking
+- **Template-based generation**: Define message templates with variable value sources
+- **Realistic data generators**: Names (gender-aware), addresses, phone numbers, SSNs, MRNs, ICD-10, LOINC codes
+- **Value distributions**: Fixed values, value lists, numeric ranges, dates, normal distributions
+- **Deterministic seeding**: Same seed + template = identical output for regression testing
+- **Error injection**: Generate invalid messages with segmentation/format errors for testing
+- **Corpus tools**: Generate collections with golden hash verification for test data reproducibility
 
 ### CLI Interface (hl7v2-cli)
 
-- **Unified command interface**: Single tool for all HL7 processing tasks
-- **Multiple input/output formats**: Support for raw, JSON, NDJSON formats
-- **Batch operations**: Process multiple files efficiently
-- **Configuration files**: Optional TOML config for production deployments
+- **Unified command interface**: parse, normalize, validate, acknowledge, generate
+- **Input/output formats**: Raw HL7, JSON, MLLP framing
+- **Interactive mode**: Command-line REPL for exploratory use
+- **File I/O**: Read from files or stdin, write to files or stdout
 
 ## Architecture
 
@@ -147,10 +151,10 @@ Each crate is independently usable as a library, enabling integration into other
 
 ## Performance Characteristics
 
-- **Parsing**: ≥100k messages/minute (small messages on NVMe)
-- **Memory**: Streaming parser uses constant memory regardless of input size
-- **Determinism**: 100% reproducible outputs with identical seeds
-- **Latency**: Sub-millisecond parsing for typical HL7 messages
+- **Parsing throughput**: ≥100k small messages/minute on NVMe (typical ORU/ADT ~200 bytes)
+- **Memory usage**: Proportional to message size; batch operations use bounded memory
+- **Determinism**: 100% reproducible message generation with same seed
+- **Latency**: Sub-millisecond for typical messages
 
 ## HL7 Standards Compliance
 
