@@ -98,6 +98,8 @@ pub struct LengthConstraint {
 pub struct ValueSet {
     pub path: String,
     pub name: String,
+    /// Codes can be defined inline OR reference an HL7 table by name
+    #[serde(default)]
     pub codes: Vec<String>,
 }
 
@@ -554,9 +556,9 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
         validate_length_constraint(msg, length, &mut issues);
     }
 
-    // Validate HL7 tables
-    for table in &profile.hl7_tables {
-        validate_hl7_table(msg, table, profile, &mut issues);
+    // Validate HL7 tables (with precedence support if configured)
+    if !profile.hl7_tables.is_empty() || !profile.valuesets.is_empty() {
+        validate_hl7_tables_with_precedence(msg, profile, &mut issues);
     }
 
     // Validate cross-field rules
@@ -685,6 +687,12 @@ fn validate_field_in_constraint(
 
 /// Validate that a field value is in the allowed value set
 fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue>) {
+    // If codes is empty, this valueset references an HL7 table
+    // Validation will happen in validate_hl7_tables_with_precedence instead
+    if valueset.codes.is_empty() {
+        return;
+    }
+
     if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
         if !valueset.codes.contains(&value.to_string()) {
             issues.push(Issue {
