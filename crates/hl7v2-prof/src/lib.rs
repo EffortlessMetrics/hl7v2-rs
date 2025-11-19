@@ -176,8 +176,17 @@ pub struct HL7TableEntry {
 pub struct CrossFieldRule {
     pub id: String,
     pub description: String,
+    /// Validation mode: "conditional" (default) or "assert"
+    /// - "conditional": If conditions are met, execute actions
+    /// - "assert": Conditions must be true, fail otherwise
+    #[serde(default = "default_validation_mode")]
+    pub validation_mode: String,
     pub conditions: Vec<RuleCondition>,
     pub actions: Vec<RuleAction>,
+}
+
+fn default_validation_mode() -> String {
+    "conditional".to_string()
 }
 
 /// Condition for a cross-field rule
@@ -1473,10 +1482,29 @@ fn validate_cross_field_rule(
         .iter()
         .all(|condition| check_rule_condition(msg, condition));
 
-    // If conditions are met, execute actions
-    if conditions_met {
-        for action in &rule.actions {
-            execute_rule_action(msg, action, rule, profile, issues);
+    match rule.validation_mode.as_str() {
+        "assert" => {
+            // Assert mode: conditions must be true, fail if they're not
+            if !conditions_met {
+                issues.push(Issue {
+                    code: "CROSS_FIELD_ASSERTION_FAILED",
+                    severity: Severity::Error,
+                    path: None,
+                    detail: format!(
+                        "Cross-field assertion failed: {} ({})",
+                        rule.description, rule.id
+                    ),
+                });
+            }
+            // If conditions are true, validation passes (no error)
+        }
+        "conditional" | _ => {
+            // Conditional mode (default): if conditions are met, execute actions
+            if conditions_met {
+                for action in &rule.actions {
+                    execute_rule_action(msg, action, rule, profile, issues);
+                }
+            }
         }
     }
 }
