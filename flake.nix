@@ -15,8 +15,9 @@
           inherit system overlays;
         };
 
-        # Pin Rust version to match MSRV
-        rustToolchain = pkgs.rust-bin.stable."1.89.0".default.override {
+        # Pin Rust version to match MSRV (1.89 = edition 2024)
+        # Note: Using latest available Rust toolchain from rust-overlay
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
         };
 
@@ -94,7 +95,7 @@
           meta = with pkgs.lib; {
             description = "Modern Rust HL7v2 Processor";
             homepage = "https://github.com/EffortlessMetrics/hl7v2-rs";
-            license = with licenses; [ mit asl20 ];
+            license = licenses.agpl3Only;
             maintainers = [ ];
           };
         };
@@ -119,7 +120,7 @@
             echo "  just <task>       - Run justfile tasks"
             echo ""
             echo "Schema validation:"
-            echo "  ajv validate -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml'"
+            echo "  ajv validate -s schemas/profile/profile-v1.schema.json -d 'examples/profiles/*.yaml'"
             echo ""
             echo "Infrastructure:"
             echo "  docker-compose up - Start local development stack"
@@ -144,9 +145,9 @@ cargo clippy --all-targets --all-features -- -D warnings
 # Tests
 cargo test --all
 
-# Schema validation
-if command -v ajv &> /dev/null; then
-  ajv validate -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml' || true
+# Schema validation (if schema exists)
+if command -v ajv &> /dev/null && [ -f schemas/profile/profile-v1.schema.json ]; then
+  ajv validate -s schemas/profile/profile-v1.schema.json -d 'examples/profiles/*.yaml' || true
 fi
 
 echo "✅ Pre-commit checks passed!"
@@ -176,13 +177,15 @@ EOF
           contents = [ self.packages.${system}.default ];
 
           config = {
-            Cmd = [ "/bin/hl7v2" "server" ];
+            Cmd = [ "${self.packages.${system}.default}/bin/hl7v2-server" ];
             ExposedPorts = {
-              "8080/tcp" = {};
-              "2575/tcp" = {};
+              "8080/tcp" = {};  # HTTP API
+              "2575/tcp" = {};  # MLLP (if implemented)
             };
             Env = [
               "RUST_LOG=info"
+              "HL7V2_HOST=0.0.0.0"
+              "HL7V2_PORT=8080"
             ];
           };
         };
