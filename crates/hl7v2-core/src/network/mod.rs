@@ -29,7 +29,8 @@
 //!     .build();
 //!
 //! // Connect to server
-//! client.connect("127.0.0.1:2575").await?;
+//! let addr: std::net::SocketAddr = "127.0.0.1:2575".parse()?;
+//! client.connect(addr).await?;
 //!
 //! // Send a message (assumes you have a Message)
 //! # use hl7v2_core::{Message, Delims};
@@ -60,7 +61,8 @@
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! let mut server = MllpServer::new(MllpServerConfig::default());
-//! server.bind("127.0.0.1:2575").await?;
+//! let addr: std::net::SocketAddr = "127.0.0.1:2575".parse()?;
+//! server.bind(addr).await?;
 //! server.run(MyHandler).await?;
 //! # Ok(())
 //! # }

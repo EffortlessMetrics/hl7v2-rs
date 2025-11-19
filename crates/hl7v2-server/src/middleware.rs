@@ -108,12 +108,11 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, S
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```
 /// use hl7v2_server::middleware::create_concurrency_limit_layer;
-/// use axum::Router;
 ///
-/// let app = Router::new()
-///     .layer(create_concurrency_limit_layer());
+/// let _layer = create_concurrency_limit_layer();
+/// // Use with axum Router: Router::new().layer(_layer)
 /// ```
 pub fn create_concurrency_limit_layer() -> ConcurrencyLimitLayer {
     ConcurrencyLimitLayer::new(100)  // Allow up to 100 concurrent requests
