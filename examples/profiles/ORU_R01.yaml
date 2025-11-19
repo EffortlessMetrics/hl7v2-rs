@@ -1,0 +1,398 @@
+# ORU^R01 - Unsolicited Observation Message
+#
+# HL7 Version: 2.5.1
+# Event: R01 - Unsolicited transmission of an observation message
+#
+# This profile validates ORU^R01 messages used to transmit clinical
+# observations, lab results, radiology reports, and other diagnostic
+# information from ancillary services to clinical systems.
+#
+# Message Structure: MSH [{ SFT }] [ UAC ] PID [PD1] [{ PRT }] [{ NTE }]
+#                    [PV1 [PV2] [{ PRT }]] [{ [{OBX [{ PRT }] [{ NTE }]}] }]
+#
+# Common Use Cases:
+# - Laboratory results (chemistry, hematology, microbiology)
+# - Radiology reports
+# - Cardiology results (EKG, Echo)
+# - Pathology reports
+# - Point-of-care testing results
+
+message_structure: "ORU_R01"
+version: "2.5.1"
+description: "ORU^R01 - Unsolicited Observation Message profile"
+
+# Required Segments
+segments:
+  - id: "MSH"
+    description: "Message Header"
+    required: true
+    max_uses: 1
+
+  - id: "PID"
+    description: "Patient Identification"
+    required: true
+    max_uses: 1
+
+  - id: "OBR"
+    description: "Observation Request - defines the test/study"
+    required: true
+    max_uses: -1  # Can have multiple orders
+
+  - id: "OBX"
+    description: "Observation/Result - actual result data"
+    required: true
+    max_uses: -1  # Multiple results per order
+
+# Optional Segments
+  - id: "PD1"
+    description: "Patient Additional Demographic"
+    required: false
+    max_uses: 1
+
+  - id: "PV1"
+    description: "Patient Visit"
+    required: false
+    max_uses: 1
+
+  - id: "PV2"
+    description: "Patient Visit - Additional Information"
+    required: false
+    max_uses: 1
+
+  - id: "ORC"
+    description: "Common Order - order control information"
+    required: false
+    max_uses: -1
+
+  - id: "NTE"
+    description: "Notes and Comments"
+    required: false
+    max_uses: -1
+
+  - id: "SPM"
+    description: "Specimen"
+    required: false
+    max_uses: -1
+
+  - id: "TQ1"
+    description: "Timing/Quantity"
+    required: false
+    max_uses: -1
+
+# MSH Field Validation
+msh_constraints:
+  - field: "MSH.9.1"
+    required: true
+    values: ["ORU"]
+
+  - field: "MSH.9.2"
+    required: true
+    values: ["R01"]
+
+  - field: "MSH.11"
+    required: true
+
+  - field: "MSH.12"
+    required: true
+    values: ["2.5", "2.5.1"]
+
+# PID Field Constraints
+field_constraints:
+  - path: "PID.3"
+    required: true
+    description: "Patient identifier required to match results"
+
+  - path: "PID.5"
+    required: true
+    description: "Patient name required for safety"
+
+# OBR Field Constraints - Critical for result interpretation
+  - path: "OBR.1"
+    required: true
+    description: "Set ID - OBR"
+
+  - path: "OBR.2"
+    required: false  # Placer order number (from ordering system)
+    description: "Placer Order Number"
+
+  - path: "OBR.3"
+    required: true  # Filler order number (from performing system)
+    description: "Filler Order Number - required for tracking"
+
+  - path: "OBR.4"
+    required: true
+    description: "Universal Service ID - identifies the test/procedure"
+
+  - path: "OBR.7"
+    required: true
+    datatype: "TS"
+    description: "Observation Date/Time - when specimen collected"
+
+  - path: "OBR.22"
+    required: false
+    datatype: "TS"
+    description: "Results Rpt/Status Chng - when results finalized"
+
+  - path: "OBR.25"
+    required: true
+    description: "Result Status - F=Final, P=Preliminary, C=Corrected, X=Cannot obtain"
+
+# OBX Field Constraints - Actual result data
+  - path: "OBX.1"
+    required: true
+    description: "Set ID - OBX"
+
+  - path: "OBX.2"
+    required: true
+    description: "Value Type - NM, ST, TX, CE, etc."
+
+  - path: "OBX.3"
+    required: true
+    description: "Observation Identifier - LOINC code recommended"
+
+  - path: "OBX.5"
+    required: true
+    description: "Observation Value - the actual result"
+
+  - path: "OBX.6"
+    required: false  # Units important for numeric results
+    description: "Units - required for numeric results"
+
+  - path: "OBX.7"
+    required: false  # Reference range
+    description: "References Range"
+
+  - path: "OBX.8"
+    required: false  # Abnormal flags: L, H, LL, HH, <, >, N, A
+    description: "Abnormal Flags"
+
+  - path: "OBX.11"
+    required: true
+    description: "Observation Result Status - F, P, C, X, etc."
+
+  - path: "OBX.14"
+    required: false
+    datatype: "TS"
+    description: "Date/Time of the Observation"
+
+# HL7 Tables
+hl7_tables:
+  - id: "HL70001"
+    name: "Administrative Sex"
+    version: "2.5.1"
+    codes:
+      - code: "F"
+        display: "Female"
+      - code: "M"
+        display: "Male"
+      - code: "O"
+        display: "Other"
+      - code: "U"
+        display: "Unknown"
+
+  - id: "HL70085"
+    name: "Observation Result Status"
+    version: "2.5.1"
+    codes:
+      - code: "C"
+        display: "Record coming over is a correction"
+      - code: "D"
+        display: "Deletes the OBX record"
+      - code: "F"
+        display: "Final results"
+      - code: "I"
+        display: "Specimen in lab; results pending"
+      - code: "N"
+        display: "Not asked; used to affirmatively document"
+      - code: "O"
+        display: "Order detail description only (no result)"
+      - code: "P"
+        display: "Preliminary results"
+      - code: "R"
+        display: "Results entered -- not verified"
+      - code: "S"
+        display: "Partial results"
+      - code: "U"
+        display: "Results status change to final"
+      - code: "W"
+        display: "Post original as wrong"
+      - code: "X"
+        display: "Results cannot be obtained for this observation"
+
+  - id: "HL70123"
+    name: "Result Status"
+    version: "2.5.1"
+    codes:
+      - code: "A"
+        display: "Some results available"
+      - code: "C"
+        display: "Correction to results"
+      - code: "F"
+        display: "Final results"
+      - code: "I"
+        display: "Specimen in lab"
+      - code: "M"
+        display: "Corrected, final"
+      - code: "N"
+        display: "Not asked"
+      - code: "O"
+        display: "Order detail description only"
+      - code: "P"
+        display: "Preliminary"
+      - code: "R"
+        display: "Results entered -- not verified"
+      - code: "S"
+        display: "Partial results"
+      - code: "U"
+        display: "Results status change to final"
+      - code: "W"
+        display: "Post original as wrong"
+      - code: "X"
+        display: "Results cannot be obtained"
+      - code: "Y"
+        display: "No order on record"
+      - code: "Z"
+        display: "No record of this patient"
+
+  - id: "HL70125"
+    name: "Value Type"
+    version: "2.5.1"
+    codes:
+      - code: "AD"
+        display: "Address"
+      - code: "CE"
+        display: "Coded Entry"
+      - code: "CF"
+        display: "Coded Element With Formatted Values"
+      - code: "CK"
+        display: "Composite ID With Check Digit"
+      - code: "CN"
+        display: "Composite ID And Name"
+      - code: "CP"
+        display: "Composite Price"
+      - code: "CX"
+        display: "Extended Composite ID With Check Digit"
+      - code: "DT"
+        display: "Date"
+      - code: "ED"
+        display: "Encapsulated Data"
+      - code: "FT"
+        display: "Formatted Text (Display)"
+      - code: "MO"
+        display: "Money"
+      - code: "NM"
+        display: "Numeric"
+      - code: "PN"
+        display: "Person Name"
+      - code: "RP"
+        display: "Reference Pointer"
+      - code: "SN"
+        display: "Structured Numeric"
+      - code: "ST"
+        display: "String Data"
+      - code: "TM"
+        display: "Time"
+      - code: "TN"
+        display: "Telephone Number"
+      - code: "TS"
+        display: "Time Stamp (Date & Time)"
+      - code: "TX"
+        display: "Text Data (Display)"
+      - code: "XAD"
+        display: "Extended Address"
+      - code: "XCN"
+        display: "Extended Composite Name And Number For Persons"
+      - code: "XON"
+        display: "Extended Composite Name And Number For Organizations"
+      - code: "XPN"
+        display: "Extended Person Name"
+      - code: "XTN"
+        display: "Extended Telecommunications Number"
+
+# Value Sets
+valuesets:
+  - path: "PID.8"
+    name: "Administrative Sex"
+    codes: []
+    hl7_table: "HL70001"
+
+  - path: "OBX.2"
+    name: "Value Type"
+    codes: []
+    hl7_table: "HL70125"
+
+  - path: "OBX.11"
+    name: "Observation Result Status"
+    codes: []
+    hl7_table: "HL70085"
+
+  - path: "OBR.25"
+    name: "Result Status"
+    codes: []
+    hl7_table: "HL70123"
+
+# Cross-Field Rules - Result Safety Checks
+cross_field_rules:
+  - id: "numeric-results-need-units"
+    description: "Numeric results should include units"
+    validation_mode: "conditional"
+    conditions:
+      - field: "OBX.2"
+        operator: "eq"
+        value: "NM"
+      - field: "OBX.6"
+        operator: "not_exists"
+    actions:
+      - field: "OBX.6"
+        action: "validate"
+        message: "Units recommended for numeric results"
+
+  - id: "result-status-consistency"
+    description: "OBX status should not be more final than OBR status"
+    validation_mode: "conditional"
+    conditions:
+      - field: "OBR.25"
+        operator: "eq"
+        value: "P"
+      - field: "OBX.11"
+        operator: "eq"
+        value: "F"
+    actions:
+      - field: "OBX.11"
+        action: "validate"
+        message: "Individual result cannot be Final if overall order is Preliminary"
+
+  - id: "observation-time-after-collection"
+    description: "Result observation time should be after specimen collection"
+    validation_mode: "conditional"
+    conditions:
+      - field: "OBR.7"  # Collection time
+        operator: "is_date"
+      - field: "OBX.14"  # Observation time
+        operator: "is_date"
+    actions:
+      - field: "OBX.14"
+        action: "validate"
+        message: "Observation time should be after collection time"
+
+# Temporal Rules
+temporal_rules:
+  - id: "collection-not-future"
+    description: "Specimen collection time cannot be in the future"
+    before: "NOW"
+    after: "OBR.7"
+    allow_equal: true
+    tolerance: "1h"  # Allow 1 hour clock skew
+
+  - id: "result-time-reasonable"
+    description: "Result time should be recent (within 1 year)"
+    before: "NOW"
+    after: "OBR.22"
+    allow_equal: true
+    tolerance: "1y"
+
+# Expression Guardrails
+expression_guardrails:
+  max_depth: 10
+  max_length: 1000
+  allow_custom_scripts: false

@@ -1,0 +1,217 @@
+# ADT^A04 - Register a Patient
+#
+# HL7 Version: 2.5.1
+# Event: A04 - Register a Patient
+#
+# This profile validates ADT^A04 messages used for patient registration
+# without an admit. Typically used for outpatient registration or
+# pre-registration before admission.
+#
+# Message Structure: MSH EVN PID [PD1] [{ROL}] [{NK1}] PV1 [PV2] [{ROL}]
+#                    [{DB1}] [{OBX}] [{AL1}] [{DG1}] [DRG] [{PR1}]
+#
+# Common Use Cases:
+# - Outpatient registration
+# - Pre-admission registration
+# - Clinic registration
+# - Emergency department registration
+
+message_structure: "ADT_A04"
+version: "2.5.1"
+description: "ADT^A04 - Register a Patient profile"
+
+# Required Segments
+segments:
+  - id: "MSH"
+    description: "Message Header"
+    required: true
+    max_uses: 1
+
+  - id: "EVN"
+    description: "Event Type"
+    required: true
+    max_uses: 1
+
+  - id: "PID"
+    description: "Patient Identification"
+    required: true
+    max_uses: 1
+
+  - id: "PV1"
+    description: "Patient Visit"
+    required: true
+    max_uses: 1
+
+# Optional Segments
+  - id: "PD1"
+    description: "Patient Additional Demographic"
+    required: false
+    max_uses: 1
+
+  - id: "ROL"
+    description: "Role"
+    required: false
+    max_uses: -1
+
+  - id: "NK1"
+    description: "Next of Kin"
+    required: false
+    max_uses: -1
+
+  - id: "PV2"
+    description: "Patient Visit - Additional Information"
+    required: false
+    max_uses: 1
+
+  - id: "DB1"
+    description: "Disability Information"
+    required: false
+    max_uses: -1
+
+  - id: "OBX"
+    description: "Observation/Result"
+    required: false
+    max_uses: -1
+
+  - id: "AL1"
+    description: "Allergy Information"
+    required: false
+    max_uses: -1
+
+  - id: "DG1"
+    description: "Diagnosis"
+    required: false
+    max_uses: -1
+
+  - id: "DRG"
+    description: "Diagnosis Related Group"
+    required: false
+    max_uses: 1
+
+  - id: "PR1"
+    description: "Procedures"
+    required: false
+    max_uses: -1
+
+# MSH Field Validation
+msh_constraints:
+  - field: "MSH.9.1"
+    required: true
+    values: ["ADT"]
+
+  - field: "MSH.9.2"
+    required: true
+    values: ["A04"]
+
+  - field: "MSH.11"
+    required: true
+
+  - field: "MSH.12"
+    required: true
+    values: ["2.5", "2.5.1"]
+
+# PID Field Constraints
+field_constraints:
+  - path: "PID.3"
+    required: true
+    description: "Patient identifier required for registration"
+
+  - path: "PID.5"
+    required: true
+    description: "Patient name required"
+
+  - path: "PID.7"
+    required: false  # Birth date optional for registration (might be unknown)
+    datatype: "TS"
+
+  - path: "PID.11"
+    required: false  # Address helpful but not always required
+    description: "Patient address"
+
+  - path: "PID.13"
+    required: false  # Phone helpful for contact
+    description: "Phone number"
+
+# HL7 Tables
+hl7_tables:
+  - id: "HL70001"
+    name: "Administrative Sex"
+    version: "2.5.1"
+    codes:
+      - code: "F"
+        display: "Female"
+      - code: "M"
+        display: "Male"
+      - code: "O"
+        display: "Other"
+      - code: "U"
+        display: "Unknown"
+
+  - id: "HL70004"
+    name: "Patient Class"
+    version: "2.5.1"
+    codes:
+      - code: "E"
+        display: "Emergency"
+      - code: "I"
+        display: "Inpatient"
+      - code: "O"
+        display: "Outpatient"
+      - code: "P"
+        display: "Preadmit"
+      - code: "R"
+        display: "Recurring patient"
+      - code: "B"
+        display: "Obstetrics"
+      - code: "C"
+        display: "Commercial Account"
+      - code: "N"
+        display: "Not Applicable"
+      - code: "U"
+        display: "Unknown"
+
+# Value Sets
+valuesets:
+  - path: "PID.8"
+    name: "Administrative Sex"
+    codes: []
+    hl7_table: "HL70001"
+
+  - path: "PV1.2"
+    name: "Patient Class"
+    codes: []
+    hl7_table: "HL70004"
+
+# Cross-Field Rules
+cross_field_rules:
+  - id: "registration-date-after-birth"
+    description: "Registration date must be after birth date (if birth date known)"
+    validation_mode: "conditional"
+    conditions:
+      - field: "PID.7"
+        operator: "exists"
+      - field: "EVN.6"  # Event occurred
+        operator: "exists"
+    actions:
+      - field: "EVN.6"
+        action: "validate"
+        message: "Registration date should be after birth date"
+
+  - id: "contact-info-required"
+    description: "Either address or phone number should be provided"
+    validation_mode: "conditional"
+    conditions:
+      - field: "PID.11"
+        operator: "not_exists"
+      - field: "PID.13"
+        operator: "not_exists"
+    actions:
+      - field: "PID"
+        action: "validate"
+        message: "At least one contact method (address or phone) recommended"
+
+# Expression Guardrails
+expression_guardrails:
+  max_depth: 10
+  max_length: 1000
+  allow_custom_scripts: false

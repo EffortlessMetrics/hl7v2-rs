@@ -1,0 +1,27 @@
+# Minimal HL7v2 Conformance Profile
+#
+# This profile demonstrates the absolute minimum configuration needed
+# to validate an HL7v2 message. It only validates basic structure.
+#
+# Use this as a starting point for creating custom profiles.
+
+message_structure: "MINIMAL"
+version: "2.5"
+description: "Minimal profile for basic HL7v2 message structure validation"
+
+# Require MSH segment (always required in HL7v2)
+segments:
+  - id: "MSH"
+    description: "Message Header"
+    required: true
+    max_uses: 1
+
+# No field-level validation - accepts any valid HL7v2 syntax
+# No value sets - accepts any values
+# No cross-field rules - no inter-field dependencies checked
+
+# This profile will:
+# - Validate MSH segment is present
+# - Validate basic HL7v2 syntax (delimiters, segment structure)
+# - Accept any other segments
+# - Accept any field values
