@@ -20,7 +20,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 axum = { workspace = true }
-tower = { workspace = true }
+tower = { workspace = true, features = ["limit"] }
 tower-http = { workspace = true, features = ["trace", "cors", "compression-gzip"] }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
