@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/message/v1",
+  "title": "HL7v2 Parsed Message Schema",
+  "description": "JSON representation of a parsed HL7v2 message",
+  "type": "object",
+  "required": ["delimiters", "segments"],
+  "properties": {
+    "delimiters": {
+      "type": "object",
+      "description": "Message delimiters",
+      "required": ["field", "component", "repetition", "escape", "subcomponent"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1,
+          "description": "Field separator (typically |)"
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1,
+          "description": "Component separator (typically ^)"
+        },
+        "repetition": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1,
+          "description": "Repetition separator (typically ~)"
+        },
+        "escape": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1,
+          "description": "Escape character (typically \\)"
+        },
+        "subcomponent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1,
+          "description": "Subcomponent separator (typically &)"
+        }
+      }
+    },
+    "segments": {
+      "type": "array",
+      "description": "Message segments in order",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/segment"
+      }
+    }
+  },
+  "definitions": {
+    "segment": {
+      "type": "object",
+      "required": ["id", "fields"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Three-letter segment ID",
+          "examples": ["MSH", "PID", "OBX", "ORC"]
+        },
+        "fields": {
+          "type": "array",
+          "description": "Segment fields",
+          "items": {
+            "$ref": "#/definitions/field"
+          }
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Sequence number for repeated segments"
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": ["string", "null"],
+          "description": "Simple field value (for non-repeating, non-component fields)"
+        },
+        "repetitions": {
+          "type": "array",
+          "description": "Field repetitions (if field repeats)",
+          "items": {
+            "$ref": "#/definitions/repetition"
+          }
+        },
+        "presence": {
+          "type": "string",
+          "enum": ["missing", "empty", "null", "value"],
+          "description": "Field presence indicator"
+        }
+      }
+    },
+    "repetition": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": ["string", "null"],
+          "description": "Simple repetition value"
+        },
+        "components": {
+          "type": "array",
+          "description": "Components within this repetition",
+          "items": {
+            "$ref": "#/definitions/component"
+          }
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": ["string", "null"],
+          "description": "Component value"
+        },
+        "subcomponents": {
+          "type": "array",
+          "description": "Subcomponents",
+          "items": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "delimiters": {
+        "field": "|",
+        "component": "^",
+        "repetition": "~",
+        "escape": "\\",
+        "subcomponent": "&"
+      },
+      "segments": [
+        {
+          "id": "MSH",
+          "fields": [
+            {"value": "|", "presence": "value"},
+            {"value": "^~\\&", "presence": "value"},
+            {"value": "SENDER", "presence": "value"}
+          ]
+        },
+        {
+          "id": "PID",
+          "fields": [
+            {"value": "1", "presence": "value"},
+            {"value": null, "presence": "empty"},
+            {
+              "repetitions": [
+                {
+                  "components": [
+                    {"value": "123456"},
+                    {"value": "MRN"},
+                    {"value": "FACILITY"}
+                  ]
+                }
+              ],
+              "presence": "value"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/error/v1",
+  "title": "HL7v2-rs Error Schema",
+  "description": "Standardized error response format",
+  "type": "object",
+  "required": ["code", "human"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "Machine-readable error code",
+      "pattern": "^[A-Z]_[A-Za-z_]+$",
+      "examples": ["P_SegmentId", "P_MissingMSH", "V_RequiredField", "S_Encoding"]
+    },
+    "human": {
+      "type": "string",
+      "description": "Human-readable error message"
+    },
+    "advice": {
+      "type": "string",
+      "description": "Suggested remediation advice"
+    },
+    "segment": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "Segment ID where error occurred"
+    },
+    "field": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Field number where error occurred"
+    },
+    "component": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Component number where error occurred"
+    },
+    "repetition": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Repetition number where error occurred"
+    },
+    "byte_offset": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Byte offset in original message"
+    },
+    "trace_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Trace ID for correlation with logs"
+    },
+    "context": {
+      "type": "object",
+      "description": "Additional context information",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "code": "P_MissingMSH",
+      "human": "Message must start with MSH segment",
+      "advice": "Ensure the message begins with a valid MSH segment containing required fields",
+      "byte_offset": 0,
+      "trace_id": "550e8400-e29b-41d4-a716-446655440000"
+    },
+    {
+      "code": "V_RequiredField",
+      "human": "Required field is missing",
+      "advice": "Populate PID.3 with a valid patient identifier",
+      "segment": "PID",
+      "field": 3,
+      "trace_id": "550e8400-e29b-41d4-a716-446655440001"
+    }
+  ]
+}

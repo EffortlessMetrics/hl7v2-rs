@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/manifest/v1",
+  "title": "Corpus Manifest Schema",
+  "description": "Manifest for reproducible message corpus generation",
+  "type": "object",
+  "required": ["version", "seed", "templates", "messages", "generated_at"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "hl7v2-rs tool version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "examples": ["1.2.0", "0.1.0"]
+    },
+    "seed": {
+      "type": "integer",
+      "description": "Random seed used for generation",
+      "examples": [42, 1337]
+    },
+    "templates": {
+      "type": "array",
+      "description": "Template files used",
+      "items": {
+        "$ref": "#/definitions/template_info"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "description": "Profile files used for validation",
+      "items": {
+        "$ref": "#/definitions/profile_info"
+      }
+    },
+    "messages": {
+      "type": "array",
+      "description": "Generated message files",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/message_info"
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of generation"
+    },
+    "splits": {
+      "type": "object",
+      "description": "Train/validation/test splits",
+      "properties": {
+        "train": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "validation": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "test": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  },
+  "definitions": {
+    "template_info": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to template file"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of template file"
+        }
+      }
+    },
+    "profile_info": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to profile file"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of profile file"
+        }
+      }
+    },
+    "message_info": {
+      "type": "object",
+      "required": ["path", "sha256", "message_type"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to message file"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of message file"
+        },
+        "message_type": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}\\^[A-Z0-9]{3}$",
+          "description": "HL7 message type",
+          "examples": ["ADT^A01", "ORU^R01"]
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size in bytes"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "version": "1.2.0",
+      "seed": 42,
+      "templates": [
+        {
+          "path": "templates/adt_a01.yaml",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "profiles": [
+        {
+          "path": "profiles/adt_a01.yaml",
+          "sha256": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce"
+        }
+      ],
+      "messages": [
+        {
+          "path": "corpus/msg_000001.hl7",
+          "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+          "message_type": "ADT^A01",
+          "size_bytes": 456
+        }
+      ],
+      "generated_at": "2025-11-19T10:00:00Z"
+    }
+  ]
+}
