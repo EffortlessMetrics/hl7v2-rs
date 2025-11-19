@@ -1,0 +1,546 @@
+openapi: 3.0.3
+info:
+  title: HL7v2-rs HTTP API
+  version: 1.2.0
+  description: |
+    RESTful API for HL7 v2 message parsing, validation, and processing.
+
+    This API provides endpoints for:
+    - Parsing HL7 v2 messages
+    - Validating messages against conformance profiles
+    - Generating acknowledgments (ACKs)
+    - Message normalization
+    - Corpus generation
+
+    ## Authentication
+
+    All endpoints require Bearer token authentication:
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    ## Rate Limiting
+
+    - 1000 requests per minute per IP
+    - 10,000 requests per hour per API key
+    - Exceeded limits return 429 Too Many Requests
+
+    ## Tracing
+
+    Include `X-Trace-ID` header for request correlation:
+    ```
+    X-Trace-ID: <uuid>
+    ```
+  contact:
+    name: HL7v2-rs Team
+    url: https://github.com/EffortlessMetrics/hl7v2-rs
+  license:
+    name: MIT OR Apache-2.0
+    url: https://github.com/EffortlessMetrics/hl7v2-rs/blob/main/LICENSE-MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.hl7v2-rs.example.com
+    description: Production
+
+tags:
+  - name: health
+    description: Health and readiness checks
+  - name: parse
+    description: Message parsing operations
+  - name: validate
+    description: Message validation operations
+  - name: ack
+    description: Acknowledgment generation
+  - name: normalize
+    description: Message normalization
+  - name: generate
+    description: Test message generation
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns OK if service is running
+      tags: [health]
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "OK"
+
+  /ready:
+    get:
+      summary: Readiness check
+      description: Returns OK if service is ready to accept requests
+      tags: [health]
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: Service not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Returns metrics in Prometheus text format
+      tags: [health]
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /hl7/parse:
+    post:
+      summary: Parse HL7 message
+      description: |
+        Parse an HL7 v2 message and return JSON representation.
+
+        Supports:
+        - Standard HL7 v2.x messages
+        - MLLP-framed messages (set `mllp_framed: true`)
+        - Custom delimiters (auto-detected from MSH)
+      tags: [parse]
+      operationId: parseMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseRequest'
+          text/plain:
+            schema:
+              type: string
+              description: Raw HL7 message
+              example: |
+                MSH|^~\&|SENDER|||20231119||ADT^A01|123|P|2.5
+                PID|1||MRN123
+      responses:
+        '200':
+          description: Message parsed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseResponse'
+        '400':
+          description: Invalid message format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hl7/validate:
+    post:
+      summary: Validate HL7 message
+      description: |
+        Validate an HL7 message against a conformance profile.
+
+        Returns all validation errors and warnings with:
+        - Error codes
+        - Field locations
+        - Human-readable descriptions
+        - Remediation advice
+      tags: [validate]
+      operationId: validateMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: Validation complete (may have errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hl7/ack:
+    post:
+      summary: Generate ACK
+      description: |
+        Generate an HL7 acknowledgment (ACK) message.
+
+        Supported ACK codes:
+        - AA: Application Accept
+        - AE: Application Error
+        - AR: Application Reject
+      tags: [ack]
+      operationId: generateAck
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckRequest'
+      responses:
+        '200':
+          description: ACK generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /hl7/normalize:
+    post:
+      summary: Normalize HL7 message
+      description: |
+        Normalize an HL7 message (parse and re-serialize).
+
+        Options:
+        - Canonical delimiters
+        - MLLP framing
+        - Field ordering
+      tags: [normalize]
+      operationId: normalizeMessage
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NormalizeRequest'
+      responses:
+        '200':
+          description: Message normalized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NormalizeResponse'
+        '400':
+          description: Invalid message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for API authentication
+
+  parameters:
+    TraceID:
+      name: X-Trace-ID
+      in: header
+      description: Trace ID for request correlation
+      required: false
+      schema:
+        type: string
+        format: uuid
+        example: "550e8400-e29b-41d4-a716-446655440000"
+
+  schemas:
+    ReadinessResponse:
+      type: object
+      required: [ready, timestamp]
+      properties:
+        ready:
+          type: boolean
+          example: true
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [ok, degraded, down]
+            cache:
+              type: string
+              enum: [ok, degraded, down]
+
+    ParseRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: HL7 message to parse
+        mllp_framed:
+          type: boolean
+          default: false
+          description: Whether message is MLLP-framed
+        options:
+          type: object
+          properties:
+            strict:
+              type: boolean
+              default: false
+              description: Strict parsing mode
+
+    ParseResponse:
+      type: object
+      required: [parsed, delimiters, segments]
+      properties:
+        parsed:
+          type: boolean
+          example: true
+        delimiters:
+          $ref: '#/components/schemas/Delimiters'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Segment'
+        metadata:
+          type: object
+          properties:
+            message_type:
+              type: string
+              example: "ADT^A01"
+            version:
+              type: string
+              example: "2.5"
+
+    ValidateRequest:
+      type: object
+      required: [message, profile]
+      properties:
+        message:
+          type: string
+          description: HL7 message to validate
+        profile:
+          type: string
+          description: Profile name or URL
+          example: "adt_a01"
+        mllp_framed:
+          type: boolean
+          default: false
+        fail_on_warning:
+          type: boolean
+          default: false
+
+    ValidateResponse:
+      type: object
+      required: [valid, errors, warnings]
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+        summary:
+          type: object
+          properties:
+            error_count:
+              type: integer
+            warning_count:
+              type: integer
+
+    AckRequest:
+      type: object
+      required: [message, code]
+      properties:
+        message:
+          type: string
+          description: Original message to acknowledge
+        code:
+          type: string
+          enum: [AA, AE, AR]
+          description: ACK code
+        error_message:
+          type: string
+          description: Error message (for AE/AR)
+
+    AckResponse:
+      type: object
+      required: [ack_message]
+      properties:
+        ack_message:
+          type: string
+          description: Generated ACK message
+
+    NormalizeRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        canonical_delimiters:
+          type: boolean
+          default: false
+        mllp_frame:
+          type: boolean
+          default: false
+
+    NormalizeResponse:
+      type: object
+      required: [normalized]
+      properties:
+        normalized:
+          type: string
+          description: Normalized message
+
+    Delimiters:
+      type: object
+      required: [field, component, repetition, escape, subcomponent]
+      properties:
+        field:
+          type: string
+          minLength: 1
+          maxLength: 1
+          example: "|"
+        component:
+          type: string
+          minLength: 1
+          maxLength: 1
+          example: "^"
+        repetition:
+          type: string
+          minLength: 1
+          maxLength: 1
+          example: "~"
+        escape:
+          type: string
+          minLength: 1
+          maxLength: 1
+          example: "\\"
+        subcomponent:
+          type: string
+          minLength: 1
+          maxLength: 1
+          example: "&"
+
+    Segment:
+      type: object
+      required: [id, fields]
+      properties:
+        id:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: "PID"
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
+
+    Field:
+      type: object
+      properties:
+        value:
+          type: string
+          nullable: true
+        presence:
+          type: string
+          enum: [missing, empty, null, value]
+        repetitions:
+          type: array
+          items:
+            type: object
+
+    ValidationIssue:
+      type: object
+      required: [code, message, severity]
+      properties:
+        code:
+          type: string
+          pattern: "^[A-Z]_[A-Za-z_]+$"
+          example: "V_RequiredField"
+        message:
+          type: string
+          example: "Required field PID.3 is missing"
+        severity:
+          type: string
+          enum: [error, warning, info]
+        location:
+          type: object
+          properties:
+            segment:
+              type: string
+            field:
+              type: integer
+            component:
+              type: integer
+            byte_offset:
+              type: integer
+        advice:
+          type: string
+          example: "Populate PID.3 with a valid patient identifier"
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: "P_ParseError"
+        message:
+          type: string
+          example: "Invalid message format"
+        details:
+          type: object
+        trace_id:
+          type: string
+          format: uuid

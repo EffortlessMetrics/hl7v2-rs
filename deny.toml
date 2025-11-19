@@ -1,18 +1,45 @@
-# Configuration for cargo-deny
+# cargo-deny configuration for supply chain security
+# https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+vulnerability = "deny"
+unmaintained = "warn"
+yanked = "deny"
+notice = "warn"
+ignore = []
 
 [licenses]
-# List of explicitly allowed licenses
+unlicensed = "deny"
 allow = [
     "MIT",
     "Apache-2.0",
-    "Unicode-DFS-2016",  # Required for unicode-ident
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Zlib",
 ]
+deny = [
+    "GPL-3.0",
+    "AGPL-3.0",
+]
+copyleft = "deny"
+allow-osi-fsf-free = "neither"
+default = "deny"
+confidence-threshold = 0.8
 
 [bans]
-# Deny multiple versions of the same crate
 multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
 
 [sources]
-# What to do when encountering a crate from a registry other than crates.io
-unknown-registry = "warn"
-unknown-git = "warn"
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+[sources.allow-org]
+github = ["tokio-rs", "hyperium", "serde-rs"]
