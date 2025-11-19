@@ -2,14 +2,14 @@
 
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
-> **Last Updated**: 2025-11-13
-> **Project Status**: v1.1.0 (stable core, advanced features in progress)
+> **Last Updated**: 2025-11-19
+> **Project Status**: v1.1.0 (stable core, network module complete, HTTP server in progress)
 
 ## Executive Summary
 
-The hl7v2-rs project has solid implementations of core HL7 parsing, profile validation, and message generation. Most advanced features are either stubbed or partially implemented. This page details exactly what works and what's planned.
+The hl7v2-rs project has solid implementations of core HL7 parsing, profile validation, message generation, and MLLP network transport. The HTTP/REST API server is the next major deliverable. This page details exactly what works and what's planned.
 
-**Overall Feature Completion**: ~65% of v1.2 roadmap
+**Overall Feature Completion**: ~72% of v1.2 roadmap
 
 ## Feature Status Legend
 
@@ -99,17 +99,48 @@ while let Some(event) = parser.next_event()? {
 - ✅ Presence semantics (Empty vs Null vs Missing)
 
 ### Network Module
-**Status**: ❌ **Stubs Only** (5%)
+**Status**: ✅ **Complete** (95%)
 
-**Current State**: All structures defined but implementations are placeholders
+**Implemented** (commit `eab1ae7`):
+- ✅ **MllpCodec** - Full Tokio codec implementation for MLLP framing
+- ✅ **MllpServer** - Async TCP server with Tokio
+  - ✅ Configurable timeouts (read/write)
+  - ✅ Pluggable MessageHandler trait
+  - ✅ Three ACK timing policies (Immediate, Delayed, OnDemand)
+  - ✅ Per-connection task spawning
+  - ✅ Backlog configuration
+- ✅ **MllpClient** - Async TCP client with connection management
+  - ✅ MllpClientBuilder for fluent configuration
+  - ✅ Send-and-wait-for-ACK pattern
+  - ✅ Fire-and-forget send option
+  - ✅ Reconnection support
+- ✅ **14 passing tests** - codec, client, server, integration
+- ✅ Full async/await support with Tokio runtime
 
-- ❌ `MllpServer` - Stub only, not functional
-- ❌ `MllpClient` - Stub only, not functional
-- ❌ TLS support - Not started
-- ❌ Actual TCP connections - Not implemented
-- ❌ Async operations - Not implemented
+**Dependencies**:
+- tokio v1.0 (net, io-util, time, macros, rt, sync)
+- tokio-util v0.7 (codec)
+- bytes v1.0
+- futures v0.3
 
-This needs to be built out to support server mode.
+**Planned**:
+- 🚧 TLS support with rustls (dependencies added, implementation pending)
+- 🚧 Property-based tests for MLLP framing
+- 🚧 Connection pooling
+- 🚧 Metrics/observability hooks
+
+**Example**:
+```rust
+// Server
+let mut server = MllpServer::new(MllpServerConfig::default());
+server.bind("127.0.0.1:2575".parse()?).await?;
+server.run(MyHandler).await?;
+
+// Client
+let mut client = MllpClientBuilder::new().build();
+client.connect("127.0.0.1:2575".parse()?).await?;
+let ack = client.send_message(&message).await?;
+```
 
 ---
 

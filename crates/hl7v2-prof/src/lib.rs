@@ -796,6 +796,13 @@ fn validate_advanced_data_type(
                     code: "CHECKSUM_MISMATCH",
                     severity: Severity::Error,
                     path: Some(datatype.path.clone()),
+                    message: format!("Checksum validation failed for {}", datatype.path),
+                });
+            }
+        }
+    }
+}
+
 /// Validate HL7 tables with precedence support
 fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
     // Create a mapping of value set names to HL7 tables
@@ -967,26 +974,39 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
     issues
 }
 
-            };
+/// Validate a temporal rule
+fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<Issue>) {
+    // Get before and after values
+    let before_val = get(msg, &rule.before);
+    let after_val = get(msg, &rule.after);
 
-            if !is_valid {
-                issues.push(Issue {
-                    code: "TEMPORAL_VALIDATION_ERROR",
-                    severity: Severity::Error,
-                    path: Some(rule.before.clone()),
-                    detail: if rule.allow_equal {
-                        format!(
-                            "Field {} value '{}' should be before or equal to field {} value '{}'",
-                            rule.before, before_value, rule.after, after_value
-                        )
-                    } else {
-                        format!(
-                            "Field {} value '{}' should be before field {} value '{}'",
-                            rule.before, before_value, rule.after, after_value
-                        )
-                    },
-                });
-            }
+    // Both must be present to validate
+    if let (Some(before), Some(after)) = (before_val, after_val) {
+        // Parse as temporal values (dates/times)
+        // For now, simple string comparison (proper temporal parsing needed)
+        let is_valid = if rule.allow_equal {
+            before <= after
+        } else {
+            before < after
+        };
+
+        if !is_valid {
+            issues.push(Issue {
+                code: "TEMPORAL_VALIDATION_ERROR",
+                severity: Severity::Error,
+                path: Some(rule.before.clone()),
+                message: if rule.allow_equal {
+                    format!(
+                        "Field {} value '{}' should be before or equal to field {} value '{}'",
+                        rule.before, before, rule.after, after
+                    )
+                } else {
+                    format!(
+                        "Field {} value '{}' should be before field {} value '{}'",
+                        rule.before, before, rule.after, after
+                    )
+                },
+            });
         }
     }
 }
