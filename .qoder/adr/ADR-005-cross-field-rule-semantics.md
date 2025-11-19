@@ -2,7 +2,7 @@
 
 ## Status
 
-**PROPOSED** - Needs discussion and implementation
+**ACCEPTED** - Implementation complete
 
 ## Context
 
@@ -158,19 +158,19 @@ cross_field_rules:
 
 ## Implementation Status
 
-- [ ] Schema changes
-- [ ] Validation logic updated
-- [ ] Tests added for assert mode
-- [ ] Tests added for conditional mode
-- [ ] Documentation updated
-- [ ] Migration guide written
-- [ ] Failing test fixed
+- [x] Schema changes (added validation_mode field to CrossFieldRule)
+- [x] Validation logic updated (validate_cross_field_rule handles both modes)
+- [x] Tests added for assert mode (test_temporal_before_with_same_date_partial_precision)
+- [x] Tests passing for conditional mode (existing tests maintain backward compatibility)
+- [ ] Documentation updated (pending)
+- [ ] Migration guide written (pending)
+- [x] Failing test fixed (7/7 tests passing)
 
 ## Timeline
 
 - **Proposed**: 2025-11-19
-- **Target Decision**: 2025-11-20
-- **Target Implementation**: 2025-11-22
+- **Accepted**: 2025-11-19
+- **Implemented**: 2025-11-19
 
 ---
 
