@@ -25,6 +25,8 @@ tower-http = { workspace = true, features = ["trace", "cors", "compression-gzip"
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
 
 # Additional dependencies
 http = "1.0"
