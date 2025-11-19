@@ -13,7 +13,7 @@ categories.workspace = true
 [dependencies]
 # Local crates
 hl7v2-core = { path = "../hl7v2-core", features = ["network"] }
-# hl7v2-prof = { path = "../hl7v2-prof" }  # Temporarily disabled due to compilation issues
+hl7v2-prof = { path = "../hl7v2-prof" }
 
 # Workspace dependencies
 serde = { workspace = true }
