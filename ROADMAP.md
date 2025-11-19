@@ -677,4 +677,4 @@ v1.2.0:
 ---
 
 **Questions?** See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for current state,
-or [.qoder/quests/](\.qoder/quests/) for detailed design documents.
+or [.qoder/quests/](.qoder/quests/) for detailed design documents.
