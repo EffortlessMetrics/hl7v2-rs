@@ -1,0 +1,53 @@
+# Spectral rules for OpenAPI validation
+extends: [[spectral:oas, all]]
+
+rules:
+  # Require operation IDs
+  operation-operationId: error
+
+  # Require descriptions
+  info-description: error
+  operation-description: error
+  operation-summary: error
+
+  # Require examples
+  operation-success-response: error
+  components-examples: warn
+
+  # Require tags
+  operation-tags: error
+  operation-tag-defined: error
+
+  # Security
+  oas3-api-servers: error
+  oas3-valid-media-example: error
+
+  # Custom rules
+  hl7v2-error-codes:
+    description: Error codes must follow pattern P_*, V_*, S_*
+    given: $.components.schemas.Error.properties.code
+    severity: error
+    then:
+      field: pattern
+      function: pattern
+      functionOptions:
+        match: "^[PVS]_[A-Za-z_]+$"
+
+  hl7v2-response-codes:
+    description: Require standard HTTP response codes
+    given: $.paths[*][*].responses
+    severity: warn
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: ['200']
+          properties:
+            '200': true
+            '400': true
+            '401': true
+            '403': true
+            '404': true
+            '429': true
+            '500': true

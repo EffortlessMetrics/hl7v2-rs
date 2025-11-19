@@ -1,0 +1,39 @@
+[package]
+name = "hl7v2-server"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.89"
+authors.workspace = true
+description = "HTTP/REST API server for HL7v2 message processing"
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Local crates
+hl7v2-core = { path = "../hl7v2-core", features = ["network"] }
+# hl7v2-prof = { path = "../hl7v2-prof" }  # Temporarily disabled due to compilation issues
+
+# Workspace dependencies
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["trace", "cors", "compression-gzip"] }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+
+# Additional dependencies
+http = "1.0"
+hyper = "1.0"
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
+http-body-util = "0.1"
+
+[[bin]]
+name = "hl7v2-server"
+path = "src/main.rs"

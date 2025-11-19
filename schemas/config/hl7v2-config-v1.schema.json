@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/config/v1",
+  "title": "HL7v2-rs Configuration Schema",
+  "description": "Configuration file for CLI and server modes",
+  "type": "object",
+  "properties": {
+    "server": {
+      "type": "object",
+      "description": "Server mode configuration",
+      "properties": {
+        "http": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean", "default": true},
+            "host": {"type": "string", "default": "0.0.0.0"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535, "default": 8080},
+            "tls": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean", "default": false},
+                "cert_path": {"type": "string"},
+                "key_path": {"type": "string"},
+                "require_client_cert": {"type": "boolean", "default": false}
+              }
+            }
+          }
+        },
+        "grpc": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean", "default": false},
+            "host": {"type": "string", "default": "0.0.0.0"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535, "default": 9090}
+          }
+        },
+        "mllp": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean", "default": false},
+            "host": {"type": "string", "default": "0.0.0.0"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535, "default": 2575},
+            "read_timeout_ms": {"type": "integer", "default": 30000},
+            "write_timeout_ms": {"type": "integer", "default": 30000}
+          }
+        },
+        "concurrency": {
+          "type": "object",
+          "properties": {
+            "max_connections": {"type": "integer", "default": 1000},
+            "queue_capacity": {"type": "integer", "default": 1024},
+            "worker_threads": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "description": "Profile loading configuration",
+      "properties": {
+        "directory": {"type": "string", "default": "./profiles"},
+        "cache": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean", "default": true},
+            "max_size_mb": {"type": "integer", "default": 100},
+            "ttl_seconds": {"type": "integer", "default": 3600}
+          }
+        },
+        "remote": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean", "default": false},
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "url": {"type": "string", "format": "uri"},
+                  "type": {"type": "string", "enum": ["http", "s3", "gcs"]},
+                  "auth": {
+                    "type": "object",
+                    "properties": {
+                      "type": {"type": "string", "enum": ["none", "basic", "bearer", "aws", "gcp"]},
+                      "credentials": {"type": "object"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "default_profile": {"type": "string"},
+        "strict_mode": {"type": "boolean", "default": false},
+        "fail_on_warning": {"type": "boolean", "default": false}
+      }
+    },
+    "logging": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["trace", "debug", "info", "warn", "error"],
+          "default": "info"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "text"],
+          "default": "json"
+        },
+        "redact_phi": {"type": "boolean", "default": true}
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean", "default": false},
+        "endpoint": {"type": "string", "format": "uri"},
+        "metrics": {"type": "boolean", "default": true},
+        "traces": {"type": "boolean", "default": true}
+      }
+    }
+  },
+  "examples": [
+    {
+      "server": {
+        "http": {
+          "enabled": true,
+          "port": 8080
+        },
+        "mllp": {
+          "enabled": true,
+          "port": 2575
+        }
+      },
+      "profiles": {
+        "directory": "./profiles",
+        "cache": {
+          "enabled": true,
+          "max_size_mb": 100
+        }
+      },
+      "logging": {
+        "level": "info",
+        "format": "json",
+        "redact_phi": true
+      }
+    }
+  ]
+}

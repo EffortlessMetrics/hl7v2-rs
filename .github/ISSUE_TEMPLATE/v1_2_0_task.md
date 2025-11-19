@@ -65,6 +65,13 @@ How to test this:
 - [ ] Merged to main
 - [ ] IMPLEMENTATION_STATUS.md updated
 
+## References
+
+- [ROADMAP.md](../../ROADMAP.md)
+- [IMPLEMENTATION_PLAN.md](../../IMPLEMENTATION_PLAN.md)
+- [Advanced features design](../../.qoder/quests/hl7v2-advanced-features-implementation.md)
+- [IMPLEMENTATION_STATUS.md](../../IMPLEMENTATION_STATUS.md)
+
 ## Links
 
 - Design doc: [Link to .qoder/quests/...]

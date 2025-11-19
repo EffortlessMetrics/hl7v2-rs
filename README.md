@@ -56,8 +56,9 @@ hl7v2 parse <input.mllp> --mllp --json > output.json
 # Validate against a profile (supports profile inheritance)
 hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml
 
-# Generate validation report with detailed errors
-hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report validation_errors.json
+# (Planned) Emit a JSON validation report
+# hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report validation_errors.json
+# See IMPLEMENTATION_STATUS.md for current CLI flag support.
 ```
 
 ### Normalize Messages
@@ -65,9 +66,6 @@ hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report validation_errors
 ```bash
 # Normalize an HL7 message
 hl7v2 norm <input.hl7> > output.hl7
-
-# Normalize with canonical delimiters
-hl7v2 norm <input.hl7> --canonical-delims > output.hl7
 ```
 
 ### Generate Messages
@@ -77,7 +75,7 @@ hl7v2 norm <input.hl7> --canonical-delims > output.hl7
 hl7v2 gen --profile profiles/oru_r01.yaml --seed 1337 --count 100 --out corpus/
 
 # Generate with different template
-hl7v2 gen --template templates/adm_a01.yaml --seed 42 --count 50 --out test_data/
+hl7v2 gen --template templates/adt_a01.yaml --seed 42 --count 50 --out test_data/
 ```
 
 ### Acknowledgment Generation
@@ -151,10 +149,13 @@ Each crate is independently usable as a library, enabling integration into other
 
 ## Performance Characteristics
 
-- **Parsing throughput**: ≥100k small messages/minute on NVMe (typical ORU/ADT ~200 bytes)
-- **Memory usage**: Proportional to message size; batch operations use bounded memory
-- **Determinism**: 100% reproducible message generation with same seed
-- **Latency**: Sub-millisecond for typical messages
+- Parsing throughput: ≥100k small messages/minute on NVMe (typical ADT/ORU ~200 bytes)
+- Large messages: ≥10k messages/minute for ~2 KB messages in batch mode
+- Memory usage: bounded; no unbounded growth in the streaming parser for typical workloads
+- Determinism: 100% reproducible generation with the same seed + template
+- Latency: sub-millisecond parsing for typical messages on a modern CPU
+
+For exact benchmark numbers and hardware, see [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
 ## HL7 Standards Compliance
 

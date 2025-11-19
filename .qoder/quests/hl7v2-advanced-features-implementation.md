@@ -6,6 +6,11 @@ This document outlines the design for implementing advanced features in the HL7v
 
 This design follows a normative approach with specific implementation requirements to ensure consistency, security, and performance across all components.
 
+> **Status note:** This document is a **design** spec. For the canonical,
+> up-to-date implementation status (what is actually shipped), see
+> [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md). Where this design
+> and that status document disagree, **IMPLEMENTATION_STATUS.md wins**.
+
 **Quick Links**:
 - [ROADMAP.md](../ROADMAP.md) - Complete v1.2.0 - v2.0.0 roadmap with timelines
 - [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md) - Detailed task breakdown and sprint planning
@@ -98,14 +103,20 @@ graph TD
 
 ### 4.1 Streaming Parser for Large Messages
 
-**Implementation Status:** ✅ In Development
+**Implementation Status:** ⚠️ Partial — see [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for canonical details
 
-The streaming parser has been implemented with the following capabilities:
+The streaming parser currently provides:
+
 - Event-based SAX-like parser yielding `Event` enum variants
+- Incremental parsing with partial buffer consumption for basic flows
+- Delimiter discovery and per-message reconfiguration
+- Improved error reporting and recovery compared to the initial parser
+
+The following are **design targets and not yet implemented**:
+
 - Zero-copy techniques borrowing slices from the underlying buffer
-- Incremental parsing with partial buffer consumption
-- Delimiter discovery and reconfiguration per message
-- Backpressure and memory bounds support
+- Explicit backpressure and hard memory bounds
+- Advanced memory pool / buffer reuse strategies
 
 **Design Approach:**
 - Implement an event-based SAX-like parser that yields `Event` enum variants
@@ -170,16 +181,13 @@ impl<D: BufRead> StreamParser<D> {
 
 ### 5.1 Dynamic Profile Loading
 
-**Implementation Status:** ✅ In Development
-
-Recent improvements to profile loading:
-- Memory-bounded LRU cache with `(name, version)` keying
-- Support for loading from multiple sources (local files, HTTP, cloud storage)
-- Profile caching mechanisms for performance optimization
+**Implementation Status:** ❌ Not started — this section describes the target design
 
 **Design Approach:**
 - Implement a memory-bounded LRU cache keyed by `(name, version)`
-- Support profile loading from multiple sources (local files, HTTP, cloud storage)
+- Start with local filesystem profile loading
+- Add optional remote sources (HTTP, S3, GCS) in a later v1.3+ release
+- Use strong validation and time-bound fetches to avoid blocking the parser
 
 ### 5.2 Profile Validation
 
@@ -198,14 +206,14 @@ Recent enhancements include:
 
 ### 5.3 Profile Merging & Inheritance
 
-**Implementation Status:** ✅ Complete
+**Implementation Status:** ✅ Complete (except cycle detection)
 
 Profile inheritance and merging have been fully implemented with:
 - Full profile inheritance mechanism with parent resolution
 - Constraint merging with proper precedence handling
 - Rule and value set composition
 - Inheritance conflict resolution with child precedence
-- Cycle detection with `E_Profile_Cycle` error
+- ❌ Cycle detection with `E_Profile_Cycle` error (design only, not implemented yet — see IMPLEMENTATION_STATUS.md)
 
 **Design Approach:**
 - Extend existing profile inheritance mechanism

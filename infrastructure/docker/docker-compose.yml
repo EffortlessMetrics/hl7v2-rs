@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  # HL7v2-rs server
+  hl7v2-server:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: hl7v2-server
+    ports:
+      - "8080:8080"   # HTTP
+      - "8443:8443"   # HTTPS
+      - "2575:2575"   # MLLP
+      - "9090:9090"   # gRPC
+    environment:
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+      - HL7V2_CONFIG=/etc/hl7v2/config.toml
+    volumes:
+      - ./config:/etc/hl7v2:ro
+      - ./profiles:/var/lib/hl7v2/profiles:ro
+      - hl7v2-logs:/var/log/hl7v2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hl7v2-net
+    restart: unless-stopped
+
+  # PostgreSQL for profile caching and audit logs
+  postgres:
+    image: postgres:16-alpine
+    container_name: hl7v2-postgres
+    environment:
+      POSTGRES_DB: hl7v2
+      POSTGRES_USER: hl7v2
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hl7v2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hl7v2-net
+    restart: unless-stopped
+
+  # Redis for distributed caching
+  redis:
+    image: redis:7-alpine
+    container_name: hl7v2-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hl7v2-net
+    restart: unless-stopped
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hl7v2-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - hl7v2-net
+    restart: unless-stopped
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hl7v2-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - hl7v2-net
+    restart: unless-stopped
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: hl7v2-jaeger
+    ports:
+      - "6831:6831/udp"  # Jaeger agent
+      - "16686:16686"    # Jaeger UI
+      - "14268:14268"    # Jaeger collector
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    networks:
+      - hl7v2-net
+    restart: unless-stopped
+
+  # Open Policy Agent for policy enforcement
+  opa:
+    image: openpolicyagent/opa:latest
+    container_name: hl7v2-opa
+    ports:
+      - "8181:8181"
+    volumes:
+      - ../policies:/policies:ro
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "/policies"
+    networks:
+      - hl7v2-net
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  hl7v2-logs:
+
+networks:
+  hl7v2-net:
+    driver: bridge

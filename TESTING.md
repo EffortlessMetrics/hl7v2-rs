@@ -586,12 +586,12 @@ let msg = parse(data).unwrap();
 
 ```bash
 # Using the CLI
-cargo run -p hl7v2-cli -- gen --template templates/adm_a01.yaml --count 100 --seed 42 --out test_data/
+cargo run -p hl7v2-cli -- gen --template templates/adt_a01.yaml --count 100 --seed 42 --out test_data/
 
 # Or programmatically in tests
 use hl7v2_gen::generate;
 
-let template = load_template("adm_a01.yaml").unwrap();
+let template = load_template("adt_a01.yaml").unwrap();
 let msg = generate(&template, 42).unwrap();
 ```
 

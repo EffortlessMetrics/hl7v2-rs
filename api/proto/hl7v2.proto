@@ -1,0 +1,323 @@
+syntax = "proto3";
+
+package hl7v2.v1;
+
+option go_package = "github.com/EffortlessMetrics/hl7v2-rs/gen/go/hl7v2/v1;hl7v2v1";
+option java_package = "com.hl7v2rs.api.v1";
+option java_multiple_files = true;
+
+// HL7v2 Service provides gRPC endpoints for HL7 v2 message processing
+service HL7Service {
+  // Parse an HL7 v2 message
+  rpc Parse(ParseRequest) returns (ParseResponse);
+
+  // Parse multiple messages in a stream
+  rpc ParseStream(stream ParseRequest) returns (stream ParseResponse);
+
+  // Validate a message against a profile
+  rpc Validate(ValidateRequest) returns (ValidateResponse);
+
+  // Generate an acknowledgment (ACK) message
+  rpc GenerateAck(AckRequest) returns (AckResponse);
+
+  // Normalize a message
+  rpc Normalize(NormalizeRequest) returns (NormalizeResponse);
+
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Parse Request
+message ParseRequest {
+  // HL7 message bytes
+  bytes message = 1;
+
+  // Whether message is MLLP-framed
+  bool mllp_framed = 2;
+
+  // Parse options
+  ParseOptions options = 3;
+}
+
+message ParseOptions {
+  // Strict parsing mode
+  bool strict = 1;
+
+  // Expected HL7 version
+  string expected_version = 2;
+}
+
+// Parse Response
+message ParseResponse {
+  // Whether parsing succeeded
+  bool success = 1;
+
+  // Parsed message (if successful)
+  Message message = 2;
+
+  // Errors (if any)
+  repeated Error errors = 3;
+
+  // Metadata
+  MessageMetadata metadata = 4;
+}
+
+// Message representation
+message Message {
+  // Delimiters used
+  Delimiters delimiters = 1;
+
+  // Segments
+  repeated Segment segments = 2;
+}
+
+// Delimiters
+message Delimiters {
+  string field = 1;
+  string component = 2;
+  string repetition = 3;
+  string escape = 4;
+  string subcomponent = 5;
+}
+
+// Segment
+message Segment {
+  // Segment ID (e.g., "MSH", "PID")
+  string id = 1;
+
+  // Fields
+  repeated Field fields = 2;
+
+  // Sequence number (for repeated segments)
+  int32 sequence = 3;
+}
+
+// Field
+message Field {
+  // Field presence
+  enum Presence {
+    PRESENCE_UNSPECIFIED = 0;
+    MISSING = 1;
+    EMPTY = 2;
+    NULL = 3;
+    VALUE = 4;
+  }
+
+  Presence presence = 1;
+
+  // Simple value (for non-repeating, non-component fields)
+  optional string value = 2;
+
+  // Repetitions (for repeating fields)
+  repeated Repetition repetitions = 3;
+}
+
+// Repetition
+message Repetition {
+  // Simple value
+  optional string value = 1;
+
+  // Components
+  repeated Component components = 2;
+}
+
+// Component
+message Component {
+  // Component value
+  optional string value = 1;
+
+  // Subcomponents
+  repeated string subcomponents = 2;
+}
+
+// Message Metadata
+message MessageMetadata {
+  // Message type (e.g., "ADT^A01")
+  string message_type = 1;
+
+  // HL7 version (e.g., "2.5")
+  string version = 2;
+
+  // Message control ID
+  string control_id = 3;
+
+  // Sending facility
+  string sending_facility = 4;
+
+  // Receiving facility
+  string receiving_facility = 5;
+}
+
+// Validate Request
+message ValidateRequest {
+  // HL7 message bytes
+  bytes message = 1;
+
+  // Profile name or URL
+  string profile = 2;
+
+  // Whether message is MLLP-framed
+  bool mllp_framed = 3;
+
+  // Validation options
+  ValidationOptions options = 4;
+}
+
+message ValidationOptions {
+  // Fail on warnings
+  bool fail_on_warning = 1;
+
+  // Strict mode
+  bool strict = 2;
+}
+
+// Validate Response
+message ValidateResponse {
+  // Whether validation passed
+  bool valid = 1;
+
+  // Errors
+  repeated ValidationIssue errors = 2;
+
+  // Warnings
+  repeated ValidationIssue warnings = 3;
+
+  // Summary
+  ValidationSummary summary = 4;
+}
+
+// Validation Issue
+message ValidationIssue {
+  enum Severity {
+    SEVERITY_UNSPECIFIED = 0;
+    ERROR = 1;
+    WARNING = 2;
+    INFO = 3;
+  }
+
+  // Error code
+  string code = 1;
+
+  // Human-readable message
+  string message = 2;
+
+  // Severity
+  Severity severity = 3;
+
+  // Location in message
+  Location location = 4;
+
+  // Remediation advice
+  string advice = 5;
+}
+
+// Location in message
+message Location {
+  // Segment ID
+  string segment = 1;
+
+  // Field number
+  int32 field = 2;
+
+  // Component number
+  int32 component = 3;
+
+  // Repetition number
+  int32 repetition = 4;
+
+  // Byte offset
+  int64 byte_offset = 5;
+}
+
+// Validation Summary
+message ValidationSummary {
+  int32 error_count = 1;
+  int32 warning_count = 2;
+  int32 info_count = 3;
+}
+
+// ACK Request
+message AckRequest {
+  // Original message
+  bytes message = 1;
+
+  // ACK code
+  enum AckCode {
+    ACK_CODE_UNSPECIFIED = 0;
+    AA = 1;  // Application Accept
+    AE = 2;  // Application Error
+    AR = 3;  // Application Reject
+  }
+
+  AckCode code = 2;
+
+  // Error message (for AE/AR)
+  optional string error_message = 3;
+}
+
+// ACK Response
+message AckResponse {
+  // Generated ACK message
+  bytes ack_message = 1;
+
+  // Parsed ACK (for verification)
+  Message parsed_ack = 2;
+}
+
+// Normalize Request
+message NormalizeRequest {
+  // Message to normalize
+  bytes message = 1;
+
+  // Normalization options
+  NormalizeOptions options = 2;
+}
+
+message NormalizeOptions {
+  // Use canonical delimiters
+  bool canonical_delimiters = 1;
+
+  // Add MLLP framing
+  bool mllp_frame = 2;
+
+  // Sort fields
+  bool sort_fields = 3;
+}
+
+// Normalize Response
+message NormalizeResponse {
+  // Normalized message
+  bytes normalized = 1;
+}
+
+// Health Check Request
+message HealthCheckRequest {}
+
+// Health Check Response
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+
+  ServingStatus status = 1;
+  string version = 2;
+  int64 uptime_seconds = 3;
+}
+
+// Error
+message Error {
+  // Error code
+  string code = 1;
+
+  // Error message
+  string message = 2;
+
+  // Additional details
+  map<string, string> details = 3;
+
+  // Trace ID
+  string trace_id = 4;
+}
