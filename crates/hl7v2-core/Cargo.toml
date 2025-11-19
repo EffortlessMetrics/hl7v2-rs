@@ -12,13 +12,16 @@ categories.workspace = true
 
 [features]
 default = []
-network = ["tokio", "rustls", "tokio-rustls"]
+network = ["tokio", "tokio-util", "rustls", "tokio-rustls", "bytes", "futures"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { version = "1.0", features = ["net", "io-util", "time", "macros", "rt"], optional = true }
+tokio = { version = "1.0", features = ["net", "io-util", "time", "macros", "rt", "sync"], optional = true }
+tokio-util = { version = "0.7", features = ["codec"], optional = true }
+bytes = { version = "1.0", optional = true }
+futures = { version = "0.3", optional = true }
 rustls = { version = "0.23", optional = true }
 tokio-rustls = { version = "0.26", optional = true }
 
