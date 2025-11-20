@@ -106,6 +106,7 @@ segments:
 cross_field_rules:
   - id: "date-before-date"
     description: "PV1 date should be before ORC date"
+    validation_mode: "assert"
     conditions:
       - field: "PV1.10"
         operator: "before"

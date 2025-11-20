@@ -11,11 +11,21 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Copy manifests
+# Copy manifest files only (for better caching)
 COPY Cargo.toml Cargo.lock ./
+COPY crates/hl7v2-core/Cargo.toml ./crates/hl7v2-core/Cargo.toml
+COPY crates/hl7v2-prof/Cargo.toml ./crates/hl7v2-prof/Cargo.toml
+COPY crates/hl7v2-gen/Cargo.toml ./crates/hl7v2-gen/Cargo.toml
+COPY crates/hl7v2-cli/Cargo.toml ./crates/hl7v2-cli/Cargo.toml
+COPY crates/hl7v2-server/Cargo.toml ./crates/hl7v2-server/Cargo.toml
+
+# Fetch dependencies (cached layer)
+RUN cargo fetch --locked
+
+# Copy source code
 COPY crates/ ./crates/
 
-# Build dependencies (cached layer)
+# Build release binary
 RUN cargo build --release --locked
 
 # Stage 2: Runtime

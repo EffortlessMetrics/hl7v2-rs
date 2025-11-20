@@ -1,0 +1,234 @@
+# ADT^A01 - Admit/Visit Notification
+#
+# HL7 Version: 2.5.1
+# Event: A01 - Admit/Visit Notification
+#
+# This profile validates ADT^A01 messages used to communicate patient
+# admission information between systems.
+#
+# Message Structure: MSH EVN PID [PD1] [{ROL}] [{NK1}] PV1 [PV2] [{ROL}]
+#                    [{DB1}] [{OBX}] [{AL1}] [{DG1}] [DRG] [{PR1}]
+#
+# Common Use Cases:
+# - Patient admitted to hospital
+# - Patient registered for outpatient visit
+# - Initial patient encounter
+
+message_structure: "ADT_A01"
+version: "2.5.1"
+description: "ADT^A01 - Admit/Visit Notification profile"
+
+# Required Segments
+segments:
+  - id: "MSH"
+    description: "Message Header - identifies and routes message"
+    required: true
+    max_uses: 1
+
+  - id: "EVN"
+    description: "Event Type - describes the trigger event"
+    required: true
+    max_uses: 1
+
+  - id: "PID"
+    description: "Patient Identification - core patient demographics"
+    required: true
+    max_uses: 1
+
+  - id: "PV1"
+    description: "Patient Visit - visit/encounter information"
+    required: true
+    max_uses: 1
+
+# Optional Segments
+  - id: "PD1"
+    description: "Patient Additional Demographic"
+    required: false
+    max_uses: 1
+
+  - id: "ROL"
+    description: "Role - functional roles for this message"
+    required: false
+    max_uses: -1  # Unlimited repeats
+
+  - id: "NK1"
+    description: "Next of Kin / Associated Parties"
+    required: false
+    max_uses: -1
+
+  - id: "PV2"
+    description: "Patient Visit - Additional Information"
+    required: false
+    max_uses: 1
+
+  - id: "DB1"
+    description: "Disability Information"
+    required: false
+    max_uses: -1
+
+  - id: "OBX"
+    description: "Observation/Result"
+    required: false
+    max_uses: -1
+
+  - id: "AL1"
+    description: "Allergy Information"
+    required: false
+    max_uses: -1
+
+  - id: "DG1"
+    description: "Diagnosis Information"
+    required: false
+    max_uses: -1
+
+  - id: "DRG"
+    description: "Diagnosis Related Group"
+    required: false
+    max_uses: 1
+
+  - id: "PR1"
+    description: "Procedures"
+    required: false
+    max_uses: -1
+
+# MSH Field Validation
+msh_constraints:
+  - field: "MSH.9.1"  # Message Type
+    required: true
+    values: ["ADT"]
+
+  - field: "MSH.9.2"  # Trigger Event
+    required: true
+    values: ["A01"]
+
+  - field: "MSH.11"  # Processing ID
+    required: true
+    # P=Production, D=Debugging, T=Training
+
+  - field: "MSH.12"  # Version ID
+    required: true
+    values: ["2.5", "2.5.1"]
+
+# PID Field Constraints - Core Demographics
+field_constraints:
+  - path: "PID.3"  # Patient Identifier List
+    required: true
+    description: "At least one patient identifier required"
+
+  - path: "PID.5"  # Patient Name
+    required: true
+    description: "Patient name required for admission"
+
+  - path: "PID.7"  # Date/Time of Birth
+    required: true
+    datatype: "TS"
+    description: "Birth date required for admission"
+
+# HL7 Tables for Coded Values
+hl7_tables:
+  - id: "HL70001"
+    name: "Administrative Sex"
+    version: "2.5.1"
+    codes:
+      - code: "F"
+        display: "Female"
+      - code: "M"
+        display: "Male"
+      - code: "O"
+        display: "Other"
+      - code: "U"
+        display: "Unknown"
+
+  - id: "HL70002"
+    name: "Marital Status"
+    version: "2.5.1"
+    codes:
+      - code: "A"
+        display: "Separated"
+      - code: "D"
+        display: "Divorced"
+      - code: "M"
+        display: "Married"
+      - code: "S"
+        display: "Single"
+      - code: "W"
+        display: "Widowed"
+
+  - id: "HL70004"
+    name: "Patient Class"
+    version: "2.5.1"
+    codes:
+      - code: "E"
+        display: "Emergency"
+      - code: "I"
+        display: "Inpatient"
+      - code: "O"
+        display: "Outpatient"
+      - code: "P"
+        display: "Preadmit"
+      - code: "R"
+        display: "Recurring patient"
+
+# Value Sets - Link fields to HL7 tables
+valuesets:
+  - path: "PID.8"
+    name: "Administrative Sex"
+    codes: []  # Reference to HL70001
+    hl7_table: "HL70001"
+
+  - path: "PID.16"
+    name: "Marital Status"
+    codes: []  # Reference to HL70002
+    hl7_table: "HL70002"
+
+  - path: "PV1.2"
+    name: "Patient Class"
+    codes: []  # Reference to HL70004
+    hl7_table: "HL70004"
+
+# Cross-Field Rules - Business Logic
+cross_field_rules:
+  - id: "admit-date-after-birth"
+    description: "Admission date must be after birth date"
+    validation_mode: "assert"
+    conditions:
+      - field: "PV1.44"  # Admit Date/Time
+        operator: "is_date"
+      - field: "PID.7"   # Birth Date
+        operator: "is_date"
+      - field: "PV1.44"
+        operator: "after"
+        value: "PID.7"
+    actions: []
+
+  - id: "discharge-after-admit"
+    description: "Discharge date must be after admission date (if present)"
+    validation_mode: "assert"
+    conditions:
+      - field: "PV1.45"  # Discharge Date/Time
+        operator: "exists"
+      - field: "PV1.45"
+        operator: "after"
+        value: "PV1.44"
+    actions: []
+
+# Temporal Rules
+temporal_rules:
+  - id: "birth-date-past"
+    description: "Birth date must be in the past"
+    before: "NOW"
+    after: "PID.7"
+    allow_equal: false
+
+  - id: "admit-date-reasonable"
+    description: "Admit date should be within reasonable range"
+    before: "PV1.44"
+    after: "PID.7"
+    allow_equal: false
+    tolerance: "150y"  # Max 150 years after birth
+
+# Expression Guardrails - Security limits
+expression_guardrails:
+  max_depth: 10
+  max_length: 1000
+  allow_custom_scripts: false

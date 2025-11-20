@@ -31,6 +31,7 @@
 //! ```
 
 pub mod handlers;
+pub mod metrics;
 pub mod middleware;
 pub mod models;
 pub mod routes;
@@ -50,9 +51,8 @@ pub enum Error {
     #[error("Parse error: {0}")]
     Parse(#[from] hl7v2_core::Error),
 
-    // TODO: Re-enable once hl7v2-prof compilation issues are fixed
-    // #[error("Validation error: {0}")]
-    // Validation(#[from] hl7v2_prof::Error),
+    #[error("Validation error: {0}")]
+    Validation(String),
 
     #[error("Internal server error: {0}")]
     Internal(String),

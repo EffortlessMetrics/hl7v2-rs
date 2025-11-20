@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::net::TcpListener;
 use tracing::info;
+use metrics_exporter_prometheus::PrometheusHandle;
 
 use crate::routes::build_router;
 use crate::Result;
@@ -14,6 +15,8 @@ use crate::Result;
 pub struct AppState {
     /// Server start time for uptime calculation
     pub start_time: Instant,
+    /// Prometheus metrics handle
+    pub metrics_handle: Arc<PrometheusHandle>,
 }
 
 /// HTTP server configuration
@@ -43,8 +46,12 @@ pub struct Server {
 impl Server {
     /// Create a new server with the given configuration
     pub fn new(config: ServerConfig) -> Self {
+        // Initialize Prometheus metrics recorder
+        let metrics_handle = crate::metrics::init_metrics_recorder();
+
         let state = Arc::new(AppState {
             start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
         });
 
         Self { config, state }

@@ -1,7 +1,7 @@
 //! Request and response models for the HTTP API.
 //!
 //! These models follow JSON:API conventions where appropriate and align
-//! with the OpenAPI specification in `api/openapi/hl7v2-api-v1.yaml`.
+//! with the OpenAPI specification in `schemas/openapi/hl7v2-api.yaml`.
 
 use serde::{Deserialize, Serialize};
 

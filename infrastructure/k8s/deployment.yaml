@@ -34,7 +34,7 @@ spec:
       containers:
       - name: hl7v2
         image: hl7v2-rs:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always  # Use Always for production; dev can override with IfNotPresent
 
         ports:
         - name: http

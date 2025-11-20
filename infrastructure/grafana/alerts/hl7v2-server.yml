@@ -1,0 +1,227 @@
+# Prometheus Alert Rules for HL7v2 Server
+# Place this file in the Prometheus alerts directory
+
+groups:
+  - name: hl7v2_server_health
+    interval: 30s
+    rules:
+      # Server availability
+      - alert: HL7v2ServerDown
+        expr: up{job="hl7v2-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "HL7v2 server is down"
+          description: "HL7v2 server instance {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Server-Down"
+
+      # High error rate
+      - alert: HL7v2HighErrorRate
+        expr: |
+          (
+            sum(rate(hl7v2_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(hl7v2_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "High error rate detected (>5%)"
+          description: "HL7v2 server error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-High-Error-Rate"
+
+      # Critical error rate
+      - alert: HL7v2CriticalErrorRate
+        expr: |
+          (
+            sum(rate(hl7v2_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(hl7v2_requests_total[5m]))
+          ) > 0.25
+        for: 2m
+        labels:
+          severity: critical
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "Critical error rate detected (>25%)"
+          description: "HL7v2 server error rate is {{ $value | humanizePercentage }}. Immediate action required."
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-High-Error-Rate"
+
+  - name: hl7v2_performance
+    interval: 30s
+    rules:
+      # High latency (P95)
+      - alert: HL7v2HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            rate(hl7v2_request_duration_seconds_bucket[5m])
+          ) > 0.050
+        for: 5m
+        labels:
+          severity: warning
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "High request latency (P95 >50ms)"
+          description: "P95 latency for {{ $labels.endpoint }} is {{ $value }}s (threshold: 0.050s)"
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-High-Latency"
+
+      # Critical latency (P99)
+      - alert: HL7v2CriticalLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            rate(hl7v2_request_duration_seconds_bucket[5m])
+          ) > 0.100
+        for: 5m
+        labels:
+          severity: critical
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "Critical request latency (P99 >100ms)"
+          description: "P99 latency for {{ $labels.endpoint }} is {{ $value }}s (threshold: 0.100s)"
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-High-Latency"
+
+      # High memory usage
+      - alert: HL7v2HighMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="hl7v2-server"} > 536870912
+        for: 10m
+        labels:
+          severity: warning
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "High memory usage (>512MB)"
+          description: "HL7v2 server memory usage is {{ $value | humanize }}B (threshold: 512MB)"
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-High-Memory"
+
+      # High CPU usage
+      - alert: HL7v2HighCPUUsage
+        expr: |
+          rate(process_cpu_seconds_total{job="hl7v2-server"}[5m]) > 0.80
+        for: 10m
+        labels:
+          severity: warning
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "High CPU usage (>80%)"
+          description: "HL7v2 server CPU usage is {{ $value | humanizePercentage }} (threshold: 80%)"
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-High-CPU"
+
+  - name: hl7v2_validation
+    interval: 30s
+    rules:
+      # Low validation success rate
+      - alert: HL7v2LowValidationSuccessRate
+        expr: |
+          (
+            sum(rate(hl7v2_validation_total{result="valid"}[10m]))
+            /
+            sum(rate(hl7v2_validation_total[10m]))
+          ) < 0.90
+        for: 10m
+        labels:
+          severity: warning
+          component: hl7v2-validation
+          team: data-quality
+        annotations:
+          summary: "Low validation success rate (<90%)"
+          description: "Validation success rate is {{ $value | humanizePercentage }} over the last 10 minutes."
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Low-Validation-Rate"
+
+      # Critical validation success rate
+      - alert: HL7v2CriticalValidationSuccessRate
+        expr: |
+          (
+            sum(rate(hl7v2_validation_total{result="valid"}[10m]))
+            /
+            sum(rate(hl7v2_validation_total[10m]))
+          ) < 0.50
+        for: 5m
+        labels:
+          severity: critical
+          component: hl7v2-validation
+          team: data-quality
+        annotations:
+          summary: "Critical validation success rate (<50%)"
+          description: "Validation success rate is {{ $value | humanizePercentage }}. Investigate immediately."
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Low-Validation-Rate"
+
+      # High parse error rate
+      - alert: HL7v2HighParseErrorRate
+        expr: |
+          rate(hl7v2_parse_errors_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: hl7v2-parser
+          team: platform
+        annotations:
+          summary: "High parse error rate (>1/s)"
+          description: "Parse error rate is {{ $value }} errors/second for {{ $labels.error_type }}"
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Parse-Errors"
+
+  - name: hl7v2_capacity
+    interval: 1m
+    rules:
+      # Approaching concurrency limit
+      - alert: HL7v2ApproachingConcurrencyLimit
+        expr: |
+          hl7v2_active_connections > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "Approaching concurrency limit (>80 connections)"
+          description: "Active connections: {{ $value }} (limit: 100)"
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Capacity"
+
+      # High 503 rate (backpressure activated)
+      - alert: HL7v2HighBackpressureRate
+        expr: |
+          (
+            sum(rate(hl7v2_requests_total{status="503"}[5m]))
+            /
+            sum(rate(hl7v2_requests_total[5m]))
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "High backpressure rate (>10% requests rejected)"
+          description: "{{ $value | humanizePercentage }} of requests are receiving 503 (Service Unavailable). Consider scaling up."
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Backpressure"
+
+  - name: hl7v2_trends
+    interval: 5m
+    rules:
+      # Request rate trend (anomaly detection)
+      - alert: HL7v2RequestRateAnomaly
+        expr: |
+          abs(
+            (rate(hl7v2_requests_total[5m]) - rate(hl7v2_requests_total[5m] offset 1h))
+            /
+            rate(hl7v2_requests_total[5m] offset 1h)
+          ) > 0.50
+        for: 15m
+        labels:
+          severity: info
+          component: hl7v2-server
+          team: platform
+        annotations:
+          summary: "Unusual request rate pattern detected"
+          description: "Request rate has changed by {{ $value | humanizePercentage }} compared to 1 hour ago."
+          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Rate-Anomaly"

@@ -139,11 +139,20 @@ is_future_date(date_str) {
     date_str > time.now_ns()
 }
 
-# Helper: Calculate age from birth date (simplified)
+# Helper: Calculate age from birth date
+# Assumes HL7 date format: YYYYMMDD or YYYY
 calculate_age(birth_date) := age {
-    # This is a simplified calculation
-    # In production, use proper date parsing
-    age := 50  # Placeholder
+    # Extract year from birth date (first 4 characters)
+    count(birth_date) >= 4
+    year_str := substring(birth_date, 0, 4)
+    birth_year := to_number(year_str)
+
+    # Get current year from nanosecond timestamp
+    now_ns := time.now_ns()
+    current_year := time.date(now_ns)[0]
+
+    # Calculate approximate age (doesn't account for month/day)
+    age := current_year - birth_year
 }
 
 # =============================================================================

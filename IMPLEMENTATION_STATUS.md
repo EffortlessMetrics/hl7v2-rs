@@ -3,13 +3,13 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2025-11-19
-> **Project Status**: v1.1.0 (stable core, network module complete, HTTP server in progress)
+> **Project Status**: v1.2.0 (stable core, network module complete, HTTP server operational)
 
 ## Executive Summary
 
-The hl7v2-rs project has solid implementations of core HL7 parsing, profile validation, message generation, and MLLP network transport. The HTTP/REST API server is the next major deliverable. This page details exactly what works and what's planned.
+The hl7v2-rs project has solid implementations of core HL7 parsing, profile validation, message generation, MLLP network transport, and HTTP/REST API server. All major crates compile successfully and integration is complete. This page details exactly what works and what's planned.
 
-**Overall Feature Completion**: ~72% of v1.2 roadmap
+**Overall Feature Completion**: ~78% of v1.2 roadmap
 
 ## Feature Status Legend
 
@@ -280,6 +280,49 @@ let msg2 = generate(&template, seed)?;
 
 ---
 
+## HTTP/REST API Server (hl7v2-server)
+
+### HTTP Server
+**Status**: ✅ **Complete** (90%)
+
+**Implemented** (commit `40e5843`):
+- ✅ **Axum-based HTTP server** - Production-ready async server
+- ✅ **REST endpoints** - `/health`, `/hl7/parse`, `/hl7/validate`
+- ✅ **Middleware** - Logging, compression, CORS, authentication
+  - ✅ API key authentication via `X-API-Key` header and `HL7V2_API_KEY` env var
+  - ✅ Request tracing and structured logging
+  - ✅ GZIP compression
+  - ✅ CORS support
+- ✅ **Integration with hl7v2-prof** - Validation engine fully integrated
+- ✅ **Error handling** - Proper HTTP status codes and JSON error responses
+- ✅ **Testing** - Unit and integration tests for core functionality
+
+**Planned**:
+- 🚧 OAuth 2.0 / OIDC authentication
+- 🚧 Rate limiting middleware
+- 🚧 Prometheus metrics endpoint
+- 🚧 OpenAPI/Swagger documentation endpoint
+- 🚧 gRPC support
+
+**Example**:
+```rust
+use hl7v2_server::Server;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    std::env::set_var("HL7V2_API_KEY", "your-secret-key");
+
+    let server = Server::builder()
+        .bind("0.0.0.0:8080")
+        .build();
+
+    server.serve().await?;
+    Ok(())
+}
+```
+
+---
+
 ## CLI Interface (hl7v2-cli)
 
 ### Parse Command
@@ -445,11 +488,14 @@ Benchmarks available for:
 
 ## Known Issues
 
-1. **Network Module is Stubs**: All networking functions return errors or empty implementations
+1. ~~**Network Module is Stubs**: All networking functions return errors or empty implementations~~ **FIXED** - Full MLLP network module implemented
 2. **Expression Engine is Crude**: Uses string pattern matching instead of proper expression parsing
 3. **Zero-Copy Claims**: Documentation overstates zero-copy; it's event-based but not truly zero-copy
 4. **CLI Flag Gaps**: Some documented flags (--streaming, --distributions, --report) aren't implemented
-5. **Duplicate Code**: Some validation logic appears duplicated in hl7v2-prof
+5. ~~**Duplicate Code**: Some validation logic appears duplicated in hl7v2-prof~~ **FIXED** - Deduplicated validation logic
+6. ~~**hl7v2-prof Compilation Issues**: Crate had build errors~~ **FIXED** - All compilation issues resolved
+7. ~~**Server Authentication Placeholder**: Auth middleware was non-functional~~ **FIXED** - Real API key authentication implemented
+8. **Parse Endpoint Test**: Integration test for `/hl7/parse` needs review (currently ignored)
 
 ---
 
@@ -489,18 +535,24 @@ let issues = hl7v2_prof::validate(&msg, &profile);
 
 ## Roadmap
 
-### v1.1.x (Current)
+### v1.1.x (Complete)
 - ✅ Core parsing stable
 - ✅ Profile validation working
 - ✅ Basic generation working
 - ✅ CLI for common operations
+- ✅ Network module (MLLP) complete
 
-### v1.2.0 (In Progress)
-- 🔄 Memory optimization for streaming
-- 🔄 Expression engine improvements
-- 🚧 Remote profile loading
-- 🚧 Server mode (HTTP/gRPC)
-- 🚧 Backpressure handling
+### v1.2.0 (Current - 78% Complete)
+- ✅ HTTP/REST API server operational
+- ✅ API key authentication
+- ✅ hl7v2-prof integration complete
+- ✅ Docker & Kubernetes deployment manifests
+- 🔄 Memory optimization for streaming (partial)
+- 🔄 Expression engine improvements (in progress)
+- 🚧 Remote profile loading (planned)
+- 🚧 gRPC support (planned)
+- 🚧 Backpressure handling (planned)
+- 🚧 Prometheus metrics (planned)
 
 ### v1.3.0 (Planned)
 - 🚧 Language bindings (C, Python, JS, Java)

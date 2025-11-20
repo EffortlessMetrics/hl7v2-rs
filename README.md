@@ -21,6 +21,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 - `hl7v2-prof`: Profile validation
 - `hl7v2-gen`: Message generation
 - `hl7v2-cli`: Command-line interface
+- `hl7v2-server`: HTTP/REST API server
 
 ## Installation
 
@@ -39,6 +40,52 @@ cargo install hl7v2-cli
 ```
 
 ## Quick Start
+
+### HTTP/REST API Server
+
+The fastest way to get started is with the HTTP API server:
+
+```bash
+# Start the server
+cargo run --bin hl7v2-server
+
+# Or with custom configuration
+HL7V2_HOST=0.0.0.0 HL7V2_PORT=8080 cargo run --bin hl7v2-server
+```
+
+**Parse a message via HTTP:**
+```bash
+curl -X POST http://localhost:8080/hl7/parse \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|MSG001|P|2.5\rPID|1||MRN123||Doe^John||19800101|M",
+    "mllp_framed": false,
+    "options": {
+      "include_json": true
+    }
+  }'
+```
+
+**Validate a message against a profile:**
+```bash
+curl -X POST http://localhost:8080/hl7/validate \
+  -H "Content-Type": application/json" \
+  -d '{
+    "message": "MSH|^~\\&|...",
+    "profile": "..."  # YAML profile content
+  }'
+```
+
+**Check server health:**
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/ready
+curl http://localhost:8080/metrics  # Prometheus metrics
+```
+
+See the [OpenAPI specification](schemas/openapi/hl7v2-api.yaml) for complete API documentation.
+
+### CLI Tools
 
 ### Parse HL7 Messages
 
@@ -129,6 +176,20 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 - **Input/output formats**: Raw HL7, JSON, MLLP framing
 - **Interactive mode**: Command-line REPL for exploratory use
 - **File I/O**: Read from files or stdin, write to files or stdout
+
+### HTTP/REST API Server (hl7v2-server)
+
+- **RESTful API**: Parse and validate HL7 messages over HTTP
+- **Health & Readiness**: Production-ready health checks
+- **Prometheus metrics**: Request counts, latencies, error rates
+- **Concurrency limiting**: Built-in backpressure (100 concurrent requests default)
+- **CORS support**: Cross-origin requests enabled
+- **Compression**: Gzip compression for responses
+- **OpenAPI 3.0 spec**: Complete API documentation at `schemas/openapi/hl7v2-api.yaml`
+- **Docker ready**: Containerized deployment with Nix-built images
+- **Kubernetes ready**: Helm charts and manifests in `infrastructure/k8s/`
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment guide.
 
 ## Architecture
 

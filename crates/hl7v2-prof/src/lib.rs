@@ -98,6 +98,8 @@ pub struct LengthConstraint {
 pub struct ValueSet {
     pub path: String,
     pub name: String,
+    /// Codes can be defined inline OR reference an HL7 table by name
+    #[serde(default)]
     pub codes: Vec<String>,
 }
 
@@ -174,8 +176,17 @@ pub struct HL7TableEntry {
 pub struct CrossFieldRule {
     pub id: String,
     pub description: String,
+    /// Validation mode: "conditional" (default) or "assert"
+    /// - "conditional": If conditions are met, execute actions
+    /// - "assert": Conditions must be true, fail otherwise
+    #[serde(default = "default_validation_mode")]
+    pub validation_mode: String,
     pub conditions: Vec<RuleCondition>,
     pub actions: Vec<RuleAction>,
+}
+
+fn default_validation_mode() -> String {
+    "conditional".to_string()
 }
 
 /// Condition for a cross-field rule
@@ -208,6 +219,20 @@ pub struct CustomRule {
     pub id: String,
     pub description: String,
     pub script: String, // Could be a simple expression or reference to external logic
+}
+
+/// Expression guardrails - rules that limit how expressions can be used in profiles
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ExpressionGuardrails {
+    /// Maximum depth of nested expressions
+    #[serde(default)]
+    pub max_depth: Option<usize>,
+    /// Maximum length of expression strings
+    #[serde(default)]
+    pub max_length: Option<usize>,
+    /// Whether to allow custom scripts
+    #[serde(default)]
+    pub allow_custom_scripts: bool,
 }
 
 /// Severity of validation issues
@@ -540,9 +565,9 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
         validate_length_constraint(msg, length, &mut issues);
     }
 
-    // Validate HL7 tables
-    for table in &profile.hl7_tables {
-        validate_hl7_table(msg, table, profile, &mut issues);
+    // Validate HL7 tables (with precedence support if configured)
+    if !profile.hl7_tables.is_empty() || !profile.valuesets.is_empty() {
+        validate_hl7_tables_with_precedence(msg, profile, &mut issues);
     }
 
     // Validate cross-field rules
@@ -671,6 +696,12 @@ fn validate_field_in_constraint(
 
 /// Validate that a field value is in the allowed value set
 fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue>) {
+    // If codes is empty, this valueset references an HL7 table
+    // Validation will happen in validate_hl7_tables_with_precedence instead
+    if valueset.codes.is_empty() {
+        return;
+    }
+
     if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
         if !valueset.codes.contains(&value.to_string()) {
             issues.push(Issue {
@@ -796,7 +827,7 @@ fn validate_advanced_data_type(
                     code: "CHECKSUM_MISMATCH",
                     severity: Severity::Error,
                     path: Some(datatype.path.clone()),
-                    message: format!("Checksum validation failed for {}", datatype.path),
+                    detail: format!("Checksum validation failed for {}", datatype.path),
                 });
             }
         }
@@ -938,74 +969,6 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
                     "Invalid date/time value for {} or {}",
                     rule.before, rule.after
                 ),
-            });
-        }
-    }
-}
-
-/// Validate an HL7 v2 message against a profile
-pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
-    let mut issues = Vec::new();
-
-    // Validate data type constraints
-    for datatype in &profile.datatypes {
-        validate_datatype_constraint(msg, datatype, &mut issues);
-    }
-
-    // Validate length constraints
-    // Validate length constraints
-    for length in &profile.lengths {
-        validate_length_constraint(msg, length, &mut issues);
-    }
-
-    // Validate HL7 tables with precedence support
-    validate_hl7_tables_with_precedence(msg, profile, &mut issues);
-
-    // Validate cross-field rules
-    for rule in &profile.cross_field_rules {
-        validate_cross_field_rule(msg, rule, profile, &mut issues);
-    }
-
-    // Validate temporal rules
-    for rule in &profile.temporal_rules {
-        validate_temporal_rule(msg, rule, &mut issues);
-    }
-
-    issues
-}
-
-/// Validate a temporal rule
-fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<Issue>) {
-    // Get before and after values
-    let before_val = get(msg, &rule.before);
-    let after_val = get(msg, &rule.after);
-
-    // Both must be present to validate
-    if let (Some(before), Some(after)) = (before_val, after_val) {
-        // Parse as temporal values (dates/times)
-        // For now, simple string comparison (proper temporal parsing needed)
-        let is_valid = if rule.allow_equal {
-            before <= after
-        } else {
-            before < after
-        };
-
-        if !is_valid {
-            issues.push(Issue {
-                code: "TEMPORAL_VALIDATION_ERROR",
-                severity: Severity::Error,
-                path: Some(rule.before.clone()),
-                message: if rule.allow_equal {
-                    format!(
-                        "Field {} value '{}' should be before or equal to field {} value '{}'",
-                        rule.before, before, rule.after, after
-                    )
-                } else {
-                    format!(
-                        "Field {} value '{}' should be before field {} value '{}'",
-                        rule.before, before, rule.after, after
-                    )
-                },
             });
         }
     }
@@ -1519,10 +1482,29 @@ fn validate_cross_field_rule(
         .iter()
         .all(|condition| check_rule_condition(msg, condition));
 
-    // If conditions are met, execute actions
-    if conditions_met {
-        for action in &rule.actions {
-            execute_rule_action(msg, action, rule, profile, issues);
+    match rule.validation_mode.as_str() {
+        "assert" => {
+            // Assert mode: conditions must be true, fail if they're not
+            if !conditions_met {
+                issues.push(Issue {
+                    code: "CROSS_FIELD_ASSERTION_FAILED",
+                    severity: Severity::Error,
+                    path: None,
+                    detail: format!(
+                        "Cross-field assertion failed: {} ({})",
+                        rule.description, rule.id
+                    ),
+                });
+            }
+            // If conditions are true, validation passes (no error)
+        }
+        "conditional" | _ => {
+            // Conditional mode (default): if conditions are met, execute actions
+            if conditions_met {
+                for action in &rule.actions {
+                    execute_rule_action(msg, action, rule, profile, issues);
+                }
+            }
         }
     }
 }
@@ -2405,7 +2387,7 @@ fn is_valid_birth_date(value: &str) -> bool {
 
     // Check if date is not in the future
     let current_date = chrono::Utc::now().format("%Y%m%d").to_string();
-    value <= &current_date
+    value <= current_date.as_str()
 }
 
 /// Check if two dates represent a valid age range (e.g., birth date vs admission date)
