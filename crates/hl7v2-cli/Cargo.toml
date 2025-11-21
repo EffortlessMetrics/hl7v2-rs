@@ -18,3 +18,5 @@ hl7v2-core = { path = "../hl7v2-core" }
 hl7v2-prof = { path = "../hl7v2-prof" }
 hl7v2-gen = { path = "../hl7v2-gen" }
 sysinfo = "0.29"
+serde.workspace = true
+chrono = "0.4.42"

@@ -61,13 +61,15 @@ async fn test_validate_adt_a01_with_matching_profile() {
         .await
         .unwrap();
 
-    assert_eq!(
-        response.status(),
-        StatusCode::OK,
-        "ADT^A01 message should validate against ADT_A01 profile"
-    );
-
+    let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "ADT^A01 message should validate against ADT_A01 profile. Response body: {}", body_str
+    );
     let body_str = String::from_utf8(body.to_vec()).unwrap();
 
     // Response should contain validation results

@@ -5,6 +5,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use itertools::Itertools;
 use std::sync::Arc;
 
 use crate::models::*;
@@ -77,12 +78,37 @@ pub async fn validate_handler(
     // Extract metadata
     let metadata = extract_metadata(&message)?;
 
-    // TODO: Load profile and validate
-    // For now, return a placeholder response
+    // Load profile and validate
+    let profile = hl7v2_prof::load_profile(&request.profile)
+        .map_err(|e| AppError::Validation(format!("Invalid profile: {:?}", e)))?;
+
+    let issues = hl7v2_prof::validate(&message, &profile);
+
+    // Separate issues into errors and warnings
+    let (errors, warnings): (Vec<ValidationError>, Vec<ValidationWarning>) = issues
+        .into_iter()
+        .partition_map(|issue| {
+            match issue.severity {
+                hl7v2_prof::Severity::Error => itertools::Either::Left(ValidationError {
+                    code: issue.code.to_string(),
+                    message: issue.detail,
+                    location: issue.path,
+                    severity: ErrorSeverity::Error,
+                }),
+                hl7v2_prof::Severity::Warning => itertools::Either::Right(ValidationWarning {
+                    code: issue.code.to_string(),
+                    message: issue.detail,
+                    location: issue.path,
+                }),
+            }
+        });
+
+    let valid = errors.is_empty();
+
     let response = ValidateResponse {
-        valid: true,
-        errors: Vec::new(),
-        warnings: Vec::new(),
+        valid,
+        errors,
+        warnings,
         metadata,
     };
 
@@ -91,46 +117,7 @@ pub async fn validate_handler(
 
 /// Extract message metadata from parsed message
 fn extract_metadata(message: &hl7v2_core::Message) -> Result<MessageMetadata, AppError> {
-    // Find MSH segment
-    let msh = message
-        .segments
-        .first()
-        .ok_or_else(|| AppError::Parse("Missing MSH segment".to_string()))?;
-
-    if &msh.id != b"MSH" {
-        return Err(AppError::Parse("First segment must be MSH".to_string()));
-    }
-
-    // Extract MSH fields
-    let message_type = hl7v2_core::get(message, "MSH.9")
-        .unwrap_or("UNKNOWN")
-        .to_string();
-
-    let version = hl7v2_core::get(message, "MSH.12")
-        .unwrap_or("2.5")
-        .to_string();
-
-    let sending_application = hl7v2_core::get(message, "MSH.3")
-        .unwrap_or("")
-        .to_string();
-
-    let sending_facility = hl7v2_core::get(message, "MSH.4")
-        .unwrap_or("")
-        .to_string();
-
-    let message_control_id = hl7v2_core::get(message, "MSH.10")
-        .unwrap_or("")
-        .to_string();
-
-    Ok(MessageMetadata {
-        message_type,
-        version,
-        sending_application,
-        sending_facility,
-        message_control_id,
-        segment_count: message.segments.len(),
-        charsets: message.charsets.clone(),
-    })
+    message.metadata().map_err(|e| AppError::Parse(e.to_string()))
 }
 
 /// Application error type

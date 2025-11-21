@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Create a test server instance with default configuration
+#[allow(dead_code)]
 pub fn create_test_server() -> Server {
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
@@ -15,6 +16,7 @@ pub fn create_test_server() -> Server {
 }
 
 /// Create a test router for integration testing
+#[allow(dead_code)]
 pub fn create_test_router() -> Router {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
@@ -25,6 +27,7 @@ pub fn create_test_router() -> Router {
 }
 
 /// Sample HL7v2 messages for testing
+#[allow(dead_code)]
 pub mod fixtures {
     /// Valid ADT^A01 message (Admit/Visit Notification)
     pub const ADT_A01_VALID: &str =
@@ -67,6 +70,7 @@ pub mod fixtures {
 }
 
 /// Sample conformance profiles for testing
+#[allow(dead_code)]
 pub mod profiles {
     /// Minimal profile (basic structure only)
     pub const MINIMAL_PROFILE: &str = r#"
@@ -126,12 +130,12 @@ hl7_tables:
     name: "Administrative Sex"
     version: "2.5.1"
     codes:
-      - code: "F"
-        display: "Female"
-      - code: "M"
-        display: "Male"
-      - code: "U"
-        display: "Unknown"
+      - value: "F"
+        description: "Female"
+      - value: "M"
+        description: "Male"
+      - value: "U"
+        description: "Unknown"
 
 valuesets:
   - path: "PID.8"

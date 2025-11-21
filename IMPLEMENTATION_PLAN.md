@@ -1,337 +1,112 @@
 # HL7v2-rs Implementation Plan
 
-**Version**: v1.2.0 Development Plan
-**Effective Date**: 2025-11-13
-**Target Release**: Q1 2026 (12-16 weeks)
+**Version**: v1.2.0 Completion Plan
+**Effective Date**: 2025-11-19
+**Target Release**: Q1 2026
+
+> **Note**: This plan aligns with `SYSTEMATIC_BUILD_PLAN.md` and reflects completed work.
 
 ---
 
 ## Table of Contents
 
-1. [v1.2.0 Sprint Breakdown](#v120-sprint-breakdown)
-2. [Detailed Task Lists](#detailed-task-lists)
-3. [Dependencies & Critical Path](#dependencies--critical-path)
-4. [Testing Strategy](#testing-strategy)
-5. [Release Checklist](#release-checklist)
+1. [Current Progress](#current-progress)
+2. [Remaining Work (Sprint Breakdown)](#remaining-work-sprint-breakdown)
+3. [Detailed Task Lists](#detailed-task-lists)
+4. [Dependencies & Critical Path](#dependencies--critical-path)
+5. [Testing Strategy](#testing-strategy)
+6. [Release Checklist](#release-checklist)
 
 ---
 
-## v1.2.0 Sprint Breakdown
+## Current Progress
 
-### Sprint 1-2 (Weeks 1-2): Network Foundation & Streaming
+- **Phase 1: Foundation & Infrastructure** (✅ Complete)
+  - Schema-driven design
+  - BDD framework
+  - Infrastructure-as-Code (Docker/K8s)
+  - Policy-as-Code (OPA)
 
-**Goal**: Establish network infrastructure and streaming improvements
-
-#### Sprint 1: Setup & Design
-
-**Tasks**:
-1. **Network Module Architecture Design** (1 day | 1 engineer)
-   - [ ] Design TCP connection pooling strategy
-   - [ ] Design MLLP frame handler (send/receive)
-   - [ ] Identify async runtime (Tokio configuration)
-   - [ ] Document error handling strategy
-   - [ ] Create ADR (Architecture Decision Record)
-   - **Acceptance**: Design doc reviewed, team aligned
-
-2. **Streaming Parser Backpressure Design** (0.5 day | 1 engineer)
-   - [ ] Design bounded queue semantics
-   - [ ] Choose channel implementation (tokio::sync::mpsc)
-   - [ ] Define overflow behavior (block vs. error)
-   - [ ] Document memory pressure signals
-   - **Acceptance**: API design document with examples
-
-3. **Testing Infrastructure Setup** (1.5 days | 1 engineer)
-   - [ ] Create network test fixtures (mock server)
-   - [ ] Set up TCP test harness
-   - [ ] Create MLLP frame test cases
-   - [ ] Configure stress testing tools (k6 or similar)
-   - **Acceptance**: Tests can run, baseline latency measured
-
-4. **Workspace Preparation** (0.5 days | 1 engineer)
-   - [ ] Create GitHub issues for all v1.2 features
-   - [ ] Set up feature branches (network, streaming, profiles, etc.)
-   - [ ] Create CI/CD configuration for new tests
-   - [ ] Establish code review process
-   - **Acceptance**: All branches ready, CI passing on main
-
-#### Sprint 2: Network Implementation Start
-
-**Tasks**:
-1. **MLLP Frame Handler** (2-3 days | 1 engineer)
-   - [ ] Implement `MllpFramer` struct
-   - [ ] Add `frame_write()` method (wrap with VT, FS, CR)
-   - [ ] Add `frame_read()` method (read until FS CR)
-   - [ ] Add timeout handling (default 30s)
-   - [ ] Add frame validation (reject incomplete frames)
-   - [ ] Write unit tests (happy path + error cases)
-   - **Acceptance**: Tests pass, frames round-trip correctly
-
-2. **TCP Connection Handler** (2-3 days | 1 engineer)
-   - [ ] Implement `TcpConnection` struct using Tokio
-   - [ ] Add `accept_connection()` (listener setup)
-   - [ ] Add `send_message()` with MLLP framing
-   - [ ] Add `receive_message()` with timeout
-   - [ ] Handle connection errors gracefully
-   - [ ] Add connection pooling skeleton
-   - [ ] Write integration tests
-   - **Acceptance**: Can accept/send/receive messages over TCP
-
-3. **Streaming Parser Bounded Queue** (2 days | 1 engineer)
-   - [ ] Implement `BoundedEventQueue` with mpsc channel
-   - [ ] Add configurable capacity (default 1024)
-   - [ ] Implement overflow handling (block sender)
-   - [ ] Add `--queue-capacity` CLI flag
-   - [ ] Add tests for overflow behavior
-   - [ ] Add memory bound assertions
-   - **Acceptance**: Queue respects bounds, tests pass
-
-4. **Code Integration & Testing** (1.5 days)
-   - [ ] Integrate new network code into hl7v2-core
-   - [ ] Run all existing tests
-   - [ ] Fix any integration issues
-   - [ ] Update Cargo.toml with new dependencies (tokio, etc.)
-   - [ ] Document new APIs
-   - **Acceptance**: All tests pass, docs updated
-
-**Effort**: 12-14 story points | 2 weeks | 2 engineers
-
-**Exit Criteria**:
-- [ ] MLLP framer working with tests
-- [ ] TCP handler can accept connections
-- [ ] Bounded queue respects capacity
-- [ ] All unit tests passing
-- [ ] No new clippy warnings
+- **Phase 2: Core Features** (🔄 In Progress)
+  - Network Module: ✅ MLLP Codec/Server/Client implemented
+  - HTTP Server: ✅ Axum server, Endpoints, Auth implemented
+  - Backpressure: 🚧 Planned
+  - gRPC: 🚧 Planned
 
 ---
 
-### Sprint 3-4 (Weeks 3-4): Server Mode HTTP & Remote Profiles
+## Remaining Work (Sprint Breakdown)
 
-**Goal**: Basic server mode and remote profile loading
+### Sprint 1 (Weeks 1-2): Streaming & Reliability
 
-#### Sprint 3: Server Mode HTTP Foundation
-
-**Tasks**:
-1. **HTTP Server Framework Setup** (2 days | 1 engineer)
-   - [ ] Add Axum and related dependencies
-   - [ ] Create basic Axum app structure
-   - [ ] Implement health endpoint (GET /health)
-   - [ ] Implement readiness endpoint (GET/ready)
-   - [ ] Add structured logging middleware (tracing)
-   - [ ] Add request/response logging
-   - [ ] Write basic integration tests
-   - **Acceptance**: Server starts, health endpoints respond
-
-2. **Parse Endpoint** (2-3 days | 1 engineer)
-   - [ ] Create `POST /hl7/parse` endpoint
-   - [ ] Accept raw HL7 in request body
-   - [ ] Return JSON response with parsed message
-   - [ ] Handle MLLP-framed input (optional header)
-   - [ ] Add error handling with appropriate HTTP codes
-   - [ ] Write integration tests
-   - [ ] Document API (examples in code)
-   - **Acceptance**: Endpoint parses messages correctly
-
-3. **Validate Endpoint** (2-3 days | 1 engineer)
-   - [ ] Create `POST /hl7/validate` endpoint
-   - [ ] Accept message + profile specification
-   - [ ] Return validation results
-   - [ ] Include detailed error information
-   - [ ] Handle missing/invalid profiles
-   - [ ] Write integration tests
-   - **Acceptance**: Endpoint validates with correct results
-
-4. **ACK Endpoint** (1-2 days | 1 engineer)
-   - [ ] Create `POST /hl7/ack` endpoint
-   - [ ] Accept message + ACK code (AA/AE/AR/etc)
-   - [ ] Return generated ACK message
-   - [ ] Write integration tests
-   - **Acceptance**: Endpoint generates ACKs correctly
-
-5. **Server Integration & Testing** (1 day | 1 engineer)
-   - [ ] Integrate all endpoints
-   - [ ] Run stress tests (100+ concurrent requests)
-   - [ ] Fix performance issues
-   - [ ] Update documentation
-   - **Acceptance**: Server handles load, all endpoints working
-
-**Effort**: 9-11 story points | 1 week | 2 engineers
-
-#### Sprint 4: Remote Profiles & gRPC
+**Goal**: Complete streaming parser improvements and harden network
 
 **Tasks**:
-1. **Remote Profile Loading** (3-4 days | 1 engineer)
-   - [ ] Implement HTTP profile fetcher using `reqwest`
-   - [ ] Add ETag/If-None-Match caching
-   - [ ] Implement local cache directory
-   - [ ] Add S3 profile support (AWS SDK)
-   - [ ] Add GCS profile support
-   - [ ] Add cache invalidation/refresh
-   - [ ] Write tests for all sources
-   - **Acceptance**: Can load from HTTP, S3, GCS with caching
+1. **Streaming Backpressure** (Priority: HIGH)
+   - [ ] Implement bounded channels in `StreamParser`
+   - [ ] Add memory usage tracking (RSS)
+   - [ ] Add backpressure handling in HTTP/MLLP servers
+   - [ ] Benchmark under load (10GB corpus)
+   - **Acceptance**: Memory stays <64MB for large files
 
-2. **Profile LRU Cache** (2 days | 1 engineer)
-   - [ ] Implement LRU cache (use `lru` crate)
-   - [ ] Add size limits (default 100MB)
-   - [ ] Add eviction policy
-   - [ ] Add cache statistics endpoint
-   - [ ] Write cache tests
-   - **Acceptance**: Cache respects size limits
+2. **Resume Parsing** (Priority: MEDIUM)
+   - [ ] Track parser state between chunks
+   - [ ] Implement `resume_from(offset)`
+   - [ ] Add tests for chunk boundaries
+   - **Acceptance**: Can resume interrupted parsing
 
-3. **gRPC Server Setup** (2-3 days | 1 engineer)
-   - [ ] Add Tonic dependencies
-   - [ ] Create `.proto` files for messages
-   - [ ] Generate Rust code from protos
-   - [ ] Create gRPC service implementation
-   - [ ] Mirror HTTP endpoints in gRPC
-   - [ ] Add streaming support
-   - [ ] Write integration tests
-   - **Acceptance**: gRPC server running, basic calls work
+3. **Network Hardening** (Priority: MEDIUM)
+   - [ ] Add connection pooling to MLLP client
+   - [ ] Add TLS support to MLLP server/client (rustls)
+   - [ ] Add comprehensive timeout handling
+   - **Acceptance**: Robust against network failures
 
-4. **Code Integration & Polish** (1.5 days)
-   - [ ] Integrate all new code
-   - [ ] Run full test suite
-   - [ ] Performance testing (compare HTTP vs gRPC)
-   - [ ] Documentation updates
-   - [ ] Fix any integration issues
-   - **Acceptance**: All tests pass, no performance regression
+### Sprint 2 (Weeks 3-4): Remote Profiles & Advanced Features
 
-**Effort**: 8-10 story points | 1 week | 2 engineers
+**Goal**: Enable distributed operation
 
-**Exit Criteria (Sprint 3-4)**:
-- [ ] HTTP server with 4 working endpoints
-- [ ] gRPC server operational
-- [ ] Remote profile loading from 3+ sources
-- [ ] Profile caching working
-- [ ] Stress tests passing (1000+ RPS)
-- [ ] All new code documented
+**Tasks**:
+1. **Remote Profile Loading** (Priority: HIGH)
+   - [ ] Implement HTTP/S3/GCS profile fetchers
+   - [ ] Add LRU caching for profiles
+   - [ ] Implement ETag support
+   - **Acceptance**: Can validate against remote profiles
+
+2. **gRPC Server** (Priority: MEDIUM)
+   - [ ] Define `.proto` files
+   - [ ] Implement Tonic server
+   - [ ] Mirror HTTP endpoints
+   - **Acceptance**: gRPC client can parse/validate
+
+3. **Corpus Manifest** (Priority: LOW)
+   - [ ] Generate `manifest.json`
+   - [ ] Add verification command
+   - **Acceptance**: Reproducible corpora
 
 ---
 
-### Sprint 5-6 (Weeks 5-6): Authentication & Memory Optimization
+### Sprint 3 (Week 5): CLI Polish & Observability
 
-**Goal**: Add security and complete streaming improvements
-
-#### Sprint 5: Authentication & Authorization
+**Goal**: Complete CLI and ensure production readiness
 
 **Tasks**:
-1. **Authentication Middleware** (2-3 days | 1 engineer)
-   - [ ] Implement Bearer token validation
-   - [ ] Add OIDC token verification (optional)
-   - [ ] Create middleware stack
-   - [ ] Extract claims/principal from token
-   - [ ] Pass principal through request context
-   - [ ] Add tests
-   - **Acceptance**: Middleware validates tokens correctly
+1. **CLI Enhancements** (Priority: MEDIUM)
+   - [ ] Implement `--report` flag
+   - [ ] Add TOML config file support
+   - [ ] Fix `--canonical-delims`
+   - **Acceptance**: CLI feature complete
 
-2. **Authorization (RBAC)** (2-3 days | 1 engineer)
-   - [ ] Define role structure (admin, user, viewer)
-   - [ ] Implement permission checks per endpoint
-   - [ ] Add policy evaluation
-   - [ ] Create sample policies
-   - [ ] Add tests for role enforcement
-   - **Acceptance**: Can restrict endpoint access by role
+2. **Observability** (Priority: HIGH)
+   - [ ] Finalize OpenTelemetry tracing
+   - [ ] Create Grafana dashboards
+   - [ ] Validate PHI redaction in logs
+   - **Acceptance**: Full visibility in production
 
-3. **Logging & Audit** (1-2 days | 1 engineer)
-   - [ ] Implement structured logging (JSON)
-   - [ ] Add request ID tracking
-   - [ ] Implement PHI redaction (replace sensitive fields)
-   - [ ] Add audit logging (who did what when)
-   - [ ] Write redaction tests
-   - **Acceptance**: Logs contain no PHI by default
-
-**Effort**: 5-8 story points | 1 week | 1-2 engineers
-
-#### Sprint 6: Memory & Performance
-
-**Tasks**:
-1. **Memory Bounds Enforcement** (2 days | 1 engineer)
-   - [ ] Add RSS monitoring to streaming parser
-   - [ ] Implement memory pressure signals
-   - [ ] Add `--memory-limit MB` CLI flag
-   - [ ] Handle OOM gracefully (return error)
-   - [ ] Write memory tests
-   - **Acceptance**: Memory limits enforced, tests pass
-
-2. **Streaming Resume Capability** (2-3 days | 1 engineer)
-   - [ ] Add parser state tracking
-   - [ ] Implement `resume_from(offset)` API
-   - [ ] Add incremental chunk parsing
-   - [ ] Write tests for boundary cases
-   - [ ] Benchmark memory usage
-   - **Acceptance**: Can resume parsing mid-message
-
-3. **Performance Baseline & Testing** (2 days | 1 engineer)
-   - [ ] Run comprehensive benchmarks (parse, validate, generate)
-   - [ ] Establish baseline metrics (latency p50/p95/p99)
-   - [ ] Add performance regression tests
-   - [ ] Document performance targets
-   - [ ] Create performance report
-   - **Acceptance**: All targets met, metrics documented
-
-4. **Escape Sequence Enhancements** (1-2 days | 1 engineer)
-   - [ ] Add highlight escape support (\H\...\N\)
-   - [ ] Add binary escape handling
-   - [ ] Write tests
-   - [ ] Document supported escapes
-   - **Acceptance**: All escape types working
-
-**Effort**: 7-9 story points | 1 week | 1-2 engineers
-
-**Exit Criteria (Sprint 5-6)**:
-- [ ] Authentication working (Bearer tokens)
-- [ ] RBAC enforced on endpoints
-- [ ] PHI redaction in logs
-- [ ] Memory bounds enforced
-- [ ] Performance baselines established
-- [ ] All escape sequences supported
-
----
-
-### Sprint 7 (Week 7): CLI Completion & Testing
-
-**Goal**: Complete CLI and start comprehensive testing
-
-**Tasks**:
-1. **CLI Enhancements** (2-3 days | 1 engineer)
-   - [ ] Implement `--report` flag for validation (save JSON)
-   - [ ] Fix `--canonical-delims` in normalize command
-   - [ ] Add `--envelope` parsing
-   - [ ] Add configuration file support (TOML)
-   - [ ] Add environment variable overrides
-   - [ ] Write tests for all new flags
-   - **Acceptance**: All documented flags working
-
-2. **Corpus Manifest** (2-3 days | 1 engineer)
-   - [ ] Implement manifest.json generation
-   - [ ] Add metadata tracking (tool version, seed, SHA-256s)
-   - [ ] Implement `gen --verify-manifest`
-   - [ ] Add verification tests
-   - **Acceptance**: Manifests generated and verified correctly
-
-3. **Server Mode Testing** (2-3 days | 1 engineer)
-   - [ ] Create comprehensive server tests (50+)
-   - [ ] Test auth flows (valid/invalid tokens)
-   - [ ] Test error scenarios
-   - [ ] Test concurrent requests
-   - [ ] Test MLLP over TCP
-   - [ ] Stress test (10k+ messages)
-   - **Acceptance**: 95%+ pass rate, no critical issues
-
-4. **Documentation** (1-2 days | 1 engineer)
-   - [ ] Update README with server mode usage
-   - [ ] Write API documentation
-   - [ ] Add CLI command reference
-   - [ ] Create deployment guide
-   - [ ] Add troubleshooting guide
-   - **Acceptance**: Docs are clear and complete
-
-**Effort**: 7-11 story points | 1 week | 2-3 engineers
-
-**Exit Criteria**:
-- [ ] All CLI commands fully implemented
-- [ ] Server mode documented
-- [ ] Test coverage 90%+
-- [ ] Zero blocking issues found
+**Exit Criteria (v1.2.0)**:
+- [ ] All critical features implemented
+- [ ] 90% Test coverage
+- [ ] Documentation complete
+- [ ] Performance targets met
 
 ---
 
@@ -373,46 +148,14 @@
 
 ## Detailed Task Lists
 
-### Network Module (High Priority - Blocking for Server Mode)
+### Network Module (Mostly Complete)
 
-**File**: `crates/hl7v2-core/src/network.rs` (Currently stubs)
+**File**: `crates/hl7v2-core/src/network/`
 
-```rust
-// TODO: Implement actual functionality
-
-// Current stubs to replace:
-pub struct MllpServer { /* ... */ }  // ← Needs implementation
-pub struct MllpClient { /* ... */ }  // ← Needs implementation
-pub struct TcpConnection { /* ... */ }  // ← Needs implementation
-
-// Required types:
-pub struct ConnectionConfig {
-    host: String,
-    port: u16,
-    timeout_ms: u64,
-    tls_enabled: bool,
-}
-
-pub struct MllpFrameHandler {
-    // Handle VT/FS/CR framing
-}
-
-// Required functions:
-impl MllpServer {
-    pub async fn listen(config: ConnectionConfig) -> Result<Self>;
-    pub async fn accept(&mut self) -> Result<Message>;
-    pub async fn send(&mut self, msg: &Message) -> Result<()>;
-    pub async fn close(&mut self) -> Result<()>;
-}
-```
-
-**Key Checklist**:
-- [ ] Replace stub implementations with real Tokio-based code
-- [ ] Add proper error handling and connection pooling
-- [ ] Implement TLS support using rustls
-- [ ] Add comprehensive tests (unit + integration)
-- [ ] Document API and examples
-- [ ] Benchmark performance
+**Remaining Tasks**:
+- [ ] Implement TLS support (rustls)
+- [ ] Add connection pooling
+- [ ] Stress test MLLP codec
 
 ### Profile Module Enhancements
 
@@ -449,12 +192,9 @@ pub fn detect_profile_cycles(profile: &Profile) -> Result<()>;
 - [ ] Implement `--canonical-delims` in normalize command
 - [ ] Add `--envelope FILE` to parse command
 - [ ] Add TOML config file support
-- [ ] Add server mode command (`server --port 8080 --host 0.0.0.0`)
-- [ ] Add authentication configuration
 
 **Example New Commands**:
 ```bash
-hl7v2 server --port 8080 --host 0.0.0.0 --tls=false
 hl7v2 parse input.hl7 --report validation.json
 hl7v2 val input.hl7 --profile p.yaml --report errors.json
 ```

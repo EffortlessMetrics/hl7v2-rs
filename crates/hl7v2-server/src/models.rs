@@ -70,23 +70,7 @@ pub struct ParseResponse {
 }
 
 /// Message metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MessageMetadata {
-    /// Message type (e.g., "ADT^A01")
-    pub message_type: String,
-    /// HL7 version (e.g., "2.5")
-    pub version: String,
-    /// Sending application
-    pub sending_application: String,
-    /// Sending facility
-    pub sending_facility: String,
-    /// Message control ID
-    pub message_control_id: String,
-    /// Number of segments
-    pub segment_count: usize,
-    /// Character sets used
-    pub charsets: Vec<String>,
-}
+pub type MessageMetadata = hl7v2_core::Metadata;
 
 /// Validate request body
 #[derive(Debug, Clone, Serialize, Deserialize)]

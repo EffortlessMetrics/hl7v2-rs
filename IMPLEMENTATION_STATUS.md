@@ -340,7 +340,7 @@ hl7v2 parse <input> [--json] [--mllp]
 - ❌ Streaming flag not supported
 
 ### Normalize Command
-**Status**: ⚠️ **Partial** (80%)
+**Status**: ✅ **Complete** (100%)
 
 ```bash
 hl7v2 norm <input> [--canonical-delims] [--mllp-in] [--mllp-out]
@@ -348,19 +348,19 @@ hl7v2 norm <input> [--canonical-delims] [--mllp-in] [--mllp-out]
 
 - ✅ Message normalization
 - ✅ MLLP framing/unframing
-- ⚠️ `--canonical-delims` accepted but not used
+- ✅ `--canonical-delims` implemented (resets delimiters to default)
 
 ### Validate Command
-**Status**: ⚠️ **Partial** (70%)
+**Status**: ✅ **Complete** (90%)
 
 ```bash
-hl7v2 val <input> --profile <path> [--mllp]
+hl7v2 val <input> --profile <path> [--mllp] [--report <file>]
 ```
 
 - ✅ Profile loading
 - ✅ Message validation
 - ✅ Detailed error output
-- ❌ `--report` flag not implemented (can't save JSON report)
+- ✅ `--report` flag implemented (saves JSON report)
 
 ### ACK Generation Command
 **Status**: ✅ **Complete** (100%)
@@ -491,11 +491,11 @@ Benchmarks available for:
 1. ~~**Network Module is Stubs**: All networking functions return errors or empty implementations~~ **FIXED** - Full MLLP network module implemented
 2. **Expression Engine is Crude**: Uses string pattern matching instead of proper expression parsing
 3. **Zero-Copy Claims**: Documentation overstates zero-copy; it's event-based but not truly zero-copy
-4. **CLI Flag Gaps**: Some documented flags (--streaming, --distributions, --report) aren't implemented
+4. **CLI Flag Gaps**: Some documented flags (--streaming, --distributions) aren't implemented (Note: `--report` is now implemented)
 5. ~~**Duplicate Code**: Some validation logic appears duplicated in hl7v2-prof~~ **FIXED** - Deduplicated validation logic
 6. ~~**hl7v2-prof Compilation Issues**: Crate had build errors~~ **FIXED** - All compilation issues resolved
 7. ~~**Server Authentication Placeholder**: Auth middleware was non-functional~~ **FIXED** - Real API key authentication implemented
-8. **Parse Endpoint Test**: Integration test for `/hl7/parse` needs review (currently ignored)
+8. ~~**Parse Endpoint Test**: Integration test for `/hl7/parse` needs review (currently ignored)~~ **FIXED** - Test updated and passing
 
 ---
 

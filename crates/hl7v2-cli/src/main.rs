@@ -85,6 +85,10 @@ enum Commands {
         #[arg(long)]
         detailed: bool,
         
+        /// Report output file (JSON)
+        #[arg(long)]
+        report: Option<PathBuf>,
+
         /// Show summary statistics
         #[arg(long)]
         summary: bool,
@@ -169,8 +173,8 @@ fn main() {
         Commands::Norm { input, canonical_delims, output, mllp_in, mllp_out, summary } => {
             norm_command(input, *canonical_delims, output, *mllp_in, *mllp_out, *summary)
         }
-        Commands::Val { input, profile, mllp, detailed, summary } => {
-            val_command(input, profile, *mllp, *detailed, *summary)
+        Commands::Val { input, profile, mllp, detailed, report, summary } => {
+            val_command(input, profile, *mllp, *detailed, report, *summary)
         }
         Commands::Ack { input, mode, code, mllp_in, mllp_out, summary } => {
             ack_command(input, mode, code, *mllp_in, *mllp_out, *summary)
@@ -305,9 +309,10 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
     
     // Normalize the message
     let normalized_bytes = if canonical_delims {
-        // We need to implement normalization with canonical delimiters
-        // For now, we'll just use the regular write function
-        write(&message)
+        // Create a copy of the message with canonical delimiters
+        let mut canonical_msg = message.clone();
+        canonical_msg.delims = hl7v2_core::Delims::default();
+        write(&canonical_msg)
     } else {
         write(&message)
     };
@@ -365,7 +370,7 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
     Ok(())
 }
 
-fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn val_command(input: &PathBuf, profile_path: &PathBuf, mllp: bool, detailed: bool, report: &Option<PathBuf>, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
     
     // Read the HL7 message file
@@ -386,7 +391,7 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, s
     monitor.record_metric("Message parsing", parse_time);
     
     // Read the profile YAML file
-    let profile_yaml = fs::read_to_string(profile)?;
+    let profile_yaml = fs::read_to_string(profile_path)?;
     
     let read_profile_time = monitor.elapsed() - read_time - parse_time;
     monitor.record_metric("Profile read", read_profile_time);
@@ -402,6 +407,44 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, s
     
     let validation_time = monitor.elapsed() - read_time - parse_time - read_profile_time - load_profile_time;
     monitor.record_metric("Message validation", validation_time);
+
+    // Write report if requested
+    if let Some(report_path) = report {
+        use serde::Serialize;
+
+        // Helper structs to serialize issues
+        #[derive(Serialize)]
+        struct ReportIssue {
+            code: String,
+            severity: String,
+            path: Option<String>,
+            detail: String,
+        }
+
+        let report_issues: Vec<ReportIssue> = results.iter().map(|issue| {
+            ReportIssue {
+                code: issue.code.to_string(),
+                severity: format!("{:?}", issue.severity), // Convert Severity enum to string
+                path: issue.path.clone(),
+                detail: issue.detail.clone(),
+            }
+        }).collect();
+
+        let report_data = serde_json::json!({
+            "input_file": input,
+            "profile_file": profile_path,
+            "validation_passed": results.is_empty(),
+            "issue_count": results.len(),
+            "issues": report_issues,
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+        });
+
+        let report_json = serde_json::to_string_pretty(&report_data)?;
+        fs::write(report_path, report_json)?;
+        if summary {
+            println!("Validation report written to: {:?}", report_path);
+        }
+    }
     
     // Print validation results
     if results.is_empty() {
@@ -415,6 +458,9 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, s
         } else {
             println!("Validation failed: {} issues found", results.len());
         }
+        // If report was requested, we don't necessarily need to exit with error code if we just want to generate report
+        // But typically validation failure implies non-zero exit code.
+        // Let's keep exit(1) for failure, but ensure report is written first (which we did above).
         std::process::exit(1);
     }
     
@@ -423,10 +469,10 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, s
         println!();
         println!("Validation Summary:");
         println!("  Input file: {:?}", input);
-        println!("  Profile file: {:?}", profile);
+        println!("  Profile file: {:?}", profile_path);
         println!("  File size: {} bytes", file_size);
         println!("  Segments: {}", message.segments.len());
-        println!("  Issues found: 0");
+        println!("  Issues found: {}", results.len());
         display_performance_stats(&monitor);
     }
     
@@ -629,7 +675,7 @@ fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     
-    val_command(&file_path, &profile_path, mllp, detailed, summary)
+    val_command(&file_path, &profile_path, mllp, detailed, &None, summary)
 }
 
 /// Handle ack command in interactive mode

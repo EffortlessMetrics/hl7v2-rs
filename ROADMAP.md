@@ -1,8 +1,8 @@
 # HL7v2-rs Development Roadmap
 
-**Current Status**: v1.1.0 (Core features stable)
+**Current Status**: v1.2.0 (Stable core, HTTP/MLLP server operational)
 **Target**: v2.0.0 (Enterprise-ready)
-**Last Updated**: 2025-11-13
+**Last Updated**: 2025-11-19
 
 ## Version Strategy
 
@@ -10,222 +10,39 @@ This roadmap balances stability with feature completeness. Each version has clea
 
 ---
 
-## v1.1.x (Current - Maintenance Branch)
+## v1.2.0 (Current - Stable Branch)
 
-**Status**: ✅ **STABLE - Bug fixes and documentation only**
+**Status**: ✅ **STABLE / IN PROGRESS** (~78% complete)
 
 ### What's Included
-- ✅ Event-based streaming parser
-- ✅ Full profile validation with inheritance
-- ✅ Message generation with realistic data
-- ✅ CLI for parse/validate/generate/ack/normalize
-- ✅ MLLP protocol support
-- ✅ JSON serialization
-- ✅ Batch processing
+- ✅ All v1.1 features (streaming parser, basic validation, generation)
+- ✅ HTTP/REST API Server (Axum-based)
+- ✅ API Key Authentication
+- ✅ MLLP Network Module (Client/Server codecs)
+- ✅ Prometheus Metrics Integration
+- ✅ Docker & Kubernetes Deployment Manifests
+- ✅ Schema-Driven Design (JSON schemas for all artifacts)
 
 ### Focus Areas
-- 🐛 Bug fixes and stability improvements
-- 📚 Documentation enhancements
-- ✅ Test coverage expansion
-- 🚀 Performance tuning
+- 🔄 Memory optimization for streaming
+- 🔄 Expression engine improvements
+- 🚧 Remote profile loading (planned)
+- 🚧 gRPC support (planned)
+- 🚧 Backpressure handling (planned)
 
 ### Release Cadence
-- Regular patch releases for bug fixes
-- Minor version bumps (1.1.x) for documentation/tooling improvements
-- No new features in v1.1.x line
+- Continuous integration builds
+- Weekly development releases
 
 ### Exit Criteria
-- No critical bugs
-- 95%+ test coverage
-- Production-ready documentation
+- Remote profile loading complete
+- gRPC server operational
+- 90%+ test coverage
+- Zero critical bugs
 
 ---
 
-## v1.2.0 (Next Major Release - 4-6 months)
-
-**Status**: 🔄 **IN PROGRESS** (~30% complete)
-
-### Primary Goals
-1. Complete streaming parser improvements
-2. Add server mode (HTTP/gRPC)
-3. Enhance CLI with missing features
-4. Improve expression engine
-
-### Feature Breakdown by Component
-
-#### hl7v2-core (Estimated: 6-8 weeks)
-
-**Streaming Parser Completion** (Priority: HIGH)
-- ✅ Event-based parsing (DONE)
-- 🚧 Backpressure with bounded channels
-  - Add `BoundedChannel<Event>` with configurable capacity
-  - Implement queue overflow handling
-  - Add `--queue-capacity N` CLI flag
-- 🚧 Memory bounds enforcement
-  - Track cumulative buffer memory
-  - Add RSS monitoring test
-  - Implement memory pressure signals
-- 🚧 Resume parsing across boundaries
-  - Track parser state between chunks
-  - Support `resume_from(byte_offset)` API
-  - Add incremental chunk tests
-- ⚠️ Enhanced escape sequence support
-  - Highlight escapes: `\H\...\N\`
-  - Binary escapes: hex/base64 for non-text fields
-
-**Network Module Implementation** (Priority: CRITICAL)
-- ❌ MLLP TCP Server
-  - Async TCP listener with Tokio
-  - Frame reading/writing
-  - Timeout handling (default 30s)
-  - Connection pooling
-- ❌ TLS Support
-  - rustls configuration
-  - mTLS with certificate validation
-  - Key/cert loading from files
-- ❌ ACK Semantics
-  - Send AA/AE based on validation
-  - Implement `--ack-after=validate|persist` hook
-  - Timing policy enforcement
-
-**Effort Estimate**: 40-50 story points | 6-8 weeks | 1-2 engineers
-
-#### hl7v2-prof (Estimated: 4-5 weeks)
-
-**Remote Profile Loading** (Priority: HIGH)
-- ❌ HTTP/HTTPS fetching
-  - Use `reqwest` with timeout
-  - Implement ETag/If-None-Match caching
-  - Cache metadata (etag, last-modified)
-- ❌ S3 Profile Loading
-  - AWS SDK integration
-  - Bucket/key resolution
-  - SSE-KMS support
-- ❌ GCS Profile Loading
-  - Google Cloud Storage SDK
-  - Service account authentication
-- ❌ Local File Caching
-  - LRU cache with size limits (default 100MB)
-  - Cache directory configuration
-  - Manifest for cache metadata
-
-**Expression Engine Hardening** (Priority: MEDIUM)
-- 🔄 Expression Compilation
-  - Pre-compile regex patterns
-  - Validate expressions at profile load time
-  - Cache compiled forms
-- 🔄 Time-Bound Evaluation
-  - Set execution timeout (default 100ms per expression)
-  - Prevent infinite loops
-  - Add `--expression-timeout MS` flag
-- 🔄 Guardrails & Validation
-  - Whitelist allowed expression patterns
-  - Prevent code injection risks
-  - Document safe patterns
-
-**Validation Enhancements** (Priority: LOW)
-- ⚠️ Cycle Detection in Profiles
-  - Detect circular parent references
-  - Report cycle chain in error
-  - Add validation in `load_profile_with_inheritance()`
-
-**Effort Estimate**: 25-30 story points | 4-5 weeks | 1 engineer
-
-#### hl7v2-gen (Estimated: 3-4 weeks)
-
-**Corpus Manifest** (Priority: MEDIUM)
-- ❌ Manifest Generation
-  - Generate `manifest.json` with:
-    - Tool version (from Cargo.toml)
-    - Generation seed used
-    - Template files and SHA-256
-    - Profile files and SHA-256
-    - Message counts by type
-    - Per-file SHA-256 hashes
-    - Generation timestamp
-- ❌ Manifest Verification
-  - `gen --verify-manifest` command
-  - Recompute all hashes
-  - Detect tampering/changes
-  - Report discrepancies
-
-**Statistical Distribution Modeling** (Priority: LOW - v1.3)
-- ⚠️ Correlated Distributions
-  - Latent variable support
-  - Shared random variables between fields
-  - Example: BMI → height, weight correlation
-- ⚠️ Markov Chains
-  - Segment repetition patterns
-  - State-based generation
-  - Training from real data
-
-**Effort Estimate**: 15-20 story points | 3-4 weeks | 0.5-1 engineer
-
-#### hl7v2-cli (Estimated: 3-4 weeks)
-
-**Server Mode** (Priority: CRITICAL - Depends on network.rs)
-- ❌ HTTP Server
-  - Axum/Hyper framework
-  - Endpoint: `POST /hl7/parse`
-  - Endpoint: `POST /hl7/validate`
-  - Endpoint: `POST /hl7/ack`
-  - Streaming request/response support
-  - NDJSON output for multiple messages
-- ❌ gRPC Server
-  - Tonic framework
-  - Define `.proto` files for messages
-  - Bi-directional streaming
-  - Equivalent endpoints to HTTP
-- ❌ Authentication
-  - Bearer token validation middleware
-  - OIDC integration hooks
-  - RBAC support
-- ❌ Observability
-  - OpenTelemetry metrics
-  - Request logging with structured data
-  - PHI redaction in logs
-  - Health/readiness endpoints
-
-**CLI Enhancements** (Priority: MEDIUM)
-- ⚠️ Missing Flags
-  - `--report` for validation → JSON file
-  - `--canonical-delims` implementation
-  - `--envelope` for parse output
-- ⚠️ Configuration Files
-  - TOML config file support (`hl7v2.toml`)
-  - Environment variable overrides
-  - Default paths and values
-- ⚠️ Batch Operations
-  - Process multiple files
-  - Parallel processing with thread pool
-  - Progress reporting
-
-**Effort Estimate**: 35-45 story points | 5-6 weeks (depends on network.rs) | 1-2 engineers
-
-### v1.2.0 Timeline
-
-```
-Week 1-2:    Core Network Module + Streaming Backpressure
-Week 3-4:    Remote Profile Loading + TLS
-Week 5-6:    Server Mode (HTTP)
-Week 7:      Server Mode (gRPC) + Auth
-Week 8:      Testing, Documentation, Buffer
-```
-
-**Total Effort**: ~120 story points | 8 weeks | 3-4 engineers
-
-### v1.2.0 Exit Criteria
-- ✅ Server mode operational (HTTP + gRPC)
-- ✅ All CLI flags working as documented
-- ✅ Remote profile loading with caching
-- ✅ Backpressure and memory bounds enforced
-- ✅ 90%+ test coverage
-- ✅ Zero critical bugs
-- ✅ Performance targets met (≥100k msgs/min)
-
----
-
-## v1.3.0 (Feature Expansion - 3-4 months after v1.2)
+## v1.3.0 (Next Major Release - 3-4 months)
 
 **Status**: 🚧 **PLANNED**
 
@@ -304,6 +121,51 @@ Week 8:      Testing, Documentation, Buffer
 - Compliance reporting
 
 **Effort**: ~20 story points | 3-5 weeks | 1 engineer
+
+#### hl7v2-core (Remaining v1.2 work)
+
+**Streaming Parser Completion** (Priority: HIGH)
+- 🚧 Backpressure with bounded channels
+- 🚧 Memory bounds enforcement
+- 🚧 Resume parsing across boundaries
+
+**Network Module Implementation** (Priority: CRITICAL)
+- ✅ MLLP TCP Server
+- 🚧 TLS Support
+- 🚧 ACK Semantics
+
+#### hl7v2-prof (Remaining v1.2 work)
+
+**Remote Profile Loading** (Priority: HIGH)
+- ❌ HTTP/HTTPS fetching
+- ❌ S3/GCS Profile Loading
+- ❌ Local File Caching
+
+**Expression Engine Hardening** (Priority: MEDIUM)
+- 🔄 Expression Compilation
+- 🔄 Time-Bound Evaluation
+- 🔄 Guardrails & Validation
+
+#### hl7v2-gen (Remaining v1.2 work)
+
+**Corpus Manifest** (Priority: MEDIUM)
+- ❌ Manifest Generation
+- ❌ Manifest Verification
+
+#### hl7v2-cli (Remaining v1.2 work)
+
+**Server Mode**
+- ✅ HTTP Server
+- ❌ gRPC Server
+- ✅ Authentication
+- 🚧 Observability (Metrics done, tracing done, logs done)
+
+**CLI Enhancements**
+- ⚠️ Missing Flags (--report, --envelope)
+- ⚠️ Configuration Files
+- ⚠️ Batch Operations
+
+**Effort Estimate**: 35-45 story points | 5-6 weeks | 1-2 engineers
 
 ### v1.3.0 Timeline
 - Weeks 1-4: Python, JavaScript, Java bindings (parallel)

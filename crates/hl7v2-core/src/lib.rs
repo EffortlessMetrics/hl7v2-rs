@@ -92,6 +92,9 @@ pub enum Error {
     InvalidBatchTrailer {
         details: String,
     },
+
+    #[error("Profile error: {0}")]
+    ProfileError(String),
 }
 
 /// Delimiters used in HL7 v2 messages
@@ -376,6 +379,73 @@ pub enum Presence {
     Null,
     /// Field contains a value
     Value(String),
+}
+
+/// Message metadata for reporting
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Metadata {
+    /// Message type (e.g., "ADT^A01")
+    pub message_type: String,
+    /// HL7 version (e.g., "2.5")
+    pub version: String,
+    /// Sending application
+    pub sending_application: String,
+    /// Sending facility
+    pub sending_facility: String,
+    /// Message control ID
+    pub message_control_id: String,
+    /// Number of segments
+    pub segment_count: usize,
+    /// Character sets used
+    pub charsets: Vec<String>,
+}
+
+impl Message {
+    /// Extract metadata from the message
+    pub fn metadata(&self) -> Result<Metadata, Error> {
+        // Find MSH segment
+        let msh = self
+            .segments
+            .first()
+            .ok_or(Error::InvalidSegmentId)?; // Assuming InvalidSegmentId appropriate here or add MissingMSH
+
+        if &msh.id != b"MSH" {
+            return Err(Error::InvalidSegmentId);
+        }
+
+        // Extract MSH fields using get() helper logic or direct access
+        // Since get() takes &Message, we can use it.
+
+        let message_type = get(self, "MSH.9")
+            .unwrap_or("UNKNOWN")
+            .to_string();
+
+        let version = get(self, "MSH.12")
+            .unwrap_or("2.5")
+            .to_string();
+
+        let sending_application = get(self, "MSH.3")
+            .unwrap_or("")
+            .to_string();
+
+        let sending_facility = get(self, "MSH.4")
+            .unwrap_or("")
+            .to_string();
+
+        let message_control_id = get(self, "MSH.10")
+            .unwrap_or("")
+            .to_string();
+
+        Ok(Metadata {
+            message_type,
+            version,
+            sending_application,
+            sending_facility,
+            message_control_id,
+            segment_count: self.segments.len(),
+            charsets: self.charsets.clone(),
+        })
+    }
 }
 
 /// Parse HL7 v2 message from bytes
@@ -751,6 +821,9 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     id.copy_from_slice(id_bytes);
     
     // Ensure segment ID is all uppercase ASCII letters or digits
+    // Note: Some HL7 variants use lowercase or non-alphanumeric chars in segment IDs
+    // but the standard requires 3 chars, usually uppercase alphanumeric.
+    // We enforce alphanumeric here for standard compliance.
     for &byte in &id {
         if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
             return Err(Error::InvalidSegmentId);

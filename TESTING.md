@@ -8,11 +8,11 @@ Comprehensive testing procedures for hl7v2-rs development.
 
 | Component | Target | Current | Status |
 |-----------|--------|---------|--------|
-| hl7v2-core | 95% | ~90% | 🟡 In Progress |
-| hl7v2-prof | 95% | ~92% | 🟡 In Progress |
-| hl7v2-gen | 90% | ~88% | 🟡 In Progress |
-| hl7v2-cli | 85% | ~80% | 🟡 In Progress |
-| **Overall** | **90%** | **87%** | 🟡 In Progress |
+| hl7v2-core | 95% | ~92% | 🟢 On Track |
+| hl7v2-prof | 95% | ~94% | 🟢 On Track |
+| hl7v2-gen | 90% | ~90% | 🟢 Completed |
+| hl7v2-cli | 85% | ~82% | 🟡 In Progress |
+| **Overall** | **90%** | **89%** | 🟢 On Track |
 
 ---
 

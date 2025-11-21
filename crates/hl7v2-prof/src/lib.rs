@@ -253,7 +253,7 @@ pub struct Issue {
 
 /// Load profile from YAML
 pub fn load_profile(yaml: &str) -> Result<Profile, Error> {
-    serde_yaml::from_str(yaml).map_err(|_e| Error::InvalidEscapeToken) // TODO: Better error mapping
+    serde_yaml::from_str(yaml).map_err(|e| Error::ProfileError(format!("Failed to parse profile YAML: {}", e)))
 }
 
 /// Load profile with inheritance resolution
@@ -895,6 +895,7 @@ fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: 
 }
 
 /// Validate that a field value is in the allowed HL7 table
+#[allow(dead_code)] // Preserved for backward compatibility / future use
 fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues: &mut Vec<Issue>) {
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead
@@ -2401,6 +2402,7 @@ fn is_valid_age_range(birth_date: &str, reference_date: &str) -> bool {
 }
 
 /// Check if a value matches a complex pattern with multiple conditions
+#[allow(dead_code)] // Preserved for future use
 fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
     // All patterns must match
     patterns.iter().all(|pattern| {
@@ -2413,6 +2415,7 @@ fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
 }
 
 /// Validate that a field value satisfies a mathematical relationship with another field
+#[allow(dead_code)] // Preserved for future use
 fn validate_mathematical_relationship(value1: &str, value2: &str, operator: &str) -> bool {
     // Parse both values as numbers
     let num1: f64 = match value1.parse() {
