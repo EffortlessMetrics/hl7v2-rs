@@ -195,4 +195,29 @@ custom_rules:
         // This should pass because "Doe" has more than 1 character
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
     }
+
+    #[test]
+    fn test_issue_display() {
+        use crate::{Issue, Severity};
+
+        let issue = Issue {
+            code: "ERR_001",
+            severity: Severity::Error,
+            path: Some("PID.5.1".to_string()),
+            detail: "Value too long".to_string(),
+        };
+
+        let display = format!("{}", issue);
+        assert_eq!(display, "[ERROR] ERR_001: Value too long (at PID.5.1)");
+
+        let warning = Issue {
+            code: "WARN_001",
+            severity: Severity::Warning,
+            path: None,
+            detail: "Something suspicious".to_string(),
+        };
+
+        let display_warn = format!("{}", warning);
+        assert_eq!(display_warn, "[WARNING] WARN_001: Something suspicious (at unknown)");
+    }
 }
