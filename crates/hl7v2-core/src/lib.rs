@@ -1115,9 +1115,8 @@ fn write_comp(output: &mut Vec<u8>, comp: &Comp, delims: &Delims) {
 fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
     match atom {
         Atom::Text(text) => {
-            // Escape special characters
-            let escaped = escape_text(text, delims);
-            output.extend_from_slice(escaped.as_bytes());
+            // Escape special characters directly to output buffer
+            escape_text_to_writer(text, delims, output);
         }
         Atom::Null => {
             output.extend_from_slice(b"\"\"");
@@ -1130,40 +1129,56 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
     // Pre-calculate maximum possible size to reduce reallocations
     // In worst case, every character might need escaping (3 chars each)
     let max_size = text.len() * 3;
-    let mut result = String::with_capacity(max_size);
+    let mut output = Vec::with_capacity(max_size);
     
+    escape_text_to_writer(text, delims, &mut output);
+
+    // This is safe because we only start with valid UTF-8 and add ASCII escape sequences
+    // (or reuse the delimiters which are valid chars)
+    String::from_utf8(output).expect("Invalid UTF-8 sequence generated during escaping")
+}
+
+/// Escape text according to HL7 v2 rules, writing directly to a buffer
+pub fn escape_text_to_writer(text: &str, delims: &Delims, output: &mut Vec<u8>) {
+    // Pre-allocate assuming worst case to avoid frequent reallocations if the buffer is small
+    // But since output is reused in write_atom, it might already have capacity.
+    // So we just reserve what we need at minimum (len of text)
+    output.reserve(text.len());
+
+    let mut buf = [0u8; 4];
+
     for ch in text.chars() {
         match ch {
             c if c == delims.field => {
-                result.push(delims.esc);
-                result.push('F');
-                result.push(delims.esc);
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
+                output.push(b'F');
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
             }
             c if c == delims.comp => {
-                result.push(delims.esc);
-                result.push('S');
-                result.push(delims.esc);
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
+                output.push(b'S');
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
             }
             c if c == delims.rep => {
-                result.push(delims.esc);
-                result.push('R');
-                result.push(delims.esc);
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
+                output.push(b'R');
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
             }
             c if c == delims.esc => {
-                result.push(delims.esc);
-                result.push('E');
-                result.push(delims.esc);
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
+                output.push(b'E');
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
             }
             c if c == delims.sub => {
-                result.push(delims.esc);
-                result.push('T');
-                result.push(delims.esc);
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
+                output.push(b'T');
+                output.extend_from_slice(delims.esc.encode_utf8(&mut buf).as_bytes());
             }
-            _ => result.push(ch),
+            c => {
+                output.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+            }
         }
     }
-    
-    result
 }
 
 /// Normalize HL7 v2 message
