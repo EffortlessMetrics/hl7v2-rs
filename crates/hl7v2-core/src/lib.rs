@@ -937,12 +937,22 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
     }
     
     // Unescape the text
-    let unescaped = unescape_text(atom_str, delims)?;
-    Ok(Atom::Text(unescaped))
+    let unescaped = unescape_text_cow(atom_str, delims)?;
+    Ok(Atom::Text(unescaped.into_owned()))
 }
 
 /// Unescape text according to HL7 v2 rules
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    Ok(unescape_text_cow(text, delims)?.into_owned())
+}
+
+/// Unescape text according to HL7 v2 rules (Cow variant)
+pub fn unescape_text_cow<'a>(text: &'a str, delims: &Delims) -> Result<std::borrow::Cow<'a, str>, Error> {
+    // Check if unescaping is needed
+    if !text.contains(delims.esc) {
+        return Ok(std::borrow::Cow::Borrowed(text));
+    }
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
@@ -977,7 +987,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                     result.push(delims.esc);
                     result.push(delims.sub);
                     // Skip the rest of the processing since we've handled the special case
-                    return Ok(result);
+                    return Ok(std::borrow::Cow::Owned(result));
                 }
                 
                 // For other cases, treat the text as-is
@@ -1015,7 +1025,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
         }
     }
     
-    Ok(result)
+    Ok(std::borrow::Cow::Owned(result))
 }
 
 /// Write HL7 message to bytes
@@ -1116,7 +1126,7 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
     match atom {
         Atom::Text(text) => {
             // Escape special characters
-            let escaped = escape_text(text, delims);
+            let escaped = escape_text_cow(text, delims);
             output.extend_from_slice(escaped.as_bytes());
         }
         Atom::Null => {
@@ -1127,6 +1137,24 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 
 /// Escape text according to HL7 v2 rules
 pub fn escape_text(text: &str, delims: &Delims) -> String {
+    escape_text_cow(text, delims).into_owned()
+}
+
+/// Escape text according to HL7 v2 rules (Cow variant)
+pub fn escape_text_cow<'a>(text: &'a str, delims: &Delims) -> std::borrow::Cow<'a, str> {
+    // Check if we need to escape anything first
+    let needs_escape = text.chars().any(|c|
+        c == delims.field ||
+        c == delims.comp ||
+        c == delims.rep ||
+        c == delims.esc ||
+        c == delims.sub
+    );
+
+    if !needs_escape {
+        return std::borrow::Cow::Borrowed(text);
+    }
+
     // Pre-calculate maximum possible size to reduce reallocations
     // In worst case, every character might need escaping (3 chars each)
     let max_size = text.len() * 3;
@@ -1163,7 +1191,7 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
         }
     }
     
-    result
+    std::borrow::Cow::Owned(result)
 }
 
 /// Normalize HL7 v2 message
