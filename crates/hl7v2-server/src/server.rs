@@ -1,14 +1,14 @@
 //! HTTP server implementation.
 
+use metrics_exporter_prometheus::PrometheusHandle;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::net::TcpListener;
 use tracing::info;
-use metrics_exporter_prometheus::PrometheusHandle;
 
-use crate::routes::build_router;
 use crate::Result;
+use crate::routes::build_router;
 
 /// Application state shared across handlers
 #[derive(Clone)]
@@ -76,7 +76,7 @@ impl Server {
         info!("Server listening on {}", addr);
 
         // Build router
-        let app = build_router(self.state);
+        let app = build_router(self.state, self.config.max_body_size);
 
         // Serve
         axum::serve(listener, app).await?;

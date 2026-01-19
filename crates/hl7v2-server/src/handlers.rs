@@ -110,17 +110,11 @@ fn extract_metadata(message: &hl7v2_core::Message) -> Result<MessageMetadata, Ap
         .unwrap_or("2.5")
         .to_string();
 
-    let sending_application = hl7v2_core::get(message, "MSH.3")
-        .unwrap_or("")
-        .to_string();
+    let sending_application = hl7v2_core::get(message, "MSH.3").unwrap_or("").to_string();
 
-    let sending_facility = hl7v2_core::get(message, "MSH.4")
-        .unwrap_or("")
-        .to_string();
+    let sending_facility = hl7v2_core::get(message, "MSH.4").unwrap_or("").to_string();
 
-    let message_control_id = hl7v2_core::get(message, "MSH.10")
-        .unwrap_or("")
-        .to_string();
+    let message_control_id = hl7v2_core::get(message, "MSH.10").unwrap_or("").to_string();
 
     Ok(MessageMetadata {
         message_type,

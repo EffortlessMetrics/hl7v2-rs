@@ -1,7 +1,7 @@
 //! Memory usage benchmarks for HL7 v2 parsing
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use hl7v2_core::{parse, write, parse_mllp, write_mllp, normalize, wrap_mllp};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use hl7v2_core::{normalize, parse, parse_mllp, wrap_mllp, write, write_mllp};
 
 /// Create a sample HL7 message for benchmarking
 fn create_sample_message() -> String {
@@ -12,12 +12,12 @@ fn create_sample_message() -> String {
 fn create_large_message() -> String {
     let base_message = create_sample_message();
     let mut large_message = String::new();
-    
+
     // Repeat the message 10 times to create a larger message
     for _ in 0..10 {
         large_message.push_str(&base_message);
     }
-    
+
     large_message
 }
 
@@ -25,7 +25,7 @@ fn create_large_message() -> String {
 fn bench_memory_parse(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("memory_parse", |b| {
         b.iter(|| {
             let result = parse(black_box(bytes));
@@ -38,7 +38,7 @@ fn bench_memory_parse(c: &mut Criterion) {
 fn bench_memory_parse_large(c: &mut Criterion) {
     let message = create_large_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("memory_parse_large", |b| {
         b.iter(|| {
             let result = parse(black_box(bytes));
@@ -51,7 +51,7 @@ fn bench_memory_parse_large(c: &mut Criterion) {
 fn bench_memory_write(c: &mut Criterion) {
     let message = create_sample_message();
     let parsed = parse(message.as_bytes()).expect("Failed to parse message");
-    
+
     c.bench_function("memory_write", |b| {
         b.iter(|| {
             let result = write(black_box(&parsed));
@@ -64,7 +64,7 @@ fn bench_memory_write(c: &mut Criterion) {
 fn bench_memory_parse_mllp(c: &mut Criterion) {
     let message = create_sample_message();
     let mllp_bytes = wrap_mllp(message.as_bytes());
-    
+
     c.bench_function("memory_parse_mllp", |b| {
         b.iter(|| {
             let result = parse_mllp(black_box(&mllp_bytes));
@@ -77,7 +77,7 @@ fn bench_memory_parse_mllp(c: &mut Criterion) {
 fn bench_memory_write_mllp(c: &mut Criterion) {
     let message = create_sample_message();
     let parsed = parse(message.as_bytes()).expect("Failed to parse message");
-    
+
     c.bench_function("memory_write_mllp", |b| {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
@@ -90,7 +90,7 @@ fn bench_memory_write_mllp(c: &mut Criterion) {
 fn bench_memory_normalize(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("memory_normalize", |b| {
         b.iter(|| {
             let result = normalize(black_box(bytes), false);
