@@ -7,6 +7,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 use hl7v2_core::{Error, Message};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// A conformance profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -249,6 +250,25 @@ pub struct Issue {
     pub severity: Severity,
     pub path: Option<String>,
     pub detail: String,
+}
+
+impl fmt::Display for Severity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Severity::Error => write!(f, "ERROR"),
+            Severity::Warning => write!(f, "WARNING"),
+        }
+    }
+}
+
+impl fmt::Display for Issue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(path) = &self.path {
+            write!(f, "[{}] {}: {} ({})", self.severity, path, self.detail, self.code)
+        } else {
+            write!(f, "[{}] {} ({})", self.severity, self.detail, self.code)
+        }
+    }
 }
 
 /// Load profile from YAML

@@ -195,4 +195,35 @@ custom_rules:
         // This should pass because "Doe" has more than 1 character
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
     }
+
+    #[test]
+    fn test_issue_display() {
+        use crate::{Issue, Severity};
+
+        // Test with path
+        let issue = Issue {
+            code: "TEST_CODE",
+            severity: Severity::Error,
+            path: Some("MSH.9".to_string()),
+            detail: "Test detail".to_string(),
+        };
+
+        assert_eq!(
+            format!("{}", issue),
+            "[ERROR] MSH.9: Test detail (TEST_CODE)"
+        );
+
+        // Test without path
+        let issue_no_path = Issue {
+            code: "TEST_CODE",
+            severity: Severity::Warning,
+            path: None,
+            detail: "Test detail".to_string(),
+        };
+
+        assert_eq!(
+            format!("{}", issue_no_path),
+            "[WARNING] Test detail (TEST_CODE)"
+        );
+    }
 }

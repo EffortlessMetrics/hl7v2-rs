@@ -410,7 +410,7 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, s
         if detailed {
             println!("Validation issues found:");
             for result in &results {
-                println!("  - {:?}", result); // Use Debug formatting since Display isn't implemented
+                println!("  - {}", result);
             }
         } else {
             println!("Validation failed: {} issues found", results.len());
