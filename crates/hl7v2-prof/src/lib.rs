@@ -251,6 +251,22 @@ pub struct Issue {
     pub detail: String,
 }
 
+impl std::fmt::Display for Severity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Severity::Error => write!(f, "ERROR"),
+            Severity::Warning => write!(f, "WARNING"),
+        }
+    }
+}
+
+impl std::fmt::Display for Issue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let path_str = self.path.as_deref().unwrap_or("Global");
+        write!(f, "[{}] {} - {}: {}", self.severity, self.code, path_str, self.detail)
+    }
+}
+
 /// Load profile from YAML
 pub fn load_profile(yaml: &str) -> Result<Profile, Error> {
     serde_yaml::from_str(yaml).map_err(|_e| Error::InvalidEscapeToken) // TODO: Better error mapping
@@ -2455,6 +2471,30 @@ fn is_within_range(value: &str, min: &str, max: &str) -> bool {
     };
 
     val >= min_val && val <= max_val
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::*;
+
+    #[test]
+    fn test_issue_display() {
+        let issue = Issue {
+            code: "TEST_CODE",
+            severity: Severity::Error,
+            path: Some("PID.1".to_string()),
+            detail: "Test detail".to_string(),
+        };
+        assert_eq!(format!("{}", issue), "[ERROR] TEST_CODE - PID.1: Test detail");
+
+        let issue_global = Issue {
+            code: "GLOBAL_CODE",
+            severity: Severity::Warning,
+            path: None,
+            detail: "Global detail".to_string(),
+        };
+        assert_eq!(format!("{}", issue_global), "[WARNING] GLOBAL_CODE - Global: Global detail");
+    }
 }
 
 #[cfg(test)]
