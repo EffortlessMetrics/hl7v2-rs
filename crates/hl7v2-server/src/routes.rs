@@ -1,6 +1,7 @@
 //! HTTP route definitions.
 
 use axum::{
+    extract::DefaultBodyLimit,
     middleware,
     routing::{get, post},
     Router,
@@ -18,7 +19,7 @@ use crate::middleware::create_concurrency_limit_layer;
 use crate::server::AppState;
 
 /// Build the application router
-pub fn build_router(state: Arc<AppState>) -> Router {
+pub fn build_router(state: Arc<AppState>, max_body_size: usize) -> Router {
     // Create API routes
     let api_routes = Router::new()
         .route("/parse", post(parse_handler))
@@ -33,6 +34,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .with_state(state)
         // Middleware layers (bottom to top execution order)
         .layer(middleware::from_fn(metrics_middleware))
+        .layer(DefaultBodyLimit::max(max_body_size))
         .layer(CompressionLayer::new())
         .layer(build_cors_layer())
         .layer(TraceLayer::new_for_http())
@@ -74,7 +76,7 @@ mod tests {
             metrics_handle: Arc::new(metrics_handle),
         });
 
-        let app = build_router(state);
+        let app = build_router(state, 1024 * 1024);
 
         let response = app
             .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
@@ -97,7 +99,7 @@ mod tests {
             metrics_handle: Arc::new(metrics_handle),
         });
 
-        let app = build_router(state);
+        let app = build_router(state, 1024 * 1024);
 
         // Create a proper HL7 message with correct delimiters
         let hl7_message = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|123456|P|2.5\rPID|1||MRN123^^^Facility^MR||Doe^John^A||19800101|M\r";

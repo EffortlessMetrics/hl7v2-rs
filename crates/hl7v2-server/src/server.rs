@@ -76,7 +76,7 @@ impl Server {
         info!("Server listening on {}", addr);
 
         // Build router
-        let app = build_router(self.state);
+        let app = build_router(self.state, self.config.max_body_size);
 
         // Serve
         axum::serve(listener, app).await?;

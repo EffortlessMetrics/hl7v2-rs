@@ -1,5 +1,7 @@
 //! Common test utilities and fixtures for integration tests.
 
+#![allow(dead_code)]
+
 use axum::Router;
 use hl7v2_server::server::{AppState, Server, ServerConfig};
 use std::sync::Arc;
@@ -21,7 +23,7 @@ pub fn create_test_router() -> Router {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
     });
-    hl7v2_server::routes::build_router(state)
+    hl7v2_server::routes::build_router(state, 1024 * 1024)
 }
 
 /// Sample HL7v2 messages for testing
