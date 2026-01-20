@@ -13,30 +13,59 @@ fn create_sample_unescaped_text() -> String {
     "This is a test with | field separators and ^ component separators".to_string()
 }
 
+/// Create sample text that doesn't need unescaping
+fn create_sample_no_unescape_needed_text() -> String {
+    "This is a simple text that does not need unescaping at all".to_string()
+}
+
 /// Benchmark unescaping text
 fn bench_unescape_text(c: &mut Criterion) {
     let text = create_sample_escaped_text();
+    let no_escape = create_sample_no_unescape_needed_text();
     let delims = Delims::default();
     
-    c.bench_function("unescape_text", |b| {
+    let mut group = c.benchmark_group("unescape");
+
+    group.bench_function("unescape_text_needed", |b| {
         b.iter(|| {
             let result = unescape_text(black_box(&text), black_box(&delims));
             black_box(result)
         })
     });
+
+    group.bench_function("unescape_text_not_needed", |b| {
+        b.iter(|| {
+            let result = unescape_text(black_box(&no_escape), black_box(&delims));
+            black_box(result)
+        })
+    });
+
+    group.finish();
 }
 
 /// Benchmark escaping text
 fn bench_escape_text(c: &mut Criterion) {
     let text = create_sample_unescaped_text();
+    let no_escape = create_sample_no_unescape_needed_text();
     let delims = Delims::default();
     
-    c.bench_function("escape_text", |b| {
+    let mut group = c.benchmark_group("escape");
+
+    group.bench_function("escape_text_needed", |b| {
         b.iter(|| {
             let result = escape_text(black_box(&text), black_box(&delims));
             black_box(result)
         })
     });
+
+    group.bench_function("escape_text_not_needed", |b| {
+        b.iter(|| {
+            let result = escape_text(black_box(&no_escape), black_box(&delims));
+            black_box(result)
+        })
+    });
+
+    group.finish();
 }
 
 criterion_group!(

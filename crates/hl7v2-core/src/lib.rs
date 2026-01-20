@@ -8,8 +8,6 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
-use serde_json;
-
 #[cfg(feature = "network")]
 pub mod network;
 
@@ -943,6 +941,12 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 
 /// Unescape text according to HL7 v2 rules
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    // Optimization: If no escape character is present, return original text
+    // This avoids allocation and character processing for the common case
+    if !text.contains(delims.esc) {
+        return Ok(text.to_string());
+    }
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
@@ -1127,6 +1131,14 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 
 /// Escape text according to HL7 v2 rules
 pub fn escape_text(text: &str, delims: &Delims) -> String {
+    // Optimization: Check if any escaping is needed first
+    // This avoids unnecessary allocation for the common case
+    let needs_escape = text.contains(&[delims.field, delims.comp, delims.rep, delims.esc, delims.sub]);
+
+    if !needs_escape {
+        return text.to_string();
+    }
+
     // Pre-calculate maximum possible size to reduce reallocations
     // In worst case, every character might need escaping (3 chars each)
     let max_size = text.len() * 3;
