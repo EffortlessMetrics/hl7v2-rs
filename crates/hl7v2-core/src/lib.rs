@@ -8,6 +8,7 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
+#[allow(unused_imports)]
 use serde_json;
 
 #[cfg(feature = "network")]
@@ -104,9 +105,8 @@ pub struct Delims {
     pub sub: char,
 }
 
-impl Delims {
-    /// Create default delimiters (|^~\&)
-    pub fn default() -> Self {
+impl Default for Delims {
+    fn default() -> Self {
         Self {
             field: '|',
             comp: '^',
@@ -114,6 +114,14 @@ impl Delims {
             esc: '\\',
             sub: '&',
         }
+    }
+}
+
+impl Delims {
+    /// Create default delimiters (|^~\&)
+    #[allow(clippy::should_implement_trait)]
+    pub fn default() -> Self {
+        <Self as Default>::default()
     }
 }
 
@@ -580,7 +588,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
             // Start of a new message
             if !current_message_lines.is_empty() {
                 // Parse the previous message
-                let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                let message_text = current_message_lines.iter().copied().collect::<Vec<_>>().join("\r");
                 let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
                     details: format!("Failed to parse message in batch: {}", e),
                 })?;
@@ -596,7 +604,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
     
     // Parse the last message
     if !current_message_lines.is_empty() {
-        let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+        let message_text = current_message_lines.iter().copied().collect::<Vec<_>>().join("\r");
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
         })?;
@@ -646,7 +654,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
             // Start of a new batch
             if !current_batch_lines.is_empty() {
                 // Parse the previous batch
-                let batch_text = current_batch_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                let batch_text = current_batch_lines.iter().copied().collect::<Vec<_>>().join("\r");
                 match parse_batch(batch_text.as_bytes()) {
                     Ok(batch) => batches.push(batch),
                     Err(e) => {
@@ -673,7 +681,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
     
     // Parse the last batch
     if !current_batch_lines.is_empty() {
-        let batch_text = current_batch_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+        let batch_text = current_batch_lines.iter().copied().collect::<Vec<_>>().join("\r");
         match parse_batch(batch_text.as_bytes()) {
             Ok(batch) => batches.push(batch),
             Err(e) => {
@@ -746,13 +754,13 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     }
     
     // Parse segment ID
-    let id_bytes = line[0..3].as_bytes();
+    let id_bytes = &line.as_bytes()[0..3];
     let mut id = [0u8; 3];
     id.copy_from_slice(id_bytes);
     
     // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
+        if !((b'A'..=b'Z').contains(&byte) || (b'0'..=b'9').contains(&byte)) {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -953,7 +961,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             let mut escape_seq = String::new();
             let mut found_end = false;
             
-            while let Some(esc_ch) = chars.next() {
+            for esc_ch in chars.by_ref() {
                 if esc_ch == delims.esc {
                     found_end = true;
                     break;
@@ -967,7 +975,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // MSH encoding characters "^~\&"
                 // Use direct comparison instead of format! to avoid allocation
                 if text.len() == 4 && 
-                   text.chars().nth(0) == Some(delims.comp) &&
+                   text.chars().next() == Some(delims.comp) &&
                    text.chars().nth(1) == Some(delims.rep) &&
                    text.chars().nth(2) == Some(delims.esc) &&
                    text.chars().nth(3) == Some(delims.sub) {
@@ -1306,7 +1314,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     
     // Find the segment
     let segment = msg.segments.iter().find(|s| {
-        std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id)
+        std::str::from_utf8(&s.id) == Ok(segment_id)
     })?;
     
     // Parse field index (1-based)
@@ -1319,7 +1327,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
             // MSH-1 is the field separator character
             // We can't return a reference to a temporary string, so we don't support this case
             // Users should access msg.delims.field directly for the field separator
-            return None;
+            None
         } else if field_index == 2 {
             // MSH-2 is the encoding characters
             // This should be the first parsed field (index 0)
@@ -1440,7 +1448,7 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
     
     // Find the segment
     let segment = match msg.segments.iter().find(|s| {
-        std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id)
+        std::str::from_utf8(&s.id) == Ok(segment_id)
     }) {
         Some(seg) => seg,
         None => return Presence::Missing,
@@ -1462,7 +1470,7 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
         if field_index == 1 {
             // MSH-1 is the field separator character
             // We treat this as a special case - present with the field separator value
-            return Presence::Value(msg.delims.field.to_string());
+            Presence::Value(msg.delims.field.to_string())
         } else if field_index == 2 {
             // MSH-2 is the encoding characters
             // This should be the first parsed field (index 0)
@@ -1702,11 +1710,9 @@ fn write_segment_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims
 
 /// Helper function to get delimiters from a file batch
 fn get_delimiters_from_file_batch(file_batch: &FileBatch) -> Delims {
-    // Try to get delimiters from the first message in the first batch
-    if let Some(first_batch) = file_batch.batches.first() {
-        if let Some(first_message) = first_batch.messages.first() {
-            return first_message.delims.clone();
-        }
+    if let Some(first_batch) = file_batch.batches.first()
+        && let Some(first_message) = first_batch.messages.first() {
+        return first_message.delims.clone();
     }
     // Fallback to default delimiters
     Delims::default()
@@ -1871,6 +1877,7 @@ mod tests {
     }
     
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_presence_semantics() {
         // Create a message with various field types
         let hl7_text = "MSH|^~\\&|SendingApp|SendingFac\rPID|1||123456^^^HOSP^MR||Doe^John|||\r";

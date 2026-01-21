@@ -81,7 +81,9 @@ pub use server::{
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use crate::{Message, Delims, Segment, Field, Rep, Comp, Atom, parse, write};
+    use crate::{Message, Delims, Segment, Field, Rep, Comp, Atom};
+    #[allow(unused_imports)]
+    use crate::{parse, write};
     use tokio::time::Duration;
 
     /// Create a simple test message

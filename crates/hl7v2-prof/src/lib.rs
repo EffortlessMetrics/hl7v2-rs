@@ -242,6 +242,15 @@ pub enum Severity {
     Warning,
 }
 
+impl std::fmt::Display for Severity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Severity::Error => write!(f, "ERROR"),
+            Severity::Warning => write!(f, "WARNING"),
+        }
+    }
+}
+
 /// Validation issue
 #[derive(Debug, Clone, PartialEq)]
 pub struct Issue {
@@ -249,6 +258,13 @@ pub struct Issue {
     pub severity: Severity,
     pub path: Option<String>,
     pub detail: String,
+}
+
+impl std::fmt::Display for Issue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let path_str = self.path.as_deref().unwrap_or("unknown");
+        write!(f, "[{}] {}: {} (at {})", self.severity, self.code, self.detail, path_str)
+    }
 }
 
 /// Load profile from YAML

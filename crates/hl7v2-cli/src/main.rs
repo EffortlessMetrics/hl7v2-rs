@@ -410,7 +410,7 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, s
         if detailed {
             println!("Validation issues found:");
             for result in &results {
-                println!("  - {:?}", result); // Use Debug formatting since Display isn't implemented
+                println!("  - {}", result);
             }
         } else {
             println!("Validation failed: {} issues found", results.len());
@@ -507,6 +507,7 @@ fn ack_command(input: &PathBuf, mode: &AckMode, code: &AckCode, mllp_in: bool, m
 fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
     println!("HL7 v2 Toolkit - Interactive Mode");
     println!("Type 'help' for available commands or 'exit' to quit.");
+    println!("💡 Hint: Use 'parse <file> --summary' to get a quick overview of a message.");
     println!();
     
     loop {
