@@ -28,7 +28,7 @@ async fn test_parse_valid_adt_a01_message() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -56,7 +56,7 @@ async fn test_parse_valid_adt_a04_message() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -84,7 +84,7 @@ async fn test_parse_valid_oru_r01_message() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -112,7 +112,7 @@ async fn test_parse_minimal_valid_message() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -140,7 +140,7 @@ async fn test_parse_malformed_message_returns_error() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -175,7 +175,7 @@ async fn test_parse_invalid_encoding_may_succeed_if_has_msh() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -200,7 +200,7 @@ async fn test_parse_empty_request_body_returns_400() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from("{}"))
                 .unwrap(),
         )
@@ -224,7 +224,7 @@ async fn test_parse_invalid_json_returns_400() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from("not valid json"))
                 .unwrap(),
         )
@@ -255,7 +255,7 @@ async fn test_parse_response_contains_segments() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -283,6 +283,7 @@ async fn test_parse_get_method_not_allowed() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("GET")
+                .header("X-API-Key", "test-key")
                 .body(Body::empty())
                 .unwrap(),
         )

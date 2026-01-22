@@ -7,6 +7,7 @@ use std::time::Instant;
 
 /// Create a test server instance with default configuration
 pub fn create_test_server() -> Server {
+    unsafe { std::env::set_var("HL7V2_API_KEY", "test-key") };
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
         max_body_size: 1024 * 1024, // 1MB
@@ -17,9 +18,13 @@ pub fn create_test_server() -> Server {
 /// Create a test router for integration testing
 pub fn create_test_router() -> Router {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
+    // Use env var if set (e.g. by security tests), otherwise default to "test-key"
+    let api_key = std::env::var("HL7V2_API_KEY").unwrap_or_else(|_| "test-key".to_string());
+
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
+        api_key,
     });
     hl7v2_server::routes::build_router(state)
 }
