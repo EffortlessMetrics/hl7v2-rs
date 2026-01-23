@@ -1,0 +1,3 @@
+## 2025-01-28 - Fast Path Optimization for String Escaping
+**Learning:** For string escaping/unescaping functions, checking if the string contains any delimiters using `str::contains(&[char])` before allocating a result buffer allows for a "fast path" that returns the original string (via `to_string()`). This yields massive performance gains (approx. 40-80%) for "clean" text, which is the common case in HL7 v2 messages, at the cost of a minor regression (approx. 5-20%) for text that actually requires modification.
+**Action:** Apply this pattern to other string transformation functions where the transformation is only needed for specific characters and the input is frequently "clean".
