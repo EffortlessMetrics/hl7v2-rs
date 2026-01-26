@@ -10,6 +10,7 @@ pub fn create_test_server() -> Server {
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
         max_body_size: 1024 * 1024, // 1MB
+        api_key: None,
     };
     Server::new(config)
 }
@@ -20,6 +21,18 @@ pub fn create_test_router() -> Router {
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
+        api_key: None,
+    });
+    hl7v2_server::routes::build_router(state)
+}
+
+/// Create a test router with authentication for integration testing
+pub fn create_test_router_with_auth(api_key: &str) -> Router {
+    let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
+    let state = Arc::new(AppState {
+        start_time: Instant::now(),
+        metrics_handle: Arc::new(metrics_handle),
+        api_key: Some(api_key.to_string()),
     });
     hl7v2_server::routes::build_router(state)
 }
