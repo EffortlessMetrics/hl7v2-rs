@@ -9,7 +9,6 @@ use hl7v2_core::{parse, to_json, write};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 mod monitor;
-use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator")]
@@ -189,6 +188,18 @@ fn main() {
     }
 }
 
+/// Format bytes into human-readable string
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut v = bytes as f64;
+    let mut i = 0;
+    while v >= 1024.0 && i < UNITS.len() - 1 {
+        v /= 1024.0;
+        i += 1;
+    }
+    format!("{:.2} {}", v, UNITS[i])
+}
+
 /// Display performance statistics
 fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     println!();
@@ -198,7 +209,10 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     let metrics = monitor.get_metrics();
     if !metrics.is_empty() {
         println!("  Detailed metrics:");
-        for (name, duration) in metrics {
+        let mut sorted_metrics: Vec<_> = metrics.iter().collect();
+        sorted_metrics.sort_by_key(|(name, _)| *name);
+
+        for (name, duration) in sorted_metrics {
             println!("    {}: {:?}", name, duration);
         }
     }
@@ -209,13 +223,13 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     if let Some(cpu_usage) = system_info.cpu.cpu_usage_percent {
         println!("    CPU usage: {:.2}%", cpu_usage);
     }
-    println!("    Total memory: {} bytes", system_info.total_memory);
-    println!("    Used memory: {} bytes", system_info.used_memory);
+    println!("    Total memory: {}", format_bytes(system_info.total_memory));
+    println!("    Used memory: {}", format_bytes(system_info.used_memory));
     if let Some(rss) = system_info.memory.resident_set_size {
-        println!("    Process memory (RSS): {} bytes", rss);
+        println!("    Process memory (RSS): {}", format_bytes(rss));
     }
     if let Some(vms) = system_info.memory.virtual_memory_size {
-        println!("    Process memory (VMS): {} bytes", vms);
+        println!("    Process memory (VMS): {}", format_bytes(vms));
     }
 }
 
