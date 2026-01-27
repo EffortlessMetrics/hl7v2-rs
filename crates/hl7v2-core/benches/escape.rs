@@ -8,35 +8,64 @@ fn create_sample_escaped_text() -> String {
     "This is a test with \\F\\ field separators and \\S\\ component separators".to_string()
 }
 
-/// Create sample unescaped text for benchmarking
+/// Create sample unescaped text for benchmarking (needs escaping)
 fn create_sample_unescaped_text() -> String {
     "This is a test with | field separators and ^ component separators".to_string()
+}
+
+/// Create sample clean text for benchmarking (no escaping needed)
+fn create_sample_clean_text() -> String {
+    "This is a test with no special characters and should be passed through".to_string()
 }
 
 /// Benchmark unescaping text
 fn bench_unescape_text(c: &mut Criterion) {
     let text = create_sample_escaped_text();
+    let clean_text = create_sample_clean_text();
     let delims = Delims::default();
     
-    c.bench_function("unescape_text", |b| {
+    let mut group = c.benchmark_group("unescape");
+
+    group.bench_function("dirty", |b| {
         b.iter(|| {
             let result = unescape_text(black_box(&text), black_box(&delims));
             black_box(result)
         })
     });
+
+    group.bench_function("clean", |b| {
+        b.iter(|| {
+            let result = unescape_text(black_box(&clean_text), black_box(&delims));
+            black_box(result)
+        })
+    });
+
+    group.finish();
 }
 
 /// Benchmark escaping text
 fn bench_escape_text(c: &mut Criterion) {
     let text = create_sample_unescaped_text();
+    let clean_text = create_sample_clean_text();
     let delims = Delims::default();
     
-    c.bench_function("escape_text", |b| {
+    let mut group = c.benchmark_group("escape");
+
+    group.bench_function("dirty", |b| {
         b.iter(|| {
             let result = escape_text(black_box(&text), black_box(&delims));
             black_box(result)
         })
     });
+
+    group.bench_function("clean", |b| {
+        b.iter(|| {
+            let result = escape_text(black_box(&clean_text), black_box(&delims));
+            black_box(result)
+        })
+    });
+
+    group.finish();
 }
 
 criterion_group!(
