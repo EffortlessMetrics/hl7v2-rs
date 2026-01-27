@@ -1,6 +1,7 @@
 //! HTTP route definitions.
 
 use axum::{
+    http::Method,
     middleware,
     routing::{get, post},
     Router,
@@ -49,8 +50,8 @@ async fn ready_handler() -> &'static str {
 /// Build CORS layer
 fn build_cors_layer() -> CorsLayer {
     CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
+        .allow_origin(Any) // TODO: Restrict this in production!
+        .allow_methods([Method::GET, Method::POST])
         .allow_headers(Any)
 }
 
