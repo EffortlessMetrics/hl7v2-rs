@@ -8,8 +8,6 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
-use serde_json;
-
 #[cfg(feature = "network")]
 pub mod network;
 
@@ -943,6 +941,11 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 
 /// Unescape text according to HL7 v2 rules
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    // Fast path: if no escape character, return original text
+    if !text.contains(delims.esc) {
+        return Ok(text.to_string());
+    }
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
@@ -953,7 +956,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             let mut escape_seq = String::new();
             let mut found_end = false;
             
-            while let Some(esc_ch) = chars.next() {
+            for esc_ch in chars.by_ref() {
                 if esc_ch == delims.esc {
                     found_end = true;
                     break;
@@ -966,11 +969,17 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // in the encoding characters. Let's check if this is the special case of the
                 // MSH encoding characters "^~\&"
                 // Use direct comparison instead of format! to avoid allocation
-                if text.len() == 4 && 
-                   text.chars().nth(0) == Some(delims.comp) &&
-                   text.chars().nth(1) == Some(delims.rep) &&
-                   text.chars().nth(2) == Some(delims.esc) &&
-                   text.chars().nth(3) == Some(delims.sub) {
+                let is_msh_encoding = if text.len() == 4 {
+                    let mut t_chars = text.chars();
+                    t_chars.next() == Some(delims.comp) &&
+                    t_chars.next() == Some(delims.rep) &&
+                    t_chars.next() == Some(delims.esc) &&
+                    t_chars.next() == Some(delims.sub)
+                } else {
+                    false
+                };
+
+                if is_msh_encoding {
                     // This is the MSH encoding characters, treat as literal
                     result.push(delims.comp);
                     result.push(delims.rep);
@@ -1127,6 +1136,11 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 
 /// Escape text according to HL7 v2 rules
 pub fn escape_text(text: &str, delims: &Delims) -> String {
+    // Fast path: check if any escaping is needed
+    if !text.contains(&[delims.field, delims.comp, delims.rep, delims.esc, delims.sub][..]) {
+        return text.to_string();
+    }
+
     // Pre-calculate maximum possible size to reduce reallocations
     // In worst case, every character might need escaping (3 chars each)
     let max_size = text.len() * 3;
