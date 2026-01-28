@@ -16,6 +16,12 @@ pub fn create_test_server() -> Server {
 
 /// Create a test router for integration testing
 pub fn create_test_router() -> Router {
+    // SAFETY: This is a test, and we're setting the environment variable for the test process.
+    // In a real multi-threaded test environment this could be race-y, but for this specific test it's acceptable.
+    unsafe {
+        std::env::set_var("HL7V2_API_KEY", "test-secret-key");
+    }
+
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),

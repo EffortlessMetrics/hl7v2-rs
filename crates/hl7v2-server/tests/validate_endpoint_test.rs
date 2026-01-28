@@ -25,6 +25,7 @@ async fn test_validate_with_minimal_profile() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("POST")
+                .header("X-API-Key", "test-secret-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -54,6 +55,7 @@ async fn test_validate_adt_a01_with_matching_profile() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("POST")
+                .header("X-API-Key", "test-secret-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -92,6 +94,7 @@ async fn test_validate_malformed_message_returns_error() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("POST")
+                .header("X-API-Key", "test-secret-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -121,6 +124,7 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("POST")
+                .header("X-API-Key", "test-secret-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -150,6 +154,7 @@ async fn test_validate_missing_message_field_returns_400() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("POST")
+                .header("X-API-Key", "test-secret-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -178,6 +183,7 @@ async fn test_validate_missing_profile_field_returns_400() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("POST")
+                .header("X-API-Key", "test-secret-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -202,6 +208,7 @@ async fn test_validate_empty_request_body_returns_400() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("POST")
+                .header("X-API-Key", "test-secret-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from("{}"))
                 .unwrap(),
@@ -226,6 +233,7 @@ async fn test_validate_get_method_not_allowed() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("GET")
+                .header("X-API-Key", "test-secret-key")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -254,6 +262,7 @@ async fn test_validate_returns_json_response() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("POST")
+                .header("X-API-Key", "test-secret-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),

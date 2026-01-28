@@ -22,7 +22,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // Create API routes
     let api_routes = Router::new()
         .route("/parse", post(parse_handler))
-        .route("/validate", post(validate_handler));
+        .route("/validate", post(validate_handler))
+        .layer(middleware::from_fn(crate::middleware::auth_middleware));
 
     // Main router
     Router::new()
