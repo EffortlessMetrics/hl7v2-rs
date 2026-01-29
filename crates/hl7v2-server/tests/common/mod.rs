@@ -16,6 +16,11 @@ pub fn create_test_server() -> Server {
 
 /// Create a test router for integration testing
 pub fn create_test_router() -> Router {
+    // Set API key for authentication in tests
+    // SAFETY: This is safe in tests as long as we don't have race conditions with other tests
+    // relying on the env var being unset or different.
+    unsafe { std::env::set_var("HL7V2_API_KEY", "test-key") };
+
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
