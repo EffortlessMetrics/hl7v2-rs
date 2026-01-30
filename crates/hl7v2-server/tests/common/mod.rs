@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Create a test server instance with default configuration
+#[allow(dead_code)]
 pub fn create_test_server() -> Server {
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
@@ -25,6 +26,7 @@ pub fn create_test_router() -> Router {
 }
 
 /// Sample HL7v2 messages for testing
+#[allow(dead_code)]
 pub mod fixtures {
     /// Valid ADT^A01 message (Admit/Visit Notification)
     pub const ADT_A01_VALID: &str =
@@ -67,6 +69,7 @@ pub mod fixtures {
 }
 
 /// Sample conformance profiles for testing
+#[allow(dead_code)]
 pub mod profiles {
     /// Minimal profile (basic structure only)
     pub const MINIMAL_PROFILE: &str = r#"
