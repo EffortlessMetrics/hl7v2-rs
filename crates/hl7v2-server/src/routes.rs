@@ -14,7 +14,7 @@ use tower_http::{
 
 use crate::handlers::{health_handler, parse_handler, validate_handler};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::create_concurrency_limit_layer;
+use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
 use crate::server::AppState;
 
 /// Build the application router
@@ -22,7 +22,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // Create API routes
     let api_routes = Router::new()
         .route("/parse", post(parse_handler))
-        .route("/validate", post(validate_handler));
+        .route("/validate", post(validate_handler))
+        .layer(middleware::from_fn(auth_middleware));
 
     // Main router
     Router::new()
