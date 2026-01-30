@@ -1,8 +1,6 @@
-#[cfg(test)]
-mod tests {
-    use crate::{load_profile, validate, Profile, parse_hl7_ts_with_precision, compare_timestamps_for_before, ExpressionGuardrails};
+    use crate::{load_profile, validate, Profile, parse_hl7_ts_with_precision, compare_timestamps_for_before};
     use hl7v2_core::parse;
-    use chrono::NaiveDate;
+
 
     // Helper: build a tiny valid ADT A01 (PID.3 and PID.8 filled)
     fn adt_a01_msg() -> String {
@@ -195,4 +193,3 @@ custom_rules:
         // This should pass because "Doe" has more than 1 character
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
     }
-}

@@ -281,15 +281,6 @@ impl MllpConnection {
 mod tests {
     use super::*;
 
-    struct TestHandler;
-
-    impl MessageHandler for TestHandler {
-        fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
-            // Simple ACK - just echo the message back
-            Ok(None)
-        }
-    }
-
     #[tokio::test]
     async fn test_server_bind() {
         use std::net::SocketAddr;
