@@ -1,5 +1,7 @@
 //! Command-line interface for HL7 v2 processing.
 
+#![allow(unused_imports, dead_code)]
+
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::fs;

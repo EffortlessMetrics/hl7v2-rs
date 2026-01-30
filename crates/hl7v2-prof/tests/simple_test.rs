@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use hl7v2_prof::{Profile, load_profile};
 
 #[test]

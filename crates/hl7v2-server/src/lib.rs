@@ -30,6 +30,8 @@
 //! }
 //! ```
 
+#![allow(clippy::assertions_on_constants)]
+
 pub mod handlers;
 pub mod metrics;
 pub mod middleware;
