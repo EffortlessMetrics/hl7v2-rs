@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{load_profile, validate, Profile, parse_hl7_ts_with_precision, compare_timestamps_for_before, ExpressionGuardrails};
+    use crate::{load_profile, validate, Profile, parse_hl7_ts_with_precision, compare_timestamps_for_before, ExpressionGuardrails, Issue, Severity};
     use hl7v2_core::parse;
     use chrono::NaiveDate;
 
@@ -194,5 +194,26 @@ custom_rules:
         let probs = validate(&msg, &p);
         // This should pass because "Doe" has more than 1 character
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
+    }
+
+    #[test]
+    fn test_issue_display() {
+        let issue = Issue {
+            code: "TEST_CODE",
+            severity: Severity::Error,
+            path: Some("PID.3".to_string()),
+            detail: "This is a test detail".to_string(),
+        };
+
+        assert_eq!(format!("{}", issue), "[ERROR] This is a test detail (TEST_CODE at PID.3)");
+
+        let issue_no_path = Issue {
+            code: "TEST_CODE_2",
+            severity: Severity::Warning,
+            path: None,
+            detail: "This is another test".to_string(),
+        };
+
+        assert_eq!(format!("{}", issue_no_path), "[WARNING] This is another test (TEST_CODE_2)");
     }
 }
