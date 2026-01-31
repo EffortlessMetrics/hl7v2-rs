@@ -38,6 +38,18 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
     response
 }
 
+/// Constant-time string comparison to prevent timing attacks
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut result = 0;
+    for (x, y) in a.bytes().zip(b.bytes()) {
+        result |= x ^ y;
+    }
+    result == 0
+}
+
 /// API key authentication middleware
 ///
 /// Validates requests against the HL7V2_API_KEY environment variable.
@@ -74,7 +86,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, S
         .and_then(|h| h.to_str().ok());
 
     match provided_key {
-        Some(key) if key == expected_key => {
+        Some(key) if constant_time_eq(key, &expected_key) => {
             // Valid key - allow request
             Ok(next.run(request).await)
         }
@@ -158,5 +170,16 @@ mod tests {
         // Test that we can create a custom concurrency limit layer
         let _layer = create_custom_concurrency_limit_layer(50);
         // No panic means success
+    }
+
+    #[test]
+    fn test_constant_time_eq() {
+        assert!(constant_time_eq("secret", "secret"));
+        assert!(!constant_time_eq("secret", "secreT"));
+        assert!(!constant_time_eq("secret", "public"));
+        assert!(!constant_time_eq("secret", "secre"));
+        assert!(!constant_time_eq("short", "longer_string"));
+        assert!(!constant_time_eq("", "a"));
+        assert!(constant_time_eq("", ""));
     }
 }

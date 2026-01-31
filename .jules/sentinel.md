@@ -1,0 +1,4 @@
+## 2026-01-31 - Timing Attack Vulnerability in API Key Auth
+**Vulnerability:** The API key authentication middleware (`auth_middleware`) was using standard string comparison (`==`) to validate API keys. This is not constant-time and could theoretically allow an attacker to guess the API key byte-by-byte by measuring response times (timing attack).
+**Learning:** Even when security features like "API Key Auth" are present, the implementation details (comparison method) matter significantly. Standard equality checks for secrets are a common pitfall. The memory indicated this was fixed, but the code showed otherwise, reinforcing "Trust nothing, verify everything".
+**Prevention:** Always use constant-time comparison functions (like `subtle::ConstantTimeEq` or a manual constant-time loop) when verifying secrets.
