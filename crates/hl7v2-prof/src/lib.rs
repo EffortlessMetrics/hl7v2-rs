@@ -3,6 +3,8 @@
 //! This crate provides functionality for loading and applying
 //! conformance profiles to HL7 v2 messages.
 
+#![allow(dead_code)]
+
 use chrono::{NaiveDate, NaiveDateTime};
 use hl7v2_core::{Error, Message};
 use regex::Regex;
