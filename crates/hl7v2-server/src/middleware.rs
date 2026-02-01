@@ -38,6 +38,23 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
     response
 }
 
+/// Constant-time string comparison to prevent timing attacks
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+
+    let a_bytes = a.as_bytes();
+    let b_bytes = b.as_bytes();
+    let mut result = 0;
+
+    for i in 0..a.len() {
+        result |= a_bytes[i] ^ b_bytes[i];
+    }
+
+    result == 0
+}
+
 /// API key authentication middleware
 ///
 /// Validates requests against the HL7V2_API_KEY environment variable.
@@ -74,7 +91,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, S
         .and_then(|h| h.to_str().ok());
 
     match provided_key {
-        Some(key) if key == expected_key => {
+        Some(key) if constant_time_eq(key, &expected_key) => {
             // Valid key - allow request
             Ok(next.run(request).await)
         }

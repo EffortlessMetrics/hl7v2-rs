@@ -14,7 +14,7 @@ use tower_http::{
 
 use crate::handlers::{health_handler, parse_handler, validate_handler};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::create_concurrency_limit_layer;
+use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
 use crate::server::AppState;
 
 /// Build the application router
@@ -22,7 +22,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // Create API routes
     let api_routes = Router::new()
         .route("/parse", post(parse_handler))
-        .route("/validate", post(validate_handler));
+        .route("/validate", post(validate_handler))
+        .layer(middleware::from_fn(auth_middleware));
 
     // Main router
     Router::new()
@@ -86,6 +87,72 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(body.to_vec()).unwrap();
         assert!(body_str.contains("\"status\":\"healthy\""));
+    }
+
+    #[tokio::test]
+    async fn test_auth_integration() {
+        // Set up environment variable for testing
+        unsafe { std::env::set_var("HL7V2_API_KEY", "test-key"); }
+
+        let metrics_handle = crate::metrics::init_metrics_recorder();
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
+        });
+
+        let app = build_router(state);
+
+        // Case 1: No API key provided -> Unauthorized
+        let response_no_key = app.clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/hl7/parse")
+                    .method("POST")
+                    .header("Content-Type", "application/json")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response_no_key.status(), StatusCode::UNAUTHORIZED);
+
+        // Case 2: Invalid API key provided -> Unauthorized
+        let response_invalid_key = app.clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/hl7/parse")
+                    .method("POST")
+                    .header("Content-Type", "application/json")
+                    .header("X-API-Key", "wrong-key")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response_invalid_key.status(), StatusCode::UNAUTHORIZED);
+
+        // Case 3: Valid API key provided -> Not Unauthorized (likely 400 Bad Request due to empty body)
+        let response_valid_key = app.clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/hl7/parse")
+                    .method("POST")
+                    .header("Content-Type", "application/json")
+                    .header("X-API-Key", "test-key")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_ne!(response_valid_key.status(), StatusCode::UNAUTHORIZED);
+        // Expecting 400 because body is empty, but that confirms auth passed
+        assert_eq!(response_valid_key.status(), StatusCode::BAD_REQUEST);
+
+        // Clean up
+        unsafe { std::env::remove_var("HL7V2_API_KEY"); }
     }
 
     #[tokio::test]
