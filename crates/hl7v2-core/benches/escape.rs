@@ -13,12 +13,17 @@ fn create_sample_unescaped_text() -> String {
     "This is a test with | field separators and ^ component separators".to_string()
 }
 
+/// Create sample clean text for benchmarking (no special chars)
+fn create_sample_clean_text() -> String {
+    "This is a simple text without any special characters that need escaping".to_string()
+}
+
 /// Benchmark unescaping text
 fn bench_unescape_text(c: &mut Criterion) {
     let text = create_sample_escaped_text();
     let delims = Delims::default();
     
-    c.bench_function("unescape_text", |b| {
+    c.bench_function("unescape_text_dirty", |b| {
         b.iter(|| {
             let result = unescape_text(black_box(&text), black_box(&delims));
             black_box(result)
@@ -31,7 +36,33 @@ fn bench_escape_text(c: &mut Criterion) {
     let text = create_sample_unescaped_text();
     let delims = Delims::default();
     
-    c.bench_function("escape_text", |b| {
+    c.bench_function("escape_text_dirty", |b| {
+        b.iter(|| {
+            let result = escape_text(black_box(&text), black_box(&delims));
+            black_box(result)
+        })
+    });
+}
+
+/// Benchmark unescaping clean text
+fn bench_unescape_clean(c: &mut Criterion) {
+    let text = create_sample_clean_text();
+    let delims = Delims::default();
+
+    c.bench_function("unescape_text_clean", |b| {
+        b.iter(|| {
+            let result = unescape_text(black_box(&text), black_box(&delims));
+            black_box(result)
+        })
+    });
+}
+
+/// Benchmark escaping clean text
+fn bench_escape_clean(c: &mut Criterion) {
+    let text = create_sample_clean_text();
+    let delims = Delims::default();
+
+    c.bench_function("escape_text_clean", |b| {
         b.iter(|| {
             let result = escape_text(black_box(&text), black_box(&delims));
             black_box(result)
@@ -42,7 +73,9 @@ fn bench_escape_text(c: &mut Criterion) {
 criterion_group!(
     escape_benches,
     bench_unescape_text,
-    bench_escape_text
+    bench_escape_text,
+    bench_unescape_clean,
+    bench_escape_clean
 );
 
 criterion_main!(escape_benches);
