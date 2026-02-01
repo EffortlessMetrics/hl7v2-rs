@@ -23,7 +23,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let api_routes = Router::new()
         .route("/parse", post(parse_handler))
         .route("/validate", post(validate_handler))
-        .layer(middleware::from_fn(auth_middleware));
+        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     // Main router
     Router::new()
@@ -73,6 +73,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: "test-key".to_string(),
         });
 
         let app = build_router(state);
@@ -91,13 +92,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_integration() {
-        // Set up environment variable for testing
-        unsafe { std::env::set_var("HL7V2_API_KEY", "test-key"); }
-
         let metrics_handle = crate::metrics::init_metrics_recorder();
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: "test-key".to_string(),
         });
 
         let app = build_router(state);
@@ -150,9 +149,6 @@ mod tests {
         assert_ne!(response_valid_key.status(), StatusCode::UNAUTHORIZED);
         // Expecting 400 because body is empty, but that confirms auth passed
         assert_eq!(response_valid_key.status(), StatusCode::BAD_REQUEST);
-
-        // Clean up
-        unsafe { std::env::remove_var("HL7V2_API_KEY"); }
     }
 
     #[tokio::test]
@@ -162,6 +158,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: "test-key".to_string(),
         });
 
         let app = build_router(state);

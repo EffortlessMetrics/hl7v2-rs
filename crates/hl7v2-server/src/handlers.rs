@@ -1,7 +1,7 @@
 //! HTTP request handlers for HL7v2 endpoints.
 
 use axum::{
-    extract::{Json, State},
+    extract::{rejection::JsonRejection, Json, State},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -26,24 +26,32 @@ pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResp
 /// Handler for POST /hl7/parse
 pub async fn parse_handler(
     State(_state): State<Arc<AppState>>,
-    Json(request): Json<ParseRequest>,
+    payload: Result<Json<ParseRequest>, JsonRejection>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Parse the message
-    let message_bytes = request.message.as_bytes();
+    let Json(request) = payload.map_err(|e| AppError::Parse(format!("Invalid request: {}", e)))?;
 
-    let message = if request.mllp_framed {
-        hl7v2_core::parse_mllp(message_bytes)
-            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
-    } else {
-        hl7v2_core::parse(message_bytes)
-            .map_err(|e| AppError::Parse(format!("Parse error: {}", e)))?
-    };
+    let include_json = request.options.include_json;
+    let mllp_framed = request.mllp_framed;
+    let message_content = request.message.clone();
+
+    // Offload parsing to a blocking task to avoid stalling the async runtime
+    let message = tokio::task::spawn_blocking(move || {
+        if mllp_framed {
+            hl7v2_core::parse_mllp(message_content.as_bytes())
+                .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))
+        } else {
+            hl7v2_core::parse(message_content.as_bytes())
+                .map_err(|e| AppError::Parse(format!("Parse error: {}", e)))
+        }
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Task error: {}", e)))??;
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
 
     // Optionally convert to JSON
-    let message_json = if request.options.include_json {
+    let message_json = if include_json {
         Some(hl7v2_core::to_json(&message))
     } else {
         None
@@ -61,18 +69,25 @@ pub async fn parse_handler(
 /// Handler for POST /hl7/validate
 pub async fn validate_handler(
     State(_state): State<Arc<AppState>>,
-    Json(request): Json<ValidateRequest>,
+    payload: Result<Json<ValidateRequest>, JsonRejection>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Parse the message
-    let message_bytes = request.message.as_bytes();
+    let Json(request) = payload.map_err(|e| AppError::Parse(format!("Invalid request: {}", e)))?;
 
-    let message = if request.mllp_framed {
-        hl7v2_core::parse_mllp(message_bytes)
-            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
-    } else {
-        hl7v2_core::parse(message_bytes)
-            .map_err(|e| AppError::Parse(format!("Parse error: {}", e)))?
-    };
+    let mllp_framed = request.mllp_framed;
+    let message_content = request.message.clone();
+
+    // Offload parsing to a blocking task
+    let message = tokio::task::spawn_blocking(move || {
+        if mllp_framed {
+            hl7v2_core::parse_mllp(message_content.as_bytes())
+                .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))
+        } else {
+            hl7v2_core::parse(message_content.as_bytes())
+                .map_err(|e| AppError::Parse(format!("Parse error: {}", e)))
+        }
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Task error: {}", e)))??;
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;

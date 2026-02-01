@@ -101,6 +101,7 @@ async fn test_large_request_handling() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -110,7 +111,7 @@ async fn test_large_request_handling() {
     // Should handle large but reasonable messages
     assert!(
         response.status() == StatusCode::OK || response.status().is_client_error(),
-        "Should either parse large message or reject it gracefully"
+        "Should either parse large message or reject it gracefully. Got: {}", response.status()
     );
 }
 
