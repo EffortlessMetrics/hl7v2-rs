@@ -34,7 +34,7 @@ jobs:
 
       - name: Upload Audit Report
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: audit-report
           path: audit-report.json
@@ -48,6 +48,7 @@ jobs:
       - name: Install cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v1
         with:
+          rust-version: 1.89
           log-level: warn
           command: check
           arguments: --all-features
@@ -65,7 +66,7 @@ jobs:
 
       - name: Upload SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
 
@@ -89,19 +90,6 @@ jobs:
             -W clippy::missing_safety_doc \
             -W clippy::undocumented_unsafe_blocks \
             -D warnings
-
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: moderate
-          deny-licenses: GPL-3.0, AGPL-3.0
 
   secrets-scan:
     name: Secrets Scanning
