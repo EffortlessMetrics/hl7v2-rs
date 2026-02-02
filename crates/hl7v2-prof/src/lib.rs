@@ -3,6 +3,12 @@
 //! This crate provides functionality for loading and applying
 //! conformance profiles to HL7 v2 messages.
 
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::manual_strip)]
+#![allow(clippy::wildcard_in_or_patterns)]
+#![allow(clippy::manual_contains)]
+
 use chrono::{NaiveDate, NaiveDateTime};
 use hl7v2_core::{Error, Message};
 use regex::Regex;
@@ -895,6 +901,7 @@ fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: 
 }
 
 /// Validate that a field value is in the allowed HL7 table
+#[allow(dead_code)]
 fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues: &mut Vec<Issue>) {
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead
@@ -939,7 +946,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
     ) {
         // Parse the date/time values
         if let (Some(before_time), Some(after_time)) =
-            (parse_datetime(&before_value), parse_datetime(&after_value))
+            (parse_datetime(before_value), parse_datetime(after_value))
         {
             // Check if before_time should be before after_time
             let is_valid = if rule.allow_equal {
@@ -1998,7 +2005,7 @@ fn parse_hl7_ts(s: &str) -> Option<NaiveDateTime> {
     }
     if s.len() == 8 {
         if let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d") {
-            return Some(d.and_hms_opt(0, 0, 0)?);
+            return d.and_hms_opt(0, 0, 0);
         }
     }
     None
@@ -2401,6 +2408,7 @@ fn is_valid_age_range(birth_date: &str, reference_date: &str) -> bool {
 }
 
 /// Check if a value matches a complex pattern with multiple conditions
+#[allow(dead_code)]
 fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
     // All patterns must match
     patterns.iter().all(|pattern| {
@@ -2413,6 +2421,7 @@ fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
 }
 
 /// Validate that a field value satisfies a mathematical relationship with another field
+#[allow(dead_code)]
 fn validate_mathematical_relationship(value1: &str, value2: &str, operator: &str) -> bool {
     // Parse both values as numbers
     let num1: f64 = match value1.parse() {
