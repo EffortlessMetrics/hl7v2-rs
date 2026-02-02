@@ -27,7 +27,7 @@ async fn test_parse_valid_adt_a01_message() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -55,7 +55,7 @@ async fn test_parse_valid_adt_a04_message() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -83,7 +83,7 @@ async fn test_parse_valid_oru_r01_message() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -111,7 +111,7 @@ async fn test_parse_minimal_valid_message() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -139,7 +139,7 @@ async fn test_parse_malformed_message_returns_error() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -174,7 +174,7 @@ async fn test_parse_invalid_encoding_may_succeed_if_has_msh() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -199,7 +199,7 @@ async fn test_parse_empty_request_body_returns_400() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from("{}"))
                 .unwrap(),
@@ -223,7 +223,7 @@ async fn test_parse_invalid_json_returns_400() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from("not valid json"))
                 .unwrap(),
@@ -254,7 +254,7 @@ async fn test_parse_response_contains_segments() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -282,7 +282,7 @@ async fn test_parse_get_method_not_allowed() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/parse")
-                .method("GET")
+                .method("GET").header("X-API-Key", "test-key")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -293,5 +293,34 @@ async fn test_parse_get_method_not_allowed() {
         response.status(),
         StatusCode::METHOD_NOT_ALLOWED,
         "GET method should not be allowed on /hl7/parse"
+    );
+}
+
+#[tokio::test]
+async fn test_parse_unauthorized() {
+    let app = common::create_test_router();
+
+    let request_body = json!({
+        "message": common::fixtures::MINIMAL_VALID,
+        "mllp_framed": false
+    });
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/hl7/parse")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                // No API Key header
+                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Request without API key should be unauthorized"
     );
 }

@@ -24,7 +24,7 @@ async fn test_validate_with_minimal_profile() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -53,7 +53,7 @@ async fn test_validate_adt_a01_with_matching_profile() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -91,7 +91,7 @@ async fn test_validate_malformed_message_returns_error() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -120,7 +120,7 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -149,7 +149,7 @@ async fn test_validate_missing_message_field_returns_400() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -177,7 +177,7 @@ async fn test_validate_missing_profile_field_returns_400() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -201,7 +201,7 @@ async fn test_validate_empty_request_body_returns_400() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from("{}"))
                 .unwrap(),
@@ -225,7 +225,7 @@ async fn test_validate_get_method_not_allowed() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("GET")
+                .method("GET").header("X-API-Key", "test-key")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -253,7 +253,7 @@ async fn test_validate_returns_json_response() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
-                .method("POST")
+                .method("POST").header("X-API-Key", "test-key")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
@@ -272,4 +272,34 @@ async fn test_validate_returns_json_response() {
             "Validate response should be JSON"
         );
     }
+}
+
+#[tokio::test]
+async fn test_validate_unauthorized() {
+    let app = common::create_test_router();
+
+    let request_body = json!({
+        "message": common::fixtures::MINIMAL_VALID,
+        "profile": common::profiles::MINIMAL_PROFILE,
+        "mllp_framed": false
+    });
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/hl7/validate")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                // No API Key header
+                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Request without API key should be unauthorized"
+    );
 }
