@@ -1784,7 +1784,7 @@ mod tests {
                 // Check each byte
                 for (j, byte) in segment_id.bytes().enumerate() {
                     println!("    Byte {}: {} ({})", j, byte, byte as char);
-                    if byte < b'A' || byte > b'Z' {
+                    if !(b'A'..=b'Z').contains(&byte) {
                         println!("      INVALID BYTE: {} is not between A-Z", byte as char);
                     }
                 }
