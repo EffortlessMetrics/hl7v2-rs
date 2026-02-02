@@ -8,8 +8,6 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
-use serde_json;
-
 #[cfg(feature = "network")]
 pub mod network;
 
@@ -104,9 +102,8 @@ pub struct Delims {
     pub sub: char,
 }
 
-impl Delims {
-    /// Create default delimiters (|^~\&)
-    pub fn default() -> Self {
+impl Default for Delims {
+    fn default() -> Self {
         Self {
             field: '|',
             comp: '^',
@@ -114,6 +111,13 @@ impl Delims {
             esc: '\\',
             sub: '&',
         }
+    }
+}
+
+impl Delims {
+    /// Create default delimiters (|^~\&)
+    pub fn new_default() -> Self {
+        Self::default()
     }
 }
 
@@ -153,7 +157,7 @@ impl<D: std::io::BufRead> StreamParser<D> {
     pub fn new(reader: D) -> Self {
         Self {
             reader,
-            delims: Delims::default(),
+            delims: Delims::new_default(),
             buffer: Vec::new(),
             pos: 0,
             pre_msh: true,
@@ -237,14 +241,14 @@ impl<D: std::io::BufRead> StreamParser<D> {
                 } else if !self.in_message && self.pre_msh && segment_data.len() >= 3 {
                     // We're in pre-MSH mode but this isn't an MSH segment,
                     // so start a message with default delimiters
-                    self.delims = Delims::default();
+                    self.delims = Delims::new_default();
                     self.pre_msh = false;
                     self.in_message = true;
                     
                     // Generate field events for this segment
                     self.generate_field_events(&segment_data)?;
                     
-                    return Ok(Some(Event::StartMessage { delims: Delims::default() }));
+                    return Ok(Some(Event::StartMessage { delims: Delims::new_default() }));
                 }
             }
 
@@ -580,7 +584,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
             // Start of a new message
             if !current_message_lines.is_empty() {
                 // Parse the previous message
-                let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                let message_text = current_message_lines.join("\r");
                 let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
                     details: format!("Failed to parse message in batch: {}", e),
                 })?;
@@ -596,7 +600,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
     
     // Parse the last message
     if !current_message_lines.is_empty() {
-        let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+        let message_text = current_message_lines.join("\r");
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
         })?;
@@ -646,7 +650,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
             // Start of a new batch
             if !current_batch_lines.is_empty() {
                 // Parse the previous batch
-                let batch_text = current_batch_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                let batch_text = current_batch_lines.join("\r");
                 match parse_batch(batch_text.as_bytes()) {
                     Ok(batch) => batches.push(batch),
                     Err(e) => {
@@ -673,7 +677,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
     
     // Parse the last batch
     if !current_batch_lines.is_empty() {
-        let batch_text = current_batch_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+        let batch_text = current_batch_lines.join("\r");
         match parse_batch(batch_text.as_bytes()) {
             Ok(batch) => batches.push(batch),
             Err(e) => {
@@ -703,7 +707,7 @@ fn find_and_parse_delimiters(lines: &[&str]) -> Result<Delims, Error> {
         }
     }
     // If no MSH segment found, use default delimiters
-    Ok(Delims::default())
+    Ok(Delims::new_default())
 }
 
 /// Parse delimiters from MSH segment
@@ -746,13 +750,13 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     }
     
     // Parse segment ID
-    let id_bytes = line[0..3].as_bytes();
+    let id_bytes = &line.as_bytes()[0..3];
     let mut id = [0u8; 3];
     id.copy_from_slice(id_bytes);
     
     // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
+        if !(byte.is_ascii_uppercase() || byte.is_ascii_digit()) {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -791,16 +795,12 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
             // Replace the first field with the corrected encoding field
             fields[0] = encoding_field;
         }
-        Ok(Segment {
-            id,
-            fields,
-        })
-    } else {
-        Ok(Segment {
-            id,
-            fields,
-        })
     }
+
+    Ok(Segment {
+        id,
+        fields,
+    })
 }
 
 /// Parse fields from a segment
@@ -953,7 +953,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             let mut escape_seq = String::new();
             let mut found_end = false;
             
-            while let Some(esc_ch) = chars.next() {
+            for esc_ch in chars.by_ref() {
                 if esc_ch == delims.esc {
                     found_end = true;
                     break;
@@ -967,7 +967,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // MSH encoding characters "^~\&"
                 // Use direct comparison instead of format! to avoid allocation
                 if text.len() == 4 && 
-                   text.chars().nth(0) == Some(delims.comp) &&
+                   text.starts_with(delims.comp) &&
                    text.chars().nth(1) == Some(delims.rep) &&
                    text.chars().nth(2) == Some(delims.esc) &&
                    text.chars().nth(3) == Some(delims.sub) {
@@ -1176,7 +1176,7 @@ pub fn normalize(bytes: &[u8], canonical_delims: bool) -> Result<Vec<u8>, Error>
     
     // If canonical delimiters are requested, update the message delimiters
     if canonical_delims {
-        message.delims = Delims::default();
+        message.delims = Delims::new_default();
     }
     
     // Write the normalized message
@@ -1193,7 +1193,7 @@ pub fn normalize_batch(bytes: &[u8], canonical_delims: bool) -> Result<Vec<u8>, 
     
     // If canonical delimiters are requested, update all message delimiters
     if canonical_delims {
-        let canonical = Delims::default();
+        let canonical = Delims::new_default();
         for message in &mut batch.messages {
             message.delims = canonical.clone();
         }
@@ -1213,7 +1213,7 @@ pub fn normalize_file_batch(bytes: &[u8], canonical_delims: bool) -> Result<Vec<
     
     // If canonical delimiters are requested, update all message delimiters
     if canonical_delims {
-        let canonical = Delims::default();
+        let canonical = Delims::new_default();
         for batch in &mut file_batch.batches {
             for message in &mut batch.messages {
                 message.delims = canonical.clone();
@@ -1236,7 +1236,7 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
         let delims = if let Some(first_msg) = batch.messages.first() {
             &first_msg.delims
         } else {
-            &Delims::default()
+            &Delims::new_default()
         };
         result.push(delims.field as u8);
         write_segment_fields(header, &mut result, delims);
@@ -1254,7 +1254,7 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
         let delims = if let Some(first_msg) = batch.messages.first() {
             &first_msg.delims
         } else {
-            &Delims::default()
+            &Delims::new_default()
         };
         result.push(delims.field as u8);
         write_segment_fields(trailer, &mut result, delims);
@@ -1306,7 +1306,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     
     // Find the segment
     let segment = msg.segments.iter().find(|s| {
-        std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id)
+        std::str::from_utf8(&s.id) == Ok(segment_id)
     })?;
     
     // Parse field index (1-based)
@@ -1319,7 +1319,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
             // MSH-1 is the field separator character
             // We can't return a reference to a temporary string, so we don't support this case
             // Users should access msg.delims.field directly for the field separator
-            return None;
+            None
         } else if field_index == 2 {
             // MSH-2 is the encoding characters
             // This should be the first parsed field (index 0)
@@ -1440,7 +1440,7 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
     
     // Find the segment
     let segment = match msg.segments.iter().find(|s| {
-        std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id)
+        std::str::from_utf8(&s.id) == Ok(segment_id)
     }) {
         Some(seg) => seg,
         None => return Presence::Missing,
@@ -1462,7 +1462,7 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
         if field_index == 1 {
             // MSH-1 is the field separator character
             // We treat this as a special case - present with the field separator value
-            return Presence::Value(msg.delims.field.to_string());
+            Presence::Value(msg.delims.field.to_string())
         } else if field_index == 2 {
             // MSH-2 is the encoding characters
             // This should be the first parsed field (index 0)
@@ -1703,13 +1703,11 @@ fn write_segment_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims
 /// Helper function to get delimiters from a file batch
 fn get_delimiters_from_file_batch(file_batch: &FileBatch) -> Delims {
     // Try to get delimiters from the first message in the first batch
-    if let Some(first_batch) = file_batch.batches.first() {
-        if let Some(first_message) = first_batch.messages.first() {
-            return first_message.delims.clone();
-        }
+    if let Some(first_message) = file_batch.batches.first().and_then(|b| b.messages.first()) {
+        return first_message.delims.clone();
     }
     // Fallback to default delimiters
-    Delims::default()
+    Delims::new_default()
 }
 
 #[cfg(test)]
@@ -1884,13 +1882,13 @@ mod tests {
         
         // Test existing field with empty value (PID.8 in our test message is empty)
         match get_presence(&message, "PID.8.1") {
-            Presence::Empty => assert!(true),
+            Presence::Empty => {},
             _ => panic!("Expected Empty, got something else"),
         }
         
         // Test missing field (PID.50 doesn't exist)
         match get_presence(&message, "PID.50.1") {
-            Presence::Missing => assert!(true),
+            Presence::Missing => {},
             _ => panic!("Expected Missing, got something else"),
         }
         
