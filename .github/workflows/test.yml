@@ -148,7 +148,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run Benchmarks
-        run: cargo bench -p hl7v2-core -- --output-format bencher | tee output.txt
+        run: cargo bench -p hl7v2-core | tee output.txt
 
       - name: Store Benchmark Result
         uses: benchmark-action/github-action-benchmark@v1

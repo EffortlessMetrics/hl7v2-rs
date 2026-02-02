@@ -632,26 +632,17 @@ fn should_validate_constraint(msg: &Message, constraint: &Constraint) -> bool {
 /// Check if a condition is met
 fn check_condition(msg: &Message, condition: &Condition) -> bool {
     // Check equality conditions
-    if let Some(eq_conditions) = &condition.eq {
-        if eq_conditions.len() == 2 {
-            let field_path = &eq_conditions[0];
-            let expected_value = &eq_conditions[1];
-
+    if let Some(eq_conditions) = &condition.eq
+        && let [field_path, expected_value] = eq_conditions.as_slice() {
             if let Some(actual_value) = hl7v2_core::get(msg, field_path) {
                 return actual_value == expected_value;
             }
             return false;
         }
-    }
 
     // Check any conditions (OR logic)
     if let Some(any_conditions) = &condition.any {
-        for cond in any_conditions {
-            if check_condition(msg, cond) {
-                return true;
-            }
-        }
-        return false;
+        return any_conditions.iter().any(|cond| check_condition(msg, cond));
     }
 
     // If no conditions match, don't validate
@@ -679,8 +670,8 @@ fn validate_field_in_constraint(
     allowed_values: &[String],
     issues: &mut Vec<Issue>,
 ) {
-    if let Some(value) = hl7v2_core::get(msg, path) {
-        if !allowed_values.contains(&value.to_string()) {
+    if let Some(value) = hl7v2_core::get(msg, path)
+        && !allowed_values.contains(&value.to_string()) {
             issues.push(Issue {
                 code: "VALUE_NOT_IN_CONSTRAINT",
                 severity: Severity::Error,
@@ -691,7 +682,6 @@ fn validate_field_in_constraint(
                 ),
             });
         }
-    }
 }
 
 /// Validate that a field value is in the allowed value set
@@ -702,8 +692,8 @@ fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue
         return;
     }
 
-    if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
-        if !valueset.codes.contains(&value.to_string()) {
+    if let Some(value) = hl7v2_core::get(msg, &valueset.path)
+        && !valueset.codes.contains(&value.to_string()) {
             issues.push(Issue {
                 code: "VALUE_NOT_IN_SET",
                 severity: Severity::Error,
@@ -714,15 +704,14 @@ fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue
                 ),
             });
         }
-    }
     // Note: We don't report an error if the field is missing but has a value set constraint
     // That would be handled by a separate presence constraint if needed
 }
 
 /// Validate that a field value matches the expected data type
 fn validate_data_type(msg: &Message, datatype: &DataTypeConstraint, issues: &mut Vec<Issue>) {
-    if let Some(value) = hl7v2_core::get(msg, &datatype.path) {
-        if !matches_data_type(value, &datatype.r#type) {
+    if let Some(value) = hl7v2_core::get(msg, &datatype.path)
+        && !matches_data_type(value, &datatype.r#type) {
             issues.push(Issue {
                 code: "INVALID_DATA_TYPE",
                 severity: Severity::Error,
@@ -733,7 +722,6 @@ fn validate_data_type(msg: &Message, datatype: &DataTypeConstraint, issues: &mut
                 ),
             });
         }
-    }
     // Note: We don't report an error if the field is missing but has a data type constraint
     // That would be handled by a separate presence constraint if needed
 }
@@ -760,8 +748,8 @@ fn validate_advanced_data_type(
         }
 
         // Check length constraints
-        if let Some(min_length) = datatype.min_length {
-            if value.len() < min_length {
+        if let Some(min_length) = datatype.min_length
+            && value.len() < min_length {
                 issues.push(Issue {
                     code: "VALUE_TOO_SHORT",
                     severity: Severity::Error,
@@ -772,10 +760,9 @@ fn validate_advanced_data_type(
                     ),
                 });
             }
-        }
 
-        if let Some(max_length) = datatype.max_length {
-            if value.len() > max_length {
+        if let Some(max_length) = datatype.max_length
+            && value.len() > max_length {
                 issues.push(Issue {
                     code: "VALUE_TOO_LONG",
                     severity: Severity::Error,
@@ -786,12 +773,11 @@ fn validate_advanced_data_type(
                     ),
                 });
             }
-        }
 
         // Check regex pattern if specified
-        if let Some(pattern) = &datatype.pattern {
-            if let Ok(regex) = Regex::new(pattern) {
-                if !regex.is_match(value) {
+        if let Some(pattern) = &datatype.pattern
+            && let Ok(regex) = Regex::new(pattern)
+                && !regex.is_match(value) {
                     issues.push(Issue {
                         code: "PATTERN_MISMATCH",
                         severity: Severity::Error,
@@ -802,12 +788,10 @@ fn validate_advanced_data_type(
                         ),
                     });
                 }
-            }
-        }
 
         // Check format if specified
-        if let Some(format) = &datatype.format {
-            if !matches_format(value, format, &datatype.r#type) {
+        if let Some(format) = &datatype.format
+            && !matches_format(value, format, &datatype.r#type) {
                 issues.push(Issue {
                     code: "FORMAT_MISMATCH",
                     severity: Severity::Error,
@@ -818,11 +802,10 @@ fn validate_advanced_data_type(
                     ),
                 });
             }
-        }
 
         // Check checksum if specified
-        if let Some(checksum) = &datatype.checksum {
-            if !validate_checksum(value, checksum) {
+        if let Some(checksum) = &datatype.checksum
+            && !validate_checksum(value, checksum) {
                 issues.push(Issue {
                     code: "CHECKSUM_MISMATCH",
                     severity: Severity::Error,
@@ -830,7 +813,6 @@ fn validate_advanced_data_type(
                     detail: format!("Checksum validation failed for {}", datatype.path),
                 });
             }
-        }
     }
 }
 
@@ -844,8 +826,8 @@ fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues:
     
     // Validate value sets with table precedence
     for valueset in &profile.valuesets {
-        if let Some(table_id) = table_map.get(valueset.name.as_str()) {
-            if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
+        if let Some(table_id) = table_map.get(valueset.name.as_str())
+            && let Some(value) = hl7v2_core::get(msg, &valueset.path) {
                 // Only validate if the field is not empty
                 if !value.is_empty() {
                     // Check if the value exists in the table
@@ -869,15 +851,14 @@ fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues:
                     }
                 }
             }
-        }
     }
 }
 
 /// Validate that a field value does not exceed the maximum length
 fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: &mut Vec<Issue>) {
-    if let Some(value) = hl7v2_core::get(msg, &length.path) {
-        if let Some(max_length) = length.max {
-            if value.len() > max_length {
+    if let Some(value) = hl7v2_core::get(msg, &length.path)
+        && let Some(max_length) = length.max
+            && value.len() > max_length {
                 issues.push(Issue {
                     code: "VALUE_TOO_LONG",
                     severity: Severity::Error,
@@ -888,13 +869,12 @@ fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: 
                     ),
                 });
             }
-        }
-    }
     // Note: We don't report an error if the field is missing but has a length constraint
     // That would be handled by a separate presence constraint if needed
 }
 
 /// Validate that a field value is in the allowed HL7 table
+#[allow(dead_code)]
 fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues: &mut Vec<Issue>) {
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead
@@ -902,8 +882,8 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
     
     // Check value sets that reference this table by name
     for valueset in &profile.valuesets {
-        if valueset.name == table.id {
-            if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
+        if valueset.name == table.id
+            && let Some(value) = hl7v2_core::get(msg, &valueset.path) {
                 // Only validate if the field is not empty
                 if !value.is_empty() {
                     // Check if the value exists in the table
@@ -927,7 +907,6 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
                     }
                 }
             }
-        }
     }
 }
 
@@ -939,7 +918,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
     ) {
         // Parse the date/time values
         if let (Some(before_time), Some(after_time)) =
-            (parse_datetime(&before_value), parse_datetime(&after_value))
+            (parse_datetime(before_value), parse_datetime(after_value))
         {
             // Check if before_time should be before after_time
             let is_valid = if rule.allow_equal {
@@ -1002,8 +981,8 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let required_length: usize = captures[2].parse().map_err(|_| ())?;
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if value.len() <= required_length {
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && value.len() <= required_length {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1020,7 +999,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1096,8 +1074,8 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let prefix = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if !value.starts_with(prefix) {
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && !value.starts_with(prefix) {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1112,7 +1090,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1124,8 +1101,8 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let suffix = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if !value.ends_with(suffix) {
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && !value.ends_with(suffix) {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1140,7 +1117,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1151,8 +1127,8 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if !value.chars().all(|c| c.is_ascii_digit()) {
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && !value.chars().all(|c| c.is_ascii_digit()) {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1164,7 +1140,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1178,8 +1153,7 @@ fn evaluate_custom_rule_script(
 
             if let (Some(value1), Some(value2)) =
                 (hl7v2_core::get(msg, path1), hl7v2_core::get(msg, path2))
-            {
-                if value1 != value2 {
+                && value1 != value2 {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1194,7 +1168,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1205,8 +1178,8 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if !is_phone_number(value) {
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && !is_phone_number(value) {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1221,7 +1194,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1232,8 +1204,8 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if !is_email(value) {
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && !is_email(value) {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1248,7 +1220,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1259,8 +1230,8 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if !is_ssn(value) {
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && !is_ssn(value) {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1272,7 +1243,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1283,8 +1253,8 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if !is_valid_birth_date(value) {
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && !is_valid_birth_date(value) {
                     issues.push(Issue {
                         code: "CUSTOM_RULE_VIOLATION",
                         severity: Severity::Error,
@@ -1296,7 +1266,6 @@ fn evaluate_custom_rule_script(
                         },
                     });
                 }
-            }
             return Ok(());
         }
     }
@@ -1311,19 +1280,18 @@ fn evaluate_custom_rule_script(
 
             if let (Some(value1), Some(value2)) =
                 (hl7v2_core::get(msg, path1), hl7v2_core::get(msg, path2))
+                && !is_valid_age_range(value1, value2)
             {
-                if !is_valid_age_range(value1, value2) {
-                    issues.push(Issue {
-                        code: "CUSTOM_RULE_VIOLATION",
-                        severity: Severity::Error,
-                        path: Some(path1.to_string()),
-                        detail: if rule.description.is_empty() {
-                            format!("Age range between {} and {} is not valid", path1, path2)
-                        } else {
-                            rule.description.clone()
-                        },
-                    });
-                }
+                issues.push(Issue {
+                    code: "CUSTOM_RULE_VIOLATION",
+                    severity: Severity::Error,
+                    path: Some(path1.to_string()),
+                    detail: if rule.description.is_empty() {
+                        format!("Age range between {} and {} is not valid", path1, path2)
+                    } else {
+                        rule.description.clone()
+                    },
+                });
             }
             return Ok(());
         }
@@ -1338,22 +1306,22 @@ fn evaluate_custom_rule_script(
             let min_val = &captures[2];
             let max_val = &captures[3];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
-                if !is_within_range(value, min_val, max_val) {
-                    issues.push(Issue {
-                        code: "CUSTOM_RULE_VIOLATION",
-                        severity: Severity::Error,
-                        path: Some(path.to_string()),
-                        detail: if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' is not between {} and {}",
-                                path, value, min_val, max_val
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    });
-                }
+            if let Some(value) = hl7v2_core::get(msg, path)
+                && !is_within_range(value, min_val, max_val)
+            {
+                issues.push(Issue {
+                    code: "CUSTOM_RULE_VIOLATION",
+                    severity: Severity::Error,
+                    path: Some(path.to_string()),
+                    detail: if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' is not between {} and {}",
+                            path, value, min_val, max_val
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                });
             }
             return Ok(());
         }
@@ -1381,24 +1349,24 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
             let path = &rule.script[6..path_end];
             if let Some(value) = hl7v2_core::get(msg, path) {
                 let length_str = &rule.script[path_end + 13..];
-                if let Ok(required_length) = length_str.parse::<usize>() {
-                    if value.len() <= required_length {
-                        issues.push(Issue {
-                            code: "CUSTOM_RULE_VIOLATION",
-                            severity: Severity::Error,
-                            path: Some(path.to_string()),
-                            detail: if rule.description.is_empty() {
-                                format!(
-                                    "Field {} length {} is not greater than {}",
-                                    path,
-                                    value.len(),
-                                    required_length
-                                )
-                            } else {
-                                rule.description.clone()
-                            },
-                        });
-                    }
+                if let Ok(required_length) = length_str.parse::<usize>()
+                    && value.len() <= required_length
+                {
+                    issues.push(Issue {
+                        code: "CUSTOM_RULE_VIOLATION",
+                        severity: Severity::Error,
+                        path: Some(path.to_string()),
+                        detail: if rule.description.is_empty() {
+                            format!(
+                                "Field {} length {} is not greater than {}",
+                                path,
+                                value.len(),
+                                required_length
+                            )
+                        } else {
+                            rule.description.clone()
+                        },
+                    });
                 }
             }
         }
@@ -1409,8 +1377,7 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
             if let Some(value) = hl7v2_core::get(msg, path) {
                 // Extract the allowed values
                 let values_part = &rule.script[path_end + 7..];
-                if values_part.ends_with("]") {
-                    let values_str = &values_part[..values_part.len() - 1];
+                if let Some(values_str) = values_part.strip_suffix(']') {
                     // Split by comma and remove quotes
                     let allowed_values: Vec<&str> = values_str
                         .split(',')
@@ -1482,28 +1449,25 @@ fn validate_cross_field_rule(
         .iter()
         .all(|condition| check_rule_condition(msg, condition));
 
-    match rule.validation_mode.as_str() {
-        "assert" => {
-            // Assert mode: conditions must be true, fail if they're not
-            if !conditions_met {
-                issues.push(Issue {
-                    code: "CROSS_FIELD_ASSERTION_FAILED",
-                    severity: Severity::Error,
-                    path: None,
-                    detail: format!(
-                        "Cross-field assertion failed: {} ({})",
-                        rule.description, rule.id
-                    ),
-                });
-            }
-            // If conditions are true, validation passes (no error)
+    if rule.validation_mode.as_str() == "assert" {
+        // Assert mode: conditions must be true, fail if they're not
+        if !conditions_met {
+            issues.push(Issue {
+                code: "CROSS_FIELD_ASSERTION_FAILED",
+                severity: Severity::Error,
+                path: None,
+                detail: format!(
+                    "Cross-field assertion failed: {} ({})",
+                    rule.description, rule.id
+                ),
+            });
         }
-        "conditional" | _ => {
-            // Conditional mode (default): if conditions are met, execute actions
-            if conditions_met {
-                for action in &rule.actions {
-                    execute_rule_action(msg, action, rule, profile, issues);
-                }
+        // If conditions are true, validation passes (no error)
+    } else {
+        // Conditional mode (default): if conditions are met, execute actions
+        if conditions_met {
+            for action in &rule.actions {
+                execute_rule_action(msg, action, rule, profile, issues);
             }
         }
     }
@@ -1541,7 +1505,7 @@ fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         }
         "in" => {
             if let Some(l) = lhs {
-                rhs_list.iter().any(|r| l == *r)
+                rhs_list.contains(&l)
             } else {
                 false
             }
@@ -1614,10 +1578,10 @@ fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
                 return l >= lo && l <= hi;
             }
             // Fallback to integer range
-            if let (Some(l), Ok(lo), Ok(hi)) = (lhs, a.parse::<i64>(), b.parse::<i64>()) {
-                if let Ok(li) = l.parse::<i64>() {
-                    return li >= lo && li <= hi;
-                }
+            if let (Some(l), Ok(lo), Ok(hi)) = (lhs, a.parse::<i64>(), b.parse::<i64>())
+                && let Ok(li) = l.parse::<i64>()
+            {
+                return li >= lo && li <= hi;
             }
             false
         }
@@ -1669,20 +1633,20 @@ fn execute_rule_action(
         }
         "prohibit" => {
             // Check if the prohibited field exists and is not empty
-            if let Some(value) = hl7v2_core::get(msg, &action.field) {
-                if !value.is_empty() {
-                    issues.push(Issue {
-                        code: "CROSS_FIELD_VALIDATION_ERROR",
-                        severity: Severity::Error,
-                        path: Some(action.field.clone()),
-                        detail: action.message.clone().unwrap_or_else(|| {
-                            format!(
-                                "Field {} is prohibited by cross-field rule {}",
-                                action.field, rule.id
-                            )
-                        }),
-                    });
-                }
+            if let Some(value) = hl7v2_core::get(msg, &action.field)
+                && !value.is_empty()
+            {
+                issues.push(Issue {
+                    code: "CROSS_FIELD_VALIDATION_ERROR",
+                    severity: Severity::Error,
+                    path: Some(action.field.clone()),
+                    detail: action.message.clone().unwrap_or_else(|| {
+                        format!(
+                            "Field {} is prohibited by cross-field rule {}",
+                            action.field, rule.id
+                        )
+                    }),
+                });
             }
             // If the field doesn't exist at all, that's fine (it's not present)
         }
@@ -1692,34 +1656,33 @@ fn execute_rule_action(
                 // Only validate if the field is not empty
                 if !value.is_empty() {
                     // Validate data type if specified
-                    if let Some(datatype) = &action.datatype {
-                        if !matches_data_type(value, datatype) {
-                            issues.push(Issue {
-                                code: "CROSS_FIELD_VALIDATION_ERROR",
-                                severity: Severity::Error,
-                                path: Some(action.field.clone()),
-                                detail: action.message.clone().unwrap_or_else(||
-                                    format!("Field {} does not match data type {} required by cross-field rule {}",
-                                           action.field, datatype, rule.id)),
-                            });
-                        }
+                    if let Some(datatype) = &action.datatype
+                        && !matches_data_type(value, datatype)
+                    {
+                        issues.push(Issue {
+                            code: "CROSS_FIELD_VALIDATION_ERROR",
+                            severity: Severity::Error,
+                            path: Some(action.field.clone()),
+                            detail: action.message.clone().unwrap_or_else(||
+                                format!("Field {} does not match data type {} required by cross-field rule {}",
+                                       action.field, datatype, rule.id)),
+                        });
                     }
 
                     // Validate against value set if specified
-                    if let Some(valueset_name) = &action.valueset {
+                    if let Some(valueset_name) = &action.valueset
                         // Find the value set in the profile
-                        if let Some(valueset) = find_valueset_by_name(profile, valueset_name) {
-                            if !valueset.codes.contains(&value.to_string()) {
-                                issues.push(Issue {
-                                    code: "CROSS_FIELD_VALIDATION_ERROR",
-                                    severity: Severity::Error,
-                                    path: Some(action.field.clone()),
-                                    detail: action.message.clone().unwrap_or_else(||
-                                        format!("Value '{}' for {} is not in value set {} required by cross-field rule {}",
-                                               value, action.field, valueset_name, rule.id)),
-                                });
-                            }
-                        }
+                        && let Some(valueset) = find_valueset_by_name(profile, valueset_name)
+                        && !valueset.codes.contains(&value.to_string())
+                    {
+                        issues.push(Issue {
+                            code: "CROSS_FIELD_VALIDATION_ERROR",
+                            severity: Severity::Error,
+                            path: Some(action.field.clone()),
+                            detail: action.message.clone().unwrap_or_else(||
+                                format!("Value '{}' for {} is not in value set {} required by cross-field rule {}",
+                                       value, action.field, valueset_name, rule.id)),
+                        });
                     }
                 }
             }
@@ -1738,10 +1701,11 @@ fn validate_contextual_rule(
     issues: &mut Vec<Issue>,
 ) {
     // Check if the context field has the expected value
-    if let Some(context_value) = hl7v2_core::get(msg, &rule.context_field) {
-        if context_value == rule.context_value {
-            // Apply the validation based on validation_type
-            match rule.validation_type.as_str() {
+    if let Some(context_value) = hl7v2_core::get(msg, &rule.context_field)
+        && context_value == rule.context_value
+    {
+        // Apply the validation based on validation_type
+        match rule.validation_type.as_str() {
                 "require" => {
                     // Check if the target field exists and is not empty
                     if let Some(value) = hl7v2_core::get(msg, &rule.target_field) {
@@ -1778,8 +1742,8 @@ fn validate_contextual_rule(
                 }
                 "prohibit" => {
                     // Check if the target field exists and is not empty
-                    if let Some(value) = hl7v2_core::get(msg, &rule.target_field) {
-                        if !value.is_empty() {
+                    if let Some(value) = hl7v2_core::get(msg, &rule.target_field)
+                        && !value.is_empty() {
                             issues.push(Issue {
                                 code: "CONTEXTUAL_VALIDATION_ERROR",
                                 severity: Severity::Error,
@@ -1794,50 +1758,46 @@ fn validate_contextual_rule(
                                 },
                             });
                         }
-                    }
                     // If the field doesn't exist at all, that's fine (it's not present)
                 }
                 "validate_datatype" => {
                     // Validate target field against specified data type
-                    if let Some(datatype) = rule.parameters.get("datatype") {
-                        if let Some(value) = hl7v2_core::get(msg, &rule.target_field) {
-                            if !matches_data_type(value, datatype) {
-                                issues.push(Issue {
-                                    code: "CONTEXTUAL_VALIDATION_ERROR",
-                                    severity: Severity::Error,
-                                    path: Some(rule.target_field.clone()),
-                                    detail: if rule.description.is_empty() {
-                                        format!("Field {} does not match data type {} required when {} equals {}", 
-                                               rule.target_field, datatype, rule.context_field, rule.context_value)
-                                    } else {
-                                        rule.description.clone()
-                                    },
-                                });
-                            }
-                        }
+                    if let Some(datatype) = rule.parameters.get("datatype")
+                        && let Some(value) = hl7v2_core::get(msg, &rule.target_field)
+                        && !matches_data_type(value, datatype)
+                    {
+                        issues.push(Issue {
+                            code: "CONTEXTUAL_VALIDATION_ERROR",
+                            severity: Severity::Error,
+                            path: Some(rule.target_field.clone()),
+                            detail: if rule.description.is_empty() {
+                                format!("Field {} does not match data type {} required when {} equals {}",
+                                       rule.target_field, datatype, rule.context_field, rule.context_value)
+                            } else {
+                                rule.description.clone()
+                            },
+                        });
                     }
                 }
                 "validate_valueset" => {
                     // Validate target field against specified value set
-                    if let Some(valueset_name) = rule.parameters.get("valueset") {
-                        if let Some(value) = hl7v2_core::get(msg, &rule.target_field) {
-                            // Find the value set in the profile
-                            if let Some(valueset) = find_valueset_by_name(profile, valueset_name) {
-                                if !valueset.codes.contains(&value.to_string()) {
-                                    issues.push(Issue {
-                                        code: "CONTEXTUAL_VALIDATION_ERROR",
-                                        severity: Severity::Error,
-                                        path: Some(rule.target_field.clone()),
-                                        detail: if rule.description.is_empty() {
-                                            format!("Value '{}' for {} is not in value set {} required when {} equals {}", 
-                                                   value, rule.target_field, valueset_name, rule.context_field, rule.context_value)
-                                        } else {
-                                            rule.description.clone()
-                                        },
-                                    });
-                                }
-                            }
-                        }
+                    if let Some(valueset_name) = rule.parameters.get("valueset")
+                        && let Some(value) = hl7v2_core::get(msg, &rule.target_field)
+                        // Find the value set in the profile
+                        && let Some(valueset) = find_valueset_by_name(profile, valueset_name)
+                        && !valueset.codes.contains(&value.to_string())
+                    {
+                        issues.push(Issue {
+                            code: "CONTEXTUAL_VALIDATION_ERROR",
+                            severity: Severity::Error,
+                            path: Some(rule.target_field.clone()),
+                            detail: if rule.description.is_empty() {
+                                format!("Value '{}' for {} is not in value set {} required when {} equals {}",
+                                       value, rule.target_field, valueset_name, rule.context_field, rule.context_value)
+                            } else {
+                                rule.description.clone()
+                            },
+                        });
                     }
                 }
                 _ => {
@@ -1846,8 +1806,6 @@ fn validate_contextual_rule(
             }
         }
     }
-}
-
 /// Check if value matches the specified format
 fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
     match (datatype, format) {
@@ -1869,7 +1827,7 @@ fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
                 return false;
             }
             let month: u32 = parts[1].parse().unwrap_or(0);
-            if month < 1 || month > 12 {
+            if !(1..=12).contains(&month) {
                 return false;
             }
             // Check day (2 digits)
@@ -1877,7 +1835,7 @@ fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
                 return false;
             }
             let day: u32 = parts[2].parse().unwrap_or(0);
-            if day < 1 || day > 31 {
+            if !(1..=31).contains(&day) {
                 return false;
             }
             true
@@ -1996,11 +1954,10 @@ fn parse_hl7_ts(s: &str) -> Option<NaiveDateTime> {
             return Some(dt);
         }
     }
-    if s.len() == 8 {
-        if let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d") {
-            return Some(d.and_hms_opt(0, 0, 0)?);
+    if s.len() == 8
+        && let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d") {
+            return d.and_hms_opt(0, 0, 0);
         }
-    }
     None
 }
 
@@ -2043,33 +2000,33 @@ fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
     }
     
     // Try date only format
-    if s.len() == 8 {
-        if let Ok(date) = NaiveDate::parse_from_str(s, "%Y%m%d") {
-            return Some(ParsedTimestamp {
-                datetime: date.and_hms_opt(0, 0, 0)?,
-                precision: TimestampPrecision::Day,
-            });
-        }
+    if s.len() == 8
+        && let Ok(date) = NaiveDate::parse_from_str(s, "%Y%m%d")
+    {
+        return Some(ParsedTimestamp {
+            datetime: date.and_hms_opt(0, 0, 0)?,
+            precision: TimestampPrecision::Day,
+        });
     }
     
     // Try year-month format
-    if s.len() == 6 {
-        if let Ok(date) = NaiveDate::parse_from_str(&format!("{}01", s), "%Y%m%d") {
-            return Some(ParsedTimestamp {
-                datetime: date.and_hms_opt(0, 0, 0)?,
-                precision: TimestampPrecision::Month,
-            });
-        }
+    if s.len() == 6
+        && let Ok(date) = NaiveDate::parse_from_str(&format!("{}01", s), "%Y%m%d")
+    {
+        return Some(ParsedTimestamp {
+            datetime: date.and_hms_opt(0, 0, 0)?,
+            precision: TimestampPrecision::Month,
+        });
     }
     
     // Try year only format
-    if s.len() == 4 {
-        if let Ok(date) = NaiveDate::parse_from_str(&format!("{}0101", s), "%Y%m%d") {
-            return Some(ParsedTimestamp {
-                datetime: date.and_hms_opt(0, 0, 0)?,
-                precision: TimestampPrecision::Year,
-            });
-        }
+    if s.len() == 4
+        && let Ok(date) = NaiveDate::parse_from_str(&format!("{}0101", s), "%Y%m%d")
+    {
+        return Some(ParsedTimestamp {
+            datetime: date.and_hms_opt(0, 0, 0)?,
+            precision: TimestampPrecision::Year,
+        });
     }
     
     None
@@ -2118,24 +2075,24 @@ fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) -> N
 /// Parse datetime string (supports various HL7 formats)
 fn parse_datetime(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
     // Try YYYYMMDDHHMMSS format
-    if value.len() == 14 {
-        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(value, "%Y%m%d%H%M%S") {
-            return Some(dt.and_utc());
-        }
+    if value.len() == 14
+        && let Ok(dt) = chrono::NaiveDateTime::parse_from_str(value, "%Y%m%d%H%M%S")
+    {
+        return Some(dt.and_utc());
     }
 
     // Try YYYYMMDD format
-    if value.len() == 8 {
-        if let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y%m%d") {
-            return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
-        }
+    if value.len() == 8
+        && let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y%m%d")
+    {
+        return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
     }
 
     // Try YYYY-MM-DD format
-    if value.len() == 10 {
-        if let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d") {
-            return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
-        }
+    if value.len() == 10
+        && let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+    {
+        return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
     }
 
     None
@@ -2190,11 +2147,11 @@ fn is_date(value: &str) -> bool {
     let day = &value[6..8];
 
     // Basic validation
-    if month < "01" || month > "12" {
+    if !("01"..="12").contains(&month) {
         return false;
     }
 
-    if day < "01" || day > "31" {
+    if !("01"..="31").contains(&day) {
         return false;
     }
 
@@ -2401,6 +2358,7 @@ fn is_valid_age_range(birth_date: &str, reference_date: &str) -> bool {
 }
 
 /// Check if a value matches a complex pattern with multiple conditions
+#[allow(dead_code)]
 fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
     // All patterns must match
     patterns.iter().all(|pattern| {
@@ -2413,6 +2371,7 @@ fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
 }
 
 /// Validate that a field value satisfies a mathematical relationship with another field
+#[allow(dead_code)]
 fn validate_mathematical_relationship(value1: &str, value2: &str, operator: &str) -> bool {
     // Parse both values as numbers
     let num1: f64 = match value1.parse() {
