@@ -1,8 +1,8 @@
 //! Performance monitoring utilities for the CLI
 
-use std::time::Instant;
 use std::collections::HashMap;
-use sysinfo::{System, CpuExt, ProcessExt, SystemExt};
+use std::time::Instant;
+use sysinfo::{CpuExt, ProcessExt, System, SystemExt};
 
 /// Performance metrics collector
 #[derive(Debug, Clone)]
@@ -19,23 +19,23 @@ impl PerformanceMonitor {
             metrics: HashMap::new(),
         }
     }
-    
+
     /// Record a metric
     pub fn record_metric(&mut self, name: &str, duration: std::time::Duration) {
         self.metrics.insert(name.to_string(), duration);
     }
-    
+
     /// Get elapsed time since creation
     pub fn elapsed(&self) -> std::time::Duration {
         self.start_time.elapsed()
     }
-    
+
     /// Get a specific metric
     #[allow(dead_code)]
     pub fn get_metric(&self, name: &str) -> Option<std::time::Duration> {
         self.metrics.get(name).copied()
     }
-    
+
     /// Get all metrics
     pub fn get_metrics(&self) -> &HashMap<String, std::time::Duration> {
         &self.metrics
@@ -64,7 +64,7 @@ pub struct MemoryInfo {
 pub fn get_memory_info() -> MemoryInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
-    
+
     if let Some(process) = sys.process(sysinfo::get_current_pid().unwrap()) {
         MemoryInfo {
             resident_set_size: Some(process.memory()),
@@ -88,9 +88,10 @@ pub struct CpuInfo {
 pub fn get_cpu_info() -> CpuInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
-    
-    let cpu_usage: f64 = sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() as f64 / sys.cpus().len() as f64;
-    
+
+    let cpu_usage: f64 =
+        sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() as f64 / sys.cpus().len() as f64;
+
     CpuInfo {
         cpu_usage_percent: Some(cpu_usage),
     }
@@ -109,10 +110,10 @@ pub struct SystemInfo {
 pub fn get_system_info() -> SystemInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
-    
+
     let memory_info = get_memory_info();
     let cpu_info = get_cpu_info();
-    
+
     SystemInfo {
         memory: memory_info,
         cpu: cpu_info,

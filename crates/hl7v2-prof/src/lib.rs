@@ -334,8 +334,16 @@ fn merge_profiles(parent: Profile, child: Profile) -> Profile {
         contextual_rules: merge_contextual_rules(parent.contextual_rules, child.contextual_rules),
         custom_rules: merge_custom_rules(parent.custom_rules, child.custom_rules),
         hl7_tables: merge_hl7_tables(parent.hl7_tables, child.hl7_tables),
-        table_precedence: if child.table_precedence.is_empty() { parent.table_precedence } else { child.table_precedence },
-        expression_guardrails: if child.expression_guardrails == ExpressionGuardrails::default() { parent.expression_guardrails } else { child.expression_guardrails },
+        table_precedence: if child.table_precedence.is_empty() {
+            parent.table_precedence
+        } else {
+            child.table_precedence
+        },
+        expression_guardrails: if child.expression_guardrails == ExpressionGuardrails::default() {
+            parent.expression_guardrails
+        } else {
+            child.expression_guardrails
+        },
     }
 }
 
@@ -843,11 +851,12 @@ fn validate_advanced_data_type(
 /// Validate HL7 tables with precedence support
 fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
     // Create a mapping of value set names to HL7 tables
-    let mut table_map: std::collections::HashMap<&str, &HL7Table> = std::collections::HashMap::new();
+    let mut table_map: std::collections::HashMap<&str, &HL7Table> =
+        std::collections::HashMap::new();
     for table in &profile.hl7_tables {
         table_map.insert(&table.id, table);
     }
-    
+
     // Validate value sets with table precedence
     for valueset in &profile.valuesets {
         if let Some(table_id) = table_map.get(valueset.name.as_str()) {
@@ -906,7 +915,7 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead
     // when table precedence is important
-    
+
     // Check value sets that reference this table by name
     for valueset in &profile.valuesets {
         if valueset.name == table.id {
@@ -1572,12 +1581,18 @@ fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
             // Try to parse left-hand side
             if let Some(lhs_ts) = lhs.and_then(parse_hl7_ts_with_precision) {
                 // Debug output
-                println!("DEBUG: before operator - lhs: {:?}, rhs_first: {:?}", lhs, rhs_first);
-                
+                println!(
+                    "DEBUG: before operator - lhs: {:?}, rhs_first: {:?}",
+                    lhs, rhs_first
+                );
+
                 // Right-hand side can be either a literal value or a field path
                 let rhs_value = if let Some(rhs_field) = rhs_first {
                     // Check if rhs_field is a valid field path by trying to get its value
-                    println!("DEBUG: before operator - trying to get field: {}", rhs_field);
+                    println!(
+                        "DEBUG: before operator - trying to get field: {}",
+                        rhs_field
+                    );
                     if let Some(rhs_val) = get_nonempty(msg, rhs_field) {
                         println!("DEBUG: before operator - found field value: {}", rhs_val);
                         Some(rhs_val)
@@ -1589,7 +1604,7 @@ fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
                 } else {
                     None
                 };
-                
+
                 // Try to parse right-hand side
                 if let Some(rhs_ts) = rhs_value.and_then(parse_hl7_ts_with_precision) {
                     let result = compare_timestamps_for_before(&lhs_ts, &rhs_ts);
@@ -1605,7 +1620,7 @@ fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
                 println!("DEBUG: before operator - failed to parse lhs");
                 false
             }
-        },
+        }
         // numeric range over integers OR date range over TS
         // numeric range over integers OR date range over TS
         "within_range" => {
@@ -1985,7 +2000,11 @@ fn find_valueset_by_name<'a>(profile: &'a Profile, name: &str) -> Option<&'a Val
 fn get_nonempty<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     hl7v2_core::get(msg, path).and_then(|s| {
         let t = s.trim();
-        if t.is_empty() { None } else { Some(t) }
+        if t.is_empty() {
+            None
+        } else {
+            Some(t)
+        }
     })
 }
 
@@ -2032,14 +2051,14 @@ enum TimestampPrecision {
 /// Parse HL7 TS with precision information
 fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
     let s = s.trim();
-    
+
     // Try full datetime formats first
     let formats = &[
         ("%Y%m%d%H%M%S", TimestampPrecision::Second), // 14 chars
         ("%Y%m%d%H%M", TimestampPrecision::Minute),   // 12 chars
         ("%Y%m%d%H", TimestampPrecision::Hour),       // 10 chars
     ];
-    
+
     for (format, precision) in formats {
         if let Ok(dt) = NaiveDateTime::parse_from_str(s, format) {
             return Some(ParsedTimestamp {
@@ -2048,7 +2067,7 @@ fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
             });
         }
     }
-    
+
     // Try date only format
     if s.len() == 8 {
         if let Ok(date) = NaiveDate::parse_from_str(s, "%Y%m%d") {
@@ -2058,7 +2077,7 @@ fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
             });
         }
     }
-    
+
     // Try year-month format
     if s.len() == 6 {
         if let Ok(date) = NaiveDate::parse_from_str(&format!("{}01", s), "%Y%m%d") {
@@ -2068,7 +2087,7 @@ fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
             });
         }
     }
-    
+
     // Try year only format
     if s.len() == 4 {
         if let Ok(date) = NaiveDate::parse_from_str(&format!("{}0101", s), "%Y%m%d") {
@@ -2078,28 +2097,28 @@ fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
             });
         }
     }
-    
+
     None
 }
 
 /// Compare two timestamps with partial precision handling
 /// For "before" comparisons with partial precision:
-/// - If comparing 20230101 (date) with 20230101120000 (datetime), 
+/// - If comparing 20230101 (date) with 20230101120000 (datetime),
 ///   we should consider them "equal" for the date part, not treat the date as 00:00:00
 fn compare_timestamps_for_before(a: &ParsedTimestamp, b: &ParsedTimestamp) -> bool {
     // If both have the same precision, compare directly
     if a.precision == b.precision {
         return a.datetime < b.datetime;
     }
-    
+
     // For different precisions, we need to truncate the more precise one
     // to match the less precise one's precision
     let min_precision = std::cmp::min(a.precision, b.precision);
-    
+
     // Truncate both timestamps to the minimum precision
     let truncated_a = truncate_to_precision(&a.datetime, min_precision);
     let truncated_b = truncate_to_precision(&b.datetime, min_precision);
-    
+
     // Now compare the truncated versions
     truncated_a < truncated_b
 }
@@ -2107,7 +2126,7 @@ fn compare_timestamps_for_before(a: &ParsedTimestamp, b: &ParsedTimestamp) -> bo
 /// Truncate a datetime to a specific precision
 fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) -> NaiveDateTime {
     use chrono::{Datelike, Timelike};
-    
+
     match precision {
         TimestampPrecision::Year => NaiveDate::from_ymd_opt(dt.year(), 1, 1)
             .and_then(|d| d.and_hms_opt(0, 0, 0))
@@ -2116,7 +2135,10 @@ fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) -> N
             .and_then(|d| d.and_hms_opt(0, 0, 0))
             .unwrap_or(*dt),
         TimestampPrecision::Day => dt.date().and_hms_opt(0, 0, 0).unwrap_or(*dt),
-        TimestampPrecision::Hour => dt.with_minute(0).and_then(|d| d.with_second(0)).unwrap_or(*dt),
+        TimestampPrecision::Hour => dt
+            .with_minute(0)
+            .and_then(|d| d.with_second(0))
+            .unwrap_or(*dt),
         TimestampPrecision::Minute => dt.with_second(0).unwrap_or(*dt),
         TimestampPrecision::Second => *dt,
     }

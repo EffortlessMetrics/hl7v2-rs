@@ -68,56 +68,52 @@
 //! # }
 //! ```
 
-mod codec;
 mod client;
+mod codec;
 mod server;
 
-pub use codec::MllpCodec;
 pub use client::{MllpClient, MllpClientBuilder, MllpClientConfig};
-pub use server::{
-    MllpServer, MllpServerConfig, MllpConnection, MessageHandler, AckTimingPolicy,
-};
+pub use codec::MllpCodec;
+pub use server::{AckTimingPolicy, MessageHandler, MllpConnection, MllpServer, MllpServerConfig};
 
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use crate::{Message, Delims, Segment, Field, Rep, Comp, Atom};
+    use crate::{Atom, Comp, Delims, Field, Message, Rep, Segment};
     use tokio::time::Duration;
 
     /// Create a simple test message
     fn create_test_message() -> Message {
         Message {
             delims: Delims::default(),
-            segments: vec![
-                Segment {
-                    id: *b"MSH",
-                    fields: vec![
-                        Field {
-                            reps: vec![Rep {
-                                comps: vec![Comp {
-                                    subs: vec![Atom::Text("^~\\&".to_string())],
-                                }],
+            segments: vec![Segment {
+                id: *b"MSH",
+                fields: vec![
+                    Field {
+                        reps: vec![Rep {
+                            comps: vec![Comp {
+                                subs: vec![Atom::Text("^~\\&".to_string())],
                             }],
-                        },
-                        Field {
-                            reps: vec![Rep {
-                                comps: vec![Comp {
-                                    subs: vec![Atom::Text("TEST".to_string())],
-                                }],
+                        }],
+                    },
+                    Field {
+                        reps: vec![Rep {
+                            comps: vec![Comp {
+                                subs: vec![Atom::Text("TEST".to_string())],
                             }],
-                        },
-                    ],
-                },
-            ],
+                        }],
+                    },
+                ],
+            }],
             charsets: vec![],
         }
     }
 
     #[tokio::test]
     async fn test_client_server_integration() {
+        use std::net::SocketAddr;
         use std::sync::Arc;
         use tokio::sync::Notify;
-        use std::net::SocketAddr;
 
         struct TestHandler {
             notify: Arc<Notify>,

@@ -149,8 +149,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run Benchmarks
-        # Only run benchmarks for core crate which has them defined and supports output-format
-        run: cargo bench --package hl7v2-core -- --output-format bencher | tee output.txt
+        # Only run benchmarks for core crate which has them defined
+        # Remove --output-format bencher as it's not supported by Criterion harness in this setup
+        run: cargo bench --package hl7v2-core | tee output.txt
 
       - name: Store Benchmark Result
         uses: benchmark-action/github-action-benchmark@v1

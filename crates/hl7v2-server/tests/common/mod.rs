@@ -11,7 +11,7 @@ use std::time::Instant;
 pub fn create_test_server() -> Server {
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
-        max_body_size: 1024 * 1024, // 1MB
+        max_body_size: 1024 * 1024,              // 1MB
     };
     Server::new(config)
 }
@@ -52,16 +52,13 @@ pub mod fixtures {
          OBX|2|NM|RBC^Red Blood Count||4.8|10^12/L|4.5-5.5|N|||F|||20231119130000\r";
 
     /// Invalid message (malformed)
-    pub const INVALID_MALFORMED: &str =
-        "This is not a valid HL7 message";
+    pub const INVALID_MALFORMED: &str = "This is not a valid HL7 message";
 
     /// Invalid message (wrong encoding characters)
-    pub const INVALID_ENCODING: &str =
-        "MSH|Wrong encoding characters";
+    pub const INVALID_ENCODING: &str = "MSH|Wrong encoding characters";
 
     /// Invalid message (missing required fields)
-    pub const INVALID_MISSING_FIELDS: &str =
-        "MSH|^~\\&||||||||||2.5\r";
+    pub const INVALID_MISSING_FIELDS: &str = "MSH|^~\\&||||||||||2.5\r";
 
     /// Minimal valid message (just MSH)
     pub const MINIMAL_VALID: &str =

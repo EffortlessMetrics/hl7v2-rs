@@ -1,11 +1,11 @@
 //! HTTP server implementation.
 
+use metrics_exporter_prometheus::PrometheusHandle;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::net::TcpListener;
 use tracing::info;
-use metrics_exporter_prometheus::PrometheusHandle;
 
 use crate::routes::build_router;
 use crate::Result;

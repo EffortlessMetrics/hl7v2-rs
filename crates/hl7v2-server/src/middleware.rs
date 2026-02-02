@@ -7,12 +7,7 @@
 //! - Rate limiting
 //! - Request ID generation
 
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
 use tower::limit::ConcurrencyLimitLayer;
 use tracing::info;
 
@@ -115,7 +110,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, S
 /// // Use with axum Router: Router::new().layer(_layer)
 /// ```
 pub fn create_concurrency_limit_layer() -> ConcurrencyLimitLayer {
-    ConcurrencyLimitLayer::new(100)  // Allow up to 100 concurrent requests
+    ConcurrencyLimitLayer::new(100) // Allow up to 100 concurrent requests
 }
 
 /// Create a custom concurrency limiting layer with configurable limit

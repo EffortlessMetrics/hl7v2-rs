@@ -5,15 +5,15 @@
 //! - Encodes and sends HL7 messages with MLLP framing
 //! - Receives and decodes ACK responses
 
-use crate::{Message, parse};
 use super::codec::MllpCodec;
+use crate::{parse, Message};
 use bytes::BytesMut;
+use futures::prelude::*;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tokio_util::codec::Framed;
-use futures::prelude::*;
 
 /// Configuration for MLLP client
 #[derive(Debug, Clone)]
@@ -90,10 +90,9 @@ impl MllpClient {
 
     /// Send a message and wait for an ACK response
     pub async fn send_message(&mut self, message: &Message) -> Result<Message, std::io::Error> {
-        let framed = self
-            .framed
-            .as_mut()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotConnected, "Not connected"))?;
+        let framed = self.framed.as_mut().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotConnected, "Not connected")
+        })?;
 
         // Serialize the message
         let bytes = crate::write(message);
@@ -123,10 +122,9 @@ impl MllpClient {
 
     /// Send a message without waiting for a response (fire-and-forget)
     pub async fn send_message_no_ack(&mut self, message: &Message) -> Result<(), std::io::Error> {
-        let framed = self
-            .framed
-            .as_mut()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotConnected, "Not connected"))?;
+        let framed = self.framed.as_mut().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotConnected, "Not connected")
+        })?;
 
         // Serialize the message
         let bytes = crate::write(message);
@@ -144,10 +142,9 @@ impl MllpClient {
 
     /// Receive a message from the server
     pub async fn receive_message(&mut self) -> Result<Option<Message>, std::io::Error> {
-        let framed = self
-            .framed
-            .as_mut()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotConnected, "Not connected"))?;
+        let framed = self.framed.as_mut().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotConnected, "Not connected")
+        })?;
 
         match timeout(self.config.read_timeout, framed.next()).await {
             Ok(Some(Ok(frame))) => {
