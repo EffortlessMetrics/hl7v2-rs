@@ -10,6 +10,11 @@ repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[[bin]]
+name = "hl7v2-cli"
+path = "src/main.rs"
+bench = false
+
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

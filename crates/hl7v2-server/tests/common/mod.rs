@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Common test utilities and fixtures for integration tests.
 
 use axum::Router;
