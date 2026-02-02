@@ -751,7 +751,7 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     
     // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if !byte.is_ascii_uppercase() && !byte.is_ascii_digit() {
+        if !(byte.is_ascii_uppercase() || byte.is_ascii_digit()) {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -1785,7 +1785,7 @@ mod tests {
                 // Check each byte
                 for (j, byte) in segment_id.bytes().enumerate() {
                     println!("    Byte {}: {} ({})", j, byte, byte as char);
-                    if byte < b'A' || byte > b'Z' {
+                    if !byte.is_ascii_uppercase() {
                         println!("      INVALID BYTE: {} is not between A-Z", byte as char);
                     }
                 }
@@ -1883,13 +1883,13 @@ mod tests {
         
         // Test existing field with empty value (PID.8 in our test message is empty)
         match get_presence(&message, "PID.8.1") {
-            Presence::Empty => assert!(true),
+            Presence::Empty => {},
             _ => panic!("Expected Empty, got something else"),
         }
         
         // Test missing field (PID.50 doesn't exist)
         match get_presence(&message, "PID.50.1") {
-            Presence::Missing => assert!(true),
+            Presence::Missing => {},
             _ => panic!("Expected Missing, got something else"),
         }
         
