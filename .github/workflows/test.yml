@@ -155,7 +155,7 @@ jobs:
       - name: Store Benchmark Result
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          tool: 'cargo'
+          tool: 'criterion'
           output-file-path: output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
