@@ -20,6 +20,7 @@ pub fn create_test_router() -> Router {
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
+        api_key: "test-key".to_string(),
     });
     hl7v2_server::routes::build_router(state)
 }

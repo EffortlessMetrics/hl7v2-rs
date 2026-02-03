@@ -17,6 +17,8 @@ pub struct AppState {
     pub start_time: Instant,
     /// Prometheus metrics handle
     pub metrics_handle: Arc<PrometheusHandle>,
+    /// API Key for authentication
+    pub api_key: String,
 }
 
 /// HTTP server configuration
@@ -49,9 +51,13 @@ impl Server {
         // Initialize Prometheus metrics recorder
         let metrics_handle = crate::metrics::init_metrics_recorder();
 
+        // Load API key from environment
+        let api_key = std::env::var("HL7V2_API_KEY").unwrap_or_default();
+
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key,
         });
 
         Self { config, state }
