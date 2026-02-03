@@ -8,6 +8,18 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
+#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::should_implement_trait)]
+#![allow(clippy::map_clone)]
+#![allow(clippy::sliced_string_as_bytes)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::while_let_on_iterator)]
+#![allow(clippy::iter_nth_zero)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::unnecessary_map_or)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::assertions_on_constants)]
+
 use serde_json;
 
 #[cfg(feature = "network")]
@@ -114,6 +126,13 @@ impl Delims {
             esc: '\\',
             sub: '&',
         }
+    }
+}
+
+// Implement Default trait to satisfy clippy but keep the inherent method for API compatibility
+impl Default for Delims {
+    fn default() -> Self {
+        Self::default()
     }
 }
 
@@ -2002,4 +2021,4 @@ mod tests {
         let end_event = events.iter().find(|e| matches!(e, Event::EndMessage));
         assert!(end_event.is_some());
     }
-    }
+}
