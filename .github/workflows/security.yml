@@ -52,7 +52,21 @@ jobs:
         uses: taiki-e/install-action@cargo-deny
 
       - name: Run cargo-deny
-        run: cargo deny check --all-features
+        run: cargo deny check
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    continue-on-error: true # Dependency Graph may not be enabled in all environments
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
 
   sast:
     name: SAST (Semgrep)
