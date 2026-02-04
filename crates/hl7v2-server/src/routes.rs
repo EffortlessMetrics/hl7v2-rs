@@ -14,7 +14,7 @@ use tower_http::{
 
 use crate::handlers::{health_handler, parse_handler, validate_handler};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::create_concurrency_limit_layer;
+use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
 use crate::server::AppState;
 
 /// Build the application router
@@ -22,7 +22,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // Create API routes
     let api_routes = Router::new()
         .route("/parse", post(parse_handler))
-        .route("/validate", post(validate_handler));
+        .route("/validate", post(validate_handler))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
 
     // Main router
     Router::new()
@@ -72,6 +76,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: "test-key".to_string(),
         });
 
         let app = build_router(state);
@@ -89,12 +94,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_parse_unauthorized() {
+        let metrics_handle = crate::metrics::init_metrics_recorder();
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
+            api_key: "test-key".to_string(),
+        });
+
+        let app = build_router(state);
+
+        let hl7_message = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|123456|P|2.5\r";
+        let request_body = serde_json::json!({
+            "message": hl7_message,
+            "mllp_framed": false,
+            "options": {}
+        });
+
+        // Request without API key
+        let response = app.clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/hl7/parse")
+                    .method("POST")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+        // Request with wrong API key
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/hl7/parse")
+                    .method("POST")
+                    .header("Content-Type", "application/json")
+                    .header("X-API-Key", "wrong-key")
+                    .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
     #[ignore = "Test needs review - response format may have changed. See GitHub issue for details."]
     async fn test_parse_endpoint() {
         let metrics_handle = crate::metrics::init_metrics_recorder();
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: "test-key".to_string(),
         });
 
         let app = build_router(state);
@@ -117,6 +173,7 @@ mod tests {
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
+                    .header("X-API-Key", "test-key")
                     .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                     .unwrap(),
             )
