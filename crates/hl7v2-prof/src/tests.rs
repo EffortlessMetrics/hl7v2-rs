@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use crate::{load_profile, validate, Profile, parse_hl7_ts_with_precision, compare_timestamps_for_before, ExpressionGuardrails};
     use hl7v2_core::parse;
