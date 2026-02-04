@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Create a test server instance with default configuration
+#[allow(dead_code)]
 pub fn create_test_server() -> Server {
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
@@ -29,6 +30,7 @@ pub fn create_test_router() -> Router {
 /// Sample HL7v2 messages for testing
 pub mod fixtures {
     /// Valid ADT^A01 message (Admit/Visit Notification)
+    #[allow(dead_code)]
     pub const ADT_A01_VALID: &str =
         "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|MSG001|P|2.5\r\
          EVN|A01|20231119120000\r\
@@ -36,6 +38,7 @@ pub mod fixtures {
          PV1|1|I|ICU^101^01||||DOC123^Smith^Jane|||MED||||||||V123456|||||||||||||||||||||||||20231119120000\r";
 
     /// Valid ADT^A04 message (Register Patient)
+    #[allow(dead_code)]
     pub const ADT_A04_VALID: &str =
         "MSH|^~\\&|RegSys|Hospital|ADT|Hospital|20231119130000||ADT^A04|MSG002|P|2.5\r\
          EVN|A04|20231119130000\r\
@@ -43,6 +46,7 @@ pub mod fixtures {
          PV1|1|O|CLINIC^201^01||||DOC456^Johnson^Robert|||||||||||V789012\r";
 
     /// Valid ORU^R01 message (Lab Results)
+    #[allow(dead_code)]
     pub const ORU_R01_VALID: &str =
         "MSH|^~\\&|LabSys|Lab|LIS|Hospital|20231119140000||ORU^R01|MSG003|P|2.5\r\
          PID|1||MRN789^^^Lab^MR||Patient^Test||19850610|M\r\
@@ -52,18 +56,22 @@ pub mod fixtures {
          OBX|2|NM|RBC^Red Blood Count||4.8|10^12/L|4.5-5.5|N|||F|||20231119130000\r";
 
     /// Invalid message (malformed)
+    #[allow(dead_code)]
     pub const INVALID_MALFORMED: &str =
         "This is not a valid HL7 message";
 
     /// Invalid message (wrong encoding characters)
+    #[allow(dead_code)]
     pub const INVALID_ENCODING: &str =
         "MSH|Wrong encoding characters";
 
     /// Invalid message (missing required fields)
+    #[allow(dead_code)]
     pub const INVALID_MISSING_FIELDS: &str =
         "MSH|^~\\&||||||||||2.5\r";
 
     /// Minimal valid message (just MSH)
+    #[allow(dead_code)]
     pub const MINIMAL_VALID: &str =
         "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|MSG999|P|2.5\r";
 }
@@ -71,6 +79,7 @@ pub mod fixtures {
 /// Sample conformance profiles for testing
 pub mod profiles {
     /// Minimal profile (basic structure only)
+    #[allow(dead_code)]
     pub const MINIMAL_PROFILE: &str = r#"
 message_structure: "MINIMAL"
 version: "2.5"
@@ -84,6 +93,7 @@ segments:
 "#;
 
     /// ADT_A01 profile excerpt (simplified for testing)
+    #[allow(dead_code)]
     pub const ADT_A01_PROFILE: &str = r#"
 message_structure: "ADT_A01"
 version: "2.5.1"

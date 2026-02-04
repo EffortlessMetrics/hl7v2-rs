@@ -1,4 +1,4 @@
-use hl7v2_prof::{Profile, load_profile};
+use hl7v2_prof::load_profile;
 
 #[test]
 fn test_simple() {

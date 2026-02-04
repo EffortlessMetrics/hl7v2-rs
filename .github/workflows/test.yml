@@ -148,7 +148,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run Benchmarks
-        run: cargo bench --all -- --output-format bencher | tee output.txt
+        run: cargo bench --all | tee output.txt
 
       - name: Store Benchmark Result
         uses: benchmark-action/github-action-benchmark@v1
@@ -178,5 +178,4 @@ jobs:
 
       - name: Check for Memory Leaks
         run: |
-          valgrind --leak-check=full --error-exitcode=1 \
-            target/release/deps/hl7v2_core-* --test-threads=1
+          find target/release/deps -name "hl7v2_core-*" -type f -executable -not -name "*.d" -exec valgrind --leak-check=full --error-exitcode=1 {} --test-threads=1 \;

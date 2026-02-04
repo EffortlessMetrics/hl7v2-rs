@@ -10,7 +10,7 @@ resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 rust-version = "1.89"
 authors = ["Steven Zimmerman <git@efforlesssteven.com>"]
 description = "Modern Rust HL7v2 Processor"
@@ -34,3 +34,10 @@ tracing-subscriber = "0.3"
 metrics = "0.23"
 metrics-exporter-prometheus = "0.15"
 tower_governor = "0.4"
+
+[workspace.lints.clippy]
+pedantic = "warn"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
