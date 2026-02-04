@@ -584,7 +584,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
             // Start of a new message
             if !current_message_lines.is_empty() {
                 // Parse the previous message
-                let message_text = current_message_lines.iter().copied().collect::<Vec<_>>().join("\r");
+            let message_text = current_message_lines.join("\r");
                 let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
                     details: format!("Failed to parse message in batch: {}", e),
                 })?;
@@ -600,7 +600,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
     
     // Parse the last message
     if !current_message_lines.is_empty() {
-        let message_text = current_message_lines.iter().copied().collect::<Vec<_>>().join("\r");
+        let message_text = current_message_lines.join("\r");
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
         })?;
@@ -650,7 +650,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
             // Start of a new batch
             if !current_batch_lines.is_empty() {
                 // Parse the previous batch
-                let batch_text = current_batch_lines.iter().copied().collect::<Vec<_>>().join("\r");
+                let batch_text = current_batch_lines.join("\r");
                 match parse_batch(batch_text.as_bytes()) {
                     Ok(batch) => batches.push(batch),
                     Err(e) => {
@@ -677,7 +677,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
     
     // Parse the last batch
     if !current_batch_lines.is_empty() {
-        let batch_text = current_batch_lines.iter().copied().collect::<Vec<_>>().join("\r");
+        let batch_text = current_batch_lines.join("\r");
         match parse_batch(batch_text.as_bytes()) {
             Ok(batch) => batches.push(batch),
             Err(e) => {
@@ -756,7 +756,7 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     
     // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if !((b'A'..=b'Z').contains(&byte) || (b'0'..=b'9').contains(&byte)) {
+        if !byte.is_ascii_uppercase() && !byte.is_ascii_digit() {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -971,7 +971,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // MSH encoding characters "^~\&"
                 // Use direct comparison instead of format! to avoid allocation
                 if text.len() == 4 && 
-                   text.chars().next() == Some(delims.comp) &&
+                   text.starts_with(delims.comp) &&
                    text.chars().nth(1) == Some(delims.rep) &&
                    text.chars().nth(2) == Some(delims.esc) &&
                    text.chars().nth(3) == Some(delims.sub) {
@@ -1790,7 +1790,7 @@ mod tests {
                 // Check each byte
                 for (j, byte) in segment_id.bytes().enumerate() {
                     println!("    Byte {}: {} ({})", j, byte, byte as char);
-                    if byte < b'A' || byte > b'Z' {
+                    if !byte.is_ascii_uppercase() {
                         println!("      INVALID BYTE: {} is not between A-Z", byte as char);
                     }
                 }
@@ -1888,13 +1888,13 @@ mod tests {
         
         // Test existing field with empty value (PID.8 in our test message is empty)
         match get_presence(&message, "PID.8.1") {
-            Presence::Empty => assert!(true),
+            Presence::Empty => {},
             _ => panic!("Expected Empty, got something else"),
         }
         
         // Test missing field (PID.50 doesn't exist)
         match get_presence(&message, "PID.50.1") {
-            Presence::Missing => assert!(true),
+            Presence::Missing => {},
             _ => panic!("Expected Missing, got something else"),
         }
         
