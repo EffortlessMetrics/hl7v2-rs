@@ -218,7 +218,7 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     let metrics = monitor.get_metrics();
     if !metrics.is_empty() {
         // Sort metrics alphabetically for consistent output
-        let mut sorted_metrics: Vec<_> = metrics.into_iter().collect();
+        let mut sorted_metrics: Vec<_> = metrics.iter().collect();
         sorted_metrics.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
 
         println!("  Detailed metrics:");
