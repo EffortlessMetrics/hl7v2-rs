@@ -63,6 +63,7 @@ async fn test_content_type_validation() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "text/plain")
+                .header("X-API-Key", "test-key")
                 .body(Body::from("some text"))
                 .unwrap(),
         )
@@ -74,6 +75,8 @@ async fn test_content_type_validation() {
         response.status() != StatusCode::OK,
         "Wrong content type should be rejected"
     );
+    // Specifically it should likely be 415 Unsupported Media Type or 400 Bad Request
+    assert_ne!(response.status(), StatusCode::UNAUTHORIZED, "Should be authorized");
 }
 
 #[tokio::test]
@@ -101,6 +104,7 @@ async fn test_large_request_handling() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -112,6 +116,7 @@ async fn test_large_request_handling() {
         response.status() == StatusCode::OK || response.status().is_client_error(),
         "Should either parse large message or reject it gracefully"
     );
+    assert_ne!(response.status(), StatusCode::UNAUTHORIZED, "Should be authorized");
 }
 
 #[tokio::test]
@@ -123,6 +128,7 @@ async fn test_missing_content_type_header() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
+                .header("X-API-Key", "test-key")
                 .body(Body::from("{}"))
                 .unwrap(),
         )
@@ -134,6 +140,7 @@ async fn test_missing_content_type_header() {
         response.status() != StatusCode::INTERNAL_SERVER_ERROR,
         "Missing content-type should not cause 500 error"
     );
+    assert_ne!(response.status(), StatusCode::UNAUTHORIZED, "Should be authorized");
 }
 
 #[tokio::test]
@@ -147,6 +154,7 @@ async fn test_options_request_for_cors() {
                 .method("OPTIONS")
                 .header("Origin", "http://example.com")
                 .header("Access-Control-Request-Method", "POST")
+                .header("X-API-Key", "test-key") // Added just in case
                 .body(Body::empty())
                 .unwrap(),
         )
