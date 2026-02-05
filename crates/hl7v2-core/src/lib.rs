@@ -577,7 +577,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
             // Start of a new message
             if !current_message_lines.is_empty() {
                 // Parse the previous message
-                let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                let message_text = current_message_lines.join("\r");
                 let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
                     details: format!("Failed to parse message in batch: {}", e),
                 })?;
@@ -593,7 +593,6 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
     
     // Parse the last message
     if !current_message_lines.is_empty() {
-                let message_text = current_message_lines.join("\r");
         let message_text = current_message_lines.join("\r");
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
@@ -1317,7 +1316,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
             // MSH-1 is the field separator character
             // We can't return a reference to a temporary string, so we don't support this case
             // Users should access msg.delims.field directly for the field separator
-            return None;
+            None
         } else if field_index == 2 {
             // MSH-2 is the encoding characters
             // This should be the first parsed field (index 0)
@@ -1784,7 +1783,7 @@ mod tests {
                 // Check each byte
                 for (j, byte) in segment_id.bytes().enumerate() {
                     println!("    Byte {}: {} ({})", j, byte, byte as char);
-                    if byte < b'A' || byte > b'Z' {
+                    if !byte.is_ascii_uppercase() {
                         println!("      INVALID BYTE: {} is not between A-Z", byte as char);
                     }
                 }
