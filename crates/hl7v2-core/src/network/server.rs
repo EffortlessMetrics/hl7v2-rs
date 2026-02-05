@@ -281,6 +281,7 @@ impl MllpConnection {
 mod tests {
     use super::*;
 
+    #[allow(dead_code)]
     struct TestHandler;
 
     impl MessageHandler for TestHandler {
@@ -302,6 +303,7 @@ mod tests {
         let addr = server.local_addr();
         assert!(addr.is_ok());
     }
+
 
     #[tokio::test]
     async fn test_connection_timeout() {
