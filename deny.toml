@@ -4,14 +4,11 @@
 [advisories]
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "warn"
 yanked = "deny"
-notice = "warn"
 ignore = []
 
 [licenses]
-unlicensed = "deny"
+# unlicensed = "deny" (deprecated)
 allow = [
     "MIT",
     "Apache-2.0",
@@ -23,12 +20,9 @@ allow = [
     "Zlib",
 ]
 deny = [
-    "GPL-3.0",
-    "AGPL-3.0",
+    { license = "GPL-3.0", reason = "Incompatible with project license" },
+    { license = "AGPL-3.0", reason = "Incompatible with project license" },
 ]
-copyleft = "deny"
-allow-osi-fsf-free = "neither"
-default = "deny"
 confidence-threshold = 0.8
 
 [bans]

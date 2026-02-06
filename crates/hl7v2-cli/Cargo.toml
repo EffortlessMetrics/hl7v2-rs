@@ -18,3 +18,8 @@ hl7v2-core = { path = "../hl7v2-core" }
 hl7v2-prof = { path = "../hl7v2-prof" }
 hl7v2-gen = { path = "../hl7v2-gen" }
 sysinfo = "0.29"
+
+[[bin]]
+name = "hl7v2-cli"
+path = "src/main.rs"
+bench = false
