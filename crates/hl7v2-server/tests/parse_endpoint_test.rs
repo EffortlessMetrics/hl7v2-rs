@@ -29,6 +29,7 @@ async fn test_parse_valid_adt_a01_message() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -57,6 +58,7 @@ async fn test_parse_valid_adt_a04_message() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -85,6 +87,7 @@ async fn test_parse_valid_oru_r01_message() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -113,6 +116,7 @@ async fn test_parse_minimal_valid_message() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -141,6 +145,7 @@ async fn test_parse_malformed_message_returns_error() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -176,6 +181,7 @@ async fn test_parse_invalid_encoding_may_succeed_if_has_msh() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -201,6 +207,7 @@ async fn test_parse_empty_request_body_returns_400() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from("{}"))
                 .unwrap(),
         )
@@ -225,6 +232,7 @@ async fn test_parse_invalid_json_returns_400() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from("not valid json"))
                 .unwrap(),
         )
@@ -256,6 +264,7 @@ async fn test_parse_response_contains_segments() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -283,6 +292,7 @@ async fn test_parse_get_method_not_allowed() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("GET")
+                .header("X-API-Key", "test-key")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -293,5 +303,28 @@ async fn test_parse_get_method_not_allowed() {
         response.status(),
         StatusCode::METHOD_NOT_ALLOWED,
         "GET method should not be allowed on /hl7/parse"
+    );
+}
+
+#[tokio::test]
+async fn test_parse_unauthorized() {
+    let app = common::create_test_router();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/hl7/parse")
+                .method("POST")
+                // No X-API-Key header
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Missing API key should return 401 Unauthorized"
     );
 }
