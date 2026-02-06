@@ -149,7 +149,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run Benchmarks
-        run: cargo bench --all -- --output-format bencher | tee output.txt
+        run: cargo bench --all | tee output.txt
 
       - name: Store Benchmark Result
         uses: benchmark-action/github-action-benchmark@v1
@@ -157,9 +157,10 @@ jobs:
           tool: 'cargo'
           output-file-path: output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
+          auto-push: false
+          skip-fetch-gh-pages: true
           alert-threshold: '110%'
-          comment-on-alert: true
+          comment-on-alert: false
           fail-on-alert: false
 
   memory:

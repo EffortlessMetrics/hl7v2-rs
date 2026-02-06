@@ -102,9 +102,8 @@ pub struct Delims {
     pub sub: char,
 }
 
-impl Delims {
-    /// Create default delimiters (|^~\&)
-    pub fn default() -> Self {
+impl Default for Delims {
+    fn default() -> Self {
         Self {
             field: '|',
             comp: '^',
@@ -578,7 +577,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
             // Start of a new message
             if !current_message_lines.is_empty() {
                 // Parse the previous message
-                let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                let message_text = current_message_lines.join("\r");
                 let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
                     details: format!("Failed to parse message in batch: {}", e),
                 })?;
@@ -594,7 +593,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
     
     // Parse the last message
     if !current_message_lines.is_empty() {
-        let message_text = current_message_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+        let message_text = current_message_lines.join("\r");
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
         })?;
@@ -644,7 +643,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
             // Start of a new batch
             if !current_batch_lines.is_empty() {
                 // Parse the previous batch
-                let batch_text = current_batch_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+                let batch_text = current_batch_lines.join("\r");
                 match parse_batch(batch_text.as_bytes()) {
                     Ok(batch) => batches.push(batch),
                     Err(e) => {
@@ -671,7 +670,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
     
     // Parse the last batch
     if !current_batch_lines.is_empty() {
-        let batch_text = current_batch_lines.iter().map(|s| *s).collect::<Vec<_>>().join("\r");
+        let batch_text = current_batch_lines.join("\r");
         match parse_batch(batch_text.as_bytes()) {
             Ok(batch) => batches.push(batch),
             Err(e) => {
@@ -744,13 +743,13 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     }
     
     // Parse segment ID
-    let id_bytes = line[0..3].as_bytes();
+    let id_bytes = &line.as_bytes()[0..3];
     let mut id = [0u8; 3];
     id.copy_from_slice(id_bytes);
     
     // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
+        if !(byte.is_ascii_uppercase() || byte.is_ascii_digit()) {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -951,7 +950,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             let mut escape_seq = String::new();
             let mut found_end = false;
             
-            while let Some(esc_ch) = chars.next() {
+            for esc_ch in chars.by_ref() {
                 if esc_ch == delims.esc {
                     found_end = true;
                     break;
@@ -965,7 +964,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // MSH encoding characters "^~\&"
                 // Use direct comparison instead of format! to avoid allocation
                 if text.len() == 4 && 
-                   text.chars().nth(0) == Some(delims.comp) &&
+                   text.starts_with(delims.comp) &&
                    text.chars().nth(1) == Some(delims.rep) &&
                    text.chars().nth(2) == Some(delims.esc) &&
                    text.chars().nth(3) == Some(delims.sub) {
@@ -1304,7 +1303,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     
     // Find the segment
     let segment = msg.segments.iter().find(|s| {
-        std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id)
+        std::str::from_utf8(&s.id) == Ok(segment_id)
     })?;
     
     // Parse field index (1-based)
@@ -1322,62 +1321,64 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
             // MSH-2 is the encoding characters
             // This should be the first parsed field (index 0)
             if segment.fields.is_empty() {
-                return None;
-            }
-            let field = &segment.fields[0];
-            // Get the repetition
-            if rep_index == 0 || rep_index > field.reps.len() {
-                return None;
-            }
-            let rep = &field.reps[rep_index - 1];
-            // Get the component
-            let comp_index = if let Some(comp_part) = parts.next() {
-                comp_part.parse::<usize>().ok()?
+                None
             } else {
-                1
-            };
-            if comp_index == 0 || comp_index > rep.comps.len() {
-                return None;
-            }
-            let comp = &rep.comps[comp_index - 1];
-            // Get the subcomponent
-            if comp.subs.is_empty() {
-                return None;
-            }
-            match &comp.subs[0] {
-                Atom::Text(text) => Some(text.as_str()),
-                Atom::Null => None,
+                let field = &segment.fields[0];
+                // Get the repetition
+                if rep_index == 0 || rep_index > field.reps.len() {
+                    return None;
+                }
+                let rep = &field.reps[rep_index - 1];
+                // Get the component
+                let comp_index = if let Some(comp_part) = parts.next() {
+                    comp_part.parse::<usize>().ok()?
+                } else {
+                    1
+                };
+                if comp_index == 0 || comp_index > rep.comps.len() {
+                    return None;
+                }
+                let comp = &rep.comps[comp_index - 1];
+                // Get the subcomponent
+                if comp.subs.is_empty() {
+                    return None;
+                }
+                match &comp.subs[0] {
+                    Atom::Text(text) => Some(text.as_str()),
+                    Atom::Null => None,
+                }
             }
         } else {
             // MSH-3 and beyond
             // Adjust index: MSH-3 maps to parsed field 1, MSH-4 to parsed field 2, etc.
             let adjusted_field_index = field_index - 2;
             if adjusted_field_index >= segment.fields.len() {
-                return None;
-            }
-            let field = &segment.fields[adjusted_field_index];
-            // Get the repetition
-            if rep_index == 0 || rep_index > field.reps.len() {
-                return None;
-            }
-            let rep = &field.reps[rep_index - 1];
-            // Get the component
-            let comp_index = if let Some(comp_part) = parts.next() {
-                comp_part.parse::<usize>().ok()?
+                None
             } else {
-                1
-            };
-            if comp_index == 0 || comp_index > rep.comps.len() {
-                return None;
-            }
-            let comp = &rep.comps[comp_index - 1];
-            // Get the subcomponent
-            if comp.subs.is_empty() {
-                return None;
-            }
-            match &comp.subs[0] {
-                Atom::Text(text) => Some(text.as_str()),
-                Atom::Null => None,
+                let field = &segment.fields[adjusted_field_index];
+                // Get the repetition
+                if rep_index == 0 || rep_index > field.reps.len() {
+                    return None;
+                }
+                let rep = &field.reps[rep_index - 1];
+                // Get the component
+                let comp_index = if let Some(comp_part) = parts.next() {
+                    comp_part.parse::<usize>().ok()?
+                } else {
+                    1
+                };
+                if comp_index == 0 || comp_index > rep.comps.len() {
+                    return None;
+                }
+                let comp = &rep.comps[comp_index - 1];
+                // Get the subcomponent
+                if comp.subs.is_empty() {
+                    return None;
+                }
+                match &comp.subs[0] {
+                    Atom::Text(text) => Some(text.as_str()),
+                    Atom::Null => None,
+                }
             }
         }
     } else {
@@ -1438,7 +1439,7 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
     
     // Find the segment
     let segment = match msg.segments.iter().find(|s| {
-        std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id)
+        std::str::from_utf8(&s.id) == Ok(segment_id)
     }) {
         Some(seg) => seg,
         None => return Presence::Missing,
@@ -1460,7 +1461,7 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
         if field_index == 1 {
             // MSH-1 is the field separator character
             // We treat this as a special case - present with the field separator value
-            return Presence::Value(msg.delims.field.to_string());
+            Presence::Value(msg.delims.field.to_string())
         } else if field_index == 2 {
             // MSH-2 is the encoding characters
             // This should be the first parsed field (index 0)
@@ -1505,40 +1506,42 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
             // Adjust index: MSH-3 maps to parsed field 1, MSH-4 to parsed field 2, etc.
             let adjusted_field_index = field_index - 2;
             if adjusted_field_index >= segment.fields.len() {
-                return Presence::Missing;
-            }
-            let field = &segment.fields[adjusted_field_index];
-            // Check repetition bounds
-            if rep_index == 0 || rep_index > field.reps.len() {
-                return Presence::Missing;
-            }
-            let rep = &field.reps[rep_index - 1];
-            // Get the component
-            let comp_index = if let Some(comp_part) = parts.next() {
-                match comp_part.parse::<usize>() {
-                    Ok(index) => index,
-                    Err(_) => return Presence::Missing,
-                }
+                Presence::Missing
             } else {
-                1
-            };
-            if comp_index == 0 || comp_index > rep.comps.len() {
-                return Presence::Missing;
-            }
-            let comp = &rep.comps[comp_index - 1];
-            // Get the subcomponent
-            if comp.subs.is_empty() {
-                return Presence::Missing;
-            }
-            match &comp.subs[0] {
-                Atom::Text(text) => {
-                    if text.is_empty() {
-                        Presence::Empty
-                    } else {
-                        Presence::Value(text.clone())
+                let field = &segment.fields[adjusted_field_index];
+                // Check repetition bounds
+                if rep_index == 0 || rep_index > field.reps.len() {
+                    return Presence::Missing;
+                }
+                let rep = &field.reps[rep_index - 1];
+                // Get the component
+                let comp_index = if let Some(comp_part) = parts.next() {
+                    match comp_part.parse::<usize>() {
+                        Ok(index) => index,
+                        Err(_) => return Presence::Missing,
                     }
-                },
-                Atom::Null => Presence::Null,
+                } else {
+                    1
+                };
+                if comp_index == 0 || comp_index > rep.comps.len() {
+                    return Presence::Missing;
+                }
+                let comp = &rep.comps[comp_index - 1];
+                // Get the first subcomponent
+                if comp.subs.is_empty() {
+                    return Presence::Missing;
+                }
+
+                match &comp.subs[0] {
+                    Atom::Text(text) => {
+                        if text.is_empty() {
+                            Presence::Empty
+                        } else {
+                            Presence::Value(text.clone())
+                        }
+                    },
+                    Atom::Null => Presence::Null,
+                }
             }
         }
     } else {
@@ -1784,7 +1787,7 @@ mod tests {
                 // Check each byte
                 for (j, byte) in segment_id.bytes().enumerate() {
                     println!("    Byte {}: {} ({})", j, byte, byte as char);
-                    if byte < b'A' || byte > b'Z' {
+                    if !byte.is_ascii_uppercase() {
                         println!("      INVALID BYTE: {} is not between A-Z", byte as char);
                     }
                 }
@@ -1882,13 +1885,13 @@ mod tests {
         
         // Test existing field with empty value (PID.8 in our test message is empty)
         match get_presence(&message, "PID.8.1") {
-            Presence::Empty => assert!(true),
+            Presence::Empty => {},
             _ => panic!("Expected Empty, got something else"),
         }
         
         // Test missing field (PID.50 doesn't exist)
         match get_presence(&message, "PID.50.1") {
-            Presence::Missing => assert!(true),
+            Presence::Missing => {},
             _ => panic!("Expected Missing, got something else"),
         }
         

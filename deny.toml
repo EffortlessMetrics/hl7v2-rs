@@ -20,8 +20,8 @@ allow = [
     "Zlib",
 ]
 deny = [
-    { license = "GPL-3.0", reason = "Incompatible with project license" },
-    { license = "AGPL-3.0", reason = "Incompatible with project license" },
+    "GPL-3.0",
+    "AGPL-3.0",
 ]
 confidence-threshold = 0.8
 

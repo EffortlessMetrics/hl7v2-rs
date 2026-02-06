@@ -8,7 +8,6 @@ rules:
   # Require descriptions
   info-description: error
   operation-description: error
-  operation-summary: error
 
   # Require examples
   operation-success-response: error

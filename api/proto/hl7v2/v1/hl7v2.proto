@@ -9,16 +9,16 @@ option java_multiple_files = true;
 // HL7v2 Service provides gRPC endpoints for HL7 v2 message processing
 service HL7Service {
   // Parse an HL7 v2 message
-  rpc Parse(ParseRequest) returns (ParseResponse);
+  rpc Parse(ParseStreamRequest) returns (ParseStreamResponse);
 
   // Parse multiple messages in a stream
-  rpc ParseStream(stream ParseRequest) returns (stream ParseResponse);
+  rpc ParseStream(stream ParseStreamRequest) returns (stream ParseStreamResponse);
 
   // Validate a message against a profile
   rpc Validate(ValidateRequest) returns (ValidateResponse);
 
   // Generate an acknowledgment (ACK) message
-  rpc GenerateAck(AckRequest) returns (AckResponse);
+  rpc GenerateAck(GenerateAckRequest) returns (GenerateAckResponse);
 
   // Normalize a message
   rpc Normalize(NormalizeRequest) returns (NormalizeResponse);
@@ -28,7 +28,7 @@ service HL7Service {
 }
 
 // Parse Request
-message ParseRequest {
+message ParseStreamRequest {
   // HL7 message bytes
   bytes message = 1;
 
@@ -48,7 +48,7 @@ message ParseOptions {
 }
 
 // Parse Response
-message ParseResponse {
+message ParseStreamResponse {
   // Whether parsing succeeded
   bool success = 1;
 
@@ -97,10 +97,10 @@ message Field {
   // Field presence
   enum Presence {
     PRESENCE_UNSPECIFIED = 0;
-    MISSING = 1;
-    EMPTY = 2;
-    NULL = 3;
-    VALUE = 4;
+    PRESENCE_MISSING = 1;
+    PRESENCE_EMPTY = 2;
+    PRESENCE_NULL = 3;
+    PRESENCE_VALUE = 4;
   }
 
   Presence presence = 1;
@@ -190,9 +190,9 @@ message ValidateResponse {
 message ValidationIssue {
   enum Severity {
     SEVERITY_UNSPECIFIED = 0;
-    ERROR = 1;
-    WARNING = 2;
-    INFO = 3;
+    SEVERITY_ERROR = 1;
+    SEVERITY_WARNING = 2;
+    SEVERITY_INFO = 3;
   }
 
   // Error code
@@ -237,16 +237,16 @@ message ValidationSummary {
 }
 
 // ACK Request
-message AckRequest {
+message GenerateAckRequest {
   // Original message
   bytes message = 1;
 
   // ACK code
   enum AckCode {
     ACK_CODE_UNSPECIFIED = 0;
-    AA = 1;  // Application Accept
-    AE = 2;  // Application Error
-    AR = 3;  // Application Reject
+    ACK_CODE_AA = 1;  // Application Accept
+    ACK_CODE_AE = 2;  // Application Error
+    ACK_CODE_AR = 3;  // Application Reject
   }
 
   AckCode code = 2;
@@ -256,7 +256,7 @@ message AckRequest {
 }
 
 // ACK Response
-message AckResponse {
+message GenerateAckResponse {
   // Generated ACK message
   bytes ack_message = 1;
 
@@ -296,10 +296,10 @@ message HealthCheckRequest {}
 // Health Check Response
 message HealthCheckResponse {
   enum ServingStatus {
-    UNKNOWN = 0;
-    SERVING = 1;
-    NOT_SERVING = 2;
-    SERVICE_UNKNOWN = 3;
+    SERVING_STATUS_UNKNOWN_UNSPECIFIED = 0;
+    SERVING_STATUS_SERVING = 1;
+    SERVING_STATUS_NOT_SERVING = 2;
+    SERVING_STATUS_SERVICE_UNKNOWN = 3;
   }
 
   ServingStatus status = 1;
