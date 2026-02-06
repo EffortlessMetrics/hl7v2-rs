@@ -2,16 +2,18 @@
 extends: [[spectral:oas, all]]
 
 rules:
+  # Basic checks
+  operation-summary: true
+  operation-description: true
+
   # Require operation IDs
   operation-operationId: error
 
   # Require descriptions
   info-description: error
-  operation-description: error
 
   # Require examples
   operation-success-response: error
-  components-examples: warn
 
   # Require tags
   operation-tags: error

@@ -940,7 +940,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
     ) {
         // Parse the date/time values
         if let (Some(before_time), Some(after_time)) =
-            (parse_datetime(&before_value), parse_datetime(&after_value))
+            (parse_datetime(before_value), parse_datetime(after_value))
         {
             // Check if before_time should be before after_time
             let is_valid = if rule.allow_equal {
@@ -1542,7 +1542,7 @@ fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         }
         "in" => {
             if let Some(l) = lhs {
-                rhs_list.iter().any(|r| l == *r)
+                rhs_list.contains(&l)
             } else {
                 false
             }
@@ -1999,7 +1999,7 @@ fn parse_hl7_ts(s: &str) -> Option<NaiveDateTime> {
     }
     if s.len() == 8 {
         if let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d") {
-            return Some(d.and_hms_opt(0, 0, 0)?);
+            return d.and_hms_opt(0, 0, 0);
         }
     }
     None

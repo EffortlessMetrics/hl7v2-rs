@@ -1316,7 +1316,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
             // MSH-1 is the field separator character
             // We can't return a reference to a temporary string, so we don't support this case
             // Users should access msg.delims.field directly for the field separator
-            return None;
+            None
         } else if field_index == 2 {
             // MSH-2 is the encoding characters
             // This should be the first parsed field (index 0)
@@ -1379,7 +1379,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
                     Atom::Text(text) => Some(text.as_str()),
                     Atom::Null => None,
                 }
-            }
+                }
         }
     } else {
         // For non-MSH segments, convert directly to 0-based indexing

@@ -1,4 +1,4 @@
-message_structure: "GENERIC"
+message_structure: "GEN^RIC"
 version: "2.5.1"
 segments:
   - id: "MSH"
