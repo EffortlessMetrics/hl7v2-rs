@@ -1,4 +1,6 @@
 //! Common test utilities and fixtures for integration tests.
+#![allow(dead_code)]
+#![allow(unused_imports)]
 
 use axum::Router;
 use hl7v2_server::server::{AppState, Server, ServerConfig};

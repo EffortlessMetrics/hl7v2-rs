@@ -31,6 +31,7 @@ impl PerformanceMonitor {
     }
     
     /// Get a specific metric
+    #[allow(dead_code)]
     pub fn get_metric(&self, name: &str) -> Option<std::time::Duration> {
         self.metrics.get(name).copied()
     }
@@ -60,6 +61,7 @@ pub struct MemoryInfo {
 }
 
 /// Get current memory usage
+#[allow(dead_code)]
 pub fn get_memory_info() -> MemoryInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
@@ -84,6 +86,7 @@ pub struct CpuInfo {
 }
 
 /// Get current CPU usage
+#[allow(dead_code)]
 pub fn get_cpu_info() -> CpuInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
