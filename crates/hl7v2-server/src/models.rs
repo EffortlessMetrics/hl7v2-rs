@@ -181,3 +181,18 @@ impl ErrorResponse {
         self
     }
 }
+
+/// Root API response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RootResponse {
+    /// Service name
+    pub name: String,
+    /// Service version
+    pub version: String,
+    /// Service description
+    pub description: String,
+    /// Available endpoints
+    pub endpoints: Vec<String>,
+    /// Service status
+    pub status: String,
+}

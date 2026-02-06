@@ -10,6 +10,25 @@ use std::sync::Arc;
 use crate::models::*;
 use crate::server::AppState;
 
+/// Handler for GET /
+pub async fn root_handler() -> impl IntoResponse {
+    let response = RootResponse {
+        name: "HL7v2 API Server".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        description: "High-performance HL7 v2 message processing API".to_string(),
+        endpoints: vec![
+            "/health".to_string(),
+            "/ready".to_string(),
+            "/metrics".to_string(),
+            "/hl7/parse".to_string(),
+            "/hl7/validate".to_string(),
+        ],
+        status: "running".to_string(),
+    };
+
+    (StatusCode::OK, Json(response))
+}
+
 /// Handler for GET /health
 pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let uptime = state.start_time.elapsed().as_secs();
