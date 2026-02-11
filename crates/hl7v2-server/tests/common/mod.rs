@@ -1,5 +1,7 @@
 //! Common test utilities and fixtures for integration tests.
 
+#![allow(dead_code)]
+
 use axum::Router;
 use hl7v2_server::server::{AppState, Server, ServerConfig};
 use std::sync::Arc;
@@ -10,7 +12,6 @@ pub fn create_test_server() -> Server {
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
         max_body_size: 1024 * 1024, // 1MB
-        api_key: Some("test-key".to_string()),
     };
     Server::new(config)
 }
@@ -21,7 +22,6 @@ pub fn create_test_router() -> Router {
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
-        api_key: "test-key".to_string(),
     });
     hl7v2_server::routes::build_router(state)
 }

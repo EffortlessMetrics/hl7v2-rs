@@ -34,7 +34,7 @@ jobs:
         run: redocly build-docs api/openapi/hl7v2-api-v1.yaml -o docs/api-reference.html
 
       - name: Upload API Docs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: api-docs
           path: docs/api-reference.html
