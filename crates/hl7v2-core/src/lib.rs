@@ -8,7 +8,7 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
-use serde_json;
+
 
 #[cfg(feature = "network")]
 pub mod network;

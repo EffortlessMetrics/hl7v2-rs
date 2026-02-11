@@ -34,7 +34,7 @@ jobs:
         run: redocly build-docs api/openapi/hl7v2-api-v1.yaml -o docs/api-reference.html
 
       - name: Upload API Docs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: api-docs
           path: docs/api-reference.html
@@ -61,7 +61,7 @@ jobs:
 
       - name: Generate Proto Docs
         run: |
-          buf generate api/proto --template buf.gen.yaml
+          buf generate api/proto --template api/proto/buf.gen.yaml
 
   contract-tests:
     name: Contract Tests

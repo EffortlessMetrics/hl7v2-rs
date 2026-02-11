@@ -9,7 +9,7 @@
     "message_structure": {
       "type": "string",
       "description": "HL7 message structure (e.g., ADT^A01, ORU^R01)",
-      "pattern": "^[A-Z]{3}\\^[A-Z0-9]{3}$",
+      "pattern": "^[A-Z0-9]{3}\\^[A-Z0-9]{3}$",
       "examples": ["ADT^A01", "ORU^R01", "ORM^O01"]
     },
     "version": {
@@ -59,7 +59,7 @@
         "path": {
           "type": "string",
           "description": "HL7 field path (e.g., PID.3, MSH.9.1)",
-          "pattern": "^[A-Z]{3}(\\.[0-9]+(\\[[0-9]+\\])?(\\.[0-9]+)?)?$",
+          "pattern": "^[A-Z0-9]{3}(\\.[0-9]+(\\[[0-9]+\\])?(\\.[0-9]+)?)?$",
           "examples": ["PID.3", "MSH.9.1", "OBX.5[1].1"]
         },
         "constraint_type": {
@@ -116,7 +116,7 @@
         "if_path": {
           "type": "string",
           "description": "Conditional path for contextual rules",
-          "pattern": "^[A-Z]{3}(\\.[0-9]+(\\[[0-9]+\\])?(\\.[0-9]+)?)?$"
+          "pattern": "^[A-Z0-9]{3}(\\.[0-9]+(\\[[0-9]+\\])?(\\.[0-9]+)?)?$"
         },
         "if_value": {
           "type": "string",
@@ -125,7 +125,7 @@
         "then_path": {
           "type": "string",
           "description": "Path to validate if condition is met",
-          "pattern": "^[A-Z]{3}(\\.[0-9]+(\\[[0-9]+\\])?(\\.[0-9]+)?)?$"
+          "pattern": "^[A-Z0-9]{3}(\\.[0-9]+(\\[[0-9]+\\])?(\\.[0-9]+)?)?$"
         },
         "then_constraint": {
           "type": "string",

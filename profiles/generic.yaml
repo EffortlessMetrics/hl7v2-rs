@@ -1,14 +1,14 @@
-message_structure: "GENERIC"
+message_structure: "GEN^001"
 version: "2.5.1"
 segments:
   - id: "MSH"
   - id: "PID"
 constraints:
   - path: "PID.3"
-    required: true
+    constraint_type: "required"
   - path: "PID.5"
-    components:
-      min: 2
+    constraint_type: "length"
+    min_length: 2
 valuesets:
   - path: "PID.8"
     name: "HL70001"
