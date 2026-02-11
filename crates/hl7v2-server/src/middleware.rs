@@ -8,13 +8,15 @@
 //! - Request ID generation
 
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     http::StatusCode,
     middleware::Next,
     response::Response,
 };
+use std::sync::Arc;
 use tower::limit::ConcurrencyLimitLayer;
 use tracing::info;
+use crate::server::AppState;
 
 /// Request logging middleware
 pub async fn logging_middleware(request: Request, next: Next) -> Response {
@@ -40,7 +42,7 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
 
 /// API key authentication middleware
 ///
-/// Validates requests against the HL7V2_API_KEY environment variable.
+/// Validates requests against the configured API key in AppState.
 /// Uses X-API-Key header for authentication.
 ///
 /// # Security Note
@@ -49,23 +51,12 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
 /// - OAuth 2.0 / OIDC
 /// - mTLS
 /// - More sophisticated key management (HashiCorp Vault, AWS Secrets Manager)
-pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, StatusCode> {
+pub async fn auth_middleware(
+    State(state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
     const API_KEY_HEADER: &str = "X-API-Key";
-
-    // Load expected API key from environment
-    let expected_key = match std::env::var("HL7V2_API_KEY") {
-        Ok(key) if !key.is_empty() => key,
-        Ok(_) => {
-            // Empty key configured - fail closed
-            tracing::error!("HL7V2_API_KEY environment variable is empty");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-        Err(_) => {
-            // No key configured - fail closed
-            tracing::error!("HL7V2_API_KEY environment variable not set");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
 
     // Get provided API key from request
     let provided_key = request
@@ -73,22 +64,32 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, S
         .get(API_KEY_HEADER)
         .and_then(|h| h.to_str().ok());
 
-    match provided_key {
-        Some(key) if key == expected_key => {
-            // Valid key - allow request
+    if let Some(key) = provided_key {
+        // Constant-time comparison to prevent timing attacks
+        if constant_time_eq(key, &state.api_key) {
             Ok(next.run(request).await)
-        }
-        Some(_) => {
-            // Invalid key provided
+        } else {
             tracing::warn!("Invalid API key provided");
             Err(StatusCode::UNAUTHORIZED)
         }
-        None => {
-            // No key provided
-            tracing::warn!("No API key provided");
-            Err(StatusCode::UNAUTHORIZED)
-        }
+    } else {
+        tracing::warn!("No API key provided");
+        Err(StatusCode::UNAUTHORIZED)
     }
+}
+
+/// Constant-time string comparison
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let a_bytes = a.as_bytes();
+    let b_bytes = b.as_bytes();
+    let mut result = 0;
+    for (x, y) in a_bytes.iter().zip(b_bytes.iter()) {
+        result |= x ^ y;
+    }
+    result == 0
 }
 
 /// Create a concurrency limiting layer
