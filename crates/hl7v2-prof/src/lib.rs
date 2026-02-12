@@ -3,6 +3,8 @@
 //! This crate provides functionality for loading and applying
 //! conformance profiles to HL7 v2 messages.
 
+#![allow(clippy::collapsible_if)]
+
 use chrono::{NaiveDate, NaiveDateTime};
 use hl7v2_core::{Error, Message};
 use regex::Regex;
@@ -895,6 +897,7 @@ fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: 
 }
 
 /// Validate that a field value is in the allowed HL7 table
+#[allow(dead_code)]
 fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues: &mut Vec<Issue>) {
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead
@@ -939,7 +942,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
     ) {
         // Parse the date/time values
         if let (Some(before_time), Some(after_time)) =
-            (parse_datetime(&before_value), parse_datetime(&after_value))
+            (parse_datetime(before_value), parse_datetime(after_value))
         {
             // Check if before_time should be before after_time
             let is_valid = if rule.allow_equal {
@@ -1409,8 +1412,7 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
             if let Some(value) = hl7v2_core::get(msg, path) {
                 // Extract the allowed values
                 let values_part = &rule.script[path_end + 7..];
-                if values_part.ends_with("]") {
-                    let values_str = &values_part[..values_part.len() - 1];
+                if let Some(values_str) = values_part.strip_suffix(']') {
                     // Split by comma and remove quotes
                     let allowed_values: Vec<&str> = values_str
                         .split(',')
@@ -1498,7 +1500,7 @@ fn validate_cross_field_rule(
             }
             // If conditions are true, validation passes (no error)
         }
-        "conditional" | _ => {
+        _ => {
             // Conditional mode (default): if conditions are met, execute actions
             if conditions_met {
                 for action in &rule.actions {
@@ -1541,7 +1543,7 @@ fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         }
         "in" => {
             if let Some(l) = lhs {
-                rhs_list.iter().any(|r| l == *r)
+                rhs_list.contains(&l)
             } else {
                 false
             }
@@ -1731,6 +1733,7 @@ fn execute_rule_action(
 }
 
 /// Validate contextual rule
+#[allow(clippy::collapsible_if)]
 fn validate_contextual_rule(
     msg: &Message,
     rule: &ContextualRule,
@@ -1869,7 +1872,7 @@ fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
                 return false;
             }
             let month: u32 = parts[1].parse().unwrap_or(0);
-            if month < 1 || month > 12 {
+            if !(1..=12).contains(&month) {
                 return false;
             }
             // Check day (2 digits)
@@ -1877,7 +1880,7 @@ fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
                 return false;
             }
             let day: u32 = parts[2].parse().unwrap_or(0);
-            if day < 1 || day > 31 {
+            if !(1..=31).contains(&day) {
                 return false;
             }
             true
@@ -1983,6 +1986,7 @@ fn get_nonempty<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
 }
 
 /// Minimal HL7 TS parser supporting: YYYYMMDDHHMMSS, YYYYMMDDHHMM, YYYYMMDD (no TZ), and YYYYMMDD.
+#[allow(clippy::collapsible_if)]
 fn parse_hl7_ts(s: &str) -> Option<NaiveDateTime> {
     let s = s.trim();
     // longest first
@@ -1998,7 +2002,7 @@ fn parse_hl7_ts(s: &str) -> Option<NaiveDateTime> {
     }
     if s.len() == 8 {
         if let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d") {
-            return Some(d.and_hms_opt(0, 0, 0)?);
+            return d.and_hms_opt(0, 0, 0);
         }
     }
     None
@@ -2023,6 +2027,7 @@ enum TimestampPrecision {
 }
 
 /// Parse HL7 TS with precision information
+#[allow(clippy::collapsible_if)]
 fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
     let s = s.trim();
     
@@ -2116,6 +2121,7 @@ fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) -> N
 }
 
 /// Parse datetime string (supports various HL7 formats)
+#[allow(clippy::collapsible_if)]
 fn parse_datetime(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
     // Try YYYYMMDDHHMMSS format
     if value.len() == 14 {
@@ -2190,11 +2196,11 @@ fn is_date(value: &str) -> bool {
     let day = &value[6..8];
 
     // Basic validation
-    if month < "01" || month > "12" {
+    if !("01"..="12").contains(&month) {
         return false;
     }
 
-    if day < "01" || day > "31" {
+    if !("01"..="31").contains(&day) {
         return false;
     }
 
@@ -2401,6 +2407,7 @@ fn is_valid_age_range(birth_date: &str, reference_date: &str) -> bool {
 }
 
 /// Check if a value matches a complex pattern with multiple conditions
+#[allow(dead_code)]
 fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
     // All patterns must match
     patterns.iter().all(|pattern| {
@@ -2413,6 +2420,7 @@ fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
 }
 
 /// Validate that a field value satisfies a mathematical relationship with another field
+#[allow(dead_code)]
 fn validate_mathematical_relationship(value1: &str, value2: &str, operator: &str) -> bool {
     // Parse both values as numbers
     let num1: f64 = match value1.parse() {
