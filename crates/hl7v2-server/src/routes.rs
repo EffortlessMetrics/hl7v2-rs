@@ -120,6 +120,7 @@ mod tests {
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
+                    .header("X-API-Key", "test-key")
                     .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                     .unwrap(),
             )
