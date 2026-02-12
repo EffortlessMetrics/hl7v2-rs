@@ -24,6 +24,7 @@ async fn test_validate_with_minimal_profile() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("POST")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
@@ -53,6 +54,7 @@ async fn test_validate_adt_a01_with_matching_profile() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("POST")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
@@ -91,6 +93,7 @@ async fn test_validate_malformed_message_returns_error() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("POST")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
@@ -120,6 +123,7 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("POST")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
@@ -149,6 +153,7 @@ async fn test_validate_missing_message_field_returns_400() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("POST")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
@@ -177,6 +182,7 @@ async fn test_validate_missing_profile_field_returns_400() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("POST")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
@@ -201,6 +207,7 @@ async fn test_validate_empty_request_body_returns_400() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("POST")
                 .header("Content-Type", "application/json")
                 .body(Body::from("{}"))
@@ -225,6 +232,7 @@ async fn test_validate_get_method_not_allowed() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("GET")
                 .body(Body::empty())
                 .unwrap(),
@@ -253,6 +261,7 @@ async fn test_validate_returns_json_response() {
         .oneshot(
             Request::builder()
                 .uri("/hl7/validate")
+                .header("X-API-Key", "test-key")
                 .method("POST")
                 .header("Content-Type", "application/json")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
