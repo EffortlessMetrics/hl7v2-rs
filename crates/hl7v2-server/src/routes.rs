@@ -12,7 +12,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-use crate::handlers::{health_handler, parse_handler, validate_handler};
+use crate::handlers::{health_handler, parse_handler, root_handler, validate_handler};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
 use crate::middleware::create_concurrency_limit_layer;
 use crate::server::AppState;
@@ -26,6 +26,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 
     // Main router
     Router::new()
+        .route("/", get(root_handler))
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
         .route("/metrics", get(metrics_handler))
@@ -86,6 +87,29 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(body.to_vec()).unwrap();
         assert!(body_str.contains("\"status\":\"healthy\""));
+    }
+
+    #[tokio::test]
+    async fn test_root_endpoint() {
+        let metrics_handle = crate::metrics::init_metrics_recorder();
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
+        });
+
+        let app = build_router(state);
+
+        let response = app
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body_str.contains("\"service\":\"HL7v2 API Server\""));
+        assert!(body_str.contains("\"endpoints\":["));
     }
 
     #[tokio::test]

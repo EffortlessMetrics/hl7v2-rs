@@ -16,6 +16,20 @@ pub struct HealthResponse {
     pub uptime_seconds: u64,
 }
 
+/// Root API response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RootResponse {
+    /// Service name
+    pub service: String,
+    /// Service version
+    pub version: String,
+    /// Available endpoints
+    pub endpoints: Vec<String>,
+    /// Link to documentation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub documentation: Option<String>,
+}
+
 /// Health status enum
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
