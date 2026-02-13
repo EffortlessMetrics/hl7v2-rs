@@ -63,6 +63,7 @@ async fn test_content_type_validation() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "text/plain")
+                .header("X-API-Key", "test-key")
                 .body(Body::from("some text"))
                 .unwrap(),
         )
@@ -101,6 +102,7 @@ async fn test_large_request_handling() {
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -123,6 +125,7 @@ async fn test_missing_content_type_header() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
+                .header("X-API-Key", "test-key")
                 .body(Body::from("{}"))
                 .unwrap(),
         )
