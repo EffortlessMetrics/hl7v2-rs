@@ -131,7 +131,7 @@ fn generate_segment(segment_template: &str, values: &HashMap<String, Vec<ValueSo
     
     // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
+        if !(byte.is_ascii_uppercase() || byte.is_ascii_digit()) {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -145,7 +145,7 @@ fn generate_segment(segment_template: &str, values: &HashMap<String, Vec<ValueSo
         // The second field (MSH-2) is the encoding characters
         if parts.len() > 1 {
             // Add the encoding characters field
-            let encoding_field = generate_field(&parts[1], values, &format!("MSH.2"), delims, rng)?;
+            let encoding_field = generate_field(parts[1], values, "MSH.2", delims, rng)?;
             fields.push(encoding_field);
         }
         
@@ -210,6 +210,7 @@ fn generate_comp(comp_template: &str, values: &HashMap<String, Vec<ValueSource>>
 }
 
 /// Generate an atom from a template
+#[allow(clippy::collapsible_if)]
 fn generate_atom(atom_template: &str, values: &HashMap<String, Vec<ValueSource>>, field_path: &str, rng: &mut StdRng) -> Result<Atom, Error> {
     // Check if this field has a value source defined in the template
     if let Some(value_sources) = values.get(field_path) {
@@ -441,10 +442,10 @@ fn create_ack_msh_segment(original: &Message, _code: &AckCode) -> Result<Segment
     // Extract required fields from original MSH
     let sending_app = get_field_value(original_msh, 2).unwrap_or_else(|| "HL7V2RS".to_string());
     let sending_fac = get_field_value(original_msh, 3).unwrap_or_else(|| "HL7V2RS".to_string());
-    let receiving_app = get_field_value(original_msh, 4).unwrap_or_else(|| "".to_string());
-    let receiving_fac = get_field_value(original_msh, 5).unwrap_or_else(|| "".to_string());
+    let receiving_app = get_field_value(original_msh, 4).unwrap_or_default();
+    let receiving_fac = get_field_value(original_msh, 5).unwrap_or_default();
     let message_type = get_field_value(original_msh, 8).unwrap_or_else(|| "ACK".to_string());
-    let control_id = get_field_value(original_msh, 9).unwrap_or_else(|| "".to_string());
+    let control_id = get_field_value(original_msh, 9).unwrap_or_default();
     let processing_id = get_field_value(original_msh, 10).unwrap_or_else(|| "P".to_string());
     let version = get_field_value(original_msh, 11).unwrap_or_else(|| "2.5.1".to_string());
     
@@ -561,7 +562,7 @@ fn create_msa_segment(original: &Message, code: &AckCode) -> Result<Segment, Err
     }
     
     // Get message control ID from original MSH-10
-    let control_id = get_field_value(original_msh, 9).unwrap_or_else(|| "".to_string());
+    let control_id = get_field_value(original_msh, 9).unwrap_or_default();
     
     // Convert ACK code to string
     let ack_code_str = match code {
@@ -574,25 +575,24 @@ fn create_msa_segment(original: &Message, code: &AckCode) -> Result<Segment, Err
     };
     
     // Create fields for MSA segment
-    let mut fields = Vec::new();
-    
-    // MSA-1: Acknowledgment Code
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(ack_code_str.to_string())],
+    let fields = vec![
+        // MSA-1: Acknowledgment Code
+        Field {
+            reps: vec![Rep {
+                comps: vec![Comp {
+                    subs: vec![Atom::Text(ack_code_str.to_string())],
+                }],
             }],
-        }],
-    });
-    
-    // MSA-2: Message Control ID
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(control_id)],
+        },
+        // MSA-2: Message Control ID
+        Field {
+            reps: vec![Rep {
+                comps: vec![Comp {
+                    subs: vec![Atom::Text(control_id)],
+                }],
             }],
-        }],
-    });
+        },
+    ];
     
     Ok(Segment {
         id: *b"MSA",

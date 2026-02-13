@@ -136,7 +136,6 @@ mod tests {
     #[test]
     fn test_middleware_module() {
         // Placeholder test to ensure module compiles
-        assert!(true);
     }
 
     #[test]
