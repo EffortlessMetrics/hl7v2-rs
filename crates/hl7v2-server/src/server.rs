@@ -17,8 +17,6 @@ pub struct AppState {
     pub start_time: Instant,
     /// Prometheus metrics handle
     pub metrics_handle: Arc<PrometheusHandle>,
-    /// API key for authentication
-    pub api_key: String,
 }
 
 /// HTTP server configuration
@@ -28,8 +26,6 @@ pub struct ServerConfig {
     pub bind_address: String,
     /// Maximum request body size in bytes
     pub max_body_size: usize,
-    /// API key for authentication
-    pub api_key: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -37,7 +33,6 @@ impl Default for ServerConfig {
         Self {
             bind_address: "0.0.0.0:8080".to_string(),
             max_body_size: 10 * 1024 * 1024, // 10MB
-            api_key: None,
         }
     }
 }
@@ -54,20 +49,9 @@ impl Server {
         // Initialize Prometheus metrics recorder
         let metrics_handle = crate::metrics::init_metrics_recorder();
 
-        // Resolve API key: Config > Env > Panic
-        let api_key = config.api_key.clone().unwrap_or_else(|| {
-            std::env::var("HL7V2_API_KEY")
-                .ok()
-                .filter(|k| !k.is_empty())
-                .unwrap_or_else(|| {
-                    panic!("API key must be configured via HL7V2_API_KEY environment variable or ServerConfig");
-                })
-        });
-
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
-            api_key,
         });
 
         Self { config, state }
@@ -126,12 +110,6 @@ impl ServerBuilder {
         self
     }
 
-    /// Set the API key
-    pub fn api_key(mut self, key: impl Into<String>) -> Self {
-        self.config.api_key = Some(key.into());
-        self
-    }
-
     /// Build the server
     pub fn build(self) -> Server {
         Server::new(self.config)
@@ -153,12 +131,10 @@ mod tests {
         let server = Server::builder()
             .bind("127.0.0.1:8080")
             .max_body_size(1024 * 1024)
-            .api_key("test-key")
             .build();
 
         assert_eq!(server.config.bind_address, "127.0.0.1:8080");
         assert_eq!(server.config.max_body_size, 1024 * 1024);
-        assert_eq!(server.config.api_key, Some("test-key".to_string()));
     }
 
     #[test]
@@ -166,6 +142,5 @@ mod tests {
         let config = ServerConfig::default();
         assert_eq!(config.bind_address, "0.0.0.0:8080");
         assert_eq!(config.max_body_size, 10 * 1024 * 1024);
-        assert_eq!(config.api_key, None);
     }
 }

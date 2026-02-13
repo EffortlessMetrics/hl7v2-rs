@@ -9,6 +9,7 @@ use hl7v2_core::{parse, to_json, write};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 mod monitor;
+use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator")]

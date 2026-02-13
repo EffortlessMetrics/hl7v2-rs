@@ -281,7 +281,6 @@ impl MllpConnection {
 mod tests {
     use super::*;
 
-    #[allow(dead_code)]
     struct TestHandler;
 
     impl MessageHandler for TestHandler {

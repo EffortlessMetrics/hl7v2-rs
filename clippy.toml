@@ -5,12 +5,12 @@ allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 
 # Warn on pedantic lints
-# warn-on-all-pedantic = true
+warn-on-all-pedantic = true
 
 # Specific lints to allow
-# allowed-lints = [
-#     "clippy::module-name-repetitions",
-#     "clippy::must-use-candidate",
-#     "clippy::missing-errors-doc",
-#     "clippy::missing-panics-doc",
-# ]
+allowed-lints = [
+    "clippy::module-name-repetitions",
+    "clippy::must-use-candidate",
+    "clippy::missing-errors-doc",
+    "clippy::missing-panics-doc",
+]
