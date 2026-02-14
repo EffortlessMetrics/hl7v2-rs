@@ -943,6 +943,11 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 
 /// Unescape text according to HL7 v2 rules
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    // Optimization: Check if any characters need unescaping before allocating
+    if !text.contains(delims.esc) {
+        return Ok(text.to_string());
+    }
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
@@ -1127,6 +1132,13 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 
 /// Escape text according to HL7 v2 rules
 pub fn escape_text(text: &str, delims: &Delims) -> String {
+    // Optimization: Check if any characters need escaping before allocating
+    // Using a slice of chars is significantly faster than a closure
+    let delims_arr = [delims.field, delims.comp, delims.rep, delims.esc, delims.sub];
+    if !text.contains(&delims_arr[..]) {
+        return text.to_string();
+    }
+
     // Pre-calculate maximum possible size to reduce reallocations
     // In worst case, every character might need escaping (3 chars each)
     let max_size = text.len() * 3;

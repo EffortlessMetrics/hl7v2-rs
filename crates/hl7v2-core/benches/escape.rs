@@ -13,12 +13,17 @@ fn create_sample_unescaped_text() -> String {
     "This is a test with | field separators and ^ component separators".to_string()
 }
 
-/// Benchmark unescaping text
+/// Create sample clean text for benchmarking (no escaping needed)
+fn create_sample_clean_text() -> String {
+    "This is a simple test string with no special characters 1234567890".to_string()
+}
+
+/// Benchmark unescaping text (dirty case)
 fn bench_unescape_text(c: &mut Criterion) {
     let text = create_sample_escaped_text();
     let delims = Delims::default();
     
-    c.bench_function("unescape_text", |b| {
+    c.bench_function("unescape_text_dirty", |b| {
         b.iter(|| {
             let result = unescape_text(black_box(&text), black_box(&delims));
             black_box(result)
@@ -26,12 +31,38 @@ fn bench_unescape_text(c: &mut Criterion) {
     });
 }
 
-/// Benchmark escaping text
+/// Benchmark unescaping text (clean case)
+fn bench_unescape_clean_text(c: &mut Criterion) {
+    let text = create_sample_clean_text();
+    let delims = Delims::default();
+
+    c.bench_function("unescape_text_clean", |b| {
+        b.iter(|| {
+            let result = unescape_text(black_box(&text), black_box(&delims));
+            black_box(result)
+        })
+    });
+}
+
+/// Benchmark escaping text (dirty case)
 fn bench_escape_text(c: &mut Criterion) {
     let text = create_sample_unescaped_text();
     let delims = Delims::default();
     
-    c.bench_function("escape_text", |b| {
+    c.bench_function("escape_text_dirty", |b| {
+        b.iter(|| {
+            let result = escape_text(black_box(&text), black_box(&delims));
+            black_box(result)
+        })
+    });
+}
+
+/// Benchmark escaping text (clean case)
+fn bench_escape_clean_text(c: &mut Criterion) {
+    let text = create_sample_clean_text();
+    let delims = Delims::default();
+
+    c.bench_function("escape_text_clean", |b| {
         b.iter(|| {
             let result = escape_text(black_box(&text), black_box(&delims));
             black_box(result)
@@ -42,7 +73,9 @@ fn bench_escape_text(c: &mut Criterion) {
 criterion_group!(
     escape_benches,
     bench_unescape_text,
-    bench_escape_text
+    bench_unescape_clean_text,
+    bench_escape_text,
+    bench_escape_clean_text
 );
 
 criterion_main!(escape_benches);
