@@ -82,7 +82,7 @@ async fn test_large_request_handling() {
 
     // Create a very large (but still reasonable) HL7 message
     let mut large_message = String::from(
-        "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|MSG001|P|2.5\r"
+        "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|MSG001|P|2.5\r",
     );
 
     // Add many NTE segments (notes can be quite large in practice)

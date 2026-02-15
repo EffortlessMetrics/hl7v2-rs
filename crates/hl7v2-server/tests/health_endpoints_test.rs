@@ -14,7 +14,12 @@ async fn test_health_endpoint_returns_200() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -26,7 +31,12 @@ async fn test_health_endpoint_returns_json() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -46,7 +56,12 @@ async fn test_health_endpoint_contains_status() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -57,10 +72,7 @@ async fn test_health_endpoint_contains_status() {
         body_str.contains("\"status\""),
         "Health response should contain status field"
     );
-    assert!(
-        body_str.contains("\"healthy\""),
-        "Status should be healthy"
-    );
+    assert!(body_str.contains("\"healthy\""), "Status should be healthy");
 }
 
 #[tokio::test]
@@ -68,7 +80,12 @@ async fn test_health_endpoint_contains_uptime() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -86,7 +103,12 @@ async fn test_ready_endpoint_returns_200() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(Request::builder().uri("/ready").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/ready")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -98,7 +120,12 @@ async fn test_ready_endpoint_returns_ready_status() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(Request::builder().uri("/ready").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/ready")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -116,7 +143,12 @@ async fn test_metrics_endpoint_returns_200() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -128,7 +160,12 @@ async fn test_metrics_endpoint_returns_prometheus_format() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -140,10 +177,14 @@ async fn test_metrics_endpoint_returns_prometheus_format() {
     // The important thing is that the endpoint responds successfully.
     assert!(
         body_str.contains("# HELP")
-        || body_str.contains("# TYPE")
-        || body_str.is_empty()
-        || body_str.contains("hl7v2_"),
+            || body_str.contains("# TYPE")
+            || body_str.is_empty()
+            || body_str.contains("hl7v2_"),
         "Metrics should be in Prometheus format, empty, or contain hl7v2 metrics. Got: {}",
-        if body_str.len() > 200 { &body_str[..200] } else { &body_str }
+        if body_str.len() > 200 {
+            &body_str[..200]
+        } else {
+            &body_str
+        }
     );
 }
