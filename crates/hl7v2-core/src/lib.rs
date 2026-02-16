@@ -943,79 +943,87 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 
 /// Unescape text according to HL7 v2 rules
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
-    // Pre-allocate result with estimated capacity to reduce reallocations
-    let mut result = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    
-    while let Some(ch) = chars.next() {
-        if ch == delims.esc {
-            // Start of escape sequence
-            let mut escape_seq = String::new();
-            let mut found_end = false;
-            
-            while let Some(esc_ch) = chars.next() {
-                if esc_ch == delims.esc {
-                    found_end = true;
-                    break;
-                }
-                escape_seq.push(esc_ch);
-            }
-            
-            if !found_end {
-                // If we don't find the closing escape character, this might be a literal backslash
-                // in the encoding characters. Let's check if this is the special case of the
-                // MSH encoding characters "^~\&"
-                // Use direct comparison instead of format! to avoid allocation
-                if text.len() == 4 && 
-                   text.chars().nth(0) == Some(delims.comp) &&
-                   text.chars().nth(1) == Some(delims.rep) &&
-                   text.chars().nth(2) == Some(delims.esc) &&
-                   text.chars().nth(3) == Some(delims.sub) {
-                    // This is the MSH encoding characters, treat as literal
-                    result.push(delims.comp);
-                    result.push(delims.rep);
-                    result.push(delims.esc);
-                    result.push(delims.sub);
-                    // Skip the rest of the processing since we've handled the special case
-                    return Ok(result);
+    // Fast path: find the first escape character
+    if let Some(first_idx) = text.find(delims.esc) {
+        // Pre-allocate result with estimated capacity to reduce reallocations
+        let mut result = String::with_capacity(text.len());
+        result.push_str(&text[..first_idx]);
+
+        let mut chars = text[first_idx..].chars().peekable();
+
+        while let Some(ch) = chars.next() {
+            if ch == delims.esc {
+                // Start of escape sequence
+                let mut escape_seq = String::new();
+                let mut found_end = false;
+
+                while let Some(esc_ch) = chars.next() {
+                    if esc_ch == delims.esc {
+                        found_end = true;
+                        break;
+                    }
+                    escape_seq.push(esc_ch);
                 }
                 
-                // For other cases, treat the text as-is
-                result.push(delims.esc);
-                result.push_str(&escape_seq);
-                continue;
-            }
-            
-            // Process escape sequence
-            match escape_seq.as_str() {
-                "F" => {
-                    result.push(delims.field);
-                },
-                "S" => {
-                    result.push(delims.comp);
-                },
-                "R" => {
-                    result.push(delims.rep);
-                },
-                "E" => {
-                    result.push(delims.esc);
-                },
-                "T" => {
-                    result.push(delims.sub);
-                },
-                _ => {
-                    // Unknown escape sequences are passed through
+                if !found_end {
+                    // If we don't find the closing escape character, this might be a literal backslash
+                    // in the encoding characters. Let's check if this is the special case of the
+                    // MSH encoding characters "^~\&"
+                    // Use direct comparison instead of format! to avoid allocation
+                    if text.len() == 4 &&
+                       text.chars().nth(0) == Some(delims.comp) &&
+                       text.chars().nth(1) == Some(delims.rep) &&
+                       text.chars().nth(2) == Some(delims.esc) &&
+                       text.chars().nth(3) == Some(delims.sub) {
+                        // This is the MSH encoding characters, treat as literal
+                        result.push(delims.comp);
+                        result.push(delims.rep);
+                        result.push(delims.esc);
+                        result.push(delims.sub);
+                        // Skip the rest of the processing since we've handled the special case
+                        return Ok(result);
+                    }
+
+                    // For other cases, treat the text as-is
                     result.push(delims.esc);
                     result.push_str(&escape_seq);
-                    result.push(delims.esc);
+                    continue;
                 }
+
+                // Process escape sequence
+                match escape_seq.as_str() {
+                    "F" => {
+                        result.push(delims.field);
+                    },
+                    "S" => {
+                        result.push(delims.comp);
+                    },
+                    "R" => {
+                        result.push(delims.rep);
+                    },
+                    "E" => {
+                        result.push(delims.esc);
+                    },
+                    "T" => {
+                        result.push(delims.sub);
+                    },
+                    _ => {
+                        // Unknown escape sequences are passed through
+                        result.push(delims.esc);
+                        result.push_str(&escape_seq);
+                        result.push(delims.esc);
+                    }
+                }
+            } else {
+                result.push(ch);
             }
-        } else {
-            result.push(ch);
         }
+
+        Ok(result)
+    } else {
+        // No escape characters, just clone the string
+        Ok(text.to_string())
     }
-    
-    Ok(result)
 }
 
 /// Write HL7 message to bytes
@@ -1127,43 +1135,55 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 
 /// Escape text according to HL7 v2 rules
 pub fn escape_text(text: &str, delims: &Delims) -> String {
-    // Pre-calculate maximum possible size to reduce reallocations
-    // In worst case, every character might need escaping (3 chars each)
-    let max_size = text.len() * 3;
-    let mut result = String::with_capacity(max_size);
+    let special_chars = [delims.field, delims.comp, delims.rep, delims.esc, delims.sub];
     
-    for ch in text.chars() {
-        match ch {
-            c if c == delims.field => {
-                result.push(delims.esc);
-                result.push('F');
-                result.push(delims.esc);
+    // Fast path: find the first special character
+    if let Some(first_idx) = text.find(&special_chars[..]) {
+        // Pre-calculate maximum possible size to reduce reallocations
+        // In worst case, every remaining character might need escaping (3 chars each)
+        // We know the first `first_idx` chars don't need escaping.
+        let remaining_len = text.len() - first_idx;
+        let estimated_size = first_idx + remaining_len * 3;
+
+        let mut result = String::with_capacity(estimated_size);
+        result.push_str(&text[..first_idx]);
+
+        for ch in text[first_idx..].chars() {
+            match ch {
+                c if c == delims.field => {
+                    result.push(delims.esc);
+                    result.push('F');
+                    result.push(delims.esc);
+                }
+                c if c == delims.comp => {
+                    result.push(delims.esc);
+                    result.push('S');
+                    result.push(delims.esc);
+                }
+                c if c == delims.rep => {
+                    result.push(delims.esc);
+                    result.push('R');
+                    result.push(delims.esc);
+                }
+                c if c == delims.esc => {
+                    result.push(delims.esc);
+                    result.push('E');
+                    result.push(delims.esc);
+                }
+                c if c == delims.sub => {
+                    result.push(delims.esc);
+                    result.push('T');
+                    result.push(delims.esc);
+                }
+                _ => result.push(ch),
             }
-            c if c == delims.comp => {
-                result.push(delims.esc);
-                result.push('S');
-                result.push(delims.esc);
-            }
-            c if c == delims.rep => {
-                result.push(delims.esc);
-                result.push('R');
-                result.push(delims.esc);
-            }
-            c if c == delims.esc => {
-                result.push(delims.esc);
-                result.push('E');
-                result.push(delims.esc);
-            }
-            c if c == delims.sub => {
-                result.push(delims.esc);
-                result.push('T');
-                result.push(delims.esc);
-            }
-            _ => result.push(ch),
         }
+
+        result
+    } else {
+        // No special characters, just clone the string
+        text.to_string()
     }
-    
-    result
 }
 
 /// Normalize HL7 v2 message
