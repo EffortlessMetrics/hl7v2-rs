@@ -1,6 +1,6 @@
 //! Benchmarks for HL7 v2 MLLP functionality
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use hl7v2_core::{parse, parse_mllp, write, write_mllp};
 
 /// Create a sample HL7 message for benchmarking
@@ -13,7 +13,7 @@ fn bench_mllp_wrap(c: &mut Criterion) {
     let message = create_sample_message();
     let parsed = parse(message.as_bytes()).expect("Failed to parse message");
     let _bytes = write(&parsed);
-    
+
     c.bench_function("mllp_wrap", |b| {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
@@ -27,7 +27,7 @@ fn bench_mllp_parse(c: &mut Criterion) {
     let message = create_sample_message();
     let parsed = parse(message.as_bytes()).expect("Failed to parse message");
     let mllp_bytes = write_mllp(&parsed);
-    
+
     c.bench_function("mllp_parse", |b| {
         b.iter(|| {
             let result = parse_mllp(black_box(&mllp_bytes));
@@ -36,10 +36,6 @@ fn bench_mllp_parse(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    mllp_benches,
-    bench_mllp_wrap,
-    bench_mllp_parse
-);
+criterion_group!(mllp_benches, bench_mllp_wrap, bench_mllp_parse);
 
 criterion_main!(mllp_benches);

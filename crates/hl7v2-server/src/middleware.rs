@@ -124,7 +124,7 @@ pub async fn auth_middleware(
 /// // Use with axum Router: Router::new().layer(_layer)
 /// ```
 pub fn create_concurrency_limit_layer() -> ConcurrencyLimitLayer {
-    ConcurrencyLimitLayer::new(100)  // Allow up to 100 concurrent requests
+    ConcurrencyLimitLayer::new(100) // Allow up to 100 concurrent requests
 }
 
 /// Create a custom concurrency limiting layer with configurable limit
@@ -152,7 +152,6 @@ mod tests {
     #[test]
     fn test_middleware_module() {
         // Placeholder test to ensure module compiles
-        assert!(true);
     }
 
     #[test]

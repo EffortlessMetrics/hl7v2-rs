@@ -216,7 +216,7 @@ async fn test_parse_empty_request_body_returns_400() {
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
-        || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
+            || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
         "Empty request body should return 400 or 422, got: {}",
         response.status()
     );

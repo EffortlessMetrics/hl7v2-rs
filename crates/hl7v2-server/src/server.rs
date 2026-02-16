@@ -1,14 +1,14 @@
 //! HTTP server implementation.
 
+use metrics_exporter_prometheus::PrometheusHandle;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::net::TcpListener;
 use tracing::info;
-use metrics_exporter_prometheus::PrometheusHandle;
 
-use crate::routes::build_router;
 use crate::Result;
+use crate::routes::build_router;
 
 /// Application state shared across handlers
 #[derive(Clone)]
@@ -55,12 +55,17 @@ impl Server {
         let metrics_handle = crate::metrics::init_metrics_recorder();
 
         // Load API key
-        let api_key = config.api_key.clone().or_else(|| std::env::var("HL7V2_API_KEY").ok());
+        let api_key = config
+            .api_key
+            .clone()
+            .or_else(|| std::env::var("HL7V2_API_KEY").ok());
 
         // Fail securely if no API key is provided
         let api_key = match api_key {
             Some(key) if !key.is_empty() => Arc::new(key),
-            _ => panic!("HL7V2_API_KEY environment variable not set and no API key provided in config"),
+            _ => panic!(
+                "HL7V2_API_KEY environment variable not set and no API key provided in config"
+            ),
         };
 
         let state = Arc::new(AppState {
