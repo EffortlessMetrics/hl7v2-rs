@@ -4,13 +4,8 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 
-# Warn on pedantic lints
-warn-on-all-pedantic = true
+# The following keys are invalid in clippy.toml and should be removed:
+# warn-on-all-pedantic = true
+# allowed-lints = [...]
 
-# Specific lints to allow
-allowed-lints = [
-    "clippy::module-name-repetitions",
-    "clippy::must-use-candidate",
-    "clippy::missing-errors-doc",
-    "clippy::missing-panics-doc",
-]
+# Instead, lints should be configured in Cargo.toml or source code.
