@@ -575,7 +575,9 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
         std::io::stdout().flush()?;
 
         let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
+        if std::io::stdin().read_line(&mut input)? == 0 {
+            break;
+        }
         let input = input.trim();
 
         match input {
