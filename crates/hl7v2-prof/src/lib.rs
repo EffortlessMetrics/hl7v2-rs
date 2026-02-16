@@ -3,6 +3,17 @@
 //! This crate provides functionality for loading and applying
 //! conformance profiles to HL7 v2 messages.
 
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::needless_question_mark)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::vec_init_then_push)]
+#![allow(clippy::unwrap_or_default)]
+#![allow(clippy::manual_strip)]
+#![allow(clippy::wildcard_in_or_patterns)]
+#![allow(clippy::manual_contains)]
+#![allow(dead_code)]
+
 use chrono::{NaiveDate, NaiveDateTime};
 use hl7v2_core::{Error, Message};
 use regex::Regex;
@@ -1409,8 +1420,7 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
             if let Some(value) = hl7v2_core::get(msg, path) {
                 // Extract the allowed values
                 let values_part = &rule.script[path_end + 7..];
-                if values_part.ends_with("]") {
-                    let values_str = &values_part[..values_part.len() - 1];
+                if let Some(values_str) = values_part.strip_suffix("]") {
                     // Split by comma and remove quotes
                     let allowed_values: Vec<&str> = values_str
                         .split(',')
@@ -1541,7 +1551,7 @@ fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         }
         "in" => {
             if let Some(l) = lhs {
-                rhs_list.iter().any(|r| l == *r)
+                rhs_list.contains(&l)
             } else {
                 false
             }

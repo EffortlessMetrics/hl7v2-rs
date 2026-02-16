@@ -3,6 +3,13 @@
 //! This crate provides functionality for generating synthetic HL7 v2
 //! messages based on templates and profiles.
 
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::useless_format)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::unwrap_or_default)]
+#![allow(clippy::vec_init_then_push)]
+
 use hl7v2_core::{Message, Delims, Error, Segment, Field, Rep, Comp, Atom};
 use serde::{Deserialize, Serialize};
 use rand::{Rng, SeedableRng};
