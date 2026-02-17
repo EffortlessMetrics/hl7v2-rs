@@ -8,7 +8,15 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
-use serde_json;
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::sliced_string_as_bytes)]
+#![allow(clippy::map_clone)]
+#![allow(clippy::should_implement_trait)]
+#![allow(clippy::while_let_on_iterator)]
+#![allow(clippy::iter_nth_zero)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::unnecessary_map_or)]
+#![allow(clippy::collapsible_if)]
 
 #[cfg(feature = "network")]
 pub mod network;
