@@ -1,0 +1,16 @@
+[package]
+name = "hl7v2-batch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "HL7 v2 batch message handling (FHS/BHS/FTS/BTS)"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "batch", "file", "processing"]
+categories = ["parser-implementations"]
+
+[dependencies]
+thiserror = { workspace = true }
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-parser = { path = "../hl7v2-parser" }

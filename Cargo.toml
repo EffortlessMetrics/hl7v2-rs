@@ -8,6 +8,8 @@ members = [
     "crates/hl7v2-writer",
     "crates/hl7v2-datetime",
     "crates/hl7v2-datatype",
+    "crates/hl7v2-path",
+    "crates/hl7v2-batch",
     # Higher-level crates
     "crates/hl7v2-core",
     "crates/hl7v2-prof",
