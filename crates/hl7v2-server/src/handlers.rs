@@ -8,7 +8,7 @@ use axum::{
 use std::sync::Arc;
 
 use crate::models::*;
-use crate::state::AppState;
+use crate::server::AppState;
 
 /// Handler for GET /health
 pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
