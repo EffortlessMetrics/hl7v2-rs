@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest] # Removed windows-latest and macos-latest to reduce billing usage
         rust: [stable, '1.89']  # MSRV + stable
     steps:
       - uses: actions/checkout@v4
