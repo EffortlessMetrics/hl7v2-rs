@@ -1,0 +1,17 @@
+[package]
+name = "hl7v2-writer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "HL7 v2 message writer/serializer"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "serializer", "writer"]
+categories = ["encoding", "parser-implementations"]
+
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-escape = { path = "../hl7v2-escape" }
+hl7v2-mllp = { path = "../hl7v2-mllp" }
+serde_json = { workspace = true }

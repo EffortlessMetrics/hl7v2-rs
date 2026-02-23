@@ -1,5 +1,14 @@
 [workspace]
 members = [
+    # Microcrates (SRP-focused)
+    "crates/hl7v2-model",
+    "crates/hl7v2-escape",
+    "crates/hl7v2-mllp",
+    "crates/hl7v2-parser",
+    "crates/hl7v2-writer",
+    "crates/hl7v2-datetime",
+    "crates/hl7v2-datatype",
+    # Higher-level crates
     "crates/hl7v2-core",
     "crates/hl7v2-prof",
     "crates/hl7v2-gen",

@@ -15,6 +15,14 @@ default = []
 network = ["tokio", "tokio-util", "rustls", "tokio-rustls", "bytes", "futures"]
 
 [dependencies]
+# Re-export from microcrates
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-escape = { path = "../hl7v2-escape" }
+hl7v2-mllp = { path = "../hl7v2-mllp" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-writer = { path = "../hl7v2-writer" }
+
+# Original dependencies
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -27,6 +35,8 @@ tokio-rustls = { version = "0.26", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
+cucumber = "0.22.1"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 
 [[bench]]
 name = "parsing"
@@ -42,4 +52,8 @@ harness = false
 
 [[bench]]
 name = "memory"
+harness = false
+
+[[test]]
+name = "bdd_tests"
 harness = false

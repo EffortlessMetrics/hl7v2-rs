@@ -1,0 +1,17 @@
+[package]
+name = "hl7v2-mllp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "MLLP (Minimal Lower Layer Protocol) framing for HL7 v2"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "mllp", "protocol", "framing"]
+categories = ["network-programming", "encoding"]
+
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+
+[features]
+default = []
