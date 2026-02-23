@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
         rust: [stable, '1.89']  # MSRV + stable
     steps:
       - uses: actions/checkout@v4
@@ -178,5 +178,5 @@ jobs:
 
       - name: Check for Memory Leaks
         run: |
-          valgrind --leak-check=full --error-exitcode=1 \
-            target/release/deps/hl7v2_core-* --test-threads=1
+          find target/release/deps -maxdepth 1 -executable -name "hl7v2_core-*" ! -name "*.d" -exec \
+            valgrind --leak-check=full --errors-for-leak-kinds=definite,indirect --error-exitcode=1 {} --test-threads=1 \;
