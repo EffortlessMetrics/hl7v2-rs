@@ -112,7 +112,7 @@ pub fn record_message_size(size_bytes: usize) {
 /// Note: This function requires AppState to be passed in, but only uses the metrics_handle.
 /// The AppState dependency is required for Axum's type system.
 pub async fn metrics_handler(
-    State(state): State<Arc<crate::server::AppState>>,
+    State(state): State<Arc<crate::state::AppState>>,
 ) -> impl IntoResponse {
     let metrics = state.metrics_handle.render();
     Response::builder()
