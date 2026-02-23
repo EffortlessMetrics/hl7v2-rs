@@ -943,6 +943,11 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 
 /// Unescape text according to HL7 v2 rules
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    // Fast path: if no escape character, return text as is
+    if !text.contains(delims.esc) {
+        return Ok(text.to_string());
+    }
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
