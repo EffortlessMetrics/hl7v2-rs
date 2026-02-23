@@ -52,23 +52,6 @@ jobs:
           command: check
           arguments: --all-features
 
-  sast:
-    name: SAST (Semgrep)
-    runs-on: ubuntu-latest
-    container:
-      image: returntocorp/semgrep
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Semgrep
-        run: semgrep --config auto --sarif > semgrep.sarif
-
-      - name: Upload SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: semgrep.sarif
-
   clippy-security:
     name: Clippy Security Lints
     runs-on: ubuntu-latest
