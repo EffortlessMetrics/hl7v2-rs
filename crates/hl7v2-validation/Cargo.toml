@@ -1,0 +1,28 @@
+[package]
+name = "hl7v2-validation"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.88"
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Core HL7 v2 parsing and model
+hl7v2-core = { path = "../hl7v2-core" }
+hl7v2-model = { path = "../hl7v2-model" }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+
+# Regular expressions for pattern validation
+regex = "1.0"
+
+# Date/time handling for temporal validation
+chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }
+
+[dev-dependencies]
+# Testing utilities

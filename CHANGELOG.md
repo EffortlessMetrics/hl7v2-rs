@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### SRP Microcrate Refactoring (2026-02-23)
+
+**Five new microcrates extracted following Single Responsibility Principle:**
+
+#### New Crates
+
+| Crate | Source | Purpose |
+|-------|--------|---------|
+| `hl7v2-network` | `hl7v2-core/network/` | MLLP client/server/codec for TCP connections |
+| `hl7v2-stream` | `hl7v2-core` | Event-based streaming parser |
+| `hl7v2-validation` | `hl7v2-prof` | Validation logic and types |
+| `hl7v2-ack` | `hl7v2-gen` | ACK message generation |
+| `hl7v2-faker` | `hl7v2-gen` | Realistic test data generation |
+
+#### Migration Guide
+
+All new crates maintain backward compatibility through re-exports in their source crates:
+
+```rust
+// OLD (still works via re-export)
+use hl7v2_core::network::MllpClient;
+use hl7v2_core::{StreamParser, Event};
+use hl7v2_prof::{validate_data_type, Issue};
+use hl7v2_gen::{ack, AckCode};
+use hl7v2_gen::Faker;
+
+// NEW (recommended)
+use hl7v2_network::MllpClient;
+use hl7v2_stream::{StreamParser, Event};
+use hl7v2_validation::{validate_data_type, Issue};
+use hl7v2_ack::{ack, AckCode};
+use hl7v2_faker::Faker;
+```
+
+#### Benefits
+
+- **Reduced Dependencies**: Users who only need parsing can avoid async overhead
+- **Clearer Boundaries**: Each crate has a single, well-defined responsibility
+- **Independent Evolution**: Validation logic can evolve separately from profile loading
+- **Smaller Footprint**: ACK generation without full gen crate dependencies
+
+See [docs/MICROCRATE_ANALYSIS.md](docs/MICROCRATE_ANALYSIS.md) for complete details.
+
+---
+
 ### Planned for v1.2.0
 - Server mode with HTTP and gRPC endpoints
 - Remote profile loading (HTTP, S3, GCS)

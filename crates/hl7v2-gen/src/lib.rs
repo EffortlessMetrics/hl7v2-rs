@@ -2,13 +2,39 @@
 //!
 //! This crate provides functionality for generating synthetic HL7 v2
 //! messages based on templates and profiles.
+//!
+//! # ACK Generation
+//!
+//! ACK (acknowledgment) generation functionality is available through
+//! the [`hl7v2_ack`] crate and re-exported here for convenience.
+//!
+//! # Faker Data Generation
+//!
+//! Realistic test data generation (names, addresses, medical codes, etc.)
+//! is available through the [`hl7v2_faker`] crate and re-exported here
+//! for convenience.
+//!
+//! # Example
+//!
+//! ```
+//! use hl7v2_gen::{Template, generate, ack, AckCode, Faker, FakerValue};
+//! ```
 
 use hl7v2_core::{Message, Delims, Error, Segment, Field, Rep, Comp, Atom};
 use serde::{Deserialize, Serialize};
-use rand::{Rng, SeedableRng};
+use rand::Rng;
+use rand::SeedableRng;
 use rand::rngs::StdRng;
 use std::collections::HashMap;
 use sha2::{Sha256, Digest};
+
+// Re-export ACK functionality from hl7v2-ack crate for backward compatibility
+pub use hl7v2_ack::{ack, ack_with_error, AckCode};
+
+// Re-export faker functionality from hl7v2-faker crate for backward compatibility
+pub use hl7v2_faker::{
+    Faker, FakerValue, DateError, GaussianError, GenerateError,
+};
 
 /// Message template
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +79,36 @@ pub enum ValueSource {
     InvalidSubcompFormat,
     DuplicateDelims,
     BadDelimLength,
+}
+
+impl ValueSource {
+    /// Convert to a FakerValue for use with the hl7v2-faker crate.
+    pub fn to_faker_value(&self) -> FakerValue {
+        match self {
+            ValueSource::Fixed(value) => FakerValue::Fixed(value.clone()),
+            ValueSource::From(options) => FakerValue::From(options.clone()),
+            ValueSource::Numeric { digits } => FakerValue::Numeric { digits: *digits },
+            ValueSource::Date { start, end } => FakerValue::Date { start: start.clone(), end: end.clone() },
+            ValueSource::Gaussian { mean, sd, precision } => FakerValue::Gaussian { mean: *mean, sd: *sd, precision: *precision },
+            ValueSource::Map(mapping) => FakerValue::Map(mapping.clone()),
+            ValueSource::UuidV4 => FakerValue::UuidV4,
+            ValueSource::DtmNowUtc => FakerValue::DtmNowUtc,
+            ValueSource::RealisticName { gender } => FakerValue::RealisticName { gender: gender.clone() },
+            ValueSource::RealisticAddress => FakerValue::RealisticAddress,
+            ValueSource::RealisticPhone => FakerValue::RealisticPhone,
+            ValueSource::RealisticSsn => FakerValue::RealisticSsn,
+            ValueSource::RealisticMrn => FakerValue::RealisticMrn,
+            ValueSource::RealisticIcd10 => FakerValue::RealisticIcd10,
+            ValueSource::RealisticLoinc => FakerValue::RealisticLoinc,
+            ValueSource::RealisticMedication => FakerValue::RealisticMedication,
+            ValueSource::RealisticAllergen => FakerValue::RealisticAllergen,
+            ValueSource::RealisticBloodType => FakerValue::RealisticBloodType,
+            ValueSource::RealisticEthnicity => FakerValue::RealisticEthnicity,
+            ValueSource::RealisticRace => FakerValue::RealisticRace,
+            // Error injection variants don't map to FakerValue
+            _ => FakerValue::Fixed(String::new()), // fallback
+        }
+    }
 }
 
 /// Generate messages from a template
@@ -288,118 +344,54 @@ fn generate_value(value_source: &ValueSource, rng: &mut StdRng) -> Result<String
             let now = chrono::Utc::now();
             Ok(now.format("%Y%m%d%H%M%S").to_string())
         },
-        // Realistic data generation implementations
+        // Realistic data generation - use hl7v2-faker
         ValueSource::RealisticName { gender } => {
-            let first_names = match gender.as_deref() {
-                Some("M") => &["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"][..],
-                Some("F") => &["Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen"][..],
-                _ => &[
-                    "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", 
-                    "William", "Elizabeth", "David", "Barbara", "Richard", "Susan", "Joseph", "Jessica"
-                ][..],
-            };
-            
-            let last_names = &[
-                "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", 
-                "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson"
-            ];
-            
-            let first_name = first_names[rng.gen_range(0..first_names.len())];
-            let last_name = last_names[rng.gen_range(0..last_names.len())];
-            
-            Ok(format!("{}^{}", last_name, first_name))
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.name(gender.as_deref()))
         },
         ValueSource::RealisticAddress => {
-            let streets = &[
-                "Main St", "Oak Ave", "Pine Rd", "Elm St", "Maple Dr", "Cedar Ln", "Birch Way", 
-                "Washington St", "Lake St", "Hill St"
-            ];
-            
-            let cities = &[
-                "Anytown", "Springfield", "Riverside", "Fairview", "Centerville", 
-                "Georgetown", "Mount Pleasant", "Oakland", "Middletown", "Franklin"
-            ];
-            
-            let states = &["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA"];
-            
-            let street_number = rng.gen_range(100..9999);
-            let street = streets[rng.gen_range(0..streets.len())];
-            let city = cities[rng.gen_range(0..cities.len())];
-            let state = states[rng.gen_range(0..states.len())];
-            let zip = format!("{:05}", rng.gen_range(10000..99999));
-            
-            Ok(format!("{} {}^^{}^{}^{}^{}", street_number, street, city, state, zip, "USA"))
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.address())
         },
         ValueSource::RealisticPhone => {
-            let area_code = rng.gen_range(200..999);
-            let exchange = rng.gen_range(200..999);
-            let number = rng.gen_range(1000..9999);
-            Ok(format!("({}){}-{}", area_code, exchange, number))
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.phone())
         },
         ValueSource::RealisticSsn => {
-            let part1 = rng.gen_range(100..999);
-            let part2 = rng.gen_range(10..99);
-            let part3 = rng.gen_range(1000..9999);
-            Ok(format!("{}-{}-{}", part1, part2, part3))
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.ssn())
         },
         ValueSource::RealisticMrn => {
-            // Medical Record Number - typically 6-10 digits
-            let length = rng.gen_range(6..=10);
-            let mut mrn = String::new();
-            for _ in 0..length {
-                let digit = rng.gen_range(0..10);
-                mrn.push_str(&digit.to_string());
-            }
-            Ok(mrn)
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.mrn())
         },
         ValueSource::RealisticIcd10 => {
-            // Simplified ICD-10 codes (real codes are more complex)
-            let categories = &["A00", "B01", "C02", "D03", "E04", "F05", "G06", "H07", "I08", "J09"];
-            let category = categories[rng.gen_range(0..categories.len())];
-            let subcode = rng.gen_range(0..10);
-            Ok(format!("{}.{}", category, subcode))
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.icd10())
         },
         ValueSource::RealisticLoinc => {
-            // LOINC codes are numeric with 5-7 digits
-            let code = rng.gen_range(10000..9999999);
-            Ok(code.to_string())
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.loinc())
         },
         ValueSource::RealisticMedication => {
-            let medications = &[
-                "Atorvastatin", "Levothyroxine", "Lisinopril", "Metformin", 
-                "Amlodipine", "Metoprolol", "Omeprazole", "Simvastatin", 
-                "Losartan", "Albuterol"
-            ];
-            let medication = medications[rng.gen_range(0..medications.len())];
-            Ok(medication.to_string())
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.medication())
         },
         ValueSource::RealisticAllergen => {
-            let allergens = &[
-                "Penicillin", "Latex", "Peanuts", "Shellfish", "Eggs", 
-                "Milk", "Tree Nuts", "Soy", "Wheat", "Bee Stings"
-            ];
-            let allergen = allergens[rng.gen_range(0..allergens.len())];
-            Ok(allergen.to_string())
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.allergen())
         },
         ValueSource::RealisticBloodType => {
-            let blood_types = &["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-            let blood_type = blood_types[rng.gen_range(0..blood_types.len())];
-            Ok(blood_type.to_string())
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.blood_type())
         },
         ValueSource::RealisticEthnicity => {
-            let ethnicities = &[
-                "Hispanic or Latino", "Not Hispanic or Latino", "Declined to Specify"
-            ];
-            let ethnicity = ethnicities[rng.gen_range(0..ethnicities.len())];
-            Ok(ethnicity.to_string())
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.ethnicity())
         },
         ValueSource::RealisticRace => {
-            let races = &[
-                "American Indian or Alaska Native", "Asian", "Black or African American", 
-                "Native Hawaiian or Other Pacific Islander", "White", "Declined to Specify"
-            ];
-            let race = races[rng.gen_range(0..races.len())];
-            Ok(race.to_string())
+            let mut faker = hl7v2_faker::Faker::new(rng);
+            Ok(faker.race())
         },
         // Error injection variants for negative testing
         ValueSource::InvalidSegmentId => Err(Error::InvalidSegmentId),
@@ -410,232 +402,6 @@ fn generate_value(value_source: &ValueSource, rng: &mut StdRng) -> Result<String
         ValueSource::DuplicateDelims => Err(Error::DuplicateDelims),
         ValueSource::BadDelimLength => Err(Error::BadDelimLength),
     }
-}
-
-/// Generate a single ACK message
-pub fn ack(original: &Message, code: AckCode) -> Result<Message, Error> {
-    // Create ACK message with same delimiters as original
-    let delims = original.delims.clone();
-    
-    // Create MSH segment for ACK
-    let msh_segment = create_ack_msh_segment(original, &code)?;
-    
-    // Create MSA segment
-    let msa_segment = create_msa_segment(original, &code)?;
-    
-    Ok(Message {
-        delims,
-        segments: vec![msh_segment, msa_segment],
-        charsets: vec![]
-    })
-}
-
-/// Create MSH segment for ACK message
-fn create_ack_msh_segment(original: &Message, _code: &AckCode) -> Result<Segment, Error> {
-    // Get the original MSH segment
-    let original_msh = original.segments.first().ok_or(Error::InvalidSegmentId)?;
-    if &original_msh.id != b"MSH" {
-        return Err(Error::InvalidSegmentId);
-    }
-    
-    // Extract required fields from original MSH
-    let sending_app = get_field_value(original_msh, 2).unwrap_or_else(|| "HL7V2RS".to_string());
-    let sending_fac = get_field_value(original_msh, 3).unwrap_or_else(|| "HL7V2RS".to_string());
-    let receiving_app = get_field_value(original_msh, 4).unwrap_or_else(|| "".to_string());
-    let receiving_fac = get_field_value(original_msh, 5).unwrap_or_else(|| "".to_string());
-    let message_type = get_field_value(original_msh, 8).unwrap_or_else(|| "ACK".to_string());
-    let control_id = get_field_value(original_msh, 9).unwrap_or_else(|| "".to_string());
-    let processing_id = get_field_value(original_msh, 10).unwrap_or_else(|| "P".to_string());
-    let version = get_field_value(original_msh, 11).unwrap_or_else(|| "2.5.1".to_string());
-    
-    // Create timestamp
-    let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
-    
-    // Create fields for MSH segment
-    let mut fields = Vec::new();
-    
-    // MSH-2: Encoding characters
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(format!("{}{}{}{}", 
-                    original.delims.comp, original.delims.rep, 
-                    original.delims.esc, original.delims.sub))],
-            }],
-        }],
-    });
-    
-    // MSH-3: Sending Application
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(sending_app)],
-            }],
-        }],
-    });
-    
-    // MSH-4: Sending Facility
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(sending_fac)],
-            }],
-        }],
-    });
-    
-    // MSH-5: Receiving Application
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(receiving_app)],
-            }],
-        }],
-    });
-    
-    // MSH-6: Receiving Facility
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(receiving_fac)],
-            }],
-        }],
-    });
-    
-    // MSH-7: Date/Time of Message
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(timestamp)],
-            }],
-        }],
-    });
-    
-    // MSH-8: Message Type
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(message_type)],
-            }],
-        }],
-    });
-    
-    // MSH-9: Message Control ID
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(control_id)],
-            }],
-        }],
-    });
-    
-    // MSH-10: Processing ID
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(processing_id)],
-            }],
-        }],
-    });
-    
-    // MSH-11: Version ID
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(version)],
-            }],
-        }],
-    });
-    
-    Ok(Segment {
-        id: *b"MSH",
-        fields,
-    })
-}
-
-/// Create MSA segment for ACK message
-fn create_msa_segment(original: &Message, code: &AckCode) -> Result<Segment, Error> {
-    // Get the original MSH segment for control ID
-    let original_msh = original.segments.first().ok_or(Error::InvalidSegmentId)?;
-    if &original_msh.id != b"MSH" {
-        return Err(Error::InvalidSegmentId);
-    }
-    
-    // Get message control ID from original MSH-10
-    let control_id = get_field_value(original_msh, 9).unwrap_or_else(|| "".to_string());
-    
-    // Convert ACK code to string
-    let ack_code_str = match code {
-        AckCode::AA => "AA",
-        AckCode::AE => "AE",
-        AckCode::AR => "AR",
-        AckCode::CA => "CA",
-        AckCode::CE => "CE",
-        AckCode::CR => "CR",
-    };
-    
-    // Create fields for MSA segment
-    let mut fields = Vec::new();
-    
-    // MSA-1: Acknowledgment Code
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(ack_code_str.to_string())],
-            }],
-        }],
-    });
-    
-    // MSA-2: Message Control ID
-    fields.push(Field {
-        reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(control_id)],
-            }],
-        }],
-    });
-    
-    Ok(Segment {
-        id: *b"MSA",
-        fields,
-    })
-}
-
-/// Get field value from a segment
-fn get_field_value(segment: &Segment, field_index: usize) -> Option<String> {
-    if field_index > segment.fields.len() {
-        return None;
-    }
-    
-    let field = &segment.fields[field_index - 1];
-    if field.reps.is_empty() {
-        return None;
-    }
-    
-    let rep = &field.reps[0];
-    if rep.comps.is_empty() {
-        return None;
-    }
-    
-    let comp = &rep.comps[0];
-    if comp.subs.is_empty() {
-        return None;
-    }
-    
-    match &comp.subs[0] {
-        Atom::Text(text) => Some(text.clone()),
-        Atom::Null => None,
-    }
-}
-
-/// ACK codes
-#[derive(Debug, Clone)]
-pub enum AckCode {
-    AA, // Application Accept
-    AE, // Application Error
-    AR, // Application Reject
-    CA, // Commit Accept
-    CE, // Commit Error
-    CR, // Commit Reject
 }
 
 /// Verify that generated messages match expected hash values
@@ -1446,5 +1212,23 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert!(!results[0]);
         assert!(!results[1]);
+    }
+
+    #[test]
+    fn test_faker_reexport() {
+        // Test that Faker is properly re-exported
+        let mut rng = StdRng::seed_from_u64(42);
+        let mut faker = Faker::new(&mut rng);
+        let name = faker.name(Some("M"));
+        assert!(name.contains('^'));
+    }
+
+    #[test]
+    fn test_faker_value_reexport() {
+        // Test that FakerValue is properly re-exported
+        let mut rng = StdRng::seed_from_u64(42);
+        let mut faker = Faker::new(&mut rng);
+        let value = FakerValue::Fixed("test".to_string());
+        assert_eq!(value.generate(&mut faker).unwrap(), "test");
     }
 }

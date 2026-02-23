@@ -992,6 +992,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
+name = "hl7v2-ack"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hl7v2-core",
+]
+
+[[package]]
 name = "hl7v2-batch"
 version = "0.1.0"
 dependencies = [
@@ -1017,22 +1025,19 @@ dependencies = [
 name = "hl7v2-core"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "criterion",
  "cucumber",
- "futures",
  "hl7v2-escape",
  "hl7v2-mllp",
  "hl7v2-model",
+ "hl7v2-network",
  "hl7v2-parser",
+ "hl7v2-stream",
  "hl7v2-writer",
- "rustls",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
- "tokio-rustls",
- "tokio-util",
 ]
 
 [[package]]
@@ -1061,11 +1066,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hl7v2-faker"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "rand",
+ "rand_distr",
+ "uuid",
+]
+
+[[package]]
 name = "hl7v2-gen"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "hl7v2-ack",
  "hl7v2-core",
+ "hl7v2-faker",
  "hl7v2-model",
  "hl7v2-writer",
  "rand",
@@ -1092,6 +1109,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "hl7v2-network"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "futures",
+ "hl7v2-model",
+ "hl7v2-parser",
+ "hl7v2-writer",
+ "rustls",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+]
+
+[[package]]
 name = "hl7v2-parser"
 version = "0.1.0"
 dependencies = [
@@ -1115,6 +1147,7 @@ dependencies = [
  "hl7v2-core",
  "hl7v2-model",
  "hl7v2-parser",
+ "hl7v2-validation",
  "regex",
  "serde",
  "serde_yaml",
@@ -1140,6 +1173,24 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "hl7v2-stream"
+version = "0.1.0"
+dependencies = [
+ "hl7v2-model",
+]
+
+[[package]]
+name = "hl7v2-validation"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hl7v2-core",
+ "hl7v2-model",
+ "regex",
+ "serde",
 ]
 
 [[package]]

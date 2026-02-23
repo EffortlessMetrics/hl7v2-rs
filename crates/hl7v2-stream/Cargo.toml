@@ -1,0 +1,17 @@
+[package]
+name = "hl7v2-stream"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.88"
+authors.workspace = true
+description = "Streaming/event-based parser for HL7 v2 messages"
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Core model types
+hl7v2-model = { path = "../hl7v2-model" }
+
+[dev-dependencies]

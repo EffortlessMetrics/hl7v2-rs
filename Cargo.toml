@@ -10,6 +10,11 @@ members = [
     "crates/hl7v2-datatype",
     "crates/hl7v2-path",
     "crates/hl7v2-batch",
+    "crates/hl7v2-network",
+    "crates/hl7v2-stream",
+    "crates/hl7v2-validation",
+    "crates/hl7v2-ack",
+    "crates/hl7v2-faker",
     # Higher-level crates
     "crates/hl7v2-core",
     "crates/hl7v2-prof",

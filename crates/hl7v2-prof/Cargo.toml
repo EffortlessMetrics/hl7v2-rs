@@ -16,6 +16,8 @@ hl7v2-model = { path = "../hl7v2-model" }
 hl7v2-parser = { path = "../hl7v2-parser" }
 # Keep hl7v2-core for backward compatibility
 hl7v2-core = { path = "../hl7v2-core" }
+# Validation crate for reusable validation logic
+hl7v2-validation = { path = "../hl7v2-validation" }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = "0.9"
 regex = "1.0"

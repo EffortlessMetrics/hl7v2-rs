@@ -16,6 +16,10 @@ hl7v2-model = { path = "../hl7v2-model" }
 hl7v2-writer = { path = "../hl7v2-writer" }
 # Keep hl7v2-core for backward compatibility
 hl7v2-core = { path = "../hl7v2-core" }
+# ACK generation is now in its own crate
+hl7v2-ack = { path = "../hl7v2-ack" }
+# Faker functionality is now in its own crate
+hl7v2-faker = { path = "../hl7v2-faker" }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = "0.9"
 uuid = { workspace = true, features = ["v4"] }
