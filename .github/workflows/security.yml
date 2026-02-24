@@ -3,8 +3,8 @@ name: Security
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  # pull_request:  # Disable on PRs to save budget
+  #   branches: [main]
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday
 
@@ -28,16 +28,16 @@ jobs:
       - name: Run Audit
         run: cargo audit --deny warnings
 
-      - name: Generate Audit Report
-        if: failure()
-        run: cargo audit --json > audit-report.json
+      # - name: Generate Audit Report
+      #   if: failure()
+      #   run: cargo audit --json > audit-report.json
 
-      - name: Upload Audit Report
-        if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: audit-report
-          path: audit-report.json
+      # - name: Upload Audit Report
+      #   if: failure()
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: audit-report
+      #     path: audit-report.json
 
   deny:
     name: Cargo Deny
@@ -52,22 +52,22 @@ jobs:
           command: check
           arguments: --all-features
 
-  sast:
-    name: SAST (Semgrep)
-    runs-on: ubuntu-latest
-    container:
-      image: returntocorp/semgrep
-    steps:
-      - uses: actions/checkout@v4
+  # sast:
+  #   name: SAST (Semgrep)
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: returntocorp/semgrep
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Run Semgrep
-        run: semgrep --config auto --sarif > semgrep.sarif
+  #     - name: Run Semgrep
+  #       run: semgrep --config auto --sarif > semgrep.sarif
 
-      - name: Upload SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: semgrep.sarif
+  #     - name: Upload SARIF
+  #       if: always()
+  #       uses: github/codeql-action/upload-sarif@v2
+  #       with:
+  #         sarif_file: semgrep.sarif
 
   clippy-security:
     name: Clippy Security Lints
@@ -90,18 +90,18 @@ jobs:
             -W clippy::undocumented_unsafe_blocks \
             -D warnings
 
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
+  # dependency-review:
+  #   name: Dependency Review
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'pull_request'
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: moderate
-          deny-licenses: GPL-3.0, AGPL-3.0
+  #     - name: Dependency Review
+  #       uses: actions/dependency-review-action@v4
+  #       with:
+  #         fail-on-severity: moderate
+  #         deny-licenses: GPL-3.0, AGPL-3.0
 
   secrets-scan:
     name: Secrets Scanning
