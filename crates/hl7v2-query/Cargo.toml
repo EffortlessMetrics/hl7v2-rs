@@ -1,17 +1,16 @@
 [package]
-name = "hl7v2-parser"
+name = "hl7v2-query"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
-description = "HL7 v2 message parser"
+description = "HL7 v2 path-based field access and query functionality"
 license.workspace = true
 repository.workspace = true
-keywords = ["hl7", "healthcare", "parser"]
+keywords = ["hl7", "healthcare", "query", "path"]
 categories = ["parser-implementations", "encoding"]
 
 [dependencies]
 hl7v2-model = { path = "../hl7v2-model" }
-hl7v2-escape = { path = "../hl7v2-escape" }
-hl7v2-mllp = { path = "../hl7v2-mllp" }
-hl7v2-query = { path = "../hl7v2-query" }
+
+[dev-dependencies]

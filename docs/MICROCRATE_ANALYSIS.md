@@ -973,6 +973,424 @@ These changes result in a more modular, maintainable codebase with clearer bound
 | MEDIUM Priority Extractions | 0 | 3 |
 | Backward Compatibility | N/A | ✅ Maintained via re-exports |
 
+---
+
+## Phase 3 Opportunities
+
+The following additional microcrate extraction opportunities have been identified through comprehensive analysis of all crates. These represent further decomposition possibilities for improved modularity and reduced dependency footprints.
+
+### MEDIUM Priority
+
+#### 8. `hl7v2-query` - Path-Based Field Access
+
+**Extract from:** [`hl7v2-parser/src/lib.rs`](../crates/hl7v2-parser/src/lib.rs) (lines 211-279)
+
+**Rationale:**
+- Path-based field access (`get`, `get_presence`) is a distinct concern from parsing
+- Users may want query functionality without full parser dependency
+- Clear, focused API for message traversal
+
+**What would be extracted:**
+- `get()` function - Get value at path
+- `get_presence()` function - Get presence semantics at path
+- `parse_field_and_rep()` helper - Parse field/repetition indices
+- Path parsing utilities
+
+**Dependencies:**
+```toml
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+```
+
+**API:**
+```rust
+pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str>;
+pub fn get_presence(msg: &Message, path: &str) -> Presence;
+pub fn parse_path(path: &str) -> Result<ParsedPath, PathError>;
+```
+
+**Priority:** MEDIUM - Useful separation but not critical
+
+---
+
+#### 9. `hl7v2-json` - JSON Serialization
+
+**Extract from:** [`hl7v2-writer/src/lib.rs`](../crates/hl7v2-writer/src/lib.rs) (lines 245-320)
+
+**Rationale:**
+- JSON serialization is a distinct output format from HL7 wire format
+- Removes `serde_json` dependency from core writer for users who don't need JSON
+- Enables independent evolution of JSON schema
+
+**What would be extracted:**
+- `to_json()` function - Convert message to JSON value
+- `to_json_string()` function - Convert to JSON string
+- `to_json_string_pretty()` function - Convert to pretty-printed JSON
+- `field_to_json()` helper
+- JSON schema definition
+
+**Dependencies:**
+```toml
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+serde_json = "1.0"
+```
+
+**API:**
+```rust
+pub fn to_json(msg: &Message) -> serde_json::Value;
+pub fn to_json_string(msg: &Message) -> String;
+pub fn to_json_string_pretty(msg: &Message) -> String;
+pub fn segment_to_json(segment: &Segment) -> serde_json::Value;
+pub fn field_to_json(field: &Field) -> serde_json::Value;
+```
+
+**Priority:** MEDIUM - Common use case with clear boundary
+
+---
+
+#### 10. `hl7v2-template` - Template-Based Generation
+
+**Extract from:** [`hl7v2-gen/src/lib.rs`](../crates/hl7v2-gen/src/lib.rs) (lines 39-405)
+
+**Rationale:**
+- Template parsing and message generation is distinct from faker/test data
+- Template functionality has different use cases than ACK generation
+- Enables lighter dependency for users who only need template-based generation
+
+**What would be extracted:**
+- `Template` struct - Message template definition
+- `ValueSource` enum - Value generation sources
+- `generate()` function - Generate messages from template
+- `generate_single_message()` helper
+- Template parsing functions
+
+**Dependencies:**
+```toml
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-faker = { path = "../hl7v2-faker", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+rand = "0.8"
+chrono = "0.4"
+```
+
+**API:**
+```rust
+pub struct Template { ... }
+pub enum ValueSource { ... }
+pub fn generate(template: &Template, seed: u64, count: usize) -> Result<Vec<Message>, Error>;
+pub fn generate_single(template: &Template, rng: &mut StdRng) -> Result<Message, Error>;
+```
+
+**Priority:** MEDIUM - Core gen functionality with clear scope
+
+---
+
+### LOW Priority
+
+#### 11. `hl7v2-normalize` - Message Normalization
+
+**Extract from:** [`hl7v2-writer/src/lib.rs`](../crates/hl7v2-writer/src/lib.rs) (lines 210-234)
+
+**Rationale:**
+- Normalization is a transformation concern, not writing
+- Could expand to include more transformation utilities
+- Users may want normalization without full writer
+
+**What would be extracted:**
+- `normalize()` function - Parse and rewrite message
+- Canonical delimiter conversion
+- Future: encoding normalization, whitespace handling
+
+**Dependencies:**
+```toml
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-writer = { path = "../hl7v2-writer" }
+```
+
+**API:**
+```rust
+pub fn normalize(bytes: &[u8], canonical_delims: bool) -> Result<Vec<u8>, Error>;
+pub fn normalize_message(msg: &mut Message, canonical_delims: bool);
+pub fn is_canonical(msg: &Message) -> bool;
+```
+
+**Priority:** LOW - Small scope, limited use cases
+
+---
+
+#### 12. `hl7v2-corpus` - Test Corpus Generation
+
+**Extract from:** [`hl7v2-gen/src/lib.rs`](../crates/hl7v2-gen/src/lib.rs) (lines 496-630)
+
+**Rationale:**
+- Corpus generation is testing infrastructure, not production code
+- Large functions that add bulk to the gen crate
+- Could include additional corpus utilities
+
+**What would be extracted:**
+- `generate_corpus()` function - Generate large message sets
+- `generate_diverse_corpus()` function - Generate varied message types
+- `generate_distributed_corpus()` function - Generate with specific distributions
+- `verify_golden_hashes()` function - Hash verification
+- `generate_golden_hashes()` function - Golden hash generation
+
+**Dependencies:**
+```toml
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-gen = { path = "../hl7v2-gen" }
+sha2 = "0.10"
+rand = "0.8"
+```
+
+**API:**
+```rust
+pub fn generate_corpus(template: &Template, seed: u64, count: usize, batch_size: usize) -> Result<Vec<Message>, Error>;
+pub fn generate_diverse_corpus(templates: &[Template], seed: u64, count: usize) -> Result<Vec<Message>, Error>;
+pub fn generate_distributed_corpus(distributions: &[(Template, f64)], seed: u64, count: usize) -> Result<Vec<Message>, Error>;
+pub fn verify_golden_hashes(template: &Template, seed: u64, count: usize, expected: &[String]) -> Result<Vec<bool>, Error>;
+pub fn generate_golden_hashes(template: &Template, seed: u64, count: usize) -> Result<Vec<String>, Error>;
+```
+
+**Priority:** LOW - Testing infrastructure only
+
+---
+
+#### 13. `hl7v2-profile-defs` - Profile Type Definitions
+
+**Extract from:** [`hl7v2-prof/src/lib.rs`](../crates/hl7v2-prof/src/lib.rs) (lines 52-254)
+
+**Rationale:**
+- Profile type definitions are pure data structures
+- Could be used by tools that only need to read/analyze profiles
+- Separates schema from processing logic
+
+**What would be extracted:**
+- `Profile` struct
+- `SegmentSpec` struct
+- `Constraint` struct
+- `LengthConstraint` struct
+- `ValueSet` struct
+- `DataTypeConstraint` struct
+- `AdvancedDataTypeConstraint` struct
+- `CrossFieldRule` struct
+- `TemporalRule` struct
+- `ContextualRule` struct
+- `CustomRule` struct
+- `HL7Table` struct
+- `ExpressionGuardrails` struct
+
+**Dependencies:**
+```toml
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+hl7v2-validation = { path = "../hl7v2-validation" }  # For RuleCondition, RuleAction
+```
+
+**API:**
+```rust
+pub struct Profile { ... }
+pub struct SegmentSpec { ... }
+pub struct Constraint { ... }
+// ... all profile-related types
+```
+
+**Priority:** LOW - Limited standalone use cases
+
+---
+
+#### 14. `hl7v2-server-middleware` - HTTP Middleware Components
+
+**Extract from:** [`hl7v2-server/src/middleware.rs`](../crates/hl7v2-server/src/middleware.rs) (163 lines)
+
+**Rationale:**
+- Middleware is reusable across different server implementations
+- Could be used independently of HL7-specific handlers
+- Clear separation of concerns
+
+**What would be extracted:**
+- `logging_middleware()` - Request logging
+- `auth_middleware()` - API key authentication
+- `create_concurrency_limit_layer()` - Concurrency limiting
+- `create_custom_concurrency_limit_layer()` - Custom limits
+
+**Dependencies:**
+```toml
+[dependencies]
+axum = "0.8"
+tower = "0.5"
+tracing = "0.1"
+```
+
+**API:**
+```rust
+pub async fn logging_middleware(request: Request, next: Next) -> Response;
+pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, StatusCode>;
+pub fn create_concurrency_limit_layer() -> ConcurrencyLimitLayer;
+pub fn create_custom_concurrency_limit_layer(max: usize) -> ConcurrencyLimitLayer;
+```
+
+**Priority:** LOW - Server-specific, limited reuse
+
+---
+
+#### 15. `hl7v2-server-metrics` - Prometheus Metrics
+
+**Extract from:** [`hl7v2-server/src/metrics.rs`](../crates/hl7v2-server/src/metrics.rs) (200 lines)
+
+**Rationale:**
+- Metrics collection is infrastructure, not HL7 logic
+- Could be reused by other services
+- Removes metrics-exporter-prometheus dependency from main server
+
+**What would be extracted:**
+- `init_metrics_recorder()` - Initialize Prometheus
+- `record_request()` - Record HTTP request metrics
+- `increment_messages_parsed()` - Counter for parsed messages
+- `increment_messages_validated()` - Counter for validated messages
+- `increment_validation_errors()` - Counter for errors
+- `increment_parse_errors()` - Counter for parse errors
+- `record_message_size()` - Histogram for message sizes
+- `metrics_handler()` - Axum handler for /metrics
+- `metrics_middleware` - Middleware module
+
+**Dependencies:**
+```toml
+[dependencies]
+axum = "0.8"
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+```
+
+**API:**
+```rust
+pub fn init_metrics_recorder() -> PrometheusHandle;
+pub fn record_request(endpoint: &str, status: &str, duration_seconds: f64);
+pub fn increment_messages_parsed();
+pub fn increment_messages_validated();
+pub fn increment_validation_errors();
+pub fn increment_parse_errors();
+pub fn record_message_size(size_bytes: usize);
+pub async fn metrics_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse;
+```
+
+**Priority:** LOW - Server infrastructure
+
+---
+
+### Analysis Summary by Crate
+
+| Crate | Lines | Current State | Extraction Opportunities |
+|-------|-------|---------------|-------------------------|
+| `hl7v2-core` | 204 | ✅ Facade only | None - fully refactored |
+| `hl7v2-model` | 504 | ✅ SRP compliant | None - minimal, focused |
+| `hl7v2-parser` | 1005 | ⚠️ Mixed | `hl7v2-query` (get/get_presence) |
+| `hl7v2-writer` | 709 | ⚠️ Mixed | `hl7v2-json`, `hl7v2-normalize` |
+| `hl7v2-prof` | 1699 | ⚠️ Large | `hl7v2-profile-defs` |
+| `hl7v2-gen` | 1235 | ⚠️ Mixed | `hl7v2-template`, `hl7v2-corpus` |
+| `hl7v2-server` | ~800 | ⚠️ Mixed | `hl7v2-server-middleware`, `hl7v2-server-metrics` |
+| `hl7v2-cli` | 830 | ✅ Appropriate | None - CLI is single responsibility |
+| `hl7v2-batch` | 511 | ✅ SRP compliant | None - focused on batches |
+| `hl7v2-datetime` | 499 | ✅ SRP compliant | None - focused on dates |
+| `hl7v2-datatype` | 674 | ✅ SRP compliant | None - focused on types |
+| `hl7v2-path` | 331 | ✅ SRP compliant | None - minimal, focused |
+| `hl7v2-escape` | 373 | ✅ SRP compliant | None - minimal, focused |
+| `hl7v2-mllp` | 361 | ✅ SRP compliant | None - minimal, focused |
+| `hl7v2-validation` | 994 | ✅ Recently extracted | None - newly created |
+| `hl7v2-ack` | ~200 | ✅ Recently extracted | None - newly created |
+| `hl7v2-faker` | ~400 | ✅ Recently extracted | None - newly created |
+| `hl7v2-network` | ~500 | ✅ Recently extracted | None - newly created |
+| `hl7v2-stream` | ~200 | ✅ Recently extracted | None - newly created |
+
+---
+
+### Phase 3 Priority Matrix
+
+```
+                    ┌─────────────────────────────────────┐
+                    │         Impact on Modularity        │
+                    │      Low         Medium        High │
+        ┌───────────┼─────────────────────────────────────┤
+        │   HIGH    │                                     │
+  Urg   │           │                                     │
+  e     ├───────────┼─────────────────────────────────────┤
+  n     │  MEDIUM   │               │ hl7v2-query  │       │
+  c     │           │ hl7v2-        │ hl7v2-json   │       │
+  y     │           │ normalize     │ hl7v2-template│      │
+        ├───────────┼───────────────┼──────────────┼───────┤
+        │   LOW     │ hl7v2-        │ hl7v2-       │       │
+        │           │ server-       │ profile-defs │       │
+        │           │ metrics       │ hl7v2-corpus │       │
+        │           │ hl7v2-        │              │       │
+        │           │ server-       │              │       │
+        │           │ middleware    │              │       │
+        └───────────┴───────────────┴──────────────┴───────┘
+```
+
+---
+
+### Recommendations for Phase 3
+
+#### Recommended Order of Implementation
+
+1. **`hl7v2-query`** (MEDIUM) - Most reusable, clear boundary, no new dependencies
+2. **`hl7v2-json`** (MEDIUM) - Common use case, removes serde_json from writer
+3. **`hl7v2-template`** (MEDIUM) - Core gen functionality, enables lighter gen crate
+4. **`hl7v2-normalize`** (LOW) - Small scope but clean separation
+5. **`hl7v2-corpus`** (LOW) - Testing infrastructure, large code removal from gen
+6. **`hl7v2-profile-defs`** (LOW) - Schema separation, limited standalone use
+7. **`hl7v2-server-metrics`** (LOW) - Server infrastructure
+8. **`hl7v2-server-middleware`** (LOW) - Server infrastructure
+
+#### Not Recommended for Extraction
+
+The following were considered but determined to be **already optimal**:
+
+- `hl7v2-model` - Already minimal with just data types
+- `hl7v2-escape` - Single purpose, 373 lines is appropriate
+- `hl7v2-mllp` - Single purpose, 361 lines is appropriate
+- `hl7v2-path` - Single purpose, 331 lines is appropriate
+- `hl7v2-datetime` - Single purpose, focused on date/time
+- `hl7v2-datatype` - Single purpose, focused on data types
+- `hl7v2-batch` - Single purpose, focused on batch handling
+- `hl7v2-cli` - CLI by nature aggregates multiple commands
+
+---
+
 ### Next Steps
 
-The remaining LOW priority items (`hl7v2-test`, `hl7v2-bench`) can be addressed in future iterations as needed.
+1. **Review Phase 3 opportunities** with stakeholders
+2. **Prioritize based on actual use cases** - Which extractions would benefit users?
+3. **Implement MEDIUM priority items** if deemed valuable
+4. **Consider LOW priority items** for future iterations as needed
+5. **Update documentation** to reflect new crate structure
+
+---
+
+## Conclusion
+
+The HL7v2 Rust project SRP refactoring has been successfully completed. The following microcrates have been extracted:
+
+1. ✅ **`hl7v2-network`** - Network layer extracted, removes async dependencies from core
+2. ✅ **`hl7v2-stream`** - Streaming parser extracted, provides focused streaming capability
+3. ✅ **`hl7v2-validation`** - Validation engine extracted, enables independent evolution from profiles
+4. ✅ **`hl7v2-ack`** - ACK generation extracted, common use case with minimal dependencies
+5. ✅ **`hl7v2-faker`** - Test data generation extracted, useful for testing independently
+
+Phase 3 identifies **8 additional opportunities** (3 MEDIUM, 5 LOW priority) that could further improve modularity if needed.
+
+### Summary Statistics
+
+| Metric | Phase 1&2 | Phase 3 (Potential) | Total |
+|--------|-----------|---------------------|-------|
+| Crates Extracted | 5 | 8 | 13 |
+| HIGH Priority | 2 | 0 | 2 |
+| MEDIUM Priority | 3 | 3 | 6 |
+| LOW Priority | 0 | 5 | 5 |
+| Total Crates | 19 | 27 | 27 |
+
+The current 19-crate structure is **well-organized and follows SRP principles**. Phase 3 extractions are optional optimizations that could be pursued based on specific user needs and use cases.

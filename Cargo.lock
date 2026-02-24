@@ -1031,6 +1031,7 @@ dependencies = [
  "hl7v2-mllp",
  "hl7v2-model",
  "hl7v2-network",
+ "hl7v2-normalize",
  "hl7v2-parser",
  "hl7v2-stream",
  "hl7v2-writer",
@@ -1038,6 +1039,19 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
+]
+
+[[package]]
+name = "hl7v2-corpus"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hl7v2-core",
+ "rand",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -1079,18 +1093,22 @@ dependencies = [
 name = "hl7v2-gen"
 version = "0.1.0"
 dependencies = [
- "chrono",
  "hl7v2-ack",
  "hl7v2-core",
  "hl7v2-faker",
  "hl7v2-model",
+ "hl7v2-template",
  "hl7v2-writer",
- "rand",
- "rand_distr",
  "serde",
  "serde_yaml",
- "sha2",
- "uuid",
+]
+
+[[package]]
+name = "hl7v2-json"
+version = "0.1.0"
+dependencies = [
+ "hl7v2-model",
+ "serde_json",
 ]
 
 [[package]]
@@ -1124,12 +1142,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "hl7v2-normalize"
+version = "0.1.0"
+dependencies = [
+ "hl7v2-model",
+ "hl7v2-parser",
+ "hl7v2-writer",
+]
+
+[[package]]
 name = "hl7v2-parser"
 version = "0.1.0"
 dependencies = [
  "hl7v2-escape",
  "hl7v2-mllp",
  "hl7v2-model",
+ "hl7v2-query",
 ]
 
 [[package]]
@@ -1151,6 +1179,13 @@ dependencies = [
  "regex",
  "serde",
  "serde_yaml",
+]
+
+[[package]]
+name = "hl7v2-query"
+version = "0.1.0"
+dependencies = [
+ "hl7v2-model",
 ]
 
 [[package]]
@@ -1183,6 +1218,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hl7v2-template"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hl7v2-core",
+ "hl7v2-corpus",
+ "hl7v2-faker",
+ "hl7v2-model",
+ "rand",
+ "rand_distr",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
+
+[[package]]
 name = "hl7v2-validation"
 version = "0.1.0"
 dependencies = [
@@ -1198,9 +1250,10 @@ name = "hl7v2-writer"
 version = "0.1.0"
 dependencies = [
  "hl7v2-escape",
+ "hl7v2-json",
  "hl7v2-mllp",
  "hl7v2-model",
- "serde_json",
+ "hl7v2-parser",
 ]
 
 [[package]]

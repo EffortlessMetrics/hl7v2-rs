@@ -1,0 +1,22 @@
+[package]
+name = "hl7v2-corpus"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.88"
+authors.workspace = true
+description = "HL7 v2 test corpus generation and management utilities"
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+hl7v2-core = { path = "../hl7v2-core" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = "0.10"
+chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }
+thiserror = { workspace = true }
+rand = "0.8"
+
+[dev-dependencies]

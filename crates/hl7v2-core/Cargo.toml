@@ -22,6 +22,7 @@ hl7v2-escape = { path = "../hl7v2-escape" }
 hl7v2-mllp = { path = "../hl7v2-mllp" }
 hl7v2-parser = { path = "../hl7v2-parser" }
 hl7v2-writer = { path = "../hl7v2-writer" }
+hl7v2-normalize = { path = "../hl7v2-normalize" }
 
 # Optional network module (heavy async dependencies moved to hl7v2-network crate)
 hl7v2-network = { path = "../hl7v2-network", optional = true }

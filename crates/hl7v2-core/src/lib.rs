@@ -6,6 +6,7 @@
 //! - `hl7v2-mllp`: MLLP framing protocol
 //! - `hl7v2-parser`: Message parsing
 //! - `hl7v2-writer`: Message serialization
+//! - `hl7v2-normalize`: Message normalization
 //! - `hl7v2-stream`: Streaming/event-based parsing (optional, enable with `stream` feature)
 //! - `hl7v2-network`: Network client/server (optional, enable with `network` feature)
 //!
@@ -40,9 +41,12 @@ pub use hl7v2_parser::{
 
 // Re-export writer functions
 pub use hl7v2_writer::{
-    normalize, to_json, to_json_string, to_json_string_pretty, write, write_batch, write_file_batch,
+    to_json, to_json_string, to_json_string_pretty, write, write_batch, write_file_batch,
     write_mllp,
 };
+
+// Re-export normalization function
+pub use hl7v2_normalize::normalize;
 
 // Re-export network module when feature is enabled
 #[cfg(feature = "network")]
