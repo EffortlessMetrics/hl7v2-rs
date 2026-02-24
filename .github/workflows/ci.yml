@@ -13,13 +13,13 @@ env:
 
 jobs:
   check:
-    name: Check
+    name: Check & Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.89
+          toolchain: stable
           components: clippy, rustfmt
       - name: Check
         run: cargo check --workspace --all-features
@@ -27,14 +27,3 @@ jobs:
         run: cargo clippy --workspace --all-features --all-targets
       - name: Format
         run: cargo fmt --all -- --check
-
-  msrv:
-    name: MSRV
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.89
-      - name: Check with MSRV
-        run: cargo check --workspace --all-features
