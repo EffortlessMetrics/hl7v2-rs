@@ -1,0 +1,20 @@
+[package]
+name = "fuzz-hl7v2-template-values"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+hl7v2-template-values = { path = ".." }
+libfuzzer-sys = "0.4"
+rand = "0.10.0"
+serde_json = "1.0.149"
+
+[[bin]]
+name = "value_source"
+path = "fuzz_targets/value_source.rs"
+
+[workspace]

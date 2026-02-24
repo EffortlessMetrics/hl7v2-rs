@@ -36,25 +36,8 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-criterion = "0.8.2"
 cucumber = "0.22.1"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
-
-[[bench]]
-name = "parsing"
-harness = false
-
-[[bench]]
-name = "mllp"
-harness = false
-
-[[bench]]
-name = "escape"
-harness = false
-
-[[bench]]
-name = "memory"
-harness = false
 
 [[test]]
 name = "bdd_tests"

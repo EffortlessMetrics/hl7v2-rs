@@ -1,7 +1,8 @@
 //! Benchmarks for HL7 v2 parsing performance
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use hl7v2_core::{parse, write};
+use hl7v2_parser::parse;
+use hl7v2_writer::write;
 
 /// Create a sample HL7 message for benchmarking
 fn create_sample_message() -> String {
@@ -12,12 +13,11 @@ fn create_sample_message() -> String {
 fn create_large_message() -> String {
     let base_message = create_sample_message();
     let mut large_message = String::new();
-    
-    // Repeat the message 10 times to create a larger message
+
     for _ in 0..10 {
         large_message.push_str(&base_message);
     }
-    
+
     large_message
 }
 
@@ -25,7 +25,7 @@ fn create_large_message() -> String {
 fn bench_parse_small_message(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("parse_small_message", |b| {
         b.iter(|| {
             let result = parse(black_box(bytes));
@@ -38,7 +38,7 @@ fn bench_parse_small_message(c: &mut Criterion) {
 fn bench_parse_large_message(c: &mut Criterion) {
     let message = create_large_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("parse_large_message", |b| {
         b.iter(|| {
             let result = parse(black_box(bytes));
@@ -51,7 +51,7 @@ fn bench_parse_large_message(c: &mut Criterion) {
 fn bench_write_message(c: &mut Criterion) {
     let message = create_sample_message();
     let parsed = parse(message.as_bytes()).expect("Failed to parse message");
-    
+
     c.bench_function("write_message", |b| {
         b.iter(|| {
             let result = write(black_box(&parsed));
@@ -64,7 +64,7 @@ fn bench_write_message(c: &mut Criterion) {
 fn bench_parse_multiple_messages(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     let mut group = c.benchmark_group("parse_multiple");
     for num_messages in [1, 10, 100, 1000].iter() {
         group.bench_with_input(
@@ -92,3 +92,4 @@ criterion_group!(
 );
 
 criterion_main!(benches);
+

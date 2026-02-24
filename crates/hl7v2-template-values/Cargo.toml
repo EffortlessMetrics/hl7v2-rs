@@ -1,0 +1,28 @@
+[package]
+name = "hl7v2-template-values"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Value generation helpers for HL7 v2 templates"
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+hl7v2-core = { path = "../hl7v2-core" }
+hl7v2-faker = { path = "../hl7v2-faker" }
+chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
+rand = "0.10.0"
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+cucumber = "0.22.1"
+proptest = "1.6.0"
+serde_json = { workspace = true }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "bdd_tests"
+harness = false

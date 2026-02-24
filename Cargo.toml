@@ -19,9 +19,11 @@ members = [
     "crates/hl7v2-ack",
     "crates/hl7v2-faker",
     "crates/hl7v2-template",
+    "crates/hl7v2-template-values",
     "crates/hl7v2-corpus",
     # Higher-level crates
     "crates/hl7v2-core",
+    "crates/hl7v2-bench",
     "crates/hl7v2-prof",
     "crates/hl7v2-gen",
     "crates/hl7v2-cli",

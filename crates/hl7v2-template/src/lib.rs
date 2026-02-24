@@ -52,11 +52,10 @@
 //! ```
 
 use hl7v2_core::{Message, Delims, Error, Segment, Field, Rep, Comp, Atom};
-use hl7v2_faker::FakerValue;
 use serde::{Deserialize, Serialize};
-use rand::SeedableRng;
-use rand::RngExt;
-use rand::rngs::StdRng;
+use rand::{rngs::StdRng, RngExt, SeedableRng};
+pub use hl7v2_template_values::ValueSource;
+use hl7v2_template_values::generate_value;
 use std::collections::HashMap;
 use sha2::{Sha256, Digest};
 
@@ -79,100 +78,6 @@ pub struct Template {
     /// Value sources mapped to field paths (e.g., "PID.3" -> [ValueSource::UuidV4])
     #[serde(default)]
     pub values: std::collections::HashMap<String, Vec<ValueSource>>,
-}
-
-/// Source for generating values
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "value")]
-pub enum ValueSource {
-    /// A fixed constant value
-    Fixed(String),
-    /// A random choice from a list of options
-    From(Vec<String>),
-    /// A random numeric string with specified number of digits
-    Numeric { digits: usize },
-    /// A random date within a range (YYYYMMDD format)
-    Date { start: String, end: String },
-    /// A Gaussian-distributed numeric value
-    Gaussian { mean: f64, sd: f64, precision: usize },
-    /// A value mapped from a key
-    Map(std::collections::HashMap<String, String>),
-    /// A random UUID v4
-    UuidV4,
-    /// Current UTC timestamp in YYYYMMDDHHMMSS format
-    DtmNowUtc,
-    /// A realistic person name (optionally filtered by gender: "M", "F", or None)
-    RealisticName { gender: Option<String> },
-    /// A realistic street address
-    RealisticAddress,
-    /// A realistic phone number
-    RealisticPhone,
-    /// A realistic Social Security Number
-    RealisticSsn,
-    /// A realistic Medical Record Number
-    RealisticMrn,
-    /// A realistic ICD-10 diagnosis code
-    RealisticIcd10,
-    /// A realistic LOINC observation code
-    RealisticLoinc,
-    /// A realistic medication name
-    RealisticMedication,
-    /// A realistic allergen name
-    RealisticAllergen,
-    /// A realistic blood type
-    RealisticBloodType,
-    /// A realistic ethnicity code
-    RealisticEthnicity,
-    /// A realistic race code
-    RealisticRace,
-    // Error injection variants for negative testing
-    /// Injects an invalid segment ID error
-    InvalidSegmentId,
-    /// Injects an invalid field format error
-    InvalidFieldFormat,
-    /// Injects an invalid repetition format error
-    InvalidRepFormat,
-    /// Injects an invalid component format error
-    InvalidCompFormat,
-    /// Injects an invalid subcomponent format error
-    InvalidSubcompFormat,
-    /// Injects a duplicate delimiters error
-    DuplicateDelims,
-    /// Injects a bad delimiter length error
-    BadDelimLength,
-}
-
-impl ValueSource {
-    /// Convert to a FakerValue for use with the hl7v2-faker crate.
-    ///
-    /// Note: Error injection variants do not map to FakerValue and will
-    /// return an empty Fixed value as a fallback.
-    pub fn to_faker_value(&self) -> FakerValue {
-        match self {
-            ValueSource::Fixed(value) => FakerValue::Fixed(value.clone()),
-            ValueSource::From(options) => FakerValue::From(options.clone()),
-            ValueSource::Numeric { digits } => FakerValue::Numeric { digits: *digits },
-            ValueSource::Date { start, end } => FakerValue::Date { start: start.clone(), end: end.clone() },
-            ValueSource::Gaussian { mean, sd, precision } => FakerValue::Gaussian { mean: *mean, sd: *sd, precision: *precision },
-            ValueSource::Map(mapping) => FakerValue::Map(mapping.clone()),
-            ValueSource::UuidV4 => FakerValue::UuidV4,
-            ValueSource::DtmNowUtc => FakerValue::DtmNowUtc,
-            ValueSource::RealisticName { gender } => FakerValue::RealisticName { gender: gender.clone() },
-            ValueSource::RealisticAddress => FakerValue::RealisticAddress,
-            ValueSource::RealisticPhone => FakerValue::RealisticPhone,
-            ValueSource::RealisticSsn => FakerValue::RealisticSsn,
-            ValueSource::RealisticMrn => FakerValue::RealisticMrn,
-            ValueSource::RealisticIcd10 => FakerValue::RealisticIcd10,
-            ValueSource::RealisticLoinc => FakerValue::RealisticLoinc,
-            ValueSource::RealisticMedication => FakerValue::RealisticMedication,
-            ValueSource::RealisticAllergen => FakerValue::RealisticAllergen,
-            ValueSource::RealisticBloodType => FakerValue::RealisticBloodType,
-            ValueSource::RealisticEthnicity => FakerValue::RealisticEthnicity,
-            ValueSource::RealisticRace => FakerValue::RealisticRace,
-            // Error injection variants don't map to FakerValue
-            _ => FakerValue::Fixed(String::new()), // fallback
-        }
-    }
 }
 
 /// Generate messages from a template
@@ -353,129 +258,6 @@ fn generate_atom(atom_template: &str, values: &HashMap<String, Vec<ValueSource>>
     
     // If no value source is defined, use the template text as-is
     Ok(Atom::Text(atom_template.to_string()))
-}
-
-/// Generate a value from a value source
-fn generate_value(value_source: &ValueSource, rng: &mut StdRng) -> Result<String, Error> {
-    match value_source {
-        ValueSource::Fixed(value) => Ok(value.clone()),
-        ValueSource::From(options) => {
-            if options.is_empty() {
-                return Ok(String::new());
-            }
-            let index = rng.random_range(0..options.len());
-            Ok(options[index].clone())
-        },
-        ValueSource::Numeric { digits } => {
-            let mut result = String::new();
-            for _ in 0..*digits {
-                let digit = rng.random_range(0..10);
-                result.push_str(&digit.to_string());
-            }
-            Ok(result)
-        },
-        ValueSource::Date { start, end } => {
-            // Parse start and end dates (YYYYMMDD format)
-            let start_date = chrono::NaiveDate::parse_from_str(start, "%Y%m%d")
-                .map_err(|_| Error::InvalidEscapeToken)?; // Using InvalidEscapeToken as a placeholder error
-            let end_date = chrono::NaiveDate::parse_from_str(end, "%Y%m%d")
-                .map_err(|_| Error::InvalidEscapeToken)?;
-            
-            // Calculate the number of days between start and end
-            let duration = end_date.signed_duration_since(start_date);
-            let days = duration.num_days();
-            
-            // Generate a random number of days to add
-            let random_days = rng.random_range(0..=days);
-            
-            // Add the random days to the start date
-            let random_date = start_date + chrono::Duration::days(random_days);
-            
-            // Format as YYYYMMDD
-            Ok(random_date.format("%Y%m%d").to_string())
-        },
-        ValueSource::Gaussian { mean, sd, precision } => {
-            // Generate a Gaussian distributed value
-            let value = rng.sample(rand_distr::Normal::new(*mean, *sd).map_err(|_| Error::InvalidEscapeToken)?);
-            Ok(format!("{:.*}", precision, value))
-        },
-        ValueSource::Map(mapping) => {
-            // For map, we need a source value to map from
-            // Since we don't have that in this context, we'll just pick a random key and return its value
-            if mapping.is_empty() {
-                return Ok(String::new());
-            }
-            let keys: Vec<&String> = mapping.keys().collect();
-            let random_key = keys[rng.random_range(0..keys.len())];
-            Ok(mapping[random_key].clone())
-        },
-        ValueSource::UuidV4 => {
-            let uuid = uuid::Uuid::new_v4();
-            Ok(uuid.to_string())
-        },
-        ValueSource::DtmNowUtc => {
-            // Generate current UTC timestamp in YYYYMMDDHHMMSS format
-            let now = chrono::Utc::now();
-            Ok(now.format("%Y%m%d%H%M%S").to_string())
-        },
-        // Realistic data generation - use hl7v2-faker
-        ValueSource::RealisticName { gender } => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.name(gender.as_deref()))
-        },
-        ValueSource::RealisticAddress => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.address())
-        },
-        ValueSource::RealisticPhone => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.phone())
-        },
-        ValueSource::RealisticSsn => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.ssn())
-        },
-        ValueSource::RealisticMrn => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.mrn())
-        },
-        ValueSource::RealisticIcd10 => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.icd10())
-        },
-        ValueSource::RealisticLoinc => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.loinc())
-        },
-        ValueSource::RealisticMedication => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.medication())
-        },
-        ValueSource::RealisticAllergen => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.allergen())
-        },
-        ValueSource::RealisticBloodType => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.blood_type())
-        },
-        ValueSource::RealisticEthnicity => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.ethnicity())
-        },
-        ValueSource::RealisticRace => {
-            let mut faker = hl7v2_faker::Faker::new(rng);
-            Ok(faker.race())
-        },
-        // Error injection variants for negative testing
-        ValueSource::InvalidSegmentId => Err(Error::InvalidSegmentId),
-        ValueSource::InvalidFieldFormat => Err(Error::InvalidFieldFormat { details: "Injected invalid field format".to_string() }),
-        ValueSource::InvalidRepFormat => Err(Error::InvalidRepFormat { details: "Injected invalid repetition format".to_string() }),
-        ValueSource::InvalidCompFormat => Err(Error::InvalidCompFormat { details: "Injected invalid component format".to_string() }),
-        ValueSource::InvalidSubcompFormat => Err(Error::InvalidSubcompFormat { details: "Injected invalid subcomponent format".to_string() }),
-        ValueSource::DuplicateDelims => Err(Error::DuplicateDelims),
-        ValueSource::BadDelimLength => Err(Error::BadDelimLength),
-    }
 }
 
 /// Generate a corpus of messages

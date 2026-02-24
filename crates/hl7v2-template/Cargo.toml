@@ -13,14 +13,12 @@ categories.workspace = true
 [dependencies]
 hl7v2-model = { path = "../hl7v2-model" }
 hl7v2-core = { path = "../hl7v2-core" }
-hl7v2-faker = { path = "../hl7v2-faker" }
+hl7v2-template-values = { path = "../hl7v2-template-values" }
 hl7v2-corpus = { path = "../hl7v2-corpus" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 rand = "0.10.0"
-rand_distr = "0.6.0"
-chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
 sha2 = "0.10.9"
-uuid = { workspace = true, features = ["v4"] }
+
 
 [dev-dependencies]
