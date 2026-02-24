@@ -9,7 +9,7 @@ use hl7v2_core::{parse, to_json, write};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 mod monitor;
-use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
+// use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator")]
@@ -522,15 +522,32 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Goodbye!");
                 break;
             }
+            "clear" | "cls" => {
+                // ANSI escape codes: \x1B[2J clears screen, \x1B[1;1H moves cursor to top-left
+                print!("\x1B[2J\x1B[1;1H");
+                std::io::stdout().flush()?;
+            }
             "help" => {
                 println!("Available commands:");
-                println!("  parse <file> [options]  - Parse an HL7 message");
-                println!("  norm <file> [options]   - Normalize an HL7 message");
-                println!("  val <file> <profile>    - Validate an HL7 message");
-                println!("  ack <file> [options]    - Generate an ACK for an HL7 message");
-                println!("  gen <profile> [options] - Generate synthetic messages");
-                println!("  help                    - Show this help message");
-                println!("  exit|quit               - Exit interactive mode");
+
+                println!("  \x1b[1mProcessing:\x1b[0m");
+                println!("    parse <file> [options]  - Parse an HL7 message");
+                println!("    norm <file> [options]   - Normalize an HL7 message");
+                println!();
+
+                println!("  \x1b[1mValidation:\x1b[0m");
+                println!("    val <file> <profile>    - Validate an HL7 message");
+                println!();
+
+                println!("  \x1b[1mGeneration:\x1b[0m");
+                println!("    ack <file> [options]    - Generate an ACK for an HL7 message");
+                println!("    gen <profile> [options] - Generate synthetic messages");
+                println!();
+
+                println!("  \x1b[1mSystem:\x1b[0m");
+                println!("    clear                   - Clear the screen");
+                println!("    help                    - Show this help message");
+                println!("    exit|quit               - Exit interactive mode");
                 println!();
             }
             _ => {
