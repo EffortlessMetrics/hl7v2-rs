@@ -257,9 +257,5 @@ See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete feature li
 
 ## License
 
-This project is licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
+This project is licensed under the GNU Affero General Public License, version 3 or later
+(**AGPL-3.0-or-later**). See [LICENSE](LICENSE).

@@ -35,10 +35,10 @@ resolver = "2"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.92"
-authors = ["Steven Zimmerman <git@efforlesssteven.com>"]
+authors = ["Steven Zimmerman <git@effortlesssteven.com>"]
 description = "Modern Rust HL7v2 Processor"
-license = "AGPL v3"
-repository = "https://github.com/EffortlessSteven/hl7v2-rs"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/EffortlessMetrics/hl7v2-rs"
 keywords = ["hl7", "healthcare", "parser", "validator"]
 categories = ["parser-implementations", "encoding"]
 

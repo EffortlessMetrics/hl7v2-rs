@@ -300,15 +300,11 @@ For exact benchmark numbers and hardware, see [IMPLEMENTATION_STATUS.md](IMPLEME
 
 ## License
 
-Licensed under either of
+This project is licensed under the GNU Affero General Public License, version 3 or later
+(**AGPL-3.0-or-later**). See [LICENSE](LICENSE).
 
- * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+## Contributing
 
-at your option.
-
-## Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above, without any additional terms or conditions.
+By submitting a contribution (pull request, patch, issue comment containing code, etc.),
+you agree to the terms in [CLA.md](CLA.md) and you license your contribution under
+**AGPL-3.0-or-later**.

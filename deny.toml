@@ -21,12 +21,20 @@ allow = [
     "ISC",
     "Unicode-DFS-2016",
     "Zlib",
+    "AGPL-3.0-only",
+    "AGPL-3.0-or-later",
 ]
 deny = [
-    "GPL-3.0",
-    "AGPL-3.0",
+    "GPL-2.0-only",
+    "GPL-2.0-or-later",
+    "GPL-3.0-only",
+    "GPL-3.0-or-later",
+    "LGPL-2.1-only",
+    "LGPL-2.1-or-later",
+    "LGPL-3.0-only",
+    "LGPL-3.0-or-later",
 ]
-copyleft = "deny"
+copyleft = "warn"
 allow-osi-fsf-free = "neither"
 default = "deny"
 confidence-threshold = 0.8
