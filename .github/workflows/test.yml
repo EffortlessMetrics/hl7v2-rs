@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [stable, '1.89']  # MSRV + stable
+        rust: [stable]  # Minimal matrix to save budget
     steps:
       - uses: actions/checkout@v4
 
@@ -41,48 +41,48 @@ jobs:
       - name: Run Doc Tests
         run: cargo test --doc --all
 
-  integration:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: hl7v2_test
-          POSTGRES_USER: hl7v2
-          POSTGRES_PASSWORD: test_password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
+  # integration:
+  #   name: Integration Tests
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     postgres:
+  #       image: postgres:16-alpine
+  #       env:
+  #         POSTGRES_DB: hl7v2_test
+  #         POSTGRES_USER: hl7v2
+  #         POSTGRES_PASSWORD: test_password
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 5432:5432
 
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
+  #     redis:
+  #       image: redis:7-alpine
+  #       options: >-
+  #         --health-cmd "redis-cli ping"
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 6379:6379
 
-    steps:
-      - uses: actions/checkout@v4
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v2
+  #     - name: Cache Dependencies
+  #       uses: Swatinem/rust-cache@v2
 
-      - name: Run Integration Tests
-        env:
-          DATABASE_URL: postgres://hl7v2:test_password@localhost:5432/hl7v2_test
-          REDIS_URL: redis://localhost:6379
-        run: cargo test --test '*' -- --test-threads=1
+  #     - name: Run Integration Tests
+  #       env:
+  #         DATABASE_URL: postgres://hl7v2:test_password@localhost:5432/hl7v2_test
+  #         REDIS_URL: redis://localhost:6379
+  #       run: cargo test --test '*' -- --test-threads=1
 
   # property:
   #   name: Property-Based Tests

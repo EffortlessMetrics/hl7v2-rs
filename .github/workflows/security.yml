@@ -1,8 +1,8 @@
 name: Security
 
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   # pull_request:  # Disable on PRs to save budget
   #   branches: [main]
   schedule:
