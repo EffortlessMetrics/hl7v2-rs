@@ -32,6 +32,7 @@
 //! let mrn = faker.mrn();
 //! ```
 
+use rand::RngExt;
 use rand_distr::Normal;
 
 /// Main faker struct for generating realistic test data.
@@ -77,8 +78,8 @@ impl<'a, R: Rng> Faker<'a, R> {
             "Gonzalez", "Wilson", "Anderson"
         ];
 
-        let first_name = first_names[self.rng.gen_range(0..first_names.len())];
-        let last_name = last_names[self.rng.gen_range(0..last_names.len())];
+        let first_name = first_names[self.rng.random_range(0..first_names.len())];
+        let last_name = last_names[self.rng.random_range(0..last_names.len())];
 
         format!("{}^{}", last_name, first_name)
     }
@@ -101,11 +102,11 @@ impl<'a, R: Rng> Faker<'a, R> {
 
         let states = &["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA"];
 
-        let street_number = self.rng.gen_range(100..9999);
-        let street = streets[self.rng.gen_range(0..streets.len())];
-        let city = cities[self.rng.gen_range(0..cities.len())];
-        let state = states[self.rng.gen_range(0..states.len())];
-        let zip = format!("{:05}", self.rng.gen_range(10000..99999));
+        let street_number = self.rng.random_range(100..9999);
+        let street = streets[self.rng.random_range(0..streets.len())];
+        let city = cities[self.rng.random_range(0..cities.len())];
+        let state = states[self.rng.random_range(0..states.len())];
+        let zip = format!("{:05}", self.rng.random_range(10000..99999));
 
         format!("{} {}^^{}^{}^{}^{}", street_number, street, city, state, zip, "USA")
     }
@@ -116,9 +117,9 @@ impl<'a, R: Rng> Faker<'a, R> {
     ///
     /// A phone number in the format "(AREA)EXCHANGE-NUMBER"
     pub fn phone(&mut self) -> String {
-        let area_code = self.rng.gen_range(200..999);
-        let exchange = self.rng.gen_range(200..999);
-        let number = self.rng.gen_range(1000..9999);
+        let area_code = self.rng.random_range(200..999);
+        let exchange = self.rng.random_range(200..999);
+        let number = self.rng.random_range(1000..9999);
         format!("({}){}-{}", area_code, exchange, number)
     }
 
@@ -128,9 +129,9 @@ impl<'a, R: Rng> Faker<'a, R> {
     ///
     /// An SSN in the format "XXX-XX-XXXX"
     pub fn ssn(&mut self) -> String {
-        let part1 = self.rng.gen_range(100..999);
-        let part2 = self.rng.gen_range(10..99);
-        let part3 = self.rng.gen_range(1000..9999);
+        let part1 = self.rng.random_range(100..999);
+        let part2 = self.rng.random_range(10..99);
+        let part3 = self.rng.random_range(1000..9999);
         format!("{}-{}-{}", part1, part2, part3)
     }
 
@@ -140,10 +141,10 @@ impl<'a, R: Rng> Faker<'a, R> {
     ///
     /// An MRN with 6-10 digits
     pub fn mrn(&mut self) -> String {
-        let length = self.rng.gen_range(6..=10);
+        let length = self.rng.random_range(6..=10);
         let mut mrn = String::new();
         for _ in 0..length {
-            let digit = self.rng.gen_range(0..10);
+            let digit = self.rng.random_range(0..10);
             mrn.push_str(&digit.to_string());
         }
         mrn
@@ -158,8 +159,8 @@ impl<'a, R: Rng> Faker<'a, R> {
         let categories = &[
             "A00", "B01", "C02", "D03", "E04", "F05", "G06", "H07", "I08", "J09"
         ];
-        let category = categories[self.rng.gen_range(0..categories.len())];
-        let subcode = self.rng.gen_range(0..10);
+        let category = categories[self.rng.random_range(0..categories.len())];
+        let subcode = self.rng.random_range(0..10);
         format!("{}.{}", category, subcode)
     }
 
@@ -169,7 +170,7 @@ impl<'a, R: Rng> Faker<'a, R> {
     ///
     /// A LOINC code (5-7 digit number)
     pub fn loinc(&mut self) -> String {
-        let code = self.rng.gen_range(10000..9999999);
+        let code = self.rng.random_range(10000..9999999);
         code.to_string()
     }
 
@@ -184,7 +185,7 @@ impl<'a, R: Rng> Faker<'a, R> {
             "Amlodipine", "Metoprolol", "Omeprazole", "Simvastatin",
             "Losartan", "Albuterol"
         ];
-        medications[self.rng.gen_range(0..medications.len())].to_string()
+        medications[self.rng.random_range(0..medications.len())].to_string()
     }
 
     /// Generate a realistic allergen.
@@ -197,7 +198,7 @@ impl<'a, R: Rng> Faker<'a, R> {
             "Penicillin", "Latex", "Peanuts", "Shellfish", "Eggs",
             "Milk", "Tree Nuts", "Soy", "Wheat", "Bee Stings"
         ];
-        allergens[self.rng.gen_range(0..allergens.len())].to_string()
+        allergens[self.rng.random_range(0..allergens.len())].to_string()
     }
 
     /// Generate a realistic blood type.
@@ -207,7 +208,7 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// A blood type string (e.g., "A+", "O-")
     pub fn blood_type(&mut self) -> String {
         let blood_types = &["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-        blood_types[self.rng.gen_range(0..blood_types.len())].to_string()
+        blood_types[self.rng.random_range(0..blood_types.len())].to_string()
     }
 
     /// Generate a realistic ethnicity.
@@ -219,7 +220,7 @@ impl<'a, R: Rng> Faker<'a, R> {
         let ethnicities = &[
             "Hispanic or Latino", "Not Hispanic or Latino", "Declined to Specify"
         ];
-        ethnicities[self.rng.gen_range(0..ethnicities.len())].to_string()
+        ethnicities[self.rng.random_range(0..ethnicities.len())].to_string()
     }
 
     /// Generate a realistic race.
@@ -232,7 +233,7 @@ impl<'a, R: Rng> Faker<'a, R> {
             "American Indian or Alaska Native", "Asian", "Black or African American",
             "Native Hawaiian or Other Pacific Islander", "White", "Declined to Specify"
         ];
-        races[self.rng.gen_range(0..races.len())].to_string()
+        races[self.rng.random_range(0..races.len())].to_string()
     }
 
     /// Generate a numeric string with the specified number of digits.
@@ -243,7 +244,7 @@ impl<'a, R: Rng> Faker<'a, R> {
     pub fn numeric(&mut self, digits: usize) -> String {
         let mut result = String::new();
         for _ in 0..digits {
-            let digit = self.rng.gen_range(0..10);
+            let digit = self.rng.random_range(0..10);
             result.push_str(&digit.to_string());
         }
         result
@@ -268,7 +269,7 @@ impl<'a, R: Rng> Faker<'a, R> {
         let duration = end_date.signed_duration_since(start_date);
         let days = duration.num_days();
 
-        let random_days = self.rng.gen_range(0..=days);
+        let random_days = self.rng.random_range(0..=days);
         let random_date = start_date + chrono::Duration::days(random_days);
 
         Ok(random_date.format("%Y%m%d").to_string())
@@ -311,7 +312,7 @@ impl<'a, R: Rng> Faker<'a, R> {
         if options.is_empty() {
             return None;
         }
-        let index = self.rng.gen_range(0..options.len());
+        let index = self.rng.random_range(0..options.len());
         Some(options[index].clone())
     }
 
@@ -325,7 +326,7 @@ impl<'a, R: Rng> Faker<'a, R> {
             return None;
         }
         let keys: Vec<&String> = map.keys().collect();
-        let random_key = keys[self.rng.gen_range(0..keys.len())];
+        let random_key = keys[self.rng.random_range(0..keys.len())];
         Some(map[random_key].clone())
     }
 }

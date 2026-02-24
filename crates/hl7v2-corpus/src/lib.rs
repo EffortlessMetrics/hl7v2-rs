@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
-use rand::{SeedableRng, Rng};
+use rand::{RngExt, SeedableRng};
 
 /// Configuration for corpus generation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,7 +223,7 @@ impl CorpusManifest {
         
         // Fisher-Yates shuffle
         for i in (1..total).rev() {
-            let j = rng.gen_range(0..=i);
+            let j = rng.random_range(0..=i);
             indices.swap(i, j);
         }
 

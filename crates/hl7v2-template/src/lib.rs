@@ -54,8 +54,8 @@
 use hl7v2_core::{Message, Delims, Error, Segment, Field, Rep, Comp, Atom};
 use hl7v2_faker::FakerValue;
 use serde::{Deserialize, Serialize};
-use rand::Rng;
 use rand::SeedableRng;
+use rand::RngExt;
 use rand::rngs::StdRng;
 use std::collections::HashMap;
 use sha2::{Sha256, Digest};
@@ -363,13 +363,13 @@ fn generate_value(value_source: &ValueSource, rng: &mut StdRng) -> Result<String
             if options.is_empty() {
                 return Ok(String::new());
             }
-            let index = rng.gen_range(0..options.len());
+            let index = rng.random_range(0..options.len());
             Ok(options[index].clone())
         },
         ValueSource::Numeric { digits } => {
             let mut result = String::new();
             for _ in 0..*digits {
-                let digit = rng.gen_range(0..10);
+                let digit = rng.random_range(0..10);
                 result.push_str(&digit.to_string());
             }
             Ok(result)
@@ -386,7 +386,7 @@ fn generate_value(value_source: &ValueSource, rng: &mut StdRng) -> Result<String
             let days = duration.num_days();
             
             // Generate a random number of days to add
-            let random_days = rng.gen_range(0..=days);
+            let random_days = rng.random_range(0..=days);
             
             // Add the random days to the start date
             let random_date = start_date + chrono::Duration::days(random_days);
@@ -406,7 +406,7 @@ fn generate_value(value_source: &ValueSource, rng: &mut StdRng) -> Result<String
                 return Ok(String::new());
             }
             let keys: Vec<&String> = mapping.keys().collect();
-            let random_key = keys[rng.gen_range(0..keys.len())];
+            let random_key = keys[rng.random_range(0..keys.len())];
             Ok(mapping[random_key].clone())
         },
         ValueSource::UuidV4 => {
@@ -531,7 +531,7 @@ pub fn generate_diverse_corpus(templates: &[Template], seed: u64, count: usize) 
     
     for i in 0..count {
         // Select a random template
-        let template_index = rng.gen_range(0..templates.len());
+        let template_index = rng.random_range(0..templates.len());
         let template = &templates[template_index];
         
         let message = generate_single_message(template, &mut rng, i)?;
@@ -580,7 +580,7 @@ pub fn generate_distributed_corpus(
     
     for i in 0..count {
         // Select template based on distribution
-        let random_value = rng.gen_range(0.0..1.0);
+        let random_value = rng.random_range(0.0..1.0);
         let template = cumulative_distribution
             .iter()
             .find(|(_, cumulative)| random_value <= *cumulative)
