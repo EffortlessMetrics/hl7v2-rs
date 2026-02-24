@@ -2,7 +2,7 @@
 name = "hl7v2-corpus"
 version.workspace = true
 edition.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 authors.workspace = true
 description = "HL7 v2 test corpus generation and management utilities"
 license.workspace = true
@@ -14,9 +14,9 @@ categories.workspace = true
 hl7v2-core = { path = "../hl7v2-core" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-sha2 = "0.10"
-chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }
+sha2 = "0.10.9"
+chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
 thiserror = { workspace = true }
-rand = "0.8"
+rand = "0.10.0"
 
 [dev-dependencies]

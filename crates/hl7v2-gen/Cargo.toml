@@ -2,7 +2,7 @@
 name = "hl7v2-gen"
 version.workspace = true
 edition.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 authors.workspace = true
 description.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ hl7v2-faker = { path = "../hl7v2-faker" }
 # Template functionality is now in its own crate
 hl7v2-template = { path = "../hl7v2-template" }
 serde = { workspace = true, features = ["derive"] }
-serde_yaml = "0.9"
+serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }

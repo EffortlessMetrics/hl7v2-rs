@@ -2,7 +2,7 @@
 name = "hl7v2-network"
 version.workspace = true
 edition.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 authors.workspace = true
 description = "HL7 v2 MLLP network client and server (TCP/TLS)"
 license.workspace = true
@@ -17,18 +17,18 @@ hl7v2-parser = { path = "../hl7v2-parser" }
 hl7v2-writer = { path = "../hl7v2-writer" }
 
 # Async runtime and networking
-tokio = { version = "1.0", features = ["net", "io-util", "time", "macros", "rt", "sync"] }
-tokio-util = { version = "0.7", features = ["codec"] }
-bytes = "1.0"
-futures = "0.3"
+tokio = { version = "1.49.0", features = ["net", "io-util", "time", "macros", "rt", "sync"] }
+tokio-util = { version = "0.7.18", features = ["codec"] }
+bytes = "1.11.1"
+futures = "0.3.32"
 
 # Optional TLS support
-rustls = { version = "0.23", optional = true }
-tokio-rustls = { version = "0.26", optional = true }
+rustls = { version = "0.23.36", optional = true }
+tokio-rustls = { version = "0.26.4", optional = true }
 
 [features]
 default = []
 tls = ["rustls", "tokio-rustls"]
 
 [dev-dependencies]
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }

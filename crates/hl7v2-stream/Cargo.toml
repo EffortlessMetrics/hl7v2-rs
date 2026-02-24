@@ -2,7 +2,7 @@
 name = "hl7v2-stream"
 version.workspace = true
 edition.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 authors.workspace = true
 description = "Streaming/event-based parser for HL7 v2 messages"
 license.workspace = true

@@ -2,7 +2,7 @@
 name = "hl7v2-faker"
 version.workspace = true
 edition.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 authors.workspace = true
 description = "Realistic HL7 v2 test data generation (names, addresses, medical codes, etc.)"
 license.workspace = true
@@ -11,9 +11,9 @@ keywords = ["hl7", "healthcare", "faker", "test-data", "mock"]
 categories = ["development-tools::testing", "parser-implementations"]
 
 [dependencies]
-rand = "0.8"
-rand_distr = "0.4"
-chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }
+rand = "0.10.0"
+rand_distr = "0.6.0"
+chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
 uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
