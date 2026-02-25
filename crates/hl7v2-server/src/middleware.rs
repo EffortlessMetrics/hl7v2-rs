@@ -8,13 +8,16 @@
 //! - Request ID generation
 
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     http::StatusCode,
     middleware::Next,
     response::Response,
 };
+use std::sync::Arc;
 use tower::limit::ConcurrencyLimitLayer;
 use tracing::info;
+
+use crate::server::AppState;
 
 /// Request logging middleware
 pub async fn logging_middleware(request: Request, next: Next) -> Response {
@@ -38,9 +41,20 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
     response
 }
 
+/// Constant-time string comparison to prevent timing attacks
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.bytes()
+        .zip(b.bytes())
+        .fold(0, |acc, (x, y)| acc | (x ^ y))
+        == 0
+}
+
 /// API key authentication middleware
 ///
-/// Validates requests against the HL7V2_API_KEY environment variable.
+/// Validates requests against the configured API key.
 /// Uses X-API-Key header for authentication.
 ///
 /// # Security Note
@@ -49,20 +63,21 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
 /// - OAuth 2.0 / OIDC
 /// - mTLS
 /// - More sophisticated key management (HashiCorp Vault, AWS Secrets Manager)
-pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, StatusCode> {
+pub async fn auth_middleware(
+    State(state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
     const API_KEY_HEADER: &str = "X-API-Key";
 
-    // Load expected API key from environment
-    let expected_key = match std::env::var("HL7V2_API_KEY") {
-        Ok(key) if !key.is_empty() => key,
-        Ok(_) => {
-            // Empty key configured - fail closed
-            tracing::error!("HL7V2_API_KEY environment variable is empty");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-        Err(_) => {
+    // Load expected API key from state
+    let expected_key = match &state.api_key {
+        Some(key) if !key.is_empty() => key,
+        _ => {
             // No key configured - fail closed
-            tracing::error!("HL7V2_API_KEY environment variable not set");
+            tracing::error!(
+                "API key not configured (neither via config nor HL7V2_API_KEY env var)"
+            );
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
@@ -74,7 +89,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, S
         .and_then(|h| h.to_str().ok());
 
     match provided_key {
-        Some(key) if key == expected_key => {
+        Some(key) if constant_time_eq(key, expected_key) => {
             // Valid key - allow request
             Ok(next.run(request).await)
         }
@@ -115,7 +130,7 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, S
 /// // Use with axum Router: Router::new().layer(_layer)
 /// ```
 pub fn create_concurrency_limit_layer() -> ConcurrencyLimitLayer {
-    ConcurrencyLimitLayer::new(100)  // Allow up to 100 concurrent requests
+    ConcurrencyLimitLayer::new(100) // Allow up to 100 concurrent requests
 }
 
 /// Create a custom concurrency limiting layer with configurable limit

@@ -26,6 +26,7 @@ async fn test_validate_with_minimal_profile() {
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -55,6 +56,7 @@ async fn test_validate_adt_a01_with_matching_profile() {
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -93,6 +95,7 @@ async fn test_validate_malformed_message_returns_error() {
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -122,6 +125,7 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -131,7 +135,9 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
     // Invalid YAML profile might still succeed if parsed as simple string
     // or may return an error depending on validation strictness
     assert!(
-        response.status() == StatusCode::OK || response.status().is_client_error() || response.status().is_server_error(),
+        response.status() == StatusCode::OK
+            || response.status().is_client_error()
+            || response.status().is_server_error(),
         "Invalid profile should be handled gracefully, got: {}",
         response.status()
     );
@@ -151,6 +157,7 @@ async fn test_validate_missing_message_field_returns_400() {
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -159,7 +166,7 @@ async fn test_validate_missing_message_field_returns_400() {
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
-        || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
+            || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
         "Missing message field should return 400 or 422, got: {}",
         response.status()
     );
@@ -179,6 +186,7 @@ async fn test_validate_missing_profile_field_returns_400() {
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -187,7 +195,7 @@ async fn test_validate_missing_profile_field_returns_400() {
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
-        || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
+            || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
         "Missing profile field should return 400 or 422, got: {}",
         response.status()
     );
@@ -203,6 +211,7 @@ async fn test_validate_empty_request_body_returns_400() {
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from("{}"))
                 .unwrap(),
         )
@@ -211,7 +220,7 @@ async fn test_validate_empty_request_body_returns_400() {
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
-        || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
+            || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
         "Empty request body should return 400 or 422, got: {}",
         response.status()
     );
@@ -226,6 +235,7 @@ async fn test_validate_get_method_not_allowed() {
             Request::builder()
                 .uri("/hl7/validate")
                 .method("GET")
+                .header("X-API-Key", "test-key")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -255,6 +265,7 @@ async fn test_validate_returns_json_response() {
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
+                .header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
