@@ -3,8 +3,7 @@ name: Test
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  # Removed pull_request trigger to save resources
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,14 +28,9 @@ jobs:
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Check
-        run: cargo check --all --verbose
-
-      - name: Clippy
-        run: cargo clippy --all -- -D warnings
-
       - name: Run Tests
-        run: cargo test --all --verbose
-
-      - name: Run Doc Tests
-        run: cargo test --doc --all
+        # Combines check, clippy, test into one job to save minutes
+        run: |
+          cargo check --all
+          cargo clippy --all -- -D warnings
+          cargo test --all
