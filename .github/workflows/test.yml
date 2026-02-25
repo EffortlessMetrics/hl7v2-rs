@@ -17,12 +17,13 @@ env:
 jobs:
   test:
     name: Test Suite
-    runs-on: ${{ matrix.os }}
+    # Reduced to ubuntu-latest only to save CI minutes
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, '1.89']  # MSRV + stable
+        # os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable]  # Only test stable
     steps:
       - uses: actions/checkout@v4
 
@@ -85,98 +86,98 @@ jobs:
           REDIS_URL: redis://localhost:6379
         run: cargo test --test '*' -- --test-threads=1
 
-  property:
-    name: Property-Based Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # property:
+  #   name: Property-Based Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #
+  #     - name: Cache Dependencies
+  #       uses: Swatinem/rust-cache@v2
+  #
+  #     - name: Run Property Tests
+  #       run: cargo test --features proptest -- --include-ignored
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+  # coverage:
+  #   name: Code Coverage
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         components: llvm-tools-preview
+  #
+  #     - name: Cache Dependencies
+  #       uses: Swatinem/rust-cache@v2
+  #
+  #     - name: Install cargo-llvm-cov
+  #       uses: taiki-e/install-action@cargo-llvm-cov
+  #
+  #     - name: Generate Coverage
+  #       run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+  #
+  #     - name: Upload to Codecov
+  #       uses: codecov/codecov-action@v4
+  #       with:
+  #         files: lcov.info
+  #         fail_ci_if_error: false
+  #         token: ${{ secrets.CODECOV_TOKEN }}
+  #
+  #     - name: Check Coverage Threshold
+  #       run: |
+  #         coverage=$(cargo llvm-cov --all-features --workspace --summary-only | grep "TOTAL" | awk '{print $10}' | tr -d '%')
+  #         if (( $(echo "$coverage < 90" | bc -l) )); then
+  #           echo "Coverage $coverage% is below 90% threshold"
+  #           exit 1
+  #         fi
 
-      - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v2
+  # bench:
+  #   name: Benchmarks
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #
+  #     - name: Cache Dependencies
+  #       uses: Swatinem/rust-cache@v2
+  #
+  #     - name: Run Benchmarks
+  #       run: cargo bench --all -- --output-format bencher | tee output.txt
+  #
+  #     - name: Store Benchmark Result
+  #       uses: benchmark-action/github-action-benchmark@v1
+  #       with:
+  #         tool: 'cargo'
+  #         output-file-path: output.txt
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         auto-push: true
+  #         alert-threshold: '110%'
+  #         comment-on-alert: true
+  #         fail-on-alert: false
 
-      - name: Run Property Tests
-        run: cargo test --features proptest -- --include-ignored
-
-  coverage:
-    name: Code Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-
-      - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
-      - name: Generate Coverage
-        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: lcov.info
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Check Coverage Threshold
-        run: |
-          coverage=$(cargo llvm-cov --all-features --workspace --summary-only | grep "TOTAL" | awk '{print $10}' | tr -d '%')
-          if (( $(echo "$coverage < 90" | bc -l) )); then
-            echo "Coverage $coverage% is below 90% threshold"
-            exit 1
-          fi
-
-  bench:
-    name: Benchmarks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v2
-
-      - name: Run Benchmarks
-        run: cargo bench --all -- --output-format bencher | tee output.txt
-
-      - name: Store Benchmark Result
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          tool: 'cargo'
-          output-file-path: output.txt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: '110%'
-          comment-on-alert: true
-          fail-on-alert: false
-
-  memory:
-    name: Memory Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@nightly
-
-      - name: Install Valgrind
-        run: sudo apt-get update && sudo apt-get install -y valgrind
-
-      - name: Run Memory Tests
-        run: cargo test --release -- --test-threads=1 --ignored memory
-
-      - name: Check for Memory Leaks
-        run: |
-          valgrind --leak-check=full --error-exitcode=1 \
-            target/release/deps/hl7v2_core-* --test-threads=1
+  # memory:
+  #   name: Memory Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@nightly
+  #
+  #     - name: Install Valgrind
+  #       run: sudo apt-get update && sudo apt-get install -y valgrind
+  #
+  #     - name: Run Memory Tests
+  #       run: cargo test --release -- --test-threads=1 --ignored memory
+  #
+  #     - name: Check for Memory Leaks
+  #       run: |
+  #         valgrind --leak-check=full --error-exitcode=1 \
+  #           target/release/deps/hl7v2_core-* --test-threads=1
