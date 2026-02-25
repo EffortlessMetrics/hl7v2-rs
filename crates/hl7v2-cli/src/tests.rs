@@ -27,12 +27,14 @@ mod tests {
 
     mod argument_parsing {
         use super::*;
+        use clap::CommandFactory;
 
         #[test]
         fn test_parse_command_requires_input() {
             // Test that parse command requires an input file argument
             // This is enforced by clap's derive macros
-            let schema = clap::Command::new("hl7v2");
+            use crate::Cli;
+            let schema = Cli::command();
             // The command structure requires input for Parse variant
             assert!(schema.get_subcommands().any(|c| c.get_name() == "parse"));
         }
@@ -40,7 +42,8 @@ mod tests {
         #[test]
         fn test_validate_command_requires_profile() {
             // Test that validate command requires a profile argument
-            let schema = clap::Command::new("hl7v2");
+            use crate::Cli;
+            let schema = Cli::command();
             assert!(schema.get_subcommands().any(|c| c.get_name() == "val"));
         }
 
@@ -190,33 +193,41 @@ mod tests {
 
         #[test]
         fn test_validate_with_valid_profile() {
+            // Profile format must match hl7v2_prof::Profile struct
             let profile_yaml = r#"
+message_structure: ADT_A01
+version: "2.5.1"
 segments:
-  MSH:
+  - id: MSH
+constraints:
+  - path: MSH.1
     required: true
-    fields:
-      - position: 1
-        name: Field Separator
-        required: true
-      - position: 2
-        name: Encoding Characters
-        required: true
+  - path: MSH.2
+    required: true
 "#;
             let result = hl7v2_prof::load_profile(profile_yaml);
-            assert!(result.is_ok());
+            assert!(result.is_ok(), "Failed to load profile: {:?}", result.err());
         }
 
         #[test]
         fn test_validate_detects_missing_required_segment() {
+            // Profile format must match hl7v2_prof::Profile struct
             let profile_yaml = r#"
+message_structure: ADT_A01
+version: "2.5.1"
 segments:
-  MSH:
+  - id: MSH
+  - id: EVN
+  - id: PID
+  - id: ZZ1
+constraints:
+  - path: MSH
     required: true
-  EVN:
+  - path: EVN
     required: true
-  PID:
+  - path: PID
     required: true
-  ZZ1:
+  - path: ZZ1
     required: true
 "#;
             let profile = hl7v2_prof::load_profile(profile_yaml).expect("Profile should load");
@@ -225,7 +236,7 @@ segments:
             let results = hl7v2_prof::validate(&message, &profile);
             
             // Should have validation issues because ZZ1 is not in the sample message
-            assert!(!results.is_empty());
+            assert!(!results.is_empty(), "Should have validation errors for missing ZZ1 segment");
         }
     }
 
@@ -290,20 +301,17 @@ segments:
 
         #[test]
         fn test_parse_template_yaml() {
+            // Template format matches hl7v2_template::Template struct
             let template_yaml = r#"
-message:
-  type: ADT
-  trigger: A01
+name: ADT_A01
+delims: "^~\\&"
 segments:
-  - name: MSH
-    fields:
-      - name: Sending Application
-        value: "TestApp"
-      - name: Sending Facility
-        value: "TestFac"
+  - "MSH|^~\\&|TestApp|TestFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"
+  - "PID|1||123456^^^HOSP^MR||Doe^John"
+values: {}
 "#;
             let result: Result<hl7v2_gen::Template, _> = serde_yaml::from_str(template_yaml);
-            assert!(result.is_ok());
+            assert!(result.is_ok(), "Failed to parse template YAML: {:?}", result.err());
         }
     }
 
