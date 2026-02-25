@@ -1,0 +1,458 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: message
+---
+delims:
+  field: "|"
+  comp: ^
+  rep: "~"
+  esc: "\\"
+  sub: "&"
+segments:
+  - id:
+      - 77
+      - 83
+      - 72
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "^~\\&"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ADT
+      - reps:
+          - comps:
+              - subs:
+                  - Text: GOOD_HEALTH_HOSPITAL
+      - reps:
+          - comps:
+              - subs:
+                  - Text: PACS
+      - reps:
+          - comps:
+              - subs:
+                  - Text: IMAGE_ARCHIVE
+      - reps:
+          - comps:
+              - subs:
+                  - Text: 20250128152312-0500
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ADT
+              - subs:
+                  - Text: A01
+      - reps:
+          - comps:
+              - subs:
+                  - Text: MSG00001
+      - reps:
+          - comps:
+              - subs:
+                  - Text: P
+      - reps:
+          - comps:
+              - subs:
+                  - Text: 2.5.1
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ASCII
+  - id:
+      - 69
+      - 86
+      - 78
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: A01
+      - reps:
+          - comps:
+              - subs:
+                  - Text: 20250128152312-0500
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "20250128160000"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: JOHNSON
+              - subs:
+                  - Text: MIKE
+              - subs:
+                  - Text: A
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: DR
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: MD
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+                  - Text: MD
+                  - Text: ""
+                  - Text: PHG
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: PHYS
+  - id:
+      - 80
+      - 73
+      - 68
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: PATID5421
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: GOOD_HEALTH_HOSPITAL
+              - subs:
+                  - Text: MR
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: TEST
+              - subs:
+                  - Text: PATIENT
+              - subs:
+                  - Text: A
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "19550505"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: M
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: C
+      - reps:
+          - comps:
+              - subs:
+                  - Text: 12345 MAIN ST
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: NEW YORK
+              - subs:
+                  - Text: NY
+              - subs:
+                  - Text: "10001"
+              - subs:
+                  - Text: USA
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: (212)555-1212
+      - reps:
+          - comps:
+              - subs:
+                  - Text: (212)555-1234
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: E
+      - reps:
+          - comps:
+              - subs:
+                  - Text: S
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "123456789"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "987654"
+              - subs:
+                  - Text: NC
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+  - id:
+      - 80
+      - 86
+      - 49
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: I
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ICU
+              - subs:
+                  - Text: "101"
+              - subs:
+                  - Text: "01"
+              - subs:
+                  - Text: GOOD_HEALTH_HOSPITAL
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: GH
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: JOHNSON
+              - subs:
+                  - Text: MIKE
+              - subs:
+                  - Text: A
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: DR
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: MD
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+                  - Text: MD
+                  - Text: ""
+                  - Text: PHG
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: PHYS
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ADMITTED
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: 20250128152312-0500
+charsets: []

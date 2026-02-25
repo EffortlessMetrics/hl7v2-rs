@@ -1,0 +1,77 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: "&message.segments[1]"
+---
+id:
+  - 80
+  - 86
+  - 49
+fields:
+  - reps:
+      - comps:
+          - subs:
+              - Text: "1"
+  - reps:
+      - comps:
+          - subs:
+              - Text: I
+  - reps:
+      - comps:
+          - subs:
+              - Text: ICU
+          - subs:
+              - Text: "101"
+          - subs:
+              - Text: "01"
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: DOC123
+          - subs:
+              - Text: Smith
+          - subs:
+              - Text: Jane
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: V123456

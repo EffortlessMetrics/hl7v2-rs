@@ -1,0 +1,7 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: result
+---
+Err(
+    InvalidSegmentId,
+)

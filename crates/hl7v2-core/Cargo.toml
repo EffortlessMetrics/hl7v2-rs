@@ -2,7 +2,7 @@
 name = "hl7v2-core"
 version.workspace = true
 edition.workspace = true
-rust-version = "1.88"
+rust-version.workspace = true
 authors.workspace = true
 description.workspace = true
 license.workspace = true
@@ -12,34 +12,33 @@ categories.workspace = true
 
 [features]
 default = []
-network = ["tokio", "tokio-util", "rustls", "tokio-rustls", "bytes", "futures"]
+network = ["dep:hl7v2-network"]
+stream = ["dep:hl7v2-stream"]
 
 [dependencies]
+# Re-export from microcrates
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-escape = { path = "../hl7v2-escape" }
+hl7v2-mllp = { path = "../hl7v2-mllp" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-writer = { path = "../hl7v2-writer" }
+hl7v2-normalize = { path = "../hl7v2-normalize" }
+
+# Optional network module (heavy async dependencies moved to hl7v2-network crate)
+hl7v2-network = { path = "../hl7v2-network", optional = true }
+
+# Optional streaming parser module
+hl7v2-stream = { path = "../hl7v2-stream", optional = true }
+
+# Core dependencies
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { version = "1.0", features = ["net", "io-util", "time", "macros", "rt", "sync"], optional = true }
-tokio-util = { version = "0.7", features = ["codec"], optional = true }
-bytes = { version = "1.0", optional = true }
-futures = { version = "0.3", optional = true }
-rustls = { version = "0.23", optional = true }
-tokio-rustls = { version = "0.26", optional = true }
 
 [dev-dependencies]
-criterion = "0.5"
+cucumber = "0.22.1"
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
 
-[[bench]]
-name = "parsing"
-harness = false
-
-[[bench]]
-name = "mllp"
-harness = false
-
-[[bench]]
-name = "escape"
-harness = false
-
-[[bench]]
-name = "memory"
+[[test]]
+name = "bdd_tests"
 harness = false

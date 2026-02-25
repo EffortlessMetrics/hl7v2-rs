@@ -1,0 +1,198 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: message
+---
+delims:
+  field: "|"
+  comp: ^
+  rep: "~"
+  esc: "\\"
+  sub: "&"
+segments:
+  - id:
+      - 77
+      - 83
+      - 72
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "^~\\&"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: LabSys
+      - reps:
+          - comps:
+              - subs:
+                  - Text: Lab
+      - reps:
+          - comps:
+              - subs:
+                  - Text: LIS
+      - reps:
+          - comps:
+              - subs:
+                  - Text: Hospital
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "20250128150000"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ORU
+              - subs:
+                  - Text: R01
+      - reps:
+          - comps:
+              - subs:
+                  - Text: MSG003
+      - reps:
+          - comps:
+              - subs:
+                  - Text: P
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "2.5"
+  - id:
+      - 80
+      - 73
+      - 68
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: MRN789
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: Lab
+              - subs:
+                  - Text: MR
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: Patient
+              - subs:
+                  - Text: Test
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "19850610"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: M
+  - id:
+      - 79
+      - 66
+      - 82
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ORD123
+      - reps:
+          - comps:
+              - subs:
+                  - Text: FIL456
+      - reps:
+          - comps:
+              - subs:
+                  - Text: CBC
+              - subs:
+                  - Text: Complete Blood Count
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "20250128120000"
+  - id:
+      - 79
+      - 66
+      - 88
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: NM
+      - reps:
+          - comps:
+              - subs:
+                  - Text: WBC
+              - subs:
+                  - Text: White Blood Count
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "7.5"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "10"
+              - subs:
+                  - Text: 9/L
+      - reps:
+          - comps:
+              - subs:
+                  - Text: 4.0-11.0
+      - reps:
+          - comps:
+              - subs:
+                  - Text: N
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: F
+charsets: []

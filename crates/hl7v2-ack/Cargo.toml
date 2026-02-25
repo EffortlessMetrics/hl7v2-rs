@@ -1,0 +1,20 @@
+[package]
+name = "hl7v2-ack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "HL7 v2 ACK (Acknowledgment) message generation"
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+hl7v2-core = { path = "../hl7v2-core" }
+chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
+
+[dev-dependencies]
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+hl7v2-writer = { path = "../hl7v2-writer" }
+proptest = "1.4"

@@ -1,0 +1,23 @@
+[package]
+name = "hl7v2-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Benchmarks for hl7v2 crates"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "benchmarking", "performance"]
+categories = ["development-tools", "parsing"]
+
+[dependencies]
+hl7v2-escape = { path = "../hl7v2-escape" }
+hl7v2-mllp = { path = "../hl7v2-mllp" }
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-normalize = { path = "../hl7v2-normalize" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-writer = { path = "../hl7v2-writer" }
+
+[dev-dependencies]
+criterion = "0.8.2"
+

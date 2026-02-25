@@ -1,0 +1,33 @@
+[package]
+name = "hl7v2-stream"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Streaming/event-based parser for HL7 v2 messages"
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Core model types
+hl7v2-model = { path = "../hl7v2-model" }
+
+[dev-dependencies]
+# Test utilities
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+
+# Property-based testing
+proptest = "1.6"
+
+# Async runtime for streaming tests
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }
+
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "streaming"
+harness = false

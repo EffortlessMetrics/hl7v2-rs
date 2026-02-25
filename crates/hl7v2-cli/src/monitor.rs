@@ -2,7 +2,7 @@
 
 use std::time::Instant;
 use std::collections::HashMap;
-use sysinfo::{System, CpuExt, ProcessExt, SystemExt};
+use sysinfo::System;
 
 /// Performance metrics collector
 #[derive(Debug, Clone)]

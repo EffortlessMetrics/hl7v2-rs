@@ -1,0 +1,218 @@
+# E2E Test Profile
+# A comprehensive profile for testing validation
+
+name: E2E_Test_Profile
+version: "1.0"
+description: Profile for end-to-end testing of HL7v2 validation
+
+# Message type definitions
+message_types:
+  # ADT^A01 - Admit/Visit Notification
+  - type: ADT
+    trigger: A01
+    description: Admit/Visit Notification
+    required_segments:
+      - MSH
+      - PID
+      - PV1
+    optional_segments:
+      - EVN
+      - NK1
+      - OBX
+      - AL1
+      - DG1
+      - PR1
+      - GT1
+      - IN1
+      - IN2
+      - IN3
+    segment_rules:
+      - segment: PID
+        min: 1
+        max: 1
+      - segment: PV1
+        min: 1
+        max: 1
+
+  # ADT^A04 - Register Patient
+  - type: ADT
+    trigger: A04
+    description: Register Patient
+    required_segments:
+      - MSH
+      - PID
+    optional_segments:
+      - PV1
+      - OBX
+    segment_rules:
+      - segment: PID
+        min: 1
+        max: 1
+
+  # ORU^R01 - Lab Results
+  - type: ORU
+    trigger: R01
+    description: Lab Results
+    required_segments:
+      - MSH
+      - PID
+      - OBR
+    optional_segments:
+      - PV1
+      - OBX
+      - NTE
+    segment_rules:
+      - segment: PID
+        min: 1
+        max: 1
+      - segment: OBR
+        min: 1
+        max: -1  # unlimited
+      - segment: OBX
+        min: 0
+        max: -1  # unlimited
+
+# Field definitions
+field_definitions:
+  # PID segment fields
+  - path: PID.3
+    description: Patient Identifier List
+    required: true
+    datatype: CX
+    max_length: 250
+
+  - path: PID.5
+    description: Patient Name
+    required: true
+    datatype: XPN
+    max_length: 250
+
+  - path: PID.7
+    description: Date/Time of Birth
+    required: false
+    datatype: TS
+    max_length: 26
+
+  - path: PID.8
+    description: Administrative Sex
+    required: false
+    datatype: IS
+    max_length: 1
+    allowed_values:
+      - "M"
+      - "F"
+      - "O"
+      - "U"
+      - "A"
+      - "N"
+
+  # MSH segment fields
+  - path: MSH.3
+    description: Sending Application
+    required: true
+    datatype: HD
+    max_length: 227
+
+  - path: MSH.4
+    description: Sending Facility
+    required: true
+    datatype: HD
+    max_length: 227
+
+  - path: MSH.5
+    description: Receiving Application
+    required: true
+    datatype: HD
+    max_length: 227
+
+  - path: MSH.6
+    description: Receiving Facility
+    required: true
+    datatype: HD
+    max_length: 227
+
+  - path: MSH.9
+    description: Message Type
+    required: true
+    datatype: MSG
+    max_length: 15
+
+  - path: MSH.10
+    description: Message Control ID
+    required: true
+    datatype: ST
+    max_length: 199
+
+  - path: MSH.12
+    description: Version ID
+    required: true
+    datatype: VID
+    max_length: 60
+    allowed_values:
+      - "2.3"
+      - "2.3.1"
+      - "2.4"
+      - "2.5"
+      - "2.5.1"
+      - "2.6"
+      - "2.7"
+      - "2.7.1"
+      - "2.8"
+
+  # OBX segment fields
+  - path: OBX.2
+    description: Value Type
+    required: true
+    datatype: ID
+    max_length: 2
+    allowed_values:
+      - "ST"
+      - "TX"
+      - "NM"
+      - "SN"
+      - "DT"
+      - "TM"
+      - "TS"
+      - "CE"
+      - "CWE"
+      - "IS"
+      - "ID"
+
+  - path: OBX.3
+    description: Observation Identifier
+    required: true
+    datatype: CE
+    max_length: 478
+
+  - path: OBX.5
+    description: Observation Value
+    required: false
+    datatype: varies
+    max_length: 65536
+
+# Validation rules
+validation_rules:
+  - name: "Valid message type"
+    description: "Message type must be one of the defined types"
+    severity: error
+    check: "message_type_in_profile"
+
+  - name: "Required segments present"
+    description: "All required segments must be present"
+    severity: error
+    check: "required_segments_present"
+
+  - name: "Segment order"
+    description: "Segments must be in correct order"
+    severity: warning
+    check: "segment_order"
+
+  - name: "Field lengths"
+    description: "Field values must not exceed max length"
+    severity: warning
+    check: "field_lengths"
+
+  - name: "Valid field values"
+    description: "Field values must be in allowed list"
+    severity: error
+    check: "allowed_values"

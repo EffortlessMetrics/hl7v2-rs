@@ -1,0 +1,15 @@
+[package]
+name = "hl7v2-model"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Core data model for HL7 v2 messages"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "data-model"]
+categories = ["data-structures", "encoding"]
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }

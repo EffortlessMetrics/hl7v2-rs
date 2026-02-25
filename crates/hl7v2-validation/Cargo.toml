@@ -1,0 +1,57 @@
+[package]
+name = "hl7v2-validation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# Core HL7 v2 parsing and model
+hl7v2-core = { path = "../hl7v2-core" }
+hl7v2-model = { path = "../hl7v2-model" }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+
+# Regular expressions for pattern validation
+regex = "1.12.3"
+
+# Date/time handling for temporal validation
+chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
+
+[dev-dependencies]
+# Test utilities from workspace
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+
+# Property-based testing
+proptest = "1.6"
+
+# Snapshot testing
+insta = { version = "1.42", features = ["yaml", "json"] }
+
+# BDD testing
+cucumber = { version = "0.22", default-features = false, features = ["macros"] }
+
+# Test utilities
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+pretty_assertions = "1.4"
+assert_matches = "1.5"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
+
+[[test]]
+name = "snapshot_tests"
+path = "tests/snapshot_tests.rs"
+
+[[test]]
+name = "bdd_tests"
+path = "tests/bdd_tests.rs"
+harness = false

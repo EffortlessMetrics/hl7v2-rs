@@ -6,6 +6,13 @@ Thank you for considering contributing to hl7v2-rs! This project is actively dev
 
 Be respectful, inclusive, and constructive in all interactions. We're building healthcare infrastructure—let's do it right.
 
+## License + CLA
+
+hl7v2-rs is licensed under **AGPL-3.0-or-later**.
+
+By submitting a contribution, you agree to [CLA.md](CLA.md) and you license your
+contribution under **AGPL-3.0-or-later**.
+
 ---
 
 ## Quick Start for Contributors

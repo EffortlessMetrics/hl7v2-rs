@@ -1,0 +1,18 @@
+[package]
+name = "hl7v2-json"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "HL7 v2 JSON serialization"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "json", "serialization"]
+categories = ["encoding", "parser-implementations"]
+
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.6"

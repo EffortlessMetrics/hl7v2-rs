@@ -1,0 +1,88 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: message
+---
+delims:
+  field: "|"
+  comp: ^
+  rep: "~"
+  esc: "\\"
+  sub: "&"
+segments:
+  - id:
+      - 77
+      - 83
+      - 72
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "^~\\&"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: App
+      - reps:
+          - comps:
+              - subs:
+                  - Text: Fac
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "20250128120000"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ADT
+              - subs:
+                  - Text: A01
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: P
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "2.5"
+  - id:
+      - 80
+      - 73
+      - 68
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "123"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "Test|Pipe^Amp~Tilde\\Backslash"
+charsets: []

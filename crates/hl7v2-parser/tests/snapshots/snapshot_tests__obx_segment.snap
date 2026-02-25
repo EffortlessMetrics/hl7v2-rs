@@ -1,0 +1,57 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: "&message.segments[1]"
+---
+id:
+  - 79
+  - 66
+  - 88
+fields:
+  - reps:
+      - comps:
+          - subs:
+              - Text: "1"
+  - reps:
+      - comps:
+          - subs:
+              - Text: NM
+  - reps:
+      - comps:
+          - subs:
+              - Text: WBC
+          - subs:
+              - Text: White Blood Count
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: "7.5"
+  - reps:
+      - comps:
+          - subs:
+              - Text: "10"
+          - subs:
+              - Text: 9/L
+  - reps:
+      - comps:
+          - subs:
+              - Text: 4.0-11.0
+  - reps:
+      - comps:
+          - subs:
+              - Text: N
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: ""
+  - reps:
+      - comps:
+          - subs:
+              - Text: F

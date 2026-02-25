@@ -1,0 +1,4 @@
+MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1
+EVN|A01|20250128152312|||
+PID|1||123456^^^HOSP^MR||Doe^John^A||19800101|M|||C|
+PV1|1|I|ICU^101^01||||DOC123^Smith^Jane||||||||V123456

@@ -1,0 +1,19 @@
+[package]
+name = "hl7v2-normalize"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "HL7 v2 message normalization"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "normalize", "canonical"]
+categories = ["encoding", "parser-implementations"]
+
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-writer = { path = "../hl7v2-writer" }
+
+[dev-dependencies]
+proptest = "1.6"

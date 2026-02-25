@@ -95,7 +95,7 @@
           meta = with pkgs.lib; {
             description = "Modern Rust HL7v2 Processor";
             homepage = "https://github.com/EffortlessMetrics/hl7v2-rs";
-            license = licenses.agpl3Only;
+            license = licenses.agpl3Plus;
             maintainers = [ ];
           };
         };

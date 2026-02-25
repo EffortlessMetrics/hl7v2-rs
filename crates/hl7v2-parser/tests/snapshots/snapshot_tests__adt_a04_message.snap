@@ -1,0 +1,112 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: message
+---
+delims:
+  field: "|"
+  comp: ^
+  rep: "~"
+  esc: "\\"
+  sub: "&"
+segments:
+  - id:
+      - 77
+      - 83
+      - 72
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "^~\\&"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: RegSys
+      - reps:
+          - comps:
+              - subs:
+                  - Text: Hospital
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ADT
+      - reps:
+          - comps:
+              - subs:
+                  - Text: Hospital
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "20250128140000"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ADT
+              - subs:
+                  - Text: A04
+      - reps:
+          - comps:
+              - subs:
+                  - Text: MSG002
+      - reps:
+          - comps:
+              - subs:
+                  - Text: P
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "2.5"
+  - id:
+      - 80
+      - 73
+      - 68
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: MRN456
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: Hospital
+              - subs:
+                  - Text: MR
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: Smith
+              - subs:
+                  - Text: Jane
+              - subs:
+                  - Text: M
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "19900215"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: F
+charsets: []

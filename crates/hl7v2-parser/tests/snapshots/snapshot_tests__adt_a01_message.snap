@@ -1,0 +1,228 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: message
+---
+delims:
+  field: "|"
+  comp: ^
+  rep: "~"
+  esc: "\\"
+  sub: "&"
+segments:
+  - id:
+      - 77
+      - 83
+      - 72
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "^~\\&"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: SendingApp
+      - reps:
+          - comps:
+              - subs:
+                  - Text: SendingFac
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ReceivingApp
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ReceivingFac
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "20250128152312"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ADT
+              - subs:
+                  - Text: A01
+              - subs:
+                  - Text: ADT_A01
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ABC123
+      - reps:
+          - comps:
+              - subs:
+                  - Text: P
+      - reps:
+          - comps:
+              - subs:
+                  - Text: 2.5.1
+  - id:
+      - 69
+      - 86
+      - 78
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: A01
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "20250128152312"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+  - id:
+      - 80
+      - 73
+      - 68
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "123456"
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: ""
+              - subs:
+                  - Text: HOSP
+              - subs:
+                  - Text: MR
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: Doe
+              - subs:
+                  - Text: John
+              - subs:
+                  - Text: A
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "19800101"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: M
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: C
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+  - id:
+      - 80
+      - 86
+      - 49
+    fields:
+      - reps:
+          - comps:
+              - subs:
+                  - Text: "1"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: I
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ICU
+              - subs:
+                  - Text: "101"
+              - subs:
+                  - Text: "01"
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: DOC123
+              - subs:
+                  - Text: Smith
+              - subs:
+                  - Text: Jane
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: ""
+      - reps:
+          - comps:
+              - subs:
+                  - Text: V123456
+charsets: []

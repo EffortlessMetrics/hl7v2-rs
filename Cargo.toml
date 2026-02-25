@@ -1,36 +1,63 @@
 [workspace]
 members = [
+    # Microcrates (SRP-focused)
+    "crates/hl7v2-model",
+    "crates/hl7v2-escape",
+    "crates/hl7v2-mllp",
+    "crates/hl7v2-query",
+    "crates/hl7v2-parser",
+    "crates/hl7v2-writer",
+    "crates/hl7v2-json",
+    "crates/hl7v2-normalize",
+    "crates/hl7v2-datetime",
+    "crates/hl7v2-datatype",
+    "crates/hl7v2-path",
+    "crates/hl7v2-batch",
+    "crates/hl7v2-network",
+    "crates/hl7v2-stream",
+    "crates/hl7v2-validation",
+    "crates/hl7v2-ack",
+    "crates/hl7v2-faker",
+    "crates/hl7v2-template",
+    "crates/hl7v2-template-values",
+    "crates/hl7v2-corpus",
+    # Higher-level crates
     "crates/hl7v2-core",
+    "crates/hl7v2-bench",
     "crates/hl7v2-prof",
     "crates/hl7v2-gen",
     "crates/hl7v2-cli",
     "crates/hl7v2-server",
+    # Testing utilities
+    "crates/hl7v2-test-utils",
+    # End-to-end tests
+    "crates/hl7v2-e2e-tests",
 ]
 resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.89"
-authors = ["Steven Zimmerman <git@efforlesssteven.com>"]
+rust-version = "1.92"
+authors = ["Steven Zimmerman <git@effortlesssteven.com>"]
 description = "Modern Rust HL7v2 Processor"
-license = "AGPL v3"
-repository = "https://github.com/EffortlessSteven/hl7v2-rs"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/EffortlessMetrics/hl7v2-rs"
 keywords = ["hl7", "healthcare", "parser", "validator"]
 categories = ["parser-implementations", "encoding"]
 
 [workspace.dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0"
-clap = { version = "4.0", features = ["derive"] }
-uuid = { version = "1.0", features = ["v4"] }
-axum = "0.7"
-tower = "0.5"
-tower-http = "0.6"
-tokio = "1.0"
-tracing = "0.1"
-tracing-subscriber = "0.3"
-metrics = "0.23"
-metrics-exporter-prometheus = "0.15"
-tower_governor = "0.4"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+thiserror = "2.0.18"
+clap = { version = "4.5.60", features = ["derive"] }
+uuid = { version = "1.21.0", features = ["v4"] }
+axum = "0.8.8"
+tower = "0.5.3"
+tower-http = "0.6.8"
+tokio = "1.49.0"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.22"
+metrics = "0.24.3"
+metrics-exporter-prometheus = "0.18.1"
+tower_governor = "0.8.0"

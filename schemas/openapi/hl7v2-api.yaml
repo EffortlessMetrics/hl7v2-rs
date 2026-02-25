@@ -25,8 +25,8 @@ info:
     name: HL7v2 API Support
     url: https://github.com/EffortlessMetrics/hl7v2-rs
   license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
+    name: AGPL-3.0-or-later
+    url: https://github.com/EffortlessMetrics/hl7v2-rs/blob/main/LICENSE
 
 servers:
   - url: http://localhost:8080

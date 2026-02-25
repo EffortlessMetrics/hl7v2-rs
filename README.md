@@ -17,11 +17,40 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 
 ## Crates
 
-- `hl7v2-core`: Core parsing and data model
-- `hl7v2-prof`: Profile validation
-- `hl7v2-gen`: Message generation
+The project is organized into focused microcrates following the Single Responsibility Principle:
+
+### Foundation Layer
+- `hl7v2-model`: Core data types and message structure
+- `hl7v2-escape`: HL7 escape sequence handling
+- `hl7v2-mllp`: MLLP frame parsing and generation
+- `hl7v2-path`: Field path parsing and access
+- `hl7v2-datetime`: Date/time handling for HL7
+
+### Parsing Layer
+- `hl7v2-parser`: Message parsing
+- `hl7v2-writer`: Message serialization
+- `hl7v2-stream`: Event-based streaming parser
+- `hl7v2-batch`: Batch file handling (BHS/BTS)
+- `hl7v2-datatype`: Data type validation
+
+### Network Layer
+- `hl7v2-network`: MLLP client/server/codec for TCP connections
+
+### Validation Layer
+- `hl7v2-prof`: Profile loading and management
+- `hl7v2-validation`: Validation logic and types
+
+### Generation Layer
+- `hl7v2-gen`: Template-based message generation
+- `hl7v2-ack`: ACK message generation
+- `hl7v2-faker`: Realistic test data generation
+
+### Application Layer
 - `hl7v2-cli`: Command-line interface
 - `hl7v2-server`: HTTP/REST API server
+
+### Facade
+- `hl7v2-core`: Convenience crate that re-exports common functionality
 
 ## Installation
 
@@ -193,20 +222,55 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment guide.
 
 ## Architecture
 
-The project uses a modular crate-based architecture for flexible integration:
+The project uses a modular crate-based architecture organized into layers:
 
 ```
-┌─────────────────┐
-│   hl7v2-cli     │  Command-line interface
-├─────────────────┤
-│                 │
-│  hl7v2-core   │  Core parsing, validation, serialization
-│  hl7v2-prof   │  Profile validation with inheritance
-│  hl7v2-gen    │  Synthetic message generation
-└─────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    Application Layer                          │
+│  ┌─────────────────┐  ┌─────────────────┐                   │
+│  │   hl7v2-cli     │  │  hl7v2-server   │                   │
+│  └─────────────────┘  └─────────────────┘                   │
+├──────────────────────────────────────────────────────────────┤
+│                    Generation Layer                           │
+│  ┌───────────┐ ┌────────────┐ ┌──────────────┐              │
+│  │ hl7v2-gen │ │ hl7v2-ack  │ │ hl7v2-faker  │              │
+│  └───────────┘ └────────────┘ └──────────────┘              │
+├──────────────────────────────────────────────────────────────┤
+│                   Validation Layer                            │
+│  ┌────────────┐ ┌─────────────────┐                         │
+│  │ hl7v2-prof │ │ hl7v2-validation│                         │
+│  └────────────┘ └─────────────────┘                         │
+├──────────────────────────────────────────────────────────────┤
+│                    Network Layer                              │
+│  ┌────────────────┐                                          │
+│  │ hl7v2-network  │  MLLP client/server/codec                │
+│  └────────────────┘                                          │
+├──────────────────────────────────────────────────────────────┤
+│                    Parsing Layer                              │
+│  ┌──────────────┐ ┌──────────────┐ ┌─────────────┐          │
+│  │ hl7v2-parser │ │ hl7v2-writer │ │ hl7v2-stream│          │
+│  └──────────────┘ └──────────────┘ └─────────────┘          │
+│  ┌──────────────┐ ┌───────────────┐                         │
+│  │ hl7v2-batch  │ │ hl7v2-datatype│                         │
+│  └──────────────┘ └───────────────┘                         │
+├──────────────────────────────────────────────────────────────┤
+│                   Foundation Layer                            │
+│  ┌────────────┐ ┌──────────────┐ ┌───────────┐ ┌──────────┐ │
+│  │hl7v2-model │ │ hl7v2-escape │ │hl7v2-mllp │ │hl7v2-path│ │
+│  └────────────┘ └──────────────┘ └───────────┘ └──────────┘ │
+│  ┌──────────────┐                                            │
+│  │ hl7v2-datetime│                                            │
+│  └──────────────┘                                            │
+├──────────────────────────────────────────────────────────────┤
+│                       Facade                                  │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │                    hl7v2-core                          │  │
+│  │        Re-exports common functionality for convenience │  │
+│  └────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-Each crate is independently usable as a library, enabling integration into other Rust projects.
+Each crate is independently usable as a library, enabling integration into other Rust projects. Use specific microcrates for minimal dependency footprints, or use `hl7v2-core` as a convenience facade.
 
 ## Performance Characteristics
 
@@ -236,15 +300,11 @@ For exact benchmark numbers and hardware, see [IMPLEMENTATION_STATUS.md](IMPLEME
 
 ## License
 
-Licensed under either of
+This project is licensed under the GNU Affero General Public License, version 3 or later
+(**AGPL-3.0-or-later**). See [LICENSE](LICENSE).
 
- * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+## Contributing
 
-at your option.
-
-## Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above, without any additional terms or conditions.
+By submitting a contribution (pull request, patch, issue comment containing code, etc.),
+you agree to the terms in [CLA.md](CLA.md) and you license your contribution under
+**AGPL-3.0-or-later**.

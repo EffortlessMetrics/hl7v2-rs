@@ -1,0 +1,12 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7636bc4a3c026a19afdf7389685c6a04dcc4e0d7d4522eaadb2f212a0a04ba12 # shrinks to template = Template { name: "a", delims: "¡A\"a", segments: ["MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1", "PID|1||123456^^^HOSP^MR||Doe^John"], values: {} }, seed = 0
+cc 7c5f1993e4153bb1f2e4c35f0eb52b77918dc5e960d074158334521141513526 # shrinks to template = Template { name: "a", delims: "0`a¡", segments: ["MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1", "PID|1||123456^^^HOSP^MR||Doe^John"], values: {} }, seed = 0
+cc 93994cf19770b998864dc849c73d179387504d85b4c91740902903f202ff5107 # shrinks to template = Template { name: "A", delims: "¡¢\u{e000}\"", segments: ["MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1", "PID|1||123456^^^HOSP^MR||Doe^John"], values: {} }, seed = 0, count = 1
+cc bf43c2e7b87772ccaa1743076254e7a89cd626e093bdd34a65e76381c30a3db5 # shrinks to template = Template { name: "a", delims: "0¡\01", segments: ["MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1", "PID|1||123456^^^HOSP^MR||Doe^John"], values: {} }, seed = 0, count = 1
+cc cfde5efe3102ac8156505f1da8f09cece1d67935bc5bef55bf898b977613a22a # shrinks to template = Template { name: "A", delims: "¡\"0\0", segments: ["MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1", "PID|1||123456^^^HOSP^MR||Doe^John"], values: {} }, seed = 0
+cc 852e52319eb8f526943d3f28804a6d8ad011d16992dfc0463cb1f7c2c9f7ab78 # shrinks to template = Template { name: "a", delims: "`¡'a", segments: ["MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1", "PID|1||123456^^^HOSP^MR||Doe^John"], values: {} }, seed = 0, count = 1

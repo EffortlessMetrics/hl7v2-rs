@@ -1,0 +1,19 @@
+[package]
+name = "hl7v2-datetime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "HL7 v2 date/time parsing and validation"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "datetime", "date", "time"]
+categories = ["date-and-time", "parser-implementations"]
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.6"
+chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }

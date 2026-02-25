@@ -1,0 +1,9 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: delims
+---
+field: "|"
+comp: ^
+rep: "~"
+esc: "\\"
+sub: "&"
