@@ -15,7 +15,7 @@ use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
 mod tests;
 
 #[derive(Parser)]
-#[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator")]
+#[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator", version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -153,6 +153,7 @@ enum AckMode {
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
+#[value(rename_all = "UPPERCASE")]
 enum AckCode {
     AA,
     AE,

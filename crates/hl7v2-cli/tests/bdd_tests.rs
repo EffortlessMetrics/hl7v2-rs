@@ -215,20 +215,14 @@ fn given_output_path(world: &mut CliWorld) {
 fn given_minimal_profile(world: &mut CliWorld) {
     let dir = world.ensure_temp_dir();
     let path = dir.path().join("profile.yaml");
-    let profile = r#"
+    // Profile format expected by hl7v2_prof::Profile struct:
+    // - message_structure: message type
+    // - version: HL7 version
+    // - segments: list of segment specs with id
+    let profile = r#"message_structure: ADT_A01
+version: "2.5.1"
 segments:
-  MSH:
-    required: true
-    fields:
-      - position: 1
-        name: Field Separator
-        required: true
-      - position: 2
-        name: Encoding Characters
-        required: true
-      - position: 9
-        name: Message Type
-        required: true
+  - id: MSH
 "#;
     std::fs::write(&path, profile.as_bytes()).expect("Failed to write file");
     world.profile_file = Some(path);
@@ -238,12 +232,11 @@ segments:
 fn given_strict_profile(world: &mut CliWorld) {
     let dir = world.ensure_temp_dir();
     let path = dir.path().join("strict_profile.yaml");
-    let profile = r#"
+    let profile = r#"message_structure: ADT_A01
+version: "2.5.1"
 segments:
-  MSH:
-    required: true
-  ZZ1:
-    required: true
+  - id: MSH
+  - id: ZZ1
 "#;
     std::fs::write(&path, profile.as_bytes()).expect("Failed to write file");
     world.profile_file = Some(path);
@@ -253,15 +246,16 @@ segments:
 fn given_template_file(world: &mut CliWorld) {
     let dir = world.ensure_temp_dir();
     let path = dir.path().join("template.yaml");
-    let template = r#"
-message:
-  type: ADT
-  trigger: A01
+    // Template format expected by hl7v2_template::Template struct:
+    // - name: template name
+    // - delims: 4-character string for component, repetition, escape, subcomponent delimiters
+    // - segments: list of segment template strings
+    // - values: optional map of field paths to value sources
+    let template = r#"name: "ADT_A01 Template"
+delims: "^~\\&"
 segments:
-  - name: MSH
-    fields:
-      - name: Sending Application
-        value: "TestApp"
+  - "MSH|^~\\&|TestApp|TestFac|RecvApp|RecvFac|20250101000000||ADT^A01|MSG001|P|2.5.1"
+  - "PID|1||12345^^^HOSP^MR||Doe^John||19800101|M"
 "#;
     std::fs::write(&path, template.as_bytes()).expect("Failed to write file");
     world.template_file = Some(path);
@@ -331,12 +325,12 @@ fn when_run_validate(world: &mut CliWorld, command: String) {
     world.run_cli();
 }
 
-#[when(regex = r#"^I run "([^"]+)" with "([^"]+)" flag$"#)]
-fn when_run_with_single_flag(world: &mut CliWorld, command: String, flag: String) {
+#[when(regex = r#"^I run "val" with "([^"]+)" flag$"#)]
+fn when_run_val_with_flag(world: &mut CliWorld, flag: String) {
     let input = world.input_file.as_ref().expect("Input file should be set");
     let profile = world.profile_file.as_ref().expect("Profile file should be set");
     world.command_args = vec![
-        command,
+        "val".to_string(),
         input.to_string_lossy().to_string(),
         "--profile".to_string(),
         profile.to_string_lossy().to_string(),
@@ -351,6 +345,8 @@ fn when_run_ack(world: &mut CliWorld, command: String, code: String) {
     world.command_args = vec![
         command,
         input.to_string_lossy().to_string(),
+        "--mode".to_string(),
+        "original".to_string(),
         "--code".to_string(),
         code,
     ];
@@ -363,6 +359,8 @@ fn when_run_ack_with_flag(world: &mut CliWorld, command: String, flag: String, c
     world.command_args = vec![
         command,
         input.to_string_lossy().to_string(),
+        "--mode".to_string(),
+        "original".to_string(),
         flag,
         "--code".to_string(),
         code,
@@ -390,6 +388,8 @@ fn when_run_ack_invalid_code(world: &mut CliWorld, command: String, code: String
     world.command_args = vec![
         command,
         input.to_string_lossy().to_string(),
+        "--mode".to_string(),
+        "original".to_string(),
         "--code".to_string(),
         code,
     ];
@@ -428,6 +428,25 @@ fn when_run_gen_count(world: &mut CliWorld, command: String, count: String) {
         count,
         "--out".to_string(),
         output.to_string_lossy().to_string(),
+    ];
+    world.run_cli();
+}
+
+#[when(regex = r#"^I run "gen" with "--stats" flag$"#)]
+fn when_run_gen_stats(world: &mut CliWorld) {
+    let template = world.template_file.as_ref().expect("Template file should be set");
+    let output = world.output_dir.as_ref().expect("Output dir should be set");
+    world.command_args = vec![
+        "gen".to_string(),
+        "--profile".to_string(),
+        template.to_string_lossy().to_string(),
+        "--seed".to_string(),
+        "42".to_string(),
+        "--count".to_string(),
+        "1".to_string(),
+        "--out".to_string(),
+        output.to_string_lossy().to_string(),
+        "--stats".to_string(),
     ];
     world.run_cli();
 }
