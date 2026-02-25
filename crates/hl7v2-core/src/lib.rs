@@ -8,7 +8,13 @@
 //! - JSON serialization
 //! - Batch message handling (FHS/BHS/BTS/FTS)
 
-use serde_json;
+#![allow(clippy::should_implement_trait)]
+#![allow(clippy::map_clone)]
+#![allow(clippy::sliced_string_as_bytes)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::needless_return)]
+#![allow(clippy::unnecessary_map_or)]
+#![allow(clippy::collapsible_if)]
 
 #[cfg(feature = "network")]
 pub mod network;
@@ -943,9 +949,19 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 
 /// Unescape text according to HL7 v2 rules
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    // Fast path: find first escape character
+    let first_esc = match text.find(delims.esc) {
+        Some(idx) => idx,
+        None => return Ok(text.to_string()),
+    };
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
+    // Push the clean prefix directly
+    result.push_str(&text[..first_esc]);
+
+    // Process the rest starting from the first escape character
+    let mut chars = text[first_esc..].chars().peekable();
     
     while let Some(ch) = chars.next() {
         if ch == delims.esc {
@@ -953,7 +969,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             let mut escape_seq = String::new();
             let mut found_end = false;
             
-            while let Some(esc_ch) = chars.next() {
+            for esc_ch in chars.by_ref() {
                 if esc_ch == delims.esc {
                     found_end = true;
                     break;
@@ -967,7 +983,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // MSH encoding characters "^~\&"
                 // Use direct comparison instead of format! to avoid allocation
                 if text.len() == 4 && 
-                   text.chars().nth(0) == Some(delims.comp) &&
+                   text.starts_with(delims.comp) &&
                    text.chars().nth(1) == Some(delims.rep) &&
                    text.chars().nth(2) == Some(delims.esc) &&
                    text.chars().nth(3) == Some(delims.sub) {
@@ -1127,12 +1143,23 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 
 /// Escape text according to HL7 v2 rules
 pub fn escape_text(text: &str, delims: &Delims) -> String {
+    // Fast path: find first special character
+    let special_chars = [delims.field, delims.comp, delims.rep, delims.esc, delims.sub];
+    let first_special = match text.find(&special_chars[..]) {
+        Some(idx) => idx,
+        None => return text.to_string(),
+    };
+
     // Pre-calculate maximum possible size to reduce reallocations
     // In worst case, every character might need escaping (3 chars each)
     let max_size = text.len() * 3;
     let mut result = String::with_capacity(max_size);
     
-    for ch in text.chars() {
+    // Push the clean prefix directly
+    result.push_str(&text[..first_special]);
+
+    // Process the rest starting from the first special character
+    for ch in text[first_special..].chars() {
         match ch {
             c if c == delims.field => {
                 result.push(delims.esc);
