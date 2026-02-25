@@ -9,7 +9,6 @@ use hl7v2_core::{parse, to_json, write};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 mod monitor;
-use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator")]
@@ -209,13 +208,13 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     if let Some(cpu_usage) = system_info.cpu.cpu_usage_percent {
         println!("    CPU usage: {:.2}%", cpu_usage);
     }
-    println!("    Total memory: {} bytes", system_info.total_memory);
-    println!("    Used memory: {} bytes", system_info.used_memory);
+    println!("    Total memory: {}", monitor::format_size(system_info.total_memory));
+    println!("    Used memory: {}", monitor::format_size(system_info.used_memory));
     if let Some(rss) = system_info.memory.resident_set_size {
-        println!("    Process memory (RSS): {} bytes", rss);
+        println!("    Process memory (RSS): {}", monitor::format_size(rss));
     }
     if let Some(vms) = system_info.memory.virtual_memory_size {
-        println!("    Process memory (VMS): {} bytes", vms);
+        println!("    Process memory (VMS): {}", monitor::format_size(vms));
     }
 }
 

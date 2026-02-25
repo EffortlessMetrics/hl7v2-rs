@@ -31,6 +31,7 @@ impl PerformanceMonitor {
     }
     
     /// Get a specific metric
+    #[allow(dead_code)]
     pub fn get_metric(&self, name: &str) -> Option<std::time::Duration> {
         self.metrics.get(name).copied()
     }
@@ -117,5 +118,43 @@ pub fn get_system_info() -> SystemInfo {
         cpu: cpu_info,
         total_memory: sys.total_memory(),
         used_memory: sys.used_memory(),
+    }
+}
+
+/// Format bytes as human-readable string
+#[allow(clippy::cast_precision_loss)]
+pub fn format_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+
+    if bytes == 0 {
+        return "0 B".to_string();
+    }
+
+    let i = (bytes as f64).log(1024.0).floor() as usize;
+    let i = i.min(UNITS.len() - 1);
+
+    let value = bytes as f64 / 1024.0_f64.powi(i as i32);
+
+    if i == 0 {
+        format!("{} {}", bytes, UNITS[i])
+    } else {
+        format!("{:.2} {}", value, UNITS[i])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_size() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(100), "100 B");
+        assert_eq!(format_size(1023), "1023 B");
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1536), "1.50 KB");
+        assert_eq!(format_size(1024 * 1024), "1.00 MB");
+        assert_eq!(format_size(1024 * 1024 * 1024), "1.00 GB");
+        assert_eq!(format_size(1024 * 1024 * 1024 * 1024), "1.00 TB");
     }
 }
