@@ -15,3 +15,14 @@ hl7v2-model = { path = "../hl7v2-model" }
 hl7v2-escape = { path = "../hl7v2-escape" }
 hl7v2-mllp = { path = "../hl7v2-mllp" }
 hl7v2-query = { path = "../hl7v2-query" }
+
+[dev-dependencies]
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+hl7v2-writer = { path = "../hl7v2-writer" }
+proptest = "1.6"
+insta = { version = "1.42", features = ["yaml", "json", "redactions"] }
+pretty_assertions = "1.4"
+assert_matches = "1.5"
+
+[features]
+default = []

@@ -24,3 +24,10 @@ hl7v2-faker = { path = "../hl7v2-faker" }
 hl7v2-template = { path = "../hl7v2-template" }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
+
+[dev-dependencies]
+proptest = "1.6"
+rand = "0.10.0"
+hl7v2-query = { path = "../hl7v2-query" }
+hl7v2-normalize = { path = "../hl7v2-normalize" }
+hl7v2-parser = { path = "../hl7v2-parser" }

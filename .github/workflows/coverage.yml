@@ -1,0 +1,245 @@
+# HL7 v2 Rust Workspace - Coverage Report
+# Dedicated workflow for generating and uploading coverage reports
+# Can be triggered manually or by other workflows
+
+name: Coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      upload_to_codecov:
+        description: 'Upload to Codecov'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ============================================================================
+  # Coverage with cargo-tarpaulin
+  # ============================================================================
+  tarpaulin:
+    name: Tarpaulin Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: coverage-tarpaulin
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Generate coverage report
+        run: |
+          cargo tarpaulin \
+            --workspace \
+            --all-features \
+            --out Xml \
+            --out Html \
+            --output-dir coverage/tarpaulin/ \
+            --timeout 600 \
+            --skip-clean \
+            --exclude-files '*/tests/*' \
+            --exclude-files '*/examples/*' \
+            --exclude-files '*/benches/*'
+        timeout-minutes: 20
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarpaulin-coverage
+          path: coverage/tarpaulin/
+          retention-days: 30
+
+      - name: Upload to Codecov
+        if: github.event.inputs.upload_to_codecov != 'false'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/tarpaulin/cobertura.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: tarpaulin
+          name: tarpaulin-coverage
+
+      - name: Coverage summary
+        run: |
+          echo "## Coverage Report (Tarpaulin)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage/tarpaulin/cobertura.xml ]; then
+            # Extract line coverage from XML
+            LINE_COV=$(grep -oP 'line-rate="\K[0-9.]+' coverage/tarpaulin/cobertura.xml | head -1)
+            if [ ! -z "$LINE_COV" ]; then
+              PERCENT=$(echo "$LINE_COV * 100" | bc -l | cut -c1-5)
+              echo "**Line Coverage:** ${PERCENT}%" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Full report available in artifacts." >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # Coverage with cargo-llvm-cov (faster alternative)
+  # ============================================================================
+  llvm-cov:
+    name: LLVM Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: coverage-llvm
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Generate coverage report
+        run: |
+          cargo llvm-cov \
+            --workspace \
+            --all-features \
+            --lcov \
+            --output-path coverage/llvm/lcov.info \
+            --ignore-filename-regex='(tests|examples|benches)/'
+        timeout-minutes: 15
+
+      - name: Generate HTML report
+        run: |
+          cargo llvm-cov \
+            --workspace \
+            --all-features \
+            --html \
+            --output-dir coverage/llvm/html/ \
+            --ignore-filename-regex='(tests|examples|benches)/'
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llvm-coverage
+          path: coverage/llvm/
+          retention-days: 30
+
+      - name: Upload to Codecov
+        if: github.event.inputs.upload_to_codecov != 'false'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/llvm/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: llvm-cov
+          name: llvm-coverage
+
+      - name: Coverage summary
+        run: |
+          echo "## Coverage Report (LLVM)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Full report available in artifacts." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "HTML report: coverage/llvm/html/index.html" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # Coverage diff for PRs
+  # ============================================================================
+  coverage-diff:
+    name: Coverage Diff
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [llvm-cov]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: coverage-diff
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Generate PR coverage
+        run: |
+          cargo llvm-cov \
+            --workspace \
+            --all-features \
+            --lcov \
+            --output-path coverage/pr/lcov.info \
+            --ignore-filename-regex='(tests|examples|benches)/'
+
+      - name: Checkout base branch
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git checkout origin/${{ github.base_ref }}
+
+      - name: Generate base coverage
+        run: |
+          cargo llvm-cov \
+            --workspace \
+            --all-features \
+            --lcov \
+            --output-path coverage/base/lcov.info \
+            --ignore-filename-regex='(tests|examples|benches)/'
+
+      - name: Compare coverage
+        run: |
+          echo "## Coverage Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage comparison between base branch and PR." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** Detailed coverage diff requires additional tooling." >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # Summary Job
+  # ============================================================================
+  coverage-summary:
+    name: Coverage Summary
+    runs-on: ubuntu-latest
+    needs: [tarpaulin, llvm-cov]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "# Coverage Report Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Tarpaulin | ${{ needs.tarpaulin.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| LLVM Cov | ${{ needs.llvm-cov.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage reports are available as artifacts and uploaded to Codecov." >> $GITHUB_STEP_SUMMARY

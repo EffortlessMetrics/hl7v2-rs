@@ -28,6 +28,10 @@ members = [
     "crates/hl7v2-gen",
     "crates/hl7v2-cli",
     "crates/hl7v2-server",
+    # Testing utilities
+    "crates/hl7v2-test-utils",
+    # End-to-end tests
+    "crates/hl7v2-e2e-tests",
 ]
 resolver = "2"
 

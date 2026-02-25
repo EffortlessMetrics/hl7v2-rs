@@ -1,0 +1,34 @@
+[package]
+name = "hl7v2-network-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+bytes = "1.11.1"
+tokio-util = { version = "0.7.18", features = ["codec"] }
+
+# The crate being fuzzed
+hl7v2-network = { path = ".." }
+
+[[bin]]
+name = "mllp_codec"
+path = "fuzz_targets/mllp_codec.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "mllp_decode"
+path = "fuzz_targets/mllp_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "mllp_encode"
+path = "fuzz_targets/mllp_encode.rs"
+test = false
+doc = false

@@ -14,3 +14,6 @@ categories = ["encoding", "parser-implementations"]
 hl7v2-model = { path = "../hl7v2-model" }
 hl7v2-parser = { path = "../hl7v2-parser" }
 hl7v2-writer = { path = "../hl7v2-writer" }
+
+[dev-dependencies]
+proptest = "1.6"

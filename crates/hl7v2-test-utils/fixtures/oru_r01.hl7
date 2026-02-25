@@ -1,0 +1,4 @@
+MSH|^~\&|LabSys|Lab|LIS|Hospital|20250128150000||ORU^R01|MSG003|P|2.5
+PID|1||MRN789^^^Lab^MR||Patient^Test||19850610|M
+OBR|1|ORD123|FIL456|CBC^Complete Blood Count|||20250128120000
+OBX|1|NM|WBC^White Blood Count||7.5|10^9/L|4.0-11.0|N|||F

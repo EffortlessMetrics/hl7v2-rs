@@ -25,4 +25,33 @@ regex = "1.12.3"
 chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
 
 [dev-dependencies]
-# Testing utilities
+# Test utilities from workspace
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+
+# Property-based testing
+proptest = "1.6"
+
+# Snapshot testing
+insta = { version = "1.42", features = ["yaml", "json"] }
+
+# BDD testing
+cucumber = { version = "0.22", default-features = false, features = ["macros"] }
+
+# Test utilities
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+pretty_assertions = "1.4"
+assert_matches = "1.5"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
+
+[[test]]
+name = "snapshot_tests"
+path = "tests/snapshot_tests.rs"
+
+[[test]]
+name = "bdd_tests"
+path = "tests/bdd_tests.rs"
+harness = false

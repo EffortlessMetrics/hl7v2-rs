@@ -1,0 +1,269 @@
+# HL7 v2 Rust Workspace - Nightly Tests
+# Implements Stage4 of the pipeline design from docs/TESTING_ARCHITECTURE.md
+#
+# Stage 4 (Nightly - ~1 hour): Fuzz tests, Mutation tests
+# Runs on schedule (nightly) and can be manually triggered
+
+name: Nightly Tests
+
+on:
+  schedule:
+    # Run at 2:00 AM UTC every night
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      fuzz_duration:
+        description: 'Fuzz test duration in seconds'
+        required: false
+        default: '300'
+      run_mutation:
+        description: 'Run mutation tests'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  # ============================================================================
+  # Fuzz Tests
+  # Uses cargo-fuzz with libFuzzer for extended fuzzing sessions
+  # ============================================================================
+  fuzz-tests:
+    name: Fuzz Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - parser
+          - value_source
+          - mllp_codec
+          - escape
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install nightly Rust toolchain (required for fuzzing)
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: fuzz-nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Run fuzz test - ${{ matrix.target }}
+        run: |
+          # Check if fuzz target exists
+          if cargo fuzz list | grep -q "^${{ matrix.target }}$"; then
+            echo "Running fuzz target: ${{ matrix.target }}"
+            cargo fuzz run ${{ matrix.target }} \
+              -- -max_total_time=${{ github.event.inputs.fuzz_duration || '300' }} \
+                 -max_len=4096 \
+                 -timeout=10
+          else
+            echo "Fuzz target ${{ matrix.target }} not found, skipping..."
+            echo "Available targets:"
+            cargo fuzz list || true
+          fi
+        continue-on-error: true
+        timeout-minutes: 30
+
+      - name: Collect fuzz artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crash-${{ matrix.target }}
+          path: fuzz/artifacts/
+          retention-days: 30
+
+  # ============================================================================
+  # Mutation Tests
+  # Uses cargo-mutants to find code that isn't being properly tested
+  # ============================================================================
+  mutation-tests:
+    name: Mutation Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.run_mutation == 'true'
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: mutation-nightly
+
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants
+
+      - name: Run mutation tests
+        run: |
+          # Run mutation tests on core crates
+          cargo mutants \
+            --workspace \
+            --timeout 300 \
+            --output-dir mutants-out/ \
+            --no-shuffle \
+            || echo "Mutation tests completed with some misses"
+        continue-on-error: true
+        timeout-minutes: 60
+
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: mutants-out/
+          retention-days: 30
+
+      - name: Parse mutation results
+        run: |
+          echo "## Mutation Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f mutants-out/summary.md ]; then
+            cat mutants-out/summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Mutation test results not available in expected format." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================================================
+  # Extended Property Tests
+  # More thorough property-based testing with higher case counts
+  # ============================================================================
+  extended-property-tests:
+    name: Extended Property Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: extended-property
+
+      - name: Run extended property tests
+        env:
+          PROPTEST_CASES: 10000
+          PROPTEST_MAX_DEFAULT_SIZE: 1000
+        run: |
+          cargo test --workspace --features proptest property \
+            -- --nocapture
+        timeout-minutes: 25
+
+  # ============================================================================
+  # Security Audit
+  # Daily security scan of dependencies
+  # ============================================================================
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: security-audit
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
+
+      - name: Run cargo audit
+        run: cargo audit
+        continue-on-error: true
+
+      - name: Run cargo deny
+        run: cargo deny check advisories licenses bans sources
+        continue-on-error: true
+
+  # ============================================================================
+  # Documentation Generation
+  # Build and upload documentation
+  # ============================================================================
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: docs
+
+      - name: Build documentation
+        run: |
+          cargo doc --workspace --all-features --no-deps \
+            --document-private-items
+        timeout-minutes: 10
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-docs
+          path: target/doc/
+          retention-days: 7
+
+  # ============================================================================
+  # Summary Job
+  # Reports overall nightly test status
+  # ============================================================================
+  nightly-summary:
+    name: Nightly Summary
+    runs-on: ubuntu-latest
+    needs: [fuzz-tests, mutation-tests, extended-property-tests, security-audit]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "# Nightly Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Fuzz Tests | ${{ needs.fuzz-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mutation Tests | ${{ needs.mutation-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Extended Property Tests | ${{ needs.extended-property-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Run time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for failures
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "::warning::Some nightly tests failed. Check the job results for details."
+          exit 0  # Don't fail the workflow, just warn

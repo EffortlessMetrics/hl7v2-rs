@@ -13,5 +13,9 @@ categories = ["network-programming", "encoding"]
 [dependencies]
 hl7v2-model = { path = "../hl7v2-model" }
 
+[dev-dependencies]
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+proptest = "1.4"
+
 [features]
 default = []

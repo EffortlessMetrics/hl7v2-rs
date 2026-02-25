@@ -908,11 +908,15 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
 }
 
 // ============================================================================
-// Unit Tests
+// Test Modules
 // ============================================================================
 
 #[cfg(test)]
-mod tests {
+pub mod tests;
+
+// Legacy tests kept for backward compatibility
+#[cfg(test)]
+mod legacy_tests {
     use super::*;
 
     #[test]

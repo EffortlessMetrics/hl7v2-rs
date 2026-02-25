@@ -13,3 +13,7 @@ categories = ["date-and-time", "parser-implementations"]
 [dependencies]
 chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.6"
+chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }

@@ -281,7 +281,10 @@ fn get_delimiters_from_file_batch(file_batch: &FileBatch) -> Delims {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests;
+
+#[cfg(test)]
+mod integration_tests {
     use super::*;
     use hl7v2_parser::parse;
 

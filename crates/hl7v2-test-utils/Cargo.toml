@@ -1,0 +1,24 @@
+[package]
+name = "hl7v2-test-utils"
+version.workspace = true
+edition.workspace = true
+description = "Shared test utilities for hl7v2-rs workspace"
+license.workspace = true
+publish = false  # Dev-only crate
+repository.workspace = true
+
+[dependencies]
+hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-query = { path = "../hl7v2-query" }
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread", "net", "io-util", "time", "sync"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+insta = { version = "1.42", features = ["yaml"] }
+proptest = "1.6"
+tracing.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1.4"

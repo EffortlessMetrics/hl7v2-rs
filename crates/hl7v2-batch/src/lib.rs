@@ -464,48 +464,4 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_simple_messages() {
-        let data = b"MSH|^~\\&|App|Fac|App2|Fac2|20250128||ADT^A01|123|P|2.5\rPID|1||12345\r";
-        let batch = parse_batch(data).unwrap();
-        assert_eq!(batch.total_message_count(), 1);
-    }
-
-    #[test]
-    fn test_parse_single_batch() {
-        let data = b"BHS|^~\\&|App|Fac\rMSH|^~\\&|App|Fac|App2|Fac2|20250128||ADT^A01|123|P|2.5\rPID|1||12345\rBTS|1\r";
-        let batch = parse_batch(data).unwrap();
-        assert_eq!(batch.batches.len(), 1);
-        assert_eq!(batch.batches[0].message_count(), 1);
-        assert!(batch.batches[0].header.is_some());
-        assert!(batch.batches[0].trailer.is_some());
-    }
-
-    #[test]
-    fn test_parse_file_batch() {
-        let data = b"FHS|^~\\&|App|Fac\rBHS|^~\\&|App|Fac\rMSH|^~\\&|App|Fac|App2|Fac2|||ADT^A01|123|P|2.5\rBTS|1\rFTS|1\r";
-        let batch = parse_batch(data).unwrap();
-        assert_eq!(batch.info.batch_type, BatchType::File);
-        assert!(batch.header.is_some());
-        assert!(batch.trailer.is_some());
-    }
-
-    #[test]
-    fn test_batch_info_extraction() {
-        let line = "BHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128|||BatchName|Comment";
-        let info = extract_batch_info(line, "BHS").unwrap();
-        assert_eq!(info.sending_application, Some("SendingApp".to_string()));
-        assert_eq!(info.sending_facility, Some("SendingFac".to_string()));
-        assert_eq!(info.batch_name, Some("BatchName".to_string()));
-    }
-
-    #[test]
-    fn test_message_count_mismatch() {
-        let data = b"BHS|^~\\&|App|Fac\rMSH|^~\\&|App|Fac\rMSH|^~\\&|App|Fac\rBTS|5\r";
-        let result = parse_batch(data);
-        assert!(matches!(result, Err(BatchError::CountMismatch { .. })));
-    }
-}
+mod tests;

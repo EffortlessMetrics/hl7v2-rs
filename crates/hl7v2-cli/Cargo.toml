@@ -18,3 +18,20 @@ hl7v2-core = { path = "../hl7v2-core" }
 hl7v2-prof = { path = "../hl7v2-prof" }
 hl7v2-gen = { path = "../hl7v2-gen" }
 sysinfo = "0.38.2"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.19"
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+cucumber = { version = "0.22", default-features = false, features = ["macros"] }
+futures = "0.3"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration_tests.rs"
+
+[[test]]
+name = "bdd_tests"
+path = "tests/bdd_tests.rs"
+harness = false

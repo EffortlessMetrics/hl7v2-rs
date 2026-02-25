@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Error type for HL7 v2 operations
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum Error {
     #[error("Invalid segment ID")]
     InvalidSegmentId,
@@ -424,81 +424,4 @@ impl Presence {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_delims_default() {
-        let delims = Delims::default();
-        assert_eq!(delims.field, '|');
-        assert_eq!(delims.comp, '^');
-        assert_eq!(delims.rep, '~');
-        assert_eq!(delims.esc, '\\');
-        assert_eq!(delims.sub, '&');
-    }
-
-    #[test]
-    fn test_delims_parse_from_msh() {
-        let msh = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1";
-        let delims = Delims::parse_from_msh(msh).unwrap();
-        assert_eq!(delims.field, '|');
-        assert_eq!(delims.comp, '^');
-        assert_eq!(delims.rep, '~');
-        assert_eq!(delims.esc, '\\');
-        assert_eq!(delims.sub, '&');
-    }
-
-    #[test]
-    fn test_delims_rejects_duplicates() {
-        let msh = "MSH||||SendingApp";
-        let result = Delims::parse_from_msh(msh);
-        assert!(matches!(result, Err(Error::DuplicateDelims)));
-    }
-
-    #[test]
-    fn test_message_creation() {
-        let message = Message::new();
-        assert!(message.segments.is_empty());
-        assert!(message.charsets.is_empty());
-    }
-
-    #[test]
-    fn test_segment_creation() {
-        let segment = Segment::new(b"MSH");
-        assert_eq!(segment.id, *b"MSH");
-        assert!(segment.fields.is_empty());
-    }
-
-    #[test]
-    fn test_field_creation() {
-        let field = Field::from_text("test");
-        assert_eq!(field.first_text(), Some("test"));
-    }
-
-    #[test]
-    fn test_atom_creation() {
-        let text = Atom::text("hello");
-        assert_eq!(text.as_text(), Some("hello"));
-        assert!(!text.is_null());
-        
-        let null = Atom::null();
-        assert!(null.is_null());
-        assert_eq!(null.as_text(), None);
-    }
-
-    #[test]
-    fn test_presence_semantics() {
-        let missing = Presence::Missing;
-        assert!(missing.is_missing());
-        assert!(!missing.is_present());
-        
-        let empty = Presence::Empty;
-        assert!(!empty.is_missing());
-        assert!(empty.is_present());
-        assert!(!empty.has_value());
-        
-        let value = Presence::Value("test".to_string());
-        assert!(value.has_value());
-        assert_eq!(value.value(), Some("test"));
-    }
-}
+mod tests;

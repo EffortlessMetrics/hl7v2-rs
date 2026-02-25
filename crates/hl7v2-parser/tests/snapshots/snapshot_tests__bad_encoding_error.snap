@@ -1,0 +1,42 @@
+---
+source: crates/hl7v2-parser/tests/snapshot_tests.rs
+expression: result
+---
+Ok(
+    Message {
+        delims: Delims {
+            field: '|',
+            comp: 'S',
+            rep: 'e',
+            esc: 'n',
+            sub: 'd',
+        },
+        segments: [
+            Segment {
+                id: [
+                    77,
+                    83,
+                    72,
+                ],
+                fields: [
+                    Field {
+                        reps: [
+                            Rep {
+                                comps: [
+                                    Comp {
+                                        subs: [
+                                            Text(
+                                                "Send",
+                                            ),
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+        charsets: [],
+    },
+)

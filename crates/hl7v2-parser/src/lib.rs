@@ -674,3 +674,7 @@ mod tests {
         }
     }
 }
+
+// Comprehensive test suite modules
+#[cfg(test)]
+pub mod comprehensive_tests;

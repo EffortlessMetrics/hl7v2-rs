@@ -1,0 +1,37 @@
+[package]
+name = "hl7v2-parser-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+hl7v2-parser = { path = ".." }
+hl7v2-model = { path = "../../hl7v2-model" }
+
+[[bin]]
+name = "parse_message"
+path = "fuzz_targets/parse_message.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_field"
+path = "fuzz_targets/parse_field.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_batch"
+path = "fuzz_targets/parse_batch.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_mllp"
+path = "fuzz_targets/parse_mllp.rs"
+test = false
+doc = false
