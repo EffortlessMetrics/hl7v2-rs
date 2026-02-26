@@ -206,6 +206,13 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
         return Err(Error::InvalidSegmentId);
     }
 
+    // Validate segment format (check for invalid line breaks)
+    if line.contains('\n') || line.contains('\r') {
+        return Err(Error::InvalidFieldFormat {
+            details: "Segment contains invalid line break characters".to_string(),
+        });
+    }
+
     // Parse segment ID
     let id_bytes = line[0..3].as_bytes();
     let mut id = [0u8; 3];
@@ -279,13 +286,6 @@ fn parse_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> 
 
 /// Parse a single field
 fn parse_field(field_str: &str, delims: &Delims) -> Result<Field, Error> {
-    // Validate field format
-    if field_str.contains('\n') || field_str.contains('\r') {
-        return Err(Error::InvalidFieldFormat {
-            details: "Field contains invalid line break characters".to_string(),
-        });
-    }
-
     // Count repetitions first to pre-allocate the vector
     let rep_count = field_str.matches(delims.rep).count() + 1;
     let mut reps = Vec::with_capacity(rep_count);
@@ -314,13 +314,6 @@ fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
         });
     }
 
-    // Validate repetition format
-    if rep_str.contains('\n') || rep_str.contains('\r') {
-        return Err(Error::InvalidRepFormat {
-            details: "Repetition contains invalid line break characters".to_string(),
-        });
-    }
-
     // Count components first to pre-allocate the vector
     let comp_count = rep_str.matches(delims.comp).count() + 1;
     let mut comps = Vec::with_capacity(comp_count);
@@ -340,13 +333,6 @@ fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
 
 /// Parse a component
 fn parse_comp(comp_str: &str, delims: &Delims) -> Result<Comp, Error> {
-    // Validate component format
-    if comp_str.contains('\n') || comp_str.contains('\r') {
-        return Err(Error::InvalidCompFormat {
-            details: "Component contains invalid line break characters".to_string(),
-        });
-    }
-
     // Count subcomponents first to pre-allocate the vector
     let sub_count = comp_str.matches(delims.sub).count() + 1;
     let mut subs = Vec::with_capacity(sub_count);
@@ -369,13 +355,6 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
     // Handle NULL value
     if atom_str == "\"\"" {
         return Ok(Atom::Null);
-    }
-
-    // Validate atom format
-    if atom_str.contains('\n') || atom_str.contains('\r') {
-        return Err(Error::InvalidSubcompFormat {
-            details: "Subcomponent contains invalid line break characters".to_string(),
-        });
     }
 
     // Unescape the text
