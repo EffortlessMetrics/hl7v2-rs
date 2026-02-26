@@ -21,19 +21,3 @@ hl7v2-writer = { path = "../hl7v2-writer" }
 [dev-dependencies]
 criterion = "0.8.2"
 
-
-[[bench]]
-name = "parsing"
-harness = false
-
-[[bench]]
-name = "escape"
-harness = false
-
-[[bench]]
-name = "mllp"
-harness = false
-
-[[bench]]
-name = "memory"
-harness = false
