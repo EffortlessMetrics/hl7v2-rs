@@ -9,7 +9,7 @@ use hl7v2_core::{parse, to_json, write};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 mod monitor;
-use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
+use monitor::{PerformanceMonitor, format_size};
 
 #[cfg(test)]
 mod tests;
@@ -193,7 +193,7 @@ fn main() {
 }
 
 /// Display performance statistics
-fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
+fn display_performance_stats(monitor: &PerformanceMonitor) {
     println!();
     println!("Performance Statistics:");
     println!("  Total execution time: {:?}", monitor.elapsed());
@@ -212,13 +212,13 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     if let Some(cpu_usage) = system_info.cpu.cpu_usage_percent {
         println!("    CPU usage: {:.2}%", cpu_usage);
     }
-    println!("    Total memory: {} bytes", system_info.total_memory);
-    println!("    Used memory: {} bytes", system_info.used_memory);
+    println!("    Total memory: {}", format_size(system_info.total_memory));
+    println!("    Used memory: {}", format_size(system_info.used_memory));
     if let Some(rss) = system_info.memory.resident_set_size {
-        println!("    Process memory (RSS): {} bytes", rss);
+        println!("    Process memory (RSS): {}", format_size(rss));
     }
     if let Some(vms) = system_info.memory.virtual_memory_size {
-        println!("    Process memory (VMS): {} bytes", vms);
+        println!("    Process memory (VMS): {}", format_size(vms));
     }
 }
 
@@ -272,7 +272,7 @@ fn parse_command(input: &PathBuf, json: bool, envelope: &Option<PathBuf>, mllp: 
         println!();
         println!("Parse Summary:");
         println!("  Input file: {:?}", input);
-        println!("  File size: {} bytes", file_size);
+        println!("  File size: {}", format_size(file_size as u64));
         println!("  Segments: {}", segment_count);
         println!("  Delimiters: |^~\\& (field={} comp={} rep={} esc={} sub={})", 
                  message.delims.field, message.delims.comp, message.delims.rep, 
@@ -339,8 +339,8 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
             println!("Normalize Summary:");
             println!("  Input file: {:?}", input);
             println!("  Output file: {:?}", output_path);
-            println!("  Input size: {} bytes", input_file_size);
-            println!("  Output size: {} bytes", output_bytes.len());
+            println!("  Input size: {}", format_size(input_file_size as u64));
+            println!("  Output size: {}", format_size(output_bytes.len() as u64));
             println!("  Segments: {}", segment_count);
             println!("  Canonical delimiters: {}", canonical_delims);
             println!("  MLLP output: {}", mllp_out);
@@ -356,8 +356,8 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
             println!("Normalize Summary:");
             println!("  Input file: {:?}", input);
             println!("  Output: stdout");
-            println!("  Input size: {} bytes", input_file_size);
-            println!("  Output size: {} bytes", output_bytes.len());
+            println!("  Input size: {}", format_size(input_file_size as u64));
+            println!("  Output size: {}", format_size(output_bytes.len() as u64));
             println!("  Segments: {}", segment_count);
             println!("  Canonical delimiters: {}", canonical_delims);
             println!("  MLLP output: {}", mllp_out);
@@ -427,7 +427,7 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, s
         println!("Validation Summary:");
         println!("  Input file: {:?}", input);
         println!("  Profile file: {:?}", profile);
-        println!("  File size: {} bytes", file_size);
+        println!("  File size: {}", format_size(file_size as u64));
         println!("  Segments: {}", message.segments.len());
         println!("  Issues found: 0");
         display_performance_stats(&monitor);
@@ -494,8 +494,8 @@ fn ack_command(input: &PathBuf, mode: &AckMode, code: &AckCode, mllp_in: bool, m
         println!("  Input file: {:?}", input);
         println!("  Mode: {:?}", mode);
         println!("  Code: {:?}", code);
-        println!("  Input size: {} bytes", input_file_size);
-        println!("  Output size: {} bytes", ack_bytes.len());
+        println!("  Input size: {}", format_size(input_file_size as u64));
+        println!("  Output size: {}", format_size(ack_bytes.len() as u64));
         println!("  Segments in original: {}", message.segments.len());
         println!("  Segments in ACK: {}", ack_message.segments.len());
         println!("  MLLP input: {}", mllp_in);
@@ -527,13 +527,21 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
             }
             "help" => {
                 println!("Available commands:");
-                println!("  parse <file> [options]  - Parse an HL7 message");
-                println!("  norm <file> [options]   - Normalize an HL7 message");
-                println!("  val <file> <profile>    - Validate an HL7 message");
-                println!("  ack <file> [options]    - Generate an ACK for an HL7 message");
-                println!("  gen <profile> [options] - Generate synthetic messages");
-                println!("  help                    - Show this help message");
-                println!("  exit|quit               - Exit interactive mode");
+                println!();
+                println!("  Processing");
+                println!("    parse <file> [options]  - Parse an HL7 message");
+                println!("    norm <file> [options]   - Normalize an HL7 message");
+                println!("    ack <file> [options]    - Generate an ACK");
+                println!();
+                println!("  Validation");
+                println!("    val <file> <profile>    - Validate an HL7 message");
+                println!();
+                println!("  Generation");
+                println!("    gen <profile> [options] - Generate synthetic messages");
+                println!();
+                println!("  System");
+                println!("    help                    - Show this help message");
+                println!("    exit|quit               - Exit interactive mode");
                 println!();
             }
             _ => {

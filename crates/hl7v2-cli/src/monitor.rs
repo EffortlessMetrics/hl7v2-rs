@@ -119,3 +119,40 @@ pub fn get_system_info() -> SystemInfo {
         used_memory: sys.used_memory(),
     }
 }
+
+/// Format bytes into a human-readable string
+#[allow(clippy::cast_precision_loss)]
+pub fn format_size(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
+
+    if bytes < KB {
+        format!("{} B", bytes)
+    } else if bytes < MB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else if bytes < GB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes < TB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else {
+        format!("{:.2} TB", bytes as f64 / TB as f64)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_size() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(100), "100 B");
+        assert_eq!(format_size(1023), "1023 B");
+        assert_eq!(format_size(1024), "1.00 KB");
+        assert_eq!(format_size(1536), "1.50 KB");
+        assert_eq!(format_size(1048576), "1.00 MB");
+        assert_eq!(format_size(1073741824), "1.00 GB");
+    }
+}
