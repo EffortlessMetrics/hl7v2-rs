@@ -14,7 +14,7 @@ use tower_http::{
 
 use crate::handlers::{health_handler, parse_handler, validate_handler};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::create_concurrency_limit_layer;
+use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
 use crate::server::AppState;
 
 /// Build the application router
@@ -22,7 +22,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // Create API routes
     let api_routes = Router::new()
         .route("/parse", post(parse_handler))
-        .route("/validate", post(validate_handler));
+        .route("/validate", post(validate_handler))
+        // Apply authentication middleware only to API routes
+        // We use from_fn_with_state because the middleware needs access to AppState
+        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     // Main router
     Router::new()
@@ -72,6 +75,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
         });
 
         let app = build_router(state);
@@ -95,6 +99,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: Some("test-key".to_string()),
         });
 
         let app = build_router(state);
@@ -117,6 +122,7 @@ mod tests {
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
+                    .header("X-API-Key", "test-key")
                     .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                     .unwrap(),
             )
