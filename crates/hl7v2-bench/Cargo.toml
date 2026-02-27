@@ -21,3 +21,7 @@ hl7v2-writer = { path = "../hl7v2-writer" }
 [dev-dependencies]
 criterion = "0.8.2"
 
+
+[[bench]]
+name = "parsing"
+harness = false

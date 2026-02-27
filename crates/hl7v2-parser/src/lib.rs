@@ -19,7 +19,6 @@
 //! ```
 
 use hl7v2_escape::unescape_text;
-use hl7v2_mllp;
 use hl7v2_model::*;
 
 // Re-export query functionality from hl7v2-query for backward compatibility
@@ -207,13 +206,15 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     }
 
     // Parse segment ID
-    let id_bytes = line[0..3].as_bytes();
+    // Use proper byte slice instead of string slicing to avoid clippy::sliced_string_as_bytes
+    let id_bytes = &line.as_bytes()[0..3];
     let mut id = [0u8; 3];
     id.copy_from_slice(id_bytes);
 
     // Ensure segment ID is all uppercase ASCII letters or digits
+    // Use char methods for better readability and to satisfy clippy::manual_range_contains
     for &byte in &id {
-        if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
+        if !(byte.is_ascii_uppercase() || byte.is_ascii_digit()) {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -225,7 +226,20 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
         ""
     };
 
-    let mut fields = parse_fields(fields_str, delims).map_err(|e| Error::ParseError {
+    // Optimization: Check for invalid characters (like '\n' or '\r') once at the segment level
+    // instead of recursively at each level.
+    // If the segment is clean, we can skip checks in the inner loops.
+    // We only need to check fields_str because segment ID is already validated above.
+    // Note: checking for \r is theoretically redundant as parse() splits by \r, but we keep it for robustness.
+    let has_invalid_chars = fields_str.contains(&['\n', '\r'][..]);
+
+    let result = if has_invalid_chars {
+        parse_fields::<true>(fields_str, delims)
+    } else {
+        parse_fields::<false>(fields_str, delims)
+    };
+
+    let mut fields = result.map_err(|e| Error::ParseError {
         segment_id: String::from_utf8_lossy(&id).to_string(),
         field_index: 0,
         source: Box::new(e),
@@ -255,7 +269,10 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
 }
 
 /// Parse fields from a segment
-fn parse_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> {
+fn parse_fields<const CHECK: bool>(
+    fields_str: &str,
+    delims: &Delims,
+) -> Result<Vec<Field>, Error> {
     if fields_str.is_empty() {
         return Ok(vec![]);
     }
@@ -266,7 +283,7 @@ fn parse_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> 
 
     // Use split iterator directly instead of collecting into intermediate vector
     for (i, field_str) in fields_str.split(delims.field).enumerate() {
-        let field = parse_field(field_str, delims).map_err(|e| Error::ParseError {
+        let field = parse_field::<CHECK>(field_str, delims).map_err(|e| Error::ParseError {
             segment_id: "UNKNOWN".to_string(),
             field_index: i,
             source: Box::new(e),
@@ -278,9 +295,9 @@ fn parse_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> 
 }
 
 /// Parse a single field
-fn parse_field(field_str: &str, delims: &Delims) -> Result<Field, Error> {
+fn parse_field<const CHECK: bool>(field_str: &str, delims: &Delims) -> Result<Field, Error> {
     // Validate field format
-    if field_str.contains('\n') || field_str.contains('\r') {
+    if CHECK && (field_str.contains('\n') || field_str.contains('\r')) {
         return Err(Error::InvalidFieldFormat {
             details: "Field contains invalid line break characters".to_string(),
         });
@@ -291,7 +308,7 @@ fn parse_field(field_str: &str, delims: &Delims) -> Result<Field, Error> {
     let mut reps = Vec::with_capacity(rep_count);
 
     for (i, rep_str) in field_str.split(delims.rep).enumerate() {
-        let rep = parse_rep(rep_str, delims).map_err(|e| match e {
+        let rep = parse_rep::<CHECK>(rep_str, delims).map_err(|e| match e {
             Error::InvalidRepFormat { .. } => e,
             _ => Error::InvalidRepFormat {
                 details: format!("Repetition {}: {}", i, e),
@@ -304,7 +321,7 @@ fn parse_field(field_str: &str, delims: &Delims) -> Result<Field, Error> {
 }
 
 /// Parse a repetition
-fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
+fn parse_rep<const CHECK: bool>(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
     // Handle NULL value
     if rep_str == "\"\"" {
         return Ok(Rep {
@@ -315,7 +332,7 @@ fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
     }
 
     // Validate repetition format
-    if rep_str.contains('\n') || rep_str.contains('\r') {
+    if CHECK && (rep_str.contains('\n') || rep_str.contains('\r')) {
         return Err(Error::InvalidRepFormat {
             details: "Repetition contains invalid line break characters".to_string(),
         });
@@ -326,7 +343,7 @@ fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
     let mut comps = Vec::with_capacity(comp_count);
 
     for (i, comp_str) in rep_str.split(delims.comp).enumerate() {
-        let comp = parse_comp(comp_str, delims).map_err(|e| match e {
+        let comp = parse_comp::<CHECK>(comp_str, delims).map_err(|e| match e {
             Error::InvalidCompFormat { .. } => e,
             _ => Error::InvalidCompFormat {
                 details: format!("Component {}: {}", i, e),
@@ -339,9 +356,9 @@ fn parse_rep(rep_str: &str, delims: &Delims) -> Result<Rep, Error> {
 }
 
 /// Parse a component
-fn parse_comp(comp_str: &str, delims: &Delims) -> Result<Comp, Error> {
+fn parse_comp<const CHECK: bool>(comp_str: &str, delims: &Delims) -> Result<Comp, Error> {
     // Validate component format
-    if comp_str.contains('\n') || comp_str.contains('\r') {
+    if CHECK && (comp_str.contains('\n') || comp_str.contains('\r')) {
         return Err(Error::InvalidCompFormat {
             details: "Component contains invalid line break characters".to_string(),
         });
@@ -352,7 +369,7 @@ fn parse_comp(comp_str: &str, delims: &Delims) -> Result<Comp, Error> {
     let mut subs = Vec::with_capacity(sub_count);
 
     for (i, sub_str) in comp_str.split(delims.sub).enumerate() {
-        let atom = parse_atom(sub_str, delims).map_err(|e| match e {
+        let atom = parse_atom::<CHECK>(sub_str, delims).map_err(|e| match e {
             Error::InvalidSubcompFormat { .. } => e,
             _ => Error::InvalidSubcompFormat {
                 details: format!("Subcomponent {}: {}", i, e),
@@ -365,14 +382,14 @@ fn parse_comp(comp_str: &str, delims: &Delims) -> Result<Comp, Error> {
 }
 
 /// Parse an atom (unescaped text or NULL)
-fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
+fn parse_atom<const CHECK: bool>(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
     // Handle NULL value
     if atom_str == "\"\"" {
         return Ok(Atom::Null);
     }
 
     // Validate atom format
-    if atom_str.contains('\n') || atom_str.contains('\r') {
+    if CHECK && (atom_str.contains('\n') || atom_str.contains('\r')) {
         return Err(Error::InvalidSubcompFormat {
             details: "Subcomponent contains invalid line break characters".to_string(),
         });
@@ -384,6 +401,7 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 }
 
 /// Extract character sets from MSH-18 field
+#[allow(clippy::collapsible_if)]
 fn extract_charsets(segments: &[Segment]) -> Vec<String> {
     // Look for the MSH segment (should be the first one)
     if let Some(msh_segment) = segments.first() {
@@ -450,11 +468,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
             trailer = Some(bts_segment);
         } else if line.starts_with("MSH") {
             if !current_message_lines.is_empty() {
-                let message_text = current_message_lines
-                    .iter()
-                    .map(|s| *s)
-                    .collect::<Vec<_>>()
-                    .join("\r");
+                let message_text = current_message_lines.join("\r");
                 let message =
                     parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
                         details: format!("Failed to parse message in batch: {}", e),
@@ -469,11 +483,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
     }
 
     if !current_message_lines.is_empty() {
-        let message_text = current_message_lines
-            .iter()
-            .map(|s| *s)
-            .collect::<Vec<_>>()
-            .join("\r");
+        let message_text = current_message_lines.join("\r");
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
         })?;
@@ -519,11 +529,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
             trailer = Some(fts_segment);
         } else if line.starts_with("BHS") {
             if !current_batch_lines.is_empty() {
-                let batch_text = current_batch_lines
-                    .iter()
-                    .map(|s| *s)
-                    .collect::<Vec<_>>()
-                    .join("\r");
+                let batch_text = current_batch_lines.join("\r");
                 match parse_batch(batch_text.as_bytes()) {
                     Ok(batch) => batches.push(batch),
                     Err(e) => {
@@ -538,19 +544,13 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
                 current_batch_lines.clear();
             }
             current_batch_lines.push(line);
-        } else if line.starts_with("MSH") && current_batch_lines.is_empty() {
-            current_batch_lines.push(line);
         } else {
             current_batch_lines.push(line);
         }
     }
 
     if !current_batch_lines.is_empty() {
-        let batch_text = current_batch_lines
-            .iter()
-            .map(|s| *s)
-            .collect::<Vec<_>>()
-            .join("\r");
+        let batch_text = current_batch_lines.join("\r");
         match parse_batch(batch_text.as_bytes()) {
             Ok(batch) => batches.push(batch),
             Err(e) => {

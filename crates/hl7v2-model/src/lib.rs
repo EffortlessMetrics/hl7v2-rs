@@ -188,39 +188,19 @@ impl Default for Message {
 }
 
 /// A batch of HL7 messages
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Batch {
     pub header: Option<Segment>, // BHS segment
     pub messages: Vec<Message>,
     pub trailer: Option<Segment>, // BTS segment
 }
 
-impl Default for Batch {
-    fn default() -> Self {
-        Self {
-            header: None,
-            messages: Vec::new(),
-            trailer: None,
-        }
-    }
-}
-
 /// A file containing batches of HL7 messages
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct FileBatch {
     pub header: Option<Segment>, // FHS segment
     pub batches: Vec<Batch>,
     pub trailer: Option<Segment>, // FTS segment
-}
-
-impl Default for FileBatch {
-    fn default() -> Self {
-        Self {
-            header: None,
-            batches: Vec::new(),
-            trailer: None,
-        }
-    }
 }
 
 /// A segment in an HL7 message
