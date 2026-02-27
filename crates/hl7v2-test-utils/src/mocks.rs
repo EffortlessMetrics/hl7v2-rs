@@ -56,6 +56,7 @@ use tokio::time::timeout;
 /// assert_eq!(messages.len(), 1);
 /// ```
 pub struct MockMllpServer {
+    #[allow(dead_code)]
     listener: Option<TcpListener>,
     received: Arc<RwLock<VecDeque<Vec<u8>>>>,
     responses: Arc<RwLock<VecDeque<Vec<u8>>>>,
@@ -376,8 +377,10 @@ fn extract_mllp_payload(data: &[u8]) -> &[u8] {
 /// // server.run(handler).await;
 /// ```
 pub struct MockMessageHandler {
+    #[allow(clippy::type_complexity)]
     responses: Arc<RwLock<VecDeque<Result<Option<Message>, Error>>>>,
     received: Arc<RwLock<Vec<Message>>>,
+    #[allow(clippy::type_complexity)]
     response_fn: Option<Arc<dyn Fn(&Message) -> Result<Option<Message>, Error> + Send + Sync>>,
 }
 

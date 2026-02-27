@@ -1156,12 +1156,16 @@ dependencies = [
  "hl7v2-core",
  "hl7v2-gen",
  "hl7v2-prof",
+ "hl7v2-server",
  "hl7v2-test-utils",
  "predicates",
  "serde_json",
  "serde_yaml_ng",
  "sysinfo",
  "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

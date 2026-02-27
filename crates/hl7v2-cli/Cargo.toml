@@ -17,7 +17,11 @@ serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 hl7v2-core = { path = "../hl7v2-core" }
 hl7v2-prof = { path = "../hl7v2-prof" }
 hl7v2-gen = { path = "../hl7v2-gen" }
+hl7v2-server = { path = "../hl7v2-server" }
 sysinfo = "0.38.2"
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dev-dependencies]
 assert_cmd = "2.0"

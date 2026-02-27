@@ -9,10 +9,10 @@ use hl7v2_core::{parse, to_json, write};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 mod monitor;
-use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
 
 #[cfg(test)]
 mod tests;
+mod serve;
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator", version)]
@@ -142,8 +142,36 @@ enum Commands {
         stats: bool,
     },
     
+    /// Start HTTP/gRPC server for HL7 v2 processing
+    Serve {
+        /// Server mode (http or grpc)
+        #[arg(long, value_enum, default_value = "http")]
+        mode: ServerMode,
+        
+        /// Port to listen on
+        #[arg(short, long, default_value = "8080")]
+        port: u16,
+        
+        /// Host address to bind to
+        #[arg(long, default_value = "0.0.0.0")]
+        host: String,
+        
+        /// Maximum request body size in bytes
+        #[arg(long, default_value = "10485760")]
+        max_body_size: usize,
+    },
+    
     /// Interactive mode
     Interactive,
+}
+
+/// Server mode selection
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
+enum ServerMode {
+    /// HTTP server with REST API
+    Http,
+    /// gRPC server (requires grpc feature)
+    Grpc,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
@@ -163,7 +191,16 @@ enum AckCode {
     CR,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    // Initialize tracing for server mode
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into())
+        )
+        .init();
+    
     let cli = Cli::parse();
     
     let result = match &cli.command {
@@ -181,6 +218,9 @@ fn main() {
         }
         Commands::Gen { profile, seed, count, out, stats } => {
             gen_command(profile, *seed, *count, out, *stats)
+        }
+        Commands::Serve { mode, port, host, max_body_size } => {
+            serve::run_server(mode, *port, host, *max_body_size).await
         }
         Commands::Interactive => {
             interactive_mode()

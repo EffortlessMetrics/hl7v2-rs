@@ -547,7 +547,7 @@ fn write_comp_to_string(comp: &hl7v2_model::Comp, delims: &hl7v2_model::Delims) 
     let subs: Vec<String> = comp
         .subs
         .iter()
-        .map(|atom| write_atom_to_string(atom))
+        .map(write_atom_to_string)
         .collect();
     subs.join(&delims.sub.to_string())
 }

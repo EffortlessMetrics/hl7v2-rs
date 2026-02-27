@@ -67,7 +67,7 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     let segment = msg
         .segments
         .iter()
-        .find(|s| std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id))?;
+        .find(|s| std::str::from_utf8(&s.id) == Ok(segment_id))?;
 
     // Parse field index (1-based)
     let field_part = parts.next()?;
@@ -124,7 +124,7 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
     let segment = match msg
         .segments
         .iter()
-        .find(|s| std::str::from_utf8(&s.id).map_or(false, |id| id == segment_id))
+        .find(|s| std::str::from_utf8(&s.id) == Ok(segment_id))
     {
         Some(seg) => seg,
         None => return Presence::Missing,
@@ -231,7 +231,7 @@ fn get_msh_field<'a>(
 ) -> Option<&'a str> {
     if field_index == 1 {
         // MSH-1 is the field separator character
-        return None; // We can't return a reference to a temporary
+        None // We can't return a reference to a temporary
     } else if field_index == 2 {
         // MSH-2 is the encoding characters
         if segment.fields.is_empty() {
@@ -350,7 +350,7 @@ fn get_msh_field_presence(
 ) -> Presence {
     if field_index == 1 {
         // MSH-1 is the field separator character
-        return Presence::Value(msg.delims.field.to_string());
+        Presence::Value(msg.delims.field.to_string())
     } else if field_index == 2 {
         if segment.fields.is_empty() {
             return Presence::Missing;

@@ -320,21 +320,6 @@ pub fn parse_hl7_ts_with_precision(s: &str) -> Result<ParsedTimestamp, DateTimeE
     }
 }
 
-/// Compare two timestamps for "before" relationship
-fn compare_timestamps_for_before(a: &ParsedTimestamp, b: &ParsedTimestamp) -> bool {
-    // If both have the same precision, compare directly
-    if a.precision == b.precision {
-        return a.datetime < b.datetime;
-    }
-    
-    // For different precisions, truncate to the minimum precision
-    let min_precision = std::cmp::min(a.precision, b.precision);
-    let truncated_a = truncate_to_precision(&a.datetime, min_precision);
-    let truncated_b = truncate_to_precision(&b.datetime, min_precision);
-    
-    truncated_a < truncated_b
-}
-
 /// Truncate a datetime to a specific precision
 fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) -> NaiveDateTime {
     match precision {

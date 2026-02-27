@@ -18,30 +18,30 @@ mod datatype_enum_tests {
     use super::*;
 
     #[test]
-    fn test_datatype_from_str_valid() {
-        assert_eq!(DataType::from_str("ST"), Some(DataType::ST));
-        assert_eq!(DataType::from_str("ID"), Some(DataType::ID));
-        assert_eq!(DataType::from_str("IS"), Some(DataType::IS));
-        assert_eq!(DataType::from_str("DT"), Some(DataType::DT));
-        assert_eq!(DataType::from_str("TM"), Some(DataType::TM));
-        assert_eq!(DataType::from_str("TS"), Some(DataType::TS));
-        assert_eq!(DataType::from_str("NM"), Some(DataType::NM));
-        assert_eq!(DataType::from_str("SI"), Some(DataType::SI));
-        assert_eq!(DataType::from_str("TX"), Some(DataType::TX));
-        assert_eq!(DataType::from_str("FT"), Some(DataType::FT));
-        assert_eq!(DataType::from_str("PN"), Some(DataType::PN));
-        assert_eq!(DataType::from_str("CX"), Some(DataType::CX));
-        assert_eq!(DataType::from_str("HD"), Some(DataType::HD));
-        assert_eq!(DataType::from_str("AD"), Some(DataType::AD));
-        assert_eq!(DataType::from_str("XTN"), Some(DataType::XTN));
+    fn test_datatype_parse_valid() {
+        assert_eq!(DataType::parse("ST"), Some(DataType::ST));
+        assert_eq!(DataType::parse("ID"), Some(DataType::ID));
+        assert_eq!(DataType::parse("IS"), Some(DataType::IS));
+        assert_eq!(DataType::parse("DT"), Some(DataType::DT));
+        assert_eq!(DataType::parse("TM"), Some(DataType::TM));
+        assert_eq!(DataType::parse("TS"), Some(DataType::TS));
+        assert_eq!(DataType::parse("NM"), Some(DataType::NM));
+        assert_eq!(DataType::parse("SI"), Some(DataType::SI));
+        assert_eq!(DataType::parse("TX"), Some(DataType::TX));
+        assert_eq!(DataType::parse("FT"), Some(DataType::FT));
+        assert_eq!(DataType::parse("PN"), Some(DataType::PN));
+        assert_eq!(DataType::parse("CX"), Some(DataType::CX));
+        assert_eq!(DataType::parse("HD"), Some(DataType::HD));
+        assert_eq!(DataType::parse("AD"), Some(DataType::AD));
+        assert_eq!(DataType::parse("XTN"), Some(DataType::XTN));
     }
 
     #[test]
-    fn test_datatype_from_str_invalid() {
-        assert_eq!(DataType::from_str("INVALID"), None);
-        assert_eq!(DataType::from_str(""), None);
-        assert_eq!(DataType::from_str("st"), None); // Case sensitive
-        assert_eq!(DataType::from_str("XX"), None);
+    fn test_datatype_parse_invalid() {
+        assert_eq!(DataType::parse("INVALID"), None);
+        assert_eq!(DataType::parse(""), None);
+        assert_eq!(DataType::parse("st"), None); // Case sensitive
+        assert_eq!(DataType::parse("XX"), None);
     }
 
     #[test]

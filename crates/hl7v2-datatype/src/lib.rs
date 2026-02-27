@@ -107,7 +107,7 @@ pub enum DataType {
 
 impl DataType {
     /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "ST" => Some(Self::ST),
             "ID" => Some(Self::ID),
@@ -197,44 +197,43 @@ impl DataTypeValidator {
     /// Validate a value with detailed error information
     pub fn validate_detailed(&self, value: &str) -> ValidationResult {
         // Check minimum length
-        if let Some(min) = self.min_length {
-            if value.len() < min {
-                return Err(DataTypeError::TooShort {
-                    length: value.len(),
-                    min,
-                });
-            }
+        if let Some(min) = self.min_length
+            && value.len() < min
+        {
+            return Err(DataTypeError::TooShort {
+                length: value.len(),
+                min,
+            });
         }
         
         // Check maximum length
-        if let Some(max) = self.max_length {
-            if value.len() > max {
-                return Err(DataTypeError::TooLong {
-                    length: value.len(),
-                    max,
-                });
-            }
+        if let Some(max) = self.max_length
+            && value.len() > max
+        {
+            return Err(DataTypeError::TooLong {
+                length: value.len(),
+                max,
+            });
         }
         
         // Check pattern
-        if let Some(pattern) = &self.pattern {
-            if let Ok(regex) = Regex::new(pattern) {
-                if !regex.is_match(value) {
-                    return Err(DataTypeError::PatternMismatch {
-                        value: value.to_string(),
-                        pattern: pattern.clone(),
-                    });
-                }
-            }
+        if let Some(pattern) = &self.pattern
+            && let Ok(regex) = Regex::new(pattern)
+            && !regex.is_match(value)
+        {
+            return Err(DataTypeError::PatternMismatch {
+                value: value.to_string(),
+                pattern: pattern.clone(),
+            });
         }
         
         // Check allowed values
-        if let Some(allowed) = &self.allowed_values {
-            if !allowed.contains(&value.to_string()) {
-                return Err(DataTypeError::NotInAllowedSet {
-                    value: value.to_string(),
-                });
-            }
+        if let Some(allowed) = &self.allowed_values
+            && !allowed.contains(&value.to_string())
+        {
+            return Err(DataTypeError::NotInAllowedSet {
+                value: value.to_string(),
+            });
         }
         
         // Check checksum
@@ -519,7 +518,7 @@ pub fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
                 return false;
             }
             let month: u32 = parts[1].parse().unwrap_or(0);
-            if month < 1 || month > 12 {
+            if !(1..=12).contains(&month) {
                 return false;
             }
             // Check day (2 digits)
@@ -527,7 +526,7 @@ pub fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
                 return false;
             }
             let day: u32 = parts[2].parse().unwrap_or(0);
-            if day < 1 || day > 31 {
+            if !(1..=31).contains(&day) {
                 return false;
             }
             true
