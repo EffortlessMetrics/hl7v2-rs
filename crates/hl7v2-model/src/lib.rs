@@ -188,19 +188,41 @@ impl Default for Message {
 }
 
 /// A batch of HL7 messages
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Batch {
     pub header: Option<Segment>, // BHS segment
     pub messages: Vec<Message>,
     pub trailer: Option<Segment>, // BTS segment
 }
 
+#[allow(clippy::derivable_impls)]
+impl Default for Batch {
+    fn default() -> Self {
+        Self {
+            header: None,
+            messages: Vec::new(),
+            trailer: None,
+        }
+    }
+}
+
 /// A file containing batches of HL7 messages
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FileBatch {
     pub header: Option<Segment>, // FHS segment
     pub batches: Vec<Batch>,
     pub trailer: Option<Segment>, // FTS segment
+}
+
+#[allow(clippy::derivable_impls)]
+impl Default for FileBatch {
+    fn default() -> Self {
+        Self {
+            header: None,
+            batches: Vec::new(),
+            trailer: None,
+        }
+    }
 }
 
 /// A segment in an HL7 message
