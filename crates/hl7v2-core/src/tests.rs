@@ -1,6 +1,7 @@
-#[cfg(test)]
-mod tests {
-    use crate::{parse, write, Atom, unescape_text, Delims, get, parse_batch, parse_file_batch, write_batch};
+use crate::{
+    get, parse, parse_batch, parse_file_batch, parse_mllp, unescape_text, write, write_batch,
+    write_mllp, Atom, Delims,
+};
 
     #[test]
     fn test_basic_segment_id() {
@@ -520,11 +521,40 @@ mod tests {
     }
 
     #[test]
+    fn test_mllp_parsing_and_writing() {
+        // Create a simple HL7 message
+        let hl7_text = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+        let original_message = parse(hl7_text.as_bytes()).unwrap();
+
+        // Wrap with MLLP framing
+        let mllp_bytes = write_mllp(&original_message);
+
+        // Verify MLLP framing
+        assert_eq!(mllp_bytes[0], 0x0B); // Start byte
+        assert_eq!(mllp_bytes[mllp_bytes.len() - 2], 0x1C); // End byte 1
+        assert_eq!(mllp_bytes[mllp_bytes.len() - 1], 0x0D); // End byte 2
+
+        // Parse from MLLP framed bytes
+        let parsed_message = parse_mllp(&mllp_bytes).unwrap();
+
+        // Verify the messages are equivalent
+        assert_eq!(original_message.segments.len(), parsed_message.segments.len());
+        assert_eq!(
+            std::str::from_utf8(&original_message.segments[0].id).unwrap(),
+            std::str::from_utf8(&parsed_message.segments[0].id).unwrap()
+        );
+        assert_eq!(
+            std::str::from_utf8(&original_message.segments[1].id).unwrap(),
+            std::str::from_utf8(&parsed_message.segments[1].id).unwrap()
+        );
+    }
+
+    #[test]
     fn test_network_module() {
         // Test that the network module can be compiled and used
         #[cfg(feature = "network")]
         {
-            use crate::network::{MllpConfig, MllpClient, MllpServer, AckTimingPolicy};
+            use crate::network::{AckTimingPolicy, MllpClient, MllpConfig, MllpServer};
             use std::time::Duration;
 
             // Test creating a config
@@ -537,16 +567,16 @@ mod tests {
             };
 
             // Test creating a client
-            let client = MllpClient::new(config.clone());
-            
+            let _client = MllpClient::new(config.clone());
+
             // Test creating a server
-            let server = MllpServer::new(config);
-            
+            let _server = MllpServer::new(config);
+
             // These are just compilation tests - the actual functionality
             // would require network access which we don't want in unit tests
             assert!(true);
         }
-        
+
         // Test that the module compiles even without the network feature
         #[cfg(not(feature = "network"))]
         {
@@ -554,4 +584,3 @@ mod tests {
             assert!(true);
         }
     }
-}
