@@ -195,7 +195,6 @@ pub struct Batch {
     pub trailer: Option<Segment>, // BTS segment
 }
 
-#[allow(clippy::derivable_impls)]
 impl Default for Batch {
     fn default() -> Self {
         Self {
@@ -214,7 +213,6 @@ pub struct FileBatch {
     pub trailer: Option<Segment>, // FTS segment
 }
 
-#[allow(clippy::derivable_impls)]
 impl Default for FileBatch {
     fn default() -> Self {
         Self {

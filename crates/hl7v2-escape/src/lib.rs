@@ -126,7 +126,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             let mut escape_seq = String::new();
             let mut found_end = false;
             
-            for esc_ch in chars.by_ref() {
+            while let Some(esc_ch) = chars.next() {
                 if esc_ch == delims.esc {
                     found_end = true;
                     break;
@@ -139,7 +139,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // in the encoding characters. Let's check if this is the special case of the
                 // MSH encoding characters "^~\&"
                 if text.len() == 4 && 
-                   text.starts_with(delims.comp) &&
+                   text.chars().nth(0) == Some(delims.comp) &&
                    text.chars().nth(1) == Some(delims.rep) &&
                    text.chars().nth(2) == Some(delims.esc) &&
                    text.chars().nth(3) == Some(delims.sub) {
