@@ -1697,5 +1697,8 @@ fn find_valueset_by_name<'a>(profile: &'a Profile, name: &str) -> Option<&'a Val
         .find(|valueset| valueset.name == name)
 }
 
+/// Profile loader module with remote loading and caching support
+pub mod loader;
+
 #[cfg(test)]
 mod tests;
