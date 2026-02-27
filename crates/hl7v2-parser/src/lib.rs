@@ -7,6 +7,19 @@
 //! - MLLP-framed message parsing
 //! - Path-based field access (re-exported from hl7v2-query)
 //!
+//! # Memory Efficiency
+//!
+//! This parser uses a "zero-allocation where possible" approach rather than true zero-copy.
+//! Parsed messages own their data via `Vec<u8>`, which provides:
+//!
+//! - Safe lifetime management without complex borrow checker patterns
+//! - Ergonomic API that doesn't require managing input lifetimes
+//! - Ability to modify and re-serialize messages
+//!
+//! For memory-constrained environments or very large messages, consider using
+//! [`hl7v2_stream`](../hl7v2_stream/index.html) which provides an event-based
+//! streaming parser with bounded memory usage.
+//!
 //! # Example
 //!
 //! ```

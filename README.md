@@ -282,6 +282,33 @@ Each crate is independently usable as a library, enabling integration into other
 
 For exact benchmark numbers and hardware, see [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
+## Memory Efficiency
+
+The parser uses a "zero-allocation where possible" approach rather than true zero-copy:
+
+- **Small messages**: Parsed in-place with minimal allocations
+- **Large messages**: Use the streaming parser ([`hl7v2-stream`](crates/hl7v2-stream)) for bounded memory usage
+- **Trade-off**: Safety and ergonomics are prioritized over raw performance
+
+### Why not true zero-copy?
+
+The standard parser (`hl7v2-parser`) uses `Vec<u8>` internally for owned data, which provides:
+- Safe lifetime management without complex borrow checker patterns
+- Ergonomic API that doesn't require managing input lifetimes
+- Ability to modify and re-serialize messages
+
+For production use with large HL7 messages or memory-constrained environments, use the streaming parser with configured memory bounds:
+
+```rust
+use hl7v2_stream::{StreamParser, ParserConfig};
+
+let config = ParserConfig {
+    max_message_size: 1024 * 1024,  // 1 MB limit
+    ..Default::default()
+};
+let parser = StreamParser::with_config(config);
+```
+
 ## HL7 Standards Compliance
 
 - **Version Support**: HL7 v2.3 through v2.9

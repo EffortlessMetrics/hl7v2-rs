@@ -89,7 +89,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "Test needs review - response format may have changed. See GitHub issue for details."]
     async fn test_parse_endpoint() {
         let metrics_handle = crate::metrics::init_metrics_recorder();
         let state = Arc::new(AppState {
