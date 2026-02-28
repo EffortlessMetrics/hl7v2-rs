@@ -7,8 +7,8 @@
 //!
 //! Run with: cargo run --example template_generation
 
+use hl7v2_core::{get, write};
 use hl7v2_template::{Template, ValueSource, generate};
-use hl7v2_core::{write, get};
 use std::collections::HashMap;
 
 fn main() {
@@ -30,43 +30,64 @@ fn programmatic_template_example() {
 
     // Create value mappings using the actual ValueSource enum
     let mut values: HashMap<String, ValueSource> = HashMap::new();
-    
+
     // Fixed values
-    values.insert("sending_app".to_string(), ValueSource::Fixed("HL7V2RS".to_string()));
-    values.insert("sending_fac".to_string(), ValueSource::Fixed("HOSPITAL".to_string()));
-    values.insert("receiving_app".to_string(), ValueSource::Fixed("LABSYSTEM".to_string()));
-    values.insert("receiving_fac".to_string(), ValueSource::Fixed("LABORATORY".to_string()));
-    values.insert("version".to_string(), ValueSource::Fixed("2.5.1".to_string()));
-    
+    values.insert(
+        "sending_app".to_string(),
+        ValueSource::Fixed("HL7V2RS".to_string()),
+    );
+    values.insert(
+        "sending_fac".to_string(),
+        ValueSource::Fixed("HOSPITAL".to_string()),
+    );
+    values.insert(
+        "receiving_app".to_string(),
+        ValueSource::Fixed("LABSYSTEM".to_string()),
+    );
+    values.insert(
+        "receiving_fac".to_string(),
+        ValueSource::Fixed("LABORATORY".to_string()),
+    );
+    values.insert(
+        "version".to_string(),
+        ValueSource::Fixed("2.5.1".to_string()),
+    );
+
     // Random choice from list
-    values.insert("patient_name".to_string(), ValueSource::From(vec![
-        "SMITH^JOHN".to_string(),
-        "JONES^JANE".to_string(),
-        "BROWN^BOB".to_string(),
-        "WILSON^MARY".to_string(),
-        "TAYLOR^DAVID".to_string(),
-    ]));
-    
+    values.insert(
+        "patient_name".to_string(),
+        ValueSource::From(vec![
+            "SMITH^JOHN".to_string(),
+            "JONES^JANE".to_string(),
+            "BROWN^BOB".to_string(),
+            "WILSON^MARY".to_string(),
+            "TAYLOR^DAVID".to_string(),
+        ]),
+    );
+
     // Random numeric (6 digits)
     values.insert("patient_id".to_string(), ValueSource::Numeric { digits: 6 });
-    
+
     // UUID
     values.insert("control_id".to_string(), ValueSource::UuidV4);
-    
+
     // Current timestamp
     values.insert("timestamp".to_string(), ValueSource::DtmNowUtc);
 
     // Random date
-    values.insert("birth_date".to_string(), ValueSource::Date {
-        start: "19500101".to_string(),
-        end: "20051231".to_string(),
-    });
+    values.insert(
+        "birth_date".to_string(),
+        ValueSource::Date {
+            start: "19500101".to_string(),
+            end: "20051231".to_string(),
+        },
+    );
 
     // Random choice for sex
-    values.insert("sex".to_string(), ValueSource::From(vec![
-        "M".to_string(),
-        "F".to_string(),
-    ]));
+    values.insert(
+        "sex".to_string(),
+        ValueSource::From(vec!["M".to_string(), "F".to_string()]),
+    );
 
     // Create the template
     let template = Template {
@@ -90,12 +111,12 @@ fn programmatic_template_example() {
     match generate(&template, 42, 1) {
         Ok(messages) => {
             println!("✓ Generated {} message(s)\n", messages.len());
-            
+
             if let Some(msg) = messages.first() {
                 println!("Generated Message:");
                 let bytes = write(msg);
                 println!("{}", String::from_utf8_lossy(&bytes).replace("\r", "\r\n"));
-                
+
                 // Show extracted values
                 println!("\nExtracted values:");
                 println!("  Control ID: {:?}", get(msg, "MSH.10"));
@@ -118,15 +139,21 @@ fn batch_generation_example() {
 
     // Create a simple template
     let mut values: HashMap<String, ValueSource> = HashMap::new();
-    values.insert("sending_app".to_string(), ValueSource::Fixed("HL7V2RS".to_string()));
+    values.insert(
+        "sending_app".to_string(),
+        ValueSource::Fixed("HL7V2RS".to_string()),
+    );
     values.insert("timestamp".to_string(), ValueSource::DtmNowUtc);
     values.insert("control_id".to_string(), ValueSource::UuidV4);
     values.insert("patient_id".to_string(), ValueSource::Numeric { digits: 6 });
-    values.insert("patient_name".to_string(), ValueSource::From(vec![
-        "DOE^JOHN".to_string(),
-        "SMITH^JANE".to_string(),
-        "JONES^BOB".to_string(),
-    ]));
+    values.insert(
+        "patient_name".to_string(),
+        ValueSource::From(vec![
+            "DOE^JOHN".to_string(),
+            "SMITH^JANE".to_string(),
+            "JONES^BOB".to_string(),
+        ]),
+    );
 
     let template = Template {
         name: "SimpleBatch".to_string(),
@@ -163,20 +190,25 @@ fn batch_generation_example() {
         let control_id = get(msg, "MSH.10").unwrap_or("N/A");
         let patient_id = get(msg, "PID.3.1").unwrap_or("N/A");
         let patient_name = get(msg, "PID.5").unwrap_or("N/A");
-        println!("  {}: ControlID={}, Patient={} (ID={})", 
-            i + 1, control_id, patient_name, patient_id);
+        println!(
+            "  {}: ControlID={}, Patient={} (ID={})",
+            i + 1,
+            control_id,
+            patient_name,
+            patient_id
+        );
     }
 
     // Demonstrate reproducibility
     println!("\nReproducibility test:");
     println!("  Generating with same seed (42) twice...");
-    
+
     let first = generate(&template, 42, 1).unwrap();
     let second = generate(&template, 42, 1).unwrap();
 
     let first_id = get(&first[0], "PID.3.1");
     let second_id = get(&second[0], "PID.3.1");
-    
+
     println!("  First Patient ID: {:?}", first_id);
     println!("  Second Patient ID: {:?}", second_id);
     println!("  Match: {}", first_id == second_id);

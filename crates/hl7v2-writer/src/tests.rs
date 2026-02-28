@@ -593,7 +593,7 @@ fn test_write_batch_single_message() {
 #[test]
 fn test_write_batch_multiple_messages() {
     let mut batch = Batch::default();
-    
+
     for i in 0..3 {
         batch.messages.push(Message {
             delims: Delims::default(),
@@ -683,10 +683,7 @@ fn test_write_file_batch_with_header() {
     let mut file_batch = FileBatch::default();
     file_batch.header = Some(Segment {
         id: *b"FHS",
-        fields: vec![
-            Field::from_text("^~\\&"),
-            Field::from_text("SENDAPP"),
-        ],
+        fields: vec![Field::from_text("^~\\&"), Field::from_text("SENDAPP")],
     });
 
     let bytes = write_file_batch(&file_batch);
@@ -698,7 +695,7 @@ fn test_write_file_batch_with_header() {
 #[test]
 fn test_write_file_batch_with_batches() {
     let mut file_batch = FileBatch::default();
-    
+
     let mut batch1 = Batch::default();
     batch1.messages.push(Message {
         delims: Delims::default(),
@@ -708,7 +705,7 @@ fn test_write_file_batch_with_batches() {
         }],
         charsets: vec![],
     });
-    
+
     let mut batch2 = Batch::default();
     batch2.messages.push(Message {
         delims: Delims::default(),
@@ -718,7 +715,7 @@ fn test_write_file_batch_with_batches() {
         }],
         charsets: vec![],
     });
-    
+
     file_batch.batches.push(batch1);
     file_batch.batches.push(batch2);
 
@@ -732,12 +729,12 @@ fn test_write_file_batch_with_batches() {
 #[test]
 fn test_write_file_batch_full_structure() {
     let mut file_batch = FileBatch::default();
-    
+
     file_batch.header = Some(Segment {
         id: *b"FHS",
         fields: vec![Field::from_text("^~\\&"), Field::from_text("FILE")],
     });
-    
+
     let mut batch = Batch::default();
     batch.header = Some(Segment {
         id: *b"BHS",
@@ -755,7 +752,7 @@ fn test_write_file_batch_full_structure() {
         id: *b"BTS",
         fields: vec![Field::from_text("1")],
     });
-    
+
     file_batch.batches.push(batch);
     file_batch.trailer = Some(Segment {
         id: *b"FTS",
@@ -894,7 +891,7 @@ fn test_write_unicode() {
 #[test]
 fn test_write_long_message() {
     let mut segments = Vec::new();
-    
+
     for i in 0..100 {
         segments.push(Segment {
             id: *b"OBX",
@@ -965,11 +962,11 @@ fn test_write_newlines_in_field() {
 fn test_write_custom_delimiters() {
     let message = Message {
         delims: Delims {
-            field: '|' as char,
-            comp: '^' as char,
-            rep: '~' as char,
-            esc: '\\' as char,
-            sub: '&' as char,
+            field: '|',
+            comp: '^',
+            rep: '~',
+            esc: '\\',
+            sub: '&',
         },
         segments: vec![Segment {
             id: *b"PID",
@@ -1068,7 +1065,7 @@ fn test_write_allocation_efficiency() {
     };
 
     let bytes = write(&message);
-    
+
     // Verify the output is reasonable (not excessively large due to over-allocation)
     assert!(bytes.len() < 1000);
 }

@@ -29,21 +29,18 @@
 
 // Re-export template functionality from hl7v2-template crate for backward compatibility
 pub use hl7v2_template::{
-    Template, ValueSource,
-    generate, generate_corpus, generate_diverse_corpus, generate_distributed_corpus,
-    generate_golden_hashes, verify_golden_hashes,
+    Template, ValueSource, generate, generate_corpus, generate_distributed_corpus,
+    generate_diverse_corpus, generate_golden_hashes, verify_golden_hashes,
 };
 
 // Re-export ACK functionality from hl7v2-ack crate for backward compatibility
-pub use hl7v2_ack::{ack, ack_with_error, AckCode};
+pub use hl7v2_ack::{AckCode, ack, ack_with_error};
 
 // Re-export faker functionality from hl7v2-faker crate for backward compatibility
-pub use hl7v2_faker::{
-    Faker, FakerValue, DateError, GaussianError, GenerateError,
-};
+pub use hl7v2_faker::{DateError, Faker, FakerValue, GaussianError, GenerateError};
 
 // Re-export core types that are commonly used with this crate
-pub use hl7v2_core::{Message, Delims, Error, Segment, Field, Rep, Comp, Atom};
+pub use hl7v2_core::{Atom, Comp, Delims, Error, Field, Message, Rep, Segment};
 
 #[cfg(test)]
 mod tests;

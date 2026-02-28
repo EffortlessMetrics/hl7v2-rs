@@ -1,8 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use crate::{load_profile, validate, Profile, parse_hl7_ts_with_precision, compare_timestamps_for_before, ExpressionGuardrails};
-    use hl7v2_core::parse;
+    use crate::{
+        ExpressionGuardrails, Profile, compare_timestamps_for_before, load_profile,
+        parse_hl7_ts_with_precision, validate,
+    };
     use chrono::NaiveDate;
+    use hl7v2_core::parse;
 
     // Helper: build a tiny valid ADT A01 (PID.3 and PID.8 filled)
     fn adt_a01_msg() -> String {
@@ -61,7 +64,7 @@ cross_field_rules:
         msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
         msg.push_str("PV1|1|O|CLINIC|||||||20241201\r"); // Date only
         msg.push_str("ORC|RE|||20241201103000\r"); // Full datetime
-        
+
         let y = r#"
 message_structure: "temporal"
 version: "2.5.1"
@@ -78,11 +81,11 @@ cross_field_rules:
         value: "ORC.4"
     actions: []
 "#;
-        
+
         let p: Profile = load_profile(y).unwrap();
         let message = parse(msg.as_bytes()).unwrap();
         let probs = validate(&message, &p);
-        // This should pass because 20241201 (interpreted as 2024-12-01 00:00:00) 
+        // This should pass because 20241201 (interpreted as 2024-12-01 00:00:00)
         // is before 20241201103000 (2024-12-01 10:30:00)
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
     }
@@ -95,7 +98,7 @@ cross_field_rules:
         msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
         msg.push_str("PV1|1|O|CLINIC|||||||20241201\r"); // Date only
         msg.push_str("ORC|RE|||20241201\r"); // Same date only
-        
+
         let y = r#"
 message_structure: "temporal"
 version: "2.5.1"
@@ -113,7 +116,7 @@ cross_field_rules:
         value: "ORC.4"
     actions: []
 "#;
-        
+
         let p: Profile = load_profile(y).unwrap();
         let message = parse(msg.as_bytes()).unwrap();
         let probs = validate(&message, &p);
@@ -126,12 +129,12 @@ cross_field_rules:
         let date_str = "20241201";
         let ts1 = parse_hl7_ts_with_precision(date_str).unwrap();
         let ts2 = parse_hl7_ts_with_precision(date_str).unwrap();
-        
+
         println!("ts1: {:?}, ts2: {:?}", ts1, ts2);
-        
+
         let result = compare_timestamps_for_before(&ts1, &ts2);
         println!("compare_timestamps_for_before result: {}", result);
-        
+
         // This should be false because they're equal
         assert!(!result, "Expected false for equal dates, but got true");
     }
@@ -160,7 +163,7 @@ hl7_tables:
 table_precedence:
   - "HL70001"
 "#;
-        
+
         let p: Profile = load_profile(y).unwrap();
         let msg = parse(adt_a01_msg().as_bytes()).unwrap();
         let probs = validate(&msg, &p);
@@ -188,7 +191,7 @@ custom_rules:
     description: "PID.5.1 should be at least 2 characters"
     script: "field(PID.5.1).length() > 1"
 "#;
-        
+
         let p: Profile = load_profile(y).unwrap();
         let msg = parse(adt_a01_msg().as_bytes()).unwrap();
         let probs = validate(&msg, &p);
@@ -199,7 +202,7 @@ custom_rules:
 
 #[cfg(test)]
 mod profile_load_error_tests {
-    use crate::{load_profile_checked, ProfileLoadError};
+    use crate::{ProfileLoadError, load_profile_checked};
 
     #[test]
     fn test_load_profile_checked_valid() {
@@ -230,26 +233,37 @@ segments:
         // Test YamlParse variant
         let err = ProfileLoadError::YamlParse("unexpected token".to_string());
         assert_eq!(format!("{}", err), "YAML parse error: unexpected token");
-        
+
         // Test MissingField variant
-        let err = ProfileLoadError::MissingField { field: "message_structure".to_string() };
-        assert_eq!(format!("{}", err), "Missing required field: message_structure");
-        
+        let err = ProfileLoadError::MissingField {
+            field: "message_structure".to_string(),
+        };
+        assert_eq!(
+            format!("{}", err),
+            "Missing required field: message_structure"
+        );
+
         // Test InvalidValue variant
         let err = ProfileLoadError::InvalidValue {
             field: "version".to_string(),
             details: "must be a valid HL7 version".to_string(),
         };
-        assert_eq!(format!("{}", err), "Invalid value for field 'version': must be a valid HL7 version");
-        
+        assert_eq!(
+            format!("{}", err),
+            "Invalid value for field 'version': must be a valid HL7 version"
+        );
+
         // Test Io variant
         let err = ProfileLoadError::Io("file not found".to_string());
         assert_eq!(format!("{}", err), "IO error: file not found");
-        
+
         // Test InheritanceCycle variant
         let err = ProfileLoadError::InheritanceCycle("A -> B -> A".to_string());
-        assert_eq!(format!("{}", err), "Profile inheritance cycle detected: A -> B -> A");
-        
+        assert_eq!(
+            format!("{}", err),
+            "Profile inheritance cycle detected: A -> B -> A"
+        );
+
         // Test ParentNotFound variant
         let err = ProfileLoadError::ParentNotFound("base_profile".to_string());
         assert_eq!(format!("{}", err), "Parent profile not found: base_profile");
@@ -257,8 +271,7 @@ segments:
 
     #[test]
     fn test_profile_load_error_from_yaml_error() {
-        let yaml_err = serde_yaml::from_str::<serde_yaml::Value>("invalid: ::: yaml")
-            .unwrap_err();
+        let yaml_err = serde_yaml::from_str::<serde_yaml::Value>("invalid: ::: yaml").unwrap_err();
         let load_err: ProfileLoadError = yaml_err.into();
         assert!(matches!(load_err, ProfileLoadError::YamlParse(_)));
     }

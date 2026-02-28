@@ -3,7 +3,7 @@
 //! These tests verify that ACK generation properties hold for
 //! arbitrary input messages.
 
-use hl7v2_ack::{ack, ack_with_error, AckCode};
+use hl7v2_ack::{AckCode, ack, ack_with_error};
 use hl7v2_core::parse;
 use proptest::prelude::*;
 
@@ -47,19 +47,28 @@ fn processing_id_strategy() -> impl Strategy<Value = String> {
 
 /// Generate a basic MSH segment string
 fn msh_segment_strategy() -> impl Strategy<Value = String> {
-    (app_name_strategy(), facility_name_strategy(), app_name_strategy(), facility_name_strategy(),
-     control_id_strategy(), version_strategy(), processing_id_strategy())
-        .prop_map(|(send_app, send_fac, recv_app, recv_fac, ctrl_id, version, proc_id)| {
-            format!(
-                "MSH|^~\\&|{}|{}|{}|{}|20250128150000||ADT^A01|{}|{}|{}",
-                send_app, send_fac, recv_app, recv_fac, ctrl_id, proc_id, version
-            )
-        })
+    (
+        app_name_strategy(),
+        facility_name_strategy(),
+        app_name_strategy(),
+        facility_name_strategy(),
+        control_id_strategy(),
+        version_strategy(),
+        processing_id_strategy(),
+    )
+        .prop_map(
+            |(send_app, send_fac, recv_app, recv_fac, ctrl_id, version, proc_id)| {
+                format!(
+                    "MSH|^~\\&|{}|{}|{}|{}|20250128150000||ADT^A01|{}|{}|{}",
+                    send_app, send_fac, recv_app, recv_fac, ctrl_id, proc_id, version
+                )
+            },
+        )
 }
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(100))]
-    
+
     /// Test that ACK generation never panics for valid messages
     #[test]
     fn prop_ack_never_panics(
@@ -75,13 +84,13 @@ proptest! {
             "MSH|^~\\&|{}|{}|{}|{}|20250128150000||ADT^A01|{}|{}|{}\r",
             send_app, send_fac, recv_app, recv_fac, ctrl_id, proc_id, version
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             let ack_result = ack(&original, AckCode::AA);
             prop_assert!(ack_result.is_ok());
         }
     }
-    
+
     /// Test that ACK always has exactly 2 segments (MSH and MSA)
     #[test]
     fn prop_ack_has_two_segments(
@@ -95,14 +104,14 @@ proptest! {
             "MSH|^~\\&|{}|{}|{}|{}|20250128150000||ADT^A01|{}|P|2.5.1\r",
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             if let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 prop_assert_eq!(ack_msg.segments.len(), 2);
             }
         }
     }
-    
+
     /// Test that ACK with error has exactly 3 segments
     #[test]
     fn prop_ack_with_error_has_three_segments(
@@ -117,14 +126,14 @@ proptest! {
             "MSH|^~\\&|{}|{}|{}|{}|20250128150000||ADT^A01|{}|P|2.5.1\r",
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             if let Ok(ack_msg) = ack_with_error(&original, AckCode::AE, Some(&error_msg)) {
                 prop_assert_eq!(ack_msg.segments.len(), 3);
             }
         }
     }
-    
+
     /// Test that ACK preserves control ID
     #[test]
     fn prop_ack_preserves_control_id(ctrl_id in control_id_strategy()) {
@@ -132,7 +141,7 @@ proptest! {
             "MSH|^~\\&|AppA|FacA|AppB|FacB|20250128150000||ADT^A01|{}|P|2.5.1\r",
             ctrl_id
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             if let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 let msa = &ack_msg.segments[1];
@@ -142,7 +151,7 @@ proptest! {
             }
         }
     }
-    
+
     /// Test that ACK swaps sending and receiving applications
     #[test]
     fn prop_ack_swaps_applications(
@@ -153,7 +162,7 @@ proptest! {
             "MSH|^~\\&|{}|FacA|{}|FacB|20250128150000||ADT^A01|MSG123|P|2.5.1\r",
             send_app, recv_app
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             if let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 let ack_msh = &ack_msg.segments[0];
@@ -168,7 +177,7 @@ proptest! {
             }
         }
     }
-    
+
     /// Test that ACK preserves version
     #[test]
     fn prop_ack_preserves_version(version in version_strategy()) {
@@ -176,7 +185,7 @@ proptest! {
             "MSH|^~\\&|AppA|FacA|AppB|FacB|20250128150000||ADT^A01|MSG123|P|{}\r",
             version
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             if let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 let ack_msh = &ack_msg.segments[0];
@@ -186,7 +195,7 @@ proptest! {
             }
         }
     }
-    
+
     /// Test that ACK preserves processing ID
     #[test]
     fn prop_ack_preserves_processing_id(proc_id in processing_id_strategy()) {
@@ -194,7 +203,7 @@ proptest! {
             "MSH|^~\\&|AppA|FacA|AppB|FacB|20250128150000||ADT^A01|MSG123|{}|2.5.1\r",
             proc_id
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             if let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 let ack_msh = &ack_msg.segments[0];
@@ -204,7 +213,7 @@ proptest! {
             }
         }
     }
-    
+
     /// Test all ACK codes work correctly
     #[test]
     fn prop_all_ack_codes_work(
@@ -220,12 +229,12 @@ proptest! {
             4 => AckCode::CE,
             _ => AckCode::CR,
         };
-        
+
         let message_str = format!(
             "MSH|^~\\&|{}|FacA|AppB|FacB|20250128150000||ADT^A01|{}|P|2.5.1\r",
             send_app, ctrl_id
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             if let Ok(ack_msg) = ack(&original, code) {
                 let msa = &ack_msg.segments[1];
@@ -235,7 +244,7 @@ proptest! {
             }
         }
     }
-    
+
     /// Test that ACK preserves delimiters
     #[test]
     fn prop_ack_preserves_delimiters(ctrl_id in control_id_strategy()) {
@@ -243,7 +252,7 @@ proptest! {
             "MSH|^~\\&|AppA|FacA|AppB|FacB|20250128150000||ADT^A01|{}|P|2.5.1\r",
             ctrl_id
         );
-        
+
         if let Ok(original) = parse(message_str.as_bytes()) {
             if let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 prop_assert_eq!(ack_msg.delims.field, original.delims.field);
@@ -261,22 +270,22 @@ fn get_field_value(segment: &hl7v2_core::Segment, field_index: usize) -> Option<
     if field_index > segment.fields.len() {
         return None;
     }
-    
+
     let field = &segment.fields[field_index - 1];
     if field.reps.is_empty() {
         return None;
     }
-    
+
     let rep = &field.reps[0];
     if rep.comps.is_empty() {
         return None;
     }
-    
+
     let comp = &rep.comps[0];
     if comp.subs.is_empty() {
         return None;
     }
-    
+
     match &comp.subs[0] {
         hl7v2_core::Atom::Text(text) => Some(text.clone()),
         hl7v2_core::Atom::Null => None,

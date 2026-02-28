@@ -5,10 +5,10 @@
 //! - Strict vs lenient validation comparison
 //! - Data type validation performance
 
-use std::hint::black_box;
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use hl7v2_parser::parse;
-use hl7v2_validation::{validate_data_type, Validator, Issue, Severity};
+use hl7v2_validation::{Issue, Severity, Validator, validate_data_type};
+use std::hint::black_box;
 
 /// Create a sample HL7 message for benchmarking
 fn create_sample_message() -> String {
@@ -31,7 +31,7 @@ struct BasicValidator;
 impl Validator for BasicValidator {
     fn validate(&self, msg: &hl7v2_core::Message) -> Vec<Issue> {
         let mut issues = Vec::new();
-        
+
         // Check MSH segment
         for segment in &msg.segments {
             let seg_id = segment.id_str();
@@ -100,7 +100,7 @@ impl Validator for BasicValidator {
                 }
             }
         }
-        
+
         issues
     }
 }
@@ -111,7 +111,7 @@ struct StrictValidator;
 impl Validator for StrictValidator {
     fn validate(&self, msg: &hl7v2_core::Message) -> Vec<Issue> {
         let mut issues = Vec::new();
-        
+
         for segment in &msg.segments {
             let seg_id = segment.id_str();
             match seg_id {
@@ -124,11 +124,13 @@ impl Validator for StrictValidator {
                             "MSH segment is missing required fields".to_string(),
                         ));
                     }
-                    
+
                     // MSH.3 - Sending Application (required)
                     if segment.fields.len() > 2 {
                         let sending_app = segment.fields[2].first_text();
-                        if sending_app.is_none() || sending_app.map(|s| s.is_empty()).unwrap_or(true) {
+                        if sending_app.is_none()
+                            || sending_app.map(|s| s.is_empty()).unwrap_or(true)
+                        {
                             issues.push(Issue::error(
                                 "MISSING_SENDING_APP",
                                 Some("MSH.3".to_string()),
@@ -136,7 +138,7 @@ impl Validator for StrictValidator {
                             ));
                         }
                     }
-                    
+
                     // MSH.7 - Date/Time (required, must be valid)
                     if segment.fields.len() > 6 {
                         let dt = segment.fields[6].first_text();
@@ -156,7 +158,7 @@ impl Validator for StrictValidator {
                             }
                         }
                     }
-                    
+
                     // MSH.9 - Message Type (required)
                     if segment.fields.len() > 8 {
                         let msg_type = segment.fields[8].first_text();
@@ -177,7 +179,7 @@ impl Validator for StrictValidator {
                             }
                         }
                     }
-                    
+
                     // MSH.12 - Version ID (required)
                     if segment.fields.len() > 11 {
                         let version = segment.fields[11].first_text();
@@ -200,7 +202,8 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let patient_id = segment.fields[2].first_text();
-                        if patient_id.is_none() || patient_id.map(|s| s.is_empty()).unwrap_or(true) {
+                        if patient_id.is_none() || patient_id.map(|s| s.is_empty()).unwrap_or(true)
+                        {
                             issues.push(Issue::error(
                                 "MISSING_PATIENT_ID",
                                 Some("PID.3".to_string()),
@@ -208,7 +211,7 @@ impl Validator for StrictValidator {
                             ));
                         }
                     }
-                    
+
                     // PID.5 - Patient Name (required)
                     if segment.fields.len() <= 4 {
                         issues.push(Issue::error(
@@ -226,7 +229,7 @@ impl Validator for StrictValidator {
                             ));
                         }
                     }
-                    
+
                     // PID.7 - DOB validation
                     if segment.fields.len() > 6 {
                         if let Some(dob) = segment.fields[6].first_text() {
@@ -239,7 +242,7 @@ impl Validator for StrictValidator {
                             }
                         }
                     }
-                    
+
                     // PID.8 - Administrative Sex (required)
                     if segment.fields.len() <= 7 {
                         issues.push(Issue::error(
@@ -268,7 +271,9 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let patient_class = segment.fields[1].first_text();
-                        if patient_class.is_none() || patient_class.map(|s| s.is_empty()).unwrap_or(true) {
+                        if patient_class.is_none()
+                            || patient_class.map(|s| s.is_empty()).unwrap_or(true)
+                        {
                             issues.push(Issue::error(
                                 "MISSING_PATIENT_CLASS",
                                 Some("PV1.2".to_string()),
@@ -287,7 +292,8 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let value_type = segment.fields[1].first_text();
-                        if value_type.is_none() || value_type.map(|s| s.is_empty()).unwrap_or(true) {
+                        if value_type.is_none() || value_type.map(|s| s.is_empty()).unwrap_or(true)
+                        {
                             issues.push(Issue::error(
                                 "MISSING_VALUE_TYPE",
                                 Some("OBX.2".to_string()),
@@ -295,7 +301,7 @@ impl Validator for StrictValidator {
                             ));
                         }
                     }
-                    
+
                     // OBX.5 - Observation Value
                     if segment.fields.len() > 4 {
                         let obs_value = segment.fields[4].first_text();
@@ -311,7 +317,7 @@ impl Validator for StrictValidator {
                 _ => {}
             }
         }
-        
+
         issues
     }
 }
@@ -322,7 +328,7 @@ struct LenientValidator;
 impl Validator for LenientValidator {
     fn validate(&self, msg: &hl7v2_core::Message) -> Vec<Issue> {
         let mut issues = Vec::new();
-        
+
         // Only check for critical errors
         if msg.segments.is_empty() {
             issues.push(Issue::error(
@@ -332,7 +338,7 @@ impl Validator for LenientValidator {
             ));
             return issues;
         }
-        
+
         // Check MSH is first segment
         if msg.segments[0].id_str() != "MSH" {
             issues.push(Issue::error(
@@ -341,7 +347,7 @@ impl Validator for LenientValidator {
                 "Message must start with MSH segment".to_string(),
             ));
         }
-        
+
         issues
     }
 }
@@ -352,7 +358,7 @@ fn bench_basic_validation(c: &mut Criterion) {
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
     let validator = BasicValidator;
-    
+
     c.bench_function("basic_validation", |b| {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
@@ -367,7 +373,7 @@ fn bench_strict_validation(c: &mut Criterion) {
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
     let validator = StrictValidator;
-    
+
     c.bench_function("strict_validation", |b| {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
@@ -382,7 +388,7 @@ fn bench_lenient_validation(c: &mut Criterion) {
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
     let validator = LenientValidator;
-    
+
     c.bench_function("lenient_validation", |b| {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
@@ -397,7 +403,7 @@ fn bench_complex_message_validation(c: &mut Criterion) {
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
     let validator = StrictValidator;
-    
+
     c.bench_function("complex_message_validation", |b| {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
@@ -412,7 +418,7 @@ fn bench_validation_with_issues(c: &mut Criterion) {
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
     let validator = StrictValidator;
-    
+
     c.bench_function("validation_with_issues", |b| {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
@@ -424,7 +430,7 @@ fn bench_validation_with_issues(c: &mut Criterion) {
 /// Benchmark data type validation
 fn bench_data_type_validation(c: &mut Criterion) {
     let mut group = c.benchmark_group("data_type_validation");
-    
+
     // Date validation
     let date_value = "20250101";
     group.bench_function("date", |b| {
@@ -433,7 +439,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Time validation
     let time_value = "120000";
     group.bench_function("time", |b| {
@@ -442,7 +448,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Timestamp validation
     let ts_value = "20250101120000";
     group.bench_function("timestamp", |b| {
@@ -451,7 +457,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Numeric validation
     let nm_value = "123.45";
     group.bench_function("numeric", |b| {
@@ -460,7 +466,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // String validation
     let st_value = "Test String Value";
     group.bench_function("string", |b| {
@@ -469,7 +475,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Identifier validation
     let id_value = "ADT_A01";
     group.bench_function("identifier", |b| {
@@ -478,7 +484,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
@@ -488,25 +494,21 @@ fn bench_validation_throughput(c: &mut Criterion) {
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
     let validator = StrictValidator;
-    
+
     let mut group = c.benchmark_group("validation_throughput");
-    
+
     for count in [1, 10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*count as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(count),
-            count,
-            |b, &count| {
-                b.iter(|| {
-                    for _ in 0..count {
-                        let result = validator.validate(black_box(&parsed));
-                        black_box(result);
-                    }
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, &count| {
+            b.iter(|| {
+                for _ in 0..count {
+                    let result = validator.validate(black_box(&parsed));
+                    black_box(result);
+                }
+            })
+        });
     }
-    
+
     group.finish();
 }
 
@@ -517,23 +519,23 @@ fn bench_strict_vs_lenient_comparison(c: &mut Criterion) {
     let parsed = parse(bytes).expect("Failed to parse message");
     let strict = StrictValidator;
     let lenient = LenientValidator;
-    
+
     let mut group = c.benchmark_group("strict_vs_lenient");
-    
+
     group.bench_function("strict", |b| {
         b.iter(|| {
             let result = strict.validate(black_box(&parsed));
             black_box(result)
         })
     });
-    
+
     group.bench_function("lenient", |b| {
         b.iter(|| {
             let result = lenient.validate(black_box(&parsed));
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 

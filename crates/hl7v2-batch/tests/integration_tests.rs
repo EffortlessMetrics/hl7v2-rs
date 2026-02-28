@@ -3,7 +3,7 @@
 //! These tests verify batch parsing and creation works correctly with
 //! real-world HL7 batch scenarios.
 
-use hl7v2_batch::{parse_batch, Batch, BatchType, FileBatch, BatchInfo};
+use hl7v2_batch::{Batch, BatchType, FileBatch, parse_batch};
 use hl7v2_parser::parse;
 
 // ============================================================================
@@ -25,9 +25,9 @@ fn test_parse_hl7_file_batch() {
                        OBX|1|NM|GLUCOSE||95|mg/dL|70-110|N|||F\r\
                        BTS|2\r\
                        FTS|2\r";
-    
+
     let result = parse_batch(batch_data).unwrap();
-    
+
     assert_eq!(result.info.batch_type, BatchType::File);
     assert_eq!(result.batches.len(), 1);
     assert_eq!(result.total_message_count(), 2);
@@ -51,15 +51,21 @@ fn test_parse_lab_results_batch() {
                        OBX|1|NM|GLUCOSE^Glucose||110|mg/dL|70-110|H|||F\r\
                        OBX|2|NM|SODIUM^Sodium||140|mEq/L|136-145|N|||F\r\
                        BTS|2\r";
-    
+
     let result = parse_batch(batch_data).unwrap();
-    
+
     assert_eq!(result.batches.len(), 1);
     assert_eq!(result.batches[0].message_count(), 2);
-    
+
     // Verify batch info
-    assert_eq!(result.batches[0].info.sending_application, Some("LAB".to_string()));
-    assert_eq!(result.batches[0].info.batch_name, Some("LAB_RESULTS_20250128".to_string()));
+    assert_eq!(
+        result.batches[0].info.sending_application,
+        Some("LAB".to_string())
+    );
+    assert_eq!(
+        result.batches[0].info.batch_name,
+        Some("LAB_RESULTS_20250128".to_string())
+    );
 }
 
 #[test]
@@ -79,9 +85,9 @@ fn test_parse_adt_batch() {
                        PID|1||MRN003^^^HOSP^MR||UPDATE^PATIENT^THREE||19900101|M\r\
                        PV1|1|O|ER^^^HOSP||||345678^ER^DOCTOR^^^MD\r\
                        BTS|3\r";
-    
+
     let result = parse_batch(batch_data).unwrap();
-    
+
     assert_eq!(result.total_message_count(), 3);
 }
 
@@ -110,18 +116,24 @@ fn test_parse_multi_batch_file() {
                        OBR|1|RAD001||XRAY_CHEST\r\
                        BTS|1\r\
                        FTS|3\r";
-    
+
     let result = parse_batch(batch_data).unwrap();
-    
+
     assert_eq!(result.batches.len(), 2);
     assert_eq!(result.total_message_count(), 3);
-    
+
     // Verify first batch
-    assert_eq!(result.batches[0].info.batch_name, Some("LAB_BATCH".to_string()));
+    assert_eq!(
+        result.batches[0].info.batch_name,
+        Some("LAB_BATCH".to_string())
+    );
     assert_eq!(result.batches[0].message_count(), 2);
-    
+
     // Verify second batch
-    assert_eq!(result.batches[1].info.batch_name, Some("RAD_BATCH".to_string()));
+    assert_eq!(
+        result.batches[1].info.batch_name,
+        Some("RAD_BATCH".to_string())
+    );
     assert_eq!(result.batches[1].message_count(), 1);
 }
 
@@ -138,9 +150,9 @@ fn test_parse_messages_without_batch_headers() {
                           PID|1||MRN002^^^HOSP^MR||PATIENT^TWO\r\
                           MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120200||ADT^A01|MSG003|P|2.5.1\r\
                           PID|1||MRN003^^^HOSP^MR||PATIENT^THREE\r";
-    
+
     let result = parse_batch(messages_data).unwrap();
-    
+
     assert_eq!(result.total_message_count(), 3);
 }
 
@@ -151,34 +163,42 @@ fn test_parse_messages_without_batch_headers() {
 #[test]
 fn test_create_batch_from_messages() {
     let mut batch = Batch::new();
-    
+
     // Create and add messages
-    let msg1 = parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG001|P|2.5.1\rPID|1||12345\r").unwrap();
-    let msg2 = parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120100||ADT^A01|MSG002|P|2.5.1\rPID|1||67890\r").unwrap();
-    
+    let msg1 = parse(
+        b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG001|P|2.5.1\rPID|1||12345\r",
+    )
+    .unwrap();
+    let msg2 = parse(
+        b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120100||ADT^A01|MSG002|P|2.5.1\rPID|1||67890\r",
+    )
+    .unwrap();
+
     batch.add_message(msg1);
     batch.add_message(msg2);
-    
+
     assert_eq!(batch.message_count(), 2);
 }
 
 #[test]
 fn test_create_file_batch_from_batches() {
     let mut file_batch = FileBatch::new();
-    
+
     // Create first batch
     let mut batch1 = Batch::new();
-    let msg = parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG001|P|2.5.1\r").unwrap();
+    let msg =
+        parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG001|P|2.5.1\r").unwrap();
     batch1.add_message(msg);
-    
+
     // Create second batch
     let mut batch2 = Batch::new();
-    let msg = parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120100||ADT^A01|MSG002|P|2.5.1\r").unwrap();
+    let msg =
+        parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120100||ADT^A01|MSG002|P|2.5.1\r").unwrap();
     batch2.add_message(msg);
-    
+
     file_batch.add_batch(batch1);
     file_batch.add_batch(batch2);
-    
+
     assert_eq!(file_batch.batches.len(), 2);
     assert_eq!(file_batch.total_message_count(), 2);
 }
@@ -205,7 +225,7 @@ fn test_empty_file_batch() {
 fn test_batch_with_single_message() {
     let data = b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG001|P|2.5.1\r";
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.total_message_count(), 1);
 }
 
@@ -213,14 +233,17 @@ fn test_batch_with_single_message() {
 fn test_batch_with_large_message_count() {
     let mut batch_data = Vec::new();
     batch_data.extend_from_slice(b"BHS|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000\r");
-    
+
     for i in 0..100 {
-        let msg = format!("MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG{:03}|P|2.5.1\r", i);
+        let msg = format!(
+            "MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG{:03}|P|2.5.1\r",
+            i
+        );
         batch_data.extend_from_slice(msg.as_bytes());
     }
-    
+
     batch_data.extend_from_slice(b"BTS|100\r");
-    
+
     let result = parse_batch(&batch_data).unwrap();
     assert_eq!(result.total_message_count(), 100);
 }
@@ -236,17 +259,32 @@ fn test_file_batch_info_extraction() {
                  MSH|^~\\&|SENDING_APP|SENDING_FAC|RECEIVING_APP|RECEIVING_FAC|20250128150000||ADT^A01|MSG001|P|2.5.1\r\
                  BTS|1\r\
                  FTS|1|TRAILER_COMMENT\r";
-    
+
     let result = parse_batch(data).unwrap();
-    
-    assert_eq!(result.info.sending_application, Some("SENDING_APP".to_string()));
-    assert_eq!(result.info.sending_facility, Some("SENDING_FAC".to_string()));
-    assert_eq!(result.info.receiving_application, Some("RECEIVING_APP".to_string()));
-    assert_eq!(result.info.receiving_facility, Some("RECEIVING_FAC".to_string()));
+
+    assert_eq!(
+        result.info.sending_application,
+        Some("SENDING_APP".to_string())
+    );
+    assert_eq!(
+        result.info.sending_facility,
+        Some("SENDING_FAC".to_string())
+    );
+    assert_eq!(
+        result.info.receiving_application,
+        Some("RECEIVING_APP".to_string())
+    );
+    assert_eq!(
+        result.info.receiving_facility,
+        Some("RECEIVING_FAC".to_string())
+    );
     assert_eq!(result.info.batch_name, Some("FILE_NAME".to_string()));
     assert_eq!(result.info.batch_comment, Some("FILE_COMMENT".to_string()));
     assert_eq!(result.info.message_count, Some(1));
-    assert_eq!(result.info.trailer_comment, Some("TRAILER_COMMENT".to_string()));
+    assert_eq!(
+        result.info.trailer_comment,
+        Some("TRAILER_COMMENT".to_string())
+    );
 }
 
 // ============================================================================
@@ -267,11 +305,11 @@ fn test_batch_with_complex_messages() {
                  PID|1||67890^^^HOSP^MR||DOE^JANE||19750101|F\r\
                  PV1|1|I|MED^202^^HOSP||||789012^DOCTOR^JOHN^B^^MD\r\
                  BTS|2\r";
-    
+
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.total_message_count(), 2);
-    
+
     // Verify first message has multiple segments
     let msg1 = &result.batches[0].messages[0];
     assert!(msg1.segments.len() >= 5);
@@ -284,12 +322,19 @@ fn test_batch_with_complex_messages() {
 #[test]
 fn test_batch_iterator() {
     let mut batch = Batch::new();
-    
+
     for i in 0..5 {
-        let msg = parse(format!("MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG{}|P|2.5.1\r", i).as_bytes()).unwrap();
+        let msg = parse(
+            format!(
+                "MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG{}|P|2.5.1\r",
+                i
+            )
+            .as_bytes(),
+        )
+        .unwrap();
         batch.add_message(msg);
     }
-    
+
     let mut count = 0;
     for msg in batch.iter_messages() {
         assert_eq!(&msg.segments[0].id, b"MSH");
@@ -301,15 +346,16 @@ fn test_batch_iterator() {
 #[test]
 fn test_file_batch_iterator() {
     let mut file_batch = FileBatch::new();
-    
+
     // Add two batches
     for _ in 0..2 {
         let mut batch = Batch::new();
-        let msg = parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG|P|2.5.1\r").unwrap();
+        let msg =
+            parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG|P|2.5.1\r").unwrap();
         batch.add_message(msg);
         file_batch.add_batch(batch);
     }
-    
+
     let mut count = 0;
     for _ in file_batch.iter_all_messages() {
         count += 1;
@@ -329,7 +375,7 @@ fn test_batch_with_custom_delimiters() {
                  MSH#:@*%APP#FAC#RECV#RECVFAC#20250128120000##ADT:A01#MSG001#P#2.5.1\r\
                  BTS#1\r\
                  FTS#1\r";
-    
+
     let result = parse_batch(data);
     assert!(result.is_ok());
 }
@@ -341,12 +387,14 @@ fn test_batch_with_custom_delimiters() {
 #[test]
 fn test_message_count_validation() {
     // Correct count
-    let valid_data = b"BHS|^~\\&|APP|FAC\rMSH|^~\\&|APP|FAC|RECV|RECVFAC|||ADT^A01|MSG|P|2.5.1\rBTS|1\r";
+    let valid_data =
+        b"BHS|^~\\&|APP|FAC\rMSH|^~\\&|APP|FAC|RECV|RECVFAC|||ADT^A01|MSG|P|2.5.1\rBTS|1\r";
     let valid_result = parse_batch(valid_data);
     assert!(valid_result.is_ok());
-    
+
     // Incorrect count
-    let invalid_data = b"BHS|^~\\&|APP|FAC\rMSH|^~\\&|APP|FAC|RECV|RECVFAC|||ADT^A01|MSG|P|2.5.1\rBTS|5\r";
+    let invalid_data =
+        b"BHS|^~\\&|APP|FAC\rMSH|^~\\&|APP|FAC|RECV|RECVFAC|||ADT^A01|MSG|P|2.5.1\rBTS|5\r";
     let invalid_result = parse_batch(invalid_data);
     assert!(invalid_result.is_err());
 }

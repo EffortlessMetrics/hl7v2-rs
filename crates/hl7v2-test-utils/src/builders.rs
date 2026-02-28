@@ -73,8 +73,14 @@ impl MessageBuilder {
     /// let builder = MessageBuilder::adt_a01();
     /// ```
     pub fn adt_a01() -> Self {
-        Self::new()
-            .with_msh("SendingApp", "SendingFac", "ReceivingApp", "ReceivingFac", "ADT", "A01")
+        Self::new().with_msh(
+            "SendingApp",
+            "SendingFac",
+            "ReceivingApp",
+            "ReceivingFac",
+            "ADT",
+            "A01",
+        )
     }
 
     /// Create a builder pre-configured for an ADT^A04 message.
@@ -85,8 +91,7 @@ impl MessageBuilder {
     /// let builder = MessageBuilder::adt_a04();
     /// ```
     pub fn adt_a04() -> Self {
-        Self::new()
-            .with_msh("RegSys", "Hospital", "ADT", "Hospital", "ADT", "A04")
+        Self::new().with_msh("RegSys", "Hospital", "ADT", "Hospital", "ADT", "A04")
     }
 
     /// Create a builder pre-configured for an ORU^R01 message.
@@ -97,8 +102,7 @@ impl MessageBuilder {
     /// let builder = MessageBuilder::oru_r01();
     /// ```
     pub fn oru_r01() -> Self {
-        Self::new()
-            .with_msh("LabSys", "Lab", "LIS", "Hospital", "ORU", "R01")
+        Self::new().with_msh("LabSys", "Lab", "LIS", "Hospital", "ORU", "R01")
     }
 
     /// Set custom delimiters for the message.
@@ -170,16 +174,20 @@ impl MessageBuilder {
         message_type: &str,
         trigger_event: &str,
     ) -> Self {
-        let timestamp = self.timestamp.clone().unwrap_or_else(|| "20250128152312".to_string());
-        let control_id = self.message_control_id.clone().unwrap_or_else(|| {
-            format!("MSG{}", chrono_timestamp())
-        });
+        let timestamp = self
+            .timestamp
+            .clone()
+            .unwrap_or_else(|| "20250128152312".to_string());
+        let control_id = self
+            .message_control_id
+            .clone()
+            .unwrap_or_else(|| format!("MSG{}", chrono_timestamp()));
 
         let mut segment = Segment::new(b"MSH");
-        
+
         // MSH-1 is the field separator (implicit in the delims)
         // MSH-2 is the encoding characters (implicit in the delims)
-        
+
         // MSH-3: Sending Application
         segment.add_field(Field::from_text(sending_app));
         // MSH-4: Sending Facility
@@ -243,7 +251,7 @@ impl MessageBuilder {
         sex: Option<&str>,
     ) -> Self {
         let mut segment = Segment::new(b"PID");
-        
+
         // PID-1: Set ID
         segment.add_field(Field::from_text("1"));
         // PID-2: Patient ID (External) - often empty
@@ -306,7 +314,7 @@ impl MessageBuilder {
     /// ```
     pub fn with_pv1(mut self, patient_class: &str, location: &str) -> Self {
         let mut segment = Segment::new(b"PV1");
-        
+
         // PV1-1: Set ID
         segment.add_field(Field::from_text("1"));
         // PV1-2: Patient Class
@@ -348,7 +356,7 @@ impl MessageBuilder {
         units: &str,
     ) -> Self {
         let mut segment = Segment::new(b"OBX");
-        
+
         // OBX-1: Set ID
         segment.add_field(Field::from_text(set_id));
         // OBX-2: Value Type
@@ -401,7 +409,7 @@ impl MessageBuilder {
         universal_service: &str,
     ) -> Self {
         let mut segment = Segment::new(b"OBR");
-        
+
         // OBR-1: Set ID
         segment.add_field(Field::from_text(set_id));
         // OBR-2: Placer Order Number
@@ -435,7 +443,7 @@ impl MessageBuilder {
     /// ```
     pub fn with_evn(mut self, event_type: &str, datetime: &str) -> Self {
         let mut segment = Segment::new(b"EVN");
-        
+
         // EVN-1: Event Type Code
         segment.add_field(Field::from_text(event_type));
         // EVN-2: Recorded Date/Time
@@ -465,7 +473,7 @@ impl MessageBuilder {
     /// ```
     pub fn with_nk1(mut self, set_id: &str, name: &str, relationship: &str) -> Self {
         let mut segment = Segment::new(b"NK1");
-        
+
         // NK1-1: Set ID
         segment.add_field(Field::from_text(set_id));
         // NK1-2: Name
@@ -494,7 +502,7 @@ impl MessageBuilder {
     /// ```
     pub fn with_al1(mut self, set_id: &str, allergy_type: &str, allergen: &str) -> Self {
         let mut segment = Segment::new(b"AL1");
-        
+
         // AL1-1: Set ID
         segment.add_field(Field::from_text(set_id));
         // AL1-2: Allergy Type
@@ -522,7 +530,7 @@ impl MessageBuilder {
     /// ```
     pub fn with_dg1(mut self, set_id: &str, coding_method: &str, diagnosis_code: &str) -> Self {
         let mut segment = Segment::new(b"DG1");
-        
+
         // DG1-1: Set ID
         segment.add_field(Field::from_text(set_id));
         // DG1-2: Diagnosis Coding Method
@@ -656,7 +664,7 @@ impl SegmentBuilder {
         } else {
             [b'?', b'?', b'?']
         };
-        
+
         Self {
             id: id_bytes,
             fields: Vec::new(),
@@ -835,7 +843,7 @@ fn write_message(message: &Message) -> String {
 /// Write a segment to an HL7-formatted string.
 fn write_segment(segment: &Segment, delims: &Delims) -> String {
     let mut result = segment.id_str().to_string();
-    
+
     // Special handling for MSH segment
     // MSH-1 is the field separator (implicit after MSH)
     // MSH-2 is the encoding characters
@@ -846,7 +854,7 @@ fn write_segment(segment: &Segment, delims: &Delims) -> String {
         result.push(delims.rep);
         result.push(delims.esc);
         result.push(delims.sub);
-        
+
         // Write remaining fields starting from MSH-3
         for field in &segment.fields {
             result.push(delims.field);
@@ -858,13 +866,15 @@ fn write_segment(segment: &Segment, delims: &Delims) -> String {
             result.push_str(&write_field(field, delims));
         }
     }
-    
+
     result
 }
 
 /// Write a field to an HL7-formatted string.
 fn write_field(field: &Field, delims: &Delims) -> String {
-    let reps: Vec<String> = field.reps.iter()
+    let reps: Vec<String> = field
+        .reps
+        .iter()
         .map(|rep| write_rep(rep, delims))
         .collect();
     reps.join(&delims.rep.to_string())
@@ -872,7 +882,9 @@ fn write_field(field: &Field, delims: &Delims) -> String {
 
 /// Write a repetition to an HL7-formatted string.
 fn write_rep(rep: &Rep, delims: &Delims) -> String {
-    let comps: Vec<String> = rep.comps.iter()
+    let comps: Vec<String> = rep
+        .comps
+        .iter()
         .map(|comp| write_comp(comp, delims))
         .collect();
     comps.join(&delims.comp.to_string())
@@ -880,9 +892,7 @@ fn write_rep(rep: &Rep, delims: &Delims) -> String {
 
 /// Write a component to an HL7-formatted string.
 fn write_comp(comp: &Comp, delims: &Delims) -> String {
-    let subs: Vec<String> = comp.subs.iter()
-        .map(write_atom)
-        .collect();
+    let subs: Vec<String> = comp.subs.iter().map(write_atom).collect();
     subs.join(&delims.sub.to_string())
 }
 
@@ -899,31 +909,31 @@ fn parse_raw_segment(segment_str: &str, delims: &Delims) -> Result<Segment, Stri
     if segment_str.len() < 3 {
         return Err("Segment too short".to_string());
     }
-    
+
     let id: [u8; 3] = [
         segment_str.as_bytes()[0],
         segment_str.as_bytes()[1],
         segment_str.as_bytes()[2],
     ];
-    
+
     let mut segment = Segment::new(&id);
-    
+
     if segment_str.len() > 3 {
         let field_sep = segment_str.chars().nth(3).unwrap_or(delims.field);
         let fields_str = &segment_str[4..];
-        
+
         for field_str in fields_str.split(field_sep) {
             segment.add_field(parse_raw_field(field_str, delims));
         }
     }
-    
+
     Ok(segment)
 }
 
 /// Parse a raw field string into a Field struct.
 fn parse_raw_field(field_str: &str, delims: &Delims) -> Field {
     let mut field = Field::new();
-    
+
     for rep_str in field_str.split(delims.rep) {
         let mut rep = Rep::new();
         for comp_str in rep_str.split(delims.comp) {
@@ -939,7 +949,7 @@ fn parse_raw_field(field_str: &str, delims: &Delims) -> Field {
         }
         field.reps.push(rep);
     }
-    
+
     field
 }
 
@@ -958,7 +968,7 @@ mod tests {
         let bytes = MessageBuilder::adt_a01()
             .with_pid("MRN123", "Doe", "John")
             .build_bytes();
-        
+
         let message = hl7v2_parser::parse(&bytes).unwrap();
         assert_eq!(message.segments.len(), 2);
     }
@@ -970,7 +980,7 @@ mod tests {
             .with_pid("MRN123", "Doe", "John")
             .with_pv1("I", "ICU^101")
             .build_bytes();
-        
+
         let message = hl7v2_parser::parse(&bytes).unwrap();
         assert_eq!(message.segments.len(), 3);
     }
@@ -982,7 +992,7 @@ mod tests {
             .with_obr("1", "ORD123", "FIL456", "CBC^Complete Blood Count")
             .with_obx("1", "NM", "WBC^White Blood Count", "7.5", "10^9/L")
             .build_bytes();
-        
+
         let message = hl7v2_parser::parse(&bytes).unwrap();
         assert_eq!(message.segments.len(), 4);
     }
@@ -993,7 +1003,7 @@ mod tests {
             .with_msh("App", "Fac", "Recv", "RecvFac", "ADT", "A01")
             .with_message_control_id("CUSTOM123")
             .build_bytes();
-        
+
         let message = hl7v2_parser::parse(&bytes).unwrap();
         // Verify the message was created successfully
         assert_eq!(message.segments.len(), 1);
@@ -1007,7 +1017,7 @@ mod tests {
             .field("MRN123")
             .component_field(&["Doe", "John"])
             .build();
-        
+
         assert_eq!(segment.id_str(), "PID");
         assert_eq!(segment.fields.len(), 4);
     }
@@ -1018,7 +1028,7 @@ mod tests {
             .field("1")
             .field("MRN123")
             .build_string();
-        
+
         assert!(segment_str.starts_with("PID|"));
         assert!(segment_str.contains("MRN123"));
     }
@@ -1029,7 +1039,7 @@ mod tests {
             .with_msh("App", "Fac", "Recv", "RecvFac", "ADT", "A01")
             .with_raw_segment("ZPV|1|Custom|Value")
             .build_bytes();
-        
+
         let message = hl7v2_parser::parse(&bytes).unwrap();
         assert_eq!(message.segments.len(), 2);
         assert_eq!(message.segments[1].id_str(), "ZPV");

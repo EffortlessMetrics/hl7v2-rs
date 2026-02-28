@@ -8,11 +8,11 @@
 //! Note: These benchmarks use tokio for async operations and may require
 //! longer sample times for accurate results.
 
-use std::hint::black_box;
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use hl7v2_mllp::wrap_mllp;
 use hl7v2_parser::parse;
 use hl7v2_writer::write_mllp;
+use std::hint::black_box;
 use tokio::runtime::Runtime;
 
 /// Create a sample HL7 message for benchmarking
@@ -38,7 +38,7 @@ fn create_large_message() -> String {
 fn bench_mllp_wrap(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("mllp_wrap", |b| {
         b.iter(|| {
             let result = wrap_mllp(black_box(bytes));
@@ -51,7 +51,7 @@ fn bench_mllp_wrap(c: &mut Criterion) {
 fn bench_mllp_wrap_large(c: &mut Criterion) {
     let message = create_large_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("mllp_wrap_large", |b| {
         b.iter(|| {
             let result = wrap_mllp(black_box(bytes));
@@ -64,25 +64,21 @@ fn bench_mllp_wrap_large(c: &mut Criterion) {
 fn bench_mllp_wrap_throughput(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     let mut group = c.benchmark_group("mllp_wrap_throughput");
-    
+
     for count in [1, 10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*count as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(count),
-            count,
-            |b, _| {
-                b.iter(|| {
-                    for _ in 0..*count {
-                        let result = wrap_mllp(black_box(bytes));
-                        black_box(result);
-                    }
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, _| {
+            b.iter(|| {
+                for _ in 0..*count {
+                    let result = wrap_mllp(black_box(bytes));
+                    black_box(result);
+                }
+            })
+        });
     }
-    
+
     group.finish();
 }
 
@@ -90,7 +86,7 @@ fn bench_mllp_wrap_throughput(c: &mut Criterion) {
 fn bench_mllp_write_message(c: &mut Criterion) {
     let message = create_sample_message();
     let parsed = parse(message.as_bytes()).expect("Failed to parse message");
-    
+
     c.bench_function("mllp_write_message", |b| {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
@@ -103,7 +99,7 @@ fn bench_mllp_write_message(c: &mut Criterion) {
 fn bench_mllp_write_large_message(c: &mut Criterion) {
     let message = create_large_message();
     let parsed = parse(message.as_bytes()).expect("Failed to parse message");
-    
+
     c.bench_function("mllp_write_large_message", |b| {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
@@ -117,7 +113,7 @@ fn bench_codec_encoding(c: &mut Criterion) {
     let rt = Runtime::new().expect("Failed to create tokio runtime");
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("codec_encode", |b| {
         b.to_async(&rt).iter(|| async {
             // Simulate encoding for MLLP transmission
@@ -132,7 +128,7 @@ fn bench_codec_decoding(c: &mut Criterion) {
     let rt = Runtime::new().expect("Failed to create tokio runtime");
     let message = create_sample_message();
     let wrapped = wrap_mllp(message.as_bytes());
-    
+
     c.bench_function("codec_decode", |b| {
         b.to_async(&rt).iter(|| async {
             // Simulate decoding from MLLP frame
@@ -150,7 +146,7 @@ fn bench_codec_decoding(c: &mut Criterion) {
 /// Benchmark message frame size impact
 fn bench_frame_size_impact(c: &mut Criterion) {
     let mut group = c.benchmark_group("frame_size_impact");
-    
+
     // Small message (~300 bytes)
     let small = create_sample_message();
     let small_bytes = small.as_bytes();
@@ -161,7 +157,7 @@ fn bench_frame_size_impact(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Medium message (~1KB)
     let medium = create_large_message();
     let medium_bytes = medium.as_bytes();
@@ -172,7 +168,7 @@ fn bench_frame_size_impact(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Large message (~10KB)
     let mut large_msg = String::new();
     for i in 0..100 {
@@ -191,7 +187,7 @@ fn bench_frame_size_impact(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
@@ -200,9 +196,9 @@ fn bench_concurrent_frame_processing(c: &mut Criterion) {
     let rt = Runtime::new().expect("Failed to create tokio runtime");
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     let mut group = c.benchmark_group("concurrent_frames");
-    
+
     for concurrency in [1, 2, 4, 8].iter() {
         group.bench_with_input(
             BenchmarkId::new("concurrent_wrap", concurrency),
@@ -222,7 +218,7 @@ fn bench_concurrent_frame_processing(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -230,7 +226,7 @@ fn bench_concurrent_frame_processing(c: &mut Criterion) {
 fn bench_message_roundtrip(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     c.bench_function("message_roundtrip", |b| {
         b.iter(|| {
             // Parse
@@ -248,30 +244,26 @@ fn bench_message_roundtrip(c: &mut Criterion) {
 fn bench_pipeline_throughput(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     let mut group = c.benchmark_group("pipeline_throughput");
-    
+
     for count in [1, 10, 100].iter() {
         group.throughput(Throughput::Elements(*count as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(count),
-            count,
-            |b, &count| {
-                b.iter(|| {
-                    for _ in 0..count {
-                        // Parse
-                        let parsed = parse(black_box(bytes)).expect("Failed to parse");
-                        // Write to MLLP
-                        let mllp = write_mllp(black_box(&parsed));
-                        // Wrap
-                        let wrapped = wrap_mllp(&mllp);
-                        black_box(wrapped);
-                    }
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, &count| {
+            b.iter(|| {
+                for _ in 0..count {
+                    // Parse
+                    let parsed = parse(black_box(bytes)).expect("Failed to parse");
+                    // Write to MLLP
+                    let mllp = write_mllp(black_box(&parsed));
+                    // Wrap
+                    let wrapped = wrap_mllp(&mllp);
+                    black_box(wrapped);
+                }
+            })
+        });
     }
-    
+
     group.finish();
 }
 
@@ -280,9 +272,9 @@ fn bench_async_overhead(c: &mut Criterion) {
     let rt = Runtime::new().expect("Failed to create tokio runtime");
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     let mut group = c.benchmark_group("async_overhead");
-    
+
     // Synchronous wrapping
     group.bench_function("sync_wrap", |b| {
         b.iter(|| {
@@ -290,7 +282,7 @@ fn bench_async_overhead(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Async wrapping with tokio
     group.bench_function("async_wrap", |b| {
         b.to_async(&rt).iter(|| async {
@@ -298,7 +290,7 @@ fn bench_async_overhead(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
@@ -306,9 +298,9 @@ fn bench_async_overhead(c: &mut Criterion) {
 fn bench_buffer_patterns(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
-    
+
     let mut group = c.benchmark_group("buffer_patterns");
-    
+
     // Allocate new buffer each time
     group.bench_function("new_buffer", |b| {
         b.iter(|| {
@@ -316,7 +308,7 @@ fn bench_buffer_patterns(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Reuse pre-allocated buffer (simulated)
     group.bench_function("reuse_buffer", |b| {
         b.iter(|| {
@@ -328,7 +320,7 @@ fn bench_buffer_patterns(c: &mut Criterion) {
             black_box(buffer)
         })
     });
-    
+
     group.finish();
 }
 
@@ -336,9 +328,9 @@ fn bench_buffer_patterns(c: &mut Criterion) {
 fn bench_network_serialization(c: &mut Criterion) {
     let message = create_sample_message();
     let parsed = parse(message.as_bytes()).expect("Failed to parse message");
-    
+
     let mut group = c.benchmark_group("network_serialization");
-    
+
     // Standard MLLP write
     group.bench_function("mllp_write", |b| {
         b.iter(|| {
@@ -346,7 +338,7 @@ fn bench_network_serialization(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // MLLP write + wrap
     group.bench_function("mllp_write_wrap", |b| {
         b.iter(|| {
@@ -355,7 +347,7 @@ fn bench_network_serialization(c: &mut Criterion) {
             black_box(wrapped)
         })
     });
-    
+
     group.finish();
 }
 

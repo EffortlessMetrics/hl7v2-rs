@@ -15,7 +15,14 @@ fn msh_segment() -> impl Strategy<Value = String> {
 
 /// Generate a simple PID segment
 fn pid_segment() -> impl Strategy<Value = String> {
-    (Just("PID|1||".to_string()), "[0-9]{6}", Just("^^^HOSP^MR||".to_string()), "[A-Z][a-z]+", Just("^".to_string()), "[A-Z][a-z]+")
+    (
+        Just("PID|1||".to_string()),
+        "[0-9]{6}",
+        Just("^^^HOSP^MR||".to_string()),
+        "[A-Z][a-z]+",
+        Just("^".to_string()),
+        "[A-Z][a-z]+",
+    )
         .prop_map(|(a, b, c, d, e, f)| format!("{}{}{}{}{}{}", a, b, c, d, e, f))
 }
 
@@ -27,14 +34,14 @@ proptest! {
     ) {
         let hl7 = format!("{}\r{}\r", msh, pid);
         let hl7_bytes = hl7.as_bytes();
-        
+
         let result = normalize(hl7_bytes, false);
-        
+
         prop_assert!(result.is_ok());
-        
+
         let normalized = result.unwrap();
         let normalized_str = String::from_utf8(normalized).unwrap();
-        
+
         // Should contain both segments
         prop_assert!(normalized_str.contains("MSH|"));
         prop_assert!(normalized_str.contains("PID|"));
@@ -54,10 +61,10 @@ proptest! {
             "MSH|^~\\&|{}|{}|{}|{}|20250128152312||ADT^A01|MSG00001|P|2.5.1\r",
             field_content, field_content, field_content, field_content
         );
-        
+
         let normalized = normalize(hl7.as_bytes(), true).unwrap();
         let normalized_str = String::from_utf8(normalized).unwrap();
-        
+
         // Should start with standard delimiters
         prop_assert!(normalized_str.starts_with("MSH|^~\\&|"));
     }
@@ -78,10 +85,10 @@ proptest! {
             "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|MSG00001|P|2.5.1\rPID|1||{}^^^HOSP^MR||{}^{}\r",
             mrn, last_name, first_name
         );
-        
+
         let normalized1 = normalize(hl7.as_bytes(), false).unwrap();
         let normalized2 = normalize(&normalized1, false).unwrap();
-        
+
         // Normalizing twice should produce the same result
         prop_assert_eq!(normalized1, normalized2);
     }
@@ -100,10 +107,10 @@ proptest! {
             "MSH|^~\\&|App|Fac|App|Fac|20250128152312||ADT^A01|MSG|P|2.5.1\rPID|1||{}^^^HOSP^MR\r",
             mrn
         );
-        
+
         let canonical1 = normalize(hl7.as_bytes(), true).unwrap();
         let canonical2 = normalize(&canonical1, true).unwrap();
-        
+
         // Canonical normalization should be idempotent
         prop_assert_eq!(canonical1, canonical2);
     }
@@ -122,27 +129,27 @@ proptest! {
             "MSH|^~\\&|{}|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|MSG00001|P|2.5.1\r",
             content
         );
-        
+
         let normalized = normalize(hl7.as_bytes(), false).unwrap();
         let normalized_str = String::from_utf8(normalized).unwrap();
-        
+
         // Content should be preserved
         prop_assert!(normalized_str.contains(&content));
     }
-    
+
     #[test]
     fn test_normalize_preserves_segment_count(
         num_segments in 1usize..20
     ) {
         let mut hl7 = "MSH|^~\\&|App|Fac|App|Fac|20250128152312||ADT^A01|MSG|P|2.5.1\r".to_string();
-        
+
         for i in 0..num_segments {
             hl7.push_str(&format!("NTE|{}|Note text\r", i));
         }
-        
+
         let normalized = normalize(hl7.as_bytes(), false).unwrap();
         let normalized_str = String::from_utf8(normalized).unwrap();
-        
+
         // Count segments (MSH + NTEs)
         let segment_count = normalized_str.matches('\r').count();
         prop_assert_eq!(segment_count, num_segments + 1);
@@ -159,9 +166,9 @@ proptest! {
         content in ".*"
     ) {
         prop_assume!(!content.starts_with("MSH|"));
-        
+
         let result = normalize(content.as_bytes(), true);
-        
+
         // Should fail for messages without MSH segment
         prop_assert!(result.is_err());
     }
@@ -181,14 +188,14 @@ proptest! {
             "MSH|^~\\&|App|Fac|App|Fac|20250128152312||ADT^A01|MSG|P|2.5.1\rPID|1||{}^^^HOSP^MR||{}^{}\r",
             mrn, name, name
         );
-        
+
         let normalized1 = normalize(hl7.as_bytes(), false).unwrap();
         let normalized2 = normalize(hl7.as_bytes(), false).unwrap();
-        
+
         // Same input should always produce same output
         prop_assert_eq!(normalized1, normalized2);
     }
-    
+
     #[test]
     fn test_normalize_canonical_deterministic(
         mrn in "[0-9]{6}"
@@ -197,10 +204,10 @@ proptest! {
             "MSH|^~\\&|App|Fac|App|Fac|20250128152312||ADT^A01|MSG|P|2.5.1\rPID|1||{}^^^HOSP^MR\r",
             mrn
         );
-        
+
         let canonical1 = normalize(hl7.as_bytes(), true).unwrap();
         let canonical2 = normalize(hl7.as_bytes(), true).unwrap();
-        
+
         prop_assert_eq!(canonical1, canonical2);
     }
 }
@@ -218,13 +225,13 @@ proptest! {
             "MSH|^~\\&|App|Fac|App|Fac|20250128152312||ADT^A01|MSG|P|2.5.1\rPID|1||{}^^^HOSP^MR\r",
             mrn
         );
-        
+
         let normalized = normalize(hl7.as_bytes(), false).unwrap();
-        
+
         // Should be parseable
         let parsed = hl7v2_parser::parse(&normalized);
         prop_assert!(parsed.is_ok());
-        
+
         let message = parsed.unwrap();
         prop_assert_eq!(message.segments.len(), 2);
         prop_assert_eq!(&message.segments[0].id, b"MSH");
@@ -245,12 +252,12 @@ proptest! {
             "MSH|^~\\&|App|Fac|App|Fac|20250128152312||ADT^A01|MSG|P|2.5.1\rPID|1||123456^^^HOSP^MR||{}^{}\r",
             name, name
         );
-        
+
         let result = normalize(hl7.as_bytes(), false);
-        
+
         // Should handle unicode
         prop_assert!(result.is_ok());
-        
+
         let normalized = result.unwrap();
         let normalized_str = String::from_utf8(normalized).unwrap();
         prop_assert!(normalized_str.contains(&name));
@@ -270,9 +277,9 @@ proptest! {
             "MSH|^~\\&|{}|{}|{}|{}|20250128152312||ADT^A01|MSG|P|2.5.1\r",
             content, content, content, content
         );
-        
+
         let normalized = normalize(hl7.as_bytes(), false).unwrap();
-        
+
         // Parse to verify field separator
         let message = hl7v2_parser::parse(&normalized).unwrap();
         prop_assert_eq!(message.delims.field, '|');

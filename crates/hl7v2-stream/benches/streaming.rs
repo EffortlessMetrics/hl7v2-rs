@@ -5,7 +5,7 @@
 //! - Memory efficiency
 //! - Parsing performance for various message sizes
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use hl7v2_stream::{Event, StreamParser};
 use std::io::{BufReader, Cursor};
 
@@ -207,19 +207,23 @@ fn bench_buffer_sizes(c: &mut Criterion) {
     let msg = generate_large_message(1000);
 
     for buffer_size in [64, 256, 1024, 4096, 16384].iter() {
-        group.bench_with_input(BenchmarkId::new("buffer", buffer_size), buffer_size, |b, &size| {
-            b.iter(|| {
-                let cursor = Cursor::new(msg.as_bytes());
-                let buf_reader = BufReader::with_capacity(size, cursor);
-                let mut parser = StreamParser::new(buf_reader);
+        group.bench_with_input(
+            BenchmarkId::new("buffer", buffer_size),
+            buffer_size,
+            |b, &size| {
+                b.iter(|| {
+                    let cursor = Cursor::new(msg.as_bytes());
+                    let buf_reader = BufReader::with_capacity(size, cursor);
+                    let mut parser = StreamParser::new(buf_reader);
 
-                let mut count = 0;
-                while let Ok(Some(_)) = parser.next_event() {
-                    count += 1;
-                }
-                black_box(count);
-            });
-        });
+                    let mut count = 0;
+                    while let Ok(Some(_)) = parser.next_event() {
+                        count += 1;
+                    }
+                    black_box(count);
+                });
+            },
+        );
     }
 
     group.finish();
@@ -251,7 +255,10 @@ fn bench_real_world_messages(c: &mut Criterion) {
     for i in 1..=50 {
         oru_r01.push_str(&format!(
             "OBX|{}|NM|TEST{}^Test Name||{}.{}|units|low-high|N|||F\r",
-            i, i, i, i % 10
+            i,
+            i,
+            i,
+            i % 10
         ));
     }
 

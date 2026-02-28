@@ -7,7 +7,7 @@
 //!
 //! Run with: cargo run --example parsing_basics
 
-use hl7v2_core::{parse, get, Error, Message};
+use hl7v2_core::{Error, Message, get, parse};
 
 /// A simple HL7 v2 ADT^A01 (Admit) message
 const SAMPLE_MESSAGE: &[u8] = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John^Middle||19700101|M|||123 Main St^^Anytown^CA^12345||5551234567\r";
@@ -18,7 +18,10 @@ fn main() {
     // Example 1: Parse a simple message
     match parse_message_example() {
         Ok(message) => {
-            println!("✓ Successfully parsed message with {} segments\n", message.segments.len());
+            println!(
+                "✓ Successfully parsed message with {} segments\n",
+                message.segments.len()
+            );
         }
         Err(e) => {
             eprintln!("✗ Failed to parse message: {}", e);
@@ -36,11 +39,14 @@ fn main() {
 /// Parse a simple HL7 message from bytes
 fn parse_message_example() -> Result<Message, Error> {
     println!("--- Example 1: Parsing a Message ---");
-    
+
     // The parse function accepts a byte slice (&[u8])
     // HL7 messages typically use \r as segment terminators
     println!("Input message (truncated):");
-    println!("  {:?}", String::from_utf8_lossy(&SAMPLE_MESSAGE[..80.min(SAMPLE_MESSAGE.len())]));
+    println!(
+        "  {:?}",
+        String::from_utf8_lossy(&SAMPLE_MESSAGE[..80.min(SAMPLE_MESSAGE.len())])
+    );
     println!();
 
     // Parse the message - this returns Result<Message, Error>
@@ -48,7 +54,8 @@ fn parse_message_example() -> Result<Message, Error> {
 
     // Display basic message information
     println!("Parsed message details:");
-    println!("  Delimiters: field='{}' component='{}' repetition='{}' escape='{}' subcomponent='{}'",
+    println!(
+        "  Delimiters: field='{}' component='{}' repetition='{}' escape='{}' subcomponent='{}'",
         message.delims.field,
         message.delims.comp,
         message.delims.rep,
@@ -56,11 +63,16 @@ fn parse_message_example() -> Result<Message, Error> {
         message.delims.sub,
     );
     println!("  Segment count: {}", message.segments.len());
-    
+
     // List all segments
     for (i, segment) in message.segments.iter().enumerate() {
         let segment_id = String::from_utf8_lossy(&segment.id);
-        println!("  Segment {}: {} ({} fields)", i + 1, segment_id, segment.fields.len());
+        println!(
+            "  Segment {}: {} ({} fields)",
+            i + 1,
+            segment_id,
+            segment.fields.len()
+        );
     }
     println!();
 
@@ -77,7 +89,7 @@ fn access_fields_example() {
     // The `get` function allows path-based field access
     // Path format: SEGMENT.FIELD[.COMPONENT][.SUBCOMPONENT]
     // Examples: MSH.3, PID.5.1, PID.5.2
-    
+
     // Access MSH segment fields
     // MSH.3 = Sending Application
     let sending_app = get(&message, "MSH.3");
@@ -177,7 +189,10 @@ fn access_fields_example() {
     println!("PID.999 (Non-existent): {:?}", nonexistent);
 
     let nonexistent_component = get(&message, "PID.5.999");
-    println!("PID.5.999 (Non-existent component): {:?}", nonexistent_component);
+    println!(
+        "PID.5.999 (Non-existent component): {:?}",
+        nonexistent_component
+    );
 
     println!();
 }
@@ -188,7 +203,7 @@ fn error_handling_example() {
 
     // Example of an invalid message (missing MSH segment)
     let invalid_message = b"PID|1||123456||Doe^John\r";
-    
+
     match parse(invalid_message) {
         Ok(msg) => {
             println!("✗ Unexpectedly parsed invalid message: {:?}", msg);
@@ -203,7 +218,7 @@ fn error_handling_example() {
 
     // Example of an empty message
     let empty_message = b"";
-    
+
     match parse(empty_message) {
         Ok(msg) => {
             println!("✗ Unexpectedly parsed empty message: {:?}", msg);
@@ -215,7 +230,7 @@ fn error_handling_example() {
 
     // Example of a message with invalid UTF-8
     let invalid_utf8: &[u8] = &[0xFF, 0xFE, 0xFD];
-    
+
     match parse(invalid_utf8) {
         Ok(msg) => {
             println!("✗ Unexpectedly parsed invalid UTF-8: {:?}", msg);
@@ -230,10 +245,13 @@ fn error_handling_example() {
 
     // Example of a message with duplicate delimiters
     let duplicate_delims = b"MSH||||SendingApp|SendingFac|\r";
-    
+
     match parse(duplicate_delims) {
         Ok(msg) => {
-            println!("✗ Unexpectedly parsed message with duplicate delimiters: {:?}", msg);
+            println!(
+                "✗ Unexpectedly parsed message with duplicate delimiters: {:?}",
+                msg
+            );
         }
         Err(Error::DuplicateDelims) => {
             println!("✓ Correctly detected duplicate delimiters");
@@ -252,7 +270,9 @@ fn error_handling_example() {
     println!("      Err(Error::InvalidCharset) => handle_encoding_error(),");
     println!("      Err(Error::InvalidSegmentId) => handle_structure_error(),");
     println!("      Err(Error::ParseError {{ segment_id, field_index, source }}) => {{");
-    println!("          log_error(\"Parse error at {{}} field {{}}: {{}}\", segment_id, field_index, source);");
+    println!(
+        "          log_error(\"Parse error at {{}} field {{}}: {{}}\", segment_id, field_index, source);"
+    );
     println!("      }}");
     println!("      Err(e) => handle_other_error(e),");
     println!("  }}");

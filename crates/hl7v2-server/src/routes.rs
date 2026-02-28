@@ -1,9 +1,8 @@
 //! HTTP route definitions.
 
 use axum::{
-    middleware,
+    Router, middleware,
     routing::{get, post},
-    Router,
 };
 use std::sync::Arc;
 use tower_http::{
@@ -36,7 +35,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(CompressionLayer::new())
         .layer(build_cors_layer())
         .layer(TraceLayer::new_for_http())
-        .layer(create_concurrency_limit_layer())  // Concurrency limiting applied first (last in stack)
+        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
 }
 
 /// Handler for GET /ready
@@ -77,7 +76,12 @@ mod tests {
         let app = build_router(state);
 
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 

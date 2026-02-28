@@ -6,7 +6,7 @@
 
 use hl7v2_parser::{parse, parse_batch};
 use hl7v2_test_utils::SampleMessages;
-use insta::{assert_yaml_snapshot, assert_debug_snapshot};
+use insta::{assert_debug_snapshot, assert_yaml_snapshot};
 
 // =============================================================================
 // Standard Message Snapshots

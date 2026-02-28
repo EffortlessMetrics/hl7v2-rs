@@ -10,7 +10,7 @@
 //!
 //! Run with: cargo run --example mllp_client
 
-use hl7v2_core::{parse, write, Message, get};
+use hl7v2_core::{Message, get, parse, write};
 use hl7v2_network::{MllpClient, MllpClientBuilder};
 use std::time::Duration;
 
@@ -40,7 +40,10 @@ async fn main() {
         }
         Err(e) => {
             eprintln!("✗ Failed to send message: {}", e);
-            eprintln!("\n  Hint: Make sure an MLLP server is running at {}", server_addr);
+            eprintln!(
+                "\n  Hint: Make sure an MLLP server is running at {}",
+                server_addr
+            );
             eprintln!("  You can start a test server with:");
             eprintln!("    cargo run --package hl7v2-cli -- serve --port 2575");
         }
@@ -86,7 +89,7 @@ async fn send_message_basic(server_addr: &str) -> Result<Message, Box<dyn std::e
 
     // Parse the sample message
     let message = parse(SAMPLE_ADT_A01)?;
-    
+
     println!("Sending ADT^A01 message...");
     println!("  Message Control ID: {:?}", get(&message, "MSH.10"));
     println!("  Patient: {:?}", get(&message, "PID.5"));
@@ -104,7 +107,7 @@ async fn send_message_basic(server_addr: &str) -> Result<Message, Box<dyn std::e
 /// Display details of an ACK response
 fn display_ack_details(ack: &Message) {
     println!("ACK Message Details:");
-    
+
     // Get MSA segment fields
     let ack_code = get(ack, "MSA.1");
     let message_control = get(ack, "MSA.2");
@@ -118,7 +121,9 @@ fn display_ack_details(ack: &Message) {
     // Interpret the acknowledgment code
     if let Some(code) = ack_code {
         match code {
-            s if s == "AA" => println!("  Status: ✓ Application Accept - Message processed successfully"),
+            s if s == "AA" => {
+                println!("  Status: ✓ Application Accept - Message processed successfully")
+            }
             s if s == "AE" => println!("  Status: ✗ Application Error - Processing failed"),
             s if s == "AR" => println!("  Status: ✗ Application Reject - Message rejected"),
             s if s == "CA" => println!("  Status: ✓ Commit Accept"),
@@ -132,7 +137,10 @@ fn display_ack_details(ack: &Message) {
     // Display the full ACK message
     let ack_bytes = write(ack);
     println!("Full ACK message:");
-    println!("{}", String::from_utf8_lossy(&ack_bytes).replace("\r", "\r\n"));
+    println!(
+        "{}",
+        String::from_utf8_lossy(&ack_bytes).replace("\r", "\r\n")
+    );
 }
 
 /// Demonstrate error handling patterns
@@ -177,7 +185,9 @@ async fn demonstrate_error_handling() {
     println!("          let ack_code = get(&ack, \"MSA.1\");");
     println!("          match ack_code.as_deref() {{");
     println!("              Some(\"AA\") | Some(\"CA\") => println!(\"Success\"),");
-    println!("              Some(\"AE\") | Some(\"CE\") => println!(\"Error: {{:?}}\", get(&ack, \"MSA.3\")),");
+    println!(
+        "              Some(\"AE\") | Some(\"CE\") => println!(\"Error: {{:?}}\", get(&ack, \"MSA.3\")),"
+    );
     println!("              Some(\"AR\") | Some(\"CR\") => println!(\"Rejected\"),");
     println!("              _ => eprintln!(\"Invalid ACK code: {{:?}}\", ack_code),");
     println!("          }}");
@@ -208,7 +218,9 @@ async fn demonstrate_error_handling() {
     // Pattern 5: Retry with exponential backoff
     println!("Pattern 5: Retry with exponential backoff");
     println!("  ```rust");
-    println!("  async fn send_with_retry(client: &mut MllpClient, message: &Message, max_retries: u32) {{");
+    println!(
+        "  async fn send_with_retry(client: &mut MllpClient, message: &Message, max_retries: u32) {{"
+    );
     println!("      let mut delay = Duration::from_millis(100);");
     println!("      for attempt in 1..=max_retries {{");
     println!("          match client.send_message(message).await {{");

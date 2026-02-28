@@ -133,7 +133,10 @@ fn test_get_missing_segment() {
 fn test_get_missing_field() {
     let message = Message {
         delims: Delims::default(),
-        segments: vec![create_test_segment("PID", vec![create_text_field(vec!["1"])])],
+        segments: vec![create_test_segment(
+            "PID",
+            vec![create_text_field(vec!["1"])],
+        )],
         charsets: vec![],
     };
 
@@ -189,12 +192,12 @@ fn test_get_with_repetitions() {
 
     // Default to first repetition
     assert_eq!(get(&message, "PID.1"), Some("First"));
-    
+
     // Explicit repetitions
     assert_eq!(get(&message, "PID.1[1]"), Some("First"));
     assert_eq!(get(&message, "PID.1[2]"), Some("Second"));
     assert_eq!(get(&message, "PID.1[3]"), Some("Third"));
-    
+
     // Invalid repetition
     assert_eq!(get(&message, "PID.1[4]"), None);
     assert_eq!(get(&message, "PID.1[0]"), None);
@@ -417,7 +420,10 @@ fn test_get_invalid_component_index() {
 fn test_get_zero_field_index() {
     let message = Message {
         delims: Delims::default(),
-        segments: vec![create_test_segment("PID", vec![create_text_field(vec!["test"])])],
+        segments: vec![create_test_segment(
+            "PID",
+            vec![create_text_field(vec!["test"])],
+        )],
         charsets: vec![],
     };
 

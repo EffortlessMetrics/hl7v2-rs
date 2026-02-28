@@ -5,10 +5,10 @@
 //! - Multi-message batch processing
 //! - Batch with different message counts (10, 100, 1000)
 
-use std::hint::black_box;
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use hl7v2_batch::parse_batch;
 use hl7v2_parser::parse;
+use std::hint::black_box;
 
 /// Create a sample HL7 message for batch construction
 fn create_sample_message(msg_id: usize) -> String {
@@ -21,12 +21,14 @@ fn create_sample_message(msg_id: usize) -> String {
 
 /// Create a batch file header (FHS)
 fn create_fhs() -> String {
-    "FHS|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250101120000\r".to_string()
+    "FHS|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250101120000\r"
+        .to_string()
 }
 
 /// Create a batch header (BHS)
 fn create_bhs() -> String {
-    "BHS|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250101120000\r".to_string()
+    "BHS|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250101120000\r"
+        .to_string()
 }
 
 /// Create a batch trailer (BTS)
@@ -42,37 +44,37 @@ fn create_fts(count: usize) -> String {
 /// Create a single batch with specified number of messages
 fn create_single_batch(message_count: usize) -> String {
     let mut batch = String::new();
-    
+
     batch.push_str(&create_bhs());
     for i in 0..message_count {
         batch.push_str(&create_sample_message(i));
     }
     batch.push_str(&create_bts(message_count));
-    
+
     batch
 }
 
 /// Create a file batch with FHS/FTS and multiple batches
 fn create_file_batch(messages_per_batch: usize, batch_count: usize) -> String {
     let mut file = String::new();
-    
+
     file.push_str(&create_fhs());
     for _ in 0..batch_count {
         file.push_str(&create_single_batch(messages_per_batch));
     }
     file.push_str(&create_fts(messages_per_batch * batch_count));
-    
+
     file
 }
 
 /// Create a simple batch (no FHS/FTS) with specified messages
 fn create_simple_batch(message_count: usize) -> String {
     let mut batch = String::new();
-    
+
     for i in 0..message_count {
         batch.push_str(&create_sample_message(i));
     }
-    
+
     batch
 }
 
@@ -80,7 +82,7 @@ fn create_simple_batch(message_count: usize) -> String {
 fn bench_parse_single_batch(c: &mut Criterion) {
     let batch = create_single_batch(10);
     let bytes = batch.as_bytes();
-    
+
     c.bench_function("parse_single_batch_10", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(bytes));
@@ -93,7 +95,7 @@ fn bench_parse_single_batch(c: &mut Criterion) {
 fn bench_parse_file_batch(c: &mut Criterion) {
     let file = create_file_batch(10, 2);
     let bytes = file.as_bytes();
-    
+
     c.bench_function("parse_file_batch_10x2", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(bytes));
@@ -105,31 +107,27 @@ fn bench_parse_file_batch(c: &mut Criterion) {
 /// Benchmark batch parsing with different message counts
 fn bench_batch_by_message_count(c: &mut Criterion) {
     let mut group = c.benchmark_group("batch_message_count");
-    
+
     for count in [10, 100, 1000].iter() {
         let batch = create_single_batch(*count);
         let bytes = batch.as_bytes();
-        
+
         group.throughput(Throughput::Bytes(bytes.len() as u64));
-        group.bench_with_input(
-            BenchmarkId::new("parse_batch", count),
-            count,
-            |b, _| {
-                b.iter(|| {
-                    let result = parse_batch(black_box(bytes));
-                    black_box(result)
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parse_batch", count), count, |b, _| {
+            b.iter(|| {
+                let result = parse_batch(black_box(bytes));
+                black_box(result)
+            })
+        });
     }
-    
+
     group.finish();
 }
 
 /// Benchmark batch parsing with different file sizes
 fn bench_batch_by_file_size(c: &mut Criterion) {
     let mut group = c.benchmark_group("batch_file_size");
-    
+
     // Small batch (10 messages)
     let small = create_single_batch(10);
     let small_bytes = small.as_bytes();
@@ -140,7 +138,7 @@ fn bench_batch_by_file_size(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Medium batch (100 messages)
     let medium = create_single_batch(100);
     let medium_bytes = medium.as_bytes();
@@ -151,7 +149,7 @@ fn bench_batch_by_file_size(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Large batch (1000 messages)
     let large = create_single_batch(1000);
     let large_bytes = large.as_bytes();
@@ -162,14 +160,14 @@ fn bench_batch_by_file_size(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
 /// Benchmark file batch with multiple nested batches
 fn bench_nested_batches(c: &mut Criterion) {
     let mut group = c.benchmark_group("nested_batches");
-    
+
     // 10 batches of 10 messages each
     let nested_10x10 = create_file_batch(10, 10);
     let bytes_10x10 = nested_10x10.as_bytes();
@@ -180,7 +178,7 @@ fn bench_nested_batches(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // 5 batches of 20 messages each
     let nested_5x20 = create_file_batch(20, 5);
     let bytes_5x20 = nested_5x20.as_bytes();
@@ -191,7 +189,7 @@ fn bench_nested_batches(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
@@ -199,13 +197,13 @@ fn bench_nested_batches(c: &mut Criterion) {
 fn bench_message_parsing_from_batch(c: &mut Criterion) {
     let batch = create_simple_batch(100);
     let bytes = batch.as_bytes();
-    
+
     c.bench_function("parse_100_messages_sequential", |b| {
         b.iter(|| {
             // Split by segment terminator and parse each message
             let text = std::str::from_utf8(black_box(bytes)).unwrap();
             let messages: Vec<&str> = text.split("MSH|").filter(|s| !s.is_empty()).collect();
-            
+
             for msg_content in messages {
                 let full_msg = format!("MSH|{}", msg_content);
                 let result = parse(full_msg.as_bytes());
@@ -220,7 +218,7 @@ fn bench_batch_iteration(c: &mut Criterion) {
     let batch = create_single_batch(100);
     let bytes = batch.as_bytes();
     let parsed = parse_batch(bytes).expect("Failed to parse batch");
-    
+
     c.bench_function("iterate_100_message_batch", |b| {
         b.iter(|| {
             let mut count = 0;
@@ -243,15 +241,18 @@ fn bench_batch_large_messages(c: &mut Criterion) {
             msg_id,
             100000 + msg_id
         );
-        
+
         // Add multiple OBX segments
         for i in 1..=20 {
             msg.push_str(&format!(
                 "OBX|{}|NM|OBS{:03}^Observation {}^L||{:.2}|units|||||F\r",
-                i, i, i, 100.0 + i as f64
+                i,
+                i,
+                i,
+                100.0 + i as f64
             ));
         }
-        
+
         // Add multiple AL1 segments
         for i in 1..=5 {
             msg.push_str(&format!(
@@ -259,7 +260,7 @@ fn bench_batch_large_messages(c: &mut Criterion) {
                 i, i, i, i
             ));
         }
-        
+
         // Add multiple DG1 segments
         for i in 1..=3 {
             msg.push_str(&format!(
@@ -267,19 +268,19 @@ fn bench_batch_large_messages(c: &mut Criterion) {
                 i, i, i
             ));
         }
-        
+
         msg
     }
-    
+
     let mut batch = String::new();
     batch.push_str(&create_bhs());
     for i in 0..50 {
         batch.push_str(&create_large_message(i));
     }
     batch.push_str(&create_bts(50));
-    
+
     let bytes = batch.as_bytes();
-    
+
     c.bench_function("parse_batch_50_large_messages", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(bytes));
@@ -292,9 +293,9 @@ fn bench_batch_large_messages(c: &mut Criterion) {
 fn bench_batch_memory_efficiency(c: &mut Criterion) {
     let batch = create_single_batch(500);
     let bytes = batch.as_bytes();
-    
+
     let mut group = c.benchmark_group("batch_memory");
-    
+
     // Parse and count messages
     group.bench_function("parse_and_count_500", |b| {
         b.iter(|| {
@@ -303,7 +304,7 @@ fn bench_batch_memory_efficiency(c: &mut Criterion) {
             black_box(count)
         })
     });
-    
+
     // Parse and access first message
     group.bench_function("parse_and_access_first_500", |b| {
         b.iter(|| {
@@ -313,7 +314,7 @@ fn bench_batch_memory_efficiency(c: &mut Criterion) {
             black_box(segment_count)
         })
     });
-    
+
     group.finish();
 }
 

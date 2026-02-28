@@ -7,8 +7,8 @@
 //!
 //! Run with: cargo run --example batch_processing
 
-use hl7v2_batch::{parse_batch, FileBatch, Batch};
-use hl7v2_core::{parse, write, Message, get};
+use hl7v2_batch::{Batch, FileBatch, parse_batch};
+use hl7v2_core::{Message, get, parse, write};
 
 /// Sample batch file with FHS/BHS headers and multiple messages
 const SAMPLE_BATCH: &[u8] = b"FHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120000||BATCH001\rBHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120000||BATCH001\rMSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120001||ADT^A01^ADT_A01|MSG001|P|2.5.1\rPID|1||PAT001^^^HOSP^MR||Smith^John||19800101|M\rMSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120002||ADT^A01^ADT_A01|MSG002|P|2.5.1\rPID|1||PAT002^^^HOSP^MR||Jones^Jane||19850215|F\rMSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120003||ADT^A01^ADT_A01|MSG003|P|2.5.1\rPID|1||PAT003^^^HOSP^MR||Brown^Bob||19900320|M\rBTS|3\rFTS|3\r";
@@ -72,24 +72,29 @@ fn simple_batch_example() {
 /// Display file batch information
 fn display_file_batch_info(file_batch: &FileBatch) {
     println!("File Batch Information:");
-    
+
     if let Some(ref header) = file_batch.header {
         println!("  Has FHS header: {}", header.id_str());
     }
-    
+
     println!("  Number of batches: {}", file_batch.batches.len());
-    
+
     for (i, batch) in file_batch.batches.iter().enumerate() {
         println!("\n  Batch {}:", i + 1);
         println!("    Messages: {}", batch.messages.len());
-        
+
         for (j, msg) in batch.messages.iter().enumerate() {
             let msg_type = get(msg, "MSH.9").unwrap_or("Unknown");
             let control_id = get(msg, "MSH.10").unwrap_or("Unknown");
-            println!("      Message {}: {} (Control ID: {})", j + 1, msg_type, control_id);
+            println!(
+                "      Message {}: {} (Control ID: {})",
+                j + 1,
+                msg_type,
+                control_id
+            );
         }
     }
-    
+
     if let Some(ref trailer) = file_batch.trailer {
         println!("\n  Has FTS trailer: {}", trailer.id_str());
     }
@@ -175,7 +180,11 @@ fn process_message(message: &Message, num: usize) -> ProcessResult {
         success,
         patient_id,
         patient_name,
-        error: if success { None } else { Some("Missing patient ID".to_string()) },
+        error: if success {
+            None
+        } else {
+            Some("Missing patient ID".to_string())
+        },
     }
 }
 
@@ -185,7 +194,7 @@ fn create_batch_example() {
 
     // Create a new batch with messages
     let mut batch = Batch::default();
-    
+
     // Add messages to the batch
     for i in 1..=3 {
         let message = create_sample_message(i);
@@ -196,7 +205,7 @@ fn create_batch_example() {
 
     // Write the batch to bytes
     let output = write_batch_manually(&batch);
-    
+
     println!("\nBatch output:");
     println!("{}", String::from_utf8_lossy(&output).replace("\r", "\r\n"));
     println!();

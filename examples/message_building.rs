@@ -9,8 +9,15 @@
 //! Run with: cargo run --example message_building
 
 use hl7v2_core::{
-    Atom, Comp, Delims, Error, Field, Message, Rep, Segment,
-    write,  // For serializing messages
+    Atom,
+    Comp,
+    Delims,
+    Error,
+    Field,
+    Message,
+    Rep,
+    Segment,
+    write, // For serializing messages
 };
 
 fn main() {
@@ -65,7 +72,7 @@ fn build_adt_a01_message() -> Result<Message, Error> {
 
     // Create default delimiters (|^~\&)
     let delims = Delims::new();
-    
+
     // Build the MSH (Message Header) segment
     // MSH is special: the field separator (|) is counted as field 1
     let msh = build_msh_segment(&delims)?;
@@ -180,7 +187,9 @@ fn build_pid_segment() -> Result<Segment, Error> {
 
     // PID-3: Patient Identifier List (MRN with check digit and assigning authority)
     // Format: ID^CheckDigit^CheckDigitScheme^AssigningAuthority^IdentifierType
-    fields.push(create_composite_field(&["12345678", "", "", "HOSPITAL", "MR"]));
+    fields.push(create_composite_field(&[
+        "12345678", "", "", "HOSPITAL", "MR",
+    ]));
 
     // PID-4: Alternate Patient ID - empty
     fields.push(create_empty_field());
@@ -260,7 +269,9 @@ fn build_pv1_segment() -> Result<Segment, Error> {
     fields.push(create_empty_field());
 
     // PV1-7: Attending Doctor (ID^Name)
-    fields.push(create_composite_field(&["DR123", "SMITH", "JOHN", "", "", "MD"]));
+    fields.push(create_composite_field(&[
+        "DR123", "SMITH", "JOHN", "", "", "MD",
+    ]));
 
     // PV1-8: Referring Doctor - empty
     fields.push(create_empty_field());
@@ -285,10 +296,10 @@ fn build_message_with_custom_delimiters() -> Result<Message, Error> {
     // Note: All delimiters must be distinct
     let delims = Delims {
         field: '|',
-        comp: ':',    // Custom component separator
-        rep: '*',     // Custom repetition separator
+        comp: ':', // Custom component separator
+        rep: '*',  // Custom repetition separator
         esc: '\\',
-        sub: '>',     // Custom subcomponent separator
+        sub: '>', // Custom subcomponent separator
     };
 
     let mut fields = Vec::new();

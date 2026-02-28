@@ -671,7 +671,10 @@ pub fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) 
             .and_then(|d| d.and_hms_opt(0, 0, 0))
             .unwrap_or(*dt),
         TimestampPrecision::Day => dt.date().and_hms_opt(0, 0, 0).unwrap_or(*dt),
-        TimestampPrecision::Hour => dt.with_minute(0).and_then(|d| d.with_second(0)).unwrap_or(*dt),
+        TimestampPrecision::Hour => dt
+            .with_minute(0)
+            .and_then(|d| d.with_second(0))
+            .unwrap_or(*dt),
         TimestampPrecision::Minute => dt.with_second(0).unwrap_or(*dt),
         TimestampPrecision::Second => *dt,
     }
@@ -712,11 +715,7 @@ pub fn parse_datetime(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
 pub fn get_nonempty<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     hl7v2_core::get(msg, path).and_then(|s| {
         let t = s.trim();
-        if t.is_empty() {
-            None
-        } else {
-            Some(t)
-        }
+        if t.is_empty() { None } else { Some(t) }
     })
 }
 
@@ -821,9 +820,7 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
             let needle = rhs_first.unwrap_or_default();
             lhs.map(|l| l.contains(needle)).unwrap_or(false)
         }
-        "in" => {
-            lhs.map(|l| rhs_list.contains(&l)).unwrap_or(false)
-        }
+        "in" => lhs.map(|l| rhs_list.contains(&l)).unwrap_or(false),
         "matches_regex" => {
             if let (Some(l), Some(pat)) = (lhs, rhs_first) {
                 // compile per-call for simplicity; optimize later with a cache if needed
@@ -911,7 +908,7 @@ mod legacy_tests {
         assert!(is_date("19991231"));
         assert!(!is_date("20231301")); // Invalid month
         assert!(!is_date("20230132")); // Invalid day
-        assert!(!is_date("2023010"));  // Too short
+        assert!(!is_date("2023010")); // Too short
         assert!(!is_date("202301011")); // Too long
     }
 
@@ -920,9 +917,9 @@ mod legacy_tests {
         assert!(is_time("1200"));
         assert!(is_time("235959"));
         assert!(is_time("0000"));
-        assert!(!is_time("2400"));     // Invalid hour
-        assert!(!is_time("1260"));     // Invalid minute
-        assert!(!is_time("123"));      // Too short
+        assert!(!is_time("2400")); // Invalid hour
+        assert!(!is_time("1260")); // Invalid minute
+        assert!(!is_time("123")); // Too short
     }
 
     #[test]
@@ -954,9 +951,9 @@ mod legacy_tests {
     fn test_is_ssn() {
         assert!(is_ssn("123456789"));
         assert!(is_ssn("123-45-6789"));
-        assert!(!is_ssn("000123456"));   // Invalid area
-        assert!(!is_ssn("666123456"));   // Invalid area
-        assert!(!is_ssn("123450000"));   // Invalid serial
+        assert!(!is_ssn("000123456")); // Invalid area
+        assert!(!is_ssn("666123456")); // Invalid area
+        assert!(!is_ssn("123450000")); // Invalid serial
     }
 
     #[test]
@@ -975,7 +972,11 @@ mod legacy_tests {
 
     #[test]
     fn test_issue_creation() {
-        let issue = Issue::error("TEST_CODE", Some("PID.5".to_string()), "Test detail".to_string());
+        let issue = Issue::error(
+            "TEST_CODE",
+            Some("PID.5".to_string()),
+            "Test detail".to_string(),
+        );
         assert_eq!(issue.code, "TEST_CODE");
         assert_eq!(issue.severity, Severity::Error);
         assert_eq!(issue.path, Some("PID.5".to_string()));

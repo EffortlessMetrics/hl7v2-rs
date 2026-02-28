@@ -7,7 +7,7 @@
 //!
 //! Run with: cargo run --example streaming_parser
 
-use hl7v2_stream::{StreamParser, Event};
+use hl7v2_stream::{Event, StreamParser};
 use std::io::{BufReader, Cursor};
 
 /// A moderately sized HL7 message for demonstration
@@ -19,7 +19,11 @@ fn create_multi_message_data(count: usize) -> Vec<u8> {
     for i in 0..count {
         let msg = format!(
             "MSH|^~\\&|App{}|Fac|RecvApp|RecvFac|202501281200{:02}||ADT^A01|MSG{:03}|P|2.5.1\rPID|1||PAT{:03}^^^HOSP^MR||Patient^{}||19900101|M\r",
-            i % 10, i % 60, i, i, i
+            i % 10,
+            i % 60,
+            i,
+            i,
+            i
         );
         data.extend_from_slice(msg.as_bytes());
     }
@@ -68,8 +72,10 @@ fn sync_streaming_example() {
         match event {
             Event::StartMessage { delims } => {
                 println!("Message started");
-                println!("  Delimiters: field='{}' comp='{}' rep='{}' esc='{}' sub='{}'",
-                    delims.field, delims.comp, delims.rep, delims.esc, delims.sub);
+                println!(
+                    "  Delimiters: field='{}' comp='{}' rep='{}' esc='{}' sub='{}'",
+                    delims.field, delims.comp, delims.rep, delims.esc, delims.sub
+                );
             }
             Event::Segment { id } => {
                 current_segment = String::from_utf8_lossy(&id).to_string();
@@ -178,9 +184,12 @@ fn memory_efficient_example() {
     // Simulate a large file with many messages
     let message_count = 100;
     let data = create_multi_message_data(message_count);
-    
-    println!("Processing {} messages from {} bytes of data...\n",
-        message_count, data.len());
+
+    println!(
+        "Processing {} messages from {} bytes of data...\n",
+        message_count,
+        data.len()
+    );
 
     let cursor = Cursor::new(&data);
     let buf_reader = BufReader::new(cursor);
@@ -202,7 +211,7 @@ fn memory_efficient_example() {
             Event::Field { num, raw } => {
                 stats.fields += 1;
                 let value = String::from_utf8_lossy(&raw);
-                
+
                 // Process only specific fields without storing everything
                 if current_segment == "MSH" && num == 10 {
                     stats.control_ids.push(value.to_string());
@@ -220,7 +229,7 @@ fn memory_efficient_example() {
     println!("  Total segments: {}", stats.segments);
     println!("  Total fields: {}", stats.fields);
     println!("  Control IDs collected: {}", stats.control_ids.len());
-    
+
     // Memory note
     println!("\nMemory Efficiency Note:");
     println!("  - Streaming parser processes one event at a time");
@@ -324,7 +333,7 @@ fn error_handling_example() {
 
     // Test with truncated data
     println!("Parsing truncated message:");
-    let truncated: &[u8] = b"MSH|^~\\&|App\rPID|1";  // No segment terminator
+    let truncated: &[u8] = b"MSH|^~\\&|App\rPID|1"; // No segment terminator
     let cursor = Cursor::new(truncated);
     let buf_reader = BufReader::new(cursor);
     let mut parser = StreamParser::new(buf_reader);

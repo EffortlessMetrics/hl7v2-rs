@@ -2,9 +2,12 @@
 //!
 //! These tests verify that writer properties hold for arbitrary inputs.
 
-use hl7v2_model::{Atom, Batch, Comp, Delims, Field, FileBatch, Message, Rep, Segment};
+use hl7v2_model::{Batch, Comp, Delims, Field, FileBatch, Message, Rep, Segment};
 use hl7v2_parser::parse;
-use hl7v2_writer::{write, write_batch, write_file_batch, write_mllp, to_json, to_json_string, to_json_string_pretty};
+use hl7v2_writer::{
+    to_json, to_json_string, to_json_string_pretty, write, write_batch, write_file_batch,
+    write_mllp,
+};
 use proptest::prelude::*;
 
 // ============================================================================
@@ -20,7 +23,8 @@ fn safe_text() -> impl Strategy<Value = String> {
         match c {
             '|' | '^' | '~' | '\\' | '&' => 'X',
             c => c,
-        }.to_string()
+        }
+        .to_string()
     })
 }
 
@@ -31,9 +35,7 @@ fn text_with_delimiters() -> impl Strategy<Value = String> {
 
 /// Generate a segment ID (3 uppercase letters)
 fn segment_id() -> impl Strategy<Value = [u8; 3]> {
-    (0u8..26, 0u8..26, 0u8..26).prop_map(|(a, b, c)| {
-        [b'A' + a, b'A' + b, b'A' + c]
-    })
+    (0u8..26, 0u8..26, 0u8..26).prop_map(|(a, b, c)| [b'A' + a, b'A' + b, b'A' + c])
 }
 
 /// Generate a simple field
@@ -63,13 +65,19 @@ fn field_with_reps() -> impl Strategy<Value = Field> {
 
 /// Generate a simple segment
 fn simple_segment() -> impl Strategy<Value = Segment> {
-    (segment_id(), proptest::collection::vec(simple_field(), 1..5))
+    (
+        segment_id(),
+        proptest::collection::vec(simple_field(), 1..5),
+    )
         .prop_map(|(id, fields)| Segment { id, fields })
 }
 
 /// Generate a segment with complex fields
 fn complex_segment() -> impl Strategy<Value = Segment> {
-    (segment_id(), proptest::collection::vec(field_with_reps(), 1..5))
+    (
+        segment_id(),
+        proptest::collection::vec(field_with_reps(), 1..5),
+    )
         .prop_map(|(id, fields)| Segment { id, fields })
 }
 
@@ -86,14 +94,17 @@ fn message() -> impl Strategy<Value = Message> {
 fn message_with_msh() -> impl Strategy<Value = Message> {
     proptest::collection::vec(simple_segment(), 0..3).prop_map(|mut segments| {
         // Prepend MSH segment
-        segments.insert(0, Segment {
-            id: *b"MSH",
-            fields: vec![
-                Field::from_text("^~\\&"),
-                Field::from_text("APP"),
-                Field::from_text("FAC"),
-            ],
-        });
+        segments.insert(
+            0,
+            Segment {
+                id: *b"MSH",
+                fields: vec![
+                    Field::from_text("^~\\&"),
+                    Field::from_text("APP"),
+                    Field::from_text("FAC"),
+                ],
+            },
+        );
         Message {
             delims: Delims::default(),
             segments,
@@ -129,11 +140,11 @@ proptest! {
     fn prop_segments_end_with_cr(msg in message_with_msh()) {
         let bytes = write(&msg);
         let result = String::from_utf8(bytes).unwrap();
-        
+
         // Count segments and line endings
         let segment_count = msg.segments.len();
         let cr_count = result.matches('\r').count();
-        
+
         prop_assert_eq!(segment_count, cr_count);
     }
 }
@@ -144,7 +155,7 @@ proptest! {
     fn prop_segment_ids_preserved(msg in message_with_msh()) {
         let bytes = write(&msg);
         let result = String::from_utf8(bytes).unwrap();
-        
+
         for segment in &msg.segments {
             let id_str = String::from_utf8_lossy(&segment.id);
             let with_sep = format!("{}|", id_str);
@@ -159,7 +170,7 @@ proptest! {
     #[test]
     fn prop_roundtrip_preserves_segment_count(msg in message_with_msh()) {
         let bytes = write(&msg);
-        
+
         // Only test if the output is parseable
         if let Ok(parsed) = parse(&bytes) {
             prop_assert_eq!(msg.segments.len(), parsed.segments.len());
@@ -179,10 +190,10 @@ proptest! {
             }],
             charsets: vec![],
         };
-        
+
         let bytes = write(&message);
         let result = String::from_utf8(bytes).unwrap();
-        
+
         // Output should not contain unescaped delimiters in field values
         // (they should be escaped as \F\, \S\, etc.)
         // The actual field value portion should not have raw delimiters
@@ -199,10 +210,10 @@ proptest! {
     #[test]
     fn prop_mllp_framing_correct(msg in message_with_msh()) {
         let framed = write_mllp(&msg);
-        
+
         // Check start byte
         prop_assert_eq!(framed[0], hl7v2_mllp::MLLP_START);
-        
+
         // Check end bytes
         prop_assert_eq!(framed[framed.len() - 2], hl7v2_mllp::MLLP_END_1);
         prop_assert_eq!(framed[framed.len() - 1], hl7v2_mllp::MLLP_END_2);
@@ -215,7 +226,7 @@ proptest! {
     fn prop_mllp_contains_message(msg in message_with_msh()) {
         let framed = write_mllp(&msg);
         let plain = write(&msg);
-        
+
         // Content between MLLP markers should match plain write
         let content = &framed[1..framed.len() - 2];
         prop_assert_eq!(content, plain.as_slice());
@@ -227,7 +238,7 @@ proptest! {
     #[test]
     fn prop_mllp_unwrap_roundtrip(msg in message_with_msh()) {
         let framed = write_mllp(&msg);
-        
+
         if let Ok(content) = hl7v2_mllp::unwrap_mllp(&framed) {
             let plain = write(&msg);
             prop_assert_eq!(content, plain.as_slice());
@@ -242,6 +253,7 @@ proptest! {
 proptest! {
     /// Test that batch write never panics
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn prop_batch_write_never_panics(messages in proptest::collection::vec(message_with_msh(), 0..10)) {
         let mut batch = Batch::default();
         batch.messages = messages;
@@ -252,14 +264,15 @@ proptest! {
 proptest! {
     /// Test that batch contains all messages
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn prop_batch_contains_all_messages(messages in proptest::collection::vec(message_with_msh(), 1..5)) {
         let mut batch = Batch::default();
         let count = messages.len();
         batch.messages = messages;
-        
+
         let bytes = write_batch(&batch);
         let result = String::from_utf8(bytes).unwrap();
-        
+
         // Should have correct number of MSH segments
         let msh_count = result.matches("MSH|").count();
         prop_assert_eq!(msh_count, count);
@@ -280,13 +293,14 @@ proptest! {
         )
     ) {
         let mut file_batch = FileBatch::default();
-        
+
         for msgs in batches {
+            #[allow(clippy::field_reassign_with_default)]
             let mut batch = Batch::default();
             batch.messages = msgs;
             file_batch.batches.push(batch);
         }
-        
+
         let _ = write_file_batch(&file_batch);
     }
 }
@@ -309,7 +323,7 @@ proptest! {
     #[test]
     fn prop_to_json_string_valid(msg in message_with_msh()) {
         let json_str = to_json_string(&msg);
-        
+
         // Should be parseable as JSON
         let result: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
         prop_assert!(result.is_ok());
@@ -321,7 +335,7 @@ proptest! {
     #[test]
     fn prop_to_json_string_pretty_valid(msg in message_with_msh()) {
         let json_str = to_json_string_pretty(&msg);
-        
+
         // Should be parseable as JSON
         let result: Result<serde_json::Value, _> = serde_json::from_str(&json_str);
         prop_assert!(result.is_ok());
@@ -333,7 +347,7 @@ proptest! {
     #[test]
     fn prop_json_contains_segments(msg in message_with_msh()) {
         let json = to_json(&msg);
-        
+
         if let Some(segments) = json.get("segments") {
             prop_assert!(segments.is_array());
             let arr = segments.as_array().unwrap();
@@ -355,7 +369,7 @@ proptest! {
             fields.push(Field::from_text(""));
         }
         fields.push(Field::from_text("END"));
-        
+
         let message = Message {
             delims: Delims::default(),
             segments: vec![Segment {
@@ -364,10 +378,10 @@ proptest! {
             }],
             charsets: vec![],
         };
-        
+
         let bytes = write(&message);
         let result = String::from_utf8(bytes).unwrap();
-        
+
         // Should have correct number of separators
         // START + empty_count empty fields + END = empty_count + 2 fields
         // So we need empty_count + 1 separators between them
@@ -381,7 +395,7 @@ proptest! {
     #[test]
     fn prop_long_text_handled(length in 100usize..1000) {
         let text: String = (0..length).map(|i| (((i % 26) + 65) as u8) as char).collect();
-        
+
         let message = Message {
             delims: Delims::default(),
             segments: vec![Segment {
@@ -390,10 +404,10 @@ proptest! {
             }],
             charsets: vec![],
         };
-        
+
         let bytes = write(&message);
         let result = String::from_utf8(bytes).unwrap();
-        
+
         // Should contain the text (possibly escaped)
         prop_assert!(result.len() >= length);
     }
@@ -404,9 +418,9 @@ proptest! {
     #[test]
     fn prop_many_repetitions_handled(rep_count in 1usize..20) {
         let reps: Vec<Rep> = (0..rep_count)
-            .map(|i| Rep::from_text(&format!("REP{}", i)))
+            .map(|i| Rep::from_text(format!("REP{}", i)))
             .collect();
-        
+
         let message = Message {
             delims: Delims::default(),
             segments: vec![Segment {
@@ -415,13 +429,13 @@ proptest! {
             }],
             charsets: vec![],
         };
-        
+
         let bytes = write(&message);
         let result = String::from_utf8(bytes).unwrap();
-        
+
         // Should have correct number of repetition separators
         let tilde_count = result.matches('~').count();
-        prop_assert_eq!(tilde_count, rep_count - 1);
+        prop_assert_eq!(tilde_count, rep_count.saturating_sub(1));
     }
 }
 
@@ -430,9 +444,9 @@ proptest! {
     #[test]
     fn prop_many_components_handled(comp_count in 1usize..10) {
         let comps: Vec<Comp> = (0..comp_count)
-            .map(|i| Comp::from_text(&format!("COMP{}", i)))
+            .map(|i| Comp::from_text(format!("COMP{}", i)))
             .collect();
-        
+
         let message = Message {
             delims: Delims::default(),
             segments: vec![Segment {
@@ -443,13 +457,13 @@ proptest! {
             }],
             charsets: vec![],
         };
-        
+
         let bytes = write(&message);
         let result = String::from_utf8(bytes).unwrap();
-        
+
         // Should have correct number of component separators
         let caret_count = result.matches('^').count();
-        prop_assert_eq!(caret_count, comp_count - 1);
+        prop_assert_eq!(caret_count, comp_count.saturating_sub(1));
     }
 }
 
@@ -469,13 +483,13 @@ proptest! {
             }],
             charsets: vec![],
         };
-        
+
         let bytes = write(&message);
-        
+
         if let Ok(parsed) = parse(&bytes) {
             // Should have same segment count
             prop_assert_eq!(parsed.segments.len(), 1);
-            
+
             // Segment ID should match
             prop_assert_eq!(parsed.segments[0].id, *b"PID");
         }

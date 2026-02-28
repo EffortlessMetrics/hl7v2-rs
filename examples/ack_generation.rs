@@ -7,8 +7,8 @@
 //!
 //! Run with: cargo run --example ack_generation
 
-use hl7v2_core::{parse, write, get, Message};
-use hl7v2_ack::{ack, ack_with_error, AckCode};
+use hl7v2_ack::{AckCode, ack, ack_with_error};
+use hl7v2_core::{Message, get, parse, write};
 
 /// A valid ADT^A01 message
 const VALID_ADT_MESSAGE: &[u8] = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|MSG12345|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
@@ -45,7 +45,10 @@ fn acceptance_ack_example() {
     // Parse the original message
     println!("Original message:");
     let original = parse(VALID_ADT_MESSAGE).expect("Message should parse");
-    println!("{}", String::from_utf8_lossy(VALID_ADT_MESSAGE).replace("\r", "\r\n"));
+    println!(
+        "{}",
+        String::from_utf8_lossy(VALID_ADT_MESSAGE).replace("\r", "\r\n")
+    );
     println!();
 
     // Generate an acceptance ACK
@@ -75,7 +78,10 @@ fn rejection_ack_example() {
     // Parse the incomplete message
     println!("Incomplete message:");
     let original = parse(INCOMPLETE_MESSAGE).expect("Message should parse");
-    println!("{}", String::from_utf8_lossy(INCOMPLETE_MESSAGE).replace("\r", "\r\n"));
+    println!(
+        "{}",
+        String::from_utf8_lossy(INCOMPLETE_MESSAGE).replace("\r", "\r\n")
+    );
     println!();
 
     // Generate a rejection ACK
@@ -103,12 +109,15 @@ fn error_ack_example() {
     // Parse the message with invalid data
     println!("Message with invalid data:");
     let original = parse(INVALID_DATA_MESSAGE).expect("Message should parse");
-    println!("{}", String::from_utf8_lossy(INVALID_DATA_MESSAGE).replace("\r", "\r\n"));
+    println!(
+        "{}",
+        String::from_utf8_lossy(INVALID_DATA_MESSAGE).replace("\r", "\r\n")
+    );
     println!();
 
     // Generate an error ACK with details
     println!("Generating error ACK (AE) with details...");
-    
+
     let error_details = "PID.7: Invalid date format - expected YYYYMMDD\nPID.8: Invalid sex value - expected M, F, O, or U";
 
     match ack_with_error(&original, AckCode::AE, Some(error_details)) {
@@ -228,14 +237,18 @@ fn ack_workflow_example() {
 
     for (name, msg_bytes, should_succeed) in test_cases {
         println!("Processing: {}", name);
-        
+
         match process_message_with_ack(msg_bytes) {
             Ok(ack_bytes) => {
                 let ack_msg = parse(&ack_bytes).expect("ACK should parse");
                 let ack_code = get(&ack_msg, "MSA.1").unwrap_or("?");
-                let status = if ack_code == "AA" { "✓ Accepted" } else { "✗ Rejected" };
+                let status = if ack_code == "AA" {
+                    "✓ Accepted"
+                } else {
+                    "✗ Rejected"
+                };
                 println!("  Result: {} (ACK code: {})", status, ack_code);
-                
+
                 if !should_succeed && ack_code != "AA" {
                     println!("  ✓ Correctly rejected invalid message");
                 }
@@ -270,8 +283,7 @@ fn display_ack(ack_msg: &Message) {
 /// Simulated message processing with ACK generation
 fn process_message_with_ack(hl7_bytes: &[u8]) -> Result<Vec<u8>, String> {
     // Parse
-    let message = parse(hl7_bytes)
-        .map_err(|e| format!("Parse error: {:?}", e))?;
+    let message = parse(hl7_bytes).map_err(|e| format!("Parse error: {:?}", e))?;
 
     // Validate
     let patient_id = get(&message, "PID.3.1");
@@ -304,8 +316,7 @@ fn process_message_with_ack(hl7_bytes: &[u8]) -> Result<Vec<u8>, String> {
 
     // Generate appropriate ACK
     let ack_msg = if errors.is_empty() {
-        ack(&message, AckCode::AA)
-            .map_err(|e| format!("ACK generation error: {:?}", e))?
+        ack(&message, AckCode::AA).map_err(|e| format!("ACK generation error: {:?}", e))?
     } else {
         ack_with_error(&message, AckCode::AR, Some(&errors.join("; ")))
             .map_err(|e| format!("ACK generation error: {:?}", e))?

@@ -27,7 +27,7 @@ fn test_mllp_constants() {
 fn test_wrap_simple() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
-    
+
     assert_eq!(framed[0], MLLP_START);
     assert_eq!(framed[framed.len() - 2], MLLP_END_1);
     assert_eq!(framed[framed.len() - 1], MLLP_END_2);
@@ -36,7 +36,7 @@ fn test_wrap_simple() {
 #[test]
 fn test_wrap_empty() {
     let framed = wrap_mllp(b"");
-    
+
     assert_eq!(framed.len(), 3); // Start + End1 + End2
     assert_eq!(framed[0], MLLP_START);
     assert_eq!(framed[1], MLLP_END_1);
@@ -46,7 +46,7 @@ fn test_wrap_empty() {
 #[test]
 fn test_wrap_single_byte() {
     let framed = wrap_mllp(b"X");
-    
+
     assert_eq!(framed.len(), 4);
     assert_eq!(framed[0], MLLP_START);
     assert_eq!(framed[1], b'X');
@@ -58,7 +58,7 @@ fn test_wrap_single_byte() {
 fn test_wrap_preserves_content() {
     let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\r";
     let framed = wrap_mllp(hl7);
-    
+
     // Content should be preserved
     assert_eq!(&framed[1..framed.len() - 2], hl7);
 }
@@ -68,11 +68,11 @@ fn test_wrap_with_special_bytes() {
     // Test with bytes that might be confused with MLLP markers
     let content = vec![0x0B, 0x1C, 0x0D, 0x00, 0xFF];
     let framed = wrap_mllp(&content);
-    
+
     assert_eq!(framed[0], MLLP_START);
     assert_eq!(framed[framed.len() - 2], MLLP_END_1);
     assert_eq!(framed[framed.len() - 1], MLLP_END_2);
-    
+
     // Content should be preserved including the special bytes
     assert_eq!(&framed[1..framed.len() - 2], content.as_slice());
 }
@@ -81,7 +81,7 @@ fn test_wrap_with_special_bytes() {
 fn test_wrap_long_message() {
     let hl7: Vec<u8> = (0..10000).map(|i| (i % 256) as u8).collect();
     let framed = wrap_mllp(&hl7);
-    
+
     assert_eq!(framed.len(), hl7.len() + 3);
     assert_eq!(framed[0], MLLP_START);
     assert_eq!(framed[framed.len() - 2], MLLP_END_1);
@@ -97,7 +97,7 @@ fn test_unwrap_simple() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
     let unwrapped = unwrap_mllp(&framed).unwrap();
-    
+
     assert_eq!(unwrapped, hl7);
 }
 
@@ -105,7 +105,7 @@ fn test_unwrap_simple() {
 fn test_unwrap_empty_content() {
     let framed = wrap_mllp(b"");
     let unwrapped = unwrap_mllp(&framed).unwrap();
-    
+
     assert_eq!(unwrapped, b"");
 }
 
@@ -136,7 +136,7 @@ fn test_unwrap_partial_end() {
     data.extend_from_slice(b"MSH|TEST");
     data.push(MLLP_END_1);
     // Missing MLLP_END_2
-    
+
     let result = unwrap_mllp(&data);
     assert!(result.is_err());
 }
@@ -146,7 +146,7 @@ fn test_unwrap_owned() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
     let unwrapped = unwrap_mllp_owned(&framed).unwrap();
-    
+
     assert_eq!(unwrapped.as_slice(), hl7);
 }
 
@@ -184,7 +184,7 @@ fn test_is_mllp_framed_only_start() {
 fn test_find_complete_message() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
-    
+
     let len = find_complete_mllp_message(&framed).unwrap();
     assert_eq!(len, framed.len());
 }
@@ -192,7 +192,7 @@ fn test_find_complete_message() {
 #[test]
 fn test_find_complete_message_incomplete() {
     let framed = wrap_mllp(b"MSH|TEST");
-    
+
     // Incomplete (missing end bytes)
     let incomplete = &framed[..framed.len() - 1];
     assert!(find_complete_mllp_message(incomplete).is_none());
@@ -216,10 +216,10 @@ fn test_find_complete_message_with_embedded_end() {
     content.push(MLLP_END_1);
     content.push(MLLP_END_2);
     content.extend_from_slice(b"_MORE");
-    
+
     let framed = wrap_mllp(&content);
     let len = find_complete_mllp_message(&framed).unwrap();
-    
+
     // Should find the first end sequence (at the embedded position)
     // Frame: SB + "MSH|TEST_" + EB1 + EB2 + EB1 + EB2
     // The first EB1+EB2 is the embedded one in content
@@ -245,15 +245,15 @@ fn test_frame_iterator_default() {
 #[test]
 fn test_frame_iterator_single_message() {
     let mut iter = MllpFrameIterator::new();
-    
+
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
-    
+
     iter.extend(&framed);
-    
+
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg, hl7);
-    
+
     // No more messages
     assert!(iter.next_message().is_none());
 }
@@ -261,24 +261,24 @@ fn test_frame_iterator_single_message() {
 #[test]
 fn test_frame_iterator_multiple_messages() {
     let mut iter = MllpFrameIterator::new();
-    
+
     let hl7_1 = b"MSH|^~\\&|TEST1\r";
     let hl7_2 = b"MSH|^~\\&|TEST2\r";
     let framed_1 = wrap_mllp(hl7_1);
     let framed_2 = wrap_mllp(hl7_2);
-    
+
     // Add both messages
     iter.extend(&framed_1);
     iter.extend(&framed_2);
-    
+
     // Extract first message
     let msg_1 = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg_1, hl7_1);
-    
+
     // Extract second message
     let msg_2 = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg_2, hl7_2);
-    
+
     // No more messages
     assert!(iter.next_message().is_none());
 }
@@ -286,17 +286,17 @@ fn test_frame_iterator_multiple_messages() {
 #[test]
 fn test_frame_iterator_partial_message() {
     let mut iter = MllpFrameIterator::new();
-    
+
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
-    
+
     // Add partial message
     iter.extend(&framed[..5]);
     assert!(iter.next_message().is_none());
-    
+
     // Add the rest
     iter.extend(&framed[5..]);
-    
+
     // Now we can extract
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg, hl7);
@@ -305,10 +305,10 @@ fn test_frame_iterator_partial_message() {
 #[test]
 fn test_frame_iterator_byte_by_byte() {
     let mut iter = MllpFrameIterator::new();
-    
+
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
-    
+
     // Add byte by byte
     for byte in framed.iter() {
         iter.extend(&[*byte]);
@@ -316,7 +316,7 @@ fn test_frame_iterator_byte_by_byte() {
             assert!(iter.next_message().is_none());
         }
     }
-    
+
     // Now we can extract
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg, hl7);
@@ -325,10 +325,10 @@ fn test_frame_iterator_byte_by_byte() {
 #[test]
 fn test_frame_iterator_clear() {
     let mut iter = MllpFrameIterator::new();
-    
+
     iter.extend(b"some data");
     assert!(iter.buffer_len() > 0);
-    
+
     iter.clear();
     assert_eq!(iter.buffer_len(), 0);
 }
@@ -336,12 +336,12 @@ fn test_frame_iterator_clear() {
 #[test]
 fn test_frame_iterator_buffer_len() {
     let mut iter = MllpFrameIterator::new();
-    
+
     assert_eq!(iter.buffer_len(), 0);
-    
+
     iter.extend(b"test");
     assert_eq!(iter.buffer_len(), 4);
-    
+
     iter.extend(b"more");
     assert_eq!(iter.buffer_len(), 8);
 }
@@ -349,12 +349,12 @@ fn test_frame_iterator_buffer_len() {
 #[test]
 fn test_frame_iterator_next_frame() {
     let mut iter = MllpFrameIterator::new();
-    
+
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
-    
+
     iter.extend(&framed);
-    
+
     let frame = iter.next_frame().unwrap();
     assert_eq!(frame, framed);
 }
@@ -372,13 +372,13 @@ fn test_wrap_unwrap_roundtrip() {
         b"MSH|^~\\&|TEST\r",
         b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||12345\r",
     ];
-    
+
     for original in test_cases {
         let framed = wrap_mllp(original);
         let unwrapped = unwrap_mllp(&framed).unwrap();
         assert_eq!(unwrapped, original);
     }
-    
+
     // Test all bytes separately
     let framed = wrap_mllp(&all_bytes);
     let unwrapped = unwrap_mllp(&framed).unwrap();
@@ -393,10 +393,10 @@ fn test_content_with_mllp_markers() {
     let mut content = b"MSH|TEST_".to_vec();
     content.push(MLLP_START); // This is fine - only marks start of frame
     content.extend_from_slice(b"_END");
-    
+
     let framed = wrap_mllp(&content);
     let unwrapped = unwrap_mllp(&framed).unwrap();
-    
+
     assert_eq!(unwrapped, content.as_slice());
 }
 
@@ -408,10 +408,10 @@ fn test_content_with_embedded_end_sequence() {
     content.push(MLLP_END_1);
     content.push(MLLP_END_2);
     content.extend_from_slice(b"_MORE");
-    
+
     let framed = wrap_mllp(&content);
     let unwrapped = unwrap_mllp(&framed).unwrap();
-    
+
     // Unwrap finds the first end sequence, so content is truncated
     // Expected content is "MSH|TEST_"
     assert_eq!(unwrapped, b"MSH|TEST_");
@@ -425,10 +425,10 @@ fn test_content_without_end_sequence() {
     content.extend_from_slice(b"_MIDDLE_");
     content.push(MLLP_START);
     content.extend_from_slice(b"_END");
-    
+
     let framed = wrap_mllp(&content);
     let unwrapped = unwrap_mllp(&framed).unwrap();
-    
+
     // This should roundtrip correctly since no end sequence in content
     assert_eq!(unwrapped, content.as_slice());
 }
@@ -436,26 +436,26 @@ fn test_content_without_end_sequence() {
 #[test]
 fn test_frame_iterator_concatenated_messages() {
     let mut iter = MllpFrameIterator::new();
-    
+
     let hl7_1 = b"MSH|^~\\&|TEST1\r";
     let hl7_2 = b"MSH|^~\\&|TEST2\r";
     let framed_1 = wrap_mllp(hl7_1);
     let framed_2 = wrap_mllp(hl7_2);
-    
+
     // Concatenate both frames
     let mut combined = framed_1.clone();
     combined.extend_from_slice(&framed_2);
-    
+
     iter.extend(&combined);
-    
+
     // Extract first message
     let msg_1 = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg_1, hl7_1);
-    
+
     // Extract second message
     let msg_2 = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg_2, hl7_2);
-    
+
     // No more messages
     assert!(iter.next_message().is_none());
 }
@@ -466,20 +466,20 @@ fn test_large_message() {
     let content: Vec<u8> = (0..100000).map(|i| (i % 256) as u8).collect();
     let framed = wrap_mllp(&content);
     let unwrapped = unwrap_mllp(&framed).unwrap();
-    
+
     assert_eq!(unwrapped, content.as_slice());
 }
 
 #[test]
 fn test_frame_iterator_large_message() {
     let mut iter = MllpFrameIterator::new();
-    
+
     // Large message
     let content: Vec<u8> = (0..50000).map(|i| (i % 256) as u8).collect();
     let framed = wrap_mllp(&content);
-    
+
     iter.extend(&framed);
-    
+
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(msg.as_slice(), content.as_slice());
 }
@@ -493,7 +493,7 @@ fn test_mllp_error_missing_start_block() {
     // Test with no start byte
     let result = unwrap_mllp_checked(b"MSH|TEST");
     assert!(matches!(result, Err(MllpError::MissingStartBlock)));
-    
+
     // Test with empty bytes
     let result = unwrap_mllp_checked(b"");
     assert!(matches!(result, Err(MllpError::MissingStartBlock)));
@@ -514,7 +514,7 @@ fn test_mllp_error_partial_end_sequence() {
     data.extend_from_slice(b"MSH|TEST");
     data.push(MLLP_END_1);
     // Missing MLLP_END_2
-    
+
     let result = unwrap_mllp_checked(&data);
     assert!(matches!(result, Err(MllpError::MissingEndBlock)));
 }
@@ -523,17 +523,28 @@ fn test_mllp_error_partial_end_sequence() {
 fn test_mllp_error_display() {
     // Test Display trait implementation
     let err = MllpError::MissingStartBlock;
-    assert_eq!(format!("{}", err), "Missing MLLP start block character (0x0B)");
-    
+    assert_eq!(
+        format!("{}", err),
+        "Missing MLLP start block character (0x0B)"
+    );
+
     let err = MllpError::MissingEndBlock;
-    assert_eq!(format!("{}", err), "Missing MLLP end block sequence (0x1C 0x0D)");
-    
-    let err = MllpError::InvalidFrame { details: "test details".to_string() };
-    assert_eq!(format!("{}", err), "Invalid MLLP frame structure: test details");
-    
+    assert_eq!(
+        format!("{}", err),
+        "Missing MLLP end block sequence (0x1C 0x0D)"
+    );
+
+    let err = MllpError::InvalidFrame {
+        details: "test details".to_string(),
+    };
+    assert_eq!(
+        format!("{}", err),
+        "Invalid MLLP frame structure: test details"
+    );
+
     let err = MllpError::IoError("connection reset".to_string());
     assert_eq!(format!("{}", err), "IO error: connection reset");
-    
+
     let err = MllpError::Timeout;
     assert_eq!(format!("{}", err), "Connection timeout");
 }

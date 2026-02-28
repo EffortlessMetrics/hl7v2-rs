@@ -8,9 +8,9 @@ use predicates::prelude::*;
 
 use common::{
     cli_command, create_temp_dir, create_temp_file, create_temp_hl7_file,
-    create_temp_hl7_with_content, create_temp_profile, create_temp_mllp_file,
-    minimal_profile, strict_profile, simple_template, invalid_hl7_message,
-    truncated_hl7_message, read_file, is_valid_json,
+    create_temp_hl7_with_content, create_temp_mllp_file, create_temp_profile, invalid_hl7_message,
+    is_valid_json, minimal_profile, read_file, simple_template, strict_profile,
+    truncated_hl7_message,
 };
 
 // =========================================================================
@@ -88,7 +88,7 @@ mod parse_command {
     fn test_parse_valid_file() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", hl7_file.to_str().unwrap()])
             .assert()
@@ -100,12 +100,13 @@ mod parse_command {
     fn test_parse_output_is_json() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        let output = cmd.args(["parse", hl7_file.to_str().unwrap()])
+        let output = cmd
+            .args(["parse", hl7_file.to_str().unwrap()])
             .output()
             .expect("Failed to execute command");
-        
+
         assert!(is_valid_json(&output.stdout));
     }
 
@@ -113,7 +114,7 @@ mod parse_command {
     fn test_parse_with_json_flag() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", hl7_file.to_str().unwrap(), "--json"])
             .assert()
@@ -125,7 +126,7 @@ mod parse_command {
     fn test_parse_with_summary_flag() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", hl7_file.to_str().unwrap(), "--summary"])
             .assert()
@@ -137,7 +138,7 @@ mod parse_command {
     fn test_parse_mllp_framed_file() {
         let dir = create_temp_dir();
         let mllp_file = create_temp_mllp_file(&dir, "test_mllp.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", mllp_file.to_str().unwrap(), "--mllp"])
             .assert()
@@ -158,7 +159,7 @@ mod parse_command {
     fn test_parse_invalid_file() {
         let dir = create_temp_dir();
         let invalid_file = create_temp_file(&dir, "invalid.hl7", invalid_hl7_message().as_bytes());
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", invalid_file.to_str().unwrap()])
             .assert()
@@ -170,11 +171,14 @@ mod parse_command {
         // Note: The truncated message "MSH|^~\\&|" actually parses as valid partial HL7
         // This test verifies that the parser handles it (success or failure is acceptable)
         let dir = create_temp_dir();
-        let truncated_file = create_temp_file(&dir, "truncated.hl7", truncated_hl7_message().as_bytes());
-        
+        let truncated_file =
+            create_temp_file(&dir, "truncated.hl7", truncated_hl7_message().as_bytes());
+
         let mut cmd = cli_command();
         // The parser may succeed with partial output or fail - both are acceptable
-        let result = cmd.args(["parse", truncated_file.to_str().unwrap()]).output();
+        let result = cmd
+            .args(["parse", truncated_file.to_str().unwrap()])
+            .output();
         // Just verify the command runs without panicking
         assert!(result.is_ok());
     }
@@ -183,7 +187,7 @@ mod parse_command {
     fn test_parse_shows_segment_count_in_summary() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", hl7_file.to_str().unwrap(), "--summary"])
             .assert()
@@ -195,7 +199,7 @@ mod parse_command {
     fn test_parse_shows_file_size_in_summary() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", hl7_file.to_str().unwrap(), "--summary"])
             .assert()
@@ -216,16 +220,17 @@ mod norm_command {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let output_file = dir.path().join("output.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "norm", 
+            "norm",
             hl7_file.to_str().unwrap(),
-            "-o", output_file.to_str().unwrap()
+            "-o",
+            output_file.to_str().unwrap(),
         ])
-            .assert()
-            .success();
-        
+        .assert()
+        .success();
+
         assert!(output_file.exists());
     }
 
@@ -233,7 +238,7 @@ mod norm_command {
     fn test_norm_output_to_stdout() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args(["norm", hl7_file.to_str().unwrap()])
             .assert()
@@ -246,33 +251,31 @@ mod norm_command {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let output_file = dir.path().join("output.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "norm", 
+            "norm",
             hl7_file.to_str().unwrap(),
-            "-o", output_file.to_str().unwrap(),
-            "--summary"
+            "-o",
+            output_file.to_str().unwrap(),
+            "--summary",
         ])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Normalize Summary"));
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Normalize Summary"));
     }
 
     #[test]
     fn test_norm_with_mllp_output() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        let output = cmd.args([
-            "norm", 
-            hl7_file.to_str().unwrap(),
-            "--mllp-out"
-        ])
+        let output = cmd
+            .args(["norm", hl7_file.to_str().unwrap(), "--mllp-out"])
             .output()
             .expect("Failed to execute command");
-        
+
         // Check MLLP framing
         assert_eq!(output.stdout[0], 0x0B); // SB
         assert!(output.stdout.len() > 2);
@@ -291,23 +294,25 @@ mod norm_command {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let output_file = dir.path().join("output.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "norm", 
+            "norm",
             hl7_file.to_str().unwrap(),
-            "-o", output_file.to_str().unwrap()
+            "-o",
+            output_file.to_str().unwrap(),
         ])
-            .assert()
-            .success();
-        
+        .assert()
+        .success();
+
         // Parse both files and compare segment counts
         let original_content = read_file(&hl7_file);
         let normalized_content = read_file(&output_file);
-        
+
         let original_msg = hl7v2_core::parse(&original_content).expect("Original should parse");
-        let normalized_msg = hl7v2_core::parse(&normalized_content).expect("Normalized should parse");
-        
+        let normalized_msg =
+            hl7v2_core::parse(&normalized_content).expect("Normalized should parse");
+
         assert_eq!(original_msg.segments.len(), normalized_msg.segments.len());
     }
 }
@@ -324,14 +329,17 @@ mod validate_command {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
-        
+
         let mut cmd = cli_command();
         // The validation may fail due to profile format issues - just verify it runs
-        let result = cmd.args([
-            "val",
-            hl7_file.to_str().unwrap(),
-            "--profile", profile_file.to_str().unwrap()
-        ]).output();
+        let result = cmd
+            .args([
+                "val",
+                hl7_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -340,14 +348,17 @@ mod validate_command {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let profile_file = create_temp_profile(&dir, "strict.yaml", strict_profile());
-        
+
         let mut cmd = cli_command();
         // Just verify the command runs - strict profile validation behavior depends on implementation
-        let result = cmd.args([
-            "val",
-            hl7_file.to_str().unwrap(),
-            "--profile", profile_file.to_str().unwrap()
-        ]).output();
+        let result = cmd
+            .args([
+                "val",
+                hl7_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -356,14 +367,17 @@ mod validate_command {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "val",
-            hl7_file.to_str().unwrap(),
-            "--profile", profile_file.to_str().unwrap(),
-            "--detailed"
-        ]).output();
+        let result = cmd
+            .args([
+                "val",
+                hl7_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--detailed",
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -372,14 +386,17 @@ mod validate_command {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "val",
-            hl7_file.to_str().unwrap(),
-            "--profile", profile_file.to_str().unwrap(),
-            "--summary"
-        ]).output();
+        let result = cmd
+            .args([
+                "val",
+                hl7_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--summary",
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -387,30 +404,32 @@ mod validate_command {
     fn test_validate_missing_hl7_file() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "val", 
+            "val",
             "/nonexistent/file.hl7",
-            "--profile", profile_file.to_str().unwrap()
+            "--profile",
+            profile_file.to_str().unwrap(),
         ])
-            .assert()
-            .failure();
+        .assert()
+        .failure();
     }
 
     #[test]
     fn test_validate_missing_profile_file() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "val", 
+            "val",
             hl7_file.to_str().unwrap(),
-            "--profile", "/nonexistent/profile.yaml"
+            "--profile",
+            "/nonexistent/profile.yaml",
         ])
-            .assert()
-            .failure();
+        .assert()
+        .failure();
     }
 
     #[test]
@@ -418,15 +437,18 @@ mod validate_command {
         let dir = create_temp_dir();
         let mllp_file = create_temp_mllp_file(&dir, "test_mllp.hl7");
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
-        
+
         let mut cmd = cli_command();
         // Just verify the command runs
-        let result = cmd.args([
-            "val",
-            mllp_file.to_str().unwrap(),
-            "--profile", profile_file.to_str().unwrap(),
-            "--mllp"
-        ]).output();
+        let result = cmd
+            .args([
+                "val",
+                mllp_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--mllp",
+            ])
+            .output();
         assert!(result.is_ok());
     }
 }
@@ -442,14 +464,12 @@ mod ack_command {
     fn test_generate_ack_aa() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         // ACK generation may fail due to escape sequences - just verify it runs
-        let result = cmd.args([
-            "ack",
-            hl7_file.to_str().unwrap(),
-            "--code", "AA"
-        ]).output();
+        let result = cmd
+            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AA"])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -457,13 +477,11 @@ mod ack_command {
     fn test_generate_ack_ae() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "ack",
-            hl7_file.to_str().unwrap(),
-            "--code", "AE"
-        ]).output();
+        let result = cmd
+            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AE"])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -471,13 +489,11 @@ mod ack_command {
     fn test_generate_ack_ar() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "ack",
-            hl7_file.to_str().unwrap(),
-            "--code", "AR"
-        ]).output();
+        let result = cmd
+            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AR"])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -485,15 +501,18 @@ mod ack_command {
     fn test_generate_ack_with_mllp_output() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "ack",
-            hl7_file.to_str().unwrap(),
-            "--code", "AA",
-            "--mllp-out"
-        ]).output();
-        
+        let result = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--code",
+                "AA",
+                "--mllp-out",
+            ])
+            .output();
+
         // Just verify the command runs
         assert!(result.is_ok());
     }
@@ -502,14 +521,17 @@ mod ack_command {
     fn test_generate_ack_with_summary() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "ack",
-            hl7_file.to_str().unwrap(),
-            "--code", "AA",
-            "--summary"
-        ]).output();
+        let result = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--code",
+                "AA",
+                "--summary",
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -517,14 +539,18 @@ mod ack_command {
     fn test_generate_ack_original_mode() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "ack",
-            hl7_file.to_str().unwrap(),
-            "--mode", "original",
-            "--code", "AA"
-        ]).output();
+        let result = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AA",
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -532,25 +558,25 @@ mod ack_command {
     fn test_generate_ack_enhanced_mode() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "ack",
-            hl7_file.to_str().unwrap(),
-            "--mode", "enhanced",
-            "--code", "CA"
-        ]).output();
+        let result = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "enhanced",
+                "--code",
+                "CA",
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_generate_ack_missing_file() {
         let mut cmd = cli_command();
-        cmd.args([
-            "ack", 
-            "/nonexistent/file.hl7",
-            "--code", "AA"
-        ])
+        cmd.args(["ack", "/nonexistent/file.hl7", "--code", "AA"])
             .assert()
             .failure();
     }
@@ -568,16 +594,22 @@ mod gen_command {
         let dir = create_temp_dir();
         let template_file = create_temp_profile(&dir, "template.yaml", simple_template());
         let output_dir = dir.path().join("output");
-        
+
         let mut cmd = cli_command();
         // Gen command may fail due to template format - just verify it runs
-        let result = cmd.args([
-            "gen",
-            "--profile", template_file.to_str().unwrap(),
-            "--seed", "42",
-            "--count", "1",
-            "--out", output_dir.to_str().unwrap()
-        ]).output();
+        let result = cmd
+            .args([
+                "gen",
+                "--profile",
+                template_file.to_str().unwrap(),
+                "--seed",
+                "42",
+                "--count",
+                "1",
+                "--out",
+                output_dir.to_str().unwrap(),
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -586,16 +618,22 @@ mod gen_command {
         let dir = create_temp_dir();
         let template_file = create_temp_profile(&dir, "template.yaml", simple_template());
         let output_dir = dir.path().join("output");
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "gen",
-            "--profile", template_file.to_str().unwrap(),
-            "--seed", "42",
-            "--count", "1",
-            "--out", output_dir.to_str().unwrap(),
-            "--stats"
-        ]).output();
+        let result = cmd
+            .args([
+                "gen",
+                "--profile",
+                template_file.to_str().unwrap(),
+                "--seed",
+                "42",
+                "--count",
+                "1",
+                "--out",
+                output_dir.to_str().unwrap(),
+                "--stats",
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -604,15 +642,21 @@ mod gen_command {
         let dir = create_temp_dir();
         let template_file = create_temp_profile(&dir, "template.yaml", simple_template());
         let output_dir = dir.path().join("output");
-        
+
         let mut cmd = cli_command();
-        let result = cmd.args([
-            "gen",
-            "--profile", template_file.to_str().unwrap(),
-            "--seed", "42",
-            "--count", "3",
-            "--out", output_dir.to_str().unwrap()
-        ]).output();
+        let result = cmd
+            .args([
+                "gen",
+                "--profile",
+                template_file.to_str().unwrap(),
+                "--seed",
+                "42",
+                "--count",
+                "3",
+                "--out",
+                output_dir.to_str().unwrap(),
+            ])
+            .output();
         assert!(result.is_ok());
     }
 
@@ -620,17 +664,21 @@ mod gen_command {
     fn test_gen_missing_template() {
         let dir = create_temp_dir();
         let output_dir = dir.path().join("output");
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "gen", 
-            "--profile", "/nonexistent/template.yaml",
-            "--seed", "42",
-            "--count", "1",
-            "--out", output_dir.to_str().unwrap()
+            "gen",
+            "--profile",
+            "/nonexistent/template.yaml",
+            "--seed",
+            "42",
+            "--count",
+            "1",
+            "--out",
+            output_dir.to_str().unwrap(),
         ])
-            .assert()
-            .failure();
+        .assert()
+        .failure();
     }
 }
 
@@ -644,62 +692,46 @@ mod error_handling {
     #[test]
     fn test_invalid_command() {
         let mut cmd = cli_command();
-        cmd.args(["invalid-command"])
-            .assert()
-            .failure();
+        cmd.args(["invalid-command"]).assert().failure();
     }
 
     #[test]
     fn test_parse_no_args() {
         let mut cmd = cli_command();
-        cmd.args(["parse"])
-            .assert()
-            .failure();
+        cmd.args(["parse"]).assert().failure();
     }
 
     #[test]
     fn test_val_no_args() {
         let mut cmd = cli_command();
-        cmd.args(["val"])
-            .assert()
-            .failure();
+        cmd.args(["val"]).assert().failure();
     }
 
     #[test]
     fn test_ack_no_args() {
         let mut cmd = cli_command();
-        cmd.args(["ack"])
-            .assert()
-            .failure();
+        cmd.args(["ack"]).assert().failure();
     }
 
     #[test]
     fn test_gen_no_args() {
         let mut cmd = cli_command();
-        cmd.args(["gen"])
-            .assert()
-            .failure();
+        cmd.args(["gen"]).assert().failure();
     }
 
     #[test]
     fn test_norm_no_args() {
         let mut cmd = cli_command();
-        cmd.args(["norm"])
-            .assert()
-            .failure();
+        cmd.args(["norm"]).assert().failure();
     }
 
     #[test]
     fn test_invalid_ack_code() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
-        cmd.args([
-            "ack", 
-            hl7_file.to_str().unwrap(),
-            "--code", "INVALID"
-        ])
+        cmd.args(["ack", hl7_file.to_str().unwrap(), "--code", "INVALID"])
             .assert()
             .failure();
     }
@@ -708,16 +740,18 @@ mod error_handling {
     fn test_invalid_ack_mode() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "ack", 
+            "ack",
             hl7_file.to_str().unwrap(),
-            "--mode", "INVALID",
-            "--code", "AA"
+            "--mode",
+            "INVALID",
+            "--code",
+            "AA",
         ])
-            .assert()
-            .failure();
+        .assert()
+        .failure();
     }
 }
 
@@ -732,7 +766,7 @@ mod exit_codes {
     fn test_success_returns_zero() {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", hl7_file.to_str().unwrap()])
             .assert()
@@ -743,7 +777,7 @@ mod exit_codes {
     fn test_parse_error_returns_nonzero() {
         let dir = create_temp_dir();
         let invalid_file = create_temp_file(&dir, "invalid.hl7", invalid_hl7_message().as_bytes());
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", invalid_file.to_str().unwrap()])
             .assert()
@@ -769,15 +803,15 @@ mod file_io {
     #[test]
     fn test_read_binary_file() {
         let dir = create_temp_dir();
-        
+
         // Create file with binary content
         let mut binary_content = vec![0x0B];
         binary_content.extend_from_slice(b"MSH|^~\\&|Test\r");
         binary_content.push(0x1C);
         binary_content.push(0x0D);
-        
+
         let binary_file = create_temp_file(&dir, "binary.hl7", &binary_content);
-        
+
         let content = read_file(&binary_file);
         assert_eq!(content, binary_content);
     }
@@ -787,16 +821,17 @@ mod file_io {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let output_file = dir.path().join("output.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "norm", 
+            "norm",
             hl7_file.to_str().unwrap(),
-            "-o", output_file.to_str().unwrap()
+            "-o",
+            output_file.to_str().unwrap(),
         ])
-            .assert()
-            .success();
-        
+        .assert()
+        .success();
+
         assert!(output_file.exists());
         let content = read_file(&output_file);
         assert!(!content.is_empty());
@@ -807,16 +842,17 @@ mod file_io {
         let dir = create_temp_dir();
         let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
         let output_file = dir.path().join("output.hl7");
-        
+
         let mut cmd = cli_command();
         cmd.args([
-            "norm", 
+            "norm",
             hl7_file.to_str().unwrap(),
-            "-o", output_file.to_str().unwrap()
+            "-o",
+            output_file.to_str().unwrap(),
         ])
-            .assert()
-            .success();
-        
+        .assert()
+        .success();
+
         let content = read_file(&output_file);
         let parse_result = hl7v2_core::parse(&content);
         assert!(parse_result.is_ok());
@@ -834,7 +870,7 @@ mod edge_cases {
     fn test_empty_file() {
         let dir = create_temp_dir();
         let empty_file = create_temp_file(&dir, "empty.hl7", b"");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", empty_file.to_str().unwrap()])
             .assert()
@@ -845,7 +881,7 @@ mod edge_cases {
     fn test_whitespace_only_file() {
         let dir = create_temp_dir();
         let whitespace_file = create_temp_file(&dir, "whitespace.hl7", b"   \n\t  ");
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", whitespace_file.to_str().unwrap()])
             .assert()
@@ -857,7 +893,7 @@ mod edge_cases {
         let dir = create_temp_dir();
         let utf8_content = "MSH|^~\\&|Тест|Фасил|Recv|Fac|20250101000000||ADT^A01|MSG001|P|2.5.1\rPID|1||123456^^^HOSP^MR||Доу^Джон||19800101|M\r";
         let utf8_file = create_temp_hl7_with_content(&dir, "utf8.hl7", utf8_content);
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", utf8_file.to_str().unwrap()])
             .assert()
@@ -867,15 +903,16 @@ mod edge_cases {
     #[test]
     fn test_large_message() {
         let dir = create_temp_dir();
-        
+
         // Create a large message with many segments
-        let mut large_content = String::from("MSH|^~\\&|App|Fac|Recv|Fac|20250101000000||ADT^A01|MSG001|P|2.5.1\r");
+        let mut large_content =
+            String::from("MSH|^~\\&|App|Fac|Recv|Fac|20250101000000||ADT^A01|MSG001|P|2.5.1\r");
         for i in 1..=100 {
             large_content.push_str(&format!("NTE|{}|Note segment number {}\r", i, i));
         }
-        
+
         let large_file = create_temp_hl7_with_content(&dir, "large.hl7", &large_content);
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", large_file.to_str().unwrap()])
             .assert()
@@ -888,7 +925,7 @@ mod edge_cases {
         // Message with escape sequences
         let content = "MSH|^~\\&|App|Fac|Recv|Fac|20250101000000||ADT^A01|MSG001|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John^\"Johnny\"||19800101|M\r";
         let special_file = create_temp_hl7_with_content(&dir, "special.hl7", content);
-        
+
         let mut cmd = cli_command();
         cmd.args(["parse", special_file.to_str().unwrap()])
             .assert()

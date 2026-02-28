@@ -8,7 +8,7 @@
 //! Run with: cargo run --example validation_basics
 
 use hl7v2_core::parse;
-use hl7v2_prof::{Profile, validate, Issue, Severity, load_profile};
+use hl7v2_prof::{Issue, Profile, Severity, load_profile, validate};
 
 /// Sample ADT^A01 message for validation
 const SAMPLE_MESSAGE: &[u8] = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
@@ -157,7 +157,10 @@ fn minimal_validation_example() {
             println!("✓ Profile loaded successfully");
             println!("  Message Structure: {}", p.message_structure);
             println!("  Version: {}", p.version);
-            println!("  Segments: {:?}", p.segments.iter().map(|s| &s.id).collect::<Vec<_>>());
+            println!(
+                "  Segments: {:?}",
+                p.segments.iter().map(|s| &s.id).collect::<Vec<_>>()
+            );
             println!("  Constraints: {}", p.constraints.len());
             p
         }
@@ -229,8 +232,14 @@ fn strict_validation_example() {
     let issues = validate(&message, &profile);
 
     // Categorize issues by severity
-    let errors: Vec<_> = issues.iter().filter(|i| i.severity == Severity::Error).collect();
-    let warnings: Vec<_> = issues.iter().filter(|i| i.severity == Severity::Warning).collect();
+    let errors: Vec<_> = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Error)
+        .collect();
+    let warnings: Vec<_> = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Warning)
+        .collect();
 
     println!("Validation Results:");
     println!("  Errors: {}", errors.len());
@@ -262,10 +271,14 @@ fn invalid_message_example() {
     println!("--- Example 3: Invalid Message Validation ---\n");
 
     // Create an invalid message (missing required fields, invalid data)
-    let invalid_message: &[u8] = b"MSH|^~\\&|||||20250128152312||ADT^A01||X|99.9\rPID|1||||||XYZ||Q\r";
+    let invalid_message: &[u8] =
+        b"MSH|^~\\&|||||20250128152312||ADT^A01||X|99.9\rPID|1||||||XYZ||Q\r";
 
     println!("Invalid message (missing fields, invalid values):");
-    println!("{}", String::from_utf8_lossy(invalid_message).replace("\r", "\r\n"));
+    println!(
+        "{}",
+        String::from_utf8_lossy(invalid_message).replace("\r", "\r\n")
+    );
     println!();
 
     // Parse the message
@@ -314,8 +327,14 @@ fn working_with_results_example() {
     println!("Message has errors: {}", has_errors);
 
     // 2. Count by severity
-    let error_count = issues.iter().filter(|i| i.severity == Severity::Error).count();
-    let warning_count = issues.iter().filter(|i| i.severity == Severity::Warning).count();
+    let error_count = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Error)
+        .count();
+    let warning_count = issues
+        .iter()
+        .filter(|i| i.severity == Severity::Warning)
+        .count();
     println!("Error count: {}", error_count);
     println!("Warning count: {}", warning_count);
     println!();
@@ -349,7 +368,8 @@ fn working_with_results_example() {
     let pid_issues: Vec<_> = issues
         .iter()
         .filter(|i| {
-            i.path.as_ref()
+            i.path
+                .as_ref()
                 .map(|p| p.starts_with("PID"))
                 .unwrap_or(false)
         })
@@ -361,7 +381,8 @@ fn working_with_results_example() {
 
     // 6. Convert to JSON for logging/API responses
     println!("Issues as JSON:");
-    let json = serde_json::to_string_pretty(&issues).unwrap_or_else(|e| format!("JSON error: {}", e));
+    let json =
+        serde_json::to_string_pretty(&issues).unwrap_or_else(|e| format!("JSON error: {}", e));
     println!("{}", json);
     println!();
 }
@@ -372,9 +393,9 @@ fn print_issue(issue: &Issue) {
         Severity::Error => "✗",
         Severity::Warning => "⚠",
     };
-    
+
     let path = issue.path.as_deref().unwrap_or("(unknown)");
-    
+
     println!(
         "    {} [{}] {} - {}",
         severity_icon, issue.code, path, issue.detail

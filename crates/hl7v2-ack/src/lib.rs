@@ -17,7 +17,7 @@
 //! let ack_message = ack(&original_message, AckCode::AA).unwrap();
 //! ```
 
-use hl7v2_core::{Message, Error, Segment, Field, Rep, Comp, Atom};
+use hl7v2_core::{Atom, Comp, Error, Field, Message, Rep, Segment};
 
 /// ACK codes for HL7 v2 acknowledgment messages.
 ///
@@ -95,17 +95,17 @@ impl std::fmt::Display for AckCode {
 pub fn ack(original: &Message, code: AckCode) -> Result<Message, Error> {
     // Create ACK message with same delimiters as original
     let delims = original.delims.clone();
-    
+
     // Create MSH segment for ACK
     let msh_segment = create_ack_msh_segment(original, code)?;
-    
+
     // Create MSA segment
     let msa_segment = create_msa_segment(original, code)?;
-    
+
     Ok(Message {
         delims,
         segments: vec![msh_segment, msa_segment],
-        charsets: vec![]
+        charsets: vec![],
     })
 }
 
@@ -119,7 +119,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
     if &original_msh.id != b"MSH" {
         return Err(Error::InvalidSegmentId);
     }
-    
+
     // Extract required fields from original MSH
     // Note: For MSH, field indices are offset by 1 because MSH-1 is the field separator |
     let sending_app = get_field_value(original_msh, 2).unwrap_or_else(|| "HL7V2RS".to_string());
@@ -130,24 +130,28 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
     let control_id = get_field_value(original_msh, 9).unwrap_or_default();
     let processing_id = get_field_value(original_msh, 10).unwrap_or_else(|| "P".to_string());
     let version = get_field_value(original_msh, 11).unwrap_or_else(|| "2.5.1".to_string());
-    
+
     // Create timestamp
     let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
-    
+
     // Create fields for MSH segment
     let mut fields = Vec::new();
-    
+
     // MSH-2: Encoding characters
     fields.push(Field {
         reps: vec![Rep {
             comps: vec![Comp {
-                subs: vec![Atom::Text(format!("{}{}{}{}", 
-                    original.delims.comp, original.delims.rep, 
-                    original.delims.esc, original.delims.sub))],
+                subs: vec![Atom::Text(format!(
+                    "{}{}{}{}",
+                    original.delims.comp,
+                    original.delims.rep,
+                    original.delims.esc,
+                    original.delims.sub
+                ))],
             }],
         }],
     });
-    
+
     // MSH-3: Sending Application (swap with original receiving)
     fields.push(Field {
         reps: vec![Rep {
@@ -156,7 +160,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-4: Sending Facility (swap with original receiving)
     fields.push(Field {
         reps: vec![Rep {
@@ -165,7 +169,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-5: Receiving Application (swap with original sending)
     fields.push(Field {
         reps: vec![Rep {
@@ -174,7 +178,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-6: Receiving Facility (swap with original sending)
     fields.push(Field {
         reps: vec![Rep {
@@ -183,7 +187,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-7: Date/Time of Message
     fields.push(Field {
         reps: vec![Rep {
@@ -192,7 +196,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-8: Security (optional, leave empty)
     fields.push(Field {
         reps: vec![Rep {
@@ -201,7 +205,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-9: Message Type - use ACK or the original type
     fields.push(Field {
         reps: vec![Rep {
@@ -210,7 +214,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-10: Message Control ID
     fields.push(Field {
         reps: vec![Rep {
@@ -219,7 +223,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-11: Processing ID
     fields.push(Field {
         reps: vec![Rep {
@@ -228,7 +232,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     // MSH-12: Version ID
     fields.push(Field {
         reps: vec![Rep {
@@ -237,7 +241,7 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
             }],
         }],
     });
-    
+
     Ok(Segment {
         id: *b"MSH",
         fields,
@@ -254,10 +258,10 @@ fn create_msa_segment(original: &Message, code: AckCode) -> Result<Segment, Erro
     if &original_msh.id != b"MSH" {
         return Err(Error::InvalidSegmentId);
     }
-    
+
     // Get message control ID from original MSH-10
     let control_id = get_field_value(original_msh, 9).unwrap_or_default();
-    
+
     // Create fields for MSA segment
     let fields = vec![
         // MSA-1: Acknowledgment Code
@@ -277,7 +281,7 @@ fn create_msa_segment(original: &Message, code: AckCode) -> Result<Segment, Erro
             }],
         },
     ];
-    
+
     Ok(Segment {
         id: *b"MSA",
         fields,
@@ -292,22 +296,22 @@ fn get_field_value(segment: &Segment, field_index: usize) -> Option<String> {
     if field_index > segment.fields.len() {
         return None;
     }
-    
+
     let field = &segment.fields[field_index - 1];
     if field.reps.is_empty() {
         return None;
     }
-    
+
     let rep = &field.reps[0];
     if rep.comps.is_empty() {
         return None;
     }
-    
+
     let comp = &rep.comps[0];
     if comp.subs.is_empty() {
         return None;
     }
-    
+
     match &comp.subs[0] {
         Atom::Text(text) => Some(text.clone()),
         Atom::Null => None,
@@ -329,17 +333,17 @@ fn get_field_value(segment: &Segment, field_index: usize) -> Option<String> {
 ///
 /// A new `Message` containing the ACK response with optional ERR segment
 pub fn ack_with_error(
-    original: &Message, 
-    code: AckCode, 
-    error_message: Option<&str>
+    original: &Message,
+    code: AckCode,
+    error_message: Option<&str>,
 ) -> Result<Message, Error> {
     let mut ack_msg = ack(original, code)?;
-    
+
     if let Some(msg) = error_message {
         let err_segment = create_err_segment(msg);
         ack_msg.segments.push(err_segment);
     }
-    
+
     Ok(ack_msg)
 }
 
@@ -373,7 +377,7 @@ fn create_err_segment(error_message: &str) -> Segment {
             }],
         },
     ];
-    
+
     Segment {
         id: *b"ERR",
         fields,

@@ -6,17 +6,17 @@
 //! - Parses HL7 messages
 //! - Sends ACKs according to configurable timing policy
 
-use hl7v2_model::{Message, Error};
-use hl7v2_parser::parse;
-use hl7v2_writer::write;
 use super::codec::MllpCodec;
 use bytes::BytesMut;
+use futures::prelude::*;
+use hl7v2_model::{Error, Message};
+use hl7v2_parser::parse;
+use hl7v2_writer::write;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tokio_util::codec::Framed;
-use futures::prelude::*;
 
 /// Configuration for MLLP server
 #[derive(Debug, Clone)]
@@ -94,7 +94,9 @@ impl MllpServer {
     pub fn local_addr(&self) -> Result<SocketAddr, std::io::Error> {
         self.listener
             .as_ref()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotConnected, "Server not bound"))?
+            .ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::NotConnected, "Server not bound")
+            })?
             .local_addr()
     }
 
@@ -105,10 +107,9 @@ impl MllpServer {
         &mut self,
         handler: H,
     ) -> Result<(), std::io::Error> {
-        let listener = self
-            .listener
-            .as_ref()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotConnected, "Server not bound"))?;
+        let listener = self.listener.as_ref().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotConnected, "Server not bound")
+        })?;
 
         let handler = std::sync::Arc::new(handler);
 
@@ -128,10 +129,9 @@ impl MllpServer {
 
     /// Accept a single connection and return a connection handler
     pub async fn accept(&mut self) -> Result<MllpConnection, std::io::Error> {
-        let listener = self
-            .listener
-            .as_ref()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotConnected, "Server not bound"))?;
+        let listener = self.listener.as_ref().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotConnected, "Server not bound")
+        })?;
 
         let (stream, peer_addr) = listener.accept().await?;
         Ok(MllpConnection::new(stream, peer_addr, self.config.clone()))

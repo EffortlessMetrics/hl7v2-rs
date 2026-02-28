@@ -39,30 +39,27 @@
 //! assert!(validator.validate("Test Value"));
 //! ```
 
-use regex::Regex;
 pub use hl7v2_datetime;
+use regex::Regex;
 
 /// Error type for data type validation
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum DataTypeError {
     #[error("Invalid data type '{datatype}': {reason}")]
-    InvalidDataType {
-        datatype: String,
-        reason: String,
-    },
-    
+    InvalidDataType { datatype: String, reason: String },
+
     #[error("Value too short: {length} < {min}")]
     TooShort { length: usize, min: usize },
-    
+
     #[error("Value too long: {length} > {max}")]
     TooLong { length: usize, max: usize },
-    
+
     #[error("Pattern mismatch: value '{value}' does not match pattern '{pattern}'")]
     PatternMismatch { value: String, pattern: String },
-    
+
     #[error("Value not in allowed set: {value}")]
     NotInAllowedSet { value: String },
-    
+
     #[error("Checksum validation failed")]
     ChecksumFailed,
 }
@@ -158,42 +155,42 @@ impl DataTypeValidator {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Set minimum length
     pub fn with_min_length(mut self, min: usize) -> Self {
         self.min_length = Some(min);
         self
     }
-    
+
     /// Set maximum length
     pub fn with_max_length(mut self, max: usize) -> Self {
         self.max_length = Some(max);
         self
     }
-    
+
     /// Set regex pattern
     pub fn with_pattern(mut self, pattern: &str) -> Self {
         self.pattern = Some(pattern.to_string());
         self
     }
-    
+
     /// Set allowed values
     pub fn with_allowed_values(mut self, values: Vec<String>) -> Self {
         self.allowed_values = Some(values);
         self
     }
-    
+
     /// Set checksum algorithm
     pub fn with_checksum(mut self, algorithm: ChecksumAlgorithm) -> Self {
         self.checksum = Some(algorithm);
         self
     }
-    
+
     /// Validate a value
     pub fn validate(&self, value: &str) -> bool {
         self.validate_detailed(value).is_ok()
     }
-    
+
     /// Validate a value with detailed error information
     pub fn validate_detailed(&self, value: &str) -> ValidationResult {
         // Check minimum length
@@ -205,7 +202,7 @@ impl DataTypeValidator {
                 min,
             });
         }
-        
+
         // Check maximum length
         if let Some(max) = self.max_length
             && value.len() > max
@@ -215,7 +212,7 @@ impl DataTypeValidator {
                 max,
             });
         }
-        
+
         // Check pattern
         if let Some(pattern) = &self.pattern
             && let Ok(regex) = Regex::new(pattern)
@@ -226,7 +223,7 @@ impl DataTypeValidator {
                 pattern: pattern.clone(),
             });
         }
-        
+
         // Check allowed values
         if let Some(allowed) = &self.allowed_values
             && !allowed.contains(&value.to_string())
@@ -235,7 +232,7 @@ impl DataTypeValidator {
                 value: value.to_string(),
             });
         }
-        
+
         // Check checksum
         if let Some(algorithm) = self.checksum {
             match algorithm {
@@ -246,7 +243,7 @@ impl DataTypeValidator {
                 }
             }
         }
-        
+
         Ok(())
     }
 }
@@ -332,9 +329,9 @@ pub fn is_formatted_text(_value: &str) -> bool {
 
 /// Check if value is a person name (contains letters, spaces, hyphens, apostrophes)
 pub fn is_person_name(value: &str) -> bool {
-    value
-        .chars()
-        .all(|c| c.is_alphabetic() || c.is_whitespace() || c == '-' || c == '\'' || c == '.' || c == '^')
+    value.chars().all(|c| {
+        c.is_alphabetic() || c.is_whitespace() || c == '-' || c == '\'' || c == '.' || c == '^'
+    })
 }
 
 /// Check if value is an extended ID (contains identifier characters)
@@ -357,7 +354,7 @@ pub fn is_address(value: &str) -> bool {
 pub fn is_phone_number(value: &str) -> bool {
     // Remove common phone number formatting characters
     let cleaned: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
-    
+
     // Basic phone number validation (7-15 digits)
     cleaned.len() >= 7 && cleaned.len() <= 15 && cleaned.chars().all(|c| c.is_ascii_digit())
 }
@@ -368,25 +365,25 @@ pub fn is_email(value: &str) -> bool {
     if !value.contains('@') {
         return false;
     }
-    
+
     let parts: Vec<&str> = value.split('@').collect();
     if parts.len() != 2 {
         return false;
     }
-    
+
     let local_part = parts[0];
     let domain_part = parts[1];
-    
+
     // Check that both parts are non-empty
     if local_part.is_empty() || domain_part.is_empty() {
         return false;
     }
-    
+
     // Check that domain contains at least one dot
     if !domain_part.contains('.') {
         return false;
     }
-    
+
     true
 }
 
@@ -394,30 +391,30 @@ pub fn is_email(value: &str) -> bool {
 pub fn is_ssn(value: &str) -> bool {
     // Remove dashes and spaces
     let cleaned: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
-    
+
     // SSN should be exactly 9 digits
     if cleaned.len() != 9 {
         return false;
     }
-    
+
     // First 3 digits cannot be 000, 666, or 900-999
     let area = &cleaned[0..3];
     if area == "000" || area == "666" || area.starts_with('9') {
         return false;
     }
-    
+
     // Next 2 digits cannot be 00
     let group = &cleaned[3..5];
     if group == "00" {
         return false;
     }
-    
+
     // Last 4 digits cannot be 0000
     let serial = &cleaned[5..9];
     if serial == "0000" {
         return false;
     }
-    
+
     true
 }
 
@@ -425,28 +422,28 @@ pub fn is_ssn(value: &str) -> bool {
 pub fn validate_luhn_checksum(value: &str) -> bool {
     // Remove any non-digit characters
     let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
-    
+
     if digits.len() < 2 {
         return false;
     }
-    
+
     let mut sum = 0;
     let mut double = false;
-    
+
     // Process digits from right to left
     for digit_char in digits.chars().rev() {
         let digit = digit_char.to_digit(10).unwrap_or(0);
-        
+
         if double {
             let doubled = digit * 2;
             sum += if doubled > 9 { doubled - 9 } else { doubled };
         } else {
             sum += digit;
         }
-        
+
         double = !double;
     }
-    
+
     sum % 10 == 0
 }
 
@@ -460,7 +457,7 @@ pub fn is_valid_birth_date(value: &str) -> bool {
     if !is_date(value) {
         return false;
     }
-    
+
     // Check if date is not in the future
     let current_date = chrono::Utc::now().format("%Y%m%d").to_string();
     value <= current_date.as_str()
@@ -471,7 +468,7 @@ pub fn is_valid_age_range(birth_date: &str, reference_date: &str) -> bool {
     if !is_date(birth_date) || !is_date(reference_date) {
         return false;
     }
-    
+
     // Birth date should be before or equal to reference date
     birth_date <= reference_date
 }
@@ -483,17 +480,17 @@ pub fn is_within_range(value: &str, min: &str, max: &str) -> bool {
         Ok(n) => n,
         Err(_) => return false,
     };
-    
+
     let min_val: f64 = match min.parse() {
         Ok(n) => n,
         Err(_) => return false,
     };
-    
+
     let max_val: f64 = match max.parse() {
         Ok(n) => n,
         Err(_) => return false,
     };
-    
+
     val >= min_val && val <= max_val
 }
 

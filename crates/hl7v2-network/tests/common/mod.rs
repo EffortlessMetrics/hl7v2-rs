@@ -4,7 +4,7 @@
 //! used across integration tests.
 
 use hl7v2_model::{Atom, Comp, Delims, Field, Message, Rep, Segment};
-use hl7v2_network::{MllpClient, MllpClientBuilder, MllpServer, MllpServerConfig, MessageHandler};
+use hl7v2_network::{MessageHandler, MllpClient, MllpClientBuilder, MllpServer, MllpServerConfig};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -186,6 +186,7 @@ impl MessageHandler for AckHandler {
 }
 
 /// A handler that delays before responding.
+#[allow(dead_code)]
 pub struct DelayedHandler {
     pub delay: Duration,
     pub notify: Arc<Notify>,
@@ -228,7 +229,9 @@ pub struct ErrorHandler;
 
 impl MessageHandler for ErrorHandler {
     fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
-        Err(hl7v2_model::Error::InvalidFieldFormat { details: "Test error".to_string() })
+        Err(hl7v2_model::Error::InvalidFieldFormat {
+            details: "Test error".to_string(),
+        })
     }
 }
 

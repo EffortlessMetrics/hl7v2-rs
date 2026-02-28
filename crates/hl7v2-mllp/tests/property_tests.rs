@@ -3,8 +3,8 @@
 //! These tests verify MLLP framing properties hold for arbitrary inputs.
 
 use hl7v2_mllp::{
-    wrap_mllp, unwrap_mllp, unwrap_mllp_owned, is_mllp_framed,
-    find_complete_mllp_message, MllpFrameIterator, MLLP_START, MLLP_END_1, MLLP_END_2,
+    MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
+    is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
 };
 use proptest::prelude::*;
 
@@ -17,7 +17,7 @@ fn arbitrary_bytes_no_end_sequence() -> impl Strategy<Value = Vec<u8>> {
             // Map 0-254 to valid bytes (skip MLLP_END_1)
             if b == MLLP_END_1 { b + 1 } else { b }
         }),
-        0..1000
+        0..1000,
     )
 }
 
@@ -26,10 +26,7 @@ fn arbitrary_bytes_no_end_sequence() -> impl Strategy<Value = Vec<u8>> {
 fn hl7_like_content() -> impl Strategy<Value = Vec<u8>> {
     // Generate printable ASCII: 0x20-0x7E = 95 characters
     // Map values 0-94 to 0x20-0x7E
-    proptest::collection::vec(
-        (0u8..95u8).prop_map(|b| b + 0x20),
-        0..500
-    )
+    proptest::collection::vec((0u8..95u8).prop_map(|b| b + 0x20), 0..500)
 }
 
 proptest! {
@@ -117,9 +114,9 @@ proptest! {
     fn prop_frame_iterator_single_message(content in hl7_like_content()) {
         let mut iter = MllpFrameIterator::new();
         let framed = wrap_mllp(&content);
-        
+
         iter.extend(&framed);
-        
+
         let extracted = iter.next_message();
         prop_assert!(extracted.is_some());
         let extracted = extracted.unwrap();
@@ -137,19 +134,19 @@ proptest! {
         content2 in hl7_like_content()
     ) {
         let mut iter = MllpFrameIterator::new();
-        
+
         let framed1 = wrap_mllp(&content1);
         let framed2 = wrap_mllp(&content2);
-        
+
         iter.extend(&framed1);
         iter.extend(&framed2);
-        
+
         let msg1 = iter.next_message().unwrap().unwrap();
         prop_assert_eq!(msg1.as_slice(), content1.as_slice());
-        
+
         let msg2 = iter.next_message().unwrap().unwrap();
         prop_assert_eq!(msg2.as_slice(), content2.as_slice());
-        
+
         prop_assert!(iter.next_message().is_none());
     }
 }
@@ -160,13 +157,13 @@ proptest! {
     fn prop_frame_iterator_fragmented(content in hl7_like_content()) {
         let mut iter = MllpFrameIterator::new();
         let framed = wrap_mllp(&content);
-        
+
         // Split the framed message at various points
         if framed.len() > 2 {
             let split = framed.len() / 2;
             iter.extend(&framed[..split]);
             prop_assert!(iter.next_message().is_none());
-            
+
             iter.extend(&framed[split..]);
             let msg = iter.next_message().unwrap().unwrap();
             prop_assert_eq!(msg.as_slice(), content.as_slice());

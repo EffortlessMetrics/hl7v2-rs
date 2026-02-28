@@ -6,9 +6,9 @@
 //! - CLI integration
 //! - Server HTTP API
 
+pub mod cli_integration_tests;
 pub mod message_pipeline_tests;
 pub mod network_tests;
-pub mod cli_integration_tests;
 pub mod server_api_tests;
 
 /// Common test utilities for E2E tests
@@ -53,7 +53,7 @@ pub mod common {
     pub async fn wait_for_server(addr: SocketAddr, timeout_secs: u64) -> bool {
         let start = std::time::Instant::now();
         let timeout = std::time::Duration::from_secs(timeout_secs);
-        
+
         while start.elapsed() < timeout {
             if tokio::net::TcpStream::connect(addr).await.is_ok() {
                 return true;

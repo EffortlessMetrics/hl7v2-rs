@@ -5,12 +5,12 @@
 //! - JSON to message deserialization (if supported)
 //! - Comparison with other serialization formats
 
-use std::hint::black_box;
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use hl7v2_json::{to_json, to_json_string, to_json_string_pretty};
 use hl7v2_parser::parse;
 use hl7v2_writer::write;
 use serde_json::Value;
+use std::hint::black_box;
 
 /// Create a sample HL7 message for benchmarking
 fn create_sample_message() -> String {
@@ -32,7 +32,7 @@ fn bench_to_json_value(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
-    
+
     c.bench_function("to_json_value", |b| {
         b.iter(|| {
             let result = to_json(black_box(&parsed));
@@ -46,7 +46,7 @@ fn bench_to_json_string(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
-    
+
     c.bench_function("to_json_string", |b| {
         b.iter(|| {
             let result = to_json_string(black_box(&parsed));
@@ -60,7 +60,7 @@ fn bench_to_json_string_pretty(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
-    
+
     c.bench_function("to_json_string_pretty", |b| {
         b.iter(|| {
             let result = to_json_string_pretty(black_box(&parsed));
@@ -74,23 +74,23 @@ fn bench_json_complex_message(c: &mut Criterion) {
     let message = create_complex_message();
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
-    
+
     let mut group = c.benchmark_group("json_complex");
-    
+
     group.bench_function("to_json", |b| {
         b.iter(|| {
             let result = to_json(black_box(&parsed));
             black_box(result)
         })
     });
-    
+
     group.bench_function("to_json_string", |b| {
         b.iter(|| {
             let result = to_json_string(black_box(&parsed));
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
@@ -99,7 +99,7 @@ fn bench_json_nested_message(c: &mut Criterion) {
     let message = create_nested_message();
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
-    
+
     c.bench_function("json_nested_message", |b| {
         b.iter(|| {
             let result = to_json(black_box(&parsed));
@@ -113,25 +113,21 @@ fn bench_json_throughput(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
-    
+
     let mut group = c.benchmark_group("json_throughput");
-    
+
     for count in [1, 10, 100, 1000].iter() {
         group.throughput(Throughput::Elements(*count as u64));
-        group.bench_with_input(
-            BenchmarkId::new("serialize", count),
-            count,
-            |b, _| {
-                b.iter(|| {
-                    for _ in 0..*count {
-                        let result = to_json(black_box(&parsed));
-                        black_box(result);
-                    }
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("serialize", count), count, |b, _| {
+            b.iter(|| {
+                for _ in 0..*count {
+                    let result = to_json(black_box(&parsed));
+                    black_box(result);
+                }
+            })
+        });
     }
-    
+
     group.finish();
 }
 
@@ -140,13 +136,13 @@ fn bench_json_size_comparison(c: &mut Criterion) {
     let simple_msg = create_sample_message();
     let complex_msg = create_complex_message();
     let nested_msg = create_nested_message();
-    
+
     let simple_parsed = parse(simple_msg.as_bytes()).expect("Failed to parse");
     let complex_parsed = parse(complex_msg.as_bytes()).expect("Failed to parse");
     let nested_parsed = parse(nested_msg.as_bytes()).expect("Failed to parse");
-    
+
     let mut group = c.benchmark_group("json_size_comparison");
-    
+
     // Simple message
     let simple_json = to_json_string(&simple_parsed);
     group.throughput(Throughput::Bytes(simple_json.len() as u64));
@@ -156,7 +152,7 @@ fn bench_json_size_comparison(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Complex message
     let complex_json = to_json_string(&complex_parsed);
     group.throughput(Throughput::Bytes(complex_json.len() as u64));
@@ -166,7 +162,7 @@ fn bench_json_size_comparison(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Nested message
     let nested_json = to_json_string(&nested_parsed);
     group.throughput(Throughput::Bytes(nested_json.len() as u64));
@@ -176,7 +172,7 @@ fn bench_json_size_comparison(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
@@ -185,23 +181,23 @@ fn bench_json_vs_hl7_format(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
-    
+
     let mut group = c.benchmark_group("json_vs_hl7");
-    
+
     group.bench_function("json_serialize", |b| {
         b.iter(|| {
             let result = to_json_string(black_box(&parsed));
             black_box(result)
         })
     });
-    
+
     group.bench_function("hl7_serialize", |b| {
         b.iter(|| {
             let result = write(black_box(&parsed));
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
@@ -211,7 +207,7 @@ fn bench_json_value_access(c: &mut Criterion) {
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
     let json_value = to_json(&parsed);
-    
+
     c.bench_function("json_value_access", |b| {
         b.iter(|| {
             // Access various parts of the JSON structure
@@ -238,7 +234,7 @@ fn bench_json_value_access(c: &mut Criterion) {
 /// Benchmark JSON serialization with different segment counts
 fn bench_json_by_segment_count(c: &mut Criterion) {
     let mut group = c.benchmark_group("json_segment_count");
-    
+
     // 3 segments (MSH, PID, PV1)
     let small_msg = create_sample_message();
     let small_parsed = parse(small_msg.as_bytes()).expect("Failed to parse");
@@ -248,7 +244,7 @@ fn bench_json_by_segment_count(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // 13 segments (MSH, PID, PV1, 5x OBX, 2x AL1, 2x DG1)
     let medium_msg = create_complex_message();
     let medium_parsed = parse(medium_msg.as_bytes()).expect("Failed to parse");
@@ -258,13 +254,14 @@ fn bench_json_by_segment_count(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     // Create a larger message with more segments
     let mut large_msg = create_complex_message();
     for i in 0..50 {
         large_msg.push_str(&format!(
             "OBX|{}|ST|OBS{:03}^Observation^L||Value|units|||||F\r",
-            6 + i, i
+            6 + i,
+            i
         ));
     }
     let large_parsed = parse(large_msg.as_bytes()).expect("Failed to parse");
@@ -274,7 +271,7 @@ fn bench_json_by_segment_count(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 
@@ -283,9 +280,9 @@ fn bench_json_memory_allocation(c: &mut Criterion) {
     let message = create_sample_message();
     let bytes = message.as_bytes();
     let parsed = parse(bytes).expect("Failed to parse message");
-    
+
     let mut group = c.benchmark_group("json_memory");
-    
+
     // Reuse JSON value (to String)
     group.bench_function("to_string_reuse", |b| {
         b.iter(|| {
@@ -294,7 +291,7 @@ fn bench_json_memory_allocation(c: &mut Criterion) {
             black_box(string)
         })
     });
-    
+
     // Direct to string
     group.bench_function("to_string_direct", |b| {
         b.iter(|| {
@@ -302,7 +299,7 @@ fn bench_json_memory_allocation(c: &mut Criterion) {
             black_box(result)
         })
     });
-    
+
     group.finish();
 }
 

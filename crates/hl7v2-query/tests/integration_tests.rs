@@ -1,7 +1,7 @@
 //! Integration tests for hl7v2-query
 
+use hl7v2_model::{Atom, Comp, Delims, Field, Message, Presence, Rep, Segment};
 use hl7v2_query::{get, get_presence};
-use hl7v2_model::{Atom, Comp, Delims, Field, Message, Rep, Segment, Presence};
 
 /// Helper to create a segment from raw field data
 fn create_segment(id: &str, fields: Vec<Field>) -> Segment {
@@ -63,34 +63,43 @@ fn test_query_adt_message() {
     let message = Message {
         delims: Delims::default(),
         segments: vec![
-            create_segment("MSH", vec![
-                text_field("^~\\&"),
-                component_field(vec!["SendingApp"]),
-                component_field(vec!["SendingFac"]),
-                component_field(vec!["ReceivingApp"]),
-                component_field(vec!["ReceivingFac"]),
-                component_field(vec!["20250128152312"]),
-                component_field(vec![]),
-                component_field(vec!["ADT", "A01", "ADT_A01"]),
-                component_field(vec!["MSG00001"]),
-                component_field(vec!["P"]),
-                component_field(vec!["2.5.1"]),
-            ]),
-            create_segment("PID", vec![
-                text_field("1"),
-                text_field(""),
-                component_field(vec!["123456", "HOSP", "MR"]),
-                text_field(""),
-                component_field(vec!["Doe", "John", "R"]),
-                text_field(""),
-                component_field(vec!["19800101"]),
-                component_field(vec!["M"]),
-            ]),
-            create_segment("PV1", vec![
-                text_field("1"),
-                component_field(vec!["I"]),
-                component_field(vec!["ICU", "01", "01"]),
-            ]),
+            create_segment(
+                "MSH",
+                vec![
+                    text_field("^~\\&"),
+                    component_field(vec!["SendingApp"]),
+                    component_field(vec!["SendingFac"]),
+                    component_field(vec!["ReceivingApp"]),
+                    component_field(vec!["ReceivingFac"]),
+                    component_field(vec!["20250128152312"]),
+                    component_field(vec![]),
+                    component_field(vec!["ADT", "A01", "ADT_A01"]),
+                    component_field(vec!["MSG00001"]),
+                    component_field(vec!["P"]),
+                    component_field(vec!["2.5.1"]),
+                ],
+            ),
+            create_segment(
+                "PID",
+                vec![
+                    text_field("1"),
+                    text_field(""),
+                    component_field(vec!["123456", "HOSP", "MR"]),
+                    text_field(""),
+                    component_field(vec!["Doe", "John", "R"]),
+                    text_field(""),
+                    component_field(vec!["19800101"]),
+                    component_field(vec!["M"]),
+                ],
+            ),
+            create_segment(
+                "PV1",
+                vec![
+                    text_field("1"),
+                    component_field(vec!["I"]),
+                    component_field(vec!["ICU", "01", "01"]),
+                ],
+            ),
         ],
         charsets: vec![],
     };
@@ -122,41 +131,53 @@ fn test_query_oru_message() {
     let message = Message {
         delims: Delims::default(),
         segments: vec![
-            create_segment("MSH", vec![
-                text_field("^~\\&"),
-                component_field(vec!["LabSystem"]),
-                component_field(vec!["Lab"]),
-                component_field(vec!["HIS"]),
-                component_field(vec!["Hospital"]),
-                component_field(vec!["20250128152312"]),
-                component_field(vec![]),
-                component_field(vec!["ORU", "R01"]),
-                component_field(vec!["LAB00001"]),
-                component_field(vec!["P"]),
-                component_field(vec!["2.5.1"]),
-            ]),
-            create_segment("PID", vec![
-                text_field("1"),
-                text_field(""),
-                component_field(vec!["PATID123"]),
-                text_field(""),
-                component_field(vec!["Smith", "Jane"]),
-            ]),
-            create_segment("OBR", vec![
-                text_field("1"),
-                text_field(""),
-                component_field(vec!["ORD001"]),
-                component_field(vec!["CBC", "Complete Blood Count", "L"]),
-            ]),
-            create_segment("OBX", vec![
-                text_field("1"),
-                component_field(vec!["NM"]),
-                component_field(vec!["HB", "Hemoglobin", "L"]),
-                text_field(""),
-                component_field(vec!["13.2"]),
-                component_field(vec!["g/dL"]),
-                component_field(vec!["11.5-17.5"]),
-            ]),
+            create_segment(
+                "MSH",
+                vec![
+                    text_field("^~\\&"),
+                    component_field(vec!["LabSystem"]),
+                    component_field(vec!["Lab"]),
+                    component_field(vec!["HIS"]),
+                    component_field(vec!["Hospital"]),
+                    component_field(vec!["20250128152312"]),
+                    component_field(vec![]),
+                    component_field(vec!["ORU", "R01"]),
+                    component_field(vec!["LAB00001"]),
+                    component_field(vec!["P"]),
+                    component_field(vec!["2.5.1"]),
+                ],
+            ),
+            create_segment(
+                "PID",
+                vec![
+                    text_field("1"),
+                    text_field(""),
+                    component_field(vec!["PATID123"]),
+                    text_field(""),
+                    component_field(vec!["Smith", "Jane"]),
+                ],
+            ),
+            create_segment(
+                "OBR",
+                vec![
+                    text_field("1"),
+                    text_field(""),
+                    component_field(vec!["ORD001"]),
+                    component_field(vec!["CBC", "Complete Blood Count", "L"]),
+                ],
+            ),
+            create_segment(
+                "OBX",
+                vec![
+                    text_field("1"),
+                    component_field(vec!["NM"]),
+                    component_field(vec!["HB", "Hemoglobin", "L"]),
+                    text_field(""),
+                    component_field(vec!["13.2"]),
+                    component_field(vec!["g/dL"]),
+                    component_field(vec!["11.5-17.5"]),
+                ],
+            ),
         ],
         charsets: vec![],
     };
@@ -242,13 +263,16 @@ fn test_presence_missing_segment() {
 fn test_presence_null() {
     let message = Message {
         delims: Delims::default(),
-        segments: vec![create_segment("PID", vec![Field {
-            reps: vec![Rep {
-                comps: vec![Comp {
-                    subs: vec![Atom::Null],
+        segments: vec![create_segment(
+            "PID",
+            vec![Field {
+                reps: vec![Rep {
+                    comps: vec![Comp {
+                        subs: vec![Atom::Null],
+                    }],
                 }],
             }],
-        }])],
+        )],
         charsets: vec![],
     };
 
@@ -266,13 +290,14 @@ fn test_presence_null() {
 fn test_query_with_repetitions() {
     let message = Message {
         delims: Delims::default(),
-        segments: vec![create_segment("PID", vec![
-            repeating_field(vec![
+        segments: vec![create_segment(
+            "PID",
+            vec![repeating_field(vec![
                 vec!["Doe", "John"],
                 vec!["Smith", "Jane"],
                 vec!["Brown", "Bob"],
-            ]),
-        ])],
+            ])],
+        )],
         charsets: vec![],
     };
 
@@ -297,7 +322,7 @@ fn test_query_with_repetitions() {
 fn test_query_parsed_message() {
     // Parse a real HL7 message
     let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|MSG00001|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\rPV1|1|I|ICU^01^01\r";
-    
+
     let message = hl7v2_parser::parse(hl7).unwrap();
 
     // Query the parsed message
@@ -346,20 +371,19 @@ fn test_query_multiple_same_segment() {
 fn test_query_deep_component() {
     let message = Message {
         delims: Delims::default(),
-        segments: vec![create_segment("PID", vec![
-            Field {
+        segments: vec![create_segment(
+            "PID",
+            vec![Field {
                 reps: vec![Rep {
-                    comps: vec![
-                        Comp {
-                            subs: vec![
-                                Atom::Text("Doe".to_string()),
-                                Atom::Text("John".to_string()),
-                            ],
-                        },
-                    ],
+                    comps: vec![Comp {
+                        subs: vec![
+                            Atom::Text("Doe".to_string()),
+                            Atom::Text("John".to_string()),
+                        ],
+                    }],
                 }],
-            },
-        ])],
+            }],
+        )],
         charsets: vec![],
     };
 
@@ -396,9 +420,7 @@ fn test_query_msh_field_1() {
 fn test_query_msh_field_2() {
     let message = Message {
         delims: Delims::default(),
-        segments: vec![create_segment("MSH", vec![
-            text_field("^~\\&"),
-        ])],
+        segments: vec![create_segment("MSH", vec![text_field("^~\\&")])],
         charsets: vec![],
     };
 
@@ -440,25 +462,28 @@ fn test_query_complex_pid_3() {
     // PID-3 is typically a complex field with components and subcomponents
     let message = Message {
         delims: Delims::default(),
-        segments: vec![create_segment("PID", vec![
-            text_field("1"),
-            text_field(""),
-            Field {
-                reps: vec![Rep {
-                    comps: vec![
-                        Comp {
-                            subs: vec![Atom::Text("123456".to_string())],
-                        },
-                        Comp {
-                            subs: vec![Atom::Text("HOSP".to_string())],
-                        },
-                        Comp {
-                            subs: vec![Atom::Text("MR".to_string())],
-                        },
-                    ],
-                }],
-            },
-        ])],
+        segments: vec![create_segment(
+            "PID",
+            vec![
+                text_field("1"),
+                text_field(""),
+                Field {
+                    reps: vec![Rep {
+                        comps: vec![
+                            Comp {
+                                subs: vec![Atom::Text("123456".to_string())],
+                            },
+                            Comp {
+                                subs: vec![Atom::Text("HOSP".to_string())],
+                            },
+                            Comp {
+                                subs: vec![Atom::Text("MR".to_string())],
+                            },
+                        ],
+                    }],
+                },
+            ],
+        )],
         charsets: vec![],
     };
 
@@ -472,39 +497,42 @@ fn test_query_complex_pid_5() {
     // PID-5 is typically a complex name field
     let message = Message {
         delims: Delims::default(),
-        segments: vec![create_segment("PID", vec![
-            text_field("1"),
-            text_field(""),
-            text_field(""),
-            text_field(""),
-            Field {
-                reps: vec![Rep {
-                    comps: vec![
-                        Comp {
-                            subs: vec![Atom::Text("Doe".to_string())],
-                        },
-                        Comp {
-                            subs: vec![Atom::Text("John".to_string())],
-                        },
-                        Comp {
-                            subs: vec![Atom::Text("R".to_string())],
-                        },
-                        Comp {
-                            subs: vec![Atom::Text("Jr".to_string())],
-                        },
-                        Comp {
-                            subs: vec![Atom::Text("Dr".to_string())],
-                        },
-                    ],
-                }],
-            },
-        ])],
+        segments: vec![create_segment(
+            "PID",
+            vec![
+                text_field("1"),
+                text_field(""),
+                text_field(""),
+                text_field(""),
+                Field {
+                    reps: vec![Rep {
+                        comps: vec![
+                            Comp {
+                                subs: vec![Atom::Text("Doe".to_string())],
+                            },
+                            Comp {
+                                subs: vec![Atom::Text("John".to_string())],
+                            },
+                            Comp {
+                                subs: vec![Atom::Text("R".to_string())],
+                            },
+                            Comp {
+                                subs: vec![Atom::Text("Jr".to_string())],
+                            },
+                            Comp {
+                                subs: vec![Atom::Text("Dr".to_string())],
+                            },
+                        ],
+                    }],
+                },
+            ],
+        )],
         charsets: vec![],
     };
 
-    assert_eq!(get(&message, "PID.5.1"), Some("Doe"));    // Family name
-    assert_eq!(get(&message, "PID.5.2"), Some("John"));    // Given name
-    assert_eq!(get(&message, "PID.5.3"), Some("R"));       // Middle name
-    assert_eq!(get(&message, "PID.5.4"), Some("Jr"));      // Suffix
-    assert_eq!(get(&message, "PID.5.5"), Some("Dr"));      // Prefix
+    assert_eq!(get(&message, "PID.5.1"), Some("Doe")); // Family name
+    assert_eq!(get(&message, "PID.5.2"), Some("John")); // Given name
+    assert_eq!(get(&message, "PID.5.3"), Some("R")); // Middle name
+    assert_eq!(get(&message, "PID.5.4"), Some("Jr")); // Suffix
+    assert_eq!(get(&message, "PID.5.5"), Some("Dr")); // Prefix
 }

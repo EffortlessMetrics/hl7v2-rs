@@ -59,7 +59,11 @@ fn test_large_message_100_segments() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     let segment_count = events
@@ -79,7 +83,11 @@ fn test_large_message_1000_segments() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     let segment_count = events
@@ -99,7 +107,11 @@ fn test_large_message_10000_segments() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     let segment_count = events
@@ -123,7 +135,11 @@ fn test_very_long_field_1kb() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Verify long field is preserved
@@ -147,7 +163,11 @@ fn test_very_long_field_10kb() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -161,7 +181,11 @@ fn test_very_long_field_100kb() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Verify the 100KB field is preserved
@@ -185,7 +209,11 @@ fn test_very_long_field_1mb() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -207,13 +235,18 @@ fn test_segment_with_100_fields() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Count PID fields
-    let pid_fields = events.iter().filter(|e| {
-        matches!(e, Event::Field { .. })
-    }).count();
+    let pid_fields = events
+        .iter()
+        .filter(|e| matches!(e, Event::Field { .. }))
+        .count();
     // Should have at least 100 fields from PID
     assert!(pid_fields >= 100);
 }
@@ -232,7 +265,11 @@ fn test_segment_with_1000_fields() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -259,7 +296,10 @@ fn test_multiple_large_messages() {
         .iter()
         .filter(|e| matches!(e, Event::StartMessage { .. }))
         .count();
-    let end_count = events.iter().filter(|e| matches!(e, Event::EndMessage)).count();
+    let end_count = events
+        .iter()
+        .filter(|e| matches!(e, Event::EndMessage))
+        .count();
 
     assert_eq!(start_count, 10);
     assert_eq!(end_count, 10);
@@ -333,13 +373,20 @@ fn test_parsing_performance_1000_segments() {
 
     let duration = start.elapsed();
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Performance assertion: should complete in reasonable time
     // This is a soft assertion - adjust threshold as needed
     println!("Parsed 1000 segments in {:?}", duration);
-    assert!(duration.as_millis() < 5000, "Parsing should complete within 5 seconds");
+    assert!(
+        duration.as_millis() < 5000,
+        "Parsing should complete within 5 seconds"
+    );
 }
 
 #[test]
@@ -355,11 +402,18 @@ fn test_parsing_performance_large_field() {
 
     let duration = start.elapsed();
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     println!("Parsed message with 10x100KB fields in {:?}", duration);
-    assert!(duration.as_millis() < 5000, "Parsing should complete within 5 seconds");
+    assert!(
+        duration.as_millis() < 5000,
+        "Parsing should complete within 5 seconds"
+    );
 }
 
 // =============================================================================
@@ -383,11 +437,17 @@ fn test_boundary_at_exact_1024_bytes() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
-    assert!(events.iter().any(|e| {
-        matches!(e, Event::Segment { id } if id == b"PID")
-    }));
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
+    );
 }
 
 #[test]
@@ -410,7 +470,11 @@ fn test_boundary_in_middle_of_long_field() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Verify the field content is preserved correctly
@@ -448,7 +512,11 @@ fn test_stress_deeply_nested_components() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -471,7 +539,11 @@ fn test_stress_many_repetitions() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -486,7 +558,11 @@ fn test_stress_mixed_delimiters() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -497,9 +573,8 @@ fn test_stress_mixed_delimiters() {
 #[test]
 fn test_large_lab_result_message() {
     // Simulate a large lab result message with many OBX segments
-    let mut msg = String::from(
-        "MSH|^~\\&|LabSys|Lab|HIS|Hospital|20250128150000||ORU^R01|MSG003|P|2.5\r",
-    );
+    let mut msg =
+        String::from("MSH|^~\\&|LabSys|Lab|HIS|Hospital|20250128150000||ORU^R01|MSG003|P|2.5\r");
     msg.push_str("PID|1||MRN789^^^Lab^MR||Patient^Test||19850610|M\r");
     msg.push_str("OBR|1|ORD123|FIL456|PANEL^Comprehensive Panel|||20250128120000\r");
 
@@ -507,7 +582,11 @@ fn test_large_lab_result_message() {
     for i in 1..=500 {
         msg.push_str(&format!(
             "OBX|{}|NM|TEST{}^Test Name {}||{}.{}|units|low-high|N|||F\r",
-            i, i, i, i as f64 / 10.0, i % 10
+            i,
+            i,
+            i,
+            i as f64 / 10.0,
+            i % 10
         ));
     }
 
@@ -517,15 +596,17 @@ fn test_large_lab_result_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Should have PID, OBR, and 500 OBX segments
     let obx_count = events
         .iter()
-        .filter(|e| {
-            matches!(e, Event::Segment { id } if id == b"OBX")
-        })
+        .filter(|e| matches!(e, Event::Segment { id } if id == b"OBX"))
         .count();
     assert_eq!(obx_count, 500);
 }

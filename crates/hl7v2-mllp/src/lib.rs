@@ -40,19 +40,19 @@ pub enum MllpError {
         /// Detailed description of what makes the frame invalid.
         details: String,
     },
-    
+
     /// Missing start block (SB) character (0x0B).
     #[error("Missing MLLP start block character (0x0B)")]
     MissingStartBlock,
-    
+
     /// Missing end block (EB) character sequence (0x1C 0x0D).
     #[error("Missing MLLP end block sequence (0x1C 0x0D)")]
     MissingEndBlock,
-    
+
     /// IO error during MLLP operation.
     #[error("IO error: {0}")]
     IoError(String),
-    
+
     /// Connection timeout.
     #[error("Connection timeout")]
     Timeout,
@@ -98,17 +98,17 @@ pub const MLLP_END_2: u8 = 0x0D;
 /// ```
 pub fn wrap_mllp(bytes: &[u8]) -> Vec<u8> {
     let mut buf = Vec::with_capacity(bytes.len() + 3);
-    
+
     // Add MLLP start byte
     buf.push(MLLP_START);
-    
+
     // Add HL7 message content
     buf.extend_from_slice(bytes);
-    
+
     // Add MLLP end sequence
     buf.push(MLLP_END_1);
     buf.push(MLLP_END_2);
-    
+
     buf
 }
 
@@ -139,10 +139,10 @@ pub fn unwrap_mllp(bytes: &[u8]) -> Result<&[u8], Error> {
     if bytes.is_empty() || bytes[0] != MLLP_START {
         return Err(Error::InvalidCharset); // TODO: Add specific MLLP error
     }
-    
+
     // Find the end sequence
     let end_pos = find_mllp_end(bytes)?;
-    
+
     // Extract the HL7 message content (excluding framing bytes)
     Ok(&bytes[1..end_pos])
 }
@@ -179,10 +179,10 @@ pub fn unwrap_mllp_checked(bytes: &[u8]) -> Result<&[u8], MllpError> {
     if bytes.is_empty() || bytes[0] != MLLP_START {
         return Err(MllpError::MissingStartBlock);
     }
-    
+
     // Find the end sequence
     let end_pos = find_mllp_end_checked(bytes)?;
-    
+
     // Extract the HL7 message content (excluding framing bytes)
     Ok(&bytes[1..end_pos])
 }
@@ -288,7 +288,7 @@ pub fn find_complete_mllp_message(bytes: &[u8]) -> Option<usize> {
     if bytes.is_empty() || bytes[0] != MLLP_START {
         return None;
     }
-    
+
     // Look for the end sequence
     for i in 1..bytes.len().saturating_sub(1) {
         if bytes[i] == MLLP_END_1 && bytes[i + 1] == MLLP_END_2 {
@@ -296,7 +296,7 @@ pub fn find_complete_mllp_message(bytes: &[u8]) -> Option<usize> {
             return Some(i + 2);
         }
     }
-    
+
     None
 }
 
@@ -312,28 +312,26 @@ pub struct MllpFrameIterator {
 impl MllpFrameIterator {
     /// Create a new MLLP frame iterator.
     pub fn new() -> Self {
-        Self {
-            buffer: Vec::new(),
-        }
+        Self { buffer: Vec::new() }
     }
-    
+
     /// Add bytes to the internal buffer.
     pub fn extend(&mut self, bytes: &[u8]) {
         self.buffer.extend_from_slice(bytes);
     }
-    
+
     /// Try to extract the next complete MLLP frame.
     ///
     /// Returns `Some(frame)` if a complete frame is available,
     /// or `None` if more data is needed.
     pub fn next_frame(&mut self) -> Option<Vec<u8>> {
         let total_len = find_complete_mllp_message(&self.buffer)?;
-        
+
         // Extract the frame
         let frame: Vec<u8> = self.buffer.drain(..total_len).collect();
         Some(frame)
     }
-    
+
     /// Try to extract the next complete MLLP frame and unwrap it.
     ///
     /// Returns `Some(message)` if a complete frame is available,
@@ -342,12 +340,12 @@ impl MllpFrameIterator {
         let frame = self.next_frame()?;
         Some(unwrap_mllp_owned(&frame))
     }
-    
+
     /// Get the current buffer size.
     pub fn buffer_len(&self) -> usize {
         self.buffer.len()
     }
-    
+
     /// Clear the internal buffer.
     pub fn clear(&mut self) {
         self.buffer.clear();

@@ -3,12 +3,12 @@
 //! These tests validate the complete flow:
 //! Parse HL7 message → Validate → Generate ACK → Write response
 
-use hl7v2_parser::parse;
-use hl7v2_writer::write;
-use hl7v2_ack::{ack, AckCode};
-use hl7v2_test_utils::{SampleMessages, assert_hl7_roundtrips};
-use hl7v2_validation::{Validator, Issue, Severity};
+use hl7v2_ack::{AckCode, ack};
 use hl7v2_core::get;
+use hl7v2_parser::parse;
+use hl7v2_test_utils::{SampleMessages, assert_hl7_roundtrips};
+use hl7v2_validation::{Issue, Severity, Validator};
+use hl7v2_writer::write;
 
 use super::common::init_tracing;
 
@@ -35,8 +35,7 @@ mod adt_a01_pipeline {
 
         // Step 1: Parse the message
         let raw_message = SampleMessages::adt_a01();
-        let parsed = parse(raw_message.as_bytes())
-            .expect("ADT^A01 should parse successfully");
+        let parsed = parse(raw_message.as_bytes()).expect("ADT^A01 should parse successfully");
 
         // Verify message type using get function
         let msg_type = get(&parsed, "MSH.9");
@@ -45,23 +44,31 @@ mod adt_a01_pipeline {
         // Step 2: Validate the message (basic structure validation)
         let validator = SimpleValidator;
         let issues = validator.validate(&parsed);
-        assert!(issues.is_empty() || issues.iter().all(|i| i.severity != Severity::Error), 
-            "ADT^A01 should be valid");
+        assert!(
+            issues.is_empty() || issues.iter().all(|i| i.severity != Severity::Error),
+            "ADT^A01 should be valid"
+        );
 
         // Step 3: Generate ACK
-        let ack_msg = ack(&parsed, AckCode::AA)
-            .expect("Should generate ACK");
+        let ack_msg = ack(&parsed, AckCode::AA).expect("Should generate ACK");
 
         // Verify ACK structure
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);
-        assert!(ack_str.contains("MSA|AA"), "ACK should contain MSA|AA, got: {}", ack_str);
+        assert!(
+            ack_str.contains("MSA|AA"),
+            "ACK should contain MSA|AA, got: {}",
+            ack_str
+        );
         // ACK message type in MSH.9 should be ACK or ACK^ACK
-        assert!(ack_str.contains("ACK") || ack_str.contains("MSH|"), "Should be a valid HL7 ACK message");
+        assert!(
+            ack_str.contains("ACK") || ack_str.contains("MSH|"),
+            "Should be a valid HL7 ACK message"
+        );
 
         // Step 4: Write response (serialize the parsed message back)
         let _rewritten = write(&parsed);
-        
+
         // Verify round-trip
         assert_hl7_roundtrips(raw_message.as_bytes());
     }
@@ -71,12 +78,10 @@ mod adt_a01_pipeline {
         init_tracing();
 
         let raw_message = SampleMessages::adt_a01();
-        let parsed = parse(raw_message.as_bytes())
-            .expect("ADT^A01 should parse");
+        let parsed = parse(raw_message.as_bytes()).expect("ADT^A01 should parse");
 
         // Generate an error ACK
-        let ack_msg = ack(&parsed, AckCode::AE)
-            .expect("Should generate error ACK");
+        let ack_msg = ack(&parsed, AckCode::AE).expect("Should generate error ACK");
 
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);
@@ -97,8 +102,7 @@ mod adt_a04_pipeline {
 
         // Step 1: Parse
         let raw_message = SampleMessages::adt_a04();
-        let parsed = parse(raw_message.as_bytes())
-            .expect("ADT^A04 should parse successfully");
+        let parsed = parse(raw_message.as_bytes()).expect("ADT^A04 should parse successfully");
 
         let msg_type = get(&parsed, "MSH.9");
         assert!(msg_type.is_some());
@@ -109,8 +113,7 @@ mod adt_a04_pipeline {
         assert!(issues.is_empty() || issues.iter().all(|i| i.severity != Severity::Error));
 
         // Step 3: Generate ACK
-        let ack_msg = ack(&parsed, AckCode::AA)
-            .expect("Should generate ACK");
+        let ack_msg = ack(&parsed, AckCode::AA).expect("Should generate ACK");
 
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);
@@ -125,12 +128,10 @@ mod adt_a04_pipeline {
         init_tracing();
 
         let raw_message = SampleMessages::adt_a04();
-        let parsed = parse(raw_message.as_bytes())
-            .expect("ADT^A04 should parse");
+        let parsed = parse(raw_message.as_bytes()).expect("ADT^A04 should parse");
 
         // Generate a reject ACK
-        let ack_msg = ack(&parsed, AckCode::AR)
-            .expect("Should generate reject ACK");
+        let ack_msg = ack(&parsed, AckCode::AR).expect("Should generate reject ACK");
 
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);
@@ -151,8 +152,7 @@ mod oru_r01_pipeline {
 
         // Step 1: Parse
         let raw_message = SampleMessages::oru_r01();
-        let parsed = parse(raw_message.as_bytes())
-            .expect("ORU^R01 should parse successfully");
+        let parsed = parse(raw_message.as_bytes()).expect("ORU^R01 should parse successfully");
 
         let msg_type = get(&parsed, "MSH.9");
         assert!(msg_type.is_some());
@@ -163,8 +163,7 @@ mod oru_r01_pipeline {
         assert!(issues.is_empty() || issues.iter().all(|i| i.severity != Severity::Error));
 
         // Step 3: Generate ACK
-        let ack_msg = ack(&parsed, AckCode::AA)
-            .expect("Should generate ACK");
+        let ack_msg = ack(&parsed, AckCode::AA).expect("Should generate ACK");
 
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);
@@ -179,19 +178,20 @@ mod oru_r01_pipeline {
         init_tracing();
 
         let raw_message = SampleMessages::oru_r01();
-        let parsed = parse(raw_message.as_bytes())
-            .expect("ORU^R01 should parse");
+        let parsed = parse(raw_message.as_bytes()).expect("ORU^R01 should parse");
 
         // Verify OBX segments are present by checking segment count
-        assert!(parsed.segments.len() > 3, "ORU^R01 should have multiple segments including OBX");
+        assert!(
+            parsed.segments.len() > 3,
+            "ORU^R01 should have multiple segments including OBX"
+        );
 
         // Validate and generate ACK
         let validator = SimpleValidator;
         let issues = validator.validate(&parsed);
         assert!(issues.is_empty() || issues.iter().all(|i| i.severity != Severity::Error));
 
-        let ack_msg = ack(&parsed, AckCode::AA)
-            .expect("Should generate ACK");
+        let ack_msg = ack(&parsed, AckCode::AA).expect("Should generate ACK");
 
         // ACK should reference the original message control ID
         let ack_bytes = write(&ack_msg);
@@ -216,8 +216,8 @@ mod edge_case_pipeline {
             .expect("Should have special_chars edge case");
 
         // Parse
-        let parsed = parse(raw_message.as_bytes())
-            .expect("Message with special chars should parse");
+        let parsed =
+            parse(raw_message.as_bytes()).expect("Message with special chars should parse");
 
         // Validate
         let validator = SimpleValidator;
@@ -226,8 +226,7 @@ mod edge_case_pipeline {
         assert!(issues.iter().all(|i| i.severity != Severity::Error));
 
         // Generate ACK
-        let ack_msg = ack(&parsed, AckCode::AA)
-            .expect("Should generate ACK");
+        let ack_msg = ack(&parsed, AckCode::AA).expect("Should generate ACK");
 
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);
@@ -242,8 +241,8 @@ mod edge_case_pipeline {
             .expect("Should have custom_delims edge case");
 
         // Parse with custom delimiters
-        let parsed = parse(raw_message.as_bytes())
-            .expect("Message with custom delimiters should parse");
+        let parsed =
+            parse(raw_message.as_bytes()).expect("Message with custom delimiters should parse");
 
         // Validate
         let validator = SimpleValidator;
@@ -251,8 +250,7 @@ mod edge_case_pipeline {
         assert!(issues.is_empty() || issues.iter().all(|i| i.severity != Severity::Error));
 
         // Generate ACK (should use original delimiters)
-        let ack_msg = ack(&parsed, AckCode::AA)
-            .expect("Should generate ACK");
+        let ack_msg = ack(&parsed, AckCode::AA).expect("Should generate ACK");
 
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);
@@ -267,8 +265,7 @@ mod edge_case_pipeline {
             .expect("Should have with_repetitions edge case");
 
         // Parse
-        let parsed = parse(raw_message.as_bytes())
-            .expect("Message with repetitions should parse");
+        let parsed = parse(raw_message.as_bytes()).expect("Message with repetitions should parse");
 
         // Validate
         let validator = SimpleValidator;
@@ -276,8 +273,7 @@ mod edge_case_pipeline {
         assert!(issues.is_empty() || issues.iter().all(|i| i.severity != Severity::Error));
 
         // Generate ACK
-        let ack_msg = ack(&parsed, AckCode::AA)
-            .expect("Should generate ACK");
+        let ack_msg = ack(&parsed, AckCode::AA).expect("Should generate ACK");
 
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);
@@ -299,16 +295,15 @@ mod invalid_message_pipeline {
     async fn test_pipeline_invalid_message_returns_error_ack() {
         init_tracing();
 
-        let raw_message = SampleMessages::invalid("malformed")
-            .expect("Should have malformed invalid case");
+        let raw_message =
+            SampleMessages::invalid("malformed").expect("Should have malformed invalid case");
 
         // Parse should fail or produce an error
         let parse_result = parse(raw_message.as_bytes());
 
         if let Ok(parsed) = parse_result {
             // If it parsed, generate error ACK
-            let ack_msg = ack(&parsed, AckCode::AE)
-                .expect("Should generate ACK");
+            let ack_msg = ack(&parsed, AckCode::AE).expect("Should generate ACK");
 
             let ack_bytes = write(&ack_msg);
             let ack_str = String::from_utf8_lossy(&ack_bytes);
@@ -321,8 +316,8 @@ mod invalid_message_pipeline {
     async fn test_pipeline_truncated_message() {
         init_tracing();
 
-        let raw_message = SampleMessages::invalid("truncated")
-            .expect("Should have truncated invalid case");
+        let raw_message =
+            SampleMessages::invalid("truncated").expect("Should have truncated invalid case");
 
         // Parse should fail or produce a message with errors
         let parse_result = parse(raw_message.as_bytes());
@@ -340,12 +335,15 @@ mod invalid_message_pipeline {
     async fn test_pipeline_missing_msh_segment() {
         init_tracing();
 
-        let raw_message = SampleMessages::invalid("no_msh")
-            .expect("Should have no_msh invalid case");
+        let raw_message =
+            SampleMessages::invalid("no_msh").expect("Should have no_msh invalid case");
 
         // Parse should fail - MSH is required
         let parse_result = parse(raw_message.as_bytes());
-        assert!(parse_result.is_err(), "Message without MSH should fail to parse");
+        assert!(
+            parse_result.is_err(),
+            "Message without MSH should fail to parse"
+        );
     }
 }
 
@@ -366,8 +364,7 @@ mod batch_pipeline {
         );
 
         // Parse the batch
-        let parsed = parse(batch.as_bytes())
-            .expect("Batch should parse");
+        let parsed = parse(batch.as_bytes()).expect("Batch should parse");
 
         // Validate
         let validator = SimpleValidator;
@@ -375,8 +372,7 @@ mod batch_pipeline {
         assert!(issues.is_empty() || issues.iter().all(|i| i.severity != Severity::Error));
 
         // Generate ACK for batch
-        let ack_msg = ack(&parsed, AckCode::AA)
-            .expect("Should generate ACK");
+        let ack_msg = ack(&parsed, AckCode::AA).expect("Should generate ACK");
 
         let ack_bytes = write(&ack_msg);
         let ack_str = String::from_utf8_lossy(&ack_bytes);

@@ -2,60 +2,68 @@
 //!
 //! Uses proptest to verify properties hold across a wide range of inputs
 
-use proptest::prelude::*;
-use hl7v2_datetime::*;
 use chrono::{Datelike, Timelike};
+use hl7v2_datetime::*;
+use proptest::prelude::*;
 
 // ============================================================================
 // Strategies for Generating Valid HL7 Date/Time Values
 // ============================================================================
 
 /// Generate a valid year (1-9999)
+#[allow(dead_code)]
 fn year_strategy() -> impl Strategy<Value = i32> {
     1i32..=9999
 }
 
 /// Generate a valid month (1-12)
+#[allow(dead_code)]
 fn month_strategy() -> impl Strategy<Value = u32> {
     1u32..=12
 }
 
 /// Generate a valid day (1-31, further validation done in test)
+#[allow(dead_code)]
 fn day_strategy() -> impl Strategy<Value = u32> {
     1u32..=31
 }
 
 /// Generate a valid hour (0-23)
+#[allow(dead_code)]
 fn hour_strategy() -> impl Strategy<Value = u32> {
     0u32..=23
 }
 
 /// Generate a valid minute (0-59)
+#[allow(dead_code)]
 fn minute_strategy() -> impl Strategy<Value = u32> {
     0u32..=59
 }
 
 /// Generate a valid second (0-59)
+#[allow(dead_code)]
 fn second_strategy() -> impl Strategy<Value = u32> {
     0u32..=59
 }
 
 /// Generate a valid HL7 date string (YYYYMMDD)
+#[allow(dead_code)]
 fn hl7_date_strategy() -> impl Strategy<Value = String> {
     (year_strategy(), month_strategy(), day_strategy())
         .prop_map(|(y, m, d)| format!("{:04}{:02}{:02}", y, m, d))
 }
 
 /// Generate a valid HL7 time string (HHMMSS)
+#[allow(dead_code)]
 fn hl7_time_strategy() -> impl Strategy<Value = String> {
     (hour_strategy(), minute_strategy(), second_strategy())
         .prop_map(|(h, m, s)| format!("{:02}{:02}{:02}", h, m, s))
 }
 
 /// Generate a valid HL7 timestamp string (YYYYMMDDHHMMSS)
+#[allow(dead_code)]
 fn hl7_timestamp_strategy() -> impl Strategy<Value = String> {
-    (hl7_date_strategy(), hl7_time_strategy())
-        .prop_map(|(d, t)| format!("{}{}", d, t))
+    (hl7_date_strategy(), hl7_time_strategy()).prop_map(|(d, t)| format!("{}{}", d, t))
 }
 
 // ============================================================================
@@ -70,27 +78,27 @@ proptest! {
         day in 1u32..=28  // Use 28 to avoid month-specific day issues
     ) {
         let date_str = format!("{:04}{:02}{:02}", year, month, day);
-        
+
         if let Ok(date) = parse_hl7_dt(&date_str) {
             // Parsed date should match input
             prop_assert_eq!(date.year(), year);
             prop_assert_eq!(date.month(), month);
             prop_assert_eq!(date.day(), day);
-            
+
             // is_valid_hl7_date should return true
             prop_assert!(is_valid_hl7_date(&date_str));
         }
     }
-    
+
     #[test]
     fn test_date_validation_consistent(date_str in "[0-9]{8}") {
         // parse_hl7_dt and is_valid_hl7_date should agree
         let parsed = parse_hl7_dt(&date_str);
         let is_valid = is_valid_hl7_date(&date_str);
-        
+
         prop_assert_eq!(parsed.is_ok(), is_valid);
     }
-    
+
     #[test]
     fn test_date_only_digits(date_str in "\\PC*") {
         // Non-digit characters should always fail
@@ -113,7 +121,7 @@ proptest! {
         second in 0u32..=59
     ) {
         let time_str = format!("{:02}{:02}{:02}", hour, minute, second);
-        
+
         if let Ok((h, m, s, _)) = parse_hl7_tm(&time_str) {
             prop_assert_eq!(h, hour);
             prop_assert_eq!(m, minute);
@@ -121,14 +129,14 @@ proptest! {
             prop_assert!(is_valid_hl7_time(&time_str));
         }
     }
-    
+
     #[test]
     fn test_time_hour_minute_only(
         hour in 0u32..=23,
         minute in 0u32..=59
     ) {
         let time_str = format!("{:02}{:02}", hour, minute);
-        
+
         if let Ok((h, m, s, _)) = parse_hl7_tm(&time_str) {
             prop_assert_eq!(h, hour);
             prop_assert_eq!(m, minute);
@@ -136,29 +144,29 @@ proptest! {
             prop_assert!(is_valid_hl7_time(&time_str));
         }
     }
-    
+
     #[test]
     fn test_time_validation_consistent(time_str in "[0-9]{4,6}") {
         let parsed = parse_hl7_tm(&time_str);
         let is_valid = is_valid_hl7_time(&time_str);
-        
+
         prop_assert_eq!(parsed.is_ok(), is_valid);
     }
-    
+
     #[test]
     fn test_invalid_hour_rejected(hour in 24u32..=99) {
         let time_str = format!("{:02}0000", hour);
         prop_assert!(parse_hl7_tm(&time_str).is_err());
         prop_assert!(!is_valid_hl7_time(&time_str));
     }
-    
+
     #[test]
     fn test_invalid_minute_rejected(minute in 60u32..=99) {
         let time_str = format!("00{:02}00", minute);
         prop_assert!(parse_hl7_tm(&time_str).is_err());
         prop_assert!(!is_valid_hl7_time(&time_str));
     }
-    
+
     #[test]
     fn test_invalid_second_rejected(second in 60u32..=99) {
         let time_str = format!("0000{:02}", second);
@@ -182,7 +190,7 @@ proptest! {
         second in 0u32..=59
     ) {
         let ts_str = format!("{:04}{:02}{:02}{:02}{:02}{:02}", year, month, day, hour, minute, second);
-        
+
         if let Ok(ts) = parse_hl7_ts(&ts_str) {
             prop_assert_eq!(ts.year(), year);
             prop_assert_eq!(ts.month(), month);
@@ -193,15 +201,15 @@ proptest! {
             prop_assert!(is_valid_hl7_timestamp(&ts_str));
         }
     }
-    
+
     #[test]
     fn test_timestamp_validation_consistent(ts_str in "[0-9]{8,14}") {
         let parsed = parse_hl7_ts(&ts_str);
         let is_valid = is_valid_hl7_timestamp(&ts_str);
-        
+
         prop_assert_eq!(parsed.is_ok(), is_valid);
     }
-    
+
     #[test]
     fn test_timestamp_date_only(
         year in 1i32..=9999,
@@ -209,7 +217,7 @@ proptest! {
         day in 1u32..=28
     ) {
         let ts_str = format!("{:04}{:02}{:02}", year, month, day);
-        
+
         if let Ok(ts) = parse_hl7_ts(&ts_str) {
             prop_assert_eq!(ts.year(), year);
             prop_assert_eq!(ts.month(), month);
@@ -230,7 +238,7 @@ proptest! {
     #[test]
     fn test_precision_year(year in 1i32..=9999) {
         let ts_str = format!("{:04}", year);
-        
+
         if let Ok(ts) = parse_hl7_ts_with_precision(&ts_str) {
             prop_assert_eq!(ts.precision, TimestampPrecision::Year);
             prop_assert_eq!(ts.datetime.year(), year);
@@ -239,11 +247,11 @@ proptest! {
             prop_assert_eq!(ts.datetime.day(), 1);
         }
     }
-    
+
     #[test]
     fn test_precision_month(year in 1i32..=9999, month in 1u32..=12) {
         let ts_str = format!("{:04}{:02}", year, month);
-        
+
         if let Ok(ts) = parse_hl7_ts_with_precision(&ts_str) {
             prop_assert_eq!(ts.precision, TimestampPrecision::Month);
             prop_assert_eq!(ts.datetime.year(), year);
@@ -251,7 +259,7 @@ proptest! {
             prop_assert_eq!(ts.datetime.day(), 1);
         }
     }
-    
+
     #[test]
     fn test_precision_day(
         year in 1i32..=9999,
@@ -259,7 +267,7 @@ proptest! {
         day in 1u32..=28
     ) {
         let ts_str = format!("{:04}{:02}{:02}", year, month, day);
-        
+
         if let Ok(ts) = parse_hl7_ts_with_precision(&ts_str) {
             prop_assert_eq!(ts.precision, TimestampPrecision::Day);
             prop_assert_eq!(ts.datetime.year(), year);
@@ -267,7 +275,7 @@ proptest! {
             prop_assert_eq!(ts.datetime.day(), day);
         }
     }
-    
+
     #[test]
     fn test_precision_hour(
         year in 1i32..=9999,
@@ -276,7 +284,7 @@ proptest! {
         hour in 0u32..=23
     ) {
         let ts_str = format!("{:04}{:02}{:02}{:02}", year, month, day, hour);
-        
+
         if let Ok(ts) = parse_hl7_ts_with_precision(&ts_str) {
             prop_assert_eq!(ts.precision, TimestampPrecision::Hour);
             prop_assert_eq!(ts.datetime.hour(), hour);
@@ -284,7 +292,7 @@ proptest! {
             prop_assert_eq!(ts.datetime.second(), 0);
         }
     }
-    
+
     #[test]
     fn test_precision_minute(
         year in 1i32..=9999,
@@ -294,7 +302,7 @@ proptest! {
         minute in 0u32..=59
     ) {
         let ts_str = format!("{:04}{:02}{:02}{:02}{:02}", year, month, day, hour, minute);
-        
+
         if let Ok(ts) = parse_hl7_ts_with_precision(&ts_str) {
             prop_assert_eq!(ts.precision, TimestampPrecision::Minute);
             prop_assert_eq!(ts.datetime.hour(), hour);
@@ -302,7 +310,7 @@ proptest! {
             prop_assert_eq!(ts.datetime.second(), 0);
         }
     }
-    
+
     #[test]
     fn test_precision_second(
         year in 1i32..=9999,
@@ -313,7 +321,7 @@ proptest! {
         second in 0u32..=59
     ) {
         let ts_str = format!("{:04}{:02}{:02}{:02}{:02}{:02}", year, month, day, hour, minute, second);
-        
+
         if let Ok(ts) = parse_hl7_ts_with_precision(&ts_str) {
             prop_assert_eq!(ts.precision, TimestampPrecision::Second);
             prop_assert_eq!(ts.datetime.hour(), hour);
@@ -335,7 +343,7 @@ proptest! {
         day in 1u32..=28
     ) {
         let ts_str = format!("{:04}{:02}{:02}120000", year, month, day);
-        
+
         if let Ok(ts) = parse_hl7_ts_with_precision(&ts_str) {
             // A timestamp is equal to itself
             prop_assert!(ts.is_equal(&ts));
@@ -345,7 +353,7 @@ proptest! {
             prop_assert!(!ts.is_after(&ts));
         }
     }
-    
+
     #[test]
     fn test_comparison_transitivity(
         year in 2020i32..=2025,
@@ -357,7 +365,7 @@ proptest! {
         let ts1_str = format!("{:04}{:02}{:02}100000", year, month1, day1);
         let ts2_str = format!("{:04}{:02}{:02}120000", year, month1, day2);
         let ts3_str = format!("{:04}{:02}{:02}140000", year, month1, day3);
-        
+
         if let (Ok(ts1), Ok(ts2), Ok(ts3)) = (
             parse_hl7_ts_with_precision(&ts1_str),
             parse_hl7_ts_with_precision(&ts2_str),
@@ -369,7 +377,7 @@ proptest! {
             }
         }
     }
-    
+
     #[test]
     fn test_comparison_symmetry(
         year in 2020i32..=2025,
@@ -379,7 +387,7 @@ proptest! {
     ) {
         let ts1_str = format!("{:04}{:02}{:02}120000", year, month, day1);
         let ts2_str = format!("{:04}{:02}{:02}120000", year, month, day2);
-        
+
         if let (Ok(ts1), Ok(ts2)) = (
             parse_hl7_ts_with_precision(&ts1_str),
             parse_hl7_ts_with_precision(&ts2_str),
@@ -393,7 +401,7 @@ proptest! {
             }
         }
     }
-    
+
     #[test]
     fn test_same_day_symmetry(
         year in 2020i32..=2025,
@@ -402,7 +410,7 @@ proptest! {
     ) {
         let ts1_str = format!("{:04}{:02}{:02}100000", year, month, day);
         let ts2_str = format!("{:04}{:02}{:02}150000", year, month, day);
-        
+
         if let (Ok(ts1), Ok(ts2)) = (
             parse_hl7_ts_with_precision(&ts1_str),
             parse_hl7_ts_with_precision(&ts2_str),
@@ -460,7 +468,7 @@ proptest! {
         day in 1u32..=28
     ) {
         let date_str = format!("{}{:04}{:02}{:02}{}", leading_ws, year, month, day, trailing_ws);
-        
+
         // Whitespace should be trimmed
         if let Ok(date) = parse_hl7_dt(&date_str) {
             prop_assert_eq!(date.year(), year);

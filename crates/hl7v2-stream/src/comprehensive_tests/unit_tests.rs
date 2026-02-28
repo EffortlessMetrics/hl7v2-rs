@@ -8,7 +8,7 @@
 //! - Delimiter handling
 
 use crate::{Event, StreamParser};
-use hl7v2_test_utils::{fixtures::SampleMessages, builders::MessageBuilder};
+use hl7v2_test_utils::{builders::MessageBuilder, fixtures::SampleMessages};
 use std::io::{BufReader, Cursor, Read};
 
 /// Helper to collect all events from a parser
@@ -35,7 +35,11 @@ fn test_parse_message_in_single_chunk() {
     let events = collect_events(&mut parser);
 
     // Verify we got StartMessage
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
 
     // Verify we got EndMessage
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
@@ -73,7 +77,11 @@ fn test_parse_minimal_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -122,7 +130,11 @@ fn test_parse_message_across_multiple_chunks() {
     let events = collect_events(&mut parser);
 
     // Should still get all events
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -143,7 +155,11 @@ fn test_chunk_boundary_in_middle_of_segment() {
     let events = collect_events(&mut parser);
 
     // Should still parse correctly
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Find the long field
@@ -175,7 +191,11 @@ fn test_chunk_boundary_at_field_separator() {
     let events = collect_events(&mut parser);
 
     // Should parse correctly despite boundary at separator
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -186,11 +206,7 @@ fn test_chunk_boundary_at_field_separator() {
 #[test]
 fn test_parse_multiple_messages_from_single_stream() {
     // Two complete messages in sequence
-    let hl7_text = format!(
-        "{}{}",
-        SampleMessages::adt_a01(),
-        SampleMessages::adt_a04()
-    );
+    let hl7_text = format!("{}{}", SampleMessages::adt_a01(), SampleMessages::adt_a04());
 
     let cursor = Cursor::new(hl7_text.as_bytes());
     let buf_reader = BufReader::new(cursor);
@@ -206,7 +222,10 @@ fn test_parse_multiple_messages_from_single_stream() {
     assert_eq!(start_count, 2);
 
     // Should have two EndMessage events
-    let end_count = events.iter().filter(|e| matches!(e, Event::EndMessage)).count();
+    let end_count = events
+        .iter()
+        .filter(|e| matches!(e, Event::EndMessage))
+        .count();
     assert_eq!(end_count, 2);
 }
 
@@ -231,7 +250,10 @@ fn test_parse_three_messages_in_sequence() {
         .count();
     assert_eq!(start_count, 3);
 
-    let end_count = events.iter().filter(|e| matches!(e, Event::EndMessage)).count();
+    let end_count = events
+        .iter()
+        .filter(|e| matches!(e, Event::EndMessage))
+        .count();
     assert_eq!(end_count, 3);
 }
 
@@ -249,7 +271,11 @@ fn test_handle_empty_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -266,7 +292,12 @@ fn test_handle_partial_message_gracefully() {
     // Should still get StartMessage since MSH was complete with \r
     // Actually without \r, the segment isn't complete, so no events
     // The parser waits for \r to complete a segment
-    assert!(events.is_empty() || events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events.is_empty()
+            || events
+                .iter()
+                .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
 }
 
 #[test]
@@ -279,7 +310,11 @@ fn test_handle_empty_fields() {
     let events = collect_events(&mut parser);
 
     // Should parse successfully with empty fields
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
 
     // Count empty field events
     let empty_fields: Vec<_> = events
@@ -313,7 +348,11 @@ fn test_handle_very_long_field() {
     let events = collect_events(&mut parser);
 
     // Should parse successfully
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Find the long field
@@ -342,7 +381,11 @@ fn test_handle_very_long_segment() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -356,7 +399,11 @@ fn test_handle_deeply_nested_components() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Find field with components
@@ -494,24 +541,24 @@ fn test_field_events_after_segment() {
     let events = collect_events(&mut parser);
 
     // Find PID segment event position
-    let pid_pos = events
-        .iter()
-        .position(|e| {
-            if let Event::Segment { id } = e {
-                id == b"PID"
-            } else {
-                false
-            }
-        });
+    let pid_pos = events.iter().position(|e| {
+        if let Event::Segment { id } = e {
+            id == b"PID"
+        } else {
+            false
+        }
+    });
 
     if let Some(pos) = pid_pos {
         // Next events should be Field events for PID
         let next_events = &events[pos + 1..];
-        assert!(next_events
-            .iter()
-            .take_while(|e| matches!(e, Event::Field { .. }))
-            .count()
-            > 0);
+        assert!(
+            next_events
+                .iter()
+                .take_while(|e| matches!(e, Event::Field { .. }))
+                .count()
+                > 0
+        );
     } else {
         panic!("PID segment not found");
     }
@@ -633,7 +680,8 @@ fn test_escape_sequences_in_fields() {
 #[test]
 fn test_special_characters_preserved() {
     // Test that special characters are preserved in field content
-    let hl7_text = "MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rNK1|1||Spouse^Wife|||555-1234\r";
+    let hl7_text =
+        "MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rNK1|1||Spouse^Wife|||555-1234\r";
     let cursor = Cursor::new(hl7_text.as_bytes());
     let buf_reader = BufReader::new(cursor);
     let mut parser = StreamParser::new(buf_reader);
@@ -692,9 +740,9 @@ fn test_pid_field_numbering() {
     let events = collect_events(&mut parser);
 
     // Find PID segment position
-    let pid_pos = events.iter().position(|e| {
-        matches!(e, Event::Segment { id } if id == b"PID")
-    });
+    let pid_pos = events
+        .iter()
+        .position(|e| matches!(e, Event::Segment { id } if id == b"PID"));
 
     if let Some(pos) = pid_pos {
         // Get fields after PID segment
@@ -734,13 +782,19 @@ fn test_parse_message_from_builder() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Should have PID segment
-    assert!(events.iter().any(|e| {
-        matches!(e, Event::Segment { id } if id == b"PID")
-    }));
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
+    );
 }
 
 #[test]
@@ -779,16 +833,17 @@ fn test_parse_complex_message_from_builder() {
 
 #[tokio::test]
 async fn test_async_parser_with_backpressure() {
-    use crate::{StreamParserBuilder, Event};
-    
-    let hl7_text = b"MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rPID|1||12345||Doe^John\r".to_vec();
-    
+    use crate::{Event, StreamParserBuilder};
+
+    let hl7_text =
+        b"MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rPID|1||12345||Doe^John\r".to_vec();
+
     // Create parser with very small buffer to test backpressure
     let mut parser = StreamParserBuilder::new()
-        .buffer_size(2)  // Small buffer
+        .buffer_size(2) // Small buffer
         .max_message_size(1024 * 1024)
         .build_async(hl7_text);
-    
+
     let mut events = Vec::new();
     while let Some(result) = parser.next().await {
         match result {
@@ -796,57 +851,71 @@ async fn test_async_parser_with_backpressure() {
             Err(e) => panic!("Unexpected error: {:?}", e),
         }
     }
-    
+
     // Should have received all events despite small buffer
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
 #[tokio::test]
 async fn test_async_parser_buffer_size_configuration() {
-    use crate::{StreamParserBuilder, Event};
-    
+    use crate::{Event, StreamParserBuilder};
+
     let hl7_text = b"MSH|^~\\&|App|Fac\r".to_vec();
-    
+
     // Test with different buffer sizes
     for buffer_size in [1, 10, 100] {
         let mut parser = StreamParserBuilder::new()
             .buffer_size(buffer_size)
             .build_async(hl7_text.clone());
-        
+
         let mut events = Vec::new();
         while let Some(result) = parser.next().await {
             if let Ok(event) = result {
                 events.push(event);
             }
         }
-        
-        assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::StartMessage { .. }))
+        );
     }
 }
 
 #[tokio::test]
 async fn test_async_parser_multiple_messages() {
-    use crate::{StreamParserBuilder, Event};
-    
+    use crate::{Event, StreamParserBuilder};
+
     // Two messages in sequence
     let hl7_text = b"MSH|^~\\&|App1|Fac1\rPID|1||123\rMSH|^~\\&|App2|Fac2\rPID|2||456\r".to_vec();
-    
+
     let mut parser = StreamParserBuilder::new()
         .buffer_size(10)
         .build_async(hl7_text);
-    
+
     let mut events = Vec::new();
     while let Some(result) = parser.next().await {
         if let Ok(event) = result {
             events.push(event);
         }
     }
-    
+
     // Should have two StartMessage and two EndMessage events
-    let start_count = events.iter().filter(|e| matches!(e, Event::StartMessage { .. })).count();
-    let end_count = events.iter().filter(|e| matches!(e, Event::EndMessage)).count();
-    
+    let start_count = events
+        .iter()
+        .filter(|e| matches!(e, Event::StartMessage { .. }))
+        .count();
+    let end_count = events
+        .iter()
+        .filter(|e| matches!(e, Event::EndMessage))
+        .count();
+
     assert_eq!(start_count, 2);
     assert_eq!(end_count, 2);
 }
@@ -863,16 +932,16 @@ fn test_max_message_size_enforcement() {
         "MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rPID|1||{}||Doe\r",
         long_field
     );
-    
+
     let cursor = Cursor::new(hl7_text.as_bytes());
     let buf_reader = BufReader::new(cursor);
-    
+
     // Set max message size to 200 bytes (smaller than the message)
     let mut parser = StreamParser::with_max_message_size(buf_reader, 200);
-    
+
     // Should get an error when message exceeds max size
     let result = parser.next_event();
-    
+
     // The parser should either return an error or stop gracefully
     match result {
         Err(_) => {
@@ -890,16 +959,20 @@ fn test_max_message_size_enforcement() {
 #[test]
 fn test_max_message_size_allows_normal_messages() {
     let hl7_text = "MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rPID|1||12345||Doe\r";
-    
+
     let cursor = Cursor::new(hl7_text.as_bytes());
     let buf_reader = BufReader::new(cursor);
-    
+
     // Set max message size to 1MB (should allow this message)
     let mut parser = StreamParser::with_max_message_size(buf_reader, 1024 * 1024);
-    
+
     let events = collect_events(&mut parser);
-    
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -907,19 +980,25 @@ fn test_max_message_size_allows_normal_messages() {
 fn test_message_size_counter_resets_on_new_message() {
     // Two small messages
     let hl7_text = "MSH|^~\\&|App1|Fac1\rPID|1\rMSH|^~\\&|App2|Fac2\rPID|2\r";
-    
+
     let cursor = Cursor::new(hl7_text.as_bytes());
     let buf_reader = BufReader::new(cursor);
-    
+
     // Set max message size to 100 bytes (should allow each small message)
     let mut parser = StreamParser::with_max_message_size(buf_reader, 100);
-    
+
     let events = collect_events(&mut parser);
-    
+
     // Should successfully parse both messages
-    let start_count = events.iter().filter(|e| matches!(e, Event::StartMessage { .. })).count();
-    let end_count = events.iter().filter(|e| matches!(e, Event::EndMessage)).count();
-    
+    let start_count = events
+        .iter()
+        .filter(|e| matches!(e, Event::StartMessage { .. }))
+        .count();
+    let end_count = events
+        .iter()
+        .filter(|e| matches!(e, Event::EndMessage))
+        .count();
+
     assert_eq!(start_count, 2);
     assert_eq!(end_count, 2);
 }
@@ -927,19 +1006,20 @@ fn test_message_size_counter_resets_on_new_message() {
 #[tokio::test]
 async fn test_async_max_message_size_enforcement() {
     use crate::StreamParserBuilder;
-    
+
     // Create a large message
     let long_field = "Y".repeat(1000);
     let hl7_text = format!(
         "MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rPID|1||{}||Doe\r",
         long_field
-    ).into_bytes();
-    
+    )
+    .into_bytes();
+
     let mut parser = StreamParserBuilder::new()
         .buffer_size(10)
-        .max_message_size(100)  // Very small max size
+        .max_message_size(100) // Very small max size
         .build_async(hl7_text);
-    
+
     let mut found_error = false;
     while let Some(result) = parser.next().await {
         if result.is_err() {
@@ -947,9 +1027,12 @@ async fn test_async_max_message_size_enforcement() {
             break;
         }
     }
-    
+
     // Should have received an error due to message size
-    assert!(found_error, "Expected an error due to message exceeding max size");
+    assert!(
+        found_error,
+        "Expected an error due to message exceeding max size"
+    );
 }
 
 // =============================================================================
@@ -961,21 +1044,25 @@ fn test_resume_with_additional_data() {
     let cursor = Cursor::new(b"MSH|^~\\&|App".as_slice());
     let buf_reader = BufReader::new(cursor);
     let mut parser = StreamParser::new(buf_reader);
-    
+
     // First call - no complete segment yet
     let result1 = parser.next_event();
     assert!(result1.is_ok());
-    
+
     // Add more data to complete the segment
     parser.resume_with_data(b"|Fac\r");
-    
+
     // Now we should be able to get events
     let result2 = parser.next_event();
     assert!(result2.is_ok());
-    
+
     // Should eventually get StartMessage
     let events = collect_events(&mut parser);
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
 }
 
 #[test]
@@ -985,7 +1072,7 @@ fn test_partial_segment_preserved_across_reads() {
         chunks: Vec<&'static [u8]>,
         index: usize,
     }
-    
+
     impl Read for PartialReader {
         fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
             if self.index >= self.chunks.len() {
@@ -998,7 +1085,7 @@ fn test_partial_segment_preserved_across_reads() {
             Ok(len)
         }
     }
-    
+
     let reader = PartialReader {
         chunks: vec![
             b"MSH|^~\\&|App|Fac|||20250101||ADT",
@@ -1007,20 +1094,26 @@ fn test_partial_segment_preserved_across_reads() {
         ],
         index: 0,
     };
-    
+
     let buf_reader = BufReader::new(reader);
     let mut parser = StreamParser::new(buf_reader);
-    
+
     let events = collect_events(&mut parser);
-    
+
     // Should have parsed the complete message
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
-    
+
     // Should have PID segment
-    assert!(events.iter().any(|e| {
-        matches!(e, Event::Segment { id } if id == b"PID")
-    }));
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
+    );
 }
 
 #[test]
@@ -1028,29 +1121,29 @@ fn test_clear_buffer_resets_state() {
     let cursor = Cursor::new(b"MSH|^~\\&|App|Fac\r".as_slice());
     let buf_reader = BufReader::new(cursor);
     let mut parser = StreamParser::new(buf_reader);
-    
+
     // Parse some events
     let _ = parser.next_event();
-    
+
     // Clear the buffer
     parser.clear_buffer();
-    
+
     // Position should be reset
-    assert_eq!(parser.max_message_size(), 1024 * 1024);  // Default max size
+    assert_eq!(parser.max_message_size(), 1024 * 1024); // Default max size
 }
 
 #[test]
 fn test_current_message_size_tracking() {
     let hl7_text = "MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rPID|1||12345||Doe\r";
-    
+
     let cursor = Cursor::new(hl7_text.as_bytes());
     let buf_reader = BufReader::new(cursor);
     let mut parser = StreamParser::new(buf_reader);
-    
+
     // Initially not in a message
     assert!(!parser.is_in_message());
     assert_eq!(parser.current_message_size(), 0);
-    
+
     // Parse events
     while let Ok(Some(_)) = parser.next_event() {
         // After StartMessage, we should be in a message
@@ -1059,7 +1152,7 @@ fn test_current_message_size_tracking() {
             assert!(parser.current_message_size() > 0);
         }
     }
-    
+
     // After parsing, not in a message
     assert!(!parser.is_in_message());
 }
@@ -1071,22 +1164,22 @@ fn test_current_message_size_tracking() {
 #[test]
 fn test_builder_default_configuration() {
     use crate::StreamParserBuilder;
-    
+
     let builder = StreamParserBuilder::new();
-    
+
     // Default values
-    assert_eq!(builder.buffer_size, 100);  // DEFAULT_BUFFER_SIZE
-    assert_eq!(builder.max_message_size, 1024 * 1024);  // DEFAULT_MAX_MESSAGE_SIZE
+    assert_eq!(builder.buffer_size, 100); // DEFAULT_BUFFER_SIZE
+    assert_eq!(builder.max_message_size, 1024 * 1024); // DEFAULT_MAX_MESSAGE_SIZE
 }
 
 #[test]
 fn test_builder_custom_configuration() {
     use crate::StreamParserBuilder;
-    
+
     let builder = StreamParserBuilder::new()
         .buffer_size(50)
         .max_message_size(2048);
-    
+
     assert_eq!(builder.buffer_size, 50);
     assert_eq!(builder.max_message_size, 2048);
 }
@@ -1094,17 +1187,21 @@ fn test_builder_custom_configuration() {
 #[test]
 fn test_builder_build_synchronous_parser() {
     use crate::StreamParserBuilder;
-    
+
     let hl7_text = "MSH|^~\\&|App|Fac\r";
     let cursor = Cursor::new(hl7_text.as_bytes());
     let buf_reader = BufReader::new(cursor);
-    
+
     let mut parser = StreamParserBuilder::new()
         .max_message_size(1024)
         .build(buf_reader);
-    
+
     assert_eq!(parser.max_message_size(), 1024);
-    
+
     let events = collect_events(&mut parser);
-    assert!(events.iter().any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
 }

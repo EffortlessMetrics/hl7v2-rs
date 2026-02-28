@@ -97,7 +97,10 @@ impl Decoder for MllpCodec {
                 if content_len > self.max_frame_size {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
-                        format!("Frame size {} exceeds maximum {}", content_len, self.max_frame_size),
+                        format!(
+                            "Frame size {} exceeds maximum {}",
+                            content_len, self.max_frame_size
+                        ),
                     ));
                 }
 
@@ -126,7 +129,11 @@ impl Decoder for MllpCodec {
                 if src.len() > self.max_frame_size {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
-                        format!("Buffer size {} exceeds maximum {}", src.len(), self.max_frame_size),
+                        format!(
+                            "Buffer size {} exceeds maximum {}",
+                            src.len(),
+                            self.max_frame_size
+                        ),
                     ));
                 }
 
@@ -145,7 +152,11 @@ impl Encoder<BytesMut> for MllpCodec {
         if item.len() > self.max_frame_size {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Message size {} exceeds maximum {}", item.len(), self.max_frame_size),
+                format!(
+                    "Message size {} exceeds maximum {}",
+                    item.len(),
+                    self.max_frame_size
+                ),
             ));
         }
 
@@ -170,7 +181,11 @@ impl Encoder<&[u8]> for MllpCodec {
         if item.len() > self.max_frame_size {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Message size {} exceeds maximum {}", item.len(), self.max_frame_size),
+                format!(
+                    "Message size {} exceeds maximum {}",
+                    item.len(),
+                    self.max_frame_size
+                ),
             ));
         }
 

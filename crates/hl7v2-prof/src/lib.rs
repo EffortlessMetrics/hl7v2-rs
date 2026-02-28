@@ -37,15 +37,14 @@
 
 // Re-export validation types for backward compatibility
 pub use hl7v2_validation::{
-    compare_timestamps_for_before, get_nonempty, is_coded_value, is_date, is_email, is_extended_id,
-    is_formatted_text, is_hierarchic_designator, is_identifier, is_numeric, is_person_name,
-    is_phone_number, is_sequence_id, is_ssn, is_string, is_text_data, is_time, is_timestamp,
-    is_valid_age_range, is_valid_birth_date, is_within_range, matches_complex_pattern,
-    matches_format, parse_datetime, parse_hl7_ts, parse_hl7_ts_with_precision,
-    truncate_to_precision, validate_checksum, validate_data_type, validate_luhn_checksum,
-    validate_mathematical_relationship, validate_mod10_checksum, check_rule_condition,
     Issue, ParsedTimestamp, RuleAction, RuleCondition, Severity, TimestampPrecision,
-    ValidationResult, Validator,
+    ValidationResult, Validator, check_rule_condition, compare_timestamps_for_before, get_nonempty,
+    is_coded_value, is_date, is_email, is_extended_id, is_formatted_text, is_hierarchic_designator,
+    is_identifier, is_numeric, is_person_name, is_phone_number, is_sequence_id, is_ssn, is_string,
+    is_text_data, is_time, is_timestamp, is_valid_age_range, is_valid_birth_date, is_within_range,
+    matches_complex_pattern, matches_format, parse_datetime, parse_hl7_ts,
+    parse_hl7_ts_with_precision, truncate_to_precision, validate_checksum, validate_data_type,
+    validate_luhn_checksum, validate_mathematical_relationship, validate_mod10_checksum,
 };
 
 use hl7v2_core::{Error, Message};
@@ -61,14 +60,14 @@ pub enum ProfileLoadError {
     /// YAML syntax error during parsing.
     #[error("YAML parse error: {0}")]
     YamlParse(String),
-    
+
     /// Required field is missing from the profile.
     #[error("Missing required field: {field}")]
     MissingField {
         /// The name of the missing field.
         field: String,
     },
-    
+
     /// Invalid field value in the profile.
     #[error("Invalid value for field '{field}': {details}")]
     InvalidValue {
@@ -77,15 +76,15 @@ pub enum ProfileLoadError {
         /// Details about why the value is invalid.
         details: String,
     },
-    
+
     /// IO error during profile file reading.
     #[error("IO error: {0}")]
     Io(String),
-    
+
     /// Profile inheritance cycle detected.
     #[error("Profile inheritance cycle detected: {0}")]
     InheritanceCycle(String),
-    
+
     /// Parent profile not found.
     #[error("Parent profile not found: {0}")]
     ParentNotFound(String),
@@ -489,8 +488,16 @@ fn merge_profiles(parent: Profile, child: Profile) -> Profile {
         contextual_rules: merge_contextual_rules(parent.contextual_rules, child.contextual_rules),
         custom_rules: merge_custom_rules(parent.custom_rules, child.custom_rules),
         hl7_tables: merge_hl7_tables(parent.hl7_tables, child.hl7_tables),
-        table_precedence: if child.table_precedence.is_empty() { parent.table_precedence } else { child.table_precedence },
-        expression_guardrails: if child.expression_guardrails == ExpressionGuardrails::default() { parent.expression_guardrails } else { child.expression_guardrails },
+        table_precedence: if child.table_precedence.is_empty() {
+            parent.table_precedence
+        } else {
+            child.table_precedence
+        },
+        expression_guardrails: if child.expression_guardrails == ExpressionGuardrails::default() {
+            parent.expression_guardrails
+        } else {
+            child.expression_guardrails
+        },
     }
 }
 
@@ -876,7 +883,11 @@ fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue
 }
 
 /// Validate that a field value matches the expected data type
-fn validate_data_type_constraint(msg: &Message, datatype: &DataTypeConstraint, issues: &mut Vec<Issue>) {
+fn validate_data_type_constraint(
+    msg: &Message,
+    datatype: &DataTypeConstraint,
+    issues: &mut Vec<Issue>,
+) {
     if let Some(value) = hl7v2_core::get(msg, &datatype.path) {
         if !validate_data_type(value, &datatype.r#type) {
             issues.push(Issue::error(
@@ -986,11 +997,12 @@ fn validate_advanced_data_type(
 /// Validate HL7 tables with precedence support
 fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
     // Create a mapping of value set names to HL7 tables
-    let mut table_map: std::collections::HashMap<&str, &HL7Table> = std::collections::HashMap::new();
+    let mut table_map: std::collections::HashMap<&str, &HL7Table> =
+        std::collections::HashMap::new();
     for table in &profile.hl7_tables {
         table_map.insert(&table.id, table);
     }
-    
+
     // Validate value sets with table precedence
     for valueset in &profile.valuesets {
         if let Some(table_id) = table_map.get(valueset.name.as_str()) {
@@ -1047,7 +1059,7 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead
     // when table precedence is important
-    
+
     // Check value sets that reference this table by name
     for valueset in &profile.valuesets {
         if valueset.name == table.id {
