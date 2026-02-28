@@ -371,17 +371,16 @@ impl<D: BufRead> StreamParser<D> {
                 let segment_end = self.pos + cr_pos;
                 let segment_data = self.buffer[self.pos..segment_end].to_vec();
                 let segment_len = segment_data.len() + 1; // Include the \r
-                
+
                 // Check memory bounds before processing
                 if self.in_message {
                     self.current_message_size += segment_len;
                     if self.current_message_size > self.max_message_size {
                         let actual_size = self.current_message_size;
                         let max_size = self.max_message_size;
-                        let segment_id = String::from_utf8_lossy(
-                            &segment_data.get(0..3).unwrap_or(b"UNK"),
-                        )
-                        .to_string();
+                        let segment_id =
+                            String::from_utf8_lossy(segment_data.get(0..3).unwrap_or(b"UNK"))
+                                .to_string();
                         // Reset state for next message
                         self.in_message = false;
                         self.pre_msh = true;
@@ -394,7 +393,7 @@ impl<D: BufRead> StreamParser<D> {
                         });
                     }
                 }
-                
+
                 self.pos = segment_end + 1; // Skip the \r
 
                 // Check if this is an MSH segment
@@ -461,7 +460,7 @@ impl<D: BufRead> StreamParser<D> {
                 // Preserve partial state for resume across buffer boundaries
                 // The data from pos to end of buffer is a partial segment
                 // When more data arrives, we'll continue looking for \r
-                
+
                 // If we have data but no complete segment, we need to keep
                 // the partial data and read more
                 if self.pos < self.buffer.len() {

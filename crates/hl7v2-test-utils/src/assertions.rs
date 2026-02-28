@@ -222,7 +222,9 @@ pub fn assert_field_contains(message: &Message, path: &str, expected_contains: &
     assert!(
         actual.contains(expected_contains),
         "Field value at path '{}' should contain '{}', but got '{}'",
-        path, expected_contains, actual
+        path,
+        expected_contains,
+        actual
     );
 }
 
@@ -312,10 +314,7 @@ pub fn assert_field_exists(message: &Message, path: &str) {
 /// assert_segment_exists(&message, "PID");
 /// ```
 pub fn assert_segment_exists(message: &Message, segment_name: &str) {
-    let exists = message
-        .segments
-        .iter()
-        .any(|s| s.id_str() == segment_name);
+    let exists = message.segments.iter().any(|s| s.id_str() == segment_name);
 
     assert!(
         exists,
@@ -352,10 +351,7 @@ pub fn assert_segment_exists(message: &Message, segment_name: &str) {
 /// assert_segment_not_exists(&message, "OBX");
 /// ```
 pub fn assert_segment_not_exists(message: &Message, segment_name: &str) {
-    let exists = message
-        .segments
-        .iter()
-        .any(|s| s.id_str() == segment_name);
+    let exists = message.segments.iter().any(|s| s.id_str() == segment_name);
 
     assert!(
         !exists,
@@ -415,7 +411,11 @@ pub fn assert_hl7_roundtrips(bytes: &[u8]) {
     );
 
     // Compare each segment
-    for (i, (orig, reparsed)) in original.segments.iter().zip(reparsed.segments.iter()).enumerate()
+    for (i, (orig, reparsed)) in original
+        .segments
+        .iter()
+        .zip(reparsed.segments.iter())
+        .enumerate()
     {
         assert_eq!(
             orig.id_str(),
@@ -544,11 +544,7 @@ fn write_rep_to_string(rep: &hl7v2_model::Rep, delims: &hl7v2_model::Delims) -> 
 
 /// Write a component to a string.
 fn write_comp_to_string(comp: &hl7v2_model::Comp, delims: &hl7v2_model::Delims) -> String {
-    let subs: Vec<String> = comp
-        .subs
-        .iter()
-        .map(write_atom_to_string)
-        .collect();
+    let subs: Vec<String> = comp.subs.iter().map(write_atom_to_string).collect();
     subs.join(&delims.sub.to_string())
 }
 

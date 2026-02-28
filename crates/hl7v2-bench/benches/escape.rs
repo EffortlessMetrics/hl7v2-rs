@@ -1,6 +1,6 @@
 //! Benchmarks for HL7 v2 escape sequence handling performance
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use hl7v2_escape::{escape_text, unescape_text};
 use hl7v2_model::Delims;
 
@@ -40,11 +40,6 @@ fn bench_escape_text(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    escape_benches,
-    bench_unescape_text,
-    bench_escape_text
-);
+criterion_group!(escape_benches, bench_unescape_text, bench_escape_text);
 
 criterion_main!(escape_benches);
-

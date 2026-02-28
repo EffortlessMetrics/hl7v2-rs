@@ -36,7 +36,7 @@ use std::time::Duration;
 
 use hl7v2_model::{Error, Message};
 use tokio::net::TcpListener;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 use tokio::time::timeout;
 
 /// A mock MLLP server for testing network clients.
@@ -616,8 +616,12 @@ impl TestDataGenerator {
     /// assert!(!first.is_empty());
     /// ```
     pub fn random_name() -> (String, String) {
-        let last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller"];
-        let first_names = ["John", "Jane", "Michael", "Emily", "David", "Sarah", "Robert"];
+        let last_names = [
+            "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller",
+        ];
+        let first_names = [
+            "John", "Jane", "Michael", "Emily", "David", "Sarah", "Robert",
+        ];
 
         use std::time::{SystemTime, UNIX_EPOCH};
         let duration = SystemTime::now()
@@ -693,8 +697,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_message_handler_with_response() {
-        let handler = MockMessageHandler::new()
-            .with_response(|_| Ok(Some(Message::new())));
+        let handler = MockMessageHandler::new().with_response(|_| Ok(Some(Message::new())));
 
         let message = Message::new();
         let result = handler.handle(message).await;

@@ -32,12 +32,12 @@
 //! assert_eq!(parsed.seed, 42);
 //! ```
 
-use hl7v2_core::Message;
-use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use hl7v2_core::Message;
 use rand::{RngExt, SeedableRng};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 /// Configuration for corpus generation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -171,7 +171,13 @@ impl CorpusManifest {
     }
 
     /// Add a message to the manifest
-    pub fn add_message(&mut self, path: &str, content: &str, message_type: &str, template_index: usize) {
+    pub fn add_message(
+        &mut self,
+        path: &str,
+        content: &str,
+        message_type: &str,
+        template_index: usize,
+    ) {
         let sha256 = compute_sha256(content);
         self.messages.push(MessageInfo {
             path: path.to_string(),
@@ -189,8 +195,7 @@ impl CorpusManifest {
 
     /// Deserialize a manifest from JSON
     pub fn from_json(json: &str) -> Result<Self, CorpusError> {
-        serde_json::from_str(json)
-            .map_err(|e| CorpusError::SerializationError(e.to_string()))
+        serde_json::from_str(json).map_err(|e| CorpusError::SerializationError(e.to_string()))
     }
 
     /// Get the total number of messages
@@ -216,11 +221,11 @@ impl CorpusManifest {
 
         let train_count = (total as f64 * ratios.0).round() as usize;
         let val_count = (total as f64 * ratios.1).round() as usize;
-        
+
         // Shuffle indices based on seed for reproducibility
         let mut rng = rand::rngs::StdRng::seed_from_u64(self.seed);
         let mut indices: Vec<usize> = (0..total).collect();
-        
+
         // Fisher-Yates shuffle
         for i in (1..total).rev() {
             let j = rng.random_range(0..=i);
@@ -231,12 +236,12 @@ impl CorpusManifest {
             .iter()
             .map(|&i| self.messages[i].path.clone())
             .collect();
-        
+
         self.splits.validation = indices[train_count..train_count + val_count]
             .iter()
             .map(|&i| self.messages[i].path.clone())
             .collect();
-        
+
         self.splits.test = indices[train_count + val_count..]
             .iter()
             .map(|&i| self.messages[i].path.clone())
@@ -266,15 +271,15 @@ pub enum CorpusError {
     /// Error during serialization/deserialization
     #[error("Serialization error: {0}")]
     SerializationError(String),
-    
+
     /// Error during file I/O
     #[error("IO error: {0}")]
     IoError(String),
-    
+
     /// Invalid configuration
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
-    
+
     /// Invalid split ratios
     #[error("Invalid split ratios: must sum to 1.0")]
     InvalidSplitRatios,
@@ -292,7 +297,9 @@ pub fn extract_message_type(message: &Message) -> String {
                     let rep = &field.reps[0];
                     if !rep.comps.is_empty() {
                         // Build the message type from components
-                        let parts: Vec<String> = rep.comps.iter()
+                        let parts: Vec<String> = rep
+                            .comps
+                            .iter()
                             .filter_map(|c| {
                                 if c.subs.is_empty() {
                                     None

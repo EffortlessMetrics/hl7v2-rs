@@ -196,10 +196,10 @@ fn test_custom_delimiters_escape() {
         esc: '@',
         sub: '%',
     };
-    
+
     let escaped = escape_text("a#b:c", &delims);
     assert_eq!(escaped, "a@F@b@S@c");
-    
+
     let unescaped = unescape_text(&escaped, &delims).unwrap();
     assert_eq!(unescaped, "a#b:c");
 }
@@ -213,11 +213,11 @@ fn test_custom_delimiters_all() {
         esc: '@',
         sub: '%',
     };
-    
+
     let original = "a#b:c*d@e%f";
     let escaped = escape_text(original, &delims);
     assert_eq!(escaped, "a@F@b@S@c@R@d@E@e@T@f");
-    
+
     let unescaped = unescape_text(&escaped, &delims).unwrap();
     assert_eq!(unescaped, original);
 }
@@ -325,7 +325,7 @@ fn test_escape_long_string() {
     let delims = Delims::default();
     let original = "a|b".repeat(1000);
     let escaped = escape_text(&original, &delims);
-    
+
     // Should have 1000 escape sequences
     assert_eq!(escaped.matches("\\F\\").count(), 1000);
 }
@@ -335,7 +335,7 @@ fn test_unescape_long_string() {
     let delims = Delims::default();
     let escaped = "a\\F\\b".repeat(1000);
     let unescaped = unescape_text(&escaped, &delims).unwrap();
-    
+
     // Should have 1000 field separators
     assert_eq!(unescaped.matches('|').count(), 1000);
 }
@@ -377,7 +377,7 @@ fn test_multiple_escape_chars_in_sequence() {
     let delims = Delims::default();
     let escaped = escape_text("\\\\\\", &delims);
     assert_eq!(escaped, "\\E\\\\E\\\\E\\");
-    
+
     let unescaped = unescape_text(&escaped, &delims).unwrap();
     assert_eq!(unescaped, "\\\\\\");
 }
@@ -426,7 +426,10 @@ fn test_escape_mixed_content() {
     let delims = Delims::default();
     let original = "Name|Smith^John~Doe\\Jane&Middle";
     let escaped = escape_text(original, &delims);
-    assert_eq!(escaped, "Name\\F\\Smith\\S\\John\\R\\Doe\\E\\Jane\\T\\Middle");
+    assert_eq!(
+        escaped,
+        "Name\\F\\Smith\\S\\John\\R\\Doe\\E\\Jane\\T\\Middle"
+    );
 }
 
 #[test]

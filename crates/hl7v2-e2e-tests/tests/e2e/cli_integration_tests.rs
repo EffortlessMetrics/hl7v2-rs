@@ -7,8 +7,8 @@
 
 use assert_cmd::Command;
 use predicates::prelude::*;
-use tempfile::TempDir;
 use std::io::Write;
+use tempfile::TempDir;
 
 use super::common::init_tracing;
 
@@ -25,7 +25,8 @@ fn cli() -> Command {
 fn create_hl7_file(dir: &TempDir, name: &str, content: &str) -> std::path::PathBuf {
     let path = dir.path().join(name);
     let mut file = std::fs::File::create(&path).expect("Failed to create file");
-    file.write_all(content.as_bytes()).expect("Failed to write file");
+    file.write_all(content.as_bytes())
+        .expect("Failed to write file");
     path
 }
 
@@ -33,7 +34,8 @@ fn create_hl7_file(dir: &TempDir, name: &str, content: &str) -> std::path::PathB
 fn create_profile_file(dir: &TempDir, name: &str, content: &str) -> std::path::PathBuf {
     let path = dir.path().join(name);
     let mut file = std::fs::File::create(&path).expect("Failed to create profile file");
-    file.write_all(content.as_bytes()).expect("Failed to write profile file");
+    file.write_all(content.as_bytes())
+        .expect("Failed to write profile file");
     path
 }
 
@@ -45,7 +47,8 @@ fn sample_adt_a01() -> String {
         "EVN|A01|20250128152312|||\r",
         "PID|1||123456^^^HOSP^MR||Doe^John^A||19800101|M|||C|\r",
         "PV1|1|I|ICU^101^01||||DOC123^Smith^Jane||||||||V123456\r"
-    ).to_string()
+    )
+    .to_string()
 }
 
 /// Sample ADT^A04 message
@@ -54,7 +57,8 @@ fn sample_adt_a04() -> String {
         "MSH|^~\\&|RegSys|Hospital|ADT|Hospital|",
         "20250128140000||ADT^A04|MSG002|P|2.5\r",
         "PID|1||MRN456^^^Hospital^MR||Smith^Jane^M||19900215|F\r"
-    ).to_string()
+    )
+    .to_string()
 }
 
 /// Sample ORU^R01 message
@@ -65,7 +69,8 @@ fn sample_oru_r01() -> String {
         "PID|1||MRN789^^^Lab^MR||Patient^Test||19850610|M\r",
         "OBR|1|ORD123|FIL456|CBC^Complete Blood Count|||20250128120000\r",
         "OBX|1|NM|WBC^White Blood Count||7.5|10^9/L|4.0-11.0|N|||F\r"
-    ).to_string()
+    )
+    .to_string()
 }
 
 /// Basic validation profile
@@ -91,7 +96,8 @@ message_types:
       - MSH
       - PID
       - OBR
-"#.to_string()
+"#
+    .to_string()
 }
 
 // =========================================================================
@@ -124,10 +130,7 @@ mod parse_command {
         let hl7_file = create_hl7_file(&dir, "adt_a04.hl7", &sample_adt_a04());
 
         let mut cmd = cli();
-        cmd.arg("parse")
-            .arg(&hl7_file)
-            .assert()
-            .success();
+        cmd.arg("parse").arg(&hl7_file).assert().success();
     }
 
     #[test]
@@ -195,10 +198,7 @@ mod parse_command {
         let hl7_file = create_hl7_file(&dir, "invalid.hl7", "This is not a valid HL7 message");
 
         let mut cmd = cli();
-        cmd.arg("parse")
-            .arg(&hl7_file)
-            .assert()
-            .failure();
+        cmd.arg("parse").arg(&hl7_file).assert().failure();
     }
 }
 
@@ -217,10 +217,7 @@ mod normalize_command {
         let hl7_file = create_hl7_file(&dir, "message.hl7", &sample_adt_a01());
 
         let mut cmd = cli();
-        cmd.arg("norm")
-            .arg(&hl7_file)
-            .assert()
-            .success();
+        cmd.arg("norm").arg(&hl7_file).assert().success();
     }
 
     #[test]
@@ -344,10 +341,7 @@ mod validate_command {
         let hl7_file = create_hl7_file(&dir, "message.hl7", &sample_adt_a01());
 
         let mut cmd = cli();
-        cmd.arg("val")
-            .arg(&hl7_file)
-            .assert()
-            .failure(); // Profile is required
+        cmd.arg("val").arg(&hl7_file).assert().failure(); // Profile is required
     }
 
     #[test]
@@ -609,10 +603,7 @@ mod edge_cases {
         let hl7_file = create_hl7_file(&dir, "empty.hl7", "");
 
         let mut cmd = cli();
-        cmd.arg("parse")
-            .arg(&hl7_file)
-            .assert()
-            .failure();
+        cmd.arg("parse").arg(&hl7_file).assert().failure();
     }
 
     #[test]
@@ -620,7 +611,7 @@ mod edge_cases {
         init_tracing();
 
         let dir = TempDir::new().expect("Failed to create temp dir");
-        
+
         // Create MLLP-framed message
         let message = sample_adt_a01();
         let mut framed = Vec::new();
@@ -628,7 +619,7 @@ mod edge_cases {
         framed.extend_from_slice(message.as_bytes());
         framed.push(0x1C); // EB
         framed.push(0x0D); // CR
-        
+
         let hl7_file = create_hl7_file(&dir, "mllp.hl7", &String::from_utf8_lossy(&framed));
 
         let mut cmd = cli();
@@ -660,7 +651,7 @@ mod edge_cases {
         init_tracing();
 
         let dir = TempDir::new().expect("Failed to create temp dir");
-        
+
         // Create MLLP-framed message
         let message = sample_adt_a01();
         let mut framed = Vec::new();
@@ -668,7 +659,7 @@ mod edge_cases {
         framed.extend_from_slice(message.as_bytes());
         framed.push(0x1C);
         framed.push(0x0D);
-        
+
         let hl7_file = create_hl7_file(&dir, "mllp.hl7", &String::from_utf8_lossy(&framed));
         let profile_file = create_profile_file(&dir, "profile.yaml", &basic_profile());
 
@@ -721,7 +712,8 @@ mod workflows {
 
         // Step 1: Parse
         let mut cmd = cli();
-        let parse_result = cmd.arg("parse")
+        let parse_result = cmd
+            .arg("parse")
             .arg(&hl7_file)
             .arg("--json")
             .assert()
@@ -742,7 +734,8 @@ mod workflows {
 
         // Step 3: Generate ACK
         let mut cmd = cli();
-        let ack_result = cmd.arg("ack")
+        let ack_result = cmd
+            .arg("ack")
             .arg(&hl7_file)
             .arg("--mode")
             .arg("original")
@@ -762,14 +755,14 @@ mod workflows {
         init_tracing();
 
         let dir = TempDir::new().expect("Failed to create temp dir");
-        
+
         // Message with non-standard delimiters
         let custom_message = concat!(
             "MSH#$*@!SendingApp#SendingFac#ReceivingApp#ReceivingFac#",
             "20250128152312##ADT$A01#ABC123#P#2.5.1\r",
             "PID#1##123456^^^HOSP^MR##Doe$John$A##19800101#M###C#\r"
         );
-        
+
         let input_file = create_hl7_file(&dir, "custom.hl7", custom_message);
         let normalized_file = dir.path().join("normalized.hl7");
         let profile_file = create_profile_file(&dir, "profile.yaml", &basic_profile());

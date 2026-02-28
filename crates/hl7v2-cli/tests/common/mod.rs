@@ -4,10 +4,10 @@
 //! binary using assert_cmd and tempfile.
 
 use assert_cmd::Command;
+use hl7v2_test_utils::fixtures::SampleMessages;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use hl7v2_test_utils::fixtures::SampleMessages;
 
 /// Helper to create a new CLI command
 pub fn cli_command() -> Command {
@@ -129,7 +129,7 @@ mod tests {
         let dir = create_temp_dir();
         let path = create_temp_hl7_file(&dir, "test.hl7");
         assert!(path.exists());
-        
+
         let content = read_file(&path);
         assert!(content.starts_with(b"MSH|"));
     }
@@ -138,7 +138,7 @@ mod tests {
     fn test_create_mllp_message() {
         let content = b"MSH|^~\\&|Test\r";
         let mllp = create_mllp_message(content);
-        
+
         assert_eq!(mllp[0], 0x0B);
         assert_eq!(mllp[mllp.len() - 2], 0x1C);
         assert_eq!(mllp[mllp.len() - 1], 0x0D);
@@ -148,7 +148,7 @@ mod tests {
     fn test_is_valid_json() {
         let valid = br#"{"key": "value"}"#;
         let invalid = b"not json";
-        
+
         assert!(is_valid_json(valid));
         assert!(!is_valid_json(invalid));
     }

@@ -1,6 +1,6 @@
 //! Memory usage benchmarks for HL7 v2 parsing
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use hl7v2_mllp::wrap_mllp;
 use hl7v2_normalize::normalize;
 use hl7v2_parser::{parse, parse_mllp};
@@ -112,4 +112,3 @@ criterion_group!(
 );
 
 criterion_main!(memory_benches);
-

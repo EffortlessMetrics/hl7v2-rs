@@ -1,0 +1,10 @@
+# Clippy configuration for HL7 v2 Rust workspace
+# See: https://rust-lang.github.io/rust-clippy/master/index.html
+
+# Allow some common patterns in test code
+allow-dbg-in-tests = true
+allow-print-in-tests = true
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-useless-vec-in-tests = true

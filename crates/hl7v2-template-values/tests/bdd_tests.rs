@@ -1,9 +1,9 @@
 //! BDD tests for hl7v2-template-values
 
-use cucumber::{given, then, when, World};
-use hl7v2_template_values::{generate_value, ValueSource};
-use rand::rngs::StdRng;
+use cucumber::{World, given, then, when};
+use hl7v2_template_values::{ValueSource, generate_value};
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 #[derive(Debug, World)]
 #[world(init = Self::new)]
@@ -79,7 +79,11 @@ fn then_result_matches(world: &mut ValueSourceWorld, expected: String) {
 #[then(regex = r#"the generated value should be one of "([^"]+)", "([^"]+)", or "([^"]+)""#)]
 fn then_result_one_of(world: &mut ValueSourceWorld, a: String, b: String, c: String) {
     let actual = world.result.as_deref().expect("Missing generated value");
-    assert!(actual == a || actual == b || actual == c, "unexpected generated value: {}", actual);
+    assert!(
+        actual == a || actual == b || actual == c,
+        "unexpected generated value: {}",
+        actual
+    );
 }
 
 #[then("the generation should fail")]

@@ -17,7 +17,7 @@ fn test_template_creation() {
         ],
         values: HashMap::new(),
     };
-    
+
     assert_eq!(template.name, "test");
     assert_eq!(template.delims, "^~\\&");
     assert_eq!(template.segments.len(), 1);
@@ -31,7 +31,7 @@ fn test_template_clone() {
         segments: vec!["MSH|...".to_string()],
         values: HashMap::new(),
     };
-    
+
     let cloned = template.clone();
     assert_eq!(template.name, cloned.name);
     assert_eq!(template.delims, cloned.delims);
@@ -45,7 +45,7 @@ fn test_template_debug() {
         segments: vec!["MSH|...".to_string()],
         values: HashMap::new(),
     };
-    
+
     let debug_str = format!("{:?}", template);
     assert!(debug_str.contains("Template"));
     assert!(debug_str.contains("test"));
@@ -66,10 +66,10 @@ fn test_generate_single_message() {
         ],
         values: HashMap::new(),
     };
-    
+
     let messages = generate(&template, 42, 1).unwrap();
     assert_eq!(messages.len(), 1);
-    
+
     let message = &messages[0];
     assert_eq!(message.segments.len(), 2);
 }
@@ -84,7 +84,7 @@ fn test_generate_multiple_messages() {
         ],
         values: HashMap::new(),
     };
-    
+
     let messages = generate(&template, 42, 10).unwrap();
     assert_eq!(messages.len(), 10);
 }
@@ -99,7 +99,7 @@ fn test_generate_zero_messages() {
         ],
         values: HashMap::new(),
     };
-    
+
     let messages = generate(&template, 42, 0).unwrap();
     assert_eq!(messages.len(), 0);
 }
@@ -118,10 +118,10 @@ fn test_generate_deterministic() {
         ],
         values: HashMap::new(),
     };
-    
+
     let messages1 = generate(&template, 42, 5).unwrap();
     let messages2 = generate(&template, 42, 5).unwrap();
-    
+
     for (m1, m2) in messages1.iter().zip(messages2.iter()) {
         let bytes1 = hl7v2_core::write(m1);
         let bytes2 = hl7v2_core::write(m2);
@@ -133,7 +133,7 @@ fn test_generate_deterministic() {
 fn test_generate_different_seeds() {
     let mut values = HashMap::new();
     values.insert("PID.3".to_string(), vec![ValueSource::UuidV4]);
-    
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -143,13 +143,13 @@ fn test_generate_different_seeds() {
         ],
         values,
     };
-    
+
     let messages1 = generate(&template, 42, 1).unwrap();
     let messages2 = generate(&template, 43, 1).unwrap();
-    
+
     let bytes1 = hl7v2_core::write(&messages1[0]);
     let bytes2 = hl7v2_core::write(&messages2[0]);
-    
+
     assert_ne!(bytes1, bytes2);
 }
 
@@ -202,14 +202,14 @@ fn test_generate_segment_msh() {
     let delims = Delims::default();
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let values = HashMap::new();
-    
+
     let segment = generate_segment(
         r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#,
         &values,
         &delims,
         &mut rng
     ).unwrap();
-    
+
     assert_eq!(&segment.id, b"MSH");
 }
 
@@ -218,14 +218,15 @@ fn test_generate_segment_pid() {
     let delims = Delims::default();
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let values = HashMap::new();
-    
+
     let segment = generate_segment(
         r#"PID|1||123456^^^HOSP^MR||Doe^John"#,
         &values,
         &delims,
-        &mut rng
-    ).unwrap();
-    
+        &mut rng,
+    )
+    .unwrap();
+
     assert_eq!(&segment.id, b"PID");
 }
 
@@ -234,14 +235,9 @@ fn test_generate_segment_invalid_id() {
     let delims = Delims::default();
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let values = HashMap::new();
-    
-    let result = generate_segment(
-        "INVALID|1|2",
-        &values,
-        &delims,
-        &mut rng
-    );
-    
+
+    let result = generate_segment("INVALID|1|2", &values, &delims, &mut rng);
+
     assert!(result.is_err());
 }
 
@@ -250,14 +246,9 @@ fn test_generate_segment_lowercase_id() {
     let delims = Delims::default();
     let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let values = HashMap::new();
-    
-    let result = generate_segment(
-        "pid|1|2",
-        &values,
-        &delims,
-        &mut rng
-    );
-    
+
+    let result = generate_segment("pid|1|2", &values, &delims, &mut rng);
+
     assert!(result.is_err());
 }
 
@@ -268,8 +259,11 @@ fn test_generate_segment_lowercase_id() {
 #[test]
 fn test_value_source_fixed() {
     let mut values = HashMap::new();
-    values.insert("PID.3".to_string(), vec![ValueSource::Fixed("ABC123".to_string())]);
-    
+    values.insert(
+        "PID.3".to_string(),
+        vec![ValueSource::Fixed("ABC123".to_string())],
+    );
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -279,7 +273,7 @@ fn test_value_source_fixed() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 1).unwrap();
     assert_eq!(messages.len(), 1);
 }
@@ -287,8 +281,11 @@ fn test_value_source_fixed() {
 #[test]
 fn test_value_source_numeric() {
     let mut values = HashMap::new();
-    values.insert("PID.3".to_string(), vec![ValueSource::Numeric { digits: 6 }]);
-    
+    values.insert(
+        "PID.3".to_string(),
+        vec![ValueSource::Numeric { digits: 6 }],
+    );
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -298,7 +295,7 @@ fn test_value_source_numeric() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 1).unwrap();
     assert_eq!(messages.len(), 1);
 }
@@ -306,11 +303,14 @@ fn test_value_source_numeric() {
 #[test]
 fn test_value_source_from() {
     let mut values = HashMap::new();
-    values.insert("PID.5".to_string(), vec![ValueSource::From(vec![
-        r#"Smith^John"#.to_string(),
-        r#"Doe^Jane"#.to_string(),
-    ])]);
-    
+    values.insert(
+        "PID.5".to_string(),
+        vec![ValueSource::From(vec![
+            r#"Smith^John"#.to_string(),
+            r#"Doe^Jane"#.to_string(),
+        ])],
+    );
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -320,7 +320,7 @@ fn test_value_source_from() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 10).unwrap();
     assert_eq!(messages.len(), 10);
 }
@@ -329,7 +329,7 @@ fn test_value_source_from() {
 fn test_value_source_uuid_v4() {
     let mut values = HashMap::new();
     values.insert("MSH.10".to_string(), vec![ValueSource::UuidV4]);
-    
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -338,9 +338,9 @@ fn test_value_source_uuid_v4() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 10).unwrap();
-    
+
     // All UUIDs should be unique
     let mut uuids = Vec::new();
     for msg in &messages {
@@ -348,7 +348,7 @@ fn test_value_source_uuid_v4() {
         let s = String::from_utf8_lossy(&bytes);
         uuids.push(s.to_string());
     }
-    
+
     // Check uniqueness
     let unique: std::collections::HashSet<_> = uuids.iter().collect();
     assert_eq!(unique.len(), 10);
@@ -357,11 +357,14 @@ fn test_value_source_uuid_v4() {
 #[test]
 fn test_value_source_date() {
     let mut values = HashMap::new();
-    values.insert("PID.7".to_string(), vec![ValueSource::Date {
-        start: "19800101".to_string(),
-        end: "20001231".to_string(),
-    }]);
-    
+    values.insert(
+        "PID.7".to_string(),
+        vec![ValueSource::Date {
+            start: "19800101".to_string(),
+            end: "20001231".to_string(),
+        }],
+    );
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -371,7 +374,7 @@ fn test_value_source_date() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 10).unwrap();
     assert_eq!(messages.len(), 10);
 }
@@ -379,12 +382,15 @@ fn test_value_source_date() {
 #[test]
 fn test_value_source_gaussian() {
     let mut values = HashMap::new();
-    values.insert("OBX.5".to_string(), vec![ValueSource::Gaussian {
-        mean: 100.0,
-        sd: 10.0,
-        precision: 2,
-    }]);
-    
+    values.insert(
+        "OBX.5".to_string(),
+        vec![ValueSource::Gaussian {
+            mean: 100.0,
+            sd: 10.0,
+            precision: 2,
+        }],
+    );
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -394,7 +400,7 @@ fn test_value_source_gaussian() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 10).unwrap();
     assert_eq!(messages.len(), 10);
 }
@@ -413,7 +419,7 @@ fn test_generate_corpus() {
         ],
         values: HashMap::new(),
     };
-    
+
     let messages = generate_corpus(&template, 42, 100, 10).unwrap();
     assert_eq!(messages.len(), 100);
 }
@@ -428,7 +434,7 @@ fn test_generate_diverse_corpus() {
         ],
         values: HashMap::new(),
     };
-    
+
     let template2 = Template {
         name: "oru_r01".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -437,7 +443,7 @@ fn test_generate_diverse_corpus() {
         ],
         values: HashMap::new(),
     };
-    
+
     let templates = vec![template1, template2];
     let messages = generate_diverse_corpus(&templates, 42, 50).unwrap();
     assert_eq!(messages.len(), 50);
@@ -453,7 +459,7 @@ fn test_generate_distributed_corpus() {
         ],
         values: HashMap::new(),
     };
-    
+
     let template2 = Template {
         name: "oru".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -462,12 +468,9 @@ fn test_generate_distributed_corpus() {
         ],
         values: HashMap::new(),
     };
-    
-    let distributions = vec![
-        (template1, 0.7),
-        (template2, 0.3),
-    ];
-    
+
+    let distributions = vec![(template1, 0.7), (template2, 0.3)];
+
     let messages = generate_distributed_corpus(&distributions, 42, 100).unwrap();
     assert_eq!(messages.len(), 100);
 }
@@ -486,10 +489,10 @@ fn test_generate_golden_hashes() {
         ],
         values: HashMap::new(),
     };
-    
+
     let hashes = generate_golden_hashes(&template, 42, 10).unwrap();
     assert_eq!(hashes.len(), 10);
-    
+
     // All hashes should be 64 characters (SHA-256 hex)
     for hash in &hashes {
         assert_eq!(hash.len(), 64);
@@ -506,10 +509,10 @@ fn test_verify_golden_hashes() {
         ],
         values: HashMap::new(),
     };
-    
+
     let hashes = generate_golden_hashes(&template, 42, 5).unwrap();
     let results = verify_golden_hashes(&template, 42, 5, &hashes).unwrap();
-    
+
     assert_eq!(results.len(), 5);
     assert!(results.iter().all(|&r| r));
 }
@@ -524,15 +527,13 @@ fn test_verify_golden_hashes_mismatch() {
         ],
         values: HashMap::new(),
     };
-    
+
     // Use wrong hashes
-    let wrong_hashes = vec![
-        "0000000000000000000000000000000000000000000000000000000000000000".to_string();
-        5
-    ];
-    
+    let wrong_hashes =
+        vec!["0000000000000000000000000000000000000000000000000000000000000000".to_string(); 5];
+
     let results = verify_golden_hashes(&template, 42, 5, &wrong_hashes).unwrap();
-    
+
     // All should fail
     assert!(results.iter().all(|&r| !r));
 }
@@ -546,12 +547,10 @@ fn test_generate_invalid_segment_id() {
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            "INVALID|1|2|3".to_string(),
-        ],
+        segments: vec!["INVALID|1|2|3".to_string()],
         values: HashMap::new(),
     };
-    
+
     let result = generate(&template, 42, 1);
     assert!(result.is_err());
 }
@@ -566,7 +565,7 @@ fn test_generate_invalid_delims() {
         ],
         values: HashMap::new(),
     };
-    
+
     let result = generate(&template, 42, 1);
     assert!(result.is_err());
 }
@@ -585,10 +584,10 @@ fn test_msh_segment_field_handling() {
         ],
         values: HashMap::new(),
     };
-    
+
     let messages = generate(&template, 42, 1).unwrap();
     let message = &messages[0];
-    
+
     // MSH should have correct number of fields
     assert!(!message.segments[0].fields.is_empty());
 }
@@ -600,8 +599,13 @@ fn test_msh_segment_field_handling() {
 #[test]
 fn test_realistic_name() {
     let mut values = HashMap::new();
-    values.insert("PID.5".to_string(), vec![ValueSource::RealisticName { gender: Some("M".to_string()) }]);
-    
+    values.insert(
+        "PID.5".to_string(),
+        vec![ValueSource::RealisticName {
+            gender: Some("M".to_string()),
+        }],
+    );
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -611,7 +615,7 @@ fn test_realistic_name() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 10).unwrap();
     assert_eq!(messages.len(), 10);
 }
@@ -620,7 +624,7 @@ fn test_realistic_name() {
 fn test_realistic_address() {
     let mut values = HashMap::new();
     values.insert("PID.11".to_string(), vec![ValueSource::RealisticAddress]);
-    
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -630,7 +634,7 @@ fn test_realistic_address() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 10).unwrap();
     assert_eq!(messages.len(), 10);
 }
@@ -639,7 +643,7 @@ fn test_realistic_address() {
 fn test_realistic_phone() {
     let mut values = HashMap::new();
     values.insert("PID.13".to_string(), vec![ValueSource::RealisticPhone]);
-    
+
     let template = Template {
         name: "test".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -649,7 +653,7 @@ fn test_realistic_phone() {
         ],
         values,
     };
-    
+
     let messages = generate(&template, 42, 10).unwrap();
     assert_eq!(messages.len(), 10);
 }

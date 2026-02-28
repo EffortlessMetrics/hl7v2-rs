@@ -5,11 +5,11 @@
 //! - gRPC server (optional, behind feature flag)
 //! - Graceful shutdown via Ctrl+C
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 use hl7v2_server::Server;
 
@@ -43,7 +43,7 @@ pub async fn run_server(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let server_mode = ServerMode::from(*mode);
     let bind_address = format!("{}:{}", host, port);
-    
+
     match server_mode {
         ServerMode::Http => run_http_server(&bind_address, max_body_size).await,
         ServerMode::Grpc => run_grpc_server(&bind_address).await,
@@ -51,18 +51,21 @@ pub async fn run_server(
 }
 
 /// Run the HTTP REST API server.
-async fn run_http_server(bind_address: &str, max_body_size: usize) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_http_server(
+    bind_address: &str,
+    max_body_size: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting HL7 v2 HTTP server on {}", bind_address);
-    
+
     // Create shutdown signal
     let shutdown = setup_shutdown_signal();
-    
+
     // Build server configuration
     let server = Server::builder()
         .bind(bind_address)
         .max_body_size(max_body_size)
         .build();
-    
+
     info!("Server configuration:");
     info!("  Bind address: {}", bind_address);
     info!("  Max body size: {} bytes", max_body_size);
@@ -74,7 +77,7 @@ async fn run_http_server(bind_address: &str, max_body_size: usize) -> Result<(),
     info!("    POST /hl7/validate - Validate HL7 message");
     info!("");
     info!("Press Ctrl+C to shutdown gracefully");
-    
+
     // Run server with shutdown signal
     tokio::select! {
         result = server.serve() => {
@@ -90,7 +93,7 @@ async fn run_http_server(bind_address: &str, max_body_size: usize) -> Result<(),
             info!("Shutdown signal received, stopping server...");
         }
     }
-    
+
     info!("Server stopped");
     Ok(())
 }
@@ -99,10 +102,10 @@ async fn run_http_server(bind_address: &str, max_body_size: usize) -> Result<(),
 async fn run_grpc_server(bind_address: &str) -> Result<(), Box<dyn std::error::Error>> {
     warn!("gRPC server mode is not yet implemented");
     info!("gRPC server would bind to: {}", bind_address);
-    
+
     // TODO: Implement gRPC server when tonic integration is ready
     // This would use the hl7v2-server crate's gRPC functionality
-    
+
     Err("gRPC server mode is not yet implemented. Use --mode http for now.".into())
 }
 
@@ -110,7 +113,7 @@ async fn run_grpc_server(bind_address: &str) -> Result<(), Box<dyn std::error::E
 fn setup_shutdown_signal() -> impl std::future::Future<Output = ()> {
     let shutdown = Arc::new(AtomicBool::new(false));
     let shutdown_clone = shutdown.clone();
-    
+
     // Set up Ctrl+C handler
     tokio::spawn(async move {
         match tokio::signal::ctrl_c().await {
@@ -123,7 +126,7 @@ fn setup_shutdown_signal() -> impl std::future::Future<Output = ()> {
             }
         }
     });
-    
+
     // Return future that completes when shutdown is triggered
     async move {
         while !shutdown.load(Ordering::SeqCst) {
@@ -154,6 +157,11 @@ mod tests {
     async fn test_grpc_not_implemented() {
         let result = run_grpc_server("127.0.0.1:50051").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not yet implemented"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not yet implemented")
+        );
     }
 }

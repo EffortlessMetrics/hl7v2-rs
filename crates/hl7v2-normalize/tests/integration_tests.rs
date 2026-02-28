@@ -16,7 +16,7 @@ fn normalize_real_adt_a01() {
 
     let normalized = normalize(hl7, false).unwrap();
     let normalized_str = String::from_utf8(normalized).unwrap();
-    
+
     // Check all segments are present
     assert!(normalized_str.contains("MSH|"));
     assert!(normalized_str.contains("EVN|"));
@@ -34,7 +34,7 @@ fn normalize_real_oru_r01() {
 
     let normalized = normalize(hl7, false).unwrap();
     let normalized_str = String::from_utf8(normalized).unwrap();
-    
+
     assert!(normalized_str.contains("ORU^R01"));
     assert!(normalized_str.contains("HEMOGLOBIN"));
     assert!(normalized_str.contains("13.2"));
@@ -47,12 +47,12 @@ fn normalize_real_oru_r01() {
 #[test]
 fn normalize_and_reparse() {
     let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
-    
+
     let normalized = normalize(hl7, false).unwrap();
-    
+
     // Parse the normalized message
     let parsed = hl7v2_parser::parse(&normalized).unwrap();
-    
+
     assert_eq!(parsed.segments.len(), 2);
     assert_eq!(&parsed.segments[0].id, b"MSH");
     assert_eq!(&parsed.segments[1].id, b"PID");
@@ -61,13 +61,13 @@ fn normalize_and_reparse() {
 #[test]
 fn normalize_and_write() {
     let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
-    
+
     let normalized = normalize(hl7, false).unwrap();
-    
+
     // Parse and write again
     let parsed = hl7v2_parser::parse(&normalized).unwrap();
     let rewritten = hl7v2_writer::write(&parsed);
-    
+
     // Should be equivalent
     assert_eq!(normalized, rewritten);
 }
@@ -80,10 +80,10 @@ fn normalize_and_write() {
 fn normalize_to_canonical_form() {
     // Message with custom delimiters
     let hl7 = b"MSH*%$!?*SendingApp*SendingFac*ReceivingApp*ReceivingFac*20250128152312**ADT%A01*ABC123*P*2.5.1\rPID*1**123456%%%HOSP%MR**Doe%John\r";
-    
+
     let canonical = normalize(hl7, true).unwrap();
     let canonical_str = String::from_utf8(canonical).unwrap();
-    
+
     // Should use standard delimiters
     assert!(canonical_str.starts_with("MSH|^~\\&|"));
     assert!(canonical_str.contains("PID|1||123456^^^HOSP^MR||Doe^John"));
@@ -92,10 +92,10 @@ fn normalize_to_canonical_form() {
 #[test]
 fn canonical_form_is_idempotent() {
     let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
-    
+
     let canonical1 = normalize(hl7, true).unwrap();
     let canonical2 = normalize(&canonical1, true).unwrap();
-    
+
     // Applying canonical normalization twice should give same result
     assert_eq!(canonical1, canonical2);
 }
@@ -111,7 +111,7 @@ fn normalize_complex_nested_data() {
 
     let normalized = normalize(hl7, false).unwrap();
     let normalized_str = String::from_utf8(normalized).unwrap();
-    
+
     // Complex field should be preserved
     assert!(normalized_str.contains("Doe^John^Robert^Jr^Dr.^^L"));
     assert!(normalized_str.contains("HOSP&MR"));
@@ -124,7 +124,7 @@ fn normalize_message_with_many_repetitions() {
 
     let normalized = normalize(hl7, false).unwrap();
     let normalized_str = String::from_utf8(normalized).unwrap();
-    
+
     // All repetitions should be preserved
     assert!(normalized_str.contains("12345~23456~34567~45678~56789"));
 }
@@ -136,7 +136,7 @@ fn normalize_message_with_many_repetitions() {
 #[test]
 fn normalize_valid_after_invalid() {
     let valid = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\r";
-    
+
     // Should successfully normalize valid message
     let normalized = normalize(valid, false).unwrap();
     assert!(!normalized.is_empty());
@@ -149,16 +149,16 @@ fn normalize_valid_after_invalid() {
 #[test]
 fn normalize_large_message() {
     let mut hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\r".to_vec();
-    
+
     // Add many segments
     for i in 0..1000 {
         let segment = format!("OBX|{}|NM|TEST^Test||{}|units|||||F\r", i, i * 10);
         hl7.extend_from_slice(segment.as_bytes());
     }
-    
+
     let normalized = normalize(&hl7, false).unwrap();
     let normalized_str = String::from_utf8(normalized).unwrap();
-    
+
     // All segments should be present
     assert_eq!(normalized_str.matches("OBX|").count(), 1000);
 }
@@ -171,10 +171,10 @@ fn normalize_large_message() {
 fn normalize_minimum_valid_message() {
     // Minimum valid HL7 message (MSH segment only)
     let hl7 = b"MSH|^~\\&|||||||||2.5.1\r";
-    
+
     let normalized = normalize(hl7, false).unwrap();
     let normalized_str = String::from_utf8(normalized).unwrap();
-    
+
     assert!(normalized_str.starts_with("MSH|"));
 }
 
@@ -182,11 +182,9 @@ fn normalize_minimum_valid_message() {
 fn normalize_message_with_max_fields() {
     // Message with many fields
     let mut fields = vec!["MSH|^~\\&"];
-    for _ in 0..100 {
-        fields.push("field_value");
-    }
+    fields.extend(std::iter::repeat("field_value").take(100));
     let hl7 = format!("{}|\r", fields.join("|"));
-    
+
     let normalized = normalize(hl7.as_bytes(), false).unwrap();
     assert!(!normalized.is_empty());
 }
@@ -202,16 +200,24 @@ fn normalize_preserves_escape_sequences() {
 
     let normalized = normalize(hl7, false).unwrap();
     let normalized_str = String::from_utf8(normalized).unwrap();
-    
+
     // Known escape sequences like \F\ (field separator) round-trip correctly:
     // - Parser interprets \F\ as | (field separator)
     // - Writer re-escapes | back to \F\
-    assert!(normalized_str.contains("O\\F\\Brien"), "Expected \\F\\ escape sequence to round-trip, got: {}", normalized_str);
-    
+    assert!(
+        normalized_str.contains("O\\F\\Brien"),
+        "Expected \\F\\ escape sequence to round-trip, got: {}",
+        normalized_str
+    );
+
     // Unknown escape sequences like \H and \N have their backslashes escaped:
     // - Parser passes through unknown escape sequences
     // - Writer's escape_text() escapes the \ character to \E\
-    assert!(normalized_str.contains("\\E\\Hhighlight\\E\\N"), "Expected escaped highlight sequence, got: {}", normalized_str);
+    assert!(
+        normalized_str.contains("\\E\\Hhighlight\\E\\N"),
+        "Expected escaped highlight sequence, got: {}",
+        normalized_str
+    );
 }
 
 // =============================================================================
@@ -222,9 +228,9 @@ fn normalize_preserves_escape_sequences() {
 fn normalize_converts_line_endings_to_cr() {
     // Message with LF line endings (non-standard but common)
     let hl7 = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\nPID|1||12345||Doe^John\n";
-    
+
     let normalized = normalize(hl7.as_bytes(), false);
-    
+
     // Should fail or handle gracefully - non-CR line endings are non-standard
     // The parser may or may not accept this
     match normalized {
@@ -246,16 +252,16 @@ fn normalize_converts_line_endings_to_cr() {
 #[test]
 fn normalize_various_hl7_versions() {
     let versions = ["2.3", "2.3.1", "2.4", "2.5", "2.5.1", "2.6", "2.7", "2.8"];
-    
+
     for version in versions {
         let hl7 = format!(
             "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|{}\r",
             version
         );
-        
+
         let normalized = normalize(hl7.as_bytes(), false).unwrap();
         let normalized_str = String::from_utf8(normalized).unwrap();
-        
+
         assert!(
             normalized_str.contains(version),
             "Version {} not preserved",

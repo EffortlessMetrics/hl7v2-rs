@@ -12,14 +12,14 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use tower::ServiceExt;
 use serde_json::json;
+use tower::ServiceExt;
 
 use super::common::init_tracing;
 
 // Import server components
 use hl7v2_server::routes::build_router;
-use hl7v2_server::server::{Server, ServerConfig, AppState};
+use hl7v2_server::server::{AppState, Server, ServerConfig};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -45,7 +45,8 @@ fn sample_adt_a01() -> String {
         "EVN|A01|20250128152312|||\r",
         "PID|1||123456^^^HOSP^MR||Doe^John^A||19800101|M|||C|\r",
         "PV1|1|I|ICU^101^01||||DOC123^Smith^Jane||||||||V123456\r"
-    ).to_string()
+    )
+    .to_string()
 }
 
 /// Sample ADT^A04 message
@@ -54,7 +55,8 @@ fn sample_adt_a04() -> String {
         "MSH|^~\\&|RegSys|Hospital|ADT|Hospital|",
         "20250128140000||ADT^A04|MSG002|P|2.5\r",
         "PID|1||MRN456^^^Hospital^MR||Smith^Jane^M||19900215|F\r"
-    ).to_string()
+    )
+    .to_string()
 }
 
 /// Sample ORU^R01 message
@@ -65,7 +67,8 @@ fn sample_oru_r01() -> String {
         "PID|1||MRN789^^^Lab^MR||Patient^Test||19850610|M\r",
         "OBR|1|ORD123|FIL456|CBC^Complete Blood Count|||20250128120000\r",
         "OBX|1|NM|WBC^White Blood Count||7.5|10^9/L|4.0-11.0|N|||F\r"
-    ).to_string()
+    )
+    .to_string()
 }
 
 // =========================================================================
@@ -82,7 +85,12 @@ mod health_endpoint {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -96,7 +104,12 @@ mod health_endpoint {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -118,7 +131,12 @@ mod health_endpoint {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -136,7 +154,12 @@ mod health_endpoint {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -153,7 +176,12 @@ mod health_endpoint {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -178,7 +206,12 @@ mod ready_endpoint {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/ready").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -192,7 +225,12 @@ mod ready_endpoint {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/ready").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/ready")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -240,14 +278,23 @@ mod parse_endpoint {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
-        let body: serde_json::Value = serde_json::from_slice(&body).expect("Response should be valid JSON");
+        let body: serde_json::Value =
+            serde_json::from_slice(&body).expect("Response should be valid JSON");
 
         // Verify response contains metadata with correct message type
-        assert!(body.get("metadata").is_some(), "Response should contain metadata");
-        let message_type = body["metadata"]["message_type"].as_str()
+        assert!(
+            body.get("metadata").is_some(),
+            "Response should contain metadata"
+        );
+        let message_type = body["metadata"]["message_type"]
+            .as_str()
             .expect("metadata should have message_type");
         // Message type may be just "ADT" or "ADT^A01" depending on how the parser extracts it
-        assert!(message_type.contains("ADT"), "Message type should contain ADT, got: {}", message_type);
+        assert!(
+            message_type.contains("ADT"),
+            "Message type should contain ADT, got: {}",
+            message_type
+        );
     }
 
     #[tokio::test]
@@ -279,12 +326,18 @@ mod parse_endpoint {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
-        let body: serde_json::Value = serde_json::from_slice(&body).expect("Response should be valid JSON");
+        let body: serde_json::Value =
+            serde_json::from_slice(&body).expect("Response should be valid JSON");
 
-        let message_type = body["metadata"]["message_type"].as_str()
+        let message_type = body["metadata"]["message_type"]
+            .as_str()
             .expect("metadata should have message_type");
         // Message type may be just "ADT" or "ADT^A04" depending on how the parser extracts it
-        assert!(message_type.contains("ADT"), "Message type should contain ADT, got: {}", message_type);
+        assert!(
+            message_type.contains("ADT"),
+            "Message type should contain ADT, got: {}",
+            message_type
+        );
     }
 
     #[tokio::test]
@@ -316,12 +369,18 @@ mod parse_endpoint {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
-        let body: serde_json::Value = serde_json::from_slice(&body).expect("Response should be valid JSON");
+        let body: serde_json::Value =
+            serde_json::from_slice(&body).expect("Response should be valid JSON");
 
-        let message_type = body["metadata"]["message_type"].as_str()
+        let message_type = body["metadata"]["message_type"]
+            .as_str()
             .expect("metadata should have message_type");
         // Message type may be just "ORU" or "ORU^R01" depending on how the parser extracts it
-        assert!(message_type.contains("ORU"), "Message type should contain ORU, got: {}", message_type);
+        assert!(
+            message_type.contains("ORU"),
+            "Message type should contain ORU, got: {}",
+            message_type
+        );
     }
 
     #[tokio::test]
@@ -548,7 +607,12 @@ mod metrics_endpoint {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/metrics")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -564,11 +628,21 @@ mod metrics_endpoint {
         // Make a request first to generate some metrics
         let router = create_test_router();
         let _ = router
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await;
 
         let response = app
-            .oneshot(Request::builder().uri("/metrics").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/metrics")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -595,7 +669,12 @@ mod error_handling {
         let app = create_test_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/unknown/path").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/unknown/path")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -610,7 +689,12 @@ mod error_handling {
 
         // Try GET on a POST-only endpoint
         let response = app
-            .oneshot(Request::builder().uri("/hl7/parse").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/hl7/parse")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -696,9 +780,7 @@ mod server_integration {
         let server = Server::new(config);
 
         // Spawn server task
-        let server_task = tokio::spawn(async move {
-            server.serve().await
-        });
+        let server_task = tokio::spawn(async move { server.serve().await });
 
         // Give server time to start
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -742,17 +824,16 @@ mod concurrent_requests {
                     "mllp_framed": false
                 });
 
-                app
-                    .oneshot(
-                        Request::builder()
-                            .uri("/hl7/parse")
-                            .method("POST")
-                            .header("Content-Type", "application/json")
-                            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                            .unwrap(),
-                    )
-                    .await
-                    .unwrap()
+                app.oneshot(
+                    Request::builder()
+                        .uri("/hl7/parse")
+                        .method("POST")
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap()
             });
             handles.push(handle);
         }
@@ -776,10 +857,14 @@ mod concurrent_requests {
         for _ in 0..20 {
             let handle = tokio::spawn(async move {
                 let app = create_test_router();
-                app
-                    .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
-                    .await
-                    .unwrap()
+                app.oneshot(
+                    Request::builder()
+                        .uri("/health")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap()
             });
             handles.push(handle);
         }

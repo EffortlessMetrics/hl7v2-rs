@@ -94,14 +94,16 @@ impl ValueSource {
         match self {
             Self::Fixed(value) => FakerValue::Fixed(value.clone()),
             Self::From(options) => FakerValue::From(options.clone()),
-            Self::Numeric { digits } => FakerValue::Numeric {
-                digits: *digits,
-            },
+            Self::Numeric { digits } => FakerValue::Numeric { digits: *digits },
             Self::Date { start, end } => FakerValue::Date {
                 start: start.clone(),
                 end: end.clone(),
             },
-            Self::Gaussian { mean, sd, precision } => FakerValue::Gaussian {
+            Self::Gaussian {
+                mean,
+                sd,
+                precision,
+            } => FakerValue::Gaussian {
                 mean: *mean,
                 sd: *sd,
                 precision: *precision,
@@ -129,10 +131,7 @@ impl ValueSource {
 }
 
 /// Generate a concrete string value for a configured value source.
-pub fn generate_value<R: Rng>(
-    value_source: &ValueSource,
-    rng: &mut R,
-) -> Result<String, Error> {
+pub fn generate_value<R: Rng>(value_source: &ValueSource, rng: &mut R) -> Result<String, Error> {
     match value_source {
         ValueSource::Fixed(value) => Ok(value.clone()),
         ValueSource::From(options) => {
@@ -183,9 +182,7 @@ pub fn generate_value<R: Rng>(
         ValueSource::RealisticAddress => {
             generate_value_from_faker(FakerValue::RealisticAddress, rng)
         }
-        ValueSource::RealisticPhone => {
-            generate_value_from_faker(FakerValue::RealisticPhone, rng)
-        }
+        ValueSource::RealisticPhone => generate_value_from_faker(FakerValue::RealisticPhone, rng),
         ValueSource::RealisticSsn => generate_value_from_faker(FakerValue::RealisticSsn, rng),
         ValueSource::RealisticMrn => generate_value_from_faker(FakerValue::RealisticMrn, rng),
         ValueSource::RealisticIcd10 => generate_value_from_faker(FakerValue::RealisticIcd10, rng),
@@ -202,9 +199,7 @@ pub fn generate_value<R: Rng>(
         ValueSource::RealisticEthnicity => {
             generate_value_from_faker(FakerValue::RealisticEthnicity, rng)
         }
-        ValueSource::RealisticRace => {
-            generate_value_from_faker(FakerValue::RealisticRace, rng)
-        }
+        ValueSource::RealisticRace => generate_value_from_faker(FakerValue::RealisticRace, rng),
         ValueSource::InvalidSegmentId => Err(Error::InvalidSegmentId),
         ValueSource::InvalidFieldFormat => Err(Error::InvalidFieldFormat {
             details: "Injected invalid field format".to_string(),
@@ -236,9 +231,9 @@ fn generate_value_from_faker<R: Rng>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::rngs::StdRng;
-    use rand::SeedableRng;
     use proptest::prelude::*;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     #[test]
     fn test_fixed_value() {

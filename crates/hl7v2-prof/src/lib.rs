@@ -37,20 +37,70 @@
 
 // Re-export validation types for backward compatibility
 pub use hl7v2_validation::{
-    compare_timestamps_for_before, get_nonempty, is_coded_value, is_date, is_email, is_extended_id,
-    is_formatted_text, is_hierarchic_designator, is_identifier, is_numeric, is_person_name,
-    is_phone_number, is_sequence_id, is_ssn, is_string, is_text_data, is_time, is_timestamp,
-    is_valid_age_range, is_valid_birth_date, is_within_range, matches_complex_pattern,
-    matches_format, parse_datetime, parse_hl7_ts, parse_hl7_ts_with_precision,
-    truncate_to_precision, validate_checksum, validate_data_type, validate_luhn_checksum,
-    validate_mathematical_relationship, validate_mod10_checksum, check_rule_condition,
     Issue, ParsedTimestamp, RuleAction, RuleCondition, Severity, TimestampPrecision,
-    ValidationResult, Validator,
+    ValidationResult, Validator, check_rule_condition, compare_timestamps_for_before, get_nonempty,
+    is_coded_value, is_date, is_email, is_extended_id, is_formatted_text, is_hierarchic_designator,
+    is_identifier, is_numeric, is_person_name, is_phone_number, is_sequence_id, is_ssn, is_string,
+    is_text_data, is_time, is_timestamp, is_valid_age_range, is_valid_birth_date, is_within_range,
+    matches_complex_pattern, matches_format, parse_datetime, parse_hl7_ts,
+    parse_hl7_ts_with_precision, truncate_to_precision, validate_checksum, validate_data_type,
+    validate_luhn_checksum, validate_mathematical_relationship, validate_mod10_checksum,
 };
 
 use hl7v2_core::{Error, Message};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+
+/// Profile loading error types.
+///
+/// These errors provide detailed information about profile loading failures,
+/// making it easier to diagnose configuration and parsing issues.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum ProfileLoadError {
+    /// YAML syntax error during parsing.
+    #[error("YAML parse error: {0}")]
+    YamlParse(String),
+
+    /// Required field is missing from the profile.
+    #[error("Missing required field: {field}")]
+    MissingField {
+        /// The name of the missing field.
+        field: String,
+    },
+
+    /// Invalid field value in the profile.
+    #[error("Invalid value for field '{field}': {details}")]
+    InvalidValue {
+        /// The name of the field with an invalid value.
+        field: String,
+        /// Details about why the value is invalid.
+        details: String,
+    },
+
+    /// IO error during profile file reading.
+    #[error("IO error: {0}")]
+    Io(String),
+
+    /// Profile inheritance cycle detected.
+    #[error("Profile inheritance cycle detected: {0}")]
+    InheritanceCycle(String),
+
+    /// Parent profile not found.
+    #[error("Parent profile not found: {0}")]
+    ParentNotFound(String),
+}
+
+impl From<serde_yaml::Error> for ProfileLoadError {
+    fn from(err: serde_yaml::Error) -> Self {
+        ProfileLoadError::YamlParse(err.to_string())
+    }
+}
+
+impl From<std::io::Error> for ProfileLoadError {
+    fn from(err: std::io::Error) -> Self {
+        ProfileLoadError::Io(err.to_string())
+    }
+}
 
 /// A conformance profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -260,6 +310,112 @@ pub fn load_profile(yaml: &str) -> Result<Profile, Error> {
     serde_yaml::from_str(yaml).map_err(|_e| Error::InvalidEscapeToken) // TODO: Better error mapping
 }
 
+/// Load profile from YAML with specific error types.
+///
+/// This is the preferred function for loading profiles as it provides
+/// detailed error information specific to profile loading issues.
+///
+/// # Arguments
+///
+/// * `yaml` - The YAML string containing the profile definition
+///
+/// # Returns
+///
+/// The parsed Profile, or a ProfileLoadError if parsing fails
+///
+/// # Example
+///
+/// ```ignore
+/// use hl7v2_prof::{load_profile_checked, ProfileLoadError};
+///
+/// let yaml = r#"
+/// message_structure: ADT_A01
+/// version: "2.5.1"
+/// segments:
+///   - id: MSH
+/// "#;
+///
+/// let profile = load_profile_checked(yaml)?;
+/// assert_eq!(profile.message_structure, "ADT_A01");
+/// ```
+pub fn load_profile_checked(yaml: &str) -> Result<Profile, ProfileLoadError> {
+    serde_yaml::from_str(yaml).map_err(ProfileLoadError::from)
+}
+
+/// Load profile from a file path with specific error types.
+///
+/// # Arguments
+///
+/// * `path` - The path to the YAML file containing the profile definition
+///
+/// # Returns
+///
+/// The parsed Profile, or a ProfileLoadError if loading or parsing fails
+///
+/// # Example
+///
+/// ```ignore
+/// use hl7v2_prof::load_profile_from_file;
+///
+/// let profile = load_profile_from_file("profiles/adt_a01.yaml")?;
+/// ```
+pub async fn load_profile_from_file(path: &str) -> Result<Profile, ProfileLoadError> {
+    let content = tokio::fs::read_to_string(path).await?;
+    load_profile_checked(&content)
+}
+
+/// Load profile with inheritance resolution using specific error types.
+///
+/// This function loads a profile and recursively resolves any parent profiles,
+/// merging their constraints and rules into a single profile.
+///
+/// # Arguments
+///
+/// * `yaml` - The YAML string for the profile
+/// * `profile_loader` - A function that can load a parent profile by name
+///
+/// # Returns
+///
+/// A fully resolved profile with all inherited constraints merged
+pub fn load_profile_with_inheritance_checked<F>(
+    yaml: &str,
+    profile_loader: F,
+) -> Result<Profile, ProfileLoadError>
+where
+    F: Fn(&str) -> Result<Profile, ProfileLoadError>,
+{
+    let profile = load_profile_checked(yaml)?;
+
+    // If there's a parent, recursively load and merge it
+    if let Some(parent_name) = &profile.parent {
+        let parent_profile =
+            load_profile_with_inheritance_recursive_checked(parent_name, &profile_loader)?;
+        return Ok(merge_profiles(parent_profile, profile));
+    }
+
+    Ok(profile)
+}
+
+/// Recursively load parent profiles with specific error types
+fn load_profile_with_inheritance_recursive_checked<F>(
+    parent_name: &str,
+    profile_loader: &F,
+) -> Result<Profile, ProfileLoadError>
+where
+    F: Fn(&str) -> Result<Profile, ProfileLoadError>,
+{
+    let parent_profile = profile_loader(parent_name)?;
+
+    // If the parent also has a parent, recursively load and merge it
+    if let Some(grandparent_name) = &parent_profile.parent {
+        let grandparent_profile =
+            load_profile_with_inheritance_recursive_checked(grandparent_name, profile_loader)?;
+        return Ok(merge_profiles(grandparent_profile, parent_profile));
+    }
+
+    Ok(parent_profile)
+}
+
 /// Load profile with inheritance resolution
 ///
 /// This function loads a profile and recursively resolves any parent profiles,
@@ -332,8 +488,16 @@ fn merge_profiles(parent: Profile, child: Profile) -> Profile {
         contextual_rules: merge_contextual_rules(parent.contextual_rules, child.contextual_rules),
         custom_rules: merge_custom_rules(parent.custom_rules, child.custom_rules),
         hl7_tables: merge_hl7_tables(parent.hl7_tables, child.hl7_tables),
-        table_precedence: if child.table_precedence.is_empty() { parent.table_precedence } else { child.table_precedence },
-        expression_guardrails: if child.expression_guardrails == ExpressionGuardrails::default() { parent.expression_guardrails } else { child.expression_guardrails },
+        table_precedence: if child.table_precedence.is_empty() {
+            parent.table_precedence
+        } else {
+            child.table_precedence
+        },
+        expression_guardrails: if child.expression_guardrails == ExpressionGuardrails::default() {
+            parent.expression_guardrails
+        } else {
+            child.expression_guardrails
+        },
     }
 }
 
@@ -719,7 +883,11 @@ fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue
 }
 
 /// Validate that a field value matches the expected data type
-fn validate_data_type_constraint(msg: &Message, datatype: &DataTypeConstraint, issues: &mut Vec<Issue>) {
+fn validate_data_type_constraint(
+    msg: &Message,
+    datatype: &DataTypeConstraint,
+    issues: &mut Vec<Issue>,
+) {
     if let Some(value) = hl7v2_core::get(msg, &datatype.path) {
         if !validate_data_type(value, &datatype.r#type) {
             issues.push(Issue::error(
@@ -829,11 +997,12 @@ fn validate_advanced_data_type(
 /// Validate HL7 tables with precedence support
 fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
     // Create a mapping of value set names to HL7 tables
-    let mut table_map: std::collections::HashMap<&str, &HL7Table> = std::collections::HashMap::new();
+    let mut table_map: std::collections::HashMap<&str, &HL7Table> =
+        std::collections::HashMap::new();
     for table in &profile.hl7_tables {
         table_map.insert(&table.id, table);
     }
-    
+
     // Validate value sets with table precedence
     for valueset in &profile.valuesets {
         if let Some(table_id) = table_map.get(valueset.name.as_str()) {
@@ -890,7 +1059,7 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead
     // when table precedence is important
-    
+
     // Check value sets that reference this table by name
     for valueset in &profile.valuesets {
         if valueset.name == table.id {

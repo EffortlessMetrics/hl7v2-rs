@@ -127,18 +127,11 @@ pub async fn metrics_handler(
 /// This can be added as a layer to automatically record all requests.
 pub mod middleware {
     use super::*;
-    use axum::{
-        extract::Request,
-        middleware::Next,
-        response::Response,
-    };
+    use axum::{extract::Request, middleware::Next, response::Response};
     use std::time::Instant;
 
     /// Metrics middleware that records request metrics
-    pub async fn metrics_middleware(
-        request: Request,
-        next: Next,
-    ) -> Response {
+    pub async fn metrics_middleware(request: Request, next: Next) -> Response {
         let start = Instant::now();
         let path = request.uri().path().to_string();
 

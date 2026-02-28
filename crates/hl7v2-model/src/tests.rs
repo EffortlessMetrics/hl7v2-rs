@@ -20,22 +20,22 @@ mod error_tests {
     fn test_error_display() {
         let err = Error::InvalidSegmentId;
         assert!(err.to_string().contains("Invalid segment ID"));
-        
+
         let err = Error::BadDelimLength;
         assert!(err.to_string().contains("Bad delimiter length"));
-        
+
         let err = Error::DuplicateDelims;
         assert!(err.to_string().contains("Duplicate delimiters"));
-        
+
         let err = Error::UnbalancedEscape;
         assert!(err.to_string().contains("Unbalanced escape"));
-        
+
         let err = Error::InvalidEscapeToken;
         assert!(err.to_string().contains("Invalid escape token"));
-        
+
         let err = Error::InvalidProcessingId;
         assert!(err.to_string().contains("Invalid processing ID"));
-        
+
         let err = Error::InvalidFieldFormat {
             details: "test details".to_string(),
         };
@@ -55,7 +55,7 @@ mod error_tests {
         let err1 = Error::InvalidSegmentId;
         let err2 = Error::InvalidSegmentId;
         let err3 = Error::BadDelimLength;
-        
+
         assert_eq!(err1, err2);
         assert_ne!(err1, err3);
     }
@@ -72,7 +72,7 @@ mod delims_tests {
     #[test]
     fn test_default_delims() {
         let delims = Delims::default();
-        
+
         assert_eq!(delims.field, '|');
         assert_eq!(delims.comp, '^');
         assert_eq!(delims.rep, '~');
@@ -83,7 +83,7 @@ mod delims_tests {
     #[test]
     fn test_new_delims() {
         let delims = Delims::new();
-        
+
         assert_eq!(delims.field, '|');
         assert_eq!(delims.comp, '^');
         assert_eq!(delims.rep, '~');
@@ -100,7 +100,7 @@ mod delims_tests {
             esc: '\\',
             sub: '#',
         };
-        
+
         assert_eq!(delims.field, '*');
         assert_eq!(delims.comp, ':');
         assert_eq!(delims.rep, '+');
@@ -113,7 +113,7 @@ mod delims_tests {
         // MSH|^~\&|...
         let msh = "MSH|^~\\&|SendingApp|ReceivingApp|...";
         let delims = Delims::parse_from_msh(msh).unwrap();
-        
+
         assert_eq!(delims.field, '|');
         assert_eq!(delims.comp, '^');
         assert_eq!(delims.rep, '~');
@@ -126,7 +126,7 @@ mod delims_tests {
         // MSH*:+\&|...
         let msh = "MSH*:+\\&|SendingApp|ReceivingApp|...";
         let delims = Delims::parse_from_msh(msh).unwrap();
-        
+
         assert_eq!(delims.field, '*');
         assert_eq!(delims.comp, ':');
         assert_eq!(delims.rep, '+');
@@ -154,7 +154,7 @@ mod message_tests {
     #[test]
     fn test_new_message() {
         let message = Message::new();
-        
+
         assert_eq!(message.delims, Delims::default());
         assert!(message.segments.is_empty());
     }
@@ -162,20 +162,18 @@ mod message_tests {
     #[test]
     fn test_default_message() {
         let message = Message::default();
-        
+
         assert_eq!(message.delims, Delims::default());
         assert!(message.segments.is_empty());
     }
 
     #[test]
     fn test_message_with_segments() {
-        let message = Message::with_segments(vec![
-            Segment {
-                id: *b"MSH",
-                fields: vec![Field::from_text("test")],
-            },
-        ]);
-        
+        let message = Message::with_segments(vec![Segment {
+            id: *b"MSH",
+            fields: vec![Field::from_text("test")],
+        }]);
+
         assert_eq!(message.segments.len(), 1);
     }
 }
@@ -191,7 +189,7 @@ mod segment_tests {
     #[test]
     fn test_new_segment() {
         let segment = Segment::new(b"MSH");
-        
+
         assert_eq!(segment.id, *b"MSH");
         assert!(segment.fields.is_empty());
     }
@@ -200,7 +198,7 @@ mod segment_tests {
     fn test_segment_id_str() {
         let segment = Segment::new(b"MSH");
         assert_eq!(segment.id_str(), "MSH");
-        
+
         let segment = Segment::new(b"PID");
         assert_eq!(segment.id_str(), "PID");
     }
@@ -210,7 +208,7 @@ mod segment_tests {
         let mut segment = Segment::new(b"PID");
         segment.add_field(Field::from_text("1"));
         segment.add_field(Field::from_text("12345"));
-        
+
         assert_eq!(segment.fields.len(), 2);
     }
 }
@@ -226,21 +224,21 @@ mod field_tests {
     #[test]
     fn test_new_field() {
         let field = Field::new();
-        
+
         assert!(field.reps.is_empty());
     }
 
     #[test]
     fn test_default_field() {
         let field = Field::default();
-        
+
         assert!(field.reps.is_empty());
     }
 
     #[test]
     fn test_from_text() {
         let field = Field::from_text("test value");
-        
+
         assert_eq!(field.reps.len(), 1);
     }
 
@@ -260,7 +258,7 @@ mod field_tests {
     fn test_add_rep() {
         let mut field = Field::new();
         field.add_rep(Rep::from_text("test"));
-        
+
         assert_eq!(field.reps.len(), 1);
     }
 }
@@ -276,21 +274,21 @@ mod rep_tests {
     #[test]
     fn test_new_rep() {
         let rep = Rep::new();
-        
+
         assert!(rep.comps.is_empty());
     }
 
     #[test]
     fn test_default_rep() {
         let rep = Rep::default();
-        
+
         assert!(rep.comps.is_empty());
     }
 
     #[test]
     fn test_from_text() {
         let rep = Rep::from_text("test value");
-        
+
         assert_eq!(rep.comps.len(), 1);
     }
 
@@ -298,7 +296,7 @@ mod rep_tests {
     fn test_add_comp() {
         let mut rep = Rep::new();
         rep.add_comp(Comp::from_text("component"));
-        
+
         assert_eq!(rep.comps.len(), 1);
     }
 }
@@ -314,21 +312,21 @@ mod comp_tests {
     #[test]
     fn test_new_comp() {
         let comp = Comp::new();
-        
+
         assert!(comp.subs.is_empty());
     }
 
     #[test]
     fn test_default_comp() {
         let comp = Comp::default();
-        
+
         assert!(comp.subs.is_empty());
     }
 
     #[test]
     fn test_from_text() {
         let comp = Comp::from_text("test value");
-        
+
         assert_eq!(comp.subs.len(), 1);
     }
 
@@ -336,7 +334,7 @@ mod comp_tests {
     fn test_add_sub() {
         let mut comp = Comp::new();
         comp.add_sub(Atom::text("subcomponent"));
-        
+
         assert_eq!(comp.subs.len(), 1);
     }
 }
@@ -352,7 +350,7 @@ mod atom_tests {
     #[test]
     fn test_text_atom() {
         let atom = Atom::text("test");
-        
+
         assert!(matches!(atom, Atom::Text(_)));
         assert_eq!(atom.as_text(), Some("test"));
     }
@@ -360,7 +358,7 @@ mod atom_tests {
     #[test]
     fn test_null_atom() {
         let atom = Atom::null();
-        
+
         assert!(matches!(atom, Atom::Null));
         assert!(atom.is_null());
     }
@@ -369,7 +367,7 @@ mod atom_tests {
     fn test_is_null() {
         let null_atom = Atom::null();
         let text_atom = Atom::text("test");
-        
+
         assert!(null_atom.is_null());
         assert!(!text_atom.is_null());
     }
@@ -378,7 +376,7 @@ mod atom_tests {
     fn test_as_text() {
         let text_atom = Atom::text("test");
         let null_atom = Atom::null();
-        
+
         assert_eq!(text_atom.as_text(), Some("test"));
         assert!(null_atom.as_text().is_none());
     }
@@ -395,7 +393,7 @@ mod batch_tests {
     #[test]
     fn test_default_batch() {
         let batch = Batch::default();
-        
+
         assert!(batch.header.is_none());
         assert!(batch.messages.is_empty());
         assert!(batch.trailer.is_none());
@@ -413,7 +411,7 @@ mod file_batch_tests {
     #[test]
     fn test_default_file_batch() {
         let file_batch = FileBatch::default();
-        
+
         assert!(file_batch.header.is_none());
         assert!(file_batch.batches.is_empty());
         assert!(file_batch.trailer.is_none());

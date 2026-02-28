@@ -151,37 +151,37 @@ mod time_tests {
     #[test]
     fn test_parse_time_fractional_various_lengths() {
         // Single digit fractional
-        let (h, m, s, f) = parse_hl7_tm("120000.1").unwrap();
+        let (_h, _m, _s, f) = parse_hl7_tm("120000.1").unwrap();
         assert_eq!(f, Some(100000));
 
         // Two digit fractional
-        let (h, m, s, f) = parse_hl7_tm("120000.12").unwrap();
+        let (_h, _m, _s, f) = parse_hl7_tm("120000.12").unwrap();
         assert_eq!(f, Some(120000));
 
         // Four digit fractional (padded to 6)
-        let (h, m, s, f) = parse_hl7_tm("120000.1234").unwrap();
+        let (_h, _m, _s, f) = parse_hl7_tm("120000.1234").unwrap();
         assert_eq!(f, Some(123400));
 
         // Six digit fractional
-        let (h, m, s, f) = parse_hl7_tm("120000.123456").unwrap();
+        let (_h, _m, _s, f) = parse_hl7_tm("120000.123456").unwrap();
         assert_eq!(f, Some(123456));
     }
 
     #[test]
     fn test_parse_time_boundary_values() {
         // Midnight
-        let (h, m, s, f) = parse_hl7_tm("0000").unwrap();
+        let (h, m, _s, _f) = parse_hl7_tm("0000").unwrap();
         assert_eq!(h, 0);
         assert_eq!(m, 0);
 
         // Just before midnight
-        let (h, m, s, f) = parse_hl7_tm("235959").unwrap();
+        let (h, m, s, _f) = parse_hl7_tm("235959").unwrap();
         assert_eq!(h, 23);
         assert_eq!(m, 59);
         assert_eq!(s, 59);
 
         // Noon
-        let (h, m, s, f) = parse_hl7_tm("120000").unwrap();
+        let (h, _m, _s, _f) = parse_hl7_tm("120000").unwrap();
         assert_eq!(h, 12);
     }
 
@@ -213,7 +213,7 @@ mod time_tests {
 
     #[test]
     fn test_parse_time_with_whitespace() {
-        let (h, m, s, f) = parse_hl7_tm("  1523  ").unwrap();
+        let (h, m, _s, _f) = parse_hl7_tm("  1523  ").unwrap();
         assert_eq!(h, 15);
         assert_eq!(m, 23);
     }
@@ -442,7 +442,7 @@ mod parsed_timestamp_tests {
         // When compared at minimum precision (day), both truncate to midnight
         // so they ARE equal at the day level
         assert!(ts1.is_equal(&ts2));
-        
+
         // But different days are NOT equal
         let ts3 = parse_hl7_ts_with_precision("20250129").unwrap();
         assert!(!ts1.is_equal(&ts3));
@@ -493,7 +493,10 @@ mod parsed_timestamp_tests {
 
     #[test]
     fn test_new_parsed_timestamp() {
-        let dt = NaiveDate::from_ymd_opt(2025, 1, 28).unwrap().and_hms_opt(15, 23, 12).unwrap();
+        let dt = NaiveDate::from_ymd_opt(2025, 1, 28)
+            .unwrap()
+            .and_hms_opt(15, 23, 12)
+            .unwrap();
         let ts = ParsedTimestamp::new(dt, TimestampPrecision::Second);
         assert_eq!(ts.precision, TimestampPrecision::Second);
         assert_eq!(ts.fractional_seconds, None);
@@ -501,7 +504,10 @@ mod parsed_timestamp_tests {
 
     #[test]
     fn test_with_fractional() {
-        let dt = NaiveDate::from_ymd_opt(2025, 1, 28).unwrap().and_hms_opt(15, 23, 12).unwrap();
+        let dt = NaiveDate::from_ymd_opt(2025, 1, 28)
+            .unwrap()
+            .and_hms_opt(15, 23, 12)
+            .unwrap();
         let ts = ParsedTimestamp::with_fractional(dt, 123456);
         assert_eq!(ts.precision, TimestampPrecision::FractionalSecond);
         assert_eq!(ts.fractional_seconds, Some(123456));

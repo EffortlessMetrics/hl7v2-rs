@@ -16,37 +16,37 @@ use serde::{Deserialize, Serialize};
 pub enum Error {
     #[error("Invalid segment ID")]
     InvalidSegmentId,
-    
+
     #[error("Bad delimiter length")]
     BadDelimLength,
-    
+
     #[error("Duplicate delimiters")]
     DuplicateDelims,
-    
+
     #[error("Unbalanced escape")]
     UnbalancedEscape,
-    
+
     #[error("Invalid escape token")]
     InvalidEscapeToken,
-    
+
     #[error("MSH field malformed")]
     MshFieldMalformed,
-    
+
     #[error("MSH-10 missing")]
     Msh10Missing,
-    
+
     #[error("Invalid processing ID")]
     InvalidProcessingId,
-    
+
     #[error("Unrecognized version")]
     UnrecognizedVersion,
-    
+
     #[error("Invalid charset")]
     InvalidCharset,
-    
+
     #[error("Write failed")]
     WriteFailed,
-    
+
     #[error("Parse error at segment {segment_id} field {field_index}: {source}")]
     ParseError {
         segment_id: String,
@@ -54,41 +54,27 @@ pub enum Error {
         #[source]
         source: Box<Error>,
     },
-    
+
     #[error("Invalid field format: {details}")]
-    InvalidFieldFormat {
-        details: String,
-    },
-    
+    InvalidFieldFormat { details: String },
+
     #[error("Invalid repetition format: {details}")]
-    InvalidRepFormat {
-        details: String,
-    },
-    
+    InvalidRepFormat { details: String },
+
     #[error("Invalid component format: {details}")]
-    InvalidCompFormat {
-        details: String,
-    },
-    
+    InvalidCompFormat { details: String },
+
     #[error("Invalid subcomponent format: {details}")]
-    InvalidSubcompFormat {
-        details: String,
-    },
-    
+    InvalidSubcompFormat { details: String },
+
     #[error("Batch parsing error: {details}")]
-    BatchParseError {
-        details: String,
-    },
-    
+    BatchParseError { details: String },
+
     #[error("Invalid batch header: {details}")]
-    InvalidBatchHeader {
-        details: String,
-    },
-    
+    InvalidBatchHeader { details: String },
+
     #[error("Invalid batch trailer: {details}")]
-    InvalidBatchTrailer {
-        details: String,
-    },
+    InvalidBatchTrailer { details: String },
 }
 
 /// Delimiters used in HL7 v2 messages
@@ -118,19 +104,19 @@ impl Delims {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Parse delimiters from an MSH segment
     pub fn parse_from_msh(msh: &str) -> Result<Self, Error> {
         if msh.len() < 8 {
             return Err(Error::BadDelimLength);
         }
-        
+
         let field_sep = msh.chars().nth(3).ok_or(Error::BadDelimLength)?;
         let comp_char = msh.chars().nth(4).ok_or(Error::BadDelimLength)?;
         let rep_char = msh.chars().nth(5).ok_or(Error::BadDelimLength)?;
         let esc_char = msh.chars().nth(6).ok_or(Error::BadDelimLength)?;
         let sub_char = msh.chars().nth(7).ok_or(Error::BadDelimLength)?;
-        
+
         // Check that all delimiters are distinct
         let delimiters = [field_sep, comp_char, rep_char, esc_char, sub_char];
         for i in 0..delimiters.len() {
@@ -140,7 +126,7 @@ impl Delims {
                 }
             }
         }
-        
+
         Ok(Self {
             field: field_sep,
             comp: comp_char,
@@ -170,7 +156,7 @@ impl Message {
             charsets: Vec::new(),
         }
     }
-    
+
     /// Create a message with the given segments
     pub fn with_segments(segments: Vec<Segment>) -> Self {
         Self {
@@ -218,12 +204,12 @@ impl Segment {
             fields: Vec::new(),
         }
     }
-    
+
     /// Get the segment ID as a string
     pub fn id_str(&self) -> &str {
         std::str::from_utf8(&self.id).unwrap_or("???")
     }
-    
+
     /// Add a field to the segment
     pub fn add_field(&mut self, field: Field) {
         self.fields.push(field);
@@ -241,27 +227,31 @@ impl Field {
     pub fn new() -> Self {
         Self { reps: Vec::new() }
     }
-    
+
     /// Create a field with a single text value
     pub fn from_text(text: impl Into<String>) -> Self {
         Self {
             reps: vec![Rep::from_text(text)],
         }
     }
-    
+
     /// Add a repetition to the field
     pub fn add_rep(&mut self, rep: Rep) {
         self.reps.push(rep);
     }
-    
+
     /// Get the first value as text (convenience method)
     pub fn first_text(&self) -> Option<&str> {
-        self.reps.first()?.comps.first()?.subs.first().and_then(|atom| {
-            match atom {
+        self.reps
+            .first()?
+            .comps
+            .first()?
+            .subs
+            .first()
+            .and_then(|atom| match atom {
                 Atom::Text(t) => Some(t.as_str()),
                 Atom::Null => None,
-            }
-        })
+            })
     }
 }
 
@@ -282,14 +272,14 @@ impl Rep {
     pub fn new() -> Self {
         Self { comps: Vec::new() }
     }
-    
+
     /// Create a repetition with a single text value
     pub fn from_text(text: impl Into<String>) -> Self {
         Self {
             comps: vec![Comp::from_text(text)],
         }
     }
-    
+
     /// Add a component to the repetition
     pub fn add_comp(&mut self, comp: Comp) {
         self.comps.push(comp);
@@ -313,14 +303,14 @@ impl Comp {
     pub fn new() -> Self {
         Self { subs: Vec::new() }
     }
-    
+
     /// Create a component with a single text value
     pub fn from_text(text: impl Into<String>) -> Self {
         Self {
             subs: vec![Atom::Text(text.into())],
         }
     }
-    
+
     /// Add a subcomponent to the component
     pub fn add_sub(&mut self, atom: Atom) {
         self.subs.push(atom);
@@ -345,17 +335,17 @@ impl Atom {
     pub fn text(s: impl Into<String>) -> Self {
         Atom::Text(s.into())
     }
-    
+
     /// Create a null atom
     pub fn null() -> Self {
         Atom::Null
     }
-    
+
     /// Check if this is a null atom
     pub fn is_null(&self) -> bool {
         matches!(self, Atom::Null)
     }
-    
+
     /// Get the text value if this is a text atom
     pub fn as_text(&self) -> Option<&str> {
         match self {
@@ -383,17 +373,17 @@ impl Presence {
     pub fn is_missing(&self) -> bool {
         matches!(self, Presence::Missing)
     }
-    
+
     /// Check if the field is present (may be empty or have a value)
     pub fn is_present(&self) -> bool {
         !self.is_missing()
     }
-    
+
     /// Check if the field has an actual value
     pub fn has_value(&self) -> bool {
         matches!(self, Presence::Value(_))
     }
-    
+
     /// Get the value if present
     pub fn value(&self) -> Option<&str> {
         match self {

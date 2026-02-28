@@ -18,7 +18,6 @@
 //! let malformed = SampleMessages::invalid("malformed").unwrap();
 //! ```
 
-
 /// Sample HL7 messages for testing.
 ///
 /// Provides access to various sample messages organized by category:
@@ -161,7 +160,8 @@ impl SampleMessages {
             ("ADT_A01", Self::adt_a01()),
             ("ADT_A04", Self::adt_a04()),
             ("ORU_R01", Self::oru_r01()),
-        ].into_iter()
+        ]
+        .into_iter()
     }
 
     /// Returns all edge case messages as an iterator.
@@ -181,7 +181,8 @@ impl SampleMessages {
             ("custom_delims", EDGE_CASE_CUSTOM_DELIMS),
             ("with_repetitions", EDGE_CASE_REPETITIONS),
             ("fully_populated", EDGE_CASE_FULLY_POPULATED),
-        ].into_iter()
+        ]
+        .into_iter()
     }
 
     /// Returns all invalid messages as an iterator.
@@ -200,7 +201,8 @@ impl SampleMessages {
             ("no_msh", INVALID_NO_MSH),
             ("bad_encoding", INVALID_BAD_ENCODING),
             ("bad_terminator", INVALID_BAD_TERMINATOR),
-        ].into_iter()
+        ]
+        .into_iter()
     }
 }
 

@@ -58,24 +58,57 @@ impl<'a, R: Rng> Faker<'a, R> {
     pub fn name(&mut self, gender: Option<&str>) -> String {
         let first_names = match gender {
             Some("M") => &[
-                "James", "John", "Robert", "Michael", "William", "David", 
-                "Richard", "Joseph", "Thomas", "Charles"
+                "James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph",
+                "Thomas", "Charles",
             ][..],
             Some("F") => &[
-                "Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", 
-                "Barbara", "Susan", "Jessica", "Sarah", "Karen"
+                "Mary",
+                "Patricia",
+                "Jennifer",
+                "Linda",
+                "Elizabeth",
+                "Barbara",
+                "Susan",
+                "Jessica",
+                "Sarah",
+                "Karen",
             ][..],
             _ => &[
-                "James", "Mary", "John", "Patricia", "Robert", "Jennifer", 
-                "Michael", "Linda", "William", "Elizabeth", "David", "Barbara", 
-                "Richard", "Susan", "Joseph", "Jessica"
+                "James",
+                "Mary",
+                "John",
+                "Patricia",
+                "Robert",
+                "Jennifer",
+                "Michael",
+                "Linda",
+                "William",
+                "Elizabeth",
+                "David",
+                "Barbara",
+                "Richard",
+                "Susan",
+                "Joseph",
+                "Jessica",
             ][..],
         };
 
         let last_names = &[
-            "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", 
-            "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", 
-            "Gonzalez", "Wilson", "Anderson"
+            "Smith",
+            "Johnson",
+            "Williams",
+            "Brown",
+            "Jones",
+            "Garcia",
+            "Miller",
+            "Davis",
+            "Rodriguez",
+            "Martinez",
+            "Hernandez",
+            "Lopez",
+            "Gonzalez",
+            "Wilson",
+            "Anderson",
         ];
 
         let first_name = first_names[self.rng.random_range(0..first_names.len())];
@@ -91,13 +124,29 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// An address string in HL7 format: "STREET^CITY^STATE^ZIP^COUNTRY"
     pub fn address(&mut self) -> String {
         let streets = &[
-            "Main St", "Oak Ave", "Pine Rd", "Elm St", "Maple Dr", 
-            "Cedar Ln", "Birch Way", "Washington St", "Lake St", "Hill St"
+            "Main St",
+            "Oak Ave",
+            "Pine Rd",
+            "Elm St",
+            "Maple Dr",
+            "Cedar Ln",
+            "Birch Way",
+            "Washington St",
+            "Lake St",
+            "Hill St",
         ];
 
         let cities = &[
-            "Anytown", "Springfield", "Riverside", "Fairview", "Centerville",
-            "Georgetown", "Mount Pleasant", "Oakland", "Middletown", "Franklin"
+            "Anytown",
+            "Springfield",
+            "Riverside",
+            "Fairview",
+            "Centerville",
+            "Georgetown",
+            "Mount Pleasant",
+            "Oakland",
+            "Middletown",
+            "Franklin",
         ];
 
         let states = &["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA"];
@@ -108,7 +157,10 @@ impl<'a, R: Rng> Faker<'a, R> {
         let state = states[self.rng.random_range(0..states.len())];
         let zip = format!("{:05}", self.rng.random_range(10000..99999));
 
-        format!("{} {}^^{}^{}^{}^{}", street_number, street, city, state, zip, "USA")
+        format!(
+            "{} {}^^{}^{}^{}^{}",
+            street_number, street, city, state, zip, "USA"
+        )
     }
 
     /// Generate a realistic phone number.
@@ -157,7 +209,7 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// An ICD-10 code in the format "XXX.X"
     pub fn icd10(&mut self) -> String {
         let categories = &[
-            "A00", "B01", "C02", "D03", "E04", "F05", "G06", "H07", "I08", "J09"
+            "A00", "B01", "C02", "D03", "E04", "F05", "G06", "H07", "I08", "J09",
         ];
         let category = categories[self.rng.random_range(0..categories.len())];
         let subcode = self.rng.random_range(0..10);
@@ -181,9 +233,16 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// A common medication name
     pub fn medication(&mut self) -> String {
         let medications = &[
-            "Atorvastatin", "Levothyroxine", "Lisinopril", "Metformin",
-            "Amlodipine", "Metoprolol", "Omeprazole", "Simvastatin",
-            "Losartan", "Albuterol"
+            "Atorvastatin",
+            "Levothyroxine",
+            "Lisinopril",
+            "Metformin",
+            "Amlodipine",
+            "Metoprolol",
+            "Omeprazole",
+            "Simvastatin",
+            "Losartan",
+            "Albuterol",
         ];
         medications[self.rng.random_range(0..medications.len())].to_string()
     }
@@ -195,8 +254,16 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// A common allergen name
     pub fn allergen(&mut self) -> String {
         let allergens = &[
-            "Penicillin", "Latex", "Peanuts", "Shellfish", "Eggs",
-            "Milk", "Tree Nuts", "Soy", "Wheat", "Bee Stings"
+            "Penicillin",
+            "Latex",
+            "Peanuts",
+            "Shellfish",
+            "Eggs",
+            "Milk",
+            "Tree Nuts",
+            "Soy",
+            "Wheat",
+            "Bee Stings",
         ];
         allergens[self.rng.random_range(0..allergens.len())].to_string()
     }
@@ -218,7 +285,9 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// An ethnicity string
     pub fn ethnicity(&mut self) -> String {
         let ethnicities = &[
-            "Hispanic or Latino", "Not Hispanic or Latino", "Declined to Specify"
+            "Hispanic or Latino",
+            "Not Hispanic or Latino",
+            "Declined to Specify",
         ];
         ethnicities[self.rng.random_range(0..ethnicities.len())].to_string()
     }
@@ -230,8 +299,12 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// A race string
     pub fn race(&mut self) -> String {
         let races = &[
-            "American Indian or Alaska Native", "Asian", "Black or African American",
-            "Native Hawaiian or Other Pacific Islander", "White", "Declined to Specify"
+            "American Indian or Alaska Native",
+            "Asian",
+            "Black or African American",
+            "Native Hawaiian or Other Pacific Islander",
+            "White",
+            "Declined to Specify",
         ];
         races[self.rng.random_range(0..races.len())].to_string()
     }
@@ -282,7 +355,12 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// * `mean` - Mean of the distribution
     /// * `sd` - Standard deviation
     /// * `precision` - Number of decimal places
-    pub fn gaussian(&mut self, mean: f64, sd: f64, precision: usize) -> Result<String, GaussianError> {
+    pub fn gaussian(
+        &mut self,
+        mean: f64,
+        sd: f64,
+        precision: usize,
+    ) -> Result<String, GaussianError> {
         let normal = Normal::new(mean, sd).map_err(|_| GaussianError::InvalidParameters)?;
         let value = self.rng.sample(normal);
         Ok(format!("{:.*}", precision, value))
@@ -321,7 +399,10 @@ impl<'a, R: Rng> Faker<'a, R> {
     /// # Arguments
     ///
     /// * `map` - HashMap of key-value pairs
-    pub fn select_from_map(&mut self, map: &std::collections::HashMap<String, String>) -> Option<String> {
+    pub fn select_from_map(
+        &mut self,
+        map: &std::collections::HashMap<String, String>,
+    ) -> Option<String> {
         if map.is_empty() {
             return None;
         }
@@ -341,7 +422,9 @@ pub enum DateError {
 impl std::fmt::Display for DateError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DateError::InvalidDateFormat(s) => write!(f, "Invalid date format: {} (expected YYYYMMDD)", s),
+            DateError::InvalidDateFormat(s) => {
+                write!(f, "Invalid date format: {} (expected YYYYMMDD)", s)
+            }
         }
     }
 }
@@ -381,7 +464,11 @@ pub enum FakerValue {
     /// Date within a range (YYYYMMDD format)
     Date { start: String, end: String },
     /// Gaussian distributed numeric value
-    Gaussian { mean: f64, sd: f64, precision: usize },
+    Gaussian {
+        mean: f64,
+        sd: f64,
+        precision: usize,
+    },
     /// Select from a key-value map
     Map(std::collections::HashMap<String, String>),
     /// UUID v4
@@ -427,28 +514,24 @@ impl FakerValue {
     pub fn generate<R: Rng>(&self, faker: &mut Faker<R>) -> Result<String, GenerateError> {
         match self {
             FakerValue::Fixed(value) => Ok(value.clone()),
-            FakerValue::From(options) => {
-                faker.select_from(options)
-                    .ok_or(GenerateError::EmptyOptions)
-            }
+            FakerValue::From(options) => faker
+                .select_from(options)
+                .ok_or(GenerateError::EmptyOptions),
             FakerValue::Numeric { digits } => Ok(faker.numeric(*digits)),
-            FakerValue::Date { start, end } => {
-                faker.date(start, end)
-                    .map_err(GenerateError::Date)
-            }
-            FakerValue::Gaussian { mean, sd, precision } => {
-                faker.gaussian(*mean, *sd, *precision)
-                    .map_err(GenerateError::Gaussian)
-            }
-            FakerValue::Map(mapping) => {
-                faker.select_from_map(mapping)
-                    .ok_or(GenerateError::EmptyMap)
-            }
+            FakerValue::Date { start, end } => faker.date(start, end).map_err(GenerateError::Date),
+            FakerValue::Gaussian {
+                mean,
+                sd,
+                precision,
+            } => faker
+                .gaussian(*mean, *sd, *precision)
+                .map_err(GenerateError::Gaussian),
+            FakerValue::Map(mapping) => faker
+                .select_from_map(mapping)
+                .ok_or(GenerateError::EmptyMap),
             FakerValue::UuidV4 => Ok(faker.uuid_v4()),
             FakerValue::DtmNowUtc => Ok(faker.dtm_now_utc()),
-            FakerValue::RealisticName { gender } => {
-                Ok(faker.name(gender.as_deref()))
-            }
+            FakerValue::RealisticName { gender } => Ok(faker.name(gender.as_deref())),
             FakerValue::RealisticAddress => Ok(faker.address()),
             FakerValue::RealisticPhone => Ok(faker.phone()),
             FakerValue::RealisticSsn => Ok(faker.ssn()),
@@ -492,8 +575,8 @@ impl std::error::Error for GenerateError {}
 
 // Re-export rand types for convenience
 pub use rand::Rng;
-pub use rand::rngs::StdRng;
 pub use rand::SeedableRng;
+pub use rand::rngs::StdRng;
 
 #[cfg(test)]
 mod tests;

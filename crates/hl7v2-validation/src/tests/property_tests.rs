@@ -7,10 +7,10 @@
 //! - Properties hold across a wide range of inputs
 
 use crate::{
-    is_coded_value, is_date, is_email, is_identifier, is_numeric, is_person_name,
+    Issue, Severity, is_coded_value, is_date, is_email, is_identifier, is_numeric, is_person_name,
     is_phone_number, is_sequence_id, is_ssn, is_time, is_timestamp, is_valid_birth_date,
     is_within_range, validate_checksum, validate_data_type, validate_luhn_checksum,
-    validate_mathematical_relationship, Issue, Severity,
+    validate_mathematical_relationship,
 };
 use proptest::prelude::*;
 
@@ -41,11 +41,13 @@ fn valid_time_strategy() -> impl Strategy<Value = String> {
 
 /// Generate a valid HL7 timestamp (YYYYMMDDHHMMSS)
 fn valid_timestamp_strategy() -> impl Strategy<Value = String> {
-    "[0-9]{4}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[0-2][0-9][0-5][0-9][0-5][0-9]"
-        .prop_filter("Valid timestamp", |s| {
+    "[0-9]{4}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[0-2][0-9][0-5][0-9][0-5][0-9]".prop_filter(
+        "Valid timestamp",
+        |s| {
             let hour: u32 = s[8..10].parse().unwrap_or(24);
             hour <= 23
-        })
+        },
+    )
 }
 
 /// Generate a numeric string
@@ -80,12 +82,7 @@ fn valid_email_strategy() -> impl Strategy<Value = String> {
 
 /// Generate a valid phone number (digits only, 7-15 digits)
 fn valid_phone_strategy() -> impl Strategy<Value = String> {
-    prop_oneof![
-        "[0-9]{7}",
-        "[0-9]{10}",
-        "[0-9]{11}",
-        "[0-9]{15}",
-    ]
+    prop_oneof!["[0-9]{7}", "[0-9]{10}", "[0-9]{11}", "[0-9]{15}",]
 }
 
 /// Generate a valid SSN (9 digits, avoiding invalid patterns)
@@ -93,11 +90,13 @@ fn valid_ssn_strategy() -> impl Strategy<Value = String> {
     // Area: 001-665, 667-899 (not 000, 666, 900-999)
     // Group: 01-99 (not 00)
     // Serial: 0001-9999 (not 0000)
-    ("(00[1-9]|0[1-9][0-9]|[1-5][0-9]{2}|6[0-5][0-9]|66[0-5]|66[7-9]|6[7-9][0-9]|[78][0-9]{2})",
+    (
+        "(00[1-9]|0[1-9][0-9]|[1-5][0-9]{2}|6[0-5][0-9]|66[0-5]|66[7-9]|6[7-9][0-9]|[78][0-9]{2})",
         // Group: 01-99
         "(0[1-9]|[1-9][0-9])",
         // Serial: 0001-9999
-        "(000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})")
+        "(000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})",
+    )
         .prop_map(|(area, group, serial)| format!("{}{}{}", area, group, serial))
 }
 
@@ -105,9 +104,9 @@ fn valid_ssn_strategy() -> impl Strategy<Value = String> {
 fn valid_luhn_strategy() -> impl Strategy<Value = String> {
     // Use known valid Luhn numbers for simplicity
     prop_oneof![
-        Just("4532015112830366".to_string()),  // Valid test card
-        Just("79927398713".to_string()),        // Valid Luhn
-        Just("4242424242424242".to_string()),   // Valid test card
+        Just("4532015112830366".to_string()), // Valid test card
+        Just("79927398713".to_string()),      // Valid Luhn
+        Just("4242424242424242".to_string()), // Valid test card
     ]
 }
 
@@ -298,7 +297,7 @@ proptest! {
         // Filter to get only invalid dates
         let month: u32 = date[4..6].parse().unwrap_or(0);
         let day: u32 = date[6..8].parse().unwrap_or(0);
-        
+
         prop_assume!(month == 0 || month > 12 || day == 0 || day > 31);
         prop_assert!(!is_date(&date));
     }
@@ -319,7 +318,7 @@ proptest! {
             .filter(|&&c| c >= 0x20 || c == 0x09) // Keep printable + tab
             .map(|&c| c as char)
             .collect();
-        
+
         // If string contains control characters (except tab), it should fail
         let has_control = s.chars().any(|c| c.is_control() && c != '\t');
         if has_control {
@@ -351,16 +350,16 @@ proptest! {
     #[test]
     fn test_luhn_invalidated_by_digit_change(mut luhn in valid_luhn_strategy()) {
         prop_assume!(!luhn.is_empty());
-        
+
         // Change one digit (not the check digit)
         let idx = luhn.len() / 2;
         let original_char = luhn.chars().nth(idx).unwrap_or('0');
-        let new_char = if original_char == '9' { '0' } else { 
+        let new_char = if original_char == '9' { '0' } else {
             char::from_digit(original_char.to_digit(10).unwrap_or(0) + 1, 10).unwrap_or('0')
         };
-        
+
         luhn.replace_range(idx..idx+1, &new_char.to_string());
-        
+
         // Modified number should fail Luhn check (high probability)
         // Note: This is probabilistic; some changes might still pass
         // so we just verify it doesn't panic
@@ -380,7 +379,7 @@ proptest! {
         max in 500i64..1000
     ) {
         let result = is_within_range(&value.to_string(), &min.to_string(), &max.to_string());
-        
+
         if value >= min && value <= max {
             prop_assert!(result, "Value {} should be in range [{}, {}]", value, min, max);
         } else {
@@ -397,7 +396,7 @@ proptest! {
         max in 0.0f64..500.0
     ) {
         let result = is_within_range(&value.to_string(), &min.to_string(), &max.to_string());
-        
+
         if value >= min && value <= max {
             prop_assert!(result);
         } else {
@@ -470,7 +469,7 @@ proptest! {
         day in 1u32..=28 // Use 28 to avoid invalid dates
     ) {
         let date = format!("{:04}{:02}{:02}", year, month, day);
-        
+
         // Birth dates from 1900-2025 should all be valid (not in future)
         // Note: This test may fail if run after 2025
         prop_assert!(is_valid_birth_date(&date));
@@ -643,7 +642,7 @@ proptest! {
     #[test]
     fn test_very_long_strings(n in 1usize..=10000) {
         let long_string = "x".repeat(n);
-        
+
         // Should handle long strings without panic
         let _ = is_date(&long_string);
         let _ = is_time(&long_string);

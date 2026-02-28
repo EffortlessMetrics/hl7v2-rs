@@ -71,7 +71,7 @@ fn test_batch_info_with_fields() {
         message_count: Some(5),
         trailer_comment: Some("Trailer".to_string()),
     };
-    
+
     assert_eq!(info.batch_type, BatchType::File);
     assert_eq!(info.field_separator, Some('|'));
     assert_eq!(info.encoding_characters, Some("^~\\&".to_string()));
@@ -102,11 +102,12 @@ fn test_batch_default() {
 #[test]
 fn test_batch_add_message() {
     let mut batch = Batch::new();
-    
+
     let message = hl7v2_parser::parse(
-        b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG1|P|2.5.1\r"
-    ).unwrap();
-    
+        b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG1|P|2.5.1\r",
+    )
+    .unwrap();
+
     batch.add_message(message);
     assert_eq!(batch.message_count(), 1);
 }
@@ -114,7 +115,7 @@ fn test_batch_add_message() {
 #[test]
 fn test_batch_add_multiple_messages() {
     let mut batch = Batch::new();
-    
+
     for i in 0..5 {
         let msg_text = format!(
             "MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG{}|P|2.5.1\r",
@@ -123,14 +124,14 @@ fn test_batch_add_multiple_messages() {
         let message = hl7v2_parser::parse(msg_text.as_bytes()).unwrap();
         batch.add_message(message);
     }
-    
+
     assert_eq!(batch.message_count(), 5);
 }
 
 #[test]
 fn test_batch_iter_messages() {
     let mut batch = Batch::new();
-    
+
     for i in 0..3 {
         let msg_text = format!(
             "MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG{}|P|2.5.1\r",
@@ -139,7 +140,7 @@ fn test_batch_iter_messages() {
         let message = hl7v2_parser::parse(msg_text.as_bytes()).unwrap();
         batch.add_message(message);
     }
-    
+
     let count = batch.iter_messages().count();
     assert_eq!(count, 3);
 }
@@ -167,7 +168,7 @@ fn test_file_batch_default() {
 fn test_file_batch_add_batch() {
     let mut file_batch = FileBatch::new();
     let batch = Batch::new();
-    
+
     file_batch.add_batch(batch);
     assert_eq!(file_batch.batches.len(), 1);
 }
@@ -175,43 +176,46 @@ fn test_file_batch_add_batch() {
 #[test]
 fn test_file_batch_total_message_count() {
     let mut file_batch = FileBatch::new();
-    
+
     // Add first batch with 2 messages
     let mut batch1 = Batch::new();
     let msg = hl7v2_parser::parse(
-        b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG1|P|2.5.1\r"
-    ).unwrap();
+        b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG1|P|2.5.1\r",
+    )
+    .unwrap();
     batch1.add_message(msg.clone());
     batch1.add_message(msg);
     file_batch.add_batch(batch1);
-    
+
     // Add second batch with 3 messages
     let mut batch2 = Batch::new();
     let msg = hl7v2_parser::parse(
-        b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG2|P|2.5.1\r"
-    ).unwrap();
+        b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG2|P|2.5.1\r",
+    )
+    .unwrap();
     batch2.add_message(msg.clone());
     batch2.add_message(msg.clone());
     batch2.add_message(msg);
     file_batch.add_batch(batch2);
-    
+
     assert_eq!(file_batch.total_message_count(), 5);
 }
 
 #[test]
 fn test_file_batch_iter_all_messages() {
     let mut file_batch = FileBatch::new();
-    
+
     // Add two batches with messages
     for _ in 0..2 {
         let mut batch = Batch::new();
         let msg = hl7v2_parser::parse(
-            b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG|P|2.5.1\r"
-        ).unwrap();
+            b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128152312||ADT^A01|MSG|P|2.5.1\r",
+        )
+        .unwrap();
         batch.add_message(msg);
         file_batch.add_batch(batch);
     }
-    
+
     let count = file_batch.iter_all_messages().count();
     assert_eq!(count, 2);
 }
@@ -224,7 +228,7 @@ fn test_file_batch_iter_all_messages() {
 fn test_parse_simple_messages_only() {
     let data = b"MSH|^~\\&|App|Fac|App2|Fac2|20250128||ADT^A01|123|P|2.5\rPID|1||12345\r";
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.info.batch_type, BatchType::File);
     assert_eq!(result.total_message_count(), 1);
 }
@@ -233,7 +237,7 @@ fn test_parse_simple_messages_only() {
 fn test_parse_single_batch_with_bhs_bts() {
     let data = b"BHS|^~\\&|App|Fac\rMSH|^~\\&|App|Fac|App2|Fac2|20250128||ADT^A01|123|P|2.5\rPID|1||12345\rBTS|1\r";
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.batches.len(), 1);
     assert_eq!(result.batches[0].message_count(), 1);
     assert!(result.batches[0].header.is_some());
@@ -244,7 +248,7 @@ fn test_parse_single_batch_with_bhs_bts() {
 fn test_parse_file_batch_with_fhs_fts() {
     let data = b"FHS|^~\\&|App|Fac\rBHS|^~\\&|App|Fac\rMSH|^~\\&|App|Fac|App2|Fac2|||ADT^A01|123|P|2.5\rBTS|1\rFTS|1\r";
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.info.batch_type, BatchType::File);
     assert!(result.header.is_some());
     assert!(result.trailer.is_some());
@@ -257,7 +261,7 @@ fn test_parse_batch_with_multiple_messages() {
                 MSH|^~\\&|App|Fac|App2|Fac2|20250128||ADT^A01|MSG2|P|2.5\rPID|1||67890\r\
                 BTS|2\r";
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.batches[0].message_count(), 2);
 }
 
@@ -268,7 +272,7 @@ fn test_parse_batch_with_nested_batches() {
                 BHS|^~\\&|App|Fac\rMSH|^~\\&|App|Fac|App2|Fac2|||ADT^A01|MSG2|P|2.5\rBTS|1\r\
                 FTS|2\r";
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.batches.len(), 2);
     assert_eq!(result.total_message_count(), 2);
 }
@@ -279,9 +283,10 @@ fn test_parse_batch_with_nested_batches() {
 
 #[test]
 fn test_extract_batch_info_bhs() {
-    let line = "BHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128|||BatchName|Comment";
+    let line =
+        "BHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128|||BatchName|Comment";
     let info = extract_batch_info(line, "BHS").unwrap();
-    
+
     assert_eq!(info.encoding_characters, Some("^~\\&".to_string()));
     assert_eq!(info.sending_application, Some("SendingApp".to_string()));
     assert_eq!(info.sending_facility, Some("SendingFac".to_string()));
@@ -293,9 +298,10 @@ fn test_extract_batch_info_bhs() {
 
 #[test]
 fn test_extract_batch_info_fhs() {
-    let line = "FHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128|||FileName|FileComment";
+    let line =
+        "FHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128|||FileName|FileComment";
     let info = extract_batch_info(line, "FHS").unwrap();
-    
+
     assert_eq!(info.sending_application, Some("SendingApp".to_string()));
     assert_eq!(info.sending_facility, Some("SendingFac".to_string()));
 }
@@ -304,7 +310,7 @@ fn test_extract_batch_info_fhs() {
 fn test_extract_batch_info_bts() {
     let line = "BTS|5|TrailerComment";
     let info = extract_batch_info(line, "BTS").unwrap();
-    
+
     assert_eq!(info.message_count, Some(5));
     assert_eq!(info.trailer_comment, Some("TrailerComment".to_string()));
 }
@@ -313,7 +319,7 @@ fn test_extract_batch_info_bts() {
 fn test_extract_batch_info_fts() {
     let line = "FTS|10|FileTrailerComment";
     let info = extract_batch_info(line, "FTS").unwrap();
-    
+
     assert_eq!(info.message_count, Some(10));
     assert_eq!(info.trailer_comment, Some("FileTrailerComment".to_string()));
 }
@@ -322,11 +328,17 @@ fn test_extract_batch_info_fts() {
 fn test_extract_batch_info_minimal() {
     let line = "BHS|";
     let info = extract_batch_info(line, "BHS").unwrap();
-    
+
     // With minimal line, encoding_characters will be empty string (Some(""))
     // because the split produces an empty first field
     // This is acceptable behavior
-    assert!(info.encoding_characters.is_none() || info.encoding_characters.as_ref().map_or(false, |s| s.is_empty()));
+    assert!(
+        info.encoding_characters.is_none()
+            || info
+                .encoding_characters
+                .as_ref()
+                .map_or(false, |s| s.is_empty())
+    );
 }
 
 // ============================================================================
@@ -362,14 +374,17 @@ fn test_message_count_mismatch() {
 fn test_batch_error_display() {
     let error = BatchError::InvalidStructure("test error".to_string());
     assert!(error.to_string().contains("test error"));
-    
+
     let error = BatchError::MissingSegment("MSH".to_string());
     assert!(error.to_string().contains("MSH"));
-    
+
     let error = BatchError::MismatchedHeaders;
     assert!(error.to_string().contains("Mismatched"));
-    
-    let error = BatchError::CountMismatch { expected: 5, actual: 3 };
+
+    let error = BatchError::CountMismatch {
+        expected: 5,
+        actual: 3,
+    };
     assert!(error.to_string().contains("5"));
     assert!(error.to_string().contains("3"));
 }
@@ -382,7 +397,7 @@ fn test_batch_error_display() {
 fn test_parse_segment_bhs() {
     let line = "BHS|^~\\&|App|Fac";
     let segment = parse_segment(line).unwrap();
-    
+
     assert_eq!(&segment.id, b"BHS");
     assert!(!segment.fields.is_empty());
 }
@@ -391,7 +406,7 @@ fn test_parse_segment_bhs() {
 fn test_parse_segment_fhs() {
     let line = "FHS|^~\\&|App|Fac|RecvApp|RecvFac";
     let segment = parse_segment(line).unwrap();
-    
+
     assert_eq!(&segment.id, b"FHS");
 }
 
@@ -399,7 +414,7 @@ fn test_parse_segment_fhs() {
 fn test_parse_segment_bts() {
     let line = "BTS|5";
     let segment = parse_segment(line).unwrap();
-    
+
     assert_eq!(&segment.id, b"BTS");
 }
 
@@ -407,7 +422,7 @@ fn test_parse_segment_bts() {
 fn test_parse_segment_fts() {
     let line = "FTS|10";
     let segment = parse_segment(line).unwrap();
-    
+
     assert_eq!(&segment.id, b"FTS");
 }
 
@@ -423,9 +438,10 @@ fn test_parse_segment_too_short() {
 
 #[test]
 fn test_parse_message_with_multiple_segments() {
-    let data = b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128||ADT^A01|MSG|P|2.5\rPID|1||12345\rPV1|1|I\r";
+    let data =
+        b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128||ADT^A01|MSG|P|2.5\rPID|1||12345\rPV1|1|I\r";
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.total_message_count(), 1);
     // The message should have 3 segments (MSH, PID, PV1)
     let msg = &result.batches[0].messages[0];
@@ -477,7 +493,8 @@ fn test_parse_batch_minimal_fhs_fts() {
 
 #[test]
 fn test_parse_batch_with_special_characters() {
-    let data = b"MSH|^~\\&|App\\F\\Test|Fac^Name|Recv~App|Fac\\E\\Esc|20250128||ADT^A01|MSG|P|2.5\r";
+    let data =
+        b"MSH|^~\\&|App\\F\\Test|Fac^Name|Recv~App|Fac\\E\\Esc|20250128||ADT^A01|MSG|P|2.5\r";
     let result = parse_batch(data);
     assert!(result.is_ok());
 }
@@ -488,6 +505,6 @@ fn test_messages_without_batch_wrapper() {
     let data = b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128||ADT^A01|MSG1|P|2.5\r\
                  MSH|^~\\&|App|Fac|Recv|RecvFac|20250128||ADT^A01|MSG2|P|2.5\r";
     let result = parse_batch(data).unwrap();
-    
+
     assert_eq!(result.total_message_count(), 2);
 }

@@ -42,11 +42,8 @@ fn msh_segment() -> impl Strategy<Value = String> {
 
 /// Strategy for generating a generic segment
 fn generic_segment() -> impl Strategy<Value = String> {
-    (segment_id(), prop::collection::vec(field_content(), 1..10)).prop_map(
-        |(id, fields)| {
-            format!("{}|{}\r", id, fields.join("|"))
-        },
-    )
+    (segment_id(), prop::collection::vec(field_content(), 1..10))
+        .prop_map(|(id, fields)| format!("{}|{}\r", id, fields.join("|")))
 }
 
 /// Strategy for generating a complete HL7 message
@@ -227,8 +224,8 @@ proptest! {
 proptest! {
     #[test]
     fn prop_empty_fields_handled(msg in msh_segment()) {
-        // Create a message with some empty fields
-        let msg_with_empty = msg.replace("||", "||");
+        // Create a message with some empty fields (no-op replace, just testing the parser)
+        let msg_with_empty = msg.clone();
 
         let cursor = Cursor::new(msg_with_empty.as_bytes());
         let buf_reader = BufReader::new(cursor);
@@ -243,7 +240,7 @@ proptest! {
         prop_assert!(has_end);
 
         // Empty fields should produce Field events with empty raw content
-        let empty_fields: Vec<_> = events.iter()
+        let _empty_fields: Vec<_> = events.iter()
             .filter(|e| {
                 if let Event::Field { raw, .. } = e {
                     raw.is_empty()

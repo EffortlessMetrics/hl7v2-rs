@@ -6,9 +6,9 @@
 //! - Invalid messages should return errors (not panic)
 //! - Edge cases with random data
 
-use proptest::prelude::*;
-use crate::{parse, parse_batch, get, get_presence};
+use crate::{get, get_presence, parse, parse_batch};
 use hl7v2_model::*;
+use proptest::prelude::*;
 
 // =============================================================================
 // Custom Strategies for HL7 Data Generation
@@ -42,12 +42,14 @@ fn msh_segment_strategy() -> impl Strategy<Value = String> {
         "[PAT]",              // Processing ID
         "2\\.[0-9]\\.[0-9]",  // Version
     )
-        .prop_map(|(app, fac, recv_app, recv_fac, dt, trigger, ctrl, proc, ver)| {
-            format!(
-                "MSH|^~\\&|{}|{}|{}|{}|{}||ADT^{}|{}|{}|{}",
-                app, fac, recv_app, recv_fac, dt, trigger, ctrl, proc, ver
-            )
-        })
+        .prop_map(
+            |(app, fac, recv_app, recv_fac, dt, trigger, ctrl, proc, ver)| {
+                format!(
+                    "MSH|^~\\&|{}|{}|{}|{}|{}||ADT^{}|{}|{}|{}",
+                    app, fac, recv_app, recv_fac, dt, trigger, ctrl, proc, ver
+                )
+            },
+        )
 }
 
 /// Generate a simple PID segment
@@ -62,7 +64,10 @@ fn pid_segment_strategy() -> impl Strategy<Value = String> {
 
 /// Generate a valid HL7 message with MSH and optional PID
 fn valid_message_strategy() -> impl Strategy<Value = String> {
-    (msh_segment_strategy(), prop::option::of(pid_segment_strategy()))
+    (
+        msh_segment_strategy(),
+        prop::option::of(pid_segment_strategy()),
+    )
         .prop_map(|(msh, pid)| match pid {
             Some(pid) => format!("{}\r{}\r", msh, pid),
             None => format!("{}\r", msh),
@@ -103,7 +108,7 @@ proptest! {
         };
 
         // Verify basic structure
-        prop_assert!(message.segments.len() >= 1);
+        prop_assert!(!message.segments.is_empty());
         prop_assert_eq!(&message.segments[0].id, b"MSH");
     }
 
@@ -176,7 +181,7 @@ proptest! {
         prop_assert!(result.is_ok(), "Valid message should parse: {:?}", result);
 
         let message = result.unwrap();
-        prop_assert!(message.segments.len() >= 1);
+        prop_assert!(!message.segments.is_empty());
         prop_assert_eq!(&message.segments[0].id, b"MSH");
     }
 

@@ -30,25 +30,25 @@
 //! }
 //! ```
 
-use thiserror::Error;
-use hl7v2_model::{Message, Segment, Error as ModelError};
+use hl7v2_model::{Error as ModelError, Message, Segment};
 use hl7v2_parser::parse;
+use thiserror::Error;
 
 /// Error type for batch operations
 #[derive(Debug, Error)]
 pub enum BatchError {
     #[error("Invalid batch structure: {0}")]
     InvalidStructure(String),
-    
+
     #[error("Missing required segment: {0}")]
     MissingSegment(String),
-    
+
     #[error("Mismatched batch headers/trailers")]
     MismatchedHeaders,
-    
+
     #[error("Parse error: {0}")]
     ParseError(String),
-    
+
     #[error("Count mismatch: expected {expected}, got {actual}")]
     CountMismatch { expected: usize, actual: usize },
 }
@@ -142,17 +142,17 @@ impl Batch {
             info: BatchInfo::default(),
         }
     }
-    
+
     /// Add a message to the batch
     pub fn add_message(&mut self, message: Message) {
         self.messages.push(message);
     }
-    
+
     /// Get the number of messages
     pub fn message_count(&self) -> usize {
         self.messages.len()
     }
-    
+
     /// Iterate over messages
     pub fn iter_messages(&self) -> impl Iterator<Item = &Message> {
         self.messages.iter()
@@ -191,17 +191,17 @@ impl FileBatch {
             },
         }
     }
-    
+
     /// Add a batch to the file
     pub fn add_batch(&mut self, batch: Batch) {
         self.batches.push(batch);
     }
-    
+
     /// Get total message count across all batches
     pub fn total_message_count(&self) -> usize {
         self.batches.iter().map(|b| b.message_count()).sum()
     }
-    
+
     /// Iterate over all messages across all batches
     pub fn iter_all_messages(&self) -> impl Iterator<Item = &Message> {
         self.batches.iter().flat_map(|b| b.messages.iter())
@@ -218,18 +218,16 @@ impl Default for FileBatch {
 pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
     let text = std::str::from_utf8(data)
         .map_err(|_| BatchError::InvalidStructure("Invalid UTF-8 data".to_string()))?;
-    
-    let lines: Vec<&str> = text.split(['\r', '\n'])
-        .filter(|l| !l.is_empty())
-        .collect();
-    
+
+    let lines: Vec<&str> = text.split(['\r', '\n']).filter(|l| !l.is_empty()).collect();
+
     if lines.is_empty() {
         return Err(BatchError::InvalidStructure("Empty batch data".to_string()));
     }
-    
+
     // Check first line for batch type
     let first_line = lines[0];
-    
+
     if first_line.starts_with("FHS") {
         parse_file_batch(&lines)
     } else if first_line.starts_with("BHS") {
@@ -251,9 +249,10 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
         file_batch.add_batch(batch);
         Ok(file_batch)
     } else {
-        Err(BatchError::InvalidStructure(
-            format!("Unknown first segment: {}", &first_line[..3.min(first_line.len())])
-        ))
+        Err(BatchError::InvalidStructure(format!(
+            "Unknown first segment: {}",
+            &first_line[..3.min(first_line.len())]
+        )))
     }
 }
 
@@ -262,7 +261,7 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
     let mut file_batch = FileBatch::new();
     let mut current_batch_lines: Vec<&str> = Vec::new();
     let mut in_batch = false;
-    
+
     for line in lines {
         if line.starts_with("FHS") {
             file_batch.header = Some(parse_segment(line)?);
@@ -304,7 +303,7 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
             file_batch.add_batch(batch);
         }
     }
-    
+
     Ok(file_batch)
 }
 
@@ -312,7 +311,7 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
 fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
     let mut batch = Batch::new();
     let mut message_lines: Vec<&str> = Vec::new();
-    
+
     for line in lines {
         if line.starts_with("BHS") {
             batch.header = Some(parse_segment(line)?);
@@ -335,14 +334,14 @@ fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
             message_lines.push(line);
         }
     }
-    
+
     // Parse last message
     if !message_lines.is_empty() {
         let msg_text = message_lines.join("\r");
         let msg = parse(msg_text.as_bytes())?;
         batch.add_message(msg);
     }
-    
+
     // Verify message count if specified
     if let Some(expected) = batch.info.message_count
         && expected != batch.message_count()
@@ -352,7 +351,7 @@ fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
             actual: batch.message_count(),
         });
     }
-    
+
     Ok(batch)
 }
 
@@ -360,11 +359,9 @@ fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
 fn parse_messages(lines: &[&str]) -> Result<Vec<Message>, BatchError> {
     let mut messages = Vec::new();
     let mut message_lines: Vec<&str> = Vec::new();
-    
+
     for line in lines {
-        if line.starts_with("MSH")
-            && !message_lines.is_empty()
-        {
+        if line.starts_with("MSH") && !message_lines.is_empty() {
             let msg_text = message_lines.join("\r");
             let msg = parse(msg_text.as_bytes())?;
             messages.push(msg);
@@ -372,13 +369,13 @@ fn parse_messages(lines: &[&str]) -> Result<Vec<Message>, BatchError> {
         }
         message_lines.push(line);
     }
-    
+
     if !message_lines.is_empty() {
         let msg_text = message_lines.join("\r");
         let msg = parse(msg_text.as_bytes())?;
         messages.push(msg);
     }
-    
+
     Ok(messages)
 }
 
@@ -386,41 +383,45 @@ fn parse_messages(lines: &[&str]) -> Result<Vec<Message>, BatchError> {
 fn parse_segment(line: &str) -> Result<Segment, BatchError> {
     // Simple segment parsing for batch headers/trailers
     if line.len() < 3 {
-        return Err(BatchError::InvalidStructure(format!("Segment too short: {}", line)));
+        return Err(BatchError::InvalidStructure(format!(
+            "Segment too short: {}",
+            line
+        )));
     }
-    
+
     let id_bytes = &line.as_bytes()[0..3];
     let id: [u8; 3] = [id_bytes[0], id_bytes[1], id_bytes[2]];
     let field_sep = line.chars().nth(3).unwrap_or('|');
-    
+
     let fields_str = if line.len() > 4 { &line[4..] } else { "" };
     let field_strs: Vec<&str> = fields_str.split(field_sep).collect();
-    
+
     // Convert to Field structures (simplified)
-    let fields: Vec<hl7v2_model::Field> = field_strs.iter().map(|s| {
-        hl7v2_model::Field {
+    let fields: Vec<hl7v2_model::Field> = field_strs
+        .iter()
+        .map(|s| hl7v2_model::Field {
             reps: vec![hl7v2_model::Rep {
                 comps: vec![hl7v2_model::Comp {
                     subs: vec![hl7v2_model::Atom::Text(s.to_string())],
                 }],
             }],
-        }
-    }).collect();
-    
+        })
+        .collect();
+
     Ok(Segment { id, fields })
 }
 
 /// Extract batch info from a segment
 fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, BatchError> {
     let mut info = BatchInfo::default();
-    
+
     if line.len() < 4 {
         return Ok(info);
     }
-    
+
     let field_sep = line.chars().nth(3).unwrap_or('|');
     let fields: Vec<&str> = line[4..].split(field_sep).collect();
-    
+
     // FTS/BTS-1 is message count, FTS/BTS-2 is trailer comment
     if segment_type == "FTS" || segment_type == "BTS" {
         info.message_count = fields.first().and_then(|s| s.parse::<usize>().ok());
@@ -429,7 +430,7 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
         }
         return Ok(info);
     }
-    
+
     // FHS/BHS fields (0-indexed after split):
     // After split from position 4, fields[0] is the first field after separator
     // fields[0] = Encoding Characters (BHS-2)
@@ -459,7 +460,7 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
     if fields.len() > 9 {
         info.batch_comment = Some(fields[9].to_string());
     }
-    
+
     Ok(info)
 }
 

@@ -1,21 +1,25 @@
 //! Command-line interface for HL7 v2 processing.
 
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use hl7v2_core::{parse, to_json, write};
+use hl7v2_gen::{AckCode as GenAckCode, Template, ack, generate};
+use hl7v2_prof::{load_profile, validate};
 use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
 use std::process;
-use hl7v2_core::{parse, to_json, write};
-use hl7v2_prof::{load_profile, validate};
-use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 mod monitor;
 
+mod serve;
 #[cfg(test)]
 mod tests;
-mod serve;
 
 #[derive(Parser)]
-#[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator", version)]
+#[command(
+    name = "hl7v2",
+    about = "HL7 v2 parser, validator, and generator",
+    version
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -27,170 +31,170 @@ enum Commands {
     Parse {
         /// Input HL7 file
         input: PathBuf,
-        
+
         /// Output JSON format
         #[arg(long)]
         json: bool,
-        
+
         /// Output with canonical delimiters (|^~\&)
         #[arg(long)]
         canonical_delims: bool,
-        
+
         /// Wrap output in MLLP envelope (add SB/EB markers)
         #[arg(long)]
         envelope: bool,
-        
+
         /// Input is MLLP framed
         #[arg(long)]
         mllp: bool,
-        
+
         /// Enable streaming mode for large files (memory-efficient processing)
         #[arg(long)]
         streaming: bool,
-        
+
         /// Show summary statistics
         #[arg(long)]
         summary: bool,
     },
-    
+
     /// Normalize HL7 v2 message
     Norm {
         /// Input HL7 file
         input: PathBuf,
-        
+
         /// Use canonical delimiters (|^~\&)
         #[arg(long)]
         canonical_delims: bool,
-        
+
         /// Output file
         #[arg(short, long)]
         output: Option<PathBuf>,
-        
+
         /// Input is MLLP framed
         #[arg(long)]
         mllp_in: bool,
-        
+
         /// Output should be MLLP framed
         #[arg(long)]
         mllp_out: bool,
-        
+
         /// Show summary statistics
         #[arg(long)]
         summary: bool,
     },
-    
+
     /// Validate HL7 v2 message against profile
     Val {
         /// Input HL7 file
         input: PathBuf,
-        
+
         /// Profile YAML file
         #[arg(long)]
         profile: PathBuf,
-        
+
         /// Input is MLLP framed
         #[arg(long)]
         mllp: bool,
-        
+
         /// Show detailed validation results
         #[arg(long)]
         detailed: bool,
-        
+
         /// Output validation report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
-        
+
         /// Show summary statistics
         #[arg(long)]
         summary: bool,
     },
-    
+
     /// Show statistics for HL7 v2 message
     Stats {
         /// Input HL7 file
         input: PathBuf,
-        
+
         /// Input is MLLP framed
         #[arg(long)]
         mllp: bool,
-        
+
         /// Show field value distributions
         #[arg(long)]
         distributions: bool,
-        
+
         /// Output format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
     },
-    
+
     /// Generate ACK for HL7 v2 message
     Ack {
         /// Input HL7 file
         input: PathBuf,
-        
+
         /// ACK mode (original or enhanced)
         #[arg(long)]
         mode: AckMode,
-        
+
         /// ACK code
         #[arg(long)]
         code: AckCode,
-        
+
         /// Input is MLLP framed
         #[arg(long)]
         mllp_in: bool,
-        
+
         /// Output should be MLLP framed
         #[arg(long)]
         mllp_out: bool,
-        
+
         /// Show summary statistics
         #[arg(long)]
         summary: bool,
     },
-    
+
     /// Generate synthetic messages
     Gen {
         /// Profile YAML file
         #[arg(long)]
         profile: PathBuf,
-        
+
         /// Random seed
         #[arg(long)]
         seed: u64,
-        
+
         /// Number of messages to generate
         #[arg(long)]
         count: usize,
-        
+
         /// Output directory
         #[arg(long)]
         out: PathBuf,
-        
+
         /// Show generation statistics
         #[arg(long)]
         stats: bool,
     },
-    
+
     /// Start HTTP/gRPC server for HL7 v2 processing
     Serve {
         /// Server mode (http or grpc)
         #[arg(long, value_enum, default_value = "http")]
         mode: ServerMode,
-        
+
         /// Port to listen on
         #[arg(short, long, default_value = "8080")]
         port: u16,
-        
+
         /// Host address to bind to
         #[arg(long, default_value = "0.0.0.0")]
         host: String,
-        
+
         /// Maximum request body size in bytes
         #[arg(long, default_value = "10485760")]
         max_body_size: usize,
     },
-    
+
     /// Interactive mode
     Interactive,
 }
@@ -236,39 +240,83 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into())
+                .add_directive(tracing::Level::INFO.into()),
         )
         .init();
-    
+
     let cli = Cli::parse();
-    
+
     let result = match &cli.command {
-        Commands::Parse { input, json, canonical_delims, envelope, mllp, streaming, summary } => {
-            parse_command(input, *json, *canonical_delims, *envelope, *mllp, *streaming, *summary)
-        }
-        Commands::Norm { input, canonical_delims, output, mllp_in, mllp_out, summary } => {
-            norm_command(input, *canonical_delims, output, *mllp_in, *mllp_out, *summary)
-        }
-        Commands::Val { input, profile, mllp, detailed, report, summary } => {
-            val_command(input, profile, *mllp, *detailed, report, *summary)
-        }
-        Commands::Stats { input, mllp, distributions, format } => {
-            stats_command(input, *mllp, *distributions, format)
-        }
-        Commands::Ack { input, mode, code, mllp_in, mllp_out, summary } => {
-            ack_command(input, mode, code, *mllp_in, *mllp_out, *summary)
-        }
-        Commands::Gen { profile, seed, count, out, stats } => {
-            gen_command(profile, *seed, *count, out, *stats)
-        }
-        Commands::Serve { mode, port, host, max_body_size } => {
-            serve::run_server(mode, *port, host, *max_body_size).await
-        }
-        Commands::Interactive => {
-            interactive_mode()
-        }
+        Commands::Parse {
+            input,
+            json,
+            canonical_delims,
+            envelope,
+            mllp,
+            streaming,
+            summary,
+        } => parse_command(
+            input,
+            *json,
+            *canonical_delims,
+            *envelope,
+            *mllp,
+            *streaming,
+            *summary,
+        ),
+        Commands::Norm {
+            input,
+            canonical_delims,
+            output,
+            mllp_in,
+            mllp_out,
+            summary,
+        } => norm_command(
+            input,
+            *canonical_delims,
+            output,
+            *mllp_in,
+            *mllp_out,
+            *summary,
+        ),
+        Commands::Val {
+            input,
+            profile,
+            mllp,
+            detailed,
+            report,
+            summary,
+        } => val_command(input, profile, *mllp, *detailed, report, *summary),
+        Commands::Stats {
+            input,
+            mllp,
+            distributions,
+            format,
+        } => stats_command(input, *mllp, *distributions, format),
+        Commands::Ack {
+            input,
+            mode,
+            code,
+            mllp_in,
+            mllp_out,
+            summary,
+        } => ack_command(input, mode, code, *mllp_in, *mllp_out, *summary),
+        Commands::Gen {
+            profile,
+            seed,
+            count,
+            out,
+            stats,
+        } => gen_command(profile, *seed, *count, out, *stats),
+        Commands::Serve {
+            mode,
+            port,
+            host,
+            max_body_size,
+        } => serve::run_server(mode, *port, host, *max_body_size).await,
+        Commands::Interactive => interactive_mode(),
     };
-    
+
     if let Err(e) = result {
         eprintln!("Error: {}", e);
         process::exit(1);
@@ -280,7 +328,7 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     println!();
     println!("Performance Statistics:");
     println!("  Total execution time: {:?}", monitor.elapsed());
-    
+
     let metrics = monitor.get_metrics();
     if !metrics.is_empty() {
         println!("  Detailed metrics:");
@@ -288,7 +336,7 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
             println!("    {}: {:?}", name, duration);
         }
     }
-    
+
     // System information
     let system_info = monitor::get_system_info();
     println!("  System information:");
@@ -305,9 +353,17 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     }
 }
 
-fn parse_command(input: &PathBuf, json: bool, canonical_delims: bool, envelope: bool, mllp: bool, streaming: bool, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn parse_command(
+    input: &PathBuf,
+    json: bool,
+    canonical_delims: bool,
+    envelope: bool,
+    mllp: bool,
+    streaming: bool,
+    summary: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
-    
+
     // Read the input file
     let contents = if streaming {
         // For streaming mode, read file in chunks would be ideal
@@ -317,30 +373,30 @@ fn parse_command(input: &PathBuf, json: bool, canonical_delims: bool, envelope: 
         fs::read(input)?
     };
     let file_size = contents.len();
-    
+
     let read_time = monitor.elapsed();
     monitor.record_metric("File read", read_time);
-    
+
     // Parse the HL7 message
     let message = if mllp {
         hl7v2_core::parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
-    
+
     let parse_time = monitor.elapsed() - read_time;
     monitor.record_metric("Message parsing", parse_time);
-    
+
     // Count segments
     let segment_count = message.segments.len();
-    
+
     // Handle output based on flags
     if canonical_delims {
         // Output with canonical delimiters (|^~\&)
         // Normalize the raw bytes with canonical delimiters
         let original_bytes = write(&message);
         let output_bytes = hl7v2_core::normalize(&original_bytes, true)?;
-        
+
         if envelope {
             // Wrap in MLLP envelope
             let mllp_bytes = hl7v2_core::wrap_mllp(&output_bytes);
@@ -358,7 +414,7 @@ fn parse_command(input: &PathBuf, json: bool, canonical_delims: bool, envelope: 
         let json_value = to_json(&message);
         let json_conversion_time = monitor.elapsed() - read_time - parse_time;
         monitor.record_metric("JSON conversion", json_conversion_time);
-        
+
         // Output JSON
         if json {
             println!("{}", serde_json::to_string_pretty(&json_value)?);
@@ -366,10 +422,10 @@ fn parse_command(input: &PathBuf, json: bool, canonical_delims: bool, envelope: 
             println!("{}", serde_json::to_string(&json_value)?);
         }
     }
-    
+
     let output_time = monitor.elapsed() - read_time - parse_time;
     monitor.record_metric("Output", output_time);
-    
+
     // Show summary if requested
     if summary {
         println!();
@@ -380,38 +436,50 @@ fn parse_command(input: &PathBuf, json: bool, canonical_delims: bool, envelope: 
         println!("  Streaming mode: {}", streaming);
         println!("  Canonical delimiters: {}", canonical_delims);
         println!("  MLLP envelope: {}", envelope);
-        println!("  Delimiters: |^~\\& (field={} comp={} rep={} esc={} sub={})",
-                 message.delims.field, message.delims.comp, message.delims.rep,
-                 message.delims.esc, message.delims.sub);
+        println!(
+            "  Delimiters: |^~\\& (field={} comp={} rep={} esc={} sub={})",
+            message.delims.field,
+            message.delims.comp,
+            message.delims.rep,
+            message.delims.esc,
+            message.delims.sub
+        );
         display_performance_stats(&monitor);
     }
-    
+
     Ok(())
 }
 
-fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf>, mllp_in: bool, mllp_out: bool, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn norm_command(
+    input: &PathBuf,
+    canonical_delims: bool,
+    output: &Option<PathBuf>,
+    mllp_in: bool,
+    mllp_out: bool,
+    summary: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
-    
+
     // Read the input file
     let contents = fs::read(input)?;
     let input_file_size = contents.len();
-    
+
     let read_time = monitor.elapsed();
     monitor.record_metric("File read", read_time);
-    
+
     // Parse the HL7 message
     let message = if mllp_in {
         hl7v2_core::parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
-    
+
     let parse_time = monitor.elapsed() - read_time;
     monitor.record_metric("Message parsing", parse_time);
-    
+
     // Count segments before normalization
     let segment_count = message.segments.len();
-    
+
     // Normalize the message
     let normalized_bytes = if canonical_delims {
         // We need to implement normalization with canonical delimiters
@@ -420,27 +488,28 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
     } else {
         write(&message)
     };
-    
+
     let normalize_time = monitor.elapsed() - read_time - parse_time;
     monitor.record_metric("Message normalization", normalize_time);
-    
+
     // Add MLLP framing if requested
     let output_bytes = if mllp_out {
         hl7v2_core::wrap_mllp(&normalized_bytes)
     } else {
         normalized_bytes
     };
-    
+
     let mllp_time = monitor.elapsed() - read_time - parse_time - normalize_time;
     monitor.record_metric("MLLP processing", mllp_time);
-    
+
     // Write to output file or stdout
     if let Some(output_path) = output {
         fs::write(output_path, &output_bytes)?;
         if summary {
-            let write_time = monitor.elapsed() - read_time - parse_time - normalize_time - mllp_time;
+            let write_time =
+                monitor.elapsed() - read_time - parse_time - normalize_time - mllp_time;
             monitor.record_metric("File write", write_time);
-            
+
             println!();
             println!("Normalize Summary:");
             println!("  Input file: {:?}", input);
@@ -455,9 +524,10 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
     } else {
         std::io::stdout().write_all(&output_bytes)?;
         if summary {
-            let write_time = monitor.elapsed() - read_time - parse_time - normalize_time - mllp_time;
+            let write_time =
+                monitor.elapsed() - read_time - parse_time - normalize_time - mllp_time;
             monitor.record_metric("Output write", write_time);
-            
+
             println!();
             println!("Normalize Summary:");
             println!("  Input file: {:?}", input);
@@ -470,48 +540,56 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
             display_performance_stats(&monitor);
         }
     }
-    
+
     Ok(())
 }
 
-fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, report: &ReportFormat, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn val_command(
+    input: &PathBuf,
+    profile: &PathBuf,
+    mllp: bool,
+    detailed: bool,
+    report: &ReportFormat,
+    summary: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
-    
+
     // Read the HL7 message file
     let contents = fs::read(input)?;
     let file_size = contents.len();
-    
+
     let read_time = monitor.elapsed();
     monitor.record_metric("File read", read_time);
-    
+
     // Parse the HL7 message
     let message = if mllp {
         hl7v2_core::parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
-    
+
     let parse_time = monitor.elapsed() - read_time;
     monitor.record_metric("Message parsing", parse_time);
-    
+
     // Read the profile YAML file
     let profile_yaml = fs::read_to_string(profile)?;
-    
+
     let read_profile_time = monitor.elapsed() - read_time - parse_time;
     monitor.record_metric("Profile read", read_profile_time);
-    
+
     // Load the profile
     let loaded_profile = load_profile(&profile_yaml)?;
-    
+
     let load_profile_time = monitor.elapsed() - read_time - parse_time - read_profile_time;
     monitor.record_metric("Profile loading", load_profile_time);
-    
+
     // Validate the message
     let results = validate(&message, &loaded_profile);
-    
-    let validation_time = monitor.elapsed() - read_time - parse_time - read_profile_time - load_profile_time;
+
+    let validation_time =
+        monitor.elapsed() - read_time - parse_time - read_profile_time - load_profile_time;
     monitor.record_metric("Message validation", validation_time);
-    
+
     // Build validation report
     let validation_report = ValidationReport {
         input_file: input.to_string_lossy().to_string(),
@@ -522,7 +600,7 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, r
         issue_count: results.len(),
         issues: results.iter().map(|r| format!("{:?}", r)).collect(),
     };
-    
+
     // Output based on report format
     match report {
         ReportFormat::Json => {
@@ -549,7 +627,7 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, r
             }
         }
     }
-    
+
     // Show summary if requested (only for text format to avoid mixing output)
     if summary && *report == ReportFormat::Text {
         println!();
@@ -561,12 +639,12 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, r
         println!("  Issues found: {}", results.len());
         display_performance_stats(&monitor);
     }
-    
+
     // Exit with error code if validation failed
     if !results.is_empty() {
         std::process::exit(1);
     }
-    
+
     Ok(())
 }
 
@@ -605,58 +683,70 @@ struct FieldDistribution {
     sample_values: Vec<String>,
 }
 
-fn stats_command(input: &PathBuf, mllp: bool, distributions: bool, format: &ReportFormat) -> Result<(), Box<dyn std::error::Error>> {
+fn stats_command(
+    input: &PathBuf,
+    mllp: bool,
+    distributions: bool,
+    format: &ReportFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
-    
+
     // Read the HL7 message file
     let contents = fs::read(input)?;
     let file_size = contents.len();
-    
+
     let read_time = monitor.elapsed();
     monitor.record_metric("File read", read_time);
-    
+
     // Parse the HL7 message
     let message = if mllp {
         hl7v2_core::parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
-    
+
     let parse_time = monitor.elapsed() - read_time;
     monitor.record_metric("Message parsing", parse_time);
-    
+
     // Collect segment statistics
-    let mut segment_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut segment_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for segment in &message.segments {
-        *segment_counts.entry(segment.id_str().to_string()).or_insert(0) += 1;
+        *segment_counts
+            .entry(segment.id_str().to_string())
+            .or_insert(0) += 1;
     }
-    
+
     let segments: Vec<SegmentStats> = segment_counts
         .into_iter()
-        .map(|(id, count)| SegmentStats { segment_id: id, count })
+        .map(|(id, count)| SegmentStats {
+            segment_id: id,
+            count,
+        })
         .collect();
-    
+
     // Collect field distributions if requested
     let field_distributions = if distributions {
         let mut distributions: Vec<FieldDistribution> = Vec::new();
-        
+
         // Sample some common fields for distribution analysis
         for segment in &message.segments {
             let segment_id = segment.id_str();
-            
+
             // Get field values (simplified - just first few fields)
             for (field_idx, field) in segment.fields.iter().enumerate().take(5) {
                 if field_idx == 0 {
                     continue; // Skip segment ID field
                 }
-                
+
                 let path = format!("{}.{}", segment_id, field_idx);
                 // Get the first text value from the field
                 let value = field.first_text().unwrap_or("").to_string();
-                
+
                 // Check if we already have this path
                 if let Some(existing) = distributions.iter_mut().find(|d| d.path == path) {
-                    if !existing.sample_values.contains(&value) && existing.sample_values.len() < 10 {
+                    if !existing.sample_values.contains(&value) && existing.sample_values.len() < 10
+                    {
                         existing.sample_values.push(value);
                     }
                     existing.unique_values = existing.sample_values.len();
@@ -669,12 +759,12 @@ fn stats_command(input: &PathBuf, mllp: bool, distributions: bool, format: &Repo
                 }
             }
         }
-        
+
         Some(distributions)
     } else {
         None
     };
-    
+
     let stats_report = StatsReport {
         input_file: input.to_string_lossy().to_string(),
         file_size,
@@ -682,7 +772,7 @@ fn stats_command(input: &PathBuf, mllp: bool, distributions: bool, format: &Repo
         segments,
         field_distributions,
     };
-    
+
     // Output based on format
     match format {
         ReportFormat::Json => {
@@ -703,7 +793,7 @@ fn stats_command(input: &PathBuf, mllp: bool, distributions: bool, format: &Repo
             for seg in &stats_report.segments {
                 println!("  {}: {} occurrence(s)", seg.segment_id, seg.count);
             }
-            
+
             if let Some(dists) = &stats_report.field_distributions {
                 println!();
                 println!("Field value distributions:");
@@ -711,39 +801,49 @@ fn stats_command(input: &PathBuf, mllp: bool, distributions: bool, format: &Repo
                     println!("  {}:", dist.path);
                     println!("    Unique values: {}", dist.unique_values);
                     if !dist.sample_values.is_empty() {
-                        println!("    Sample values: {:?}", dist.sample_values.iter().take(5).collect::<Vec<_>>());
+                        println!(
+                            "    Sample values: {:?}",
+                            dist.sample_values.iter().take(5).collect::<Vec<_>>()
+                        );
                     }
                 }
             }
         }
     }
-    
+
     let output_time = monitor.elapsed() - read_time - parse_time;
     monitor.record_metric("Output", output_time);
-    
+
     Ok(())
 }
 
-fn ack_command(input: &PathBuf, mode: &AckMode, code: &AckCode, mllp_in: bool, mllp_out: bool, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn ack_command(
+    input: &PathBuf,
+    mode: &AckMode,
+    code: &AckCode,
+    mllp_in: bool,
+    mllp_out: bool,
+    summary: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
-    
+
     // Read the HL7 message file
     let contents = fs::read(input)?;
     let input_file_size = contents.len();
-    
+
     let read_time = monitor.elapsed();
     monitor.record_metric("File read", read_time);
-    
+
     // Parse the HL7 message
     let message = if mllp_in {
         hl7v2_core::parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
-    
+
     let parse_time = monitor.elapsed() - read_time;
     monitor.record_metric("Message parsing", parse_time);
-    
+
     // Convert ACK code
     let ack_code = match code {
         AckCode::AA => GenAckCode::AA,
@@ -753,30 +853,31 @@ fn ack_command(input: &PathBuf, mode: &AckMode, code: &AckCode, mllp_in: bool, m
         AckCode::CE => GenAckCode::CE,
         AckCode::CR => GenAckCode::CR,
     };
-    
+
     // Generate ACK
     let ack_message = ack(&message, ack_code)?; // Remove the extra parameter
-    
+
     let ack_generation_time = monitor.elapsed() - read_time - parse_time;
     monitor.record_metric("ACK generation", ack_generation_time);
-    
+
     // Write ACK message
     let ack_bytes = if mllp_out {
         hl7v2_core::write_mllp(&ack_message)
     } else {
         write(&ack_message)
     };
-    
+
     let mllp_processing_time = monitor.elapsed() - read_time - parse_time - ack_generation_time;
     monitor.record_metric("MLLP processing", mllp_processing_time);
-    
+
     std::io::stdout().write_all(&ack_bytes)?;
-    
+
     // Show summary if requested
     if summary {
-        let write_time = monitor.elapsed() - read_time - parse_time - ack_generation_time - mllp_processing_time;
+        let write_time =
+            monitor.elapsed() - read_time - parse_time - ack_generation_time - mllp_processing_time;
         monitor.record_metric("Output write", write_time);
-        
+
         println!();
         println!("ACK Generation Summary:");
         println!("  Input file: {:?}", input);
@@ -790,7 +891,7 @@ fn ack_command(input: &PathBuf, mode: &AckMode, code: &AckCode, mllp_in: bool, m
         println!("  MLLP output: {}", mllp_out);
         display_performance_stats(&monitor);
     }
-    
+
     Ok(())
 }
 
@@ -799,15 +900,15 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
     println!("HL7 v2 Toolkit - Interactive Mode");
     println!("Type 'help' for available commands or 'exit' to quit.");
     println!();
-    
+
     loop {
         print!("hl7v2> ");
         std::io::stdout().flush()?;
-        
+
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         let input = input.trim();
-        
+
         match input {
             "exit" | "quit" => {
                 println!("Goodbye!");
@@ -841,7 +942,7 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -849,10 +950,12 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
 fn handle_parse_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let parts: Vec<&str> = input.split_whitespace().collect();
     if parts.len() < 2 {
-        println!("Usage: parse <file> [--json] [--canonical-delims] [--envelope] [--mllp] [--streaming] [--summary]");
+        println!(
+            "Usage: parse <file> [--json] [--canonical-delims] [--envelope] [--mllp] [--streaming] [--summary]"
+        );
         return Ok(());
     }
-    
+
     let file_path = PathBuf::from(parts[1]);
     let mut json = false;
     let mut canonical_delims = false;
@@ -860,7 +963,7 @@ fn handle_parse_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut mllp = false;
     let mut streaming = false;
     let mut summary = false;
-    
+
     for part in &parts[2..] {
         match *part {
             "--json" => json = true,
@@ -872,8 +975,16 @@ fn handle_parse_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
             _ => println!("Unknown option: {}", part),
         }
     }
-    
-    parse_command(&file_path, json, canonical_delims, envelope, mllp, streaming, summary)
+
+    parse_command(
+        &file_path,
+        json,
+        canonical_delims,
+        envelope,
+        mllp,
+        streaming,
+        summary,
+    )
 }
 
 /// Handle norm command in interactive mode
@@ -883,13 +994,13 @@ fn handle_norm_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
         println!("Usage: norm <file> [--canonical-delims] [--mllp-in] [--mllp-out] [--summary]");
         return Ok(());
     }
-    
+
     let file_path = PathBuf::from(parts[1]);
     let mut canonical_delims = false;
     let mut mllp_in = false;
     let mut mllp_out = false;
     let mut summary = false;
-    
+
     for part in &parts[2..] {
         match *part {
             "--canonical-delims" => canonical_delims = true,
@@ -899,25 +1010,34 @@ fn handle_norm_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
             _ => println!("Unknown option: {}", part),
         }
     }
-    
-    norm_command(&file_path, canonical_delims, &None, mllp_in, mllp_out, summary)
+
+    norm_command(
+        &file_path,
+        canonical_delims,
+        &None,
+        mllp_in,
+        mllp_out,
+        summary,
+    )
 }
 
 /// Handle val command in interactive mode
 fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let parts: Vec<&str> = input.split_whitespace().collect();
     if parts.len() < 3 {
-        println!("Usage: val <file> <profile> [--mllp] [--detailed] [--report <text|json|yaml>] [--summary]");
+        println!(
+            "Usage: val <file> <profile> [--mllp] [--detailed] [--report <text|json|yaml>] [--summary]"
+        );
         return Ok(());
     }
-    
+
     let file_path = PathBuf::from(parts[1]);
     let profile_path = PathBuf::from(parts[2]);
     let mut mllp = false;
     let mut detailed = false;
     let mut summary = false;
     let mut report = ReportFormat::Text;
-    
+
     let mut i = 3;
     while i < parts.len() {
         match parts[i] {
@@ -952,7 +1072,7 @@ fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    
+
     val_command(&file_path, &profile_path, mllp, detailed, &report, summary)
 }
 
@@ -960,17 +1080,19 @@ fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
 fn handle_ack_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let parts: Vec<&str> = input.split_whitespace().collect();
     if parts.len() < 2 {
-        println!("Usage: ack <file> [--mode <original|enhanced>] [--code <AA|AE|AR|CA|CE|CR>] [--mllp-in] [--mllp-out] [--summary]");
+        println!(
+            "Usage: ack <file> [--mode <original|enhanced>] [--code <AA|AE|AR|CA|CE|CR>] [--mllp-in] [--mllp-out] [--summary]"
+        );
         return Ok(());
     }
-    
+
     let file_path = PathBuf::from(parts[1]);
     let mut mode = AckMode::Original;
     let mut code = AckCode::AA;
     let mut mllp_in = false;
     let mut mllp_out = false;
     let mut summary = false;
-    
+
     let mut i = 2;
     while i < parts.len() {
         match parts[i] {
@@ -1028,7 +1150,7 @@ fn handle_ack_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    
+
     ack_command(&file_path, &mode, &code, mllp_in, mllp_out, summary)
 }
 
@@ -1036,16 +1158,18 @@ fn handle_ack_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
 fn handle_gen_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let parts: Vec<&str> = input.split_whitespace().collect();
     if parts.len() < 2 {
-        println!("Usage: gen <profile> [--seed <number>] [--count <number>] [--out <directory>] [--stats]");
+        println!(
+            "Usage: gen <profile> [--seed <number>] [--count <number>] [--out <directory>] [--stats]"
+        );
         return Ok(());
     }
-    
+
     let profile_path = PathBuf::from(parts[1]);
     let mut seed = 42;
     let mut count = 1;
     let mut out = PathBuf::from("output");
     let mut stats = false;
-    
+
     let mut i = 2;
     while i < parts.len() {
         match parts[i] {
@@ -1086,37 +1210,44 @@ fn handle_gen_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    
+
     gen_command(&profile_path, seed, count, &out, stats)
 }
 
-fn gen_command(profile: &PathBuf, seed: u64, count: usize, out: &PathBuf, stats: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn gen_command(
+    profile: &PathBuf,
+    seed: u64,
+    count: usize,
+    out: &PathBuf,
+    stats: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
-    
+
     // Read the template YAML file
     let template_yaml = fs::read_to_string(profile)?;
-    
+
     let read_template_time = monitor.elapsed();
     monitor.record_metric("Template read", read_template_time);
-    
+
     // Parse the template from YAML
     let template: Template = serde_yaml::from_str(&template_yaml)?;
-    
+
     let parse_template_time = monitor.elapsed() - read_template_time;
     monitor.record_metric("Template parsing", parse_template_time);
-    
+
     // Generate messages
     let messages = generate(&template, seed, count)?;
-    
+
     let generation_time = monitor.elapsed() - read_template_time - parse_template_time;
     monitor.record_metric("Message generation", generation_time);
-    
+
     // Create output directory if it doesn't exist
     fs::create_dir_all(out)?;
-    
-    let create_dir_time = monitor.elapsed() - read_template_time - parse_template_time - generation_time;
+
+    let create_dir_time =
+        monitor.elapsed() - read_template_time - parse_template_time - generation_time;
     monitor.record_metric("Directory creation", create_dir_time);
-    
+
     // Write each message to a separate file
     let mut written_files = 0;
     for (i, message) in messages.iter().enumerate() {
@@ -1128,14 +1259,18 @@ fn gen_command(profile: &PathBuf, seed: u64, count: usize, out: &PathBuf, stats:
         }
         written_files += 1;
     }
-    
-    let write_time = monitor.elapsed() - read_template_time - parse_template_time - generation_time - create_dir_time;
+
+    let write_time = monitor.elapsed()
+        - read_template_time
+        - parse_template_time
+        - generation_time
+        - create_dir_time;
     monitor.record_metric("File writing", write_time);
-    
+
     if stats {
         println!("Successfully generated {} messages", messages.len());
     }
-    
+
     // Show stats if requested
     if stats {
         println!();
@@ -1148,6 +1283,6 @@ fn gen_command(profile: &PathBuf, seed: u64, count: usize, out: &PathBuf, stats:
         println!("  Files written: {}", written_files);
         display_performance_stats(&monitor);
     }
-    
+
     Ok(())
 }

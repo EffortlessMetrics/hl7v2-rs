@@ -5,14 +5,14 @@
 //! - Client connection handling
 //! - Server lifecycle
 
-use std::time::Duration;
 use bytes::BytesMut;
+use std::time::Duration;
 use tokio_util::codec::{Decoder, Encoder};
 
-use super::codec::MllpCodec;
 use super::client::{MllpClient, MllpClientBuilder, MllpClientConfig};
-use super::server::{MllpServer, MllpServerConfig, AckTimingPolicy, MessageHandler};
-use hl7v2_model::{Message, Delims, Segment, Field, Rep, Comp, Atom, Error};
+use super::codec::MllpCodec;
+use super::server::{AckTimingPolicy, MessageHandler, MllpServer, MllpServerConfig};
+use hl7v2_model::{Atom, Comp, Delims, Error, Field, Message, Rep, Segment};
 
 /// MLLP frame start byte (vertical tab)
 const MLLP_START: u8 = 0x0B;
@@ -230,7 +230,7 @@ mod codec_tests {
     fn test_decode_near_max_size() {
         let max_size = 100;
         let mut codec = MllpCodec::with_max_frame_size(max_size);
-        
+
         // Create message just under max size
         let content: Vec<u8> = vec![b'X'; max_size - 1];
         let mut frame = vec![MLLP_START];
@@ -248,7 +248,7 @@ mod codec_tests {
     fn test_decode_buffer_overflow_protection() {
         let max_size = 10;
         let mut codec = MllpCodec::with_max_frame_size(max_size);
-        
+
         // Create incomplete frame that would exceed max size
         let content: Vec<u8> = vec![b'X'; max_size + 5];
         let mut frame = vec![MLLP_START];
@@ -337,7 +337,7 @@ mod client_tests {
         let addr: SocketAddr = "192.0.2.1:2575".parse().unwrap();
         let result = client.connect(addr).await;
         assert!(result.is_err());
-        
+
         if let Err(e) = result {
             assert_eq!(e.kind(), std::io::ErrorKind::TimedOut);
         }
@@ -351,7 +351,7 @@ mod client_tests {
 
         let result = client.send_message(&message).await;
         assert!(result.is_err());
-        
+
         if let Err(e) = result {
             assert_eq!(e.kind(), std::io::ErrorKind::NotConnected);
         }
@@ -426,7 +426,7 @@ mod server_tests {
     async fn test_server_bind() {
         let mut server = MllpServer::with_default_config();
         let bind_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
-        
+
         let result = server.bind(bind_addr).await;
         assert!(result.is_ok());
 
@@ -440,7 +440,7 @@ mod server_tests {
     fn test_server_local_addr_not_bound() {
         let server = MllpServer::with_default_config();
         let result = server.local_addr();
-        
+
         assert!(result.is_err());
         if let Err(e) = result {
             assert_eq!(e.kind(), std::io::ErrorKind::NotConnected);
@@ -452,7 +452,7 @@ mod server_tests {
     fn test_ack_timing_policy() {
         assert_eq!(AckTimingPolicy::Immediate, AckTimingPolicy::Immediate);
         assert_ne!(AckTimingPolicy::Immediate, AckTimingPolicy::OnDemand);
-        
+
         let delayed = AckTimingPolicy::Delayed(Duration::from_millis(100));
         assert!(matches!(delayed, AckTimingPolicy::Delayed(_)));
     }
@@ -498,7 +498,7 @@ mod server_tests {
     fn test_message_handler_echo() {
         let handler = EchoHandler;
         let message = create_test_message();
-        
+
         let result = handler.handle_message(message);
         assert!(result.is_ok());
         assert!(result.unwrap().is_some());
@@ -517,7 +517,7 @@ mod server_tests {
     fn test_message_handler_silent() {
         let handler = SilentHandler;
         let message = create_test_message();
-        
+
         let result = handler.handle_message(message);
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
@@ -528,7 +528,9 @@ mod server_tests {
 
     impl MessageHandler for ErrorHandler {
         fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
-            Err(Error::InvalidFieldFormat { details: "Test error".to_string() })
+            Err(Error::InvalidFieldFormat {
+                details: "Test error".to_string(),
+            })
         }
     }
 
@@ -536,7 +538,7 @@ mod server_tests {
     fn test_message_handler_error() {
         let handler = ErrorHandler;
         let message = create_test_message();
-        
+
         let result = handler.handle_message(message);
         assert!(result.is_err());
     }
@@ -551,7 +553,7 @@ mod property_tests {
     use super::*;
     use proptest::prelude::*;
 
-    /// Generate arbitrary valid HL7 message content (printable ASCII)
+    // Generate arbitrary valid HL7 message content (printable ASCII)
     prop_compose! {
         fn arb_message_content()(bytes in "[ -~]*") -> BytesMut {
             BytesMut::from(bytes.as_bytes())
@@ -564,16 +566,16 @@ mod property_tests {
         fn prop_codec_roundtrip(content in arb_message_content()) {
             let mut codec = MllpCodec::new();
             let original = content;
-            
+
             // Encode
             let mut encoded = BytesMut::new();
             let encode_result = codec.encode(original.clone(), &mut encoded);
-            
+
             // Only test if encoding succeeded
             if encode_result.is_ok() {
                 // Decode
                 let decoded = codec.decode(&mut encoded);
-                
+
                 prop_assert!(decoded.is_ok());
                 if let Ok(Some(decoded_content)) = decoded {
                     prop_assert_eq!(&decoded_content[..], &original[..]);
@@ -587,7 +589,7 @@ mod property_tests {
             let mut codec = MllpCodec::with_max_frame_size(10000);
             let mut dst = BytesMut::new();
             let msg = BytesMut::from(&bytes[..]);
-            
+
             // Should never panic, may return error for large messages
             let _ = codec.encode(msg, &mut dst);
             prop_assert!(true);
@@ -598,7 +600,7 @@ mod property_tests {
         fn prop_decode_no_panic(bytes: Vec<u8>) {
             let mut codec = MllpCodec::with_max_frame_size(10000);
             let mut src = BytesMut::from(&bytes[..]);
-            
+
             // Should never panic
             let result = codec.decode(&mut src);
             prop_assert!(result.is_ok() || result.is_err());
@@ -609,20 +611,20 @@ mod property_tests {
         fn prop_multiple_messages_roundtrip(msgs: Vec<String>) {
             let mut codec = MllpCodec::new();
             let mut buffer = BytesMut::new();
-            
+
             // Encode all messages
             for msg in &msgs {
                 let mut encoded = BytesMut::new();
                 let _ = codec.encode(BytesMut::from(msg.as_bytes()), &mut encoded);
                 buffer.extend(encoded);
             }
-            
+
             // Decode all messages
             let mut decoded_count = 0;
             while let Ok(Some(_)) = codec.decode(&mut buffer) {
                 decoded_count += 1;
             }
-            
+
             prop_assert_eq!(decoded_count, msgs.len() as i32);
         }
     }
@@ -636,27 +638,25 @@ mod property_tests {
 fn create_test_message() -> Message {
     Message {
         delims: Delims::default(),
-        segments: vec![
-            Segment {
-                id: *b"MSH",
-                fields: vec![
-                    Field {
-                        reps: vec![Rep {
-                            comps: vec![Comp {
-                                subs: vec![Atom::Text("^~\\&".to_string())],
-                            }],
+        segments: vec![Segment {
+            id: *b"MSH",
+            fields: vec![
+                Field {
+                    reps: vec![Rep {
+                        comps: vec![Comp {
+                            subs: vec![Atom::Text("^~\\&".to_string())],
                         }],
-                    },
-                    Field {
-                        reps: vec![Rep {
-                            comps: vec![Comp {
-                                subs: vec![Atom::Text("TEST".to_string())],
-                            }],
+                    }],
+                },
+                Field {
+                    reps: vec![Rep {
+                        comps: vec![Comp {
+                            subs: vec![Atom::Text("TEST".to_string())],
                         }],
-                    },
-                ],
-            },
-        ],
+                    }],
+                },
+            ],
+        }],
         charsets: vec![],
     }
 }
@@ -668,9 +668,9 @@ fn create_test_message() -> Message {
 #[cfg(test)]
 mod network_tests {
     use super::*;
+    use std::net::SocketAddr;
     use std::sync::Arc;
     use tokio::sync::Notify;
-    use std::net::SocketAddr;
 
     /// Test basic client-server communication
     #[tokio::test]
@@ -765,7 +765,7 @@ mod network_tests {
                 let mut client = MllpClientBuilder::new()
                     .connect_timeout(Duration::from_secs(5))
                     .build();
-                
+
                 client.connect(addr).await.unwrap();
                 let message = create_test_message();
                 let _ = client.send_message(&message).await;
@@ -790,20 +790,20 @@ mod network_tests {
     #[tokio::test]
     async fn test_codec_partial_frames() {
         let mut codec = MllpCodec::new();
-        
+
         // Simulate partial frame arrival
         let part1 = BytesMut::from(&b"\x0BMSH"[..]);
         let part2 = BytesMut::from(&b"|^~\\&\r\x1C\x0D"[..]);
-        
+
         let mut buffer = part1;
-        
+
         // First part should not decode
         let result1 = codec.decode(&mut buffer).unwrap();
         assert!(result1.is_none());
-        
+
         // Add second part
         buffer.extend(part2);
-        
+
         // Now should decode
         let result2 = codec.decode(&mut buffer).unwrap();
         assert!(result2.is_some());

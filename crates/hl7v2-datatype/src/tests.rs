@@ -53,7 +53,7 @@ mod datatype_enum_tests {
     #[test]
     fn test_datatype_clone() {
         let dt = DataType::PN;
-        let cloned = dt.clone();
+        let cloned = dt;
         assert_eq!(dt, cloned);
     }
 }
@@ -86,18 +86,18 @@ mod validator_tests {
     #[test]
     fn test_validator_min_length() {
         let validator = DataTypeValidator::new().with_min_length(5);
-        
-        assert!(!validator.validate("abc"));   // Too short
-        assert!(validator.validate("abcde"));  // Exactly min
+
+        assert!(!validator.validate("abc")); // Too short
+        assert!(validator.validate("abcde")); // Exactly min
         assert!(validator.validate("abcdef")); // Longer than min
     }
 
     #[test]
     fn test_validator_max_length() {
         let validator = DataTypeValidator::new().with_max_length(10);
-        
-        assert!(validator.validate("abc"));         // Under max
-        assert!(validator.validate("abcdeabcde"));   // Exactly max
+
+        assert!(validator.validate("abc")); // Under max
+        assert!(validator.validate("abcdeabcde")); // Exactly max
         assert!(!validator.validate("abcdeabcdef")); // Over max
     }
 
@@ -106,19 +106,18 @@ mod validator_tests {
         let validator = DataTypeValidator::new()
             .with_min_length(3)
             .with_max_length(10);
-        
-        assert!(!validator.validate("ab"));        // Too short
-        assert!(validator.validate("abc"));        // Min boundary
-        assert!(validator.validate("abcde"));      // In range
+
+        assert!(!validator.validate("ab")); // Too short
+        assert!(validator.validate("abc")); // Min boundary
+        assert!(validator.validate("abcde")); // In range
         assert!(validator.validate("abcdeabcde")); // Max boundary
         assert!(!validator.validate("abcdeabcdef")); // Too long
     }
 
     #[test]
     fn test_validator_pattern() {
-        let validator = DataTypeValidator::new()
-            .with_pattern(r"^\d{3}$");
-        
+        let validator = DataTypeValidator::new().with_pattern(r"^\d{3}$");
+
         assert!(validator.validate("123"));
         assert!(validator.validate("456"));
         assert!(!validator.validate("12"));
@@ -128,13 +127,12 @@ mod validator_tests {
 
     #[test]
     fn test_validator_allowed_values() {
-        let validator = DataTypeValidator::new()
-            .with_allowed_values(vec![
-                "M".to_string(),
-                "F".to_string(),
-                "U".to_string(),
-            ]);
-        
+        let validator = DataTypeValidator::new().with_allowed_values(vec![
+            "M".to_string(),
+            "F".to_string(),
+            "U".to_string(),
+        ]);
+
         assert!(validator.validate("M"));
         assert!(validator.validate("F"));
         assert!(validator.validate("U"));
@@ -144,13 +142,12 @@ mod validator_tests {
 
     #[test]
     fn test_validator_checksum_luhn() {
-        let validator = DataTypeValidator::new()
-            .with_checksum(ChecksumAlgorithm::Luhn);
-        
+        let validator = DataTypeValidator::new().with_checksum(ChecksumAlgorithm::Luhn);
+
         // Valid Luhn numbers
         assert!(validator.validate("4532015112830366")); // Test Visa
         assert!(validator.validate("6011111111111117")); // Test Discover
-        
+
         // Invalid Luhn numbers
         assert!(!validator.validate("4532015112830367"));
         assert!(!validator.validate("1234567890123456"));
@@ -158,9 +155,8 @@ mod validator_tests {
 
     #[test]
     fn test_validator_checksum_mod10() {
-        let validator = DataTypeValidator::new()
-            .with_checksum(ChecksumAlgorithm::Mod10);
-        
+        let validator = DataTypeValidator::new().with_checksum(ChecksumAlgorithm::Mod10);
+
         // Mod10 uses same algorithm as Luhn
         assert!(validator.validate("4532015112830366"));
         assert!(!validator.validate("4532015112830367"));
@@ -172,10 +168,10 @@ mod validator_tests {
             .with_min_length(16)
             .with_max_length(16)
             .with_checksum(ChecksumAlgorithm::Luhn);
-        
+
         assert!(validator.validate("4532015112830366"));
-        assert!(!validator.validate("453201511283036"));   // Wrong length
-        assert!(!validator.validate("4532015112830367"));  // Bad checksum
+        assert!(!validator.validate("453201511283036")); // Wrong length
+        assert!(!validator.validate("4532015112830367")); // Bad checksum
     }
 
     #[test]
@@ -183,7 +179,7 @@ mod validator_tests {
         let validator = DataTypeValidator::new()
             .with_min_length(1)
             .with_max_length(10);
-        
+
         let result = validator.validate_detailed("test");
         assert!(result.is_ok());
     }
@@ -191,7 +187,7 @@ mod validator_tests {
     #[test]
     fn test_validator_validate_detailed_too_short() {
         let validator = DataTypeValidator::new().with_min_length(5);
-        
+
         let result = validator.validate_detailed("abc");
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -206,7 +202,7 @@ mod validator_tests {
     #[test]
     fn test_validator_validate_detailed_too_long() {
         let validator = DataTypeValidator::new().with_max_length(5);
-        
+
         let result = validator.validate_detailed("abcdefgh");
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -221,7 +217,7 @@ mod validator_tests {
     #[test]
     fn test_validator_validate_detailed_pattern_mismatch() {
         let validator = DataTypeValidator::new().with_pattern(r"^\d+$");
-        
+
         let result = validator.validate_detailed("abc123");
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -235,9 +231,9 @@ mod validator_tests {
 
     #[test]
     fn test_validator_validate_detailed_not_in_allowed_set() {
-        let validator = DataTypeValidator::new()
-            .with_allowed_values(vec!["A".to_string(), "B".to_string()]);
-        
+        let validator =
+            DataTypeValidator::new().with_allowed_values(vec!["A".to_string(), "B".to_string()]);
+
         let result = validator.validate_detailed("C");
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -250,9 +246,8 @@ mod validator_tests {
 
     #[test]
     fn test_validator_validate_detailed_checksum_failed() {
-        let validator = DataTypeValidator::new()
-            .with_checksum(ChecksumAlgorithm::Luhn);
-        
+        let validator = DataTypeValidator::new().with_checksum(ChecksumAlgorithm::Luhn);
+
         let result = validator.validate_detailed("1234567890123456");
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -326,7 +321,7 @@ mod validate_datatype_tests {
     fn test_validate_sequence_id() {
         assert!(validate_datatype("1", "SI"));
         assert!(validate_datatype("123", "SI"));
-        assert!(!validate_datatype("0", "SI"));   // Must be > 0
+        assert!(!validate_datatype("0", "SI")); // Must be > 0
         assert!(!validate_datatype("-1", "SI")); // Must be positive
         assert!(!validate_datatype("abc", "SI"));
     }
@@ -377,7 +372,7 @@ mod validate_datatype_tests {
         assert!(validate_datatype("1234567890", "XTN"));
         assert!(validate_datatype("(555) 123-4567", "XTN"));
         assert!(validate_datatype("555-123-4567", "XTN"));
-        assert!(!validate_datatype("123", "XTN"));      // Too short
+        assert!(!validate_datatype("123", "XTN")); // Too short
         assert!(!validate_datatype("1234567890123456", "XTN")); // Too long
     }
 
@@ -442,8 +437,8 @@ mod specific_validation_tests {
 
     #[test]
     fn test_is_sequence_id_invalid() {
-        assert!(!is_sequence_id("0"));    // Must be > 0
-        assert!(!is_sequence_id("-1"));   // Negative
+        assert!(!is_sequence_id("0")); // Must be > 0
+        assert!(!is_sequence_id("-1")); // Negative
         assert!(!is_sequence_id("abc"));
     }
 
@@ -473,8 +468,8 @@ mod specific_validation_tests {
 
     #[test]
     fn test_is_phone_number_invalid() {
-        assert!(!is_phone_number("123"));         // Too short (only 3 digits)
-        assert!(!is_phone_number("123456"));      // Too short (only 6 digits)
+        assert!(!is_phone_number("123")); // Too short (only 3 digits)
+        assert!(!is_phone_number("123456")); // Too short (only 6 digits)
         assert!(!is_phone_number("1234567890123456")); // Too long (16 digits)
     }
 
@@ -520,7 +515,7 @@ mod specific_validation_tests {
 
     #[test]
     fn test_is_ssn_wrong_length() {
-        assert!(!is_ssn("123-45-678"));   // Too short
+        assert!(!is_ssn("123-45-678")); // Too short
         assert!(!is_ssn("123-45-67890")); // Too long
     }
 
@@ -541,7 +536,7 @@ mod specific_validation_tests {
         let current_year = chrono::Utc::now().year();
         let past_date = format!("{}0101", current_year - 30);
         let future_date = format!("{}0101", current_year + 1);
-        
+
         assert!(is_valid_birth_date(&past_date));
         assert!(!is_valid_birth_date(&future_date));
         assert!(!is_valid_birth_date("invalid"));
@@ -560,7 +555,7 @@ mod specific_validation_tests {
         assert!(is_within_range("5", "1", "10"));
         assert!(is_within_range("1", "1", "10")); // Min boundary
         assert!(is_within_range("10", "1", "10")); // Max boundary
-        assert!(!is_within_range("0", "1", "10"));  // Below min
+        assert!(!is_within_range("0", "1", "10")); // Below min
         assert!(!is_within_range("11", "1", "10")); // Above max
         assert!(!is_within_range("abc", "1", "10")); // Non-numeric
     }
@@ -579,7 +574,7 @@ mod luhn_tests {
         // Test credit card numbers (these are test numbers, not real)
         assert!(validate_luhn_checksum("4532015112830366")); // Visa
         assert!(validate_luhn_checksum("6011111111111117")); // Discover
-        assert!(validate_luhn_checksum("378282246310005"));  // Amex
+        assert!(validate_luhn_checksum("378282246310005")); // Amex
         assert!(validate_luhn_checksum("4111111111111111")); // Visa test
     }
 
@@ -635,8 +630,8 @@ mod format_matching_tests {
         assert!(!matches_format("2025-13-28", "YYYY-MM-DD", "DT")); // Invalid month
         assert!(!matches_format("2025-01-32", "YYYY-MM-DD", "DT")); // Invalid day
         assert!(!matches_format("2025/01/28", "YYYY-MM-DD", "DT")); // Wrong separator
-        assert!(!matches_format("20250128", "YYYY-MM-DD", "DT"));   // No separators
-        assert!(!matches_format("25-01-28", "YYYY-MM-DD", "DT"));   // 2-digit year
+        assert!(!matches_format("20250128", "YYYY-MM-DD", "DT")); // No separators
+        assert!(!matches_format("25-01-28", "YYYY-MM-DD", "DT")); // 2-digit year
     }
 
     #[test]
@@ -651,7 +646,7 @@ mod format_matching_tests {
         assert!(!matches_format("24:00:00", "HH:MM:SS", "TM")); // Invalid hour
         assert!(!matches_format("23:60:00", "HH:MM:SS", "TM")); // Invalid minute
         assert!(!matches_format("23:59:60", "HH:MM:SS", "TM")); // Invalid second
-        assert!(!matches_format("152312", "HH:MM:SS", "TM"));   // No separators
+        assert!(!matches_format("152312", "HH:MM:SS", "TM")); // No separators
     }
 
     #[test]
@@ -693,7 +688,9 @@ mod error_tests {
         assert!(err.to_string().contains("abc"));
         assert!(err.to_string().contains(r"^\d+$"));
 
-        let err = DataTypeError::NotInAllowedSet { value: "X".to_string() };
+        let err = DataTypeError::NotInAllowedSet {
+            value: "X".to_string(),
+        };
         assert!(err.to_string().contains("X"));
 
         let err = DataTypeError::ChecksumFailed;
@@ -712,7 +709,7 @@ mod error_tests {
         let err1 = DataTypeError::TooShort { length: 3, min: 5 };
         let err2 = DataTypeError::TooShort { length: 3, min: 5 };
         let err3 = DataTypeError::TooShort { length: 4, min: 5 };
-        
+
         assert_eq!(err1, err2);
         assert_ne!(err1, err3);
     }
@@ -736,7 +733,7 @@ mod checksum_algorithm_tests {
     #[test]
     fn test_checksum_algorithm_clone() {
         let algo = ChecksumAlgorithm::Luhn;
-        let cloned = algo.clone();
+        let cloned = algo;
         assert_eq!(algo, cloned);
     }
 }

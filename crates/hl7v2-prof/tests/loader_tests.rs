@@ -91,12 +91,9 @@ async fn test_load_from_url_caches_result_with_etag() {
 
     // Reset the mock to return 304 Not Modified for subsequent requests with If-None-Match
     mock_server.reset().await;
-    
+
     Mock::given(method("GET"))
-        .respond_with(
-            ResponseTemplate::new(304)
-                .insert_header("ETag", "\"test-etag-123\""),
-        )
+        .respond_with(ResponseTemplate::new(304).insert_header("ETag", "\"test-etag-123\""))
         .mount(&mock_server)
         .await;
 
@@ -133,7 +130,7 @@ async fn test_load_from_url_handles_invalid_yaml() {
 
     // Use truly invalid YAML that will fail parsing
     let invalid_yaml = "message_structure: [unclosed\n  bad: {{{array";
-    
+
     Mock::given(method("GET"))
         .respond_with(
             ResponseTemplate::new(200)
@@ -149,7 +146,10 @@ async fn test_load_from_url_handles_invalid_yaml() {
     let result = loader.load(&url).await;
     assert!(result.is_err());
     // The error could be Parse or Core depending on what fails first
-    assert!(matches!(result, Err(ProfileLoadError::Parse(_)) | Err(ProfileLoadError::Core(_))));
+    assert!(matches!(
+        result,
+        Err(ProfileLoadError::Parse(_)) | Err(ProfileLoadError::Core(_))
+    ));
 }
 
 #[tokio::test]
@@ -297,7 +297,9 @@ async fn test_prefetch_all() {
     let url2 = format!("{}/profiles/p2.yaml", mock_server.uri());
     let url3 = format!("{}/profiles/p3.yaml", mock_server.uri());
 
-    let results = loader.prefetch_all([url1.as_str(), url2.as_str(), url3.as_str()]).await;
+    let results = loader
+        .prefetch_all([url1.as_str(), url2.as_str(), url3.as_str()])
+        .await;
 
     assert_eq!(results.len(), 3);
     assert!(results.iter().all(|r| r.is_ok()));

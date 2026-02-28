@@ -12,6 +12,7 @@ categories = ["network-programming", "encoding"]
 
 [dependencies]
 hl7v2-model = { path = "../hl7v2-model" }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }

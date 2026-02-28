@@ -2,7 +2,7 @@
 //!
 //! These tests verify batch parsing properties hold for arbitrary inputs.
 
-use hl7v2_batch::{parse_batch, Batch, BatchType};
+use hl7v2_batch::{Batch, BatchType, parse_batch};
 use hl7v2_parser::parse;
 use proptest::prelude::*;
 
@@ -40,7 +40,7 @@ proptest! {
             "MSH|^~\\&|{}|{}|{}|{}|20250128120000||ADT^A01|{}|P|2.5.1\r",
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
-        
+
         let result = parse_batch(message.as_bytes());
         prop_assert!(result.is_ok());
     }
@@ -64,7 +64,7 @@ proptest! {
             send_app, send_fac, recv_app, recv_fac, batch_name,
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
-        
+
         let result = parse_batch(batch_data.as_bytes());
         prop_assert!(result.is_ok());
     }
@@ -90,7 +90,7 @@ proptest! {
             send_app, send_fac, recv_app, recv_fac,
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
-        
+
         let result = parse_batch(batch_data.as_bytes());
         prop_assert!(result.is_ok());
     }
@@ -105,7 +105,7 @@ proptest! {
     ) {
         // Ensure different control IDs
         prop_assume!(ctrl_id1 != ctrl_id2);
-        
+
         let batch_data = format!(
             "BHS|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000\r\
              MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|{}|P|2.5.1\r\
@@ -113,7 +113,7 @@ proptest! {
              BTS|2\r",
             ctrl_id1, ctrl_id2
         );
-        
+
         let result = parse_batch(batch_data.as_bytes()).unwrap();
         prop_assert_eq!(result.total_message_count(), 2);
     }
@@ -132,7 +132,7 @@ proptest! {
              BTS|1\r",
             send_app, recv_app, send_app, recv_app
         );
-        
+
         let result = parse_batch(batch_data.as_bytes()).unwrap();
         prop_assert_eq!(&result.batches[0].info.sending_application, &Some(send_app));
         prop_assert_eq!(&result.batches[0].info.receiving_application, &Some(recv_app));
@@ -152,7 +152,7 @@ proptest! {
              BTS|1\r",
             send_fac, recv_fac, send_fac, recv_fac
         );
-        
+
         let result = parse_batch(batch_data.as_bytes()).unwrap();
         prop_assert_eq!(&result.batches[0].info.sending_facility, &Some(send_fac));
         prop_assert_eq!(&result.batches[0].info.receiving_facility, &Some(recv_fac));
@@ -169,7 +169,7 @@ proptest! {
              BTS|1\r",
             batch_name
         );
-        
+
         let result = parse_batch(batch_data.as_bytes()).unwrap();
         prop_assert_eq!(&result.batches[0].info.batch_name, &Some(batch_name));
     }
@@ -184,7 +184,7 @@ proptest! {
             "MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|{}|P|2.5.1\r",
             ctrl_id
         );
-        
+
         if let Ok(msg) = parse(msg_text.as_bytes()) {
             batch.add_message(msg);
             prop_assert_eq!(batch.message_count(), 1);
@@ -202,7 +202,7 @@ proptest! {
              FTS|1\r",
             ctrl_id
         );
-        
+
         let result = parse_batch(batch_data.as_bytes()).unwrap();
         prop_assert_eq!(result.info.batch_type, BatchType::File);
     }
@@ -220,7 +220,7 @@ proptest! {
         prop_assume!(ctrl_id1 != ctrl_id2);
         prop_assume!(ctrl_id2 != ctrl_id3);
         prop_assume!(ctrl_id1 != ctrl_id3);
-        
+
         let batch_data = format!(
             "BHS|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000\r\
              MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|{}|P|2.5.1\r\
@@ -229,7 +229,7 @@ proptest! {
              BTS|3\r",
             ctrl_id1, ctrl_id2, ctrl_id3
         );
-        
+
         let result = parse_batch(batch_data.as_bytes()).unwrap();
         prop_assert_eq!(result.total_message_count(), 3);
     }
@@ -252,7 +252,7 @@ proptest! {
              BTS|5\r",
             ctrl_id
         );
-        
+
         let result = parse_batch(batch_data.as_bytes());
         prop_assert!(result.is_err());
     }

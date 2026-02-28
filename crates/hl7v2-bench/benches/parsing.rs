@@ -1,6 +1,6 @@
 //! Benchmarks for HL7 v2 parsing performance
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use hl7v2_parser::parse;
 use hl7v2_writer::write;
 
@@ -92,4 +92,3 @@ criterion_group!(
 );
 
 criterion_main!(benches);
-

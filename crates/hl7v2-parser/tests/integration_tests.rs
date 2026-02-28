@@ -3,8 +3,8 @@
 //! These tests exercise the parser against realistic HL7 messages
 //! and test integration with other crates in the workspace.
 
-use hl7v2_parser::{parse, parse_batch, parse_file_batch, parse_mllp, get};
-use hl7v2_test_utils::{SampleMessages, MessageBuilder};
+use hl7v2_parser::{get, parse, parse_batch, parse_file_batch, parse_mllp};
+use hl7v2_test_utils::{MessageBuilder, SampleMessages};
 
 // =============================================================================
 // Standard Message Type Tests
@@ -78,7 +78,7 @@ fn test_parse_special_chars_edge_case() {
     let message = parse(hl7.as_bytes()).unwrap();
 
     // Message with escape sequences should parse
-    assert!(message.segments.len() >= 1);
+    assert!(!message.segments.is_empty());
 }
 
 #[test]
@@ -160,7 +160,8 @@ fn test_message_builder_creates_valid_message() {
 
 #[test]
 fn test_mllp_roundtrip() {
-    let original = b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128120000||ADT^A01|MSG123|P|2.5\rPID|1||123||Test\r";
+    let original =
+        b"MSH|^~\\&|App|Fac|Recv|RecvFac|20250128120000||ADT^A01|MSG123|P|2.5\rPID|1||123||Test\r";
 
     // Wrap in MLLP framing
     let framed = hl7v2_mllp::wrap_mllp(original);
@@ -235,9 +236,7 @@ fn test_complex_message_with_all_segment_types() {
     let message = parse(hl7.as_bytes()).unwrap();
 
     // Verify all segment types are present
-    let segment_ids: Vec<&str> = message.segments.iter()
-        .map(|s| s.id_str())
-        .collect();
+    let segment_ids: Vec<&str> = message.segments.iter().map(|s| s.id_str()).collect();
 
     assert!(segment_ids.contains(&"MSH"));
     assert!(segment_ids.contains(&"EVN"));
@@ -258,8 +257,8 @@ fn test_message_with_nested_components() {
     let message = parse(hl7.as_slice()).unwrap();
 
     // Test nested component access
-    assert_eq!(get(&message, "PID.5.1"), Some("Doe"));       // Family name
-    assert_eq!(get(&message, "PID.5.2"), Some("John"));      // Given name
+    assert_eq!(get(&message, "PID.5.1"), Some("Doe")); // Family name
+    assert_eq!(get(&message, "PID.5.2"), Some("John")); // Given name
 }
 
 #[test]
@@ -355,7 +354,8 @@ fn test_real_world_oru_r01() {
 #[test]
 fn test_large_message() {
     // Create a message with many segments
-    let mut hl7 = String::from("MSH|^~\\&|App|Fac|Recv|RecvFac|20250128120000||ADT^A01|MSG123|P|2.5\r");
+    let mut hl7 =
+        String::from("MSH|^~\\&|App|Fac|Recv|RecvFac|20250128120000||ADT^A01|MSG123|P|2.5\r");
 
     for i in 0..100 {
         hl7.push_str(&format!("OBX|{}|ST|Test{}||Value{}\r", i, i, i));

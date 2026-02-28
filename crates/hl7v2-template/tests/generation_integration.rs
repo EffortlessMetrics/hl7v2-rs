@@ -1,11 +1,17 @@
-use hl7v2_template::{generate, Template, ValueSource};
+use hl7v2_template::{Template, ValueSource, generate};
 use std::collections::HashMap;
 
 #[test]
 fn integration_uses_externalized_value_source() {
     let mut values = HashMap::new();
-    values.insert("PID.3".to_string(), vec![ValueSource::Numeric { digits: 6 }]);
-    values.insert("PV1.4".to_string(), vec![ValueSource::Fixed("WARD01".to_string())]);
+    values.insert(
+        "PID.3".to_string(),
+        vec![ValueSource::Numeric { digits: 6 }],
+    );
+    values.insert(
+        "PV1.4".to_string(),
+        vec![ValueSource::Fixed("WARD01".to_string())],
+    );
 
     let template = Template {
         name: "integration".to_string(),

@@ -2,7 +2,7 @@
 //!
 //! These tests verify escape/unescape properties hold for arbitrary inputs.
 
-use hl7v2_escape::{escape_text, unescape_text, needs_escaping, needs_unescaping};
+use hl7v2_escape::{escape_text, needs_escaping, needs_unescaping, unescape_text};
 use hl7v2_model::Delims;
 use proptest::prelude::*;
 
@@ -19,15 +19,19 @@ fn text_without_delimiters() -> impl Strategy<Value = String> {
 
 /// Generate custom delimiters
 fn custom_delims() -> impl Strategy<Value = Delims> {
-    (any::<char>(), any::<char>(), any::<char>(), any::<char>(), any::<char>())
-        .prop_map(|(field, comp, rep, esc, sub)| {
-            Delims {
-                field,
-                comp,
-                rep,
-                esc,
-                sub,
-            }
+    (
+        any::<char>(),
+        any::<char>(),
+        any::<char>(),
+        any::<char>(),
+        any::<char>(),
+    )
+        .prop_map(|(field, comp, rep, esc, sub)| Delims {
+            field,
+            comp,
+            rep,
+            esc,
+            sub,
         })
 }
 
@@ -66,7 +70,7 @@ proptest! {
     fn prop_escaped_has_no_raw_delimiters(text in text_with_delimiters()) {
         let delims = Delims::default();
         let escaped = escape_text(&text, &delims);
-        
+
         // Escaped text should not contain raw delimiters (except in escape sequences)
         // Check that any delimiter char is part of an escape sequence
         let chars: Vec<char> = escaped.chars().collect();
@@ -90,7 +94,7 @@ proptest! {
             || text.contains(delims.rep)
             || text.contains(delims.esc)
             || text.contains(delims.sub);
-        
+
         prop_assert_eq!(needs_escaping(&text, &delims), should_escape);
     }
 }
@@ -101,7 +105,7 @@ proptest! {
     fn prop_needs_unescaping_accurate(text in text_with_delimiters()) {
         let delims = Delims::default();
         let escaped = escape_text(&text, &delims);
-        
+
         // Escaped text should need unescaping if original had delimiters
         let should_unescape = needs_escaping(&text, &delims);
         prop_assert_eq!(needs_unescaping(&escaped, &delims), should_unescape || text.contains(delims.esc));
@@ -145,7 +149,7 @@ proptest! {
         prop_assume!(!text.contains(rep));
         prop_assume!(!text.contains(esc));
         prop_assume!(!text.contains(sub));
-        
+
         let delims = Delims { field, comp, rep, esc, sub };
         let escaped = escape_text(&text, &delims);
         let unescaped = unescape_text(&escaped, &delims).unwrap();
@@ -161,7 +165,7 @@ proptest! {
         let delims = Delims::default();
         let escaped1 = escape_text(&text, &delims);
         let escaped2 = escape_text(&escaped1, &delims);
-        
+
         // Double escaping should produce different result if original had escape chars
         if text.contains(delims.esc) {
             prop_assert_ne!(escaped1, escaped2);
@@ -195,11 +199,11 @@ proptest! {
         let delims = Delims::default();
         let text = "|".repeat(count);
         let escaped = escape_text(&text, &delims);
-        
+
         // Should have count occurrences of \F\
         let escape_count = escaped.matches("\\F\\").count();
         prop_assert_eq!(escape_count, count);
-        
+
         // Roundtrip should preserve
         let unescaped = unescape_text(&escaped, &delims).unwrap();
         prop_assert_eq!(unescaped, text);

@@ -10,7 +10,7 @@ use async_lock::RwLock;
 use lru::LruCache;
 use thiserror::Error;
 
-use crate::{load_profile, Profile};
+use crate::{Profile, load_profile};
 
 /// Default cache size (number of profiles)
 const DEFAULT_CACHE_SIZE: usize = 100;
@@ -133,7 +133,10 @@ impl ProfileLoader {
     /// - Cache size: 100 profiles
     /// - Timeout: 30 seconds
     pub fn new() -> Self {
-        Self::with_options(DEFAULT_CACHE_SIZE, Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+        Self::with_options(
+            DEFAULT_CACHE_SIZE,
+            Duration::from_secs(DEFAULT_TIMEOUT_SECS),
+        )
     }
 
     /// Create a profile loader with custom cache size and timeout.
@@ -177,7 +180,13 @@ impl ProfileLoader {
     ///
     /// * `timeout` - Request timeout for HTTP requests
     pub fn with_timeout(self, timeout: Duration) -> Self {
-        Self::with_options(self.cache.try_read().map(|c| c.cap().get()).unwrap_or(DEFAULT_CACHE_SIZE), timeout)
+        Self::with_options(
+            self.cache
+                .try_read()
+                .map(|c| c.cap().get())
+                .unwrap_or(DEFAULT_CACHE_SIZE),
+            timeout,
+        )
     }
 
     /// Load a profile from a URL or file path.
@@ -240,7 +249,7 @@ impl ProfileLoader {
             if let Some(entry) = cache.peek(url) {
                 // We have a cached version, try conditional request
                 let mut request = self.client.get(url);
-                
+
                 if let Some(etag) = &entry.etag {
                     request = request.header("If-None-Match", etag);
                 }
@@ -269,7 +278,8 @@ impl ProfileLoader {
             ));
         }
 
-        let etag = response.headers()
+        let etag = response
+            .headers()
             .get("ETag")
             .and_then(|v| v.to_str().ok())
             .map(String::from);
@@ -477,17 +487,22 @@ mod tests {
     #[tokio::test]
     async fn test_load_local_file() {
         let loader = ProfileLoader::new();
-        
+
         // Try to load an example profile
-        let result = loader.load_from_file("examples/profiles/minimal.yaml").await;
-        
+        let result = loader
+            .load_from_file("examples/profiles/minimal.yaml")
+            .await;
+
         // This test may fail if run from a different directory
         if let Ok(result) = result {
             assert!(!result.from_cache);
             assert_eq!(result.profile.message_structure, "ADT_A01");
-            
+
             // Second load should be from cache
-            let cached = loader.load_from_file("examples/profiles/minimal.yaml").await.unwrap();
+            let cached = loader
+                .load_from_file("examples/profiles/minimal.yaml")
+                .await
+                .unwrap();
             assert!(cached.from_cache);
         }
     }
@@ -495,17 +510,19 @@ mod tests {
     #[tokio::test]
     async fn test_cache_invalidation() {
         let loader = ProfileLoader::new();
-        
+
         // Load a file
-        let result = loader.load_from_file("examples/profiles/minimal.yaml").await;
-        
+        let result = loader
+            .load_from_file("examples/profiles/minimal.yaml")
+            .await;
+
         if result.is_ok() {
             assert!(loader.is_cached("examples/profiles/minimal.yaml").await);
-            
+
             // Invalidate
             let removed = loader.invalidate("examples/profiles/minimal.yaml").await;
             assert!(removed);
-            
+
             assert!(!loader.is_cached("examples/profiles/minimal.yaml").await);
         }
     }
@@ -513,11 +530,15 @@ mod tests {
     #[tokio::test]
     async fn test_clear_cache() {
         let loader = ProfileLoader::new();
-        
+
         // Load multiple files
-        let _ = loader.load_from_file("examples/profiles/minimal.yaml").await;
-        let _ = loader.load_from_file("examples/profiles/ADT_A01.yaml").await;
-        
+        let _ = loader
+            .load_from_file("examples/profiles/minimal.yaml")
+            .await;
+        let _ = loader
+            .load_from_file("examples/profiles/ADT_A01.yaml")
+            .await;
+
         loader.clear_cache().await;
         assert_eq!(loader.cache_size().await, 0);
     }
@@ -525,7 +546,7 @@ mod tests {
     #[test]
     fn test_sync_load() {
         let result = ProfileLoader::load_file_sync("examples/profiles/minimal.yaml");
-        
+
         if let Ok(profile) = result {
             assert_eq!(profile.message_structure, "ADT_A01");
         }
@@ -534,7 +555,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_url_scheme() {
         let loader = ProfileLoader::new();
-        
+
         // This should try to load as a file and fail
         let result = loader.load("ftp://example.com/profile.yaml").await;
         assert!(result.is_err());
@@ -543,10 +564,10 @@ mod tests {
     #[tokio::test]
     async fn test_file_not_found() {
         let loader = ProfileLoader::new();
-        
+
         let result = loader.load_from_file("nonexistent_profile.yaml").await;
         assert!(result.is_err());
-        
+
         // Just verify it's a File error - the exact message varies by platform
         assert!(matches!(result, Err(ProfileLoadError::File(_))));
     }
@@ -554,18 +575,18 @@ mod tests {
     #[tokio::test]
     async fn test_parse_error() {
         let loader = ProfileLoader::new();
-        
+
         // Create a temp file with invalid YAML
         let temp_content = "this is not: valid yaml\n  bad indentation";
         let temp_path = std::env::temp_dir().join("test_invalid_profile.yaml");
         std::fs::write(&temp_path, temp_content).unwrap();
-        
+
         let result = loader.load_from_file(temp_path.to_str().unwrap()).await;
         assert!(result.is_err());
-        
+
         // Clean up
         std::fs::remove_file(&temp_path).ok();
-        
+
         if let Err(ProfileLoadError::Parse(_)) = result {
             // Expected
         }
@@ -575,12 +596,18 @@ mod tests {
     async fn test_lru_eviction() {
         // Create a loader with very small cache
         let loader = ProfileLoader::with_options(2, Duration::from_secs(30));
-        
+
         // Load files (if they exist)
-        let _ = loader.load_from_file("examples/profiles/minimal.yaml").await;
-        let _ = loader.load_from_file("examples/profiles/ADT_A01.yaml").await;
-        let _ = loader.load_from_file("examples/profiles/ADT_A04.yaml").await;
-        
+        let _ = loader
+            .load_from_file("examples/profiles/minimal.yaml")
+            .await;
+        let _ = loader
+            .load_from_file("examples/profiles/ADT_A01.yaml")
+            .await;
+        let _ = loader
+            .load_from_file("examples/profiles/ADT_A04.yaml")
+            .await;
+
         // Cache should have at most 2 entries
         assert!(loader.cache_size().await <= 2);
     }

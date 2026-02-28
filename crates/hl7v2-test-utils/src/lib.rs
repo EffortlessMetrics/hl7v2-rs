@@ -29,35 +29,29 @@
 //! assertions::assert_message_valid(custom.as_bytes());
 //! ```
 
-pub mod fixtures;
-pub mod builders;
 pub mod assertions;
+pub mod builders;
+pub mod fixtures;
 pub mod mocks;
 
 // Re-exports for convenience
-pub use fixtures::SampleMessages;
-pub use builders::{MessageBuilder, SegmentBuilder};
 pub use assertions::{
-    assert_message_valid,
+    assert_field_equals, assert_hl7_roundtrips, assert_message_valid, assert_parse_fails,
     assert_segment_equals,
-    assert_field_equals,
-    assert_parse_fails,
-    assert_hl7_roundtrips,
 };
-pub use mocks::{MockMllpServer, MockMessageHandler};
+pub use builders::{MessageBuilder, SegmentBuilder};
+pub use fixtures::SampleMessages;
+pub use mocks::{MockMessageHandler, MockMllpServer};
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::fixtures::SampleMessages;
-    pub use crate::builders::{MessageBuilder, SegmentBuilder};
     pub use crate::assertions::{
-        assert_message_valid,
+        assert_field_equals, assert_hl7_roundtrips, assert_message_valid, assert_parse_fails,
         assert_segment_equals,
-        assert_field_equals,
-        assert_parse_fails,
-        assert_hl7_roundtrips,
     };
-    pub use crate::mocks::{MockMllpServer, MockMessageHandler};
+    pub use crate::builders::{MessageBuilder, SegmentBuilder};
+    pub use crate::fixtures::SampleMessages;
+    pub use crate::mocks::{MockMessageHandler, MockMllpServer};
 }
 
 #[cfg(test)]
@@ -75,7 +69,7 @@ mod tests {
         let bytes = MessageBuilder::new()
             .with_msh("TestApp", "TestFac", "RecvApp", "RecvFac", "ADT", "A01")
             .build_bytes();
-        
+
         assert_message_valid(&bytes);
     }
 }

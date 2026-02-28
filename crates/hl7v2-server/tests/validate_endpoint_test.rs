@@ -131,7 +131,9 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
     // Invalid YAML profile might still succeed if parsed as simple string
     // or may return an error depending on validation strictness
     assert!(
-        response.status() == StatusCode::OK || response.status().is_client_error() || response.status().is_server_error(),
+        response.status() == StatusCode::OK
+            || response.status().is_client_error()
+            || response.status().is_server_error(),
         "Invalid profile should be handled gracefully, got: {}",
         response.status()
     );
@@ -159,7 +161,7 @@ async fn test_validate_missing_message_field_returns_400() {
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
-        || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
+            || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
         "Missing message field should return 400 or 422, got: {}",
         response.status()
     );
@@ -187,7 +189,7 @@ async fn test_validate_missing_profile_field_returns_400() {
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
-        || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
+            || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
         "Missing profile field should return 400 or 422, got: {}",
         response.status()
     );
@@ -211,7 +213,7 @@ async fn test_validate_empty_request_body_returns_400() {
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
-        || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
+            || response.status() == StatusCode::UNPROCESSABLE_ENTITY,
         "Empty request body should return 400 or 422, got: {}",
         response.status()
     );

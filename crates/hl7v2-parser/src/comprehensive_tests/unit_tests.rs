@@ -8,7 +8,7 @@
 //! - Error cases
 //! - Edge cases
 
-use crate::{parse, parse_batch, parse_file_batch, parse_mllp, get, get_presence};
+use crate::{get, get_presence, parse, parse_batch, parse_file_batch, parse_mllp};
 use hl7v2_model::*;
 
 // =============================================================================
@@ -61,7 +61,8 @@ fn test_parse_adt_a04() {
 #[test]
 fn test_parse_custom_delimiters() {
     // Message with custom delimiters: #$*@!
-    let hl7 = b"MSH#$*@!App#Fac#Rec#RecFac#20250128120000##ADT$A01#1#P#2.5\rPID#1##123##Name$First\r";
+    let hl7 =
+        b"MSH#$*@!App#Fac#Rec#RecFac#20250128120000##ADT$A01#1#P#2.5\rPID#1##123##Name$First\r";
     let message = parse(hl7).unwrap();
 
     assert_eq!(message.delims.field, '#');
@@ -190,7 +191,10 @@ fn test_escape_special_chars() {
 
     // The escape sequence \\F\\ should be unescaped to |
     let value = get(&message, "PID.5.1").unwrap();
-    assert!(value.contains('|'), "Should contain unescaped field separator");
+    assert!(
+        value.contains('|'),
+        "Should contain unescaped field separator"
+    );
 }
 
 // =============================================================================

@@ -31,23 +31,23 @@
 //! assert!(ts1.is_same_day(&ts2));
 //! ```
 
-use chrono::{NaiveDate, NaiveDateTime, Datelike, Timelike};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
 
 /// Error type for date/time parsing
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum DateTimeError {
     #[error("Invalid date format: {0}")]
     InvalidDateFormat(String),
-    
+
     #[error("Invalid time format: {0}")]
     InvalidTimeFormat(String),
-    
+
     #[error("Invalid timestamp format: {0}")]
     InvalidTimestampFormat(String),
-    
+
     #[error("Date out of range: {0}")]
     DateOutOfRange(String),
-    
+
     #[error("Time out of range: {0}")]
     TimeOutOfRange(String),
 }
@@ -91,7 +91,7 @@ impl ParsedTimestamp {
             fractional_seconds: None,
         }
     }
-    
+
     /// Create with fractional seconds
     pub fn with_fractional(datetime: NaiveDateTime, fractional: u32) -> Self {
         Self {
@@ -100,12 +100,12 @@ impl ParsedTimestamp {
             fractional_seconds: Some(fractional),
         }
     }
-    
+
     /// Check if two timestamps are on the same day
     pub fn is_same_day(&self, other: &ParsedTimestamp) -> bool {
         self.datetime.date() == other.datetime.date()
     }
-    
+
     /// Check if this timestamp is before another (strictly less than)
     pub fn is_before(&self, other: &ParsedTimestamp) -> bool {
         // For timestamps with different precisions, compare at the finer precision
@@ -116,12 +116,12 @@ impl ParsedTimestamp {
         }
         self.datetime < other.datetime
     }
-    
+
     /// Check if this timestamp is after another
     pub fn is_after(&self, other: &ParsedTimestamp) -> bool {
         other.is_before(self)
     }
-    
+
     /// Check if this timestamp is equal to another (considering precision)
     pub fn is_equal(&self, other: &ParsedTimestamp) -> bool {
         let min_precision = std::cmp::min(self.precision, other.precision);
@@ -129,7 +129,7 @@ impl ParsedTimestamp {
         let truncated_other = truncate_to_precision(&other.datetime, min_precision);
         truncated_self == truncated_other
     }
-    
+
     /// Format as HL7 TS string
     pub fn to_hl7_string(&self) -> String {
         match self.precision {
@@ -153,19 +153,20 @@ impl ParsedTimestamp {
 /// Parse HL7 date (DT format: YYYYMMDD)
 pub fn parse_hl7_dt(s: &str) -> Result<NaiveDate, DateTimeError> {
     let s = s.trim();
-    
+
     if s.len() != 8 {
-        return Err(DateTimeError::InvalidDateFormat(
-            format!("Expected 8 characters, got {}", s.len())
-        ));
+        return Err(DateTimeError::InvalidDateFormat(format!(
+            "Expected 8 characters, got {}",
+            s.len()
+        )));
     }
-    
+
     if !s.chars().all(|c| c.is_ascii_digit()) {
         return Err(DateTimeError::InvalidDateFormat(
-            "Contains non-digit characters".to_string()
+            "Contains non-digit characters".to_string(),
         ));
     }
-    
+
     NaiveDate::parse_from_str(s, "%Y%m%d")
         .map_err(|e| DateTimeError::InvalidDateFormat(e.to_string()))
 }
@@ -173,41 +174,57 @@ pub fn parse_hl7_dt(s: &str) -> Result<NaiveDate, DateTimeError> {
 /// Parse HL7 time (TM format: HHMM[SS[.S...]])
 pub fn parse_hl7_tm(s: &str) -> Result<(u32, u32, u32, Option<u32>), DateTimeError> {
     let s = s.trim();
-    
+
     if s.len() < 4 {
-        return Err(DateTimeError::InvalidTimeFormat(
-            format!("Expected at least 4 characters, got {}", s.len())
-        ));
+        return Err(DateTimeError::InvalidTimeFormat(format!(
+            "Expected at least 4 characters, got {}",
+            s.len()
+        )));
     }
-    
+
     // Parse hour and minute (required)
-    let hour: u32 = s[0..2].parse().map_err(|_| DateTimeError::TimeOutOfRange("Invalid hour".to_string()))?;
-    let minute: u32 = s[2..4].parse().map_err(|_| DateTimeError::TimeOutOfRange("Invalid minute".to_string()))?;
-    
+    let hour: u32 = s[0..2]
+        .parse()
+        .map_err(|_| DateTimeError::TimeOutOfRange("Invalid hour".to_string()))?;
+    let minute: u32 = s[2..4]
+        .parse()
+        .map_err(|_| DateTimeError::TimeOutOfRange("Invalid minute".to_string()))?;
+
     // Validate hour and minute
     if hour > 23 {
-        return Err(DateTimeError::TimeOutOfRange(format!("Hour {} out of range", hour)));
+        return Err(DateTimeError::TimeOutOfRange(format!(
+            "Hour {} out of range",
+            hour
+        )));
     }
     if minute > 59 {
-        return Err(DateTimeError::TimeOutOfRange(format!("Minute {} out of range", minute)));
+        return Err(DateTimeError::TimeOutOfRange(format!(
+            "Minute {} out of range",
+            minute
+        )));
     }
-    
+
     // Parse seconds (optional)
     let (second, fractional) = if s.len() > 4 {
         // Check for fractional seconds
         let (sec_part, frac_part) = if let Some(dot_pos) = s[4..].find('.') {
-            let sec = &s[4..4+dot_pos];
-            let frac = &s[4+dot_pos+1..];
+            let sec = &s[4..4 + dot_pos];
+            let frac = &s[4 + dot_pos + 1..];
             (sec, Some(frac))
         } else {
             (&s[4..], None)
         };
-        
-        let sec: u32 = sec_part.parse().map_err(|_| DateTimeError::TimeOutOfRange("Invalid second".to_string()))?;
+
+        let sec: u32 = sec_part
+            .parse()
+            .map_err(|_| DateTimeError::TimeOutOfRange("Invalid second".to_string()))?;
         if sec > 59 {
-            return Err(DateTimeError::TimeOutOfRange(format!("Second {} out of range", sec)));
+            return Err(DateTimeError::TimeOutOfRange(format!(
+                "Second {} out of range",
+                sec
+            )));
         }
-        
+
         let frac = if let Some(f) = frac_part {
             // Parse fractional seconds (up to 6 digits for microseconds)
             let padded = format!("{:0<6}", f.chars().take(6).collect::<String>());
@@ -215,37 +232,38 @@ pub fn parse_hl7_tm(s: &str) -> Result<(u32, u32, u32, Option<u32>), DateTimeErr
         } else {
             None
         };
-        
+
         (sec, frac)
     } else {
         (0, None)
     };
-    
+
     Ok((hour, minute, second, fractional))
 }
 
 /// Parse HL7 timestamp (TS format: YYYYMMDD[HHMM[SS[.S...]]])
 pub fn parse_hl7_ts(s: &str) -> Result<NaiveDateTime, DateTimeError> {
     let s = s.trim();
-    
+
     if s.len() < 8 {
-        return Err(DateTimeError::InvalidTimestampFormat(
-            format!("Expected at least 8 characters, got {}", s.len())
-        ));
+        return Err(DateTimeError::InvalidTimestampFormat(format!(
+            "Expected at least 8 characters, got {}",
+            s.len()
+        )));
     }
-    
+
     // Parse date part
     let date = parse_hl7_dt(&s[0..8])?;
-    
+
     // If only date, return with midnight time
     if s.len() == 8 {
         return Ok(date.and_hms_opt(0, 0, 0).unwrap());
     }
-    
+
     // Parse time part
     let time_str = &s[8..];
     let (hour, minute, second, _) = parse_hl7_tm(time_str)?;
-    
+
     date.and_hms_opt(hour, minute, second)
         .ok_or_else(|| DateTimeError::TimeOutOfRange("Invalid time combination".to_string()))
 }
@@ -253,7 +271,7 @@ pub fn parse_hl7_ts(s: &str) -> Result<NaiveDateTime, DateTimeError> {
 /// Parse HL7 timestamp with precision information
 pub fn parse_hl7_ts_with_precision(s: &str) -> Result<ParsedTimestamp, DateTimeError> {
     let s = s.trim();
-    
+
     // Determine precision from length
     let precision = match s.len() {
         4 => TimestampPrecision::Year,
@@ -263,45 +281,69 @@ pub fn parse_hl7_ts_with_precision(s: &str) -> Result<ParsedTimestamp, DateTimeE
         12 => TimestampPrecision::Minute,
         14 => TimestampPrecision::Second,
         n if n > 14 && s[14..].starts_with('.') => TimestampPrecision::FractionalSecond,
-        _ => return Err(DateTimeError::InvalidTimestampFormat(
-            format!("Invalid length: {}", s.len())
-        )),
+        _ => {
+            return Err(DateTimeError::InvalidTimestampFormat(format!(
+                "Invalid length: {}",
+                s.len()
+            )));
+        }
     };
-    
+
     // Parse based on precision
     match precision {
         TimestampPrecision::Year => {
-            let year: i32 = s.parse().map_err(|_| DateTimeError::InvalidDateFormat("Invalid year".into()))?;
+            let year: i32 = s
+                .parse()
+                .map_err(|_| DateTimeError::InvalidDateFormat("Invalid year".into()))?;
             let date = NaiveDate::from_ymd_opt(year, 1, 1)
                 .ok_or_else(|| DateTimeError::DateOutOfRange("Invalid year".into()))?;
-            Ok(ParsedTimestamp::new(date.and_hms_opt(0, 0, 0).unwrap(), precision))
+            Ok(ParsedTimestamp::new(
+                date.and_hms_opt(0, 0, 0).unwrap(),
+                precision,
+            ))
         }
         TimestampPrecision::Month => {
-            let year: i32 = s[0..4].parse().map_err(|_| DateTimeError::InvalidDateFormat("Invalid year".into()))?;
-            let month: u32 = s[4..6].parse().map_err(|_| DateTimeError::InvalidDateFormat("Invalid month".into()))?;
+            let year: i32 = s[0..4]
+                .parse()
+                .map_err(|_| DateTimeError::InvalidDateFormat("Invalid year".into()))?;
+            let month: u32 = s[4..6]
+                .parse()
+                .map_err(|_| DateTimeError::InvalidDateFormat("Invalid month".into()))?;
             let date = NaiveDate::from_ymd_opt(year, month, 1)
                 .ok_or_else(|| DateTimeError::DateOutOfRange("Invalid month".into()))?;
-            Ok(ParsedTimestamp::new(date.and_hms_opt(0, 0, 0).unwrap(), precision))
+            Ok(ParsedTimestamp::new(
+                date.and_hms_opt(0, 0, 0).unwrap(),
+                precision,
+            ))
         }
         TimestampPrecision::Day => {
             let date = parse_hl7_dt(s)?;
-            Ok(ParsedTimestamp::new(date.and_hms_opt(0, 0, 0).unwrap(), precision))
+            Ok(ParsedTimestamp::new(
+                date.and_hms_opt(0, 0, 0).unwrap(),
+                precision,
+            ))
         }
         TimestampPrecision::Hour => {
             let date = parse_hl7_dt(&s[0..8])?;
-            let hour: u32 = s[8..10].parse().map_err(|_| DateTimeError::TimeOutOfRange("Invalid hour".into()))?;
+            let hour: u32 = s[8..10]
+                .parse()
+                .map_err(|_| DateTimeError::TimeOutOfRange("Invalid hour".into()))?;
             Ok(ParsedTimestamp::new(
                 date.and_hms_opt(hour, 0, 0).unwrap(),
-                precision
+                precision,
             ))
         }
         TimestampPrecision::Minute => {
             let date = parse_hl7_dt(&s[0..8])?;
-            let hour: u32 = s[8..10].parse().map_err(|_| DateTimeError::TimeOutOfRange("Invalid hour".into()))?;
-            let minute: u32 = s[10..12].parse().map_err(|_| DateTimeError::TimeOutOfRange("Invalid minute".into()))?;
+            let hour: u32 = s[8..10]
+                .parse()
+                .map_err(|_| DateTimeError::TimeOutOfRange("Invalid hour".into()))?;
+            let minute: u32 = s[10..12]
+                .parse()
+                .map_err(|_| DateTimeError::TimeOutOfRange("Invalid minute".into()))?;
             Ok(ParsedTimestamp::new(
                 date.and_hms_opt(hour, minute, 0).unwrap(),
-                precision
+                precision,
             ))
         }
         TimestampPrecision::Second => {
@@ -323,25 +365,18 @@ pub fn parse_hl7_ts_with_precision(s: &str) -> Result<ParsedTimestamp, DateTimeE
 /// Truncate a datetime to a specific precision
 fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) -> NaiveDateTime {
     match precision {
-        TimestampPrecision::Year => {
-            NaiveDate::from_ymd_opt(dt.year(), 1, 1)
-                .and_then(|d| d.and_hms_opt(0, 0, 0))
-                .unwrap_or(*dt)
-        }
-        TimestampPrecision::Month => {
-            NaiveDate::from_ymd_opt(dt.year(), dt.month(), 1)
-                .and_then(|d| d.and_hms_opt(0, 0, 0))
-                .unwrap_or(*dt)
-        }
-        TimestampPrecision::Day => {
-            dt.date().and_hms_opt(0, 0, 0).unwrap_or(*dt)
-        }
-        TimestampPrecision::Hour => {
-            dt.with_minute(0).and_then(|d| d.with_second(0)).unwrap_or(*dt)
-        }
-        TimestampPrecision::Minute => {
-            dt.with_second(0).unwrap_or(*dt)
-        }
+        TimestampPrecision::Year => NaiveDate::from_ymd_opt(dt.year(), 1, 1)
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+            .unwrap_or(*dt),
+        TimestampPrecision::Month => NaiveDate::from_ymd_opt(dt.year(), dt.month(), 1)
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+            .unwrap_or(*dt),
+        TimestampPrecision::Day => dt.date().and_hms_opt(0, 0, 0).unwrap_or(*dt),
+        TimestampPrecision::Hour => dt
+            .with_minute(0)
+            .and_then(|d| d.with_second(0))
+            .unwrap_or(*dt),
+        TimestampPrecision::Minute => dt.with_second(0).unwrap_or(*dt),
         TimestampPrecision::Second | TimestampPrecision::FractionalSecond => *dt,
     }
 }

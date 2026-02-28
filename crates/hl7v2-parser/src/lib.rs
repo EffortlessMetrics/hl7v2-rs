@@ -462,9 +462,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
             trailer = Some(bts_segment);
         } else if line.starts_with("MSH") {
             if !current_message_lines.is_empty() {
-                let message_text = current_message_lines
-                    .to_vec()
-                    .join("\r");
+                let message_text = current_message_lines.to_vec().join("\r");
                 let message =
                     parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
                         details: format!("Failed to parse message in batch: {}", e),
@@ -479,9 +477,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
     }
 
     if !current_message_lines.is_empty() {
-        let message_text = current_message_lines
-            .to_vec()
-            .join("\r");
+        let message_text = current_message_lines.to_vec().join("\r");
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
         })?;
@@ -527,9 +523,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
             trailer = Some(fts_segment);
         } else if line.starts_with("BHS") {
             if !current_batch_lines.is_empty() {
-                let batch_text = current_batch_lines
-                    .to_vec()
-                    .join("\r");
+                let batch_text = current_batch_lines.to_vec().join("\r");
                 match parse_batch(batch_text.as_bytes()) {
                     Ok(batch) => batches.push(batch),
                     Err(e) => {
@@ -550,9 +544,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
     }
 
     if !current_batch_lines.is_empty() {
-        let batch_text = current_batch_lines
-            .to_vec()
-            .join("\r");
+        let batch_text = current_batch_lines.to_vec().join("\r");
         match parse_batch(batch_text.as_bytes()) {
             Ok(batch) => batches.push(batch),
             Err(e) => {

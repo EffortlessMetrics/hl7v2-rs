@@ -6,21 +6,21 @@
 //! - Multiple concurrent connections
 //! - Message exchange patterns
 
-use hl7v2_parser::parse;
-use hl7v2_writer::write;
-use hl7v2_ack::{ack, AckCode};
-use hl7v2_test_utils::{SampleMessages, MockMllpServer};
-use hl7v2_network::{MllpServer, MllpServerConfig, MessageHandler, MllpCodec, MllpClientBuilder};
 use bytes::BytesMut;
+use hl7v2_ack::{AckCode, ack};
+use hl7v2_network::{MessageHandler, MllpClientBuilder, MllpCodec, MllpServer, MllpServerConfig};
+use hl7v2_parser::parse;
+use hl7v2_test_utils::{MockMllpServer, SampleMessages};
+use hl7v2_writer::write;
 use tokio_util::codec::{Decoder, Encoder};
 
 use super::common::init_tracing;
 use std::sync::Arc;
-use std::time::Duration;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::time::{timeout, sleep};
+use tokio::time::{sleep, timeout};
 
 // =========================================================================
 // Basic MLLP Framing Tests
@@ -38,7 +38,8 @@ mod mllp_framing {
 
         // Encode using Encoder trait
         let mut dst = BytesMut::new();
-        codec.encode(BytesMut::from(message.as_bytes()), &mut dst)
+        codec
+            .encode(BytesMut::from(message.as_bytes()), &mut dst)
             .expect("Should encode");
 
         // Verify MLLP framing: SB (0x0B) + message + EB (0x1C) + CR (0x0D)
@@ -47,7 +48,8 @@ mod mllp_framing {
         assert_eq!(dst[dst.len() - 1], 0x0D, "Should end with CR");
 
         // Decode using Decoder trait
-        let decoded = codec.decode(&mut dst)
+        let decoded = codec
+            .decode(&mut dst)
             .expect("Should decode")
             .expect("Should have data");
 
@@ -58,17 +60,19 @@ mod mllp_framing {
     async fn test_mllp_framing_with_special_characters() {
         init_tracing();
 
-        let message = SampleMessages::edge_case("special_chars")
-            .expect("Should have special_chars");
+        let message =
+            SampleMessages::edge_case("special_chars").expect("Should have special_chars");
         let mut codec = MllpCodec::new();
 
         // Encode
         let mut dst = BytesMut::new();
-        codec.encode(BytesMut::from(message.as_bytes()), &mut dst)
+        codec
+            .encode(BytesMut::from(message.as_bytes()), &mut dst)
             .expect("Should encode");
-        
+
         // Decode
-        let decoded = codec.decode(&mut dst)
+        let decoded = codec
+            .decode(&mut dst)
             .expect("Should decode")
             .expect("Should have data");
 
@@ -88,7 +92,10 @@ mod mock_server_tests {
         init_tracing();
 
         let mut server = MockMllpServer::new();
-        server.start("127.0.0.1:0").await.expect("Server should start");
+        server
+            .start("127.0.0.1:0")
+            .await
+            .expect("Server should start");
 
         let addr = server.local_addr().expect("Should have address");
         assert!(addr.port() > 0);
@@ -101,13 +108,14 @@ mod mock_server_tests {
         init_tracing();
 
         let mut server = MockMllpServer::new();
-        server.start("127.0.0.1:0").await.expect("Server should start");
+        server
+            .start("127.0.0.1:0")
+            .await
+            .expect("Server should start");
         let addr = server.local_addr().expect("Should have address");
 
         // Connect and send a message
-        let mut stream = TcpStream::connect(addr)
-            .await
-            .expect("Should connect");
+        let mut stream = TcpStream::connect(addr).await.expect("Should connect");
 
         let message = SampleMessages::adt_a01();
         let framed = frame_mllp(message.as_bytes());
@@ -116,7 +124,10 @@ mod mock_server_tests {
         stream.flush().await.expect("Should flush");
 
         // Wait for message to be received
-        server.wait_for_messages(1, Duration::from_secs(5)).await.unwrap();
+        server
+            .wait_for_messages(1, Duration::from_secs(5))
+            .await
+            .unwrap();
 
         let messages = server.received_messages().await;
         assert_eq!(messages.len(), 1);
@@ -129,17 +140,19 @@ mod mock_server_tests {
         init_tracing();
 
         let mut server = MockMllpServer::new();
-        server.start("127.0.0.1:0").await.expect("Server should start");
+        server
+            .start("127.0.0.1:0")
+            .await
+            .expect("Server should start");
         let addr = server.local_addr().expect("Should have address");
 
         // Queue a response
-        let ack = b"MSH|^~\\&|RecvApp|RecvFac|SendApp|SendFac|20250128120000||ACK|1|P|2.5\rMSA|AA|1|OK\r";
+        let ack =
+            b"MSH|^~\\&|RecvApp|RecvFac|SendApp|SendFac|20250128120000||ACK|1|P|2.5\rMSA|AA|1|OK\r";
         server.queue_mllp_response(ack).await;
 
         // Connect and send a message
-        let mut stream = TcpStream::connect(addr)
-            .await
-            .expect("Should connect");
+        let mut stream = TcpStream::connect(addr).await.expect("Should connect");
 
         let message = SampleMessages::adt_a01();
         let framed = frame_mllp(message.as_bytes());
@@ -192,10 +205,10 @@ mod client_server_tests {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
             server.bind(addr).await.expect("Server should bind");
-            
+
             // Accept one connection
             let _conn = server.accept().await.expect("Should accept connection");
-            
+
             // Keep connection alive briefly
             sleep(Duration::from_millis(100)).await;
         });
@@ -231,13 +244,12 @@ mod client_server_tests {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
             server.bind(addr).await.expect("Server should bind");
-            
+
             let mut conn = server.accept().await.expect("Should accept");
-            
+
             // Process one message
             if let Some(msg) = conn.receive_message().await.expect("Should receive") {
-                let ack_msg = ack(&msg, AckCode::AA)
-                    .expect("Should generate ACK");
+                let ack_msg = ack(&msg, AckCode::AA).expect("Should generate ACK");
                 conn.send_message(&ack_msg).await.expect("Should send ACK");
             }
         });
@@ -253,10 +265,13 @@ mod client_server_tests {
                 .build();
             client.connect(addr).await.expect("Should connect");
 
-            let message = parse(SampleMessages::adt_a01().as_bytes())
-                .expect("Should parse test message");
+            let message =
+                parse(SampleMessages::adt_a01().as_bytes()).expect("Should parse test message");
 
-            let ack = client.send_message(&message).await.expect("Should send and receive");
+            let ack = client
+                .send_message(&message)
+                .await
+                .expect("Should send and receive");
             ack
         };
 
@@ -267,7 +282,7 @@ mod client_server_tests {
 
         assert!(server_result.is_ok(), "Server should complete");
         assert!(client_result.is_ok(), "Client should complete");
-        
+
         let ack = client_result.unwrap();
         let msg_type = hl7v2_core::get(&ack, "MSH.9");
         assert!(msg_type.is_some());
@@ -311,7 +326,7 @@ mod concurrent_connections {
         // Start server
         let connection_count_clone = connection_count.clone();
         let message_count_clone = message_count.clone();
-        
+
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
@@ -322,7 +337,7 @@ mod concurrent_connections {
                 if let Ok(conn) = timeout(Duration::from_millis(500), server.accept()).await {
                     if let Ok(mut conn) = conn {
                         connection_count_clone.fetch_add(1, Ordering::SeqCst);
-                        
+
                         let msg_count = message_count_clone.clone();
                         tokio::spawn(async move {
                             while let Ok(Some(msg)) = conn.receive_message().await {
@@ -349,11 +364,10 @@ mod concurrent_connections {
                     .connect_timeout(Duration::from_secs(2))
                     .read_timeout(Duration::from_secs(2))
                     .build();
-                
+
                 // Try to connect, may fail if server is busy
                 if client.connect(addr).await.is_ok() {
-                    let msg = parse(SampleMessages::adt_a01().as_bytes())
-                        .expect("Should parse");
+                    let msg = parse(SampleMessages::adt_a01().as_bytes()).expect("Should parse");
                     let _ = client.send_message(&msg).await;
                     true
                 } else {
@@ -372,7 +386,10 @@ mod concurrent_connections {
         }
 
         // At least one client should succeed
-        assert!(successful_clients >= 1, "At least one client should connect and send");
+        assert!(
+            successful_clients >= 1,
+            "At least one client should connect and send"
+        );
 
         let _ = timeout(Duration::from_secs(2), server_task).await;
     }
@@ -393,7 +410,7 @@ mod concurrent_connections {
             server.bind(addr).await.expect("Server should bind");
 
             let mut conn = server.accept().await.expect("Should accept");
-            
+
             // Process multiple messages on same connection
             for _ in 0..5 {
                 if let Ok(Some(msg)) = conn.receive_message().await {
@@ -437,7 +454,10 @@ mod concurrent_connections {
 
         assert!(server_result.is_ok());
         assert!(client_result.is_ok());
-        assert!(client_result.unwrap() >= 1, "Should receive at least one ACK");
+        assert!(
+            client_result.unwrap() >= 1,
+            "Should receive at least one ACK"
+        );
     }
 }
 
@@ -467,7 +487,10 @@ mod error_handling {
         // Try to connect to a non-existent server
         let addr: SocketAddr = "127.0.0.1:59999".parse().unwrap();
         let result = client.connect(addr).await;
-        assert!(result.is_err(), "Should fail to connect to non-existent server");
+        assert!(
+            result.is_err(),
+            "Should fail to connect to non-existent server"
+        );
     }
 
     #[tokio::test]
@@ -486,7 +509,7 @@ mod error_handling {
             server.bind(addr).await.expect("Server should bind");
 
             let mut conn = server.accept().await.expect("Should accept");
-            
+
             // Try to receive - should handle malformed data gracefully
             if let Ok(Some(msg)) = conn.receive_message().await {
                 // Even malformed messages that parse should get an ACK
@@ -501,7 +524,7 @@ mod error_handling {
         // Send raw MLLP frame with invalid HL7
         let client_task = async {
             let mut stream = TcpStream::connect(addr).await.expect("Should connect");
-            
+
             // MLLP frame with invalid content
             let invalid = b"\x0BINVALID HL7 MESSAGE\x1C\x0D";
             stream.write_all(invalid).await.expect("Should write");
@@ -581,12 +604,14 @@ mod stress_tests {
                     .connect_timeout(Duration::from_millis(500))
                     .read_timeout(Duration::from_millis(500))
                     .build();
-                let addr: std::net::SocketAddr = format!("127.0.0.1:{}", addr.port()).parse().unwrap();
+                let addr: std::net::SocketAddr =
+                    format!("127.0.0.1:{}", addr.port()).parse().unwrap();
                 if client.connect(addr).await.is_ok() {
                     let msg = parse(SampleMessages::adt_a01().as_bytes()).unwrap();
                     let _ = client.send_message(&msg).await;
                 }
-            }.await;
+            }
+            .await;
         }
 
         let elapsed = start.elapsed();

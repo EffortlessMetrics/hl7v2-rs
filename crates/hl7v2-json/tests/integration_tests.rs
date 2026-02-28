@@ -4,7 +4,6 @@
 
 use hl7v2_json::*;
 use hl7v2_model::*;
-use serde_json::json;
 
 // ============================================================================
 // Real-World HL7 Message Tests
@@ -33,10 +32,7 @@ fn test_adt_a01_message_to_json() {
             },
             Segment {
                 id: *b"EVN",
-                fields: vec![
-                    Field::from_text("A01"),
-                    Field::from_text("20250128152312"),
-                ],
+                fields: vec![Field::from_text("A01"), Field::from_text("20250128152312")],
             },
             Segment {
                 id: *b"PID",
@@ -60,16 +56,16 @@ fn test_adt_a01_message_to_json() {
         ],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
-    
+
     // Verify structure
     assert!(json.get("meta").is_some());
     assert!(json.get("segments").is_some());
-    
+
     let segments = json.get("segments").unwrap().as_array().unwrap();
     assert_eq!(segments.len(), 3);
-    
+
     // Verify MSH segment
     let msh = &segments[0];
     assert_eq!(msh.get("id").unwrap(), "MSH");
@@ -90,10 +86,7 @@ fn test_oru_r01_message_to_json() {
             },
             Segment {
                 id: *b"PID",
-                fields: vec![
-                    Field::from_text("1"),
-                    Field::from_text("MRN789^^^Lab^MR"),
-                ],
+                fields: vec![Field::from_text("1"), Field::from_text("MRN789^^^Lab^MR")],
             },
             Segment {
                 id: *b"OBR",
@@ -133,7 +126,7 @@ fn test_oru_r01_message_to_json() {
         ],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     let segments = json.get("segments").unwrap().as_array().unwrap();
     assert_eq!(segments.len(), 4);
@@ -158,7 +151,7 @@ fn test_segment_with_empty_fields() {
         }],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     assert!(json.is_object());
 }
@@ -188,7 +181,7 @@ fn test_segment_with_repeating_fields() {
         }],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     assert!(json.is_object());
 }
@@ -206,18 +199,14 @@ fn test_components_with_subcomponents() {
             fields: vec![Field {
                 reps: vec![Rep {
                     comps: vec![Comp {
-                        subs: vec![
-                            Atom::text("Sub1"),
-                            Atom::text("Sub2"),
-                            Atom::text("Sub3"),
-                        ],
+                        subs: vec![Atom::text("Sub1"), Atom::text("Sub2"), Atom::text("Sub3")],
                     }],
                 }],
             }],
         }],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     assert!(json.is_object());
 }
@@ -233,10 +222,7 @@ fn test_mixed_components() {
                     comps: vec![
                         Comp::from_text("Simple"),
                         Comp {
-                            subs: vec![
-                                Atom::text("With"),
-                                Atom::text("Subcomponents"),
-                            ],
+                            subs: vec![Atom::text("With"), Atom::text("Subcomponents")],
                         },
                         Comp::from_text("AnotherSimple"),
                     ],
@@ -245,7 +231,7 @@ fn test_mixed_components() {
         }],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     assert!(json.is_object());
 }
@@ -273,7 +259,7 @@ fn test_null_in_field() {
         }],
         charsets: vec![],
     };
-    
+
     let json_str = to_json_string(&message);
     assert!(json_str.contains("__NULL__"));
 }
@@ -298,7 +284,7 @@ fn test_mixed_null_and_values() {
         }],
         charsets: vec![],
     };
-    
+
     let json_str = to_json_string(&message);
     assert!(json_str.contains("Value1"));
     assert!(json_str.contains("__NULL__"));
@@ -325,10 +311,10 @@ fn test_custom_delimiters() {
         }],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     let delims = json.get("meta").unwrap().get("delims").unwrap();
-    
+
     assert_eq!(delims.get("field").unwrap(), "*");
     assert_eq!(delims.get("comp").unwrap(), ":");
     assert_eq!(delims.get("rep").unwrap(), "+");
@@ -345,10 +331,16 @@ fn test_single_charset() {
         segments: vec![],
         charsets: vec!["ASCII".to_string()],
     };
-    
+
     let json = to_json(&message);
-    let charsets = json.get("meta").unwrap().get("charsets").unwrap().as_array().unwrap();
-    
+    let charsets = json
+        .get("meta")
+        .unwrap()
+        .get("charsets")
+        .unwrap()
+        .as_array()
+        .unwrap();
+
     assert_eq!(charsets.len(), 1);
     assert_eq!(charsets[0], "ASCII");
 }
@@ -364,10 +356,16 @@ fn test_multiple_charsets() {
             "UTF-8".to_string(),
         ],
     };
-    
+
     let json = to_json(&message);
-    let charsets = json.get("meta").unwrap().get("charsets").unwrap().as_array().unwrap();
-    
+    let charsets = json
+        .get("meta")
+        .unwrap()
+        .get("charsets")
+        .unwrap()
+        .as_array()
+        .unwrap();
+
     assert_eq!(charsets.len(), 3);
 }
 
@@ -385,20 +383,20 @@ fn test_compact_vs_pretty() {
         }],
         charsets: vec![],
     };
-    
+
     let compact = to_json_string(&message);
     let pretty = to_json_string_pretty(&message);
-    
+
     // Compact should not have newlines
     assert!(!compact.contains('\n'));
-    
+
     // Pretty should have newlines
     assert!(pretty.contains('\n'));
-    
+
     // Both should parse to the same JSON
     let compact_parsed: serde_json::Value = serde_json::from_str(&compact).unwrap();
     let pretty_parsed: serde_json::Value = serde_json::from_str(&pretty).unwrap();
-    
+
     assert_eq!(compact_parsed, pretty_parsed);
 }
 
@@ -407,14 +405,20 @@ fn test_json_validity() {
     let message = Message {
         delims: Delims::default(),
         segments: vec![
-            Segment { id: *b"MSH", fields: vec![Field::from_text("^~\\&")] },
-            Segment { id: *b"PID", fields: vec![Field::from_text("1")] },
+            Segment {
+                id: *b"MSH",
+                fields: vec![Field::from_text("^~\\&")],
+            },
+            Segment {
+                id: *b"PID",
+                fields: vec![Field::from_text("1")],
+            },
         ],
         charsets: vec!["ASCII".to_string()],
     };
-    
+
     let json_str = to_json_string(&message);
-    
+
     // Should be valid JSON
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
     assert!(parsed.is_object());
@@ -431,9 +435,9 @@ fn test_empty_message() {
         segments: vec![],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
-    
+
     assert!(json.get("meta").is_some());
     let segments = json.get("segments").unwrap().as_array().unwrap();
     assert!(segments.is_empty());
@@ -453,7 +457,7 @@ fn test_special_characters_in_values() {
         }],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     assert!(json.is_object());
 }
@@ -472,7 +476,7 @@ fn test_unicode_in_values() {
         }],
         charsets: vec!["UNICODE".to_string()],
     };
-    
+
     let json = to_json(&message);
     assert!(json.is_object());
 }
@@ -487,25 +491,25 @@ fn test_many_segments() {
         id: *b"MSH",
         fields: vec![Field::from_text("^~\\&")],
     }];
-    
+
     for i in 1..=100 {
         segments.push(Segment {
             id: *b"OBX",
             fields: vec![
-                Field::from_text(&i.to_string()),
+                Field::from_text(i.to_string()),
                 Field::from_text("NM"),
                 Field::from_text("TEST"),
                 Field::from_text("100"),
             ],
         });
     }
-    
+
     let message = Message {
         delims: Delims::default(),
         segments,
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     let segments = json.get("segments").unwrap().as_array().unwrap();
     assert_eq!(segments.len(), 101);
@@ -520,34 +524,27 @@ fn test_deeply_nested_structure() {
             fields: vec![Field {
                 reps: vec![
                     Rep {
-                        comps: vec![
-                            Comp {
-                                subs: vec![
-                                    Atom::text("A"),
-                                    Atom::text("B"),
-                                    Atom::text("C"),
-                                    Atom::text("D"),
-                                    Atom::text("E"),
-                                ],
-                            },
-                        ],
+                        comps: vec![Comp {
+                            subs: vec![
+                                Atom::text("A"),
+                                Atom::text("B"),
+                                Atom::text("C"),
+                                Atom::text("D"),
+                                Atom::text("E"),
+                            ],
+                        }],
                     },
                     Rep {
-                        comps: vec![
-                            Comp {
-                                subs: vec![
-                                    Atom::text("F"),
-                                    Atom::text("G"),
-                                ],
-                            },
-                        ],
+                        comps: vec![Comp {
+                            subs: vec![Atom::text("F"), Atom::text("G")],
+                        }],
                     },
                 ],
             }],
         }],
         charsets: vec![],
     };
-    
+
     let json = to_json(&message);
     assert!(json.is_object());
 }

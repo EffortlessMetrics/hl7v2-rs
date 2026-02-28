@@ -1,6 +1,6 @@
 //! Benchmarks for HL7 v2 MLLP functionality
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use hl7v2_mllp::wrap_mllp;
 use hl7v2_parser::{parse, parse_mllp};
 use hl7v2_writer::write_mllp;
@@ -37,11 +37,6 @@ fn bench_mllp_parse(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    mllp_benches,
-    bench_mllp_wrap,
-    bench_mllp_parse
-);
+criterion_group!(mllp_benches, bench_mllp_wrap, bench_mllp_parse);
 
 criterion_main!(mllp_benches);
-

@@ -29,16 +29,16 @@ use thiserror::Error;
 pub enum PathError {
     #[error("Invalid path format: {0}")]
     InvalidFormat(String),
-    
+
     #[error("Invalid segment ID: {0}")]
     InvalidSegmentId(String),
-    
+
     #[error("Invalid field number: {0}")]
     InvalidFieldNumber(String),
-    
+
     #[error("Invalid component number: {0}")]
     InvalidComponentNumber(String),
-    
+
     #[error("Invalid repetition index: {0}")]
     InvalidRepetitionIndex(String),
 }
@@ -69,49 +69,49 @@ impl Path {
             subcomponent: None,
         }
     }
-    
+
     /// Set the repetition index
     pub fn with_repetition(mut self, rep: usize) -> Self {
         self.repetition = Some(rep);
         self
     }
-    
+
     /// Set the component number
     pub fn with_component(mut self, comp: usize) -> Self {
         self.component = Some(comp);
         self
     }
-    
+
     /// Set the subcomponent number
     pub fn with_subcomponent(mut self, sub: usize) -> Self {
         self.subcomponent = Some(sub);
         self
     }
-    
+
     /// Format as a path string
     pub fn to_path_string(&self) -> String {
         let mut result = format!("{}.{}", self.segment, self.field);
-        
+
         if let Some(rep) = self.repetition {
             result.push_str(&format!("[{}]", rep));
         }
-        
+
         if let Some(comp) = self.component {
             result.push_str(&format!(".{}", comp));
         }
-        
+
         if let Some(sub) = self.subcomponent {
             result.push_str(&format!(".{}", sub));
         }
-        
+
         result
     }
-    
+
     /// Check if this path points to an MSH segment
     pub fn is_msh(&self) -> bool {
         self.segment == "MSH"
     }
-    
+
     /// Get the adjusted field index for MSH segments
     /// MSH-1 is the field separator (not stored)
     /// MSH-2 is the encoding characters (stored in field 0)
@@ -153,58 +153,65 @@ impl std::fmt::Display for Path {
 /// ```
 pub fn parse_path(s: &str) -> Result<Path, PathError> {
     let s = s.trim();
-    
+
     if s.is_empty() {
         return Err(PathError::InvalidFormat("Path cannot be empty".to_string()));
     }
-    
+
     // Split by '.'
     let parts: Vec<&str> = s.split('.').collect();
-    
+
     if parts.len() < 2 {
-        return Err(PathError::InvalidFormat(
-            format!("Path must have at least SEGMENT.FIELD, got: {}", s)
-        ));
+        return Err(PathError::InvalidFormat(format!(
+            "Path must have at least SEGMENT.FIELD, got: {}",
+            s
+        )));
     }
-    
+
     // Parse segment ID (must be 3 characters, uppercase letters/digits)
     let segment = parts[0].to_uppercase();
     if segment.len() != 3 || !segment.chars().all(|c| c.is_ascii_alphanumeric()) {
         return Err(PathError::InvalidSegmentId(segment));
     }
-    
+
     // Parse field number (may include repetition)
     let (field, repetition) = parse_field_part(parts[1])?;
-    
+
     let mut path = Path::new(&segment, field);
     if let Some(rep) = repetition {
         path = path.with_repetition(rep);
     }
-    
+
     // Parse optional component
     if parts.len() > 2 {
-        let comp = parts[2].parse::<usize>()
+        let comp = parts[2]
+            .parse::<usize>()
             .map_err(|_| PathError::InvalidComponentNumber(parts[2].to_string()))?;
-        
+
         if comp == 0 {
-            return Err(PathError::InvalidComponentNumber("Component must be >= 1".to_string()));
+            return Err(PathError::InvalidComponentNumber(
+                "Component must be >= 1".to_string(),
+            ));
         }
-        
+
         path = path.with_component(comp);
     }
-    
+
     // Parse optional subcomponent
     if parts.len() > 3 {
-        let sub = parts[3].parse::<usize>()
+        let sub = parts[3]
+            .parse::<usize>()
             .map_err(|_| PathError::InvalidComponentNumber(parts[3].to_string()))?;
-        
+
         if sub == 0 {
-            return Err(PathError::InvalidComponentNumber("Subcomponent must be >= 1".to_string()));
+            return Err(PathError::InvalidComponentNumber(
+                "Subcomponent must be >= 1".to_string(),
+            ));
         }
-        
+
         path = path.with_subcomponent(sub);
     }
-    
+
     Ok(path)
 }
 
@@ -214,39 +221,49 @@ fn parse_field_part(s: &str) -> Result<(usize, Option<usize>), PathError> {
     if s.contains('[') {
         // Has repetition: "5[2]" or "5[1]"
         if !s.ends_with(']') {
-            return Err(PathError::InvalidFormat(
-                format!("Invalid field format, missing ']': {}", s)
-            ));
+            return Err(PathError::InvalidFormat(format!(
+                "Invalid field format, missing ']': {}",
+                s
+            )));
         }
-        
+
         let bracket_pos = s.find('[').unwrap();
         let field_str = &s[..bracket_pos];
         let rep_str = &s[bracket_pos + 1..s.len() - 1];
-        
-        let field = field_str.parse::<usize>()
+
+        let field = field_str
+            .parse::<usize>()
             .map_err(|_| PathError::InvalidFieldNumber(field_str.to_string()))?;
-        
+
         if field == 0 {
-            return Err(PathError::InvalidFieldNumber("Field must be >= 1".to_string()));
+            return Err(PathError::InvalidFieldNumber(
+                "Field must be >= 1".to_string(),
+            ));
         }
-        
-        let rep = rep_str.parse::<usize>()
+
+        let rep = rep_str
+            .parse::<usize>()
             .map_err(|_| PathError::InvalidRepetitionIndex(rep_str.to_string()))?;
-        
+
         if rep == 0 {
-            return Err(PathError::InvalidRepetitionIndex("Repetition must be >= 1".to_string()));
+            return Err(PathError::InvalidRepetitionIndex(
+                "Repetition must be >= 1".to_string(),
+            ));
         }
-        
+
         Ok((field, Some(rep)))
     } else {
         // No repetition
-        let field = s.parse::<usize>()
+        let field = s
+            .parse::<usize>()
             .map_err(|_| PathError::InvalidFieldNumber(s.to_string()))?;
-        
+
         if field == 0 {
-            return Err(PathError::InvalidFieldNumber("Field must be >= 1".to_string()));
+            return Err(PathError::InvalidFieldNumber(
+                "Field must be >= 1".to_string(),
+            ));
         }
-        
+
         Ok((field, None))
     }
 }

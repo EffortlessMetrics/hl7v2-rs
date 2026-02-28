@@ -68,15 +68,13 @@
 //! # }
 //! ```
 
-mod codec;
 mod client;
+mod codec;
 mod server;
 
-pub use codec::MllpCodec;
 pub use client::{MllpClient, MllpClientBuilder, MllpClientConfig};
-pub use server::{
-    MllpServer, MllpServerConfig, MllpConnection, MessageHandler, AckTimingPolicy,
-};
+pub use codec::MllpCodec;
+pub use server::{AckTimingPolicy, MessageHandler, MllpConnection, MllpServer, MllpServerConfig};
 
 #[cfg(test)]
 mod tests;

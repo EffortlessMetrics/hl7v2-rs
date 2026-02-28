@@ -2,8 +2,11 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
-use cucumber::{given, then, when, World};
-use hl7v2_core::{parse, parse_mllp, get, wrap_mllp, unwrap_mllp, is_mllp_framed, escape_text, unescape_text, needs_escaping, Message, Delims, Error};
+use cucumber::{World, given, then, when};
+use hl7v2_core::{
+    Delims, Error, Message, escape_text, get, is_mllp_framed, needs_escaping, parse, parse_mllp,
+    unescape_text, unwrap_mllp, wrap_mllp,
+};
 
 /// Test world for BDD tests
 #[derive(Debug, World)]
@@ -103,32 +106,57 @@ fn when_attempt_parse(world: &mut HL7World) {
 
 #[then("the message should have 2 segments")]
 fn then_two_segments(world: &mut HL7World) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     assert_eq!(msg.segments.len(), 2);
 }
 
 #[then("the first segment should be MSH")]
 fn then_first_segment_msh(world: &mut HL7World) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     assert_eq!(&msg.segments[0].id, b"MSH");
 }
 
 #[then(regex = r#"MSH\.9\.(\d+) should be "([^"]+)""#)]
 fn then_msh_9_component(world: &mut HL7World, component: usize, value: String) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     let path = format!("MSH.9.{}", component);
     assert_eq!(get(msg, &path), Some(value.as_str()));
 }
 
 #[then("the second segment should be PID")]
 fn then_second_segment_pid(world: &mut HL7World) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     assert_eq!(&msg.segments[1].id, b"PID");
 }
 
 #[then("the delimiters should be detected correctly")]
 fn then_delimiters_detected(world: &mut HL7World) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     assert_eq!(msg.delims.field, '#');
     assert_eq!(msg.delims.comp, '$');
     assert_eq!(msg.delims.rep, '*');
@@ -143,13 +171,18 @@ fn then_parse_success(world: &mut HL7World) {
 
 #[then("the escape sequences should be decoded")]
 fn then_escape_decoded(world: &mut HL7World) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     let value = get(msg, "PID.5.1").expect("Should have PID.5.1");
     assert_eq!(value, "Doe|John");
 }
 
 #[then("the field values should be unescaped")]
-fn then_field_values_unescaped(world: &mut HL7World) {
+fn then_field_values_unescaped(_world: &mut HL7World) {
     // Already verified in then_escape_decoded
 }
 
@@ -172,19 +205,34 @@ fn then_error_indicates_problem(world: &mut HL7World) {
 
 #[then("I can access the first repetition")]
 fn then_access_first_rep(world: &mut HL7World) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     assert_eq!(get(msg, "PID.5.1"), Some("Doe"));
 }
 
 #[then("I can access the second repetition")]
 fn then_access_second_rep(world: &mut HL7World) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     assert_eq!(get(msg, "PID.5[2].1"), Some("Smith"));
 }
 
 #[then("missing repetitions return None")]
 fn then_missing_rep_none(world: &mut HL7World) {
-    let msg = world.message.as_ref().expect("No message parsed").as_ref().expect("Parse failed");
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
     assert_eq!(get(msg, "PID.5[3].1"), None);
 }
 
@@ -344,8 +392,12 @@ fn when_check_escaping(world: &mut HL7World) {
 
 #[then(regex = r#"the escaped text should contain "([^"]+)""#)]
 fn then_escaped_contains(world: &mut HL7World, expected: String) {
-    assert!(world.escaped_text.contains(&expected), 
-            "Expected '{}' to contain '{}'", world.escaped_text, expected);
+    assert!(
+        world.escaped_text.contains(&expected),
+        "Expected '{}' to contain '{}'",
+        world.escaped_text,
+        expected
+    );
 }
 
 #[then(regex = r#"the result should be "([^"]+)""#)]
@@ -372,7 +424,5 @@ fn then_text_unchanged(world: &mut HL7World) {
 // Run the tests
 #[tokio::main]
 async fn main() {
-    HL7World::cucumber()
-        .run_and_exit("./features")
-        .await;
+    HL7World::cucumber().run_and_exit("./features").await;
 }
