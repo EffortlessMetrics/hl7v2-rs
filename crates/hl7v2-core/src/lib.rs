@@ -13,9 +13,30 @@
 //! For backward compatibility, all types and functions are re-exported here.
 //! For new code, consider using the microcrates directly for finer-grained dependencies.
 //!
+//! # Memory Efficiency
+//!
+//! The standard parser uses a "zero-allocation where possible" approach rather than true zero-copy.
+//! Parsed messages own their data via `Vec<u8>`, prioritizing safety and ergonomics.
+//!
+//! For memory-constrained environments or very large messages, enable the `stream` feature
+//! and use `StreamParser` with configured memory bounds:
+//!
+//! ```ignore
+//! use hl7v2_core::{StreamParser, Event};
+//!
+//! // Stream parse with bounded memory
+//! for event in StreamParser::new().parse(large_message_bytes) {
+//!     match event? {
+//!         Event::SegmentStart(id) => { /* handle segment */ }
+//!         Event::Field(value) => { /* handle field */ }
+//!         _ => {}
+//!     }
+//! }
+//! ```
+//!
 //! # Features
 //!
-//! - `stream`: Enables the streaming parser ([`StreamParser`] and [`Event`] types)
+//! - `stream`: Enables the streaming parser (`StreamParser` and `Event` types)
 //! - `network`: Enables the network module (async client/server)
 
 // Re-export model types
