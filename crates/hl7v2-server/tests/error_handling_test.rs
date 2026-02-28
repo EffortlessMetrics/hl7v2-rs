@@ -100,7 +100,7 @@ async fn test_large_request_handling() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json").header("X-API-Key", "test-key")
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap(),
         )
@@ -123,6 +123,7 @@ async fn test_missing_content_type_header() {
             Request::builder()
                 .uri("/hl7/parse")
                 .method("POST")
+                .header("X-API-Key", "test-key")
                 .body(Body::from("{}"))
                 .unwrap(),
         )
@@ -153,7 +154,7 @@ async fn test_options_request_for_cors() {
         .await
         .unwrap();
 
-    // CORS preflight should be handled
+    // CORS preflight should be handled - axum cors runs before auth middleware
     assert_ne!(
         response.status(),
         StatusCode::INTERNAL_SERVER_ERROR,

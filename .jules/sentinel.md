@@ -1,0 +1,4 @@
+## 2025-01-29 - [Fix Missing Auth Middleware on Protected Routes]
+**Vulnerability:** The `auth_middleware` existed in `hl7v2-server` but was never actually applied to the API routes, leaving the `/parse` and `/validate` endpoints completely unauthenticated. Additionally, the existing string comparison for the API key (`==`) was susceptible to timing attacks.
+**Learning:** In axum, middleware must be explicitly layered onto the router using `.layer()`. Defining the function alone does not protect routes. Also, the order of middleware is crucial; `CorsLayer` must run before `auth_middleware` to handle preflight requests correctly.
+**Prevention:** Always verify that security middleware is actively applied to the intended routes and test the routes without authentication to confirm they fail securely. Implement constant-time string comparisons (`constant_time_eq`) for sensitive tokens like API keys to prevent timing side-channels.
