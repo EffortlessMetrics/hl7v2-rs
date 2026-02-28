@@ -31,7 +31,6 @@
 //! ```
 
 use hl7v2_escape::escape_text;
-use hl7v2_mllp;
 use hl7v2_model::*;
 
 // Re-export JSON functionality from hl7v2-json for backward compatibility
@@ -271,10 +270,10 @@ fn write_segment_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims
 /// Helper function to get delimiters from a file batch
 fn get_delimiters_from_file_batch(file_batch: &FileBatch) -> Delims {
     // Try to get delimiters from the first message in the first batch
-    if let Some(first_batch) = file_batch.batches.first() {
-        if let Some(first_message) = first_batch.messages.first() {
-            return first_message.delims.clone();
-        }
+    if let Some(first_batch) = file_batch.batches.first()
+        && let Some(first_message) = first_batch.messages.first()
+    {
+        return first_message.delims.clone();
     }
     // Fallback to default delimiters
     Delims::default()

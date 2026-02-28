@@ -458,4 +458,347 @@ values: {}
             assert!(!compact.contains("\n  ")); // No indented newlines
         }
     }
+
+    // =========================================================================
+    // New CLI Flags Tests
+    // =========================================================================
+
+    mod new_flags {
+        use super::*;
+        use hl7v2_core::{parse, write, normalize};
+
+        // -------------------------------------------------------------------------
+        // --canonical-delims flag tests
+        // -------------------------------------------------------------------------
+
+        #[test]
+        fn test_canonical_delimiters_normalization() {
+            // Create a message with non-canonical delimiters
+            let content = "MSH|@#$\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||12345^^^HOSP^MR||Doe^John\r";
+            
+            // Parse and normalize with canonical delimiters
+            let message = parse(content.as_bytes()).expect("Parse should succeed");
+            let original_bytes = write(&message);
+            let normalized = normalize(&original_bytes, true).expect("Normalize should succeed");
+            let normalized_str = String::from_utf8_lossy(&normalized);
+            
+            // Verify canonical delimiters are used
+            assert!(normalized_str.starts_with("MSH|^~\\&|"));
+        }
+
+        #[test]
+        fn test_canonical_delimiters_preserves_content() {
+            let content = SampleMessages::adt_a01();
+            let message = parse(content.as_bytes()).expect("Parse should succeed");
+            
+            let original_bytes = write(&message);
+            let normalized = normalize(&original_bytes, true).expect("Normalize should succeed");
+            
+            // Parse the normalized message
+            let reparsed = parse(&normalized).expect("Reparse should succeed");
+            
+            // Verify segment count is preserved
+            assert_eq!(message.segments.len(), reparsed.segments.len());
+        }
+
+        // -------------------------------------------------------------------------
+        // --envelope flag tests
+        // -------------------------------------------------------------------------
+
+        #[test]
+        fn test_envelope_mllp_wrap() {
+            let content = SampleMessages::adt_a01();
+            let message = parse(content.as_bytes()).expect("Parse should succeed");
+            
+            let output_bytes = write(&message);
+            let mllp_bytes = hl7v2_core::wrap_mllp(&output_bytes);
+            
+            // Verify MLLP framing
+            assert_eq!(mllp_bytes[0], 0x0B); // SB
+            assert!(mllp_bytes[..].ends_with(&[0x1C, 0x0D])); // EB CR
+        }
+
+        #[test]
+        fn test_envelope_and_canonical_combined() {
+            let content = SampleMessages::adt_a01();
+            let message = parse(content.as_bytes()).expect("Parse should succeed");
+            
+            // Normalize and wrap
+            let original_bytes = write(&message);
+            let normalized = normalize(&original_bytes, true).expect("Normalize should succeed");
+            let mllp_bytes = hl7v2_core::wrap_mllp(&normalized);
+            
+            // Verify MLLP framing
+            assert_eq!(mllp_bytes[0], 0x0B); // SB
+            
+            // Extract and verify content starts with canonical delimiters
+            let content = &mllp_bytes[1..mllp_bytes.len()-2];
+            let content_str = String::from_utf8_lossy(content);
+            assert!(content_str.starts_with("MSH|^~\\&|"));
+        }
+
+        // -------------------------------------------------------------------------
+        // --report flag tests (validation report formats)
+        // -------------------------------------------------------------------------
+
+        #[test]
+        fn test_validation_report_json_format() {
+            let profile_yaml = r#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+constraints:
+  - path: MSH.1
+    required: true
+"#;
+            let profile = hl7v2_prof::load_profile(profile_yaml).expect("Profile should load");
+            let message = parse(SampleMessages::adt_a01().as_bytes()).expect("Parse should succeed");
+            
+            let results = hl7v2_prof::validate(&message, &profile);
+            
+            // Create a validation report
+            let report = crate::ValidationReport {
+                input_file: "test.hl7".to_string(),
+                profile_file: "profile.yaml".to_string(),
+                file_size: 100,
+                segment_count: message.segments.len(),
+                is_valid: results.is_empty(),
+                issue_count: results.len(),
+                issues: results.iter().map(|r| format!("{:?}", r)).collect(),
+            };
+            
+            // Verify JSON serialization works
+            let json = serde_json::to_string_pretty(&report).expect("Should serialize to JSON");
+            assert!(json.contains("input_file"));
+            assert!(json.contains("is_valid"));
+        }
+
+        #[test]
+        fn test_validation_report_yaml_format() {
+            let profile_yaml = r#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+constraints:
+  - path: MSH.1
+    required: true
+"#;
+            let profile = hl7v2_prof::load_profile(profile_yaml).expect("Profile should load");
+            let message = parse(SampleMessages::adt_a01().as_bytes()).expect("Parse should succeed");
+            
+            let results = hl7v2_prof::validate(&message, &profile);
+            
+            // Create a validation report
+            let report = crate::ValidationReport {
+                input_file: "test.hl7".to_string(),
+                profile_file: "profile.yaml".to_string(),
+                file_size: 100,
+                segment_count: message.segments.len(),
+                is_valid: results.is_empty(),
+                issue_count: results.len(),
+                issues: results.iter().map(|r| format!("{:?}", r)).collect(),
+            };
+            
+            // Verify YAML serialization works
+            let yaml = serde_yaml::to_string(&report).expect("Should serialize to YAML");
+            assert!(yaml.contains("input_file"));
+            assert!(yaml.contains("is_valid"));
+        }
+
+        // -------------------------------------------------------------------------
+        // --distributions flag tests (stats with field distributions)
+        // -------------------------------------------------------------------------
+
+        #[test]
+        fn test_stats_field_distributions() {
+            let content = SampleMessages::adt_a01();
+            let message = parse(content.as_bytes()).expect("Parse should succeed");
+            
+            // Collect segment statistics
+            let mut segment_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            for segment in &message.segments {
+                *segment_counts.entry(segment.id_str().to_string()).or_insert(0) += 1;
+            }
+            
+            assert!(!segment_counts.is_empty());
+            assert!(segment_counts.contains_key("MSH"));
+        }
+
+        #[test]
+        fn test_stats_report_json_format() {
+            let content = SampleMessages::adt_a01();
+            let message = parse(content.as_bytes()).expect("Parse should succeed");
+            
+            // Collect segment statistics
+            let mut segment_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            for segment in &message.segments {
+                *segment_counts.entry(segment.id_str().to_string()).or_insert(0) += 1;
+            }
+            
+            let segments: Vec<crate::SegmentStats> = segment_counts
+                .into_iter()
+                .map(|(id, count)| crate::SegmentStats { segment_id: id, count })
+                .collect();
+            
+            let report = crate::StatsReport {
+                input_file: "test.hl7".to_string(),
+                file_size: content.len(),
+                segment_count: message.segments.len(),
+                segments,
+                field_distributions: None,
+            };
+            
+            // Verify JSON serialization works
+            let json = serde_json::to_string_pretty(&report).expect("Should serialize to JSON");
+            assert!(json.contains("input_file"));
+            assert!(json.contains("segment_count"));
+        }
+
+        #[test]
+        fn test_stats_report_with_distributions() {
+            let content = SampleMessages::adt_a01();
+            let message = parse(content.as_bytes()).expect("Parse should succeed");
+            
+            // Collect field distributions
+            let mut distributions: Vec<crate::FieldDistribution> = Vec::new();
+            
+            for segment in &message.segments {
+                let segment_id = segment.id_str();
+                
+                for (field_idx, field) in segment.fields.iter().enumerate().take(5) {
+                    if field_idx == 0 {
+                        continue;
+                    }
+                    
+                    let path = format!("{}.{}", segment_id, field_idx);
+                    let value = field.first_text().unwrap_or("").to_string();
+                    
+                    if let Some(existing) = distributions.iter_mut().find(|d| d.path == path) {
+                        if !existing.sample_values.contains(&value) && existing.sample_values.len() < 10 {
+                            existing.sample_values.push(value);
+                        }
+                        existing.unique_values = existing.sample_values.len();
+                    } else {
+                        distributions.push(crate::FieldDistribution {
+                            path,
+                            unique_values: 1,
+                            sample_values: vec![value],
+                        });
+                    }
+                }
+            }
+            
+            // Verify we collected some distributions
+            assert!(!distributions.is_empty());
+        }
+
+        // -------------------------------------------------------------------------
+        // --streaming flag tests
+        // -------------------------------------------------------------------------
+
+        #[test]
+        fn test_streaming_mode_flag() {
+            // The streaming flag is primarily for memory-efficient processing
+            // of large files. Here we just verify the flag exists and can be parsed.
+            use clap::CommandFactory;
+            use crate::Cli;
+            
+            let schema = Cli::command();
+            let parse_cmd = schema.get_subcommands().find(|c| c.get_name() == "parse");
+            assert!(parse_cmd.is_some());
+            
+            let parse_cmd = parse_cmd.unwrap();
+            let streaming_arg = parse_cmd.get_arguments().find(|a| a.get_id() == "streaming");
+            assert!(streaming_arg.is_some());
+        }
+
+        // -------------------------------------------------------------------------
+        // ReportFormat enum tests
+        // -------------------------------------------------------------------------
+
+        #[test]
+        fn test_report_format_values() {
+            use crate::ReportFormat;
+            
+            // Verify all format variants exist
+            let text = ReportFormat::Text;
+            let json = ReportFormat::Json;
+            let yaml = ReportFormat::Yaml;
+            
+            // Verify default
+            assert_eq!(ReportFormat::default(), ReportFormat::Text);
+        }
+
+        // -------------------------------------------------------------------------
+        // Clap argument parsing tests for new flags
+        // -------------------------------------------------------------------------
+
+        #[test]
+        fn test_parse_command_has_canonical_delims_flag() {
+            use clap::CommandFactory;
+            use crate::Cli;
+            
+            let schema = Cli::command();
+            let parse_cmd = schema.get_subcommands().find(|c| c.get_name() == "parse");
+            assert!(parse_cmd.is_some());
+            
+            let parse_cmd = parse_cmd.unwrap();
+            let canonical_arg = parse_cmd.get_arguments().find(|a| a.get_id() == "canonical_delims");
+            assert!(canonical_arg.is_some());
+        }
+
+        #[test]
+        fn test_parse_command_has_envelope_flag() {
+            use clap::CommandFactory;
+            use crate::Cli;
+            
+            let schema = Cli::command();
+            let parse_cmd = schema.get_subcommands().find(|c| c.get_name() == "parse");
+            assert!(parse_cmd.is_some());
+            
+            let parse_cmd = parse_cmd.unwrap();
+            let envelope_arg = parse_cmd.get_arguments().find(|a| a.get_id() == "envelope");
+            assert!(envelope_arg.is_some());
+        }
+
+        #[test]
+        fn test_val_command_has_report_flag() {
+            use clap::CommandFactory;
+            use crate::Cli;
+            
+            let schema = Cli::command();
+            let val_cmd = schema.get_subcommands().find(|c| c.get_name() == "val");
+            assert!(val_cmd.is_some());
+            
+            let val_cmd = val_cmd.unwrap();
+            let report_arg = val_cmd.get_arguments().find(|a| a.get_id() == "report");
+            assert!(report_arg.is_some());
+        }
+
+        #[test]
+        fn test_stats_command_exists() {
+            use clap::CommandFactory;
+            use crate::Cli;
+            
+            let schema = Cli::command();
+            let stats_cmd = schema.get_subcommands().find(|c| c.get_name() == "stats");
+            assert!(stats_cmd.is_some());
+        }
+
+        #[test]
+        fn test_stats_command_has_distributions_flag() {
+            use clap::CommandFactory;
+            use crate::Cli;
+            
+            let schema = Cli::command();
+            let stats_cmd = schema.get_subcommands().find(|c| c.get_name() == "stats");
+            assert!(stats_cmd.is_some());
+            
+            let stats_cmd = stats_cmd.unwrap();
+            let distributions_arg = stats_cmd.get_arguments().find(|a| a.get_id() == "distributions");
+            assert!(distributions_arg.is_some());
+        }
+    }
 }

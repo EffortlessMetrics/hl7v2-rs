@@ -30,18 +30,13 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 /// Severity of validation issues
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Severity {
     /// Error-level issue (validation failure)
+    #[default]
     Error,
     /// Warning-level issue (potential problem)
     Warning,
-}
-
-impl Default for Severity {
-    fn default() -> Self {
-        Severity::Error
-    }
 }
 
 /// Validation issue
@@ -141,11 +136,11 @@ pub fn is_date(value: &str) -> bool {
     let day = &value[6..8];
 
     // Basic validation
-    if month < "01" || month > "12" {
+    if !("01"..="12").contains(&month) {
         return false;
     }
 
-    if day < "01" || day > "31" {
+    if !("01"..="31").contains(&day) {
         return false;
     }
 
@@ -485,7 +480,7 @@ pub fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
                 return false;
             }
             let month: u32 = parts[1].parse().unwrap_or(0);
-            if month < 1 || month > 12 {
+            if !(1..=12).contains(&month) {
                 return false;
             }
             // Check day (2 digits)
@@ -493,7 +488,7 @@ pub fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
                 return false;
             }
             let day: u32 = parts[2].parse().unwrap_or(0);
-            if day < 1 || day > 31 {
+            if !(1..=31).contains(&day) {
                 return false;
             }
             true
@@ -581,10 +576,10 @@ pub fn parse_hl7_ts(s: &str) -> Option<NaiveDateTime> {
             return Some(dt);
         }
     }
-    if s.len() == 8 {
-        if let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d") {
-            return Some(d.and_hms_opt(0, 0, 0)?);
-        }
+    if s.len() == 8
+        && let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d")
+    {
+        return d.and_hms_opt(0, 0, 0);
     }
     None
 }
@@ -610,33 +605,33 @@ pub fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
     }
 
     // Try date only format
-    if s.len() == 8 {
-        if let Ok(date) = NaiveDate::parse_from_str(s, "%Y%m%d") {
-            return Some(ParsedTimestamp {
-                datetime: date.and_hms_opt(0, 0, 0)?,
-                precision: TimestampPrecision::Day,
-            });
-        }
+    if s.len() == 8
+        && let Ok(date) = NaiveDate::parse_from_str(s, "%Y%m%d")
+    {
+        return Some(ParsedTimestamp {
+            datetime: date.and_hms_opt(0, 0, 0)?,
+            precision: TimestampPrecision::Day,
+        });
     }
 
     // Try year-month format
-    if s.len() == 6 {
-        if let Ok(date) = NaiveDate::parse_from_str(&format!("{}01", s), "%Y%m%d") {
-            return Some(ParsedTimestamp {
-                datetime: date.and_hms_opt(0, 0, 0)?,
-                precision: TimestampPrecision::Month,
-            });
-        }
+    if s.len() == 6
+        && let Ok(date) = NaiveDate::parse_from_str(&format!("{}01", s), "%Y%m%d")
+    {
+        return Some(ParsedTimestamp {
+            datetime: date.and_hms_opt(0, 0, 0)?,
+            precision: TimestampPrecision::Month,
+        });
     }
 
     // Try year only format
-    if s.len() == 4 {
-        if let Ok(date) = NaiveDate::parse_from_str(&format!("{}0101", s), "%Y%m%d") {
-            return Some(ParsedTimestamp {
-                datetime: date.and_hms_opt(0, 0, 0)?,
-                precision: TimestampPrecision::Year,
-            });
-        }
+    if s.len() == 4
+        && let Ok(date) = NaiveDate::parse_from_str(&format!("{}0101", s), "%Y%m%d")
+    {
+        return Some(ParsedTimestamp {
+            datetime: date.and_hms_opt(0, 0, 0)?,
+            precision: TimestampPrecision::Year,
+        });
     }
 
     None
@@ -685,24 +680,24 @@ pub fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) 
 /// Parse datetime string (supports various HL7 formats)
 pub fn parse_datetime(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
     // Try YYYYMMDDHHMMSS format
-    if value.len() == 14 {
-        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(value, "%Y%m%d%H%M%S") {
-            return Some(dt.and_utc());
-        }
+    if value.len() == 14
+        && let Ok(dt) = chrono::NaiveDateTime::parse_from_str(value, "%Y%m%d%H%M%S")
+    {
+        return Some(dt.and_utc());
     }
 
     // Try YYYYMMDD format
-    if value.len() == 8 {
-        if let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y%m%d") {
-            return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
-        }
+    if value.len() == 8
+        && let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y%m%d")
+    {
+        return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
     }
 
     // Try YYYY-MM-DD format
-    if value.len() == 10 {
-        if let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d") {
-            return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
-        }
+    if value.len() == 10
+        && let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+    {
+        return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
     }
 
     None
@@ -730,9 +725,10 @@ pub fn get_nonempty<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
 // ============================================================================
 
 /// Condition operator types
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum ConditionOperator {
     /// Equal
+    #[default]
     Eq,
     /// Not equal
     Ne,
@@ -760,12 +756,6 @@ pub enum ConditionOperator {
     Before,
     /// Within range
     WithinRange,
-}
-
-impl Default for ConditionOperator {
-    fn default() -> Self {
-        ConditionOperator::Eq
-    }
 }
 
 /// Rule condition for cross-field validation
@@ -832,11 +822,7 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
             lhs.map(|l| l.contains(needle)).unwrap_or(false)
         }
         "in" => {
-            if let Some(l) = lhs {
-                rhs_list.iter().any(|r| l == *r)
-            } else {
-                false
-            }
+            lhs.map(|l| rhs_list.contains(&l)).unwrap_or(false)
         }
         "matches_regex" => {
             if let (Some(l), Some(pat)) = (lhs, rhs_first) {
@@ -893,10 +879,10 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
                 return l >= lo && l <= hi;
             }
             // Fallback to integer range
-            if let (Some(l), Ok(lo), Ok(hi)) = (lhs, a.parse::<i64>(), b.parse::<i64>()) {
-                if let Ok(li) = l.parse::<i64>() {
-                    return li >= lo && li <= hi;
-                }
+            if let (Some(l), Ok(lo), Ok(hi)) = (lhs, a.parse::<i64>(), b.parse::<i64>())
+                && let Ok(li) = l.parse::<i64>()
+            {
+                return li >= lo && li <= hi;
             }
             false
         }

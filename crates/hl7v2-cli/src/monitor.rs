@@ -31,6 +31,7 @@ impl PerformanceMonitor {
     }
     
     /// Get a specific metric
+    #[allow(dead_code)]
     pub fn get_metric(&self, name: &str) -> Option<std::time::Duration> {
         self.metrics.get(name).copied()
     }

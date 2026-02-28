@@ -219,7 +219,7 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
     let text = std::str::from_utf8(data)
         .map_err(|_| BatchError::InvalidStructure("Invalid UTF-8 data".to_string()))?;
     
-    let lines: Vec<&str> = text.split(|c| c == '\r' || c == '\n')
+    let lines: Vec<&str> = text.split(['\r', '\n'])
         .filter(|l| !l.is_empty())
         .collect();
     
@@ -344,13 +344,13 @@ fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
     }
     
     // Verify message count if specified
-    if let Some(expected) = batch.info.message_count {
-        if expected != batch.message_count() {
-            return Err(BatchError::CountMismatch {
-                expected,
-                actual: batch.message_count(),
-            });
-        }
+    if let Some(expected) = batch.info.message_count
+        && expected != batch.message_count()
+    {
+        return Err(BatchError::CountMismatch {
+            expected,
+            actual: batch.message_count(),
+        });
     }
     
     Ok(batch)
@@ -362,13 +362,13 @@ fn parse_messages(lines: &[&str]) -> Result<Vec<Message>, BatchError> {
     let mut message_lines: Vec<&str> = Vec::new();
     
     for line in lines {
-        if line.starts_with("MSH") {
-            if !message_lines.is_empty() {
-                let msg_text = message_lines.join("\r");
-                let msg = parse(msg_text.as_bytes())?;
-                messages.push(msg);
-                message_lines.clear();
-            }
+        if line.starts_with("MSH")
+            && !message_lines.is_empty()
+        {
+            let msg_text = message_lines.join("\r");
+            let msg = parse(msg_text.as_bytes())?;
+            messages.push(msg);
+            message_lines.clear();
         }
         message_lines.push(line);
     }
@@ -389,7 +389,7 @@ fn parse_segment(line: &str) -> Result<Segment, BatchError> {
         return Err(BatchError::InvalidStructure(format!("Segment too short: {}", line)));
     }
     
-    let id_bytes = line[0..3].as_bytes();
+    let id_bytes = &line.as_bytes()[0..3];
     let id: [u8; 3] = [id_bytes[0], id_bytes[1], id_bytes[2]];
     let field_sep = line.chars().nth(3).unwrap_or('|');
     
@@ -423,7 +423,7 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
     
     // FTS/BTS-1 is message count, FTS/BTS-2 is trailer comment
     if segment_type == "FTS" || segment_type == "BTS" {
-        info.message_count = fields.get(0).and_then(|s| s.parse::<usize>().ok());
+        info.message_count = fields.first().and_then(|s| s.parse::<usize>().ok());
         if fields.len() > 1 {
             info.trailer_comment = Some(fields[1].to_string());
         }
@@ -438,7 +438,7 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
     // fields[3] = Receiving Application (BHS-5)
     // fields[4] = Receiving Facility (BHS-6)
     // etc.
-    if fields.len() > 0 {
+    if !fields.is_empty() {
         info.encoding_characters = Some(fields[0].to_string());
     }
     if fields.len() > 1 {

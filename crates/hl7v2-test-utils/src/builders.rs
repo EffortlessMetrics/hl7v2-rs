@@ -881,7 +881,7 @@ fn write_rep(rep: &Rep, delims: &Delims) -> String {
 /// Write a component to an HL7-formatted string.
 fn write_comp(comp: &Comp, delims: &Delims) -> String {
     let subs: Vec<String> = comp.subs.iter()
-        .map(|atom| write_atom(atom))
+        .map(write_atom)
         .collect();
     subs.join(&delims.sub.to_string())
 }

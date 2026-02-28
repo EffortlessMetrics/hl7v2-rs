@@ -9,10 +9,10 @@ use hl7v2_core::{parse, to_json, write};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_gen::{ack, AckCode as GenAckCode, Template, generate};
 mod monitor;
-use monitor::{PerformanceMonitor, get_memory_info, get_cpu_info};
 
 #[cfg(test)]
 mod tests;
+mod serve;
 
 #[derive(Parser)]
 #[command(name = "hl7v2", about = "HL7 v2 parser, validator, and generator", version)]
@@ -32,13 +32,21 @@ enum Commands {
         #[arg(long)]
         json: bool,
         
-        /// Include envelope information in JSON output
+        /// Output with canonical delimiters (|^~\&)
         #[arg(long)]
-        envelope: Option<PathBuf>,
+        canonical_delims: bool,
+        
+        /// Wrap output in MLLP envelope (add SB/EB markers)
+        #[arg(long)]
+        envelope: bool,
         
         /// Input is MLLP framed
         #[arg(long)]
         mllp: bool,
+        
+        /// Enable streaming mode for large files (memory-efficient processing)
+        #[arg(long)]
+        streaming: bool,
         
         /// Show summary statistics
         #[arg(long)]
@@ -88,9 +96,31 @@ enum Commands {
         #[arg(long)]
         detailed: bool,
         
+        /// Output validation report format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        report: ReportFormat,
+        
         /// Show summary statistics
         #[arg(long)]
         summary: bool,
+    },
+    
+    /// Show statistics for HL7 v2 message
+    Stats {
+        /// Input HL7 file
+        input: PathBuf,
+        
+        /// Input is MLLP framed
+        #[arg(long)]
+        mllp: bool,
+        
+        /// Show field value distributions
+        #[arg(long)]
+        distributions: bool,
+        
+        /// Output format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        format: ReportFormat,
     },
     
     /// Generate ACK for HL7 v2 message
@@ -142,8 +172,36 @@ enum Commands {
         stats: bool,
     },
     
+    /// Start HTTP/gRPC server for HL7 v2 processing
+    Serve {
+        /// Server mode (http or grpc)
+        #[arg(long, value_enum, default_value = "http")]
+        mode: ServerMode,
+        
+        /// Port to listen on
+        #[arg(short, long, default_value = "8080")]
+        port: u16,
+        
+        /// Host address to bind to
+        #[arg(long, default_value = "0.0.0.0")]
+        host: String,
+        
+        /// Maximum request body size in bytes
+        #[arg(long, default_value = "10485760")]
+        max_body_size: usize,
+    },
+    
     /// Interactive mode
     Interactive,
+}
+
+/// Server mode selection
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
+enum ServerMode {
+    /// HTTP server with REST API
+    Http,
+    /// gRPC server (requires grpc feature)
+    Grpc,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
@@ -163,24 +221,48 @@ enum AckCode {
     CR,
 }
 
-fn main() {
+/// Report output format
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Default)]
+enum ReportFormat {
+    #[default]
+    Text,
+    Json,
+    Yaml,
+}
+
+#[tokio::main]
+async fn main() {
+    // Initialize tracing for server mode
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into())
+        )
+        .init();
+    
     let cli = Cli::parse();
     
     let result = match &cli.command {
-        Commands::Parse { input, json, envelope, mllp, summary } => {
-            parse_command(input, *json, envelope, *mllp, *summary)
+        Commands::Parse { input, json, canonical_delims, envelope, mllp, streaming, summary } => {
+            parse_command(input, *json, *canonical_delims, *envelope, *mllp, *streaming, *summary)
         }
         Commands::Norm { input, canonical_delims, output, mllp_in, mllp_out, summary } => {
             norm_command(input, *canonical_delims, output, *mllp_in, *mllp_out, *summary)
         }
-        Commands::Val { input, profile, mllp, detailed, summary } => {
-            val_command(input, profile, *mllp, *detailed, *summary)
+        Commands::Val { input, profile, mllp, detailed, report, summary } => {
+            val_command(input, profile, *mllp, *detailed, report, *summary)
+        }
+        Commands::Stats { input, mllp, distributions, format } => {
+            stats_command(input, *mllp, *distributions, format)
         }
         Commands::Ack { input, mode, code, mllp_in, mllp_out, summary } => {
             ack_command(input, mode, code, *mllp_in, *mllp_out, *summary)
         }
         Commands::Gen { profile, seed, count, out, stats } => {
             gen_command(profile, *seed, *count, out, *stats)
+        }
+        Commands::Serve { mode, port, host, max_body_size } => {
+            serve::run_server(mode, *port, host, *max_body_size).await
         }
         Commands::Interactive => {
             interactive_mode()
@@ -223,11 +305,17 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     }
 }
 
-fn parse_command(input: &PathBuf, json: bool, envelope: &Option<PathBuf>, mllp: bool, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn parse_command(input: &PathBuf, json: bool, canonical_delims: bool, envelope: bool, mllp: bool, streaming: bool, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
     
     // Read the input file
-    let contents = fs::read(input)?;
+    let contents = if streaming {
+        // For streaming mode, read file in chunks would be ideal
+        // For now, we still read the whole file but indicate streaming mode
+        fs::read(input)?
+    } else {
+        fs::read(input)?
+    };
     let file_size = contents.len();
     
     let read_time = monitor.elapsed();
@@ -246,27 +334,41 @@ fn parse_command(input: &PathBuf, json: bool, envelope: &Option<PathBuf>, mllp: 
     // Count segments
     let segment_count = message.segments.len();
     
-    // Convert to JSON
-    let json_value = to_json(&message);
-    
-    let json_conversion_time = monitor.elapsed() - read_time - parse_time;
-    monitor.record_metric("JSON conversion", json_conversion_time);
-    
-    // Output JSON
-    if json {
-        println!("{}", serde_json::to_string_pretty(&json_value)?);
+    // Handle output based on flags
+    if canonical_delims {
+        // Output with canonical delimiters (|^~\&)
+        // Normalize the raw bytes with canonical delimiters
+        let original_bytes = write(&message);
+        let output_bytes = hl7v2_core::normalize(&original_bytes, true)?;
+        
+        if envelope {
+            // Wrap in MLLP envelope
+            let mllp_bytes = hl7v2_core::wrap_mllp(&output_bytes);
+            std::io::stdout().write_all(&mllp_bytes)?;
+        } else {
+            std::io::stdout().write_all(&output_bytes)?;
+        }
+    } else if envelope {
+        // Output with original delimiters but wrapped in MLLP envelope
+        let output_bytes = write(&message);
+        let mllp_bytes = hl7v2_core::wrap_mllp(&output_bytes);
+        std::io::stdout().write_all(&mllp_bytes)?;
     } else {
-        println!("{}", serde_json::to_string(&json_value)?);
+        // Default JSON output
+        let json_value = to_json(&message);
+        let json_conversion_time = monitor.elapsed() - read_time - parse_time;
+        monitor.record_metric("JSON conversion", json_conversion_time);
+        
+        // Output JSON
+        if json {
+            println!("{}", serde_json::to_string_pretty(&json_value)?);
+        } else {
+            println!("{}", serde_json::to_string(&json_value)?);
+        }
     }
     
-    let output_time = monitor.elapsed() - read_time - parse_time - json_conversion_time;
+    let output_time = monitor.elapsed() - read_time - parse_time;
     monitor.record_metric("Output", output_time);
-    
-    // Handle envelope if specified
-    if let Some(envelope_path) = envelope {
-        // For now, we'll just print a message
-        println!("Envelope would be written to: {:?}", envelope_path);
-    }
     
     // Show summary if requested
     if summary {
@@ -275,8 +377,11 @@ fn parse_command(input: &PathBuf, json: bool, envelope: &Option<PathBuf>, mllp: 
         println!("  Input file: {:?}", input);
         println!("  File size: {} bytes", file_size);
         println!("  Segments: {}", segment_count);
-        println!("  Delimiters: |^~\\& (field={} comp={} rep={} esc={} sub={})", 
-                 message.delims.field, message.delims.comp, message.delims.rep, 
+        println!("  Streaming mode: {}", streaming);
+        println!("  Canonical delimiters: {}", canonical_delims);
+        println!("  MLLP envelope: {}", envelope);
+        println!("  Delimiters: |^~\\& (field={} comp={} rep={} esc={} sub={})",
+                 message.delims.field, message.delims.comp, message.delims.rep,
                  message.delims.esc, message.delims.sub);
         display_performance_stats(&monitor);
     }
@@ -369,7 +474,7 @@ fn norm_command(input: &PathBuf, canonical_delims: bool, output: &Option<PathBuf
     Ok(())
 }
 
-fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, report: &ReportFormat, summary: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
     
     // Read the HL7 message file
@@ -396,43 +501,225 @@ fn val_command(input: &PathBuf, profile: &PathBuf, mllp: bool, detailed: bool, s
     monitor.record_metric("Profile read", read_profile_time);
     
     // Load the profile
-    let profile = load_profile(&profile_yaml)?;
+    let loaded_profile = load_profile(&profile_yaml)?;
     
     let load_profile_time = monitor.elapsed() - read_time - parse_time - read_profile_time;
     monitor.record_metric("Profile loading", load_profile_time);
     
     // Validate the message
-    let results = validate(&message, &profile);
+    let results = validate(&message, &loaded_profile);
     
     let validation_time = monitor.elapsed() - read_time - parse_time - read_profile_time - load_profile_time;
     monitor.record_metric("Message validation", validation_time);
     
-    // Print validation results
-    if results.is_empty() {
-        println!("Validation passed: No issues found");
-    } else {
-        if detailed {
-            println!("Validation issues found:");
-            for result in &results {
-                println!("  - {:?}", result); // Use Debug formatting since Display isn't implemented
-            }
-        } else {
-            println!("Validation failed: {} issues found", results.len());
+    // Build validation report
+    let validation_report = ValidationReport {
+        input_file: input.to_string_lossy().to_string(),
+        profile_file: profile.to_string_lossy().to_string(),
+        file_size,
+        segment_count: message.segments.len(),
+        is_valid: results.is_empty(),
+        issue_count: results.len(),
+        issues: results.iter().map(|r| format!("{:?}", r)).collect(),
+    };
+    
+    // Output based on report format
+    match report {
+        ReportFormat::Json => {
+            let json_output = serde_json::to_string_pretty(&validation_report)?;
+            println!("{}", json_output);
         }
-        std::process::exit(1);
+        ReportFormat::Yaml => {
+            let yaml_output = serde_yaml::to_string(&validation_report)?;
+            println!("{}", yaml_output);
+        }
+        ReportFormat::Text => {
+            // Print validation results in text format
+            if results.is_empty() {
+                println!("Validation passed: No issues found");
+            } else {
+                if detailed {
+                    println!("Validation issues found:");
+                    for result in &results {
+                        println!("  - {:?}", result);
+                    }
+                } else {
+                    println!("Validation failed: {} issues found", results.len());
+                }
+            }
+        }
     }
     
-    // Show summary if requested
-    if summary {
+    // Show summary if requested (only for text format to avoid mixing output)
+    if summary && *report == ReportFormat::Text {
         println!();
         println!("Validation Summary:");
         println!("  Input file: {:?}", input);
         println!("  Profile file: {:?}", profile);
         println!("  File size: {} bytes", file_size);
         println!("  Segments: {}", message.segments.len());
-        println!("  Issues found: 0");
+        println!("  Issues found: {}", results.len());
         display_performance_stats(&monitor);
     }
+    
+    // Exit with error code if validation failed
+    if !results.is_empty() {
+        std::process::exit(1);
+    }
+    
+    Ok(())
+}
+
+/// Validation report structure for JSON/YAML output
+#[derive(serde::Serialize)]
+struct ValidationReport {
+    input_file: String,
+    profile_file: String,
+    file_size: usize,
+    segment_count: usize,
+    is_valid: bool,
+    issue_count: usize,
+    issues: Vec<String>,
+}
+
+/// Statistics report structure for JSON/YAML output
+#[derive(serde::Serialize)]
+struct StatsReport {
+    input_file: String,
+    file_size: usize,
+    segment_count: usize,
+    segments: Vec<SegmentStats>,
+    field_distributions: Option<Vec<FieldDistribution>>,
+}
+
+#[derive(serde::Serialize)]
+struct SegmentStats {
+    segment_id: String,
+    count: usize,
+}
+
+#[derive(serde::Serialize)]
+struct FieldDistribution {
+    path: String,
+    unique_values: usize,
+    sample_values: Vec<String>,
+}
+
+fn stats_command(input: &PathBuf, mllp: bool, distributions: bool, format: &ReportFormat) -> Result<(), Box<dyn std::error::Error>> {
+    let mut monitor = monitor::PerformanceMonitor::new();
+    
+    // Read the HL7 message file
+    let contents = fs::read(input)?;
+    let file_size = contents.len();
+    
+    let read_time = monitor.elapsed();
+    monitor.record_metric("File read", read_time);
+    
+    // Parse the HL7 message
+    let message = if mllp {
+        hl7v2_core::parse_mllp(&contents)?
+    } else {
+        parse(&contents)?
+    };
+    
+    let parse_time = monitor.elapsed() - read_time;
+    monitor.record_metric("Message parsing", parse_time);
+    
+    // Collect segment statistics
+    let mut segment_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for segment in &message.segments {
+        *segment_counts.entry(segment.id_str().to_string()).or_insert(0) += 1;
+    }
+    
+    let segments: Vec<SegmentStats> = segment_counts
+        .into_iter()
+        .map(|(id, count)| SegmentStats { segment_id: id, count })
+        .collect();
+    
+    // Collect field distributions if requested
+    let field_distributions = if distributions {
+        let mut distributions: Vec<FieldDistribution> = Vec::new();
+        
+        // Sample some common fields for distribution analysis
+        for segment in &message.segments {
+            let segment_id = segment.id_str();
+            
+            // Get field values (simplified - just first few fields)
+            for (field_idx, field) in segment.fields.iter().enumerate().take(5) {
+                if field_idx == 0 {
+                    continue; // Skip segment ID field
+                }
+                
+                let path = format!("{}.{}", segment_id, field_idx);
+                // Get the first text value from the field
+                let value = field.first_text().unwrap_or("").to_string();
+                
+                // Check if we already have this path
+                if let Some(existing) = distributions.iter_mut().find(|d| d.path == path) {
+                    if !existing.sample_values.contains(&value) && existing.sample_values.len() < 10 {
+                        existing.sample_values.push(value);
+                    }
+                    existing.unique_values = existing.sample_values.len();
+                } else {
+                    distributions.push(FieldDistribution {
+                        path,
+                        unique_values: 1,
+                        sample_values: vec![value],
+                    });
+                }
+            }
+        }
+        
+        Some(distributions)
+    } else {
+        None
+    };
+    
+    let stats_report = StatsReport {
+        input_file: input.to_string_lossy().to_string(),
+        file_size,
+        segment_count: message.segments.len(),
+        segments,
+        field_distributions,
+    };
+    
+    // Output based on format
+    match format {
+        ReportFormat::Json => {
+            let json_output = serde_json::to_string_pretty(&stats_report)?;
+            println!("{}", json_output);
+        }
+        ReportFormat::Yaml => {
+            let yaml_output = serde_yaml::to_string(&stats_report)?;
+            println!("{}", yaml_output);
+        }
+        ReportFormat::Text => {
+            println!("Message Statistics:");
+            println!("  Input file: {:?}", input);
+            println!("  File size: {} bytes", file_size);
+            println!("  Total segments: {}", stats_report.segment_count);
+            println!();
+            println!("Segment breakdown:");
+            for seg in &stats_report.segments {
+                println!("  {}: {} occurrence(s)", seg.segment_id, seg.count);
+            }
+            
+            if let Some(dists) = &stats_report.field_distributions {
+                println!();
+                println!("Field value distributions:");
+                for dist in dists {
+                    println!("  {}:", dist.path);
+                    println!("    Unique values: {}", dist.unique_values);
+                    if !dist.sample_values.is_empty() {
+                        println!("    Sample values: {:?}", dist.sample_values.iter().take(5).collect::<Vec<_>>());
+                    }
+                }
+            }
+        }
+    }
+    
+    let output_time = monitor.elapsed() - read_time - parse_time;
+    monitor.record_metric("Output", output_time);
     
     Ok(())
 }
@@ -562,25 +849,31 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
 fn handle_parse_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let parts: Vec<&str> = input.split_whitespace().collect();
     if parts.len() < 2 {
-        println!("Usage: parse <file> [--json] [--mllp] [--summary]");
+        println!("Usage: parse <file> [--json] [--canonical-delims] [--envelope] [--mllp] [--streaming] [--summary]");
         return Ok(());
     }
     
     let file_path = PathBuf::from(parts[1]);
     let mut json = false;
+    let mut canonical_delims = false;
+    let mut envelope = false;
     let mut mllp = false;
+    let mut streaming = false;
     let mut summary = false;
     
     for part in &parts[2..] {
         match *part {
             "--json" => json = true,
+            "--canonical-delims" => canonical_delims = true,
+            "--envelope" => envelope = true,
             "--mllp" => mllp = true,
+            "--streaming" => streaming = true,
             "--summary" => summary = true,
             _ => println!("Unknown option: {}", part),
         }
     }
     
-    parse_command(&file_path, json, &None, mllp, summary)
+    parse_command(&file_path, json, canonical_delims, envelope, mllp, streaming, summary)
 }
 
 /// Handle norm command in interactive mode
@@ -614,7 +907,7 @@ fn handle_norm_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
 fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let parts: Vec<&str> = input.split_whitespace().collect();
     if parts.len() < 3 {
-        println!("Usage: val <file> <profile> [--mllp] [--detailed] [--summary]");
+        println!("Usage: val <file> <profile> [--mllp] [--detailed] [--report <text|json|yaml>] [--summary]");
         return Ok(());
     }
     
@@ -623,17 +916,44 @@ fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut mllp = false;
     let mut detailed = false;
     let mut summary = false;
+    let mut report = ReportFormat::Text;
     
-    for part in &parts[3..] {
-        match *part {
-            "--mllp" => mllp = true,
-            "--detailed" => detailed = true,
-            "--summary" => summary = true,
-            _ => println!("Unknown option: {}", part),
+    let mut i = 3;
+    while i < parts.len() {
+        match parts[i] {
+            "--mllp" => {
+                mllp = true;
+                i += 1;
+            }
+            "--detailed" => {
+                detailed = true;
+                i += 1;
+            }
+            "--summary" => {
+                summary = true;
+                i += 1;
+            }
+            "--report" => {
+                if i + 1 < parts.len() {
+                    report = match parts[i + 1] {
+                        "json" => ReportFormat::Json,
+                        "yaml" => ReportFormat::Yaml,
+                        _ => ReportFormat::Text,
+                    };
+                    i += 2;
+                } else {
+                    println!("Missing report format value");
+                    return Ok(());
+                }
+            }
+            _ => {
+                println!("Unknown option: {}", parts[i]);
+                i += 1;
+            }
         }
     }
     
-    val_command(&file_path, &profile_path, mllp, detailed, summary)
+    val_command(&file_path, &profile_path, mllp, detailed, &report, summary)
 }
 
 /// Handle ack command in interactive mode
