@@ -126,7 +126,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             let mut escape_seq = String::new();
             let mut found_end = false;
             
-            while let Some(esc_ch) = chars.next() {
+            for esc_ch in chars.by_ref() {
                 if esc_ch == delims.esc {
                     found_end = true;
                     break;
@@ -138,11 +138,13 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // If we don't find the closing escape character, this might be a literal backslash
                 // in the encoding characters. Let's check if this is the special case of the
                 // MSH encoding characters "^~\&"
-                if text.len() == 4 && 
-                   text.chars().nth(0) == Some(delims.comp) &&
-                   text.chars().nth(1) == Some(delims.rep) &&
-                   text.chars().nth(2) == Some(delims.esc) &&
-                   text.chars().nth(3) == Some(delims.sub) {
+                if text.len() == 4 {
+                    let chars: Vec<char> = text.chars().collect();
+                    if chars[0] == delims.comp
+                        && chars[1] == delims.rep
+                        && chars[2] == delims.esc
+                        && chars[3] == delims.sub
+                    {
                     // This is the MSH encoding characters, treat as literal
                     result.push(delims.comp);
                     result.push(delims.rep);
@@ -150,6 +152,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                     result.push(delims.sub);
                     // Skip the rest of the processing since we've handled the special case
                     return Ok(result);
+                    }
                 }
                 
                 // For other cases, treat the text as-is

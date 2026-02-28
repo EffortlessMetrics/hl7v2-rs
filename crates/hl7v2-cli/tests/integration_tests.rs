@@ -895,3 +895,53 @@ mod edge_cases {
             .success();
     }
 }
+
+// =========================================================================
+// Serve Command Tests
+// =========================================================================
+
+mod serve_command {
+    use super::*;
+
+    #[test]
+    fn test_serve_help() {
+        let mut cmd = cli_command();
+        cmd.args(["serve", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("HTTP/gRPC server"))
+            .stdout(predicate::str::contains("--port"))
+            .stdout(predicate::str::contains("--host"))
+            .stdout(predicate::str::contains("--mode"));
+    }
+
+    #[test]
+    fn test_serve_default_options() {
+        let mut cmd = cli_command();
+        cmd.args(["serve", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("default: http"))
+            .stdout(predicate::str::contains("default: 8080"))
+            .stdout(predicate::str::contains("default: 0.0.0.0"));
+    }
+
+    #[test]
+    fn test_serve_mode_options() {
+        let mut cmd = cli_command();
+        cmd.args(["serve", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("http"))
+            .stdout(predicate::str::contains("grpc"));
+    }
+
+    #[test]
+    fn test_serve_grpc_not_implemented() {
+        let mut cmd = cli_command();
+        cmd.args(["serve", "--mode", "grpc", "--port", "50051"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("not yet implemented"));
+    }
+}

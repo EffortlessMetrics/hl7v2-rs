@@ -22,3 +22,20 @@ serde = { workspace = true, features = ["derive"] }
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 regex = "1.12.3"
 chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
+thiserror = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true, features = ["rt", "macros", "time", "fs"] }
+
+# HTTP client for remote profile loading
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+
+# LRU cache for profile caching
+lru = "0.13"
+
+# Async synchronization primitives
+async-lock = "3.4"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "fs"] }
+wiremock = "0.6"

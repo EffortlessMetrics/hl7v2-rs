@@ -19,7 +19,6 @@
 //! ```
 
 use hl7v2_escape::unescape_text;
-use hl7v2_mllp;
 use hl7v2_model::*;
 
 // Re-export query functionality from hl7v2-query for backward compatibility
@@ -207,13 +206,13 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     }
 
     // Parse segment ID
-    let id_bytes = line[0..3].as_bytes();
+    let id_bytes = &line.as_bytes()[0..3];
     let mut id = [0u8; 3];
     id.copy_from_slice(id_bytes);
 
     // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
-        if !((byte >= b'A' && byte <= b'Z') || (byte >= b'0' && byte <= b'9')) {
+        if !(byte.is_ascii_uppercase() || byte.is_ascii_digit()) {
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -386,31 +385,31 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 /// Extract character sets from MSH-18 field
 fn extract_charsets(segments: &[Segment]) -> Vec<String> {
     // Look for the MSH segment (should be the first one)
-    if let Some(msh_segment) = segments.first() {
-        if &msh_segment.id == b"MSH" {
-            // MSH-18 is parsed field index 17
-            if msh_segment.fields.len() > 17 {
-                let field_18 = &msh_segment.fields[17];
+    if let Some(msh_segment) = segments.first()
+        && &msh_segment.id == b"MSH"
+    {
+        // MSH-18 is parsed field index 17
+        if msh_segment.fields.len() > 17 {
+            let field_18 = &msh_segment.fields[17];
 
-                if !field_18.reps.is_empty() {
-                    let rep = &field_18.reps[0];
+            if !field_18.reps.is_empty() {
+                let rep = &field_18.reps[0];
 
-                    let mut charsets = Vec::new();
-                    for comp in &rep.comps {
-                        if !comp.subs.is_empty() {
-                            match &comp.subs[0] {
-                                Atom::Text(text) => {
-                                    if !text.is_empty() {
-                                        charsets.push(text.clone());
-                                    }
+                let mut charsets = Vec::new();
+                for comp in &rep.comps {
+                    if !comp.subs.is_empty() {
+                        match &comp.subs[0] {
+                            Atom::Text(text) => {
+                                if !text.is_empty() {
+                                    charsets.push(text.clone());
                                 }
-                                Atom::Null => continue,
                             }
+                            Atom::Null => continue,
                         }
                     }
-
-                    return charsets;
                 }
+
+                return charsets;
             }
         }
     }
@@ -451,9 +450,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
         } else if line.starts_with("MSH") {
             if !current_message_lines.is_empty() {
                 let message_text = current_message_lines
-                    .iter()
-                    .map(|s| *s)
-                    .collect::<Vec<_>>()
+                    .to_vec()
                     .join("\r");
                 let message =
                     parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
@@ -470,9 +467,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
 
     if !current_message_lines.is_empty() {
         let message_text = current_message_lines
-            .iter()
-            .map(|s| *s)
-            .collect::<Vec<_>>()
+            .to_vec()
             .join("\r");
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
@@ -520,9 +515,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
         } else if line.starts_with("BHS") {
             if !current_batch_lines.is_empty() {
                 let batch_text = current_batch_lines
-                    .iter()
-                    .map(|s| *s)
-                    .collect::<Vec<_>>()
+                    .to_vec()
                     .join("\r");
                 match parse_batch(batch_text.as_bytes()) {
                     Ok(batch) => batches.push(batch),
@@ -538,8 +531,6 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
                 current_batch_lines.clear();
             }
             current_batch_lines.push(line);
-        } else if line.starts_with("MSH") && current_batch_lines.is_empty() {
-            current_batch_lines.push(line);
         } else {
             current_batch_lines.push(line);
         }
@@ -547,9 +538,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
 
     if !current_batch_lines.is_empty() {
         let batch_text = current_batch_lines
-            .iter()
-            .map(|s| *s)
-            .collect::<Vec<_>>()
+            .to_vec()
             .join("\r");
         match parse_batch(batch_text.as_bytes()) {
             Ok(batch) => batches.push(batch),
