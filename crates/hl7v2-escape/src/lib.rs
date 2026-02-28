@@ -53,11 +53,15 @@ use hl7v2_model::{Delims, Error};
 /// assert_eq!(escaped, "a\\F\\b\\S\\c");
 /// ```
 pub fn escape_text(text: &str, delims: &Delims) -> String {
+    if !needs_escaping(text, delims) {
+        return text.to_string();
+    }
+
     // Pre-calculate maximum possible size to reduce reallocations
     // In worst case, every character might need escaping (3 chars each)
     let max_size = text.len() * 3;
     let mut result = String::with_capacity(max_size);
-    
+
     for ch in text.chars() {
         match ch {
             c if c == delims.field => {
@@ -88,7 +92,7 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
             _ => result.push(ch),
         }
     }
-    
+
     result
 }
 
@@ -116,33 +120,38 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
 /// assert_eq!(unescaped, "a|b");
 /// ```
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    if !needs_unescaping(text, delims) {
+        return Ok(text.to_string());
+    }
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
-    
+
     while let Some(ch) = chars.next() {
         if ch == delims.esc {
             // Start of escape sequence
             let mut escape_seq = String::new();
             let mut found_end = false;
-            
-            while let Some(esc_ch) = chars.next() {
+
+            for esc_ch in chars.by_ref() {
                 if esc_ch == delims.esc {
                     found_end = true;
                     break;
                 }
                 escape_seq.push(esc_ch);
             }
-            
+
             if !found_end {
                 // If we don't find the closing escape character, this might be a literal backslash
                 // in the encoding characters. Let's check if this is the special case of the
                 // MSH encoding characters "^~\&"
-                if text.len() == 4 && 
-                   text.chars().nth(0) == Some(delims.comp) &&
-                   text.chars().nth(1) == Some(delims.rep) &&
-                   text.chars().nth(2) == Some(delims.esc) &&
-                   text.chars().nth(3) == Some(delims.sub) {
+                if text.len() == 4
+                    && text.starts_with(delims.comp)
+                    && text.chars().nth(1) == Some(delims.rep)
+                    && text.chars().nth(2) == Some(delims.esc)
+                    && text.chars().nth(3) == Some(delims.sub)
+                {
                     // This is the MSH encoding characters, treat as literal
                     result.push(delims.comp);
                     result.push(delims.rep);
@@ -151,30 +160,30 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                     // Skip the rest of the processing since we've handled the special case
                     return Ok(result);
                 }
-                
+
                 // For other cases, treat the text as-is
                 result.push(delims.esc);
                 result.push_str(&escape_seq);
                 continue;
             }
-            
+
             // Process escape sequence
             match escape_seq.as_str() {
                 "F" => {
                     result.push(delims.field);
-                },
+                }
                 "S" => {
                     result.push(delims.comp);
-                },
+                }
                 "R" => {
                     result.push(delims.rep);
-                },
+                }
                 "E" => {
                     result.push(delims.esc);
-                },
+                }
                 "T" => {
                     result.push(delims.sub);
-                },
+                }
                 _ => {
                     // Unknown escape sequences are passed through
                     result.push(delims.esc);
@@ -186,7 +195,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             result.push(ch);
         }
     }
-    
+
     Ok(result)
 }
 
@@ -202,11 +211,11 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
 /// `true` if the text contains any delimiter characters
 pub fn needs_escaping(text: &str, delims: &Delims) -> bool {
     text.chars().any(|c| {
-        c == delims.field ||
-        c == delims.comp ||
-        c == delims.rep ||
-        c == delims.esc ||
-        c == delims.sub
+        c == delims.field
+            || c == delims.comp
+            || c == delims.rep
+            || c == delims.esc
+            || c == delims.sub
     })
 }
 
