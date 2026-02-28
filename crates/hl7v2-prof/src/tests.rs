@@ -196,3 +196,77 @@ custom_rules:
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
     }
 }
+
+#[cfg(test)]
+mod profile_load_error_tests {
+    use crate::{load_profile_checked, ProfileLoadError};
+
+    #[test]
+    fn test_load_profile_checked_valid() {
+        let y = r#"
+message_structure: "ADT_A01"
+version: "2.5.1"
+segments:
+  - id: "MSH"
+"#;
+        let result = load_profile_checked(y);
+        assert!(result.is_ok());
+        let profile = result.unwrap();
+        assert_eq!(profile.message_structure, "ADT_A01");
+        assert_eq!(profile.version, "2.5.1");
+    }
+
+    #[test]
+    fn test_load_profile_checked_invalid_yaml() {
+        let y = "this is not: valid:: yaml:::";
+        let result = load_profile_checked(y);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, ProfileLoadError::YamlParse(_)));
+    }
+
+    #[test]
+    fn test_profile_load_error_display() {
+        // Test YamlParse variant
+        let err = ProfileLoadError::YamlParse("unexpected token".to_string());
+        assert_eq!(format!("{}", err), "YAML parse error: unexpected token");
+        
+        // Test MissingField variant
+        let err = ProfileLoadError::MissingField { field: "message_structure".to_string() };
+        assert_eq!(format!("{}", err), "Missing required field: message_structure");
+        
+        // Test InvalidValue variant
+        let err = ProfileLoadError::InvalidValue {
+            field: "version".to_string(),
+            details: "must be a valid HL7 version".to_string(),
+        };
+        assert_eq!(format!("{}", err), "Invalid value for field 'version': must be a valid HL7 version");
+        
+        // Test Io variant
+        let err = ProfileLoadError::Io("file not found".to_string());
+        assert_eq!(format!("{}", err), "IO error: file not found");
+        
+        // Test InheritanceCycle variant
+        let err = ProfileLoadError::InheritanceCycle("A -> B -> A".to_string());
+        assert_eq!(format!("{}", err), "Profile inheritance cycle detected: A -> B -> A");
+        
+        // Test ParentNotFound variant
+        let err = ProfileLoadError::ParentNotFound("base_profile".to_string());
+        assert_eq!(format!("{}", err), "Parent profile not found: base_profile");
+    }
+
+    #[test]
+    fn test_profile_load_error_from_yaml_error() {
+        let yaml_err = serde_yaml::from_str::<serde_yaml::Value>("invalid: ::: yaml")
+            .unwrap_err();
+        let load_err: ProfileLoadError = yaml_err.into();
+        assert!(matches!(load_err, ProfileLoadError::YamlParse(_)));
+    }
+
+    #[test]
+    fn test_profile_load_error_from_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let load_err: ProfileLoadError = io_err.into();
+        assert!(matches!(load_err, ProfileLoadError::Io(_)));
+    }
+}

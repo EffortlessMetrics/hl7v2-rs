@@ -11,6 +11,8 @@ keywords = ["hl7", "healthcare", "benchmarking", "performance"]
 categories = ["development-tools", "parsing"]
 
 [dependencies]
+# Core dependencies
+hl7v2-core = { path = "../hl7v2-core" }
 hl7v2-escape = { path = "../hl7v2-escape" }
 hl7v2-mllp = { path = "../hl7v2-mllp" }
 hl7v2-model = { path = "../hl7v2-model" }
@@ -18,6 +20,60 @@ hl7v2-normalize = { path = "../hl7v2-normalize" }
 hl7v2-parser = { path = "../hl7v2-parser" }
 hl7v2-writer = { path = "../hl7v2-writer" }
 
-[dev-dependencies]
-criterion = "0.8.2"
+# New benchmark dependencies
+hl7v2-batch = { path = "../hl7v2-batch" }
+hl7v2-json = { path = "../hl7v2-json" }
+hl7v2-network = { path = "../hl7v2-network" }
+hl7v2-template = { path = "../hl7v2-template" }
+hl7v2-template-values = { path = "../hl7v2-template-values" }
+hl7v2-validation = { path = "../hl7v2-validation" }
 
+# Async runtime for network benchmarks
+tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros", "time", "net", "io-util", "sync"] }
+futures = "0.3.32"
+
+# Serialization
+serde_json = { workspace = true }
+
+# Random number generation for template benchmarks
+rand = "0.10.0"
+
+[dev-dependencies]
+criterion = { version = "0.8.2", features = ["async_tokio"] }
+
+# Benchmark definitions
+[[bench]]
+name = "parsing"
+harness = false
+
+[[bench]]
+name = "mllp"
+harness = false
+
+[[bench]]
+name = "escape"
+harness = false
+
+[[bench]]
+name = "memory"
+harness = false
+
+[[bench]]
+name = "validation"
+harness = false
+
+[[bench]]
+name = "batch"
+harness = false
+
+[[bench]]
+name = "json"
+harness = false
+
+[[bench]]
+name = "network"
+harness = false
+
+[[bench]]
+name = "template"
+harness = false

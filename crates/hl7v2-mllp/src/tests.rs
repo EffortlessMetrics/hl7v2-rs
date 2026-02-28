@@ -483,3 +483,86 @@ fn test_frame_iterator_large_message() {
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(msg.as_slice(), content.as_slice());
 }
+
+// ============================================================================
+// MllpError Tests
+// ============================================================================
+
+#[test]
+fn test_mllp_error_missing_start_block() {
+    // Test with no start byte
+    let result = unwrap_mllp_checked(b"MSH|TEST");
+    assert!(matches!(result, Err(MllpError::MissingStartBlock)));
+    
+    // Test with empty bytes
+    let result = unwrap_mllp_checked(b"");
+    assert!(matches!(result, Err(MllpError::MissingStartBlock)));
+}
+
+#[test]
+fn test_mllp_error_missing_end_block() {
+    // Start byte but no end sequence
+    let data = vec![MLLP_START, b'M', b'S', b'H'];
+    let result = unwrap_mllp_checked(&data);
+    assert!(matches!(result, Err(MllpError::MissingEndBlock)));
+}
+
+#[test]
+fn test_mllp_error_partial_end_sequence() {
+    // Start byte and content but only partial end sequence
+    let mut data = vec![MLLP_START];
+    data.extend_from_slice(b"MSH|TEST");
+    data.push(MLLP_END_1);
+    // Missing MLLP_END_2
+    
+    let result = unwrap_mllp_checked(&data);
+    assert!(matches!(result, Err(MllpError::MissingEndBlock)));
+}
+
+#[test]
+fn test_mllp_error_display() {
+    // Test Display trait implementation
+    let err = MllpError::MissingStartBlock;
+    assert_eq!(format!("{}", err), "Missing MLLP start block character (0x0B)");
+    
+    let err = MllpError::MissingEndBlock;
+    assert_eq!(format!("{}", err), "Missing MLLP end block sequence (0x1C 0x0D)");
+    
+    let err = MllpError::InvalidFrame { details: "test details".to_string() };
+    assert_eq!(format!("{}", err), "Invalid MLLP frame structure: test details");
+    
+    let err = MllpError::IoError("connection reset".to_string());
+    assert_eq!(format!("{}", err), "IO error: connection reset");
+    
+    let err = MllpError::Timeout;
+    assert_eq!(format!("{}", err), "Connection timeout");
+}
+
+#[test]
+fn test_mllp_error_from_io_error() {
+    let io_err = std::io::Error::new(std::io::ErrorKind::ConnectionReset, "connection reset");
+    let mllp_err: MllpError = io_err.into();
+    assert!(matches!(mllp_err, MllpError::IoError(_)));
+}
+
+#[test]
+fn test_unwrap_mllp_checked_success() {
+    let hl7 = b"MSH|^~\\&|TEST\r";
+    let framed = wrap_mllp(hl7);
+    let unwrapped = unwrap_mllp_checked(&framed).unwrap();
+    assert_eq!(unwrapped, hl7);
+}
+
+#[test]
+fn test_unwrap_mllp_owned_checked_success() {
+    let hl7 = b"MSH|^~\\&|TEST\r";
+    let framed = wrap_mllp(hl7);
+    let unwrapped = unwrap_mllp_owned_checked(&framed).unwrap();
+    assert_eq!(unwrapped.as_slice(), hl7);
+}
+
+#[test]
+fn test_unwrap_mllp_owned_checked_error() {
+    let result = unwrap_mllp_owned_checked(b"no start byte");
+    assert!(matches!(result, Err(MllpError::MissingStartBlock)));
+}

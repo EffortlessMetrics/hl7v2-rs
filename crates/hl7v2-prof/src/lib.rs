@@ -52,6 +52,57 @@ use hl7v2_core::{Error, Message};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
+/// Profile loading error types.
+///
+/// These errors provide detailed information about profile loading failures,
+/// making it easier to diagnose configuration and parsing issues.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum ProfileLoadError {
+    /// YAML syntax error during parsing.
+    #[error("YAML parse error: {0}")]
+    YamlParse(String),
+    
+    /// Required field is missing from the profile.
+    #[error("Missing required field: {field}")]
+    MissingField {
+        /// The name of the missing field.
+        field: String,
+    },
+    
+    /// Invalid field value in the profile.
+    #[error("Invalid value for field '{field}': {details}")]
+    InvalidValue {
+        /// The name of the field with an invalid value.
+        field: String,
+        /// Details about why the value is invalid.
+        details: String,
+    },
+    
+    /// IO error during profile file reading.
+    #[error("IO error: {0}")]
+    Io(String),
+    
+    /// Profile inheritance cycle detected.
+    #[error("Profile inheritance cycle detected: {0}")]
+    InheritanceCycle(String),
+    
+    /// Parent profile not found.
+    #[error("Parent profile not found: {0}")]
+    ParentNotFound(String),
+}
+
+impl From<serde_yaml::Error> for ProfileLoadError {
+    fn from(err: serde_yaml::Error) -> Self {
+        ProfileLoadError::YamlParse(err.to_string())
+    }
+}
+
+impl From<std::io::Error> for ProfileLoadError {
+    fn from(err: std::io::Error) -> Self {
+        ProfileLoadError::Io(err.to_string())
+    }
+}
+
 /// A conformance profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
@@ -258,6 +309,112 @@ pub struct ExpressionGuardrails {
 /// Load profile from YAML
 pub fn load_profile(yaml: &str) -> Result<Profile, Error> {
     serde_yaml::from_str(yaml).map_err(|_e| Error::InvalidEscapeToken) // TODO: Better error mapping
+}
+
+/// Load profile from YAML with specific error types.
+///
+/// This is the preferred function for loading profiles as it provides
+/// detailed error information specific to profile loading issues.
+///
+/// # Arguments
+///
+/// * `yaml` - The YAML string containing the profile definition
+///
+/// # Returns
+///
+/// The parsed Profile, or a ProfileLoadError if parsing fails
+///
+/// # Example
+///
+/// ```ignore
+/// use hl7v2_prof::{load_profile_checked, ProfileLoadError};
+///
+/// let yaml = r#"
+/// message_structure: ADT_A01
+/// version: "2.5.1"
+/// segments:
+///   - id: MSH
+/// "#;
+///
+/// let profile = load_profile_checked(yaml)?;
+/// assert_eq!(profile.message_structure, "ADT_A01");
+/// ```
+pub fn load_profile_checked(yaml: &str) -> Result<Profile, ProfileLoadError> {
+    serde_yaml::from_str(yaml).map_err(ProfileLoadError::from)
+}
+
+/// Load profile from a file path with specific error types.
+///
+/// # Arguments
+///
+/// * `path` - The path to the YAML file containing the profile definition
+///
+/// # Returns
+///
+/// The parsed Profile, or a ProfileLoadError if loading or parsing fails
+///
+/// # Example
+///
+/// ```ignore
+/// use hl7v2_prof::load_profile_from_file;
+///
+/// let profile = load_profile_from_file("profiles/adt_a01.yaml")?;
+/// ```
+pub async fn load_profile_from_file(path: &str) -> Result<Profile, ProfileLoadError> {
+    let content = tokio::fs::read_to_string(path).await?;
+    load_profile_checked(&content)
+}
+
+/// Load profile with inheritance resolution using specific error types.
+///
+/// This function loads a profile and recursively resolves any parent profiles,
+/// merging their constraints and rules into a single profile.
+///
+/// # Arguments
+///
+/// * `yaml` - The YAML string for the profile
+/// * `profile_loader` - A function that can load a parent profile by name
+///
+/// # Returns
+///
+/// A fully resolved profile with all inherited constraints merged
+pub fn load_profile_with_inheritance_checked<F>(
+    yaml: &str,
+    profile_loader: F,
+) -> Result<Profile, ProfileLoadError>
+where
+    F: Fn(&str) -> Result<Profile, ProfileLoadError>,
+{
+    let profile = load_profile_checked(yaml)?;
+
+    // If there's a parent, recursively load and merge it
+    if let Some(parent_name) = &profile.parent {
+        let parent_profile =
+            load_profile_with_inheritance_recursive_checked(parent_name, &profile_loader)?;
+        return Ok(merge_profiles(parent_profile, profile));
+    }
+
+    Ok(profile)
+}
+
+/// Recursively load parent profiles with specific error types
+fn load_profile_with_inheritance_recursive_checked<F>(
+    parent_name: &str,
+    profile_loader: &F,
+) -> Result<Profile, ProfileLoadError>
+where
+    F: Fn(&str) -> Result<Profile, ProfileLoadError>,
+{
+    let parent_profile = profile_loader(parent_name)?;
+
+    // If the parent also has a parent, recursively load and merge it
+    if let Some(grandparent_name) = &parent_profile.parent {
+        let grandparent_profile =
+            load_profile_with_inheritance_recursive_checked(grandparent_name, profile_loader)?;
+        return Ok(merge_profiles(grandparent_profile, parent_profile));
+    }
+
+    Ok(parent_profile)
 }
 
 /// Load profile with inheritance resolution
