@@ -53,34 +53,55 @@ use hl7v2_model::{Delims, Error};
 /// assert_eq!(escaped, "a\\F\\b\\S\\c");
 /// ```
 pub fn escape_text(text: &str, delims: &Delims) -> String {
+    // Fast path: find the first character that needs escaping
+    // Use str::find which handles UTF-8 correctly and avoids multi-byte truncation panics.
+    let first_esc_byte_idx = text.find(&[
+        delims.field,
+        delims.comp,
+        delims.rep,
+        delims.esc,
+        delims.sub,
+    ][..]);
+
+    let first_esc_byte_idx = match first_esc_byte_idx {
+        Some(idx) => idx,
+        None => return text.to_string(), // Fast path: nothing to escape
+    };
+
     // Pre-calculate maximum possible size to reduce reallocations
     // In worst case, every character might need escaping (3 chars each)
-    let max_size = text.len() * 3;
+    let prefix = &text[..first_esc_byte_idx];
+    let remaining_text = &text[first_esc_byte_idx..];
+    let max_size = prefix.len() + remaining_text.len() * 3;
     let mut result = String::with_capacity(max_size);
 
-    for ch in text.chars() {
+    // Fast path: bulk copy the clean prefix
+    result.push_str(prefix);
+
+    // Process only the remaining characters
+    for ch in remaining_text.chars() {
         match ch {
-            c if c == delims.field => {
+            x if x == delims.field => {
                 result.push(delims.esc);
                 result.push('F');
                 result.push(delims.esc);
             }
-            c if c == delims.comp => {
+            x if x == delims.comp => {
                 result.push(delims.esc);
                 result.push('S');
                 result.push(delims.esc);
             }
-            c if c == delims.rep => {
+            x if x == delims.rep => {
                 result.push(delims.esc);
                 result.push('R');
                 result.push(delims.esc);
             }
-            c if c == delims.esc => {
+            x if x == delims.esc => {
                 result.push(delims.esc);
                 result.push('E');
                 result.push(delims.esc);
             }
-            c if c == delims.sub => {
+            x if x == delims.sub => {
                 result.push(delims.esc);
                 result.push('T');
                 result.push(delims.esc);
@@ -116,81 +137,96 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
 /// assert_eq!(unescaped, "a|b");
 /// ```
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
-    // Pre-allocate result with estimated capacity to reduce reallocations
-    let mut result = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
+    // Fast path: finding the first escape character using `str::find`
+    // prevents unnecessary allocations and memory operations. If no escape
+    // character is found, we can safely return the original string.
+    if let Some(first_esc_byte_idx) = text.find(delims.esc) {
+        let prefix = &text[..first_esc_byte_idx];
+        let remaining_text = &text[first_esc_byte_idx..];
 
-    while let Some(ch) = chars.next() {
-        if ch == delims.esc {
-            // Start of escape sequence
-            let mut escape_seq = String::new();
-            let mut found_end = false;
+        // Pre-allocate result with estimated capacity to reduce reallocations
+        let mut result = String::with_capacity(text.len());
 
-            for esc_ch in chars.by_ref() {
-                if esc_ch == delims.esc {
-                    found_end = true;
-                    break;
-                }
-                escape_seq.push(esc_ch);
-            }
+        // Fast path: bulk copy the clean prefix
+        result.push_str(prefix);
 
-            if !found_end {
-                // If we don't find the closing escape character, this might be a literal backslash
-                // in the encoding characters. Let's check if this is the special case of the
-                // MSH encoding characters "^~\&"
-                if text.len() == 4 {
-                    let chars: Vec<char> = text.chars().collect();
-                    if chars[0] == delims.comp
-                        && chars[1] == delims.rep
-                        && chars[2] == delims.esc
-                        && chars[3] == delims.sub
-                    {
-                        // This is the MSH encoding characters, treat as literal
-                        result.push(delims.comp);
-                        result.push(delims.rep);
-                        result.push(delims.esc);
-                        result.push(delims.sub);
-                        // Skip the rest of the processing since we've handled the special case
-                        return Ok(result);
+        let mut chars = remaining_text.chars().peekable();
+
+        while let Some(ch) = chars.next() {
+            if ch == delims.esc {
+                // Start of escape sequence
+                let mut escape_seq = String::new();
+                let mut found_end = false;
+
+                for esc_ch in chars.by_ref() {
+                    if esc_ch == delims.esc {
+                        found_end = true;
+                        break;
                     }
+                    escape_seq.push(esc_ch);
                 }
 
-                // For other cases, treat the text as-is
-                result.push(delims.esc);
-                result.push_str(&escape_seq);
-                continue;
-            }
+                if !found_end {
+                    // If we don't find the closing escape character, this might be a literal backslash
+                    // in the encoding characters. Let's check if this is the special case of the
+                    // MSH encoding characters "^~\&"
+                    if text.len() == 4 {
+                        let chars: Vec<char> = text.chars().collect();
+                        if chars[0] == delims.comp
+                            && chars[1] == delims.rep
+                            && chars[2] == delims.esc
+                            && chars[3] == delims.sub
+                        {
+                            // This is the MSH encoding characters, treat as literal
+                            result.push(delims.comp);
+                            result.push(delims.rep);
+                            result.push(delims.esc);
+                            result.push(delims.sub);
+                            // Skip the rest of the processing since we've handled the special case
+                            return Ok(result);
+                        }
+                    }
 
-            // Process escape sequence
-            match escape_seq.as_str() {
-                "F" => {
-                    result.push(delims.field);
-                }
-                "S" => {
-                    result.push(delims.comp);
-                }
-                "R" => {
-                    result.push(delims.rep);
-                }
-                "E" => {
-                    result.push(delims.esc);
-                }
-                "T" => {
-                    result.push(delims.sub);
-                }
-                _ => {
-                    // Unknown escape sequences are passed through
+                    // For other cases, treat the text as-is
                     result.push(delims.esc);
                     result.push_str(&escape_seq);
-                    result.push(delims.esc);
+                    continue;
                 }
+
+                // Process escape sequence
+                match escape_seq.as_str() {
+                    "F" => {
+                        result.push(delims.field);
+                    }
+                    "S" => {
+                        result.push(delims.comp);
+                    }
+                    "R" => {
+                        result.push(delims.rep);
+                    }
+                    "E" => {
+                        result.push(delims.esc);
+                    }
+                    "T" => {
+                        result.push(delims.sub);
+                    }
+                    _ => {
+                        // Unknown escape sequences are passed through
+                        result.push(delims.esc);
+                        result.push_str(&escape_seq);
+                        result.push(delims.esc);
+                    }
+                }
+            } else {
+                result.push(ch);
             }
-        } else {
-            result.push(ch);
         }
+
+        return Ok(result);
     }
 
-    Ok(result)
+    // No escape sequences found, string is clean
+    Ok(text.to_string())
 }
 
 /// Check if text contains any characters that need escaping.
@@ -204,13 +240,13 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
 ///
 /// `true` if the text contains any delimiter characters
 pub fn needs_escaping(text: &str, delims: &Delims) -> bool {
-    text.chars().any(|c| {
-        c == delims.field
-            || c == delims.comp
-            || c == delims.rep
-            || c == delims.esc
-            || c == delims.sub
-    })
+    text.contains(&[
+        delims.field,
+        delims.comp,
+        delims.rep,
+        delims.esc,
+        delims.sub,
+    ][..])
 }
 
 /// Check if text contains any escape sequences.
