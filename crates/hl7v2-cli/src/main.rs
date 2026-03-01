@@ -615,15 +615,13 @@ fn val_command(
             // Print validation results in text format
             if results.is_empty() {
                 println!("Validation passed: No issues found");
-            } else {
-                if detailed {
-                    println!("Validation issues found:");
-                    for result in &results {
-                        println!("  - {:?}", result);
-                    }
-                } else {
-                    println!("Validation failed: {} issues found", results.len());
+            } else if detailed {
+                println!("Validation issues found:");
+                for result in &results {
+                    println!("  - {:?}", result);
                 }
+            } else {
+                println!("Validation failed: {} issues found", results.len());
             }
         }
     }
