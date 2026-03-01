@@ -55,13 +55,15 @@ use hl7v2_model::{Delims, Error};
 pub fn escape_text(text: &str, delims: &Delims) -> String {
     // Fast path: find the first character that needs escaping
     // Use str::find which handles UTF-8 correctly and avoids multi-byte truncation panics.
-    let first_esc_byte_idx = text.find(&[
-        delims.field,
-        delims.comp,
-        delims.rep,
-        delims.esc,
-        delims.sub,
-    ][..]);
+    let first_esc_byte_idx = text.find(
+        &[
+            delims.field,
+            delims.comp,
+            delims.rep,
+            delims.esc,
+            delims.sub,
+        ][..],
+    );
 
     let first_esc_byte_idx = match first_esc_byte_idx {
         Some(idx) => idx,
@@ -240,13 +242,15 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
 ///
 /// `true` if the text contains any delimiter characters
 pub fn needs_escaping(text: &str, delims: &Delims) -> bool {
-    text.contains(&[
-        delims.field,
-        delims.comp,
-        delims.rep,
-        delims.esc,
-        delims.sub,
-    ][..])
+    text.contains(
+        &[
+            delims.field,
+            delims.comp,
+            delims.rep,
+            delims.esc,
+            delims.sub,
+        ][..],
+    )
 }
 
 /// Check if text contains any escape sequences.
