@@ -915,14 +915,22 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
                 break;
             }
             "help" => {
-                println!("Available commands:");
-                println!("  parse <file> [options]  - Parse an HL7 message");
-                println!("  norm <file> [options]   - Normalize an HL7 message");
-                println!("  val <file> <profile>    - Validate an HL7 message");
-                println!("  ack <file> [options]    - Generate an ACK for an HL7 message");
-                println!("  gen <profile> [options] - Generate synthetic messages");
-                println!("  help                    - Show this help message");
-                println!("  exit|quit               - Exit interactive mode");
+                println!("Available commands:\n");
+
+                println!("  Processing:");
+                println!("    parse <file> [options]  - Parse an HL7 message");
+                println!("    norm <file> [options]   - Normalize an HL7 message");
+
+                println!("\n  Validation:");
+                println!("    val <file> <profile>    - Validate an HL7 message");
+
+                println!("\n  Generation:");
+                println!("    ack <file> [options]    - Generate an ACK for an HL7 message");
+                println!("    gen <profile> [options] - Generate synthetic messages");
+
+                println!("\n  System:");
+                println!("    help                    - Show this help message");
+                println!("    exit|quit               - Exit interactive mode");
                 println!();
             }
             _ => {
