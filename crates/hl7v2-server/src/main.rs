@@ -20,8 +20,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting HL7v2 HTTP server");
     tracing::info!("Bind address: {}", bind_address);
 
+    // Get API key from environment if set
+    let api_key = std::env::var("HL7V2_API_KEY").ok();
+    if api_key.is_some() {
+        tracing::info!("API key authentication enabled");
+    } else {
+        tracing::warn!("API key authentication disabled (public access enabled)");
+    }
+
     // Create and run server
-    let server = Server::builder().bind(bind_address).build();
+    let server = Server::builder()
+        .bind(bind_address)
+        .api_key(api_key)
+        .build();
 
     server.serve().await?;
 

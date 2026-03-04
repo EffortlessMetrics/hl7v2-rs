@@ -148,7 +148,7 @@ async fn test_load_from_url_handles_invalid_yaml() {
     // The error could be Parse or Core depending on what fails first
     assert!(matches!(
         result,
-        Err(ProfileLoadError::Parse(_)) | Err(ProfileLoadError::Core(_))
+        Err(ProfileLoadError::YamlParse(_)) | Err(ProfileLoadError::Core(_))
     ));
 }
 
@@ -312,10 +312,10 @@ async fn test_load_file_not_found() {
     let result = loader.load_from_file("nonexistent_profile.yaml").await;
     assert!(result.is_err());
 
-    if let Err(ProfileLoadError::File(_)) = result {
+    if let Err(ProfileLoadError::Io(_)) = result {
         // Expected error type
     } else {
-        panic!("Expected File error");
+        panic!("Expected Io error");
     }
 }
 
@@ -360,10 +360,10 @@ async fn test_convenience_load_from_url() {
 
 #[tokio::test]
 async fn test_error_display() {
-    let err = ProfileLoadError::Parse("test error".to_string());
+    let err = ProfileLoadError::YamlParse("test error".to_string());
     assert!(err.to_string().contains("test error"));
 
-    let err = ProfileLoadError::File("file not found".to_string());
+    let err = ProfileLoadError::Io("file not found".to_string());
     assert!(err.to_string().contains("file not found"));
 
     let err = ProfileLoadError::NotFound("profile.yaml".to_string());

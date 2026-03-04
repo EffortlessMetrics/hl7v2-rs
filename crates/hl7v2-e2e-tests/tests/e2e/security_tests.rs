@@ -14,13 +14,11 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_auth_missing_api_key_fails() {
-    // Force API key to be required
-    unsafe { std::env::set_var("HL7V2_API_KEY", "secret-key"); }
-    
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
+        api_key: Some("secret-key".to_string()),
     });
     let app = build_router(state);
 
@@ -42,12 +40,11 @@ async fn test_auth_missing_api_key_fails() {
 
 #[tokio::test]
 async fn test_auth_valid_api_key_succeeds() {
-    unsafe { std::env::set_var("HL7V2_API_KEY", "secret-key"); }
-    
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
+        api_key: Some("secret-key".to_string()),
     });
     let app = build_router(state);
 
@@ -72,12 +69,11 @@ async fn test_auth_valid_api_key_succeeds() {
 
 #[tokio::test]
 async fn test_auth_invalid_api_key_fails() {
-    unsafe { std::env::set_var("HL7V2_API_KEY", "secret-key"); }
-    
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
+        api_key: Some("secret-key".to_string()),
     });
     let app = build_router(state);
 
@@ -100,12 +96,11 @@ async fn test_auth_invalid_api_key_fails() {
 
 #[tokio::test]
 async fn test_health_metrics_public() {
-    unsafe { std::env::set_var("HL7V2_API_KEY", "secret-key"); }
-    
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
+        api_key: Some("secret-key".to_string()),
     });
     let app = build_router(state);
 

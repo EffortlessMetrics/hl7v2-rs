@@ -33,6 +33,7 @@ fn create_test_router() -> axum::Router {
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
+        api_key: None,
     });
     build_router(state)
 }
@@ -798,6 +799,7 @@ mod server_integration {
         let config = ServerConfig {
             bind_address: addr.to_string(),
             max_body_size: 10 * 1024 * 1024,
+            api_key: None,
         };
 
         // Build server

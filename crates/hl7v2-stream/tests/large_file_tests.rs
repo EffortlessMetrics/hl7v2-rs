@@ -205,7 +205,8 @@ fn test_very_long_field_1mb() {
 
     let cursor = Cursor::new(hl7_text.as_bytes());
     let buf_reader = BufReader::new(cursor);
-    let mut parser = StreamParser::new(buf_reader);
+    // Use a larger limit for this test
+    let mut parser = StreamParser::with_max_message_size(buf_reader, 2 * 1024 * 1024);
 
     let events = collect_events(&mut parser);
 

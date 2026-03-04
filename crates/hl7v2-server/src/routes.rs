@@ -37,9 +37,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/parse", post(parse_handler))
         .route("/validate", post(validate_handler));
 
-    // Apply authentication if API key is configured
-    if std::env::var("HL7V2_API_KEY").is_ok() {
-        api_routes = api_routes.layer(middleware::from_fn(auth_middleware));
+    // Apply authentication if API key is configured in state
+    if state.api_key.is_some() {
+        api_routes = api_routes.layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
     }
 
     // Main router
@@ -95,6 +95,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
         });
 
         let app = build_router(state);
@@ -123,6 +124,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
         });
 
         let app = build_router(state);

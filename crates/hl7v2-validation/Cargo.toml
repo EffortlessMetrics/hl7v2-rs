@@ -43,6 +43,7 @@ cucumber = { version = "0.22", default-features = false, features = ["macros"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 pretty_assertions = "1.4"
 assert_matches = "1.5"
+hl7v2-query = { path = "../hl7v2-query" }
 
 [[test]]
 name = "integration_tests"
