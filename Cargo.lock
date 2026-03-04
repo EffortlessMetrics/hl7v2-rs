@@ -1318,7 +1318,7 @@ checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
 name = "hl7v2-ack"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "hl7v2-core",
@@ -1329,7 +1329,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-batch"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-model",
  "hl7v2-parser",
@@ -1340,7 +1340,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-bench"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "criterion 0.8.2",
  "futures",
@@ -1364,7 +1364,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-cli"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1389,7 +1389,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-core"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "cucumber",
  "hl7v2-escape",
@@ -1408,7 +1408,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-corpus"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "hl7v2-core",
@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-datatype"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "hl7v2-datetime",
@@ -1433,7 +1433,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-datetime"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "proptest",
@@ -1442,7 +1442,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-e2e-tests"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "assert_cmd",
  "axum",
@@ -1477,7 +1477,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-escape"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-model",
  "hl7v2-test-utils",
@@ -1486,7 +1486,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-examples"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "hl7v2-ack",
@@ -1511,7 +1511,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-faker"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "proptest",
@@ -1522,7 +1522,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-gen"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-ack",
  "hl7v2-core",
@@ -1541,7 +1541,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-json"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-model",
  "proptest",
@@ -1550,7 +1550,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-mllp"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-model",
  "hl7v2-test-utils",
@@ -1560,7 +1560,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-model"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "serde",
  "thiserror 2.0.18",
@@ -1568,7 +1568,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-network"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "bytes",
  "futures",
@@ -1586,7 +1586,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-normalize"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-model",
  "hl7v2-parser",
@@ -1596,7 +1596,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-parser"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "assert_matches",
  "hl7v2-escape",
@@ -1612,14 +1612,14 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-path"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "hl7v2-prof"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "async-lock",
  "chrono",
@@ -1639,7 +1639,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-query"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-model",
  "hl7v2-parser",
@@ -1648,7 +1648,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-server"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "axum",
  "governor 0.8.1",
@@ -1675,7 +1675,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-stream"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "criterion 0.5.1",
  "hl7v2-model",
@@ -1688,7 +1688,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-template"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-core",
  "hl7v2-corpus",
@@ -1703,7 +1703,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-template-values"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "cucumber",
@@ -1718,7 +1718,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-test-utils"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-model",
  "hl7v2-parser",
@@ -1736,7 +1736,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-validation"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "assert_matches",
  "chrono",
@@ -1755,7 +1755,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-writer"
-version = "0.1.0"
+version = "1.2.0"
 dependencies = [
  "hl7v2-escape",
  "hl7v2-json",
