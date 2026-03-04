@@ -24,7 +24,7 @@ sysinfo = "0.38.2"
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-hl7v2-stream = { version = "0.1.0", path = "../hl7v2-stream" }
+hl7v2-stream = { path = "../hl7v2-stream" }
 
 [dev-dependencies]
 assert_cmd = "2.0"
