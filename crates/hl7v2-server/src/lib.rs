@@ -37,7 +37,8 @@ pub mod models;
 pub mod routes;
 pub mod server;
 
-pub use server::{Server, ServerBuilder, ServerConfig};
+pub use routes::build_router;
+pub use server::{AppState, Server, ServerBuilder, ServerConfig};
 
 /// Server error types
 #[derive(Debug, thiserror::Error)]

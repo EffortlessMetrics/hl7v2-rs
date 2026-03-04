@@ -449,7 +449,7 @@ fn test_msh_field_content() {
     // Find specific fields
     let sending_app_field = events.iter().find(|e| {
         if let Event::Field { num, raw } = e {
-            *num == 1 && raw == b"SendingApp"
+            *num == 2 && raw == b"SendingApp"
         } else {
             false
         }
@@ -458,7 +458,7 @@ fn test_msh_field_content() {
 
     let sending_fac_field = events.iter().find(|e| {
         if let Event::Field { num, raw } = e {
-            *num == 2 && raw == b"SendingFac"
+            *num == 3 && raw == b"SendingFac"
         } else {
             false
         }

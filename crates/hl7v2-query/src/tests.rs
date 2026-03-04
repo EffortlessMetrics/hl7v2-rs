@@ -231,7 +231,11 @@ fn test_get_msh_field_3_and_beyond() {
                 create_text_field(vec!["^~\\&"]),
                 create_component_field(vec![vec!["SendingApp"]]),
                 create_component_field(vec![vec!["SendingFac"]]),
-                create_component_field(vec![vec!["ADT"], vec!["A01"]]),
+                create_text_field(vec![]), // MSH-5
+                create_text_field(vec![]), // MSH-6
+                create_text_field(vec![]), // MSH-7
+                create_text_field(vec![]), // MSH-8
+                create_component_field(vec![vec!["ADT"], vec!["A01"]]), // MSH-9
             ],
         )],
         charsets: vec![],

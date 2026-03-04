@@ -1,0 +1,15 @@
+message_structure: "ORM_O01"
+version: "2.5.1"
+parent: "GENERIC"
+message_type: "ORM^O01^ORM_O01"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "PID"
+    required: true
+  - id: "PV1"
+    required: true
+  - id: "ORC"
+    required: true
+  - id: "OBR"
+    required: true

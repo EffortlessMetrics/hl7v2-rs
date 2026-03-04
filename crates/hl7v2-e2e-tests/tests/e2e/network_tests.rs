@@ -22,6 +22,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::{sleep, timeout};
 
+static NEXT_PORT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(45000);
+
 // =========================================================================
 // Basic MLLP Framing Tests
 // =========================================================================
@@ -289,10 +291,7 @@ mod client_server_tests {
     }
 
     async fn find_available_port() -> u16 {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        drop(listener);
-        addr.port()
+        super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 }
 
@@ -305,10 +304,7 @@ mod concurrent_connections {
     use std::net::SocketAddr;
 
     async fn find_available_port() -> u16 {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        drop(listener);
-        addr.port()
+        super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
     #[tokio::test]
@@ -470,10 +466,7 @@ mod error_handling {
     use std::net::SocketAddr;
 
     async fn find_available_port() -> u16 {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        drop(listener);
-        addr.port()
+        super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
     #[tokio::test]
@@ -550,10 +543,7 @@ mod stress_tests {
     use std::net::SocketAddr;
 
     async fn find_available_port() -> u16 {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        drop(listener);
-        addr.port()
+        super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }
 
     #[tokio::test]

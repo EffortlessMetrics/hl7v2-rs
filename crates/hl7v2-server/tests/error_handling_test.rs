@@ -15,6 +15,7 @@ async fn test_404_for_unknown_route() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/this/route/does/not/exist")
                 .body(Body::empty())
                 .unwrap(),
@@ -36,6 +37,7 @@ async fn test_cors_headers_present() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/health")
                 .header("Origin", "http://example.com")
                 .body(Body::empty())
@@ -60,6 +62,7 @@ async fn test_content_type_validation() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "text/plain")
@@ -98,6 +101,7 @@ async fn test_large_request_handling() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -121,6 +125,7 @@ async fn test_missing_content_type_header() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .body(Body::from("{}"))
@@ -143,6 +148,7 @@ async fn test_options_request_for_cors() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/hl7/parse")
                 .method("OPTIONS")
                 .header("Origin", "http://example.com")
@@ -168,6 +174,7 @@ async fn test_gzip_compression_accepted() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/health")
                 .header("Accept-Encoding", "gzip")
                 .body(Body::empty())

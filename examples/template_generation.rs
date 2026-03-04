@@ -29,64 +29,64 @@ fn programmatic_template_example() {
     println!("--- Example 1: Programmatic Template Creation ---\n");
 
     // Create value mappings using the actual ValueSource enum
-    let mut values: HashMap<String, ValueSource> = HashMap::new();
+    let mut values: HashMap<String, Vec<ValueSource>> = HashMap::new();
 
     // Fixed values
     values.insert(
         "sending_app".to_string(),
-        ValueSource::Fixed("HL7V2RS".to_string()),
+        vec![ValueSource::Fixed("HL7V2RS".to_string())],
     );
     values.insert(
         "sending_fac".to_string(),
-        ValueSource::Fixed("HOSPITAL".to_string()),
+        vec![ValueSource::Fixed("HOSPITAL".to_string())],
     );
     values.insert(
         "receiving_app".to_string(),
-        ValueSource::Fixed("LABSYSTEM".to_string()),
+        vec![ValueSource::Fixed("LABSYSTEM".to_string())],
     );
     values.insert(
         "receiving_fac".to_string(),
-        ValueSource::Fixed("LABORATORY".to_string()),
+        vec![ValueSource::Fixed("LABORATORY".to_string())],
     );
     values.insert(
         "version".to_string(),
-        ValueSource::Fixed("2.5.1".to_string()),
+        vec![ValueSource::Fixed("2.5.1".to_string())],
     );
 
     // Random choice from list
     values.insert(
         "patient_name".to_string(),
-        ValueSource::From(vec![
+        vec![ValueSource::From(vec![
             "SMITH^JOHN".to_string(),
             "JONES^JANE".to_string(),
             "BROWN^BOB".to_string(),
             "WILSON^MARY".to_string(),
             "TAYLOR^DAVID".to_string(),
-        ]),
+        ])],
     );
 
     // Random numeric (6 digits)
-    values.insert("patient_id".to_string(), ValueSource::Numeric { digits: 6 });
+    values.insert("patient_id".to_string(), vec![ValueSource::Numeric { digits: 6 }]);
 
     // UUID
-    values.insert("control_id".to_string(), ValueSource::UuidV4);
+    values.insert("control_id".to_string(), vec![ValueSource::UuidV4]);
 
     // Current timestamp
-    values.insert("timestamp".to_string(), ValueSource::DtmNowUtc);
+    values.insert("timestamp".to_string(), vec![ValueSource::DtmNowUtc]);
 
     // Random date
     values.insert(
         "birth_date".to_string(),
-        ValueSource::Date {
+        vec![ValueSource::Date {
             start: "19500101".to_string(),
             end: "20051231".to_string(),
-        },
+        }],
     );
 
     // Random choice for sex
     values.insert(
         "sex".to_string(),
-        ValueSource::From(vec!["M".to_string(), "F".to_string()]),
+        vec![ValueSource::From(vec!["M".to_string(), "F".to_string()])],
     );
 
     // Create the template
@@ -138,21 +138,21 @@ fn batch_generation_example() {
     println!("--- Example 2: Batch Generation ---\n");
 
     // Create a simple template
-    let mut values: HashMap<String, ValueSource> = HashMap::new();
+    let mut values: HashMap<String, Vec<ValueSource>> = HashMap::new();
     values.insert(
         "sending_app".to_string(),
-        ValueSource::Fixed("HL7V2RS".to_string()),
+        vec![ValueSource::Fixed("HL7V2RS".to_string())],
     );
-    values.insert("timestamp".to_string(), ValueSource::DtmNowUtc);
-    values.insert("control_id".to_string(), ValueSource::UuidV4);
-    values.insert("patient_id".to_string(), ValueSource::Numeric { digits: 6 });
+    values.insert("timestamp".to_string(), vec![ValueSource::DtmNowUtc]);
+    values.insert("control_id".to_string(), vec![ValueSource::UuidV4]);
+    values.insert("patient_id".to_string(), vec![ValueSource::Numeric { digits: 6 }]);
     values.insert(
         "patient_name".to_string(),
-        ValueSource::From(vec![
+        vec![ValueSource::From(vec![
             "DOE^JOHN".to_string(),
             "SMITH^JANE".to_string(),
             "JONES^BOB".to_string(),
-        ]),
+        ])],
     );
 
     let template = Template {
