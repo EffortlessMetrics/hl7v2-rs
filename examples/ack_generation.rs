@@ -307,7 +307,7 @@ fn process_message_with_ack(hl7_bytes: &[u8]) -> Result<Vec<u8>, String> {
     if let Some(ref s) = sex {
         if !s.is_empty() {
             let valid_values = ["M", "F", "O", "U"];
-            let valid = valid_values.contains(&s.as_str());
+            let valid = valid_values.iter().any(|&v| v == *s);
             if !valid {
                 errors.push("Invalid sex value (expected M, F, O, or U)");
             }

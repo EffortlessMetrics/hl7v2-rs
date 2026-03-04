@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 use hl7v2_core::{parse, to_json, write};
 use hl7v2_gen::{AckCode as GenAckCode, Template, ack, generate};
 use hl7v2_prof::{load_profile, validate};
+use hl7v2_stream::{Event, StreamParser};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -364,14 +365,67 @@ fn parse_command(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
 
+    if streaming {
+        let file = fs::File::open(input)?;
+        let reader = std::io::BufReader::new(file);
+        let mut parser = StreamParser::new(reader);
+        let mut message_count = 0;
+        let mut event_count = 0;
+
+        while let Ok(Some(event)) = parser.next_event() {
+            event_count += 1;
+            if matches!(event, Event::StartMessage { .. }) {
+                message_count += 1;
+            }
+
+            if json {
+                let event_json = match &event {
+                    Event::StartMessage { delims } => serde_json::json!({
+                        "event": "start_message",
+                        "delims": {
+                            "field": delims.field.to_string(),
+                            "comp": delims.comp.to_string(),
+                            "rep": delims.rep.to_string(),
+                            "esc": delims.esc.to_string(),
+                            "sub": delims.sub.to_string(),
+                        }
+                    }),
+                    Event::Segment { id } => serde_json::json!({
+                        "event": "segment",
+                        "id": String::from_utf8_lossy(id)
+                    }),
+                    Event::Field { num, raw } => serde_json::json!({
+                        "event": "field",
+                        "num": num,
+                        "raw": String::from_utf8_lossy(raw)
+                    }),
+                    Event::EndMessage => serde_json::json!({
+                        "event": "end_message"
+                    }),
+                };
+                println!("{}", serde_json::to_string(&event_json)?);
+            } else {
+                match event {
+                    Event::StartMessage { delims } => println!("--- Message {} Start (delims: {:?}) ---", message_count, delims),
+                    Event::Segment { id } => println!("Segment: {}", String::from_utf8_lossy(&id)),
+                    Event::Field { num, raw } => println!("  Field {}: {}", num, String::from_utf8_lossy(&raw)),
+                    Event::EndMessage => println!("--- Message End ---"),
+                }
+            }
+        }
+
+        if summary {
+            println!("\nStreaming Parse Summary:");
+            println!("  Input file: {:?}", input);
+            println!("  Messages: {}", message_count);
+            println!("  Total events: {}", event_count);
+            display_performance_stats(&monitor);
+        }
+        return Ok(());
+    }
+
     // Read the input file
-    let contents = if streaming {
-        // For streaming mode, read file in chunks would be ideal
-        // For now, we still read the whole file but indicate streaming mode
-        fs::read(input)?
-    } else {
-        fs::read(input)?
-    };
+    let contents = fs::read(input)?;
     let file_size = contents.len();
 
     let read_time = monitor.elapsed();
@@ -481,12 +535,12 @@ fn norm_command(
     let segment_count = message.segments.len();
 
     // Normalize the message
+    let original_bytes = write(&message);
     let normalized_bytes = if canonical_delims {
-        // We need to implement normalization with canonical delimiters
-        // For now, we'll just use the regular write function
-        write(&message)
+        // Use core normalization for canonical delimiters
+        hl7v2_core::normalize(&original_bytes, true)?
     } else {
-        write(&message)
+        original_bytes
     };
 
     let normalize_time = monitor.elapsed() - read_time - parse_time;

@@ -44,6 +44,9 @@ pub enum Error {
     #[error("Invalid charset")]
     InvalidCharset,
 
+    #[error("Framing error: {0}")]
+    Framing(String),
+
     #[error("Write failed")]
     WriteFailed,
 

@@ -17,6 +17,8 @@ pub struct AppState {
     pub start_time: Instant,
     /// Prometheus metrics handle
     pub metrics_handle: Arc<PrometheusHandle>,
+    /// Optional API key for authentication
+    pub api_key: Option<String>,
 }
 
 /// HTTP server configuration
@@ -26,6 +28,8 @@ pub struct ServerConfig {
     pub bind_address: String,
     /// Maximum request body size in bytes
     pub max_body_size: usize,
+    /// Optional API key for authentication
+    pub api_key: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -33,6 +37,7 @@ impl Default for ServerConfig {
         Self {
             bind_address: "0.0.0.0:8080".to_string(),
             max_body_size: 10 * 1024 * 1024, // 10MB
+            api_key: None,
         }
     }
 }
@@ -52,6 +57,7 @@ impl Server {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: config.api_key.clone(),
         });
 
         Self { config, state }
@@ -79,7 +85,7 @@ impl Server {
         let app = build_router(self.state);
 
         // Serve
-        axum::serve(listener, app).await?;
+        axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>()).await?;
 
         Ok(())
     }
@@ -107,6 +113,12 @@ impl ServerBuilder {
     /// Set the maximum request body size
     pub fn max_body_size(mut self, size: usize) -> Self {
         self.config.max_body_size = size;
+        self
+    }
+
+    /// Set the API key for authentication
+    pub fn api_key(mut self, api_key: Option<String>) -> Self {
+        self.config.api_key = api_key;
         self
     }
 

@@ -47,7 +47,7 @@ pub use hl7v2_validation::{
     validate_luhn_checksum, validate_mathematical_relationship, validate_mod10_checksum,
 };
 
-use hl7v2_core::{Error, Message};
+use hl7v2_core::Message;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +55,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// These errors provide detailed information about profile loading failures,
 /// making it easier to diagnose configuration and parsing issues.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ProfileLoadError {
     /// YAML syntax error during parsing.
     #[error("YAML parse error: {0}")]
@@ -88,6 +88,26 @@ pub enum ProfileLoadError {
     /// Parent profile not found.
     #[error("Parent profile not found: {0}")]
     ParentNotFound(String),
+
+    /// Network error during remote profile loading.
+    #[error("Network error: {0}")]
+    Network(#[from] reqwest::Error),
+
+    /// Profile not found in cache or local filesystem.
+    #[error("Profile not found: {0}")]
+    NotFound(String),
+
+    /// Invalid URL scheme for remote loading.
+    #[error("Invalid URL scheme: {0}. Only http and https are supported.")]
+    InvalidScheme(String),
+
+    /// Cache operation failed.
+    #[error("Cache error: {0}")]
+    Cache(String),
+
+    /// Core HL7 library error.
+    #[error("Core error: {0}")]
+    Core(String),
 }
 
 impl From<serde_yaml::Error> for ProfileLoadError {
@@ -99,6 +119,12 @@ impl From<serde_yaml::Error> for ProfileLoadError {
 impl From<std::io::Error> for ProfileLoadError {
     fn from(err: std::io::Error) -> Self {
         ProfileLoadError::Io(err.to_string())
+    }
+}
+
+impl From<hl7v2_core::Error> for ProfileLoadError {
+    fn from(err: hl7v2_core::Error) -> Self {
+        ProfileLoadError::Core(err.to_string())
     }
 }
 
@@ -306,8 +332,8 @@ pub struct ExpressionGuardrails {
 }
 
 /// Load profile from YAML
-pub fn load_profile(yaml: &str) -> Result<Profile, Error> {
-    serde_yaml::from_str(yaml).map_err(|_e| Error::InvalidEscapeToken) // TODO: Better error mapping
+pub fn load_profile(yaml: &str) -> Result<Profile, ProfileLoadError> {
+    serde_yaml::from_str(yaml).map_err(ProfileLoadError::from)
 }
 
 /// Load profile from YAML with specific error types.
@@ -364,58 +390,6 @@ pub async fn load_profile_from_file(path: &str) -> Result<Profile, ProfileLoadEr
     load_profile_checked(&content)
 }
 
-/// Load profile with inheritance resolution using specific error types.
-///
-/// This function loads a profile and recursively resolves any parent profiles,
-/// merging their constraints and rules into a single profile.
-///
-/// # Arguments
-///
-/// * `yaml` - The YAML string for the profile
-/// * `profile_loader` - A function that can load a parent profile by name
-///
-/// # Returns
-///
-/// A fully resolved profile with all inherited constraints merged
-pub fn load_profile_with_inheritance_checked<F>(
-    yaml: &str,
-    profile_loader: F,
-) -> Result<Profile, ProfileLoadError>
-where
-    F: Fn(&str) -> Result<Profile, ProfileLoadError>,
-{
-    let profile = load_profile_checked(yaml)?;
-
-    // If there's a parent, recursively load and merge it
-    if let Some(parent_name) = &profile.parent {
-        let parent_profile =
-            load_profile_with_inheritance_recursive_checked(parent_name, &profile_loader)?;
-        return Ok(merge_profiles(parent_profile, profile));
-    }
-
-    Ok(profile)
-}
-
-/// Recursively load parent profiles with specific error types
-fn load_profile_with_inheritance_recursive_checked<F>(
-    parent_name: &str,
-    profile_loader: &F,
-) -> Result<Profile, ProfileLoadError>
-where
-    F: Fn(&str) -> Result<Profile, ProfileLoadError>,
-{
-    let parent_profile = profile_loader(parent_name)?;
-
-    // If the parent also has a parent, recursively load and merge it
-    if let Some(grandparent_name) = &parent_profile.parent {
-        let grandparent_profile =
-            load_profile_with_inheritance_recursive_checked(grandparent_name, profile_loader)?;
-        return Ok(merge_profiles(grandparent_profile, parent_profile));
-    }
-
-    Ok(parent_profile)
-}
-
 /// Load profile with inheritance resolution
 ///
 /// This function loads a profile and recursively resolves any parent profiles,
@@ -429,15 +403,19 @@ where
 /// # Returns
 ///
 /// A fully resolved profile with all inherited constraints merged
-pub fn load_profile_with_inheritance<F>(yaml: &str, profile_loader: F) -> Result<Profile, Error>
+pub fn load_profile_with_inheritance<F>(
+    yaml: &str,
+    profile_loader: F,
+) -> Result<Profile, ProfileLoadError>
 where
-    F: Fn(&str) -> Result<Profile, Error>,
+    F: Fn(&str) -> Result<Profile, ProfileLoadError>,
 {
-    let profile = load_profile(yaml)?;
+    let profile = load_profile_checked(yaml)?;
 
     // If there's a parent, recursively load and merge it
     if let Some(parent_name) = &profile.parent {
-        let parent_profile = load_profile_with_inheritance_recursive(parent_name, &profile_loader)?;
+        let parent_profile =
+            load_profile_with_inheritance_recursive(parent_name, &profile_loader)?;
         return Ok(merge_profiles(parent_profile, profile));
     }
 
@@ -448,9 +426,9 @@ where
 fn load_profile_with_inheritance_recursive<F>(
     parent_name: &str,
     profile_loader: &F,
-) -> Result<Profile, Error>
+) -> Result<Profile, ProfileLoadError>
 where
-    F: Fn(&str) -> Result<Profile, Error>,
+    F: Fn(&str) -> Result<Profile, ProfileLoadError>,
 {
     let parent_profile = profile_loader(parent_name)?;
 

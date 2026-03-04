@@ -5,37 +5,36 @@
 //! - Metrics collection (Prometheus)
 //! - Authentication and authorization
 //! - Rate limiting
-//! - Request ID generation
+//! - Concurrency control
 
-use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
-use tower::limit::ConcurrencyLimitLayer;
-use tracing::info;
+use axum::{
+    extract::{Request, State},
+    middleware::Next,
+    response::Response,
+};
+use http::StatusCode;
+use std::sync::Arc;
+use tracing::{info_span, warn};
 
-/// Request logging middleware
-pub async fn logging_middleware(request: Request, next: Next) -> Response {
-    let method = request.method().clone();
-    let uri = request.uri().clone();
-    let start = std::time::Instant::now();
+use crate::server::AppState;
 
-    let response = next.run(request).await;
-
-    let duration = start.elapsed();
-    let status = response.status();
-
-    info!(
-        method = %method,
-        uri = %uri,
-        status = %status.as_u16(),
-        duration_ms = %duration.as_millis(),
-        "HTTP request"
+/// Trace request middleware
+///
+/// Wraps each request in a tracing span with request metadata.
+pub async fn trace_request(request: Request, next: Next) -> Response {
+    let span = info_span!(
+        "HTTP request",
+        method = %request.method(),
+        uri = %request.uri(),
     );
 
-    response
+    let _enter = span.enter();
+    next.run(request).await
 }
 
 /// API key authentication middleware
 ///
-/// Validates requests against the HL7V2_API_KEY environment variable.
+/// Validates requests against the HL7 API key configured in state.
 /// Uses X-API-Key header for authentication.
 ///
 /// # Security Note
@@ -44,22 +43,18 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
 /// - OAuth 2.0 / OIDC
 /// - mTLS
 /// - More sophisticated key management (HashiCorp Vault, AWS Secrets Manager)
-pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, StatusCode> {
+pub async fn auth_middleware(
+    State(state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> std::result::Result<Response, StatusCode> {
     const API_KEY_HEADER: &str = "X-API-Key";
 
-    // Load expected API key from environment
-    let expected_key = match std::env::var("HL7V2_API_KEY") {
-        Ok(key) if !key.is_empty() => key,
-        Ok(_) => {
-            // Empty key configured - fail closed
-            tracing::error!("HL7V2_API_KEY environment variable is empty");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-        Err(_) => {
-            // No key configured - fail closed
-            tracing::error!("HL7V2_API_KEY environment variable not set");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
+    // If no API key is configured, allow all requests (this branch should not
+    // be hit if the middleware is applied correctly via build_router)
+    let expected_key = match &state.api_key {
+        Some(key) => key,
+        None => return Ok(next.run(request).await),
     };
 
     // Get provided API key from request
@@ -98,48 +93,22 @@ pub async fn auth_middleware(request: Request, next: Next) -> Result<Response, S
 /// - This provides backpressure, not rate limiting per se
 /// - Protects against resource exhaustion from too many concurrent requests
 /// - For true rate limiting (requests/second), consider integrating a proper rate limiter
-/// - Adjust limits based on your capacity and benchmarks
-/// - Monitor 503 responses via metrics
-///
-/// # Example
-///
-/// ```
-/// use hl7v2_server::middleware::create_concurrency_limit_layer;
-///
-/// let _layer = create_concurrency_limit_layer();
-/// // Use with axum Router: Router::new().layer(_layer)
-/// ```
-pub fn create_concurrency_limit_layer() -> ConcurrencyLimitLayer {
-    ConcurrencyLimitLayer::new(100) // Allow up to 100 concurrent requests
+pub fn create_concurrency_limit_layer() -> tower::limit::ConcurrencyLimitLayer {
+    tower::limit::ConcurrencyLimitLayer::new(100)
 }
 
-/// Create a custom concurrency limiting layer with configurable limit
+/// Create a custom concurrency limiting layer
 ///
 /// # Arguments
 ///
-/// * `max_concurrent` - Maximum number of concurrent requests
-///
-/// # Example
-///
-/// ```no_run
-/// use hl7v2_server::middleware::create_custom_concurrency_limit_layer;
-///
-/// // Allow 50 concurrent requests
-/// let layer = create_custom_concurrency_limit_layer(50);
-/// ```
-pub fn create_custom_concurrency_limit_layer(max_concurrent: usize) -> ConcurrencyLimitLayer {
-    ConcurrencyLimitLayer::new(max_concurrent)
+/// * `max` - Maximum number of concurrent requests
+pub fn create_custom_concurrency_limit_layer(max: usize) -> tower::limit::ConcurrencyLimitLayer {
+    tower::limit::ConcurrencyLimitLayer::new(max)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_middleware_module() {
-        // Placeholder test to ensure module compiles
-        assert!(true);
-    }
 
     #[test]
     fn test_create_concurrency_limit_layer() {

@@ -16,6 +16,7 @@ async fn test_health_endpoint_returns_200() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/health")
                 .body(Body::empty())
                 .unwrap(),
@@ -33,6 +34,7 @@ async fn test_health_endpoint_returns_json() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/health")
                 .body(Body::empty())
                 .unwrap(),
@@ -58,6 +60,7 @@ async fn test_health_endpoint_contains_status() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/health")
                 .body(Body::empty())
                 .unwrap(),
@@ -82,6 +85,7 @@ async fn test_health_endpoint_contains_uptime() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/health")
                 .body(Body::empty())
                 .unwrap(),
@@ -105,6 +109,7 @@ async fn test_ready_endpoint_returns_200() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/ready")
                 .body(Body::empty())
                 .unwrap(),
@@ -122,6 +127,7 @@ async fn test_ready_endpoint_returns_ready_status() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/ready")
                 .body(Body::empty())
                 .unwrap(),
@@ -145,6 +151,7 @@ async fn test_metrics_endpoint_returns_200() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/metrics")
                 .body(Body::empty())
                 .unwrap(),
@@ -162,6 +169,7 @@ async fn test_metrics_endpoint_returns_prometheus_format() {
     let response = app
         .oneshot(
             Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                 .uri("/metrics")
                 .body(Body::empty())
                 .unwrap(),

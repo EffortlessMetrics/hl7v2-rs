@@ -137,7 +137,9 @@ pub fn wrap_mllp(bytes: &[u8]) -> Vec<u8> {
 pub fn unwrap_mllp(bytes: &[u8]) -> Result<&[u8], Error> {
     // Check if this is MLLP framed (starts with start byte)
     if bytes.is_empty() || bytes[0] != MLLP_START {
-        return Err(Error::InvalidCharset); // TODO: Add specific MLLP error
+        return Err(Error::Framing(
+            "Missing MLLP start block character (0x0B)".to_string(),
+        ));
     }
 
     // Find the end sequence
@@ -234,7 +236,9 @@ fn find_mllp_end(bytes: &[u8]) -> Result<usize, Error> {
             return Ok(i);
         }
     }
-    Err(Error::InvalidCharset) // TODO: Add specific MLLP error
+    Err(Error::Framing(
+        "Missing MLLP end block sequence (0x1C 0x0D)".to_string(),
+    ))
 }
 
 /// Find the MLLP end sequence position with specific MLLP error types.

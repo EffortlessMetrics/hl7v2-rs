@@ -1,10 +1,11 @@
 [package]
+readme = "README.md"
 name = "hl7v2-gen"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
-description.workspace = true
+description = "Code generation utilities for creating Rust models from HL7 v2 profiles."
 license.workspace = true
 repository.workspace = true
 keywords.workspace = true

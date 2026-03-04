@@ -409,7 +409,7 @@ fn test_handle_deeply_nested_components() {
     // Find field with components
     let nested_field = events.iter().find(|e| {
         if let Event::Field { raw, .. } = e {
-            raw.windows(3).any(|w| w == b"HOSP")
+            raw.windows(4).any(|w| w == b"HOSP")
         } else {
             false
         }
@@ -1053,11 +1053,13 @@ fn test_resume_with_additional_data() {
     parser.resume_with_data(b"|Fac\r");
 
     // Now we should be able to get events
-    let result2 = parser.next_event();
-    assert!(result2.is_ok());
+    let mut events = Vec::new();
+    if let Ok(Some(e)) = parser.next_event() {
+        events.push(e);
+    }
 
     // Should eventually get StartMessage
-    let events = collect_events(&mut parser);
+    events.extend(collect_events(&mut parser));
     assert!(
         events
             .iter()

@@ -248,14 +248,14 @@ fn strict_validation_example() {
 
     if !errors.is_empty() {
         println!("Errors found:");
-        for issue in errors {
+        for issue in &errors {
             print_issue(issue);
         }
     }
 
     if !warnings.is_empty() {
         println!("Warnings found:");
-        for issue in warnings {
+        for issue in &warnings {
             print_issue(issue);
         }
     }

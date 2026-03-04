@@ -1,4 +1,5 @@
 [package]
+readme = "README.md"
 name = "hl7v2-escape"
 version.workspace = true
 edition.workspace = true

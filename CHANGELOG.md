@@ -7,62 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.2.0] - 2026-03-04
 
-### SRP Microcrate Refactoring (2026-02-23)
+### Added
 
-**Five new microcrates extracted following Single Responsibility Principle:**
+**Production Readiness & Security**
+- **HTTP Server**: Production-ready REST API built with Axum.
+- **Observability**: Integrated Prometheus metrics (`/metrics`) and structured JSON tracing.
+- **Security**: API Key authentication (`X-API-Key` header) and per-IP rate limiting via `tower-governor`.
+- **Swagger UI**: Interactive API documentation served at `/api/docs` via OpenAPI 3.0 spec.
+- **Nix Support**: Added `flake.nix` and `.envrc` for reproducible development environments.
 
-#### New Crates
+**CLI Enhancements**
+- **Streaming Parse**: High-performance, memory-efficient parsing for large files via `--streaming` flag.
+- **Normalization**: Improved `--canonical-delims` support for standardizing HL7 messages.
+- **Profiling**: Real-time performance monitoring and system resource tracking in CLI commands.
 
-| Crate | Source | Purpose |
-|-------|--------|---------|
-| `hl7v2-network` | `hl7v2-core/network/` | MLLP client/server/codec for TCP connections |
-| `hl7v2-stream` | `hl7v2-core` | Event-based streaming parser |
-| `hl7v2-validation` | `hl7v2-prof` | Validation logic and types |
-| `hl7v2-ack` | `hl7v2-gen` | ACK message generation |
-| `hl7v2-faker` | `hl7v2-gen` | Realistic test data generation |
+**Architecture (SRP Microcrate Refactoring)**
+- **New Microcrates**: Extracted logic into 28 specialized crates for better maintainability and reduced dependency trees.
+- **Network**: New `hl7v2-network` crate for MLLP over TCP/TLS.
+- **Stream**: New `hl7v2-stream` crate for event-based parsing.
+- **Validation**: New `hl7v2-validation` crate for rule-based engine.
+- **Generation**: Extracted `hl7v2-ack`, `hl7v2-faker`, `hl7v2-template`, and `hl7v2-template-values`.
 
-#### Migration Guide
+### Fixed
+- Fixed critical infinite loop in streaming parser during partial segment reads.
+- Resolved message boundary detection issues in sequential MLLP streams.
+- Fixed race conditions in E2E tests caused by TCP port collisions.
+- Improved error reporting for HL7 query path out-of-bounds access.
 
-All new crates maintain backward compatibility through re-exports in their source crates:
-
-```rust
-// OLD (still works via re-export)
-use hl7v2_core::network::MllpClient;
-use hl7v2_core::{StreamParser, Event};
-use hl7v2_prof::{validate_data_type, Issue};
-use hl7v2_gen::{ack, AckCode};
-use hl7v2_gen::Faker;
-
-// NEW (recommended)
-use hl7v2_network::MllpClient;
-use hl7v2_stream::{StreamParser, Event};
-use hl7v2_validation::{validate_data_type, Issue};
-use hl7v2_ack::{ack, AckCode};
-use hl7v2_faker::Faker;
-```
-
-#### Benefits
-
-- **Reduced Dependencies**: Users who only need parsing can avoid async overhead
-- **Clearer Boundaries**: Each crate has a single, well-defined responsibility
-- **Independent Evolution**: Validation logic can evolve separately from profile loading
-- **Smaller Footprint**: ACK generation without full gen crate dependencies
-
-See [docs/MICROCRATE_ANALYSIS.md](docs/MICROCRATE_ANALYSIS.md) for complete details.
-
----
-
-### Planned for v1.2.0
-- Server mode with HTTP and gRPC endpoints
-- Remote profile loading (HTTP, S3, GCS)
-- Streaming parser backpressure and memory bounds
-- CLI enhancements (config files, report generation)
-- Expression engine improvements
-- Corpus manifest generation
-
-See [ROADMAP.md](ROADMAP.md) and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for details.
+### Documentation
+- Created comprehensive `docs/API_GUIDE.md` for the REST server.
+- Added detailed `README.md` and `CLAUDE.md` to every microcrate.
+- Documented key decisions in ADRs 0011-0014 (Security, Observability, Rules).
+- Created `RELEASE_PROCESS.md` for project maintainers.
 
 ---
 

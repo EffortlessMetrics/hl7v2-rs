@@ -4,7 +4,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Note**: This project is in active development. For a detailed breakdown of implemented vs. planned features, see [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+> **Status**: v1.2.0 (Stable). For a detailed breakdown of features, see [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
 ## Features
 
@@ -85,23 +85,21 @@ HL7V2_HOST=0.0.0.0 HL7V2_PORT=8080 cargo run --bin hl7v2-server
 **Parse a message via HTTP:**
 ```bash
 curl -X POST http://localhost:8080/hl7/parse \
+  -H "X-API-Key: your-secret-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|MSG001|P|2.5\rPID|1||MRN123||Doe^John||19800101|M",
-    "mllp_framed": false,
-    "options": {
-      "include_json": true
-    }
+    "message": "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|MSG001|P|2.5\rPID|1||MRN123||Doe^John||19800101|M"
   }'
 ```
 
 **Validate a message against a profile:**
 ```bash
 curl -X POST http://localhost:8080/hl7/validate \
-  -H "Content-Type": application/json" \
+  -H "X-API-Key: your-secret-key" \
+  -H "Content-Type: application/json" \
   -d '{
     "message": "MSH|^~\\&|...",
-    "profile": "..."  # YAML profile content
+    "profile_yaml": "..."  # YAML profile content
   }'
 ```
 

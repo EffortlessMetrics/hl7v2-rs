@@ -9,6 +9,7 @@
 pub mod cli_integration_tests;
 pub mod message_pipeline_tests;
 pub mod network_tests;
+pub mod security_tests;
 pub mod server_api_tests;
 
 /// Common test utilities for E2E tests

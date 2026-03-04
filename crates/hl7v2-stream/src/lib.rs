@@ -343,8 +343,10 @@ impl<D: BufRead> StreamParser<D> {
         }
 
         loop {
-            // If we're at the end of our buffer, try to read more data
-            if self.pos >= self.buffer.len() {
+            // Do we need more data? (No \r in remaining buffer)
+            let cr_pos = self.buffer[self.pos..].iter().position(|&b| b == b'\r');
+
+            if cr_pos.is_none() {
                 let mut temp_buf = vec![0u8; 1024];
                 match self.reader.read(&mut temp_buf) {
                     Ok(0) => {
@@ -361,52 +363,55 @@ impl<D: BufRead> StreamParser<D> {
                     Ok(n) => {
                         // Add the new data to our buffer
                         self.buffer.extend_from_slice(&temp_buf[..n]);
+                        continue; // Search again
                     }
                     Err(_) => return Err(Error::InvalidCharset),
                 }
             }
 
-            // Look for a complete segment (ending with \r)
-            if let Some(cr_pos) = self.buffer[self.pos..].iter().position(|&b| b == b'\r') {
-                let segment_end = self.pos + cr_pos;
-                let segment_data = self.buffer[self.pos..segment_end].to_vec();
-                let segment_len = segment_data.len() + 1; // Include the \r
+            // We have a complete segment (ending with \r)
+            let cr_pos = cr_pos.unwrap();
+            let segment_end = self.pos + cr_pos;
+            let segment_data = self.buffer[self.pos..segment_end].to_vec();
+            let segment_len = segment_data.len() + 1; // Include the \r
 
-                // Check memory bounds before processing
-                if self.in_message {
-                    self.current_message_size += segment_len;
-                    if self.current_message_size > self.max_message_size {
-                        let actual_size = self.current_message_size;
-                        let max_size = self.max_message_size;
-                        let segment_id =
-                            String::from_utf8_lossy(segment_data.get(0..3).unwrap_or(b"UNK"))
-                                .to_string();
-                        // Reset state for next message
-                        self.in_message = false;
-                        self.pre_msh = true;
-                        self.current_message_size = 0;
-                        return Err(Error::InvalidFieldFormat {
-                            details: format!(
-                                "Message size {} exceeds maximum {} at segment {}",
-                                actual_size, max_size, segment_id
-                            ),
-                        });
-                    }
+            // Check memory bounds before processing
+            if self.in_message {
+                self.current_message_size += segment_len;
+                if self.current_message_size > self.max_message_size {
+                    let actual_size = self.current_message_size;
+                    let max_size = self.max_message_size;
+                    let segment_id =
+                        String::from_utf8_lossy(segment_data.get(0..3).unwrap_or(b"UNK"))
+                            .to_string();
+                    // Reset state for next message
+                    self.in_message = false;
+                    self.pre_msh = true;
+                    self.current_message_size = 0;
+                    return Err(Error::InvalidFieldFormat {
+                        details: format!(
+                            "Message size {} exceeds maximum {} at segment {}",
+                            actual_size, max_size, segment_id
+                        ),
+                    });
                 }
+            }
 
-                self.pos = segment_end + 1; // Skip the \r
+            self.pos = segment_end + 1; // Skip the \r
 
-                // Check if this is an MSH segment
-                if segment_data.len() >= 3 && &segment_data[0..3] == b"MSH" {
-                    // We're starting a new message
-                    if self.in_message {
-                        // End the previous message first
-                        self.in_message = false;
-                        self.pre_msh = true;
-                        // Reset message size counter for new message
-                        self.current_message_size = segment_len;
-                        return Ok(Some(Event::EndMessage));
-                    }
+            // Check if this is an MSH segment
+            if segment_data.len() >= 3 && &segment_data[0..3] == b"MSH" {
+                // We're starting a new message
+                if self.in_message {
+                    // End the previous message first
+                    self.in_message = false;
+                    self.pre_msh = true;
+                    // Reset message size counter for new message
+                    self.current_message_size = segment_len;
+                    // REWIND pos so MSH is processed on the next call!
+                    self.pos -= segment_len;
+                    return Ok(Some(Event::EndMessage));
+                }
 
                     // Parse delimiters from MSH segment
                     let new_delims = Delims::parse_from_msh(
@@ -432,14 +437,14 @@ impl<D: BufRead> StreamParser<D> {
                 }
 
                 // For any other segment
-                if self.in_message && segment_data.len() >= 3 {
+                if self.in_message && segment_data.len() >= 3 && segment_data[0..3].iter().all(|c| c.is_ascii_alphanumeric()) {
                     let segment_id = segment_data[0..3].to_vec();
 
                     // Generate field events for this segment
                     self.generate_field_events(&segment_data)?;
 
                     return Ok(Some(Event::Segment { id: segment_id }));
-                } else if !self.in_message && self.pre_msh && segment_data.len() >= 3 {
+                } else if !self.in_message && self.pre_msh && segment_data.len() >= 3 && segment_data[0..3].iter().all(|c| c.is_ascii_alphanumeric()) {
                     // We're in pre-MSH mode but this isn't an MSH segment,
                     // so start a message with default delimiters
                     self.delims = Delims::default();
@@ -455,31 +460,6 @@ impl<D: BufRead> StreamParser<D> {
                         delims: Delims::default(),
                     }));
                 }
-            } else {
-                // No complete segment found in current buffer
-                // Preserve partial state for resume across buffer boundaries
-                // The data from pos to end of buffer is a partial segment
-                // When more data arrives, we'll continue looking for \r
-
-                // If we have data but no complete segment, we need to keep
-                // the partial data and read more
-                if self.pos < self.buffer.len() {
-                    // Partial segment data exists - move it to the start of buffer
-                    // and continue reading (happens automatically since we extend)
-                    continue;
-                }
-            }
-
-            // If we've reached here and have no more data, we're done
-            if self.pos >= self.buffer.len() {
-                if self.in_message {
-                    self.in_message = false;
-                    self.pre_msh = true;
-                    self.current_message_size = 0;
-                    return Ok(Some(Event::EndMessage));
-                }
-                return Ok(None);
-            }
         }
     }
 

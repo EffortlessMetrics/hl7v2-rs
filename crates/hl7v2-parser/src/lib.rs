@@ -130,7 +130,7 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
 /// assert_eq!(message.segments.len(), 1);
 /// ```
 pub fn parse_mllp(bytes: &[u8]) -> Result<Message, Error> {
-    let hl7_content = hl7v2_mllp::unwrap_mllp(bytes)?;
+    let hl7_content = hl7v2_mllp::unwrap_mllp(bytes).map_err(|e| Error::Framing(e.to_string()))?;
     parse(hl7_content)
 }
 

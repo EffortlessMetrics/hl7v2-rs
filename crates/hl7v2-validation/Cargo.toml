@@ -1,10 +1,11 @@
 [package]
+readme = "README.md"
 name = "hl7v2-validation"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
-description.workspace = true
+description = "Comprehensive HL7 v2 message, segment, and field validation."
 license.workspace = true
 repository.workspace = true
 keywords.workspace = true
@@ -42,6 +43,7 @@ cucumber = { version = "0.22", default-features = false, features = ["macros"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 pretty_assertions = "1.4"
 assert_matches = "1.5"
+hl7v2-query = { path = "../hl7v2-query" }
 
 [[test]]
 name = "integration_tests"
@@ -55,3 +57,4 @@ path = "tests/snapshot_tests.rs"
 name = "bdd_tests"
 path = "tests/bdd_tests.rs"
 harness = false
+

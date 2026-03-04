@@ -1,0 +1,20 @@
+message_structure: "ADT_A01"
+version: "2.5.1"
+parent: "GENERIC"
+message_type: "ADT^A01^ADT_A01"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "EVN"
+    required: true
+  - id: "PID"
+    required: true
+  - id: "PV1"
+    required: true
+constraints:
+  - path: "PID.3"
+    required: true
+  - path: "PID.5"
+    required: true
+  - path: "PV1.2"
+    required: true

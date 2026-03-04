@@ -5,26 +5,49 @@ use axum::{
     routing::{get, post},
 };
 use std::sync::Arc;
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::handlers::{health_handler, parse_handler, validate_handler};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::create_concurrency_limit_layer;
+use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
 use crate::server::AppState;
+
+/// OpenAPI specification content
+const OPENAPI_YAML: &str = include_str!("../../../schemas/openapi/hl7v2-api.yaml");
 
 /// Build the application router
 pub fn build_router(state: Arc<AppState>) -> Router {
+    // Rate limit configuration: 100 requests per minute per IP
+    let governor_conf = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(2) // approximately 120 per minute
+            .burst_size(20)
+            .finish()
+            .unwrap(),
+    );
+
     // Create API routes
-    let api_routes = Router::new()
+    let mut api_routes = Router::new()
         .route("/parse", post(parse_handler))
         .route("/validate", post(validate_handler));
 
+    // Apply authentication if API key is configured in state
+    if state.api_key.is_some() {
+        api_routes = api_routes.layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
+    }
+
     // Main router
     Router::new()
+        .merge(SwaggerUi::new("/api/docs").config(utoipa_swagger_ui::Config::from("/api/openapi.yaml")))
+        .route("/api/openapi.yaml", get(|| async { 
+            ([(axum::http::header::CONTENT_TYPE, "text/yaml")], OPENAPI_YAML)
+        }))
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
         .route("/metrics", get(metrics_handler))
@@ -35,6 +58,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(CompressionLayer::new())
         .layer(build_cors_layer())
         .layer(TraceLayer::new_for_http())
+        .layer(GovernorLayer::new(governor_conf))
         .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
 }
 
@@ -71,6 +95,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
         });
 
         let app = build_router(state);
@@ -78,6 +103,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                     .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
@@ -98,6 +124,7 @@ mod tests {
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
         });
 
         let app = build_router(state);
@@ -117,6 +144,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")

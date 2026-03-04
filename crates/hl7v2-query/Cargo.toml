@@ -1,4 +1,5 @@
 [package]
+readme = "README.md"
 name = "hl7v2-query"
 version.workspace = true
 edition.workspace = true
@@ -16,3 +17,4 @@ hl7v2-model = { path = "../hl7v2-model" }
 [dev-dependencies]
 proptest = "1.6"
 hl7v2-parser = { path = "../hl7v2-parser" }
+

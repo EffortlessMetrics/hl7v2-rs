@@ -1,0 +1,6 @@
+message_structure: "MINIMAL"
+version: "2.5.1"
+parent: "GENERIC"
+segments:
+  - id: "MSH"
+    required: true

@@ -1,4 +1,5 @@
 [package]
+readme = "README.md"
 name = "hl7v2-network"
 version.workspace = true
 edition.workspace = true
@@ -35,3 +36,4 @@ tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "time", "
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 proptest = "1.6"
 tokio-test = "0.4"
+
