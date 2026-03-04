@@ -30,6 +30,10 @@ We use the format popularized by Michael Nygard:
 | [0008](0008-tonic-for-grpc.md) | Tonic for gRPC Server | Accepted | 2025-11-19 |
 | [0009](0009-serde-for-serialization.md) | Serde for Serialization | Accepted | 2025-11-19 |
 | [0010](0010-thiserror-for-error-handling.md) | Thiserror for Error Handling | Accepted | 2025-11-19 |
+| [0011](0011-cross-field-rule-semantics.md) | Cross-Field Rule Semantics | Accepted | 2025-11-19 |
+| [0012](0012-rate-limiting-and-backpressure.md) | Rate Limiting and Backpressure | Accepted | 2025-11-19 |
+| [0013](0013-authentication-strategy.md) | Authentication Strategy | Accepted | 2026-03-04 |
+| [0014](0014-observability-architecture.md) | Observability Architecture | Accepted | 2026-03-04 |
 
 ## Creating a New ADR
 

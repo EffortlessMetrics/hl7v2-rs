@@ -1,4 +1,5 @@
 [package]
+readme = "README.md"
 name = "hl7v2-faker"
 version.workspace = true
 edition.workspace = true
@@ -18,3 +19,4 @@ uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
 proptest = "1.6"
+

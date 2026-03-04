@@ -1,10 +1,11 @@
 [package]
+readme = "README.md"
 name = "hl7v2-cli"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
-description.workspace = true
+description = "Command-line interface for HL7 v2 message manipulation and validation."
 license.workspace = true
 repository.workspace = true
 keywords.workspace = true
@@ -41,3 +42,4 @@ path = "tests/integration_tests.rs"
 name = "bdd_tests"
 path = "tests/bdd_tests.rs"
 harness = false
+

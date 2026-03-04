@@ -1,4 +1,5 @@
 [package]
+readme = "README.md"
 name = "hl7v2-ack"
 version.workspace = true
 edition.workspace = true
@@ -18,3 +19,4 @@ chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-fea
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 hl7v2-writer = { path = "../hl7v2-writer" }
 proptest = "1.4"
+

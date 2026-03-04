@@ -1,4 +1,5 @@
 [package]
+readme = "README.md"
 name = "hl7v2-template"
 version.workspace = true
 edition.workspace = true
@@ -23,3 +24,4 @@ sha2 = "0.10.9"
 
 [dev-dependencies]
 proptest = "1.6"
+

@@ -6,7 +6,7 @@ Get up and running with hl7v2-rs development in 10 minutes.
 
 ## Prerequisites
 
-- **Rust**: 1.89+ (MSRV)
+- **Rust**: 1.92+ (MSRV)
   - Install: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
   - Update: `rustup update`
 
@@ -197,42 +197,23 @@ Use `coc-rust-analyzer` for LSP support
 
 ## Project Structure
 
-```
-hl7v2-rs/
-├── crates/
-│   ├── hl7v2-core/          # Core parsing and data model
-│   │   ├── src/lib.rs       # Public API
-│   │   ├── src/network.rs   # Network module (stubs)
-│   │   ├── benches/         # Performance benchmarks
-│   │   └── tests/           # Integration tests
-│   │
-│   ├── hl7v2-prof/          # Profile validation
-│   │   ├── src/lib.rs       # Profile loading and validation
-│   │   └── tests/           # Profile tests
-│   │
-│   ├── hl7v2-gen/           # Message generation
-│   │   ├── src/lib.rs       # Generation engine
-│   │   └── tests/           # Generation tests
-│   │
-│   └── hl7v2-cli/           # CLI interface
-│       ├── src/main.rs      # CLI entry point
-│       └── tests/           # CLI integration tests
-│
-├── profiles/                # Sample profiles
-├── templates/               # Sample message templates
-├── .qoder/quests/          # Design documents
-├── Cargo.toml              # Workspace manifest
-├── README.md               # Project overview
-├── ROADMAP.md              # Development roadmap
-├── IMPLEMENTATION_PLAN.md  # Sprint-level tasks
-└── CONTRIBUTING.md         # Contribution guide
-```
+The project is organized as a Cargo workspace with 28 specialized crates in the `crates/` directory, categorized into three layers:
+
+### 1. Microcrates (SRP-focused)
+Minimal dependencies, single-responsibility logic.
+- `hl7v2-model`, `hl7v2-parser`, `hl7v2-writer`, `hl7v2-escape`, `hl7v2-json`, `hl7v2-normalize`, `hl7v2-datetime`, `hl7v2-datatype`, `hl7v2-path`, `hl7v2-query`, `hl7v2-batch`.
+
+### 2. Feature & Service Crates
+- `hl7v2-network` (MLLP over TCP/TLS), `hl7v2-stream` (Event-based parsing), `hl7v2-validation` (Rule engine), `hl7v2-prof` (Conformance profiles), `hl7v2-ack`, `hl7v2-faker`, `hl7v2-template`.
+
+### 3. Application & High-level Crates
+- `hl7v2-core` (Facade), `hl7v2-cli`, `hl7v2-server` (Axum REST API), `hl7v2-bench`.
 
 ### Key Files
 
 - `Cargo.toml` - Workspace dependencies and versions
 - `crates/*/Cargo.toml` - Individual crate configuration
-- `crates/hl7v2-core/src/lib.rs` - Core public API
+- `crates/hl7v2-core/src/lib.rs` - Core public API facade
 - `crates/hl7v2-cli/src/main.rs` - CLI entry point
 
 ---

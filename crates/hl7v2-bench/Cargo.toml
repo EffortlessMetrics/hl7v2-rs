@@ -1,4 +1,5 @@
 [package]
+readme = "README.md"
 name = "hl7v2-bench"
 version.workspace = true
 edition.workspace = true
@@ -6,6 +7,7 @@ rust-version.workspace = true
 authors.workspace = true
 description = "Benchmarks for hl7v2 crates"
 license.workspace = true
+publish = false
 repository.workspace = true
 keywords = ["hl7", "healthcare", "benchmarking", "performance"]
 categories = ["development-tools", "parsing"]
@@ -77,3 +79,4 @@ harness = false
 [[bench]]
 name = "template"
 harness = false
+
