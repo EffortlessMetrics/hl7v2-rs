@@ -2,7 +2,33 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# Build & Development Commands
+## Workflow (Enforced)
+
+This repository enforces formatting, linting, and compile checks automatically.
+
+### What happens on commit
+
+If your commit includes Rust or Cargo changes, the pre-commit hook runs:
+- `cargo run -p xtask -- lint-fix` (auto-format + best-effort clippy fixes, then verifies)
+
+The hook restages any auto-fixes to the current commit.
+
+### What happens on push
+
+The pre-push hook runs a strict gate:
+- `cargo run -p xtask -- gate --check` (CI-parity checks)
+
+### CI parity
+
+CI runs the same gate:
+- `cargo run -p xtask -- gate --check`
+
+### One-time setup (per clone)
+
+Enable repository hooks:
+- `just setup` (sets `core.hooksPath` to `.githooks`)
+
+## Build & Development Commands
 
 ```bash
 # Build
@@ -11,36 +37,13 @@ cargo build --workspace --all-features              # full workspace build
 
 # Test
 cargo test --workspace --all-features               # all tests
-cargo test -p hl7v2-parser                          # single crate
-cargo test -p hl7v2-core test_name                  # single test
-
-# Development Workflow (xtask/just)
-just setup         # Setup git hooks and dev env
-just lint-fix      # Fix formatting and clippy lints
-just gate          # Run all checks (format, clippy, test)
-just ci            # Run CI checks (gate + schema validation)
-
-# Native xtask commands
-cargo run -p xtask -- setup
-cargo run -p xtask -- lint-fix
-cargo run -p xtask -- gate
+cargo run -p xtask -- gate                          # fast local gate (warm graph + compile check)
+cargo run -p xtask -- gate --check                  # strict local gate (CI parity)
 
 # Lint & Format
-cargo fmt --all                                     # format (required, enforced in CI)
-cargo clippy --workspace --all-features --all-targets  # lint (zero warnings required)
-```
-
-# Benchmarks
-cargo bench --workspace
-
-# Docs
-cargo doc --workspace --all-features --no-deps
-
-# cargo-make tasks (if installed)
-cargo make check   # clippy
-cargo make test    # all tests
-cargo make fmt     # format
-cargo make bench   # benchmarks
+cargo run -p xtask -- lint-fix                      # auto-fix lints and format
+cargo fmt --all                                     # manual format
+cargo clippy --workspace --all-features --all-targets  # manual lint
 ```
 
 ## Architecture

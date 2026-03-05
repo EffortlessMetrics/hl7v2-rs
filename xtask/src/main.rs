@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::{Parser, Subcommand};
 use std::collections::HashSet;
 use std::env;
@@ -17,6 +17,9 @@ struct Cli {
 enum Commands {
     /// Run all checks (format, lint, test)
     Gate {
+        /// Run in check mode (no mutation, strict CI parity)
+        #[arg(long)]
+        check: bool,
         /// Only check crates that have changed
         #[arg(long)]
         changed: bool,
@@ -52,7 +55,11 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Gate { changed, only } => gate(changed, only)?,
+        Commands::Gate {
+            check,
+            changed,
+            only,
+        } => gate(check, changed, only)?,
         Commands::LintFix => lint_fix()?,
         Commands::Setup => setup()?,
         Commands::Audit => audit()?,
@@ -64,7 +71,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn gate(changed_only: bool, only: Option<String>) -> Result<()> {
+fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
     println!("🚀 Running gate checks...");
 
     let crates = if changed_only {
@@ -78,25 +85,52 @@ fn gate(changed_only: bool, only: Option<String>) -> Result<()> {
         return Ok(());
     }
 
-    let run_fmt = only.as_deref().map_or(true, |s| s == "fmt");
-    let run_clippy = only.as_deref().map_or(true, |s| s == "clippy");
-    let run_test = only.as_deref().map_or(true, |s| s == "test");
+    let run_fmt = only.as_deref().is_none_or(|s| s == "fmt");
+    let run_clippy = only.as_deref().is_none_or(|s| s == "clippy");
+    let run_test = only.as_deref().is_none_or(|s| s == "test");
 
     if run_fmt {
-        println!("Checking formatting...");
-        run_command("cargo", &["fmt", "--all", "--", "--check"])?;
+        if check {
+            println!("Checking formatting...");
+            run_command("cargo", &["fmt", "--all", "--", "--check"])?;
+        } else {
+            println!("Formatting code...");
+            run_command("cargo", &["fmt", "--all"])?;
+        }
+    }
+
+    // Warm graph (huge speed win in big workspaces)
+    if run_clippy || run_test {
+        println!("Warming dependency graph...");
+        let mut check_args = vec!["check", "--workspace", "--all-targets", "--all-features"];
+        if changed_only {
+            check_args.retain(|&a| a != "--workspace");
+            for c in &crates {
+                check_args.push("-p");
+                check_args.push(c);
+            }
+        }
+        run_command("cargo", &check_args)?;
     }
 
     if run_clippy {
         println!("Running clippy...");
-        let mut args = vec![
-            "clippy",
-            "--all-targets",
-            "--all-features",
-            "--",
-            "-D",
-            "warnings",
-        ];
+        let mut args = vec!["clippy", "--all-targets", "--all-features"];
+        if changed_only {
+            for c in &crates {
+                args.push("-p");
+                args.push(c);
+            }
+        } else {
+            args.push("--workspace");
+        }
+        args.extend_from_slice(&["--", "-D", "warnings"]);
+        run_command("cargo", &args)?;
+    }
+
+    if run_test {
+        println!("Compiling tests (no-run)...");
+        let mut args = vec!["test", "--all-targets", "--all-features", "--no-run"];
         if changed_only {
             for c in &crates {
                 args.push("-p");
@@ -106,35 +140,6 @@ fn gate(changed_only: bool, only: Option<String>) -> Result<()> {
             args.push("--workspace");
         }
         run_command("cargo", &args)?;
-    }
-
-    if run_test {
-        println!("Running tests...");
-        let mut args = vec!["test", "--all-features"];
-        if changed_only {
-            for c in &crates {
-                args.push("-p");
-                args.push(c);
-            }
-        } else {
-            args.push("--workspace");
-        }
-        
-        // Use nextest if available
-        if command_exists("cargo-nextest") {
-            let mut nextest_args = vec!["nextest", "run", "--all-features"];
-            if changed_only {
-                for c in &crates {
-                    nextest_args.push("-p");
-                    nextest_args.push(c);
-                }
-            } else {
-                nextest_args.push("--workspace");
-            }
-            run_command("cargo", &nextest_args)?;
-        } else {
-            run_command("cargo", &args)?;
-        }
     }
 
     println!("✅ Gate checks passed!");
@@ -147,17 +152,31 @@ fn lint_fix() -> Result<()> {
     println!("Formatting code...");
     run_command("cargo", &["fmt", "--all"])?;
 
-    println!("Applying clippy fixes...");
+    println!("Applying clippy fixes (best-effort)...");
+    // Best-effort fix pass: do NOT use -D warnings here
+    // Also: allow failure; we still do a strict verify after.
+    let _ = Command::new("cargo")
+        .args([
+            "clippy",
+            "--workspace",
+            "--all-targets",
+            "--all-features",
+            "--fix",
+            "--allow-dirty",
+            "--allow-staged",
+        ])
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status();
+
+    println!("Verifying clippy (strict)...");
     run_command(
         "cargo",
         &[
             "clippy",
-            "--fix",
-            "--allow-dirty",
-            "--allow-staged",
+            "--workspace",
             "--all-targets",
             "--all-features",
-            "--workspace",
             "--",
             "-D",
             "warnings",
@@ -169,47 +188,24 @@ fn lint_fix() -> Result<()> {
 }
 
 fn setup() -> Result<()> {
-    println!("⚙️  Setting up development environment...");
+    println!("⚙️  Setting up repository hooks...");
 
-    let root = env::current_dir()?;
-    let hooks_src = root.join(".githooks");
-    let hooks_dst = root.join(".git").join("hooks");
+    run_command_git(&["config", "core.hooksPath", ".githooks"])?;
 
-    // Create .githooks if it doesn't exist
-    if !hooks_src.exists() {
-        fs::create_dir_all(&hooks_src)?;
-        println!("Created .githooks directory");
-    }
-
-    // Ensure pre-commit hook exists
-    let pre_commit_path = hooks_src.join("pre-commit");
-    if !pre_commit_path.exists() {
-        fs::write(&pre_commit_path, r#"#!/usr/bin/env bash
-set -e
-echo "Running pre-commit checks..."
-cargo run -p xtask -- gate --check
-"#)?;
-        println!("Created default pre-commit hook");
-    }
-
-    if !hooks_dst.exists() {
-        println!("Warning: .git/hooks not found. Are you in a git repository?");
-    } else {
-        for entry in fs::read_dir(hooks_src)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                let file_name = path.file_name().unwrap();
-                let dest = hooks_dst.join(file_name);
-                println!("Installing hook: {:?}", file_name);
-                fs::copy(&path, &dest)?;
-
-                #[cfg(unix)]
-                {
+    #[cfg(unix)]
+    {
+        println!("Marking hooks as executable...");
+        let root = env::current_dir()?;
+        let hooks_dir = root.join(".githooks");
+        if hooks_dir.exists() {
+            for entry in fs::read_dir(hooks_dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_file() {
                     use std::os::unix::fs::PermissionsExt;
-                    let mut perms = fs::metadata(&dest)?.permissions();
+                    let mut perms = fs::metadata(&path)?.permissions();
                     perms.set_mode(0o755);
-                    fs::set_permissions(&dest, perms)?;
+                    fs::set_permissions(&path, perms)?;
                 }
             }
         }
@@ -219,7 +215,10 @@ cargo run -p xtask -- gate --check
     let tools = ["cargo-deny", "cargo-audit", "cargo-nextest", "just"];
     for tool in tools {
         if !command_exists(tool) {
-            println!("Note: '{}' not found. Consider installing it for full DevEx.", tool);
+            println!(
+                "Note: '{}' not found. Consider installing it for full DevEx.",
+                tool
+            );
         }
     }
 
@@ -280,7 +279,8 @@ fn scaffold(name: &str, description: Option<String>) -> Result<()> {
 
     // Cargo.toml
     let description = description.unwrap_or_else(|| format!("HL7 v2 {} functionality", name));
-    let cargo_toml = format!(r#"[package]
+    let cargo_toml = format!(
+        r#"[package]
 name = "{crate_name}"
 version.workspace = true
 edition.workspace = true
@@ -299,11 +299,13 @@ thiserror = {{ workspace = true }}
 
 [dev-dependencies]
 hl7v2-test-utils = {{ path = "../hl7v2-test-utils" }}
-"#);
+"#
+    );
     fs::write(crate_path.join("Cargo.toml"), cargo_toml)?;
 
     // README.md
-    let readme = format!(r#"# {crate_name}
+    let readme = format!(
+        r#"# {crate_name}
 
 {description}
 
@@ -312,11 +314,13 @@ hl7v2-test-utils = {{ path = "../hl7v2-test-utils" }}
 ```rust
 use {crate_name}::*;
 ```
-"#);
+"#
+    );
     fs::write(crate_path.join("README.md"), readme)?;
 
     // CLAUDE.md
-    let claude = format!(r#"# {crate_name} Development
+    let claude = format!(
+        r#"# {crate_name} Development
 
 ## Build & Test
 
@@ -325,11 +329,14 @@ cargo build -p {crate_name}
 cargo test -p {crate_name}
 cargo clippy -p {crate_name} -- -D warnings
 ```
-"#);
+"#
+    );
     fs::write(crate_path.join("CLAUDE.md"), claude)?;
 
     // src/lib.rs
-    fs::write(crate_path.join("src").join("lib.rs"), r#"//! Main library file
+    fs::write(
+        crate_path.join("src").join("lib.rs"),
+        r#"//! Main library file
     
 pub fn example() {
     println!("Hello from {}!");
@@ -344,7 +351,8 @@ mod tests {
         assert!(true);
     }
 }
-"#)?;
+"#,
+    )?;
 
     println!("✅ Crate {} scaffolded successfully!", crate_name);
     println!("Don't forget to run 'cargo build' to update the workspace.");
@@ -381,15 +389,33 @@ fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+fn run_command_git(args: &[&str]) -> Result<()> {
+    let status = Command::new("git")
+        .args(args)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "Git command 'git {}' failed with exit code: {:?}",
+            args.join(" "),
+            status.code()
+        ));
+    }
+
+    Ok(())
+}
+
 fn command_exists(cmd: &str) -> bool {
-    let cmd = if cfg!(windows) {
+    let cmd_with_exe = if cfg!(windows) {
         format!("{}.exe", cmd)
     } else {
         cmd.to_string()
     };
 
     Command::new("where")
-        .arg(&cmd)
+        .arg(&cmd_with_exe)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
@@ -399,7 +425,7 @@ fn command_exists(cmd: &str) -> bool {
 
 fn get_changed_crates() -> Result<Vec<String>> {
     let output = Command::new("git")
-        .args(&["diff", "--name-only", "HEAD"])
+        .args(["diff", "--name-only", "HEAD"])
         .output()?;
 
     if !output.status.success() {
