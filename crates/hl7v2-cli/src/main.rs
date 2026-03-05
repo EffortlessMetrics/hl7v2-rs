@@ -406,9 +406,14 @@ fn parse_command(
                 println!("{}", serde_json::to_string(&event_json)?);
             } else {
                 match event {
-                    Event::StartMessage { delims } => println!("--- Message {} Start (delims: {:?}) ---", message_count, delims),
+                    Event::StartMessage { delims } => println!(
+                        "--- Message {} Start (delims: {:?}) ---",
+                        message_count, delims
+                    ),
                     Event::Segment { id } => println!("Segment: {}", String::from_utf8_lossy(&id)),
-                    Event::Field { num, raw } => println!("  Field {}: {}", num, String::from_utf8_lossy(&raw)),
+                    Event::Field { num, raw } => {
+                        println!("  Field {}: {}", num, String::from_utf8_lossy(&raw))
+                    }
                     Event::EndMessage => println!("--- Message End ---"),
                 }
             }
@@ -669,15 +674,13 @@ fn val_command(
             // Print validation results in text format
             if results.is_empty() {
                 println!("Validation passed: No issues found");
-            } else {
-                if detailed {
-                    println!("Validation issues found:");
-                    for result in &results {
-                        println!("  - {:?}", result);
-                    }
-                } else {
-                    println!("Validation failed: {} issues found", results.len());
+            } else if detailed {
+                println!("Validation issues found:");
+                for result in &results {
+                    println!("  - {:?}", result);
                 }
+            } else {
+                println!("Validation failed: {} issues found", results.len());
             }
         }
     }

@@ -182,7 +182,7 @@ fn normalize_minimum_valid_message() {
 fn normalize_message_with_max_fields() {
     // Message with many fields
     let mut fields = vec!["MSH|^~\\&"];
-    fields.extend(std::iter::repeat("field_value").take(100));
+    fields.extend(std::iter::repeat_n("field_value", 100));
     let hl7 = format!("{}|\r", fields.join("|"));
 
     let normalized = normalize(hl7.as_bytes(), false).unwrap();

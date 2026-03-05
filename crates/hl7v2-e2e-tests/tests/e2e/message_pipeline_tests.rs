@@ -359,9 +359,7 @@ mod batch_pipeline {
         init_tracing();
 
         // Create a batch with multiple messages
-        let batch = format!(
-            "MSH|^~\\&|App|Fac|Recv|RecvFac|20250128120000||ADT^A01|MSG1|P|2.5\rPID|1||123||Doe^John\rMSH|^~\\&|App|Fac|Recv|RecvFac|20250128120001||ADT^A04|MSG2|P|2.5\rPID|1||456||Smith^Jane\r"
-        );
+        let batch = "MSH|^~\\&|App|Fac|Recv|RecvFac|20250128120000||ADT^A01|MSG1|P|2.5\rPID|1||123||Doe^John\rMSH|^~\\&|App|Fac|Recv|RecvFac|20250128120001||ADT^A04|MSG2|P|2.5\rPID|1||456||Smith^Jane\r".to_string();
 
         // Parse the batch
         let parsed = parse(batch.as_bytes()).expect("Batch should parse");

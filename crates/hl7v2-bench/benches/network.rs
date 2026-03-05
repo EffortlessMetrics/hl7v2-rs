@@ -133,12 +133,11 @@ fn bench_codec_decoding(c: &mut Criterion) {
         b.to_async(&rt).iter(|| async {
             // Simulate decoding from MLLP frame
             // Find start and end markers
-            if let Some(start) = wrapped.iter().position(|&b| b == 0x0B) {
-                if let Some(end) = wrapped.iter().position(|&b| b == 0x1C) {
+            if let Some(start) = wrapped.iter().position(|&b| b == 0x0B)
+                && let Some(end) = wrapped.iter().position(|&b| b == 0x1C) {
                     let message_bytes = &wrapped[start + 1..end];
                     black_box(message_bytes);
                 }
-            }
         })
     });
 }
@@ -370,3 +369,4 @@ criterion_group!(
 );
 
 criterion_main!(network_benches);
+

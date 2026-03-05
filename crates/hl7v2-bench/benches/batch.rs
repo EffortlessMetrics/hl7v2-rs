@@ -13,7 +13,7 @@ use std::hint::black_box;
 /// Create a sample HL7 message for batch construction
 fn create_sample_message(msg_id: usize) -> String {
     format!(
-        "MSH|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250101120000||ADT^A01^ADT_A01|MSG{:05}|P|2.5.1\rPID|1||{}^^^HOSP^MR||Doe^John^A||19800101|M||C|123 Main St^^Anytown^ST^12345||(555)555-1212||E||S|||123456789|\rPV1|1|I|ICU^101^01||||DOE^JOHN^A^III^^^^MD|||SUR||||||ADM|||||||||||||||||||||||||20250101120000\r",
+        "MSH|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250128120000||ADT^A01^ADT_A01|MSG{:05}|P|2.5.1\rPID|1||{}^^^HOSP^MR||Doe^John^A||19800101|M||C|123 Main St^^Anytown^ST^12345||(555)555-1212||E||S|||123456789|\rPV1|1|I|ICU^101^01||||DOE^JOHN^A^III^^^^MD|||SUR||||||ADM|||||||||||||||||||||||||20250128120000\r",
         msg_id,
         100000 + msg_id
     )
@@ -21,13 +21,13 @@ fn create_sample_message(msg_id: usize) -> String {
 
 /// Create a batch file header (FHS)
 fn create_fhs() -> String {
-    "FHS|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250101120000\r"
+    "FHS|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250128120000\r"
         .to_string()
 }
 
 /// Create a batch header (BHS)
 fn create_bhs() -> String {
-    "BHS|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250101120000\r"
+    "BHS|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250128120000\r"
         .to_string()
 }
 
@@ -86,8 +86,8 @@ fn bench_parse_single_batch(c: &mut Criterion) {
     c.bench_function("parse_single_batch_10", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(bytes));
-            black_box(result)
-        })
+            let _ = black_box(result);
+        });
     });
 }
 
@@ -99,8 +99,8 @@ fn bench_parse_file_batch(c: &mut Criterion) {
     c.bench_function("parse_file_batch_10x2", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(bytes));
-            black_box(result)
-        })
+            let _ = black_box(result);
+        });
     });
 }
 
@@ -116,8 +116,8 @@ fn bench_batch_by_message_count(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("parse_batch", count), count, |b, _| {
             b.iter(|| {
                 let result = parse_batch(black_box(bytes));
-                black_box(result)
-            })
+                let _ = black_box(result);
+            });
         });
     }
 
@@ -135,8 +135,8 @@ fn bench_batch_by_file_size(c: &mut Criterion) {
     group.bench_function("small_10_messages", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(small_bytes));
-            black_box(result)
-        })
+            let _ = black_box(result);
+        });
     });
 
     // Medium batch (100 messages)
@@ -146,8 +146,8 @@ fn bench_batch_by_file_size(c: &mut Criterion) {
     group.bench_function("medium_100_messages", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(medium_bytes));
-            black_box(result)
-        })
+            let _ = black_box(result);
+        });
     });
 
     // Large batch (1000 messages)
@@ -157,8 +157,8 @@ fn bench_batch_by_file_size(c: &mut Criterion) {
     group.bench_function("large_1000_messages", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(large_bytes));
-            black_box(result)
-        })
+            let _ = black_box(result);
+        });
     });
 
     group.finish();
@@ -175,8 +175,8 @@ fn bench_nested_batches(c: &mut Criterion) {
     group.bench_function("10_batches_x_10_messages", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(bytes_10x10));
-            black_box(result)
-        })
+            let _ = black_box(result);
+        });
     });
 
     // 5 batches of 20 messages each
@@ -186,8 +186,8 @@ fn bench_nested_batches(c: &mut Criterion) {
     group.bench_function("5_batches_x_20_messages", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(bytes_5x20));
-            black_box(result)
-        })
+            let _ = black_box(result);
+        });
     });
 
     group.finish();
@@ -207,7 +207,7 @@ fn bench_message_parsing_from_batch(c: &mut Criterion) {
             for msg_content in messages {
                 let full_msg = format!("MSH|{}", msg_content);
                 let result = parse(full_msg.as_bytes());
-                black_box(result);
+                let _ = black_box(result);
             }
         })
     });
@@ -237,7 +237,7 @@ fn bench_batch_large_messages(c: &mut Criterion) {
     // Create messages with more segments
     fn create_large_message(msg_id: usize) -> String {
         let mut msg = format!(
-            "MSH|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250101120000||ADT^A01^ADT_A01|MSG{:05}|P|2.5.1\rPID|1||{}^^^HOSP^MR||Doe^John^A||19800101|M||C|123 Main St^^Anytown^ST^12345||(555)555-1212||E||S|||123456789|\rPV1|1|I|ICU^101^01||||DOE^JOHN^A^III^^^^MD|||SUR||||||ADM|||||||||||||||||||||||||20250101120000\r",
+            "MSH|^~\\&|SendingApp|SendingFacility|ReceivingApp|ReceivingFacility|20250128120000||ADT^A01^ADT_A01|MSG{:05}|P|2.5.1\rPID|1||{}^^^HOSP^MR||Doe^John^A||19800101|M||C|123 Main St^^Anytown^ST^12345||(555)555-1212||E||S|||123456789|\rPV1|1|I|ICU^101^01||||DOE^JOHN^A^III^^^^MD|||SUR||||||ADM|||||||||||||||||||||||||20250128120000\r",
             msg_id,
             100000 + msg_id
         );
@@ -264,7 +264,7 @@ fn bench_batch_large_messages(c: &mut Criterion) {
         // Add multiple DG1 segments
         for i in 1..=3 {
             msg.push_str(&format!(
-                "DG1|{}|ICD10|DX{:03}^Diagnosis {}||20250101||A\r",
+                "DG1|{}|ICD10|DX{:03}^Diagnosis {}||20250128120000||A\r",
                 i, i, i
             ));
         }
@@ -284,8 +284,8 @@ fn bench_batch_large_messages(c: &mut Criterion) {
     c.bench_function("parse_batch_50_large_messages", |b| {
         b.iter(|| {
             let result = parse_batch(black_box(bytes));
-            black_box(result)
-        })
+            let _ = black_box(result);
+        });
     });
 }
 

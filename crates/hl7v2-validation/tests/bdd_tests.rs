@@ -22,21 +22,27 @@ pub struct ValidationWorld {
     /// Validation issues found
     issues: Vec<Issue>,
     /// Whether validation passed
+    #[allow(dead_code)]
     validation_passed: bool,
     /// Profile constraints
     profile_constraints: HashMap<String, ProfileConstraint>,
     /// Last validated field
     last_validated_field: Option<String>,
     /// Last validation result for a field
+    #[allow(dead_code)]
     last_field_valid: Option<bool>,
     /// Batch validation results
+    #[allow(dead_code)]
     batch_results: Vec<bool>,
 }
 
 #[derive(Debug, Clone)]
 struct ProfileConstraint {
+    #[allow(dead_code)]
     max_length: Option<usize>,
+    #[allow(dead_code)]
     required: bool,
+    #[allow(dead_code)]
     severity: Severity,
     allowed_values: Option<Vec<String>>,
     pattern: Option<String>,
@@ -86,6 +92,7 @@ impl ValidationWorld {
         self.validation_passed = false;
     }
 
+    #[allow(dead_code)]
     fn add_warning(&mut self, code: &str, path: &str, detail: &str) {
         self.issues.push(Issue::warning(
             code,
@@ -638,8 +645,8 @@ fn when_validate_message(world: &mut ValidationWorld) {
         let mut issues_to_add: Vec<Issue> = Vec::new();
 
         // Check for unknown message type
-        if let Some(msh_9) = hl7v2_query::get(msg, "MSH.9") {
-            if msh_9.contains("UNKNOWN") {
+        if let Some(msh_9) = hl7v2_query::get(msg, "MSH.9")
+            && msh_9.contains("UNKNOWN") {
                 issues_to_add.push(Issue::error(
                     "CARDINALITY_VIOLATION", // Matching existing Then step if needed, or fix Then step
                     Some("MSH.9".to_string()),
@@ -648,7 +655,6 @@ fn when_validate_message(world: &mut ValidationWorld) {
                 // Wait! The Then step for this scenario says "validation should fail".
                 // I should use a code that matches one of the Then steps if possible.
             }
-        }
 
         // Check required fields
         let required_fields = ["PID.3.1", "PID.5.1"];
@@ -674,15 +680,14 @@ fn when_validate_message(world: &mut ValidationWorld) {
             let value = hl7v2_query::get(msg, field).unwrap_or_default();
 
             // Check max length
-            if let Some(max) = constraint.max_length {
-                if value.len() > max {
+            if let Some(max) = constraint.max_length
+                && value.len() > max {
                     issues_to_add.push(Issue::error(
                         "FIELD_LENGTH_EXCEEDED",
                         Some(field.clone()),
                         format!("{} exceeds maximum length of {}", field, max),
                     ));
                 }
-            }
 
             // Check allowed values
             if let Some(allowed) = &constraint.allowed_values {
@@ -705,11 +710,11 @@ fn when_validate_message(world: &mut ValidationWorld) {
             // Check pattern
             if let Some(pattern) = &constraint.pattern {
                 let re = regex::Regex::new(pattern).unwrap();
-                let is_match = re.is_match(&value) || {
+                let is_match = re.is_match(value) || {
                     // Try first component if field match failed (common for XTN/PN types)
                     let c1_path = format!("{}.1", field);
                     if let Some(c1_val) = hl7v2_query::get(msg, &c1_path) {
-                        re.is_match(&c1_val)
+                        re.is_match(c1_val)
                     } else {
                         false
                     }
@@ -725,28 +730,25 @@ fn when_validate_message(world: &mut ValidationWorld) {
             }
 
             // Check range
-            if let (Some(min), Some(max)) = (constraint.range_min, constraint.range_max) {
-                if let Ok(val) = value.parse::<f64>() {
-                    if val < min || val > max {
+            if let (Some(min), Some(max)) = (constraint.range_min, constraint.range_max)
+                && let Ok(val) = value.parse::<f64>()
+                    && (val < min || val > max) {
                         issues_to_add.push(Issue::error(
                             "VALUE_OUT_OF_RANGE",
                             Some(field.clone()),
                             format!("{} is outside range {}-{}", field, min, max),
                         ));
                     }
-                }
-            }
 
             // Check Luhn checksum
-            if constraint.luhn_checksum {
-                if !hl7v2_validation::validate_luhn_checksum(&value) {
+            if constraint.luhn_checksum
+                && !hl7v2_validation::validate_luhn_checksum(value) {
                     issues_to_add.push(Issue::error(
                         "CHECKSUM_VALIDATION_FAILED",
                         Some(field.clone()),
                         format!("Invalid Luhn checksum for {}", field),
                     ));
                 }
-            }
         }
 
         // Check cross-field rules
@@ -818,7 +820,11 @@ fn when_validate_data_type_dt(world: &mut ValidationWorld) {
     world.validation_passed = valid;
     world.last_field_valid = Some(valid);
     if !valid {
-        world.add_error("INVALID_DATA_TYPE", &world.last_validated_field.clone().unwrap_or_default(), "Invalid date format");
+        world.add_error(
+            "INVALID_DATA_TYPE",
+            &world.last_validated_field.clone().unwrap_or_default(),
+            "Invalid date format",
+        );
     }
 }
 
@@ -830,7 +836,11 @@ fn when_validate_data_type_tm(world: &mut ValidationWorld) {
     world.validation_passed = valid;
     world.last_field_valid = Some(valid);
     if !valid {
-        world.add_error("INVALID_TIME", &world.last_validated_field.clone().unwrap_or_default(), "Invalid time format");
+        world.add_error(
+            "INVALID_TIME",
+            &world.last_validated_field.clone().unwrap_or_default(),
+            "Invalid time format",
+        );
     }
 }
 
@@ -842,7 +852,11 @@ fn when_validate_data_type_ts(world: &mut ValidationWorld) {
     world.validation_passed = valid;
     world.last_field_valid = Some(valid);
     if !valid {
-        world.add_error("INVALID_TIMESTAMP", &world.last_validated_field.clone().unwrap_or_default(), "Invalid timestamp format");
+        world.add_error(
+            "INVALID_TIMESTAMP",
+            &world.last_validated_field.clone().unwrap_or_default(),
+            "Invalid timestamp format",
+        );
     }
 }
 
@@ -854,7 +868,11 @@ fn when_validate_data_type_nm(world: &mut ValidationWorld) {
     world.validation_passed = valid;
     world.last_field_valid = Some(valid);
     if !valid {
-        world.add_error("INVALID_NUMERIC", &world.last_validated_field.clone().unwrap_or_default(), "Invalid numeric format");
+        world.add_error(
+            "INVALID_NUMERIC",
+            &world.last_validated_field.clone().unwrap_or_default(),
+            "Invalid numeric format",
+        );
     }
 }
 
@@ -869,11 +887,10 @@ fn when_validate_segment_order(world: &mut ValidationWorld) {
         let evn_idx = segment_names.iter().position(|&s| s == "EVN");
         let pid_idx = segment_names.iter().position(|&s| s == "PID");
 
-        if let (Some(evn), Some(pid)) = (evn_idx, pid_idx) {
-            if evn > pid {
+        if let (Some(evn), Some(pid)) = (evn_idx, pid_idx)
+            && evn > pid {
                 world.add_error("INVALID_SEGMENT_ORDER", "EVN", "EVN must appear before PID");
             }
-        }
     }
 }
 

@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolved message boundary detection issues in sequential MLLP streams.
 - Fixed race conditions in E2E tests caused by TCP port collisions.
 - Improved error reporting for HL7 query path out-of-bounds access.
+- Corrected numerous clippy lints and formatting issues across the workspace.
+- Refactored server authentication to use isolated state for reliable testing.
+- Fixed benchmark compatibility with newer Rust versions (criterion deprecations).
 
 ### Documentation
 - Created comprehensive `docs/API_GUIDE.md` for the REST server.
@@ -184,7 +187,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ### Rust Version Support
 
-- **MSRV** (Minimum Supported Rust Version): 1.89
+- **MSRV** (Minimum Supported Rust Version): 1.92
 - **Stable**: Latest stable Rust recommended
 
 ### HL7 Versions Supported

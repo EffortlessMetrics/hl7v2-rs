@@ -1,5 +1,7 @@
 //! Common test utilities and fixtures for integration tests.
 
+#![allow(dead_code)]
+
 use axum::Router;
 use hl7v2_server::server::{AppState, Server, ServerConfig};
 use std::sync::Arc;

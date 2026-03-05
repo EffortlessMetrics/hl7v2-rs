@@ -28,7 +28,7 @@ fn generate_large_message(segment_count: usize, field_count: usize) -> String {
         for j in 1..field_count {
             msg.push_str(&format!("|field_{}_{}", i, j));
         }
-        msg.push_str("\r");
+        msg.push('\r');
     }
 
     msg
@@ -664,11 +664,10 @@ fn test_field_memory_is_released() {
     // Process remaining events
     let mut found_large_field = false;
     while let Ok(Some(event)) = parser.next_event() {
-        if let Event::Field { raw, .. } = &event {
-            if raw.len() == 1_000_000 {
+        if let Event::Field { raw, .. } = &event
+            && raw.len() == 1_000_000 {
                 found_large_field = true;
             }
-        }
         // Event is dropped here
     }
 

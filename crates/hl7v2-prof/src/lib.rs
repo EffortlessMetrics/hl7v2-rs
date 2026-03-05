@@ -414,8 +414,7 @@ where
 
     // If there's a parent, recursively load and merge it
     if let Some(parent_name) = &profile.parent {
-        let parent_profile =
-            load_profile_with_inheritance_recursive(parent_name, &profile_loader)?;
+        let parent_profile = load_profile_with_inheritance_recursive(parent_name, &profile_loader)?;
         return Ok(merge_profiles(parent_profile, profile));
     }
 

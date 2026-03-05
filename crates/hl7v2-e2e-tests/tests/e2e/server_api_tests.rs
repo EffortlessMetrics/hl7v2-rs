@@ -88,7 +88,10 @@ mod health_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
@@ -108,7 +111,10 @@ mod health_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
@@ -136,7 +142,10 @@ mod health_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
@@ -160,7 +169,10 @@ mod health_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
@@ -183,7 +195,10 @@ mod health_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
@@ -214,7 +229,10 @@ mod ready_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/ready")
                     .body(Body::empty())
                     .unwrap(),
@@ -234,7 +252,10 @@ mod ready_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/ready")
                     .body(Body::empty())
                     .unwrap(),
@@ -274,7 +295,10 @@ mod parse_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -323,7 +347,10 @@ mod parse_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -367,7 +394,10 @@ mod parse_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -411,7 +441,10 @@ mod parse_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -444,7 +477,10 @@ mod parse_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -472,7 +508,10 @@ mod parse_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -498,7 +537,10 @@ mod parse_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -535,7 +577,10 @@ mod validate_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/validate")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -569,7 +614,10 @@ mod validate_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/validate")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -597,7 +645,10 @@ mod validate_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/validate")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -627,7 +678,10 @@ mod metrics_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/metrics")
                     .body(Body::empty())
                     .unwrap(),
@@ -649,7 +703,10 @@ mod metrics_endpoint {
         let _ = router
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
@@ -659,7 +716,10 @@ mod metrics_endpoint {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/metrics")
                     .body(Body::empty())
                     .unwrap(),
@@ -692,7 +752,10 @@ mod error_handling {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/unknown/path")
                     .body(Body::empty())
                     .unwrap(),
@@ -713,7 +776,10 @@ mod error_handling {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .body(Body::empty())
                     .unwrap(),
@@ -733,7 +799,10 @@ mod error_handling {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -763,7 +832,10 @@ mod cors {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/health")
                     .header("Origin", "http://example.com")
                     .body(Body::empty())
@@ -852,7 +924,10 @@ mod concurrent_requests {
 
                 app.oneshot(
                     Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                        .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                            [127, 0, 0, 1],
+                            8080,
+                        ))))
                         .uri("/hl7/parse")
                         .method("POST")
                         .header("Content-Type", "application/json")
@@ -886,7 +961,10 @@ mod concurrent_requests {
                 let app = create_test_router();
                 app.oneshot(
                     Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                        .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                            [127, 0, 0, 1],
+                            8080,
+                        ))))
                         .uri("/health")
                         .body(Body::empty())
                         .unwrap(),

@@ -601,7 +601,7 @@ fn test_write_batch_multiple_messages() {
                 id: *b"MSH",
                 fields: vec![
                     Field::from_text("^~\\&"),
-                    Field::from_text(&format!("MSG{}", i)),
+                    Field::from_text(format!("MSG{}", i)),
                 ],
             }],
             charsets: vec![],
@@ -619,15 +619,17 @@ fn test_write_batch_multiple_messages() {
 
 #[test]
 fn test_write_batch_with_header() {
-    let mut batch = Batch::default();
-    batch.header = Some(Segment {
-        id: *b"BHS",
-        fields: vec![
-            Field::from_text("^~\\&"),
-            Field::from_text("SENDAPP"),
-            Field::from_text("SENDFAC"),
-        ],
-    });
+    let mut batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![
+                Field::from_text("^~\\&"),
+                Field::from_text("SENDAPP"),
+                Field::from_text("SENDFAC"),
+            ],
+        }),
+        ..Default::default()
+    };
     batch.messages.push(Message {
         delims: Delims::default(),
         segments: vec![Segment {
@@ -680,11 +682,13 @@ fn test_write_file_batch_empty() {
 
 #[test]
 fn test_write_file_batch_with_header() {
-    let mut file_batch = FileBatch::default();
-    file_batch.header = Some(Segment {
-        id: *b"FHS",
-        fields: vec![Field::from_text("^~\\&"), Field::from_text("SENDAPP")],
-    });
+    let file_batch = FileBatch {
+        header: Some(Segment {
+            id: *b"FHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("SENDAPP")],
+        }),
+        ..Default::default()
+    };
 
     let bytes = write_file_batch(&file_batch);
     let result = String::from_utf8(bytes).unwrap();
@@ -728,30 +732,32 @@ fn test_write_file_batch_with_batches() {
 
 #[test]
 fn test_write_file_batch_full_structure() {
-    let mut file_batch = FileBatch::default();
+    let mut file_batch = FileBatch {
+        header: Some(Segment {
+            id: *b"FHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("FILE")],
+        }),
+        ..Default::default()
+    };
 
-    file_batch.header = Some(Segment {
-        id: *b"FHS",
-        fields: vec![Field::from_text("^~\\&"), Field::from_text("FILE")],
-    });
-
-    let mut batch = Batch::default();
-    batch.header = Some(Segment {
-        id: *b"BHS",
-        fields: vec![Field::from_text("^~\\&"), Field::from_text("BATCH")],
-    });
-    batch.messages.push(Message {
-        delims: Delims::default(),
-        segments: vec![Segment {
-            id: *b"MSH",
-            fields: vec![Field::from_text("^~\\&"), Field::from_text("MSG")],
+    let batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("BATCH")],
+        }),
+        messages: vec![Message {
+            delims: Delims::default(),
+            segments: vec![Segment {
+                id: *b"MSH",
+                fields: vec![Field::from_text("^~\\&"), Field::from_text("MSG")],
+            }],
+            charsets: vec![],
         }],
-        charsets: vec![],
-    });
-    batch.trailer = Some(Segment {
-        id: *b"BTS",
-        fields: vec![Field::from_text("1")],
-    });
+        trailer: Some(Segment {
+            id: *b"BTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
 
     file_batch.batches.push(batch);
     file_batch.trailer = Some(Segment {
@@ -896,10 +902,10 @@ fn test_write_long_message() {
         segments.push(Segment {
             id: *b"OBX",
             fields: vec![
-                Field::from_text(&format!("{}", i)),
+                Field::from_text(format!("{}", i)),
                 Field::from_text("ST"),
-                Field::from_text(&format!("OBS{}", i)),
-                Field::from_text(&format!("Long observation value {}", "X".repeat(100))),
+                Field::from_text(format!("OBS{}", i)),
+                Field::from_text(format!("Long observation value {}", "X".repeat(100))),
             ],
         });
     }

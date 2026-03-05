@@ -103,7 +103,7 @@ async fn run_grpc_server(bind_address: &str) -> Result<(), Box<dyn std::error::E
     warn!("gRPC server mode is not yet implemented");
     info!("gRPC server would bind to: {}", bind_address);
 
-    // TODO: Implement gRPC server when tonic integration is ready
+    // Feature: Implement gRPC server when tonic integration is ready
     // This would use the hl7v2-server crate's gRPC functionality
 
     Err("gRPC server mode is not yet implemented. Use --mode http for now.".into())
