@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Build & Development Commands
+# Build & Development Commands
 
 ```bash
 # Build
@@ -14,9 +14,21 @@ cargo test --workspace --all-features               # all tests
 cargo test -p hl7v2-parser                          # single crate
 cargo test -p hl7v2-core test_name                  # single test
 
+# Development Workflow (xtask/just)
+just setup         # Setup git hooks and dev env
+just lint-fix      # Fix formatting and clippy lints
+just gate          # Run all checks (format, clippy, test)
+just ci            # Run CI checks (gate + schema validation)
+
+# Native xtask commands
+cargo run -p xtask -- setup
+cargo run -p xtask -- lint-fix
+cargo run -p xtask -- gate
+
 # Lint & Format
 cargo fmt --all                                     # format (required, enforced in CI)
 cargo clippy --workspace --all-features --all-targets  # lint (zero warnings required)
+```
 
 # Benchmarks
 cargo bench --workspace

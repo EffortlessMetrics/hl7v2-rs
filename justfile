@@ -5,91 +5,76 @@
 default:
     @just --list
 
-# Build all crates
-build:
-    cargo build --all
+# --- Basic Workflow ---
 
-# Build in release mode
-build-release:
-    cargo build --release --all
+# One-time repository setup (hooks, etc.)
+setup:
+    cargo run -p xtask -- setup
 
-# Run all tests
+# Run all formatting and clippy fixes (mutating)
+lint-fix:
+    cargo run -p xtask -- lint-fix
+
+# Check formatting and lints (non-mutating)
+lint-check:
+    cargo run -p xtask -- gate --only clippy
+
+# Run the local "CI preview" gate (fast)
+gate:
+    cargo run -p xtask -- gate
+
+# Run the strict gate (CI parity)
+gate-check:
+    cargo run -p xtask -- gate --check
+
+# Only check changed crates
+gate-changed:
+    cargo run -p xtask -- gate --changed
+
+# --- Scaffolding ---
+
+# Create a new microcrate: just scaffold my-new-feature "Description of feature"
+scaffold NAME DESC="":
+    cargo run -p xtask -- scaffold {{NAME}} --description "{{DESC}}"
+
+# --- Documentation ---
+
+# Generate and open documentation
+docs:
+    cargo run -p xtask -- docs
+
+# Generate documentation without opening
+docs-build:
+    cargo run -p xtask -- docs --no-open
+
+# --- Quality & Security ---
+
+# Run security audit and license check
+audit:
+    cargo run -p xtask -- audit
+
+# Check for outdated dependencies
+outdated:
+    cargo run -p xtask -- outdated
+
+# Run tests with nextest (faster)
 test:
-    cargo test --all
-
-# Run tests with output
-test-verbose:
-    cargo test --all -- --nocapture
-
-# Run specific test
-test-one TEST:
-    cargo test {{TEST}} -- --exact --nocapture
+    @if command -v cargo-nextest > /dev/null; then \
+        cargo nextest run --workspace --all-features; \
+    else \
+        cargo test --workspace --all-features; \
+    fi
 
 # Run benchmarks
 bench:
-    cargo bench --all
+    cargo bench --workspace
 
-# Run specific benchmark
-bench-one BENCH:
-    cargo bench -- {{BENCH}}
-
-# Check code with clippy
-lint:
-    cargo clippy --all-targets --all-features -- -D warnings
-
-# Format code
-fmt:
-    cargo fmt --all
-
-# Check formatting
-fmt-check:
-    cargo fmt --all -- --check
-
-# Run all checks (format, lint, test)
-check: fmt-check lint test
-    @echo "✅ All checks passed!"
-
-# Generate code coverage
-coverage:
-    cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-    cargo llvm-cov --all-features --workspace --html
-    @echo "Coverage report generated in target/llvm-cov/html/index.html"
-
-# Watch for changes and rebuild
-watch:
-    cargo watch -x build
-
-# Watch and run tests
-watch-test:
-    cargo watch -x test
+# --- Utilities ---
 
 # Clean build artifacts
 clean:
     cargo clean
     rm -rf target/
-    rm -f lcov.info
-
-# Validate YAML against schemas
-validate-schemas:
-    ajv validate -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml'
-    ajv validate -s schemas/config/hl7v2-config-v1.schema.json -d 'config/*.toml' || true
-    @echo "✅ Schema validation complete"
-
-# Run BDD tests
-bdd:
-    cargo test --features cucumber --test bdd_tests
-
-# Generate test corpus
-gen-corpus SEED="42" COUNT="100":
-    cargo run -p hl7v2-cli -- gen \
-        --template templates/adt_a01.yaml \
-        --seed {{SEED}} \
-        --count {{COUNT}} \
-        --out test_data/corpus/
-
-# Verify corpus manifest
-verify-corpus:
-    cargo run -p hl7v2-cli -- gen --verify-manifest test_data/corpus/manifest.json
 
 # Run local development stack
 dev-up:
@@ -99,107 +84,6 @@ dev-up:
 dev-down:
     docker-compose -f infrastructure/docker-compose.yml down
 
-# View logs from development stack
-dev-logs:
-    docker-compose -f infrastructure/docker-compose.yml logs -f
-
-# Run server locally
-run-server PORT="8080":
-    cargo run -p hl7v2-cli -- server --port {{PORT}}
-
-# Run MLLP server
-run-mllp PORT="2575":
-    cargo run -p hl7v2-cli -- server --mllp --port {{PORT}}
-
-# Parse a message
-parse FILE:
-    cargo run -p hl7v2-cli -- parse {{FILE}} --json
-
-# Validate a message
-validate FILE PROFILE:
-    cargo run -p hl7v2-cli -- val {{FILE}} --profile {{PROFILE}}
-
-# Build Docker image
-docker-build:
-    docker build -t hl7v2-rs:latest -f infrastructure/Dockerfile .
-
-# Run Docker image
-docker-run:
-    docker run -p 8080:8080 -p 2575:2575 hl7v2-rs:latest
-
-# Build with Nix
-nix-build:
-    nix build
-
-# Check Nix flake
-nix-check:
-    nix flake check
-
-# Update Nix dependencies
-nix-update:
-    nix flake update
-
-# Deploy to Kubernetes
-k8s-deploy:
-    kubectl apply -f infrastructure/k8s/
-
-# Check Kubernetes deployment
-k8s-status:
-    kubectl get pods,svc,deploy -l app=hl7v2-server
-
-# Tail Kubernetes logs
-k8s-logs:
-    kubectl logs -f -l app=hl7v2-server
-
-# Run security audit
-audit:
-    cargo audit
-
-# Update dependencies
-update:
-    cargo update
-
-# Check for outdated dependencies
-outdated:
-    cargo outdated
-
-# Install git hooks
-install-hooks:
-    #!/usr/bin/env bash
-    cat > .git/hooks/pre-commit << 'EOF'
-    #!/usr/bin/env bash
-    set -e
-    just check
-    EOF
-    chmod +x .git/hooks/pre-commit
-    echo "✅ Git hooks installed"
-
 # CI: Run all CI checks
-ci: fmt-check lint test validate-schemas
+ci: gate-check audit docs-build
     @echo "✅ CI checks complete"
-
-# Release: Prepare a new release
-release VERSION:
-    #!/usr/bin/env bash
-    set -e
-    echo "Preparing release {{VERSION}}"
-
-    # Update version in Cargo.toml files
-    sed -i 's/^version = ".*"/version = "{{VERSION}}"/' Cargo.toml
-    sed -i 's/^version = ".*"/version = "{{VERSION}}"/' crates/*/Cargo.toml
-
-    # Update Cargo.lock
-    cargo update -p hl7v2-core -p hl7v2-prof -p hl7v2-gen -p hl7v2-cli
-
-    # Run checks
-    just ci
-
-    # Create git tag
-    git add Cargo.toml crates/*/Cargo.toml Cargo.lock
-    git commit -m "chore: bump version to {{VERSION}}"
-    git tag -a "v{{VERSION}}" -m "Release {{VERSION}}"
-
-    echo "✅ Release {{VERSION}} prepared"
-    echo "Next steps:"
-    echo "  git push origin main"
-    echo "  git push origin v{{VERSION}}"

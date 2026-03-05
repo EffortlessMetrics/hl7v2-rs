@@ -32,6 +32,7 @@ members = [
     "crates/hl7v2-test-utils",
     # End-to-end tests
     "crates/hl7v2-e2e-tests",
+    "xtask",
 ]
 resolver = "2"
 
@@ -50,6 +51,8 @@ categories = ["parser-implementations", "encoding"]
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 thiserror = "2.0.18"
+anyhow = "1.0.102"
+cargo_metadata = "0.23.1"
 clap = { version = "4.5.60", features = ["derive"] }
 uuid = { version = "1.21.0", features = ["v4"] }
 axum = "0.8.8"
