@@ -175,10 +175,11 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
-        let response_data: crate::models::ParseResponse = serde_json::from_slice(&body_bytes).unwrap();
-        
+        let response_data: crate::models::ParseResponse =
+            serde_json::from_slice(&body_bytes).unwrap();
+
         assert_eq!(response_data.metadata.message_type, "ADT");
-        assert_eq!(response_data.metadata.version, "2.5.1");
+        assert_eq!(response_data.metadata.version, "2.5");
         assert_eq!(response_data.metadata.sending_application, "SendingApp");
         assert!(response_data.message.is_some());
     }

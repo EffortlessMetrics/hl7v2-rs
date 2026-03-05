@@ -646,15 +646,16 @@ fn when_validate_message(world: &mut ValidationWorld) {
 
         // Check for unknown message type
         if let Some(msh_9) = hl7v2_query::get(msg, "MSH.9")
-            && msh_9.contains("UNKNOWN") {
-                issues_to_add.push(Issue::error(
-                    "CARDINALITY_VIOLATION", // Matching existing Then step if needed, or fix Then step
-                    Some("MSH.9".to_string()),
-                    "Unknown message type".to_string(),
-                ));
-                // Wait! The Then step for this scenario says "validation should fail".
-                // I should use a code that matches one of the Then steps if possible.
-            }
+            && msh_9.contains("UNKNOWN")
+        {
+            issues_to_add.push(Issue::error(
+                "CARDINALITY_VIOLATION", // Matching existing Then step if needed, or fix Then step
+                Some("MSH.9".to_string()),
+                "Unknown message type".to_string(),
+            ));
+            // Wait! The Then step for this scenario says "validation should fail".
+            // I should use a code that matches one of the Then steps if possible.
+        }
 
         // Check required fields
         let required_fields = ["PID.3.1", "PID.5.1"];
@@ -681,13 +682,14 @@ fn when_validate_message(world: &mut ValidationWorld) {
 
             // Check max length
             if let Some(max) = constraint.max_length
-                && value.len() > max {
-                    issues_to_add.push(Issue::error(
-                        "FIELD_LENGTH_EXCEEDED",
-                        Some(field.clone()),
-                        format!("{} exceeds maximum length of {}", field, max),
-                    ));
-                }
+                && value.len() > max
+            {
+                issues_to_add.push(Issue::error(
+                    "FIELD_LENGTH_EXCEEDED",
+                    Some(field.clone()),
+                    format!("{} exceeds maximum length of {}", field, max),
+                ));
+            }
 
             // Check allowed values
             if let Some(allowed) = &constraint.allowed_values {
@@ -732,23 +734,23 @@ fn when_validate_message(world: &mut ValidationWorld) {
             // Check range
             if let (Some(min), Some(max)) = (constraint.range_min, constraint.range_max)
                 && let Ok(val) = value.parse::<f64>()
-                    && (val < min || val > max) {
-                        issues_to_add.push(Issue::error(
-                            "VALUE_OUT_OF_RANGE",
-                            Some(field.clone()),
-                            format!("{} is outside range {}-{}", field, min, max),
-                        ));
-                    }
+                && (val < min || val > max)
+            {
+                issues_to_add.push(Issue::error(
+                    "VALUE_OUT_OF_RANGE",
+                    Some(field.clone()),
+                    format!("{} is outside range {}-{}", field, min, max),
+                ));
+            }
 
             // Check Luhn checksum
-            if constraint.luhn_checksum
-                && !hl7v2_validation::validate_luhn_checksum(value) {
-                    issues_to_add.push(Issue::error(
-                        "CHECKSUM_VALIDATION_FAILED",
-                        Some(field.clone()),
-                        format!("Invalid Luhn checksum for {}", field),
-                    ));
-                }
+            if constraint.luhn_checksum && !hl7v2_validation::validate_luhn_checksum(value) {
+                issues_to_add.push(Issue::error(
+                    "CHECKSUM_VALIDATION_FAILED",
+                    Some(field.clone()),
+                    format!("Invalid Luhn checksum for {}", field),
+                ));
+            }
         }
 
         // Check cross-field rules
@@ -888,9 +890,10 @@ fn when_validate_segment_order(world: &mut ValidationWorld) {
         let pid_idx = segment_names.iter().position(|&s| s == "PID");
 
         if let (Some(evn), Some(pid)) = (evn_idx, pid_idx)
-            && evn > pid {
-                world.add_error("INVALID_SEGMENT_ORDER", "EVN", "EVN must appear before PID");
-            }
+            && evn > pid
+        {
+            world.add_error("INVALID_SEGMENT_ORDER", "EVN", "EVN must appear before PID");
+        }
     }
 }
 

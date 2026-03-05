@@ -269,7 +269,6 @@ mod client_server_tests {
             let message =
                 parse(SampleMessages::adt_a01().as_bytes()).expect("Should parse test message");
 
-            
             client
                 .send_message(&message)
                 .await
@@ -300,7 +299,6 @@ mod client_server_tests {
 
 mod concurrent_connections {
     use super::*;
-    
 
     async fn find_available_port() -> u16 {
         super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
@@ -330,19 +328,20 @@ mod concurrent_connections {
             // Accept connections for a short time
             for _ in 0..3 {
                 if let Ok(conn) = timeout(Duration::from_millis(500), server.accept()).await
-                    && let Ok(mut conn) = conn {
-                        connection_count_clone.fetch_add(1, Ordering::SeqCst);
+                    && let Ok(mut conn) = conn
+                {
+                    connection_count_clone.fetch_add(1, Ordering::SeqCst);
 
-                        let msg_count = message_count_clone.clone();
-                        tokio::spawn(async move {
-                            while let Ok(Some(msg)) = conn.receive_message().await {
-                                msg_count.fetch_add(1, Ordering::SeqCst);
-                                if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
-                                    let _ = conn.send_message(&ack_msg).await;
-                                }
+                    let msg_count = message_count_clone.clone();
+                    tokio::spawn(async move {
+                        while let Ok(Some(msg)) = conn.receive_message().await {
+                            msg_count.fetch_add(1, Ordering::SeqCst);
+                            if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
+                                let _ = conn.send_message(&ack_msg).await;
                             }
-                        });
-                    }
+                        }
+                    });
+                }
             }
         });
 
@@ -408,9 +407,10 @@ mod concurrent_connections {
             // Process multiple messages on same connection
             for _ in 0..5 {
                 if let Ok(Some(msg)) = conn.receive_message().await
-                    && let Ok(ack_msg) = ack(&msg, AckCode::AA) {
-                        let _ = conn.send_message(&ack_msg).await;
-                    }
+                    && let Ok(ack_msg) = ack(&msg, AckCode::AA)
+                {
+                    let _ = conn.send_message(&ack_msg).await;
+                }
             }
         });
 
@@ -537,7 +537,6 @@ mod error_handling {
 
 mod stress_tests {
     use super::*;
-    
 
     async fn find_available_port() -> u16 {
         super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
@@ -564,17 +563,18 @@ mod stress_tests {
 
             for _ in 0..100 {
                 if let Ok(conn) = timeout(Duration::from_millis(100), server.accept()).await
-                    && let Ok(mut conn) = conn {
-                        let count = total_clone.clone();
-                        tokio::spawn(async move {
-                            while let Ok(Some(msg)) = conn.receive_message().await {
-                                count.fetch_add(1, Ordering::SeqCst);
-                                if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
-                                    let _ = conn.send_message(&ack_msg).await;
-                                }
+                    && let Ok(mut conn) = conn
+                {
+                    let count = total_clone.clone();
+                    tokio::spawn(async move {
+                        while let Ok(Some(msg)) = conn.receive_message().await {
+                            count.fetch_add(1, Ordering::SeqCst);
+                            if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
+                                let _ = conn.send_message(&ack_msg).await;
                             }
-                        });
-                    }
+                        }
+                    });
+                }
             }
         });
 

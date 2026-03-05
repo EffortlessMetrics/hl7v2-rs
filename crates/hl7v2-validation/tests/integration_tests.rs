@@ -5,9 +5,7 @@
 
 use hl7v2_parser::parse;
 use hl7v2_test_utils::{builders::MessageBuilder, fixtures::SampleMessages};
-use hl7v2_validation::{
-    Issue, RuleCondition, Severity, check_rule_condition, is_numeric,
-};
+use hl7v2_validation::{Issue, RuleCondition, Severity, check_rule_condition, is_numeric};
 
 // ============================================================================
 // Test Helpers

@@ -28,7 +28,7 @@ mod cli_unit_tests {
     // =========================================================================
 
     mod argument_parsing {
-        
+
         use clap::CommandFactory;
 
         #[test]
@@ -303,7 +303,6 @@ constraints:
     // =========================================================================
 
     mod gen_command {
-        
 
         #[test]
         fn test_parse_template_yaml() {
@@ -413,7 +412,6 @@ values: {}
     // =========================================================================
 
     mod interactive_mode {
-        
 
         #[test]
         fn test_interactive_help_command() {

@@ -113,4 +113,3 @@ criterion_group!(
 );
 
 criterion_main!(memory_benches);
-

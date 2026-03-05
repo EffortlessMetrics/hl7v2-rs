@@ -211,8 +211,8 @@ fn bench_json_value_access(c: &mut Criterion) {
     c.bench_function("json_value_access", |b| {
         b.iter(|| {
             // Access various parts of the JSON structure
-            if let Value::Object(obj) = &json_value
-                && let Some(Value::Array(segments)) = obj.get("segments") {
+            if let Value::Object(obj) = &json_value {
+                if let Some(Value::Array(segments)) = obj.get("segments") {
                     for segment in segments {
                         if let Value::Object(seg) = segment {
                             if let Some(Value::String(id)) = seg.get("id") {
@@ -226,6 +226,7 @@ fn bench_json_value_access(c: &mut Criterion) {
                         }
                     }
                 }
+            }
         })
     });
 }
@@ -318,4 +319,3 @@ criterion_group!(
 );
 
 criterion_main!(json_benches);
-
