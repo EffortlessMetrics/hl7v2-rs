@@ -2,52 +2,29 @@
 # https://embarkstudios.github.io/cargo-deny/
 
 [advisories]
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "warn"
+unmaintained = "all"
 yanked = "deny"
-notice = "warn"
-ignore = []
 
 [licenses]
-unlicensed = "deny"
 allow = [
-    "MIT",
-    "Apache-2.0",
-    "Apache-2.0 WITH LLVM-exception",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "ISC",
-    "Unicode-DFS-2016",
-    "Zlib",
-    "AGPL-3.0-only",
-    "AGPL-3.0-or-later",
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+  "AGPL-3.0-or-later",
+  "Unlicense",
+  "CDLA-Permissive-2.0",
 ]
-deny = [
-    "GPL-2.0-only",
-    "GPL-2.0-or-later",
-    "GPL-3.0-only",
-    "GPL-3.0-or-later",
-    "LGPL-2.1-only",
-    "LGPL-2.1-or-later",
-    "LGPL-3.0-only",
-    "LGPL-3.0-or-later",
-]
-copyleft = "warn"
-allow-osi-fsf-free = "neither"
-default = "deny"
 confidence-threshold = 0.8
 
 [bans]
 multiple-versions = "warn"
-wildcards = "allow"
-highlight = "all"
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-
-[sources.allow-org]
-github = ["tokio-rs", "hyperium", "serde-rs"]

@@ -103,6 +103,25 @@ jobs:
           fail-on-severity: moderate
           deny-licenses: GPL-3.0
 
+  license-regression:
+    name: License Regression Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for stale license references
+        run: |
+          if rg -n "(MIT OR Apache|Apache-2\.0|SPDX-License-Identifier:\s*(MIT|Apache-2\.0))" \
+            --glob '!deny.toml' \
+            --glob '!Cargo.lock' \
+            --glob '!THIRD_PARTY_NOTICES.md' \
+            --glob '!target/**' \
+            --glob '!.github/workflows/security.yml' \
+            .; then
+            echo "::error::Found MIT/Apache license references in project files"
+            exit 1
+          fi
+
   secrets-scan:
     name: Secrets Scanning
     runs-on: ubuntu-latest
