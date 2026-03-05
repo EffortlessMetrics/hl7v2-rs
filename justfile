@@ -33,6 +33,18 @@ bench:
 bench-one BENCH:
     cargo bench -- {{BENCH}}
 
+# Fix code formatting and lints
+lint-fix:
+    cargo run -p xtask -- lint-fix
+
+# Run gate checks (format, clippy, test)
+gate:
+    cargo run -p xtask -- gate
+
+# Setup development environment
+setup:
+    cargo run -p xtask -- setup
+
 # Check code with clippy
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
@@ -46,7 +58,7 @@ fmt-check:
     cargo fmt --all -- --check
 
 # Run all checks (format, lint, test)
-check: fmt-check lint test
+check: gate
     @echo "✅ All checks passed!"
 
 # Generate code coverage
@@ -164,18 +176,10 @@ outdated:
     cargo outdated
 
 # Install git hooks
-install-hooks:
-    #!/usr/bin/env bash
-    cat > .git/hooks/pre-commit << 'EOF'
-    #!/usr/bin/env bash
-    set -e
-    just check
-    EOF
-    chmod +x .git/hooks/pre-commit
-    echo "✅ Git hooks installed"
+install-hooks: setup
 
 # CI: Run all CI checks
-ci: fmt-check lint test validate-schemas
+ci: gate validate-schemas
     @echo "✅ CI checks complete"
 
 # Release: Prepare a new release
