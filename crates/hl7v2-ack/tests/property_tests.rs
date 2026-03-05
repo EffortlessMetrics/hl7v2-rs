@@ -46,6 +46,7 @@ fn processing_id_strategy() -> impl Strategy<Value = String> {
 }
 
 /// Generate a basic MSH segment string
+#[allow(dead_code)]
 fn msh_segment_strategy() -> impl Strategy<Value = String> {
     (
         app_name_strategy(),
@@ -105,11 +106,10 @@ proptest! {
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 prop_assert_eq!(ack_msg.segments.len(), 2);
             }
-        }
     }
 
     /// Test that ACK with error has exactly 3 segments
@@ -127,11 +127,10 @@ proptest! {
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack_with_error(&original, AckCode::AE, Some(&error_msg)) {
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack_with_error(&original, AckCode::AE, Some(&error_msg)) {
                 prop_assert_eq!(ack_msg.segments.len(), 3);
             }
-        }
     }
 
     /// Test that ACK preserves control ID
@@ -142,14 +141,13 @@ proptest! {
             ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 let msa = &ack_msg.segments[1];
                 if let Some(ack_control_id) = get_field_value(msa, 2) {
                     prop_assert_eq!(ack_control_id, ctrl_id);
                 }
             }
-        }
     }
 
     /// Test that ACK swaps sending and receiving applications
@@ -163,8 +161,8 @@ proptest! {
             send_app, recv_app
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 let ack_msh = &ack_msg.segments[0];
                 if let Some(ack_send_app) = get_field_value(ack_msh, 2) {
                     // ACK sending app should be original receiving app
@@ -175,7 +173,6 @@ proptest! {
                     prop_assert_eq!(ack_recv_app, send_app);
                 }
             }
-        }
     }
 
     /// Test that ACK preserves version
@@ -186,14 +183,13 @@ proptest! {
             version
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 let ack_msh = &ack_msg.segments[0];
                 if let Some(ack_version) = get_field_value(ack_msh, 11) {
                     prop_assert_eq!(ack_version, version);
                 }
             }
-        }
     }
 
     /// Test that ACK preserves processing ID
@@ -204,14 +200,13 @@ proptest! {
             proc_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 let ack_msh = &ack_msg.segments[0];
                 if let Some(ack_proc_id) = get_field_value(ack_msh, 10) {
                     prop_assert_eq!(ack_proc_id, proc_id);
                 }
             }
-        }
     }
 
     /// Test all ACK codes work correctly
@@ -235,14 +230,13 @@ proptest! {
             send_app, ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, code) {
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, code) {
                 let msa = &ack_msg.segments[1];
                 if let Some(ack_code_value) = get_field_value(msa, 1) {
                     prop_assert_eq!(ack_code_value, code.as_str());
                 }
             }
-        }
     }
 
     /// Test that ACK preserves delimiters
@@ -253,15 +247,14 @@ proptest! {
             ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA) {
                 prop_assert_eq!(ack_msg.delims.field, original.delims.field);
                 prop_assert_eq!(ack_msg.delims.comp, original.delims.comp);
                 prop_assert_eq!(ack_msg.delims.rep, original.delims.rep);
                 prop_assert_eq!(ack_msg.delims.esc, original.delims.esc);
                 prop_assert_eq!(ack_msg.delims.sub, original.delims.sub);
             }
-        }
     }
 }
 

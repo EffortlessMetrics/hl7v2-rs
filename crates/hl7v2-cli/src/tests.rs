@@ -3,13 +3,14 @@
 //! Tests argument parsing, command execution, and error handling.
 
 #[cfg(test)]
-mod tests {
+mod cli_unit_tests {
     use hl7v2_test_utils::fixtures::SampleMessages;
     use std::fs;
     use std::path::PathBuf;
     use tempfile::TempDir;
 
     // Helper to create a temp file with content
+    #[allow(dead_code)]
     fn create_temp_file(dir: &TempDir, filename: &str, content: &[u8]) -> PathBuf {
         let path = dir.path().join(filename);
         fs::write(&path, content).expect("Failed to write temp file");
@@ -17,6 +18,7 @@ mod tests {
     }
 
     // Helper to create a temp HL7 file
+    #[allow(dead_code)]
     fn create_temp_hl7_file(dir: &TempDir, filename: &str) -> PathBuf {
         create_temp_file(dir, filename, SampleMessages::adt_a01().as_bytes())
     }
@@ -26,7 +28,7 @@ mod tests {
     // =========================================================================
 
     mod argument_parsing {
-        use super::*;
+        
         use clap::CommandFactory;
 
         #[test]
@@ -301,7 +303,7 @@ constraints:
     // =========================================================================
 
     mod gen_command {
-        use super::*;
+        
 
         #[test]
         fn test_parse_template_yaml() {
@@ -360,7 +362,7 @@ values: {}
         #[test]
         fn test_invalid_profile_yaml_returns_error() {
             let invalid_yaml = "this is not: valid: yaml:::";
-            let result = hl7v2_prof::load_profile(invalid_yaml);
+            let _result = hl7v2_prof::load_profile(invalid_yaml);
             // Should handle gracefully (either error or empty profile)
             // Behavior depends on implementation
         }
@@ -411,7 +413,7 @@ values: {}
     // =========================================================================
 
     mod interactive_mode {
-        use super::*;
+        
 
         #[test]
         fn test_interactive_help_command() {
@@ -746,9 +748,9 @@ constraints:
             use crate::ReportFormat;
 
             // Verify all format variants exist
-            let text = ReportFormat::Text;
-            let json = ReportFormat::Json;
-            let yaml = ReportFormat::Yaml;
+            let _text = ReportFormat::Text;
+            let _json = ReportFormat::Json;
+            let _yaml = ReportFormat::Yaml;
 
             // Verify default
             assert_eq!(ReportFormat::default(), ReportFormat::Text);

@@ -23,7 +23,10 @@ async fn test_validate_with_minimal_profile() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -53,7 +56,10 @@ async fn test_validate_adt_a01_with_matching_profile() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -92,7 +98,10 @@ async fn test_validate_malformed_message_returns_error() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -122,7 +131,10 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -154,7 +166,10 @@ async fn test_validate_missing_message_field_returns_400() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -183,7 +198,10 @@ async fn test_validate_missing_profile_field_returns_400() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -208,7 +226,10 @@ async fn test_validate_empty_request_body_returns_400() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -233,7 +254,10 @@ async fn test_validate_get_method_not_allowed() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("GET")
                 .body(Body::empty())
@@ -262,7 +286,10 @@ async fn test_validate_returns_json_response() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/validate")
                 .method("POST")
                 .header("Content-Type", "application/json")

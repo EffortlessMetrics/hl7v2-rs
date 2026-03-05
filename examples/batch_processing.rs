@@ -153,8 +153,11 @@ fn process_batch_messages_example() {
 struct ProcessResult {
     message_num: usize,
     success: bool,
+    #[allow(dead_code)]
     patient_id: Option<String>,
+    #[allow(dead_code)]
     patient_name: Option<String>,
+    #[allow(dead_code)]
     error: Option<String>,
 }
 

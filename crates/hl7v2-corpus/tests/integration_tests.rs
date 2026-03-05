@@ -172,11 +172,10 @@ fn test_corpus_config_integration() {
         );
     }
 
-    if config.create_splits {
-        if let Some(ratios) = config.split_ratios {
+    if config.create_splits
+        && let Some(ratios) = config.split_ratios {
             manifest.create_splits(ratios);
         }
-    }
 
     assert_eq!(manifest.message_count(), 1000);
     assert!(!manifest.splits.train.is_empty());

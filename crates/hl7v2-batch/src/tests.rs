@@ -337,7 +337,7 @@ fn test_extract_batch_info_minimal() {
             || info
                 .encoding_characters
                 .as_ref()
-                .map_or(false, |s| s.is_empty())
+                .is_some_and(|s| s.is_empty())
     );
 }
 

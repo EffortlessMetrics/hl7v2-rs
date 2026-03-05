@@ -9,8 +9,8 @@ use std::time::Duration;
 use async_lock::RwLock;
 use lru::LruCache;
 
-use crate::{Profile, load_profile};
 pub use crate::ProfileLoadError;
+use crate::{Profile, load_profile};
 
 /// Default cache size (number of profiles)
 const DEFAULT_CACHE_SIZE: usize = 100;
@@ -287,7 +287,7 @@ impl ProfileLoader {
     pub async fn load_from_file(&self, path: &str) -> Result<LoadResult, ProfileLoadError> {
         // For local files, we don't currently use the ETag logic,
         // but we still cache them by path to avoid re-parsing.
-        
+
         {
             let mut cache = self.cache.write().await;
             if let Some(entry) = cache.get(path) {
@@ -328,11 +328,11 @@ impl ProfileLoader {
     }
 
     /// Load a profile from a file synchronously.
-    /// 
+    ///
     /// This bypasses the async loader and cache.
     pub fn load_file_sync(path: &str) -> Result<Profile, ProfileLoadError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| ProfileLoadError::Io(e.to_string()))?;
+        let content =
+            std::fs::read_to_string(path).map_err(|e| ProfileLoadError::Io(e.to_string()))?;
         load_profile(&content)
     }
 
@@ -402,7 +402,7 @@ mod tests {
     async fn test_load_from_url() {
         let server = MockServer::start().await;
         let profile_yaml = "message_structure: ADT_A01\nversion: '2.5'\nsegments: []";
-        
+
         Mock::given(method("GET"))
             .and(path("/profile.yaml"))
             .respond_with(ResponseTemplate::new(200).set_body_string(profile_yaml))
@@ -412,7 +412,7 @@ mod tests {
         let loader = ProfileLoader::new();
         let url = format!("{}/profile.yaml", server.uri());
         let result = loader.load(&url).await.unwrap();
-        
+
         assert_eq!(result.profile.message_structure, "ADT_A01");
         assert!(!result.from_cache);
     }
@@ -421,20 +421,24 @@ mod tests {
     async fn test_cache_invalidation() {
         let server = MockServer::start().await;
         let profile_yaml = "message_structure: ADT_A01\nversion: '2.5'\nsegments: []";
-        
+
         Mock::given(method("GET"))
             .and(path("/profile.yaml"))
-            .respond_with(ResponseTemplate::new(200).set_body_string(profile_yaml).insert_header("ETag", "v1"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(profile_yaml)
+                    .insert_header("ETag", "v1"),
+            )
             .mount(&server)
             .await;
 
         let loader = ProfileLoader::new();
         let url = format!("{}/profile.yaml", server.uri());
-        
+
         // First load
         let _ = loader.load(&url).await.unwrap();
-        
-        // Second load (should be from cache if we don't have conditional request logic yet, 
+
+        // Second load (should be from cache if we don't have conditional request logic yet,
         // or should use ETag)
         // Let's mock the 304 response
         server.reset().await;
@@ -443,7 +447,7 @@ mod tests {
             .respond_with(ResponseTemplate::new(304))
             .mount(&server)
             .await;
-            
+
         let result = loader.load(&url).await.unwrap();
         assert!(result.from_cache);
     }
@@ -458,14 +462,14 @@ mod tests {
         let loader = ProfileLoader::new();
         let path_str = file_path.to_str().unwrap();
         let result = loader.load(path_str).await.unwrap();
-        
+
         assert_eq!(result.profile.message_structure, "ORU_R01");
     }
 
     #[tokio::test]
     async fn test_invalid_url_scheme() {
         let loader = ProfileLoader::new();
-        // Since we treat everything not starting with http as a file path, 
+        // Since we treat everything not starting with http as a file path,
         // this will fail with a file error, not a scheme error unless we explicitly check
         let result = loader.load("ftp://example.com/profile.yaml").await;
         assert!(result.is_err());
@@ -499,7 +503,7 @@ mod tests {
     #[tokio::test]
     async fn test_lru_eviction() {
         let loader = ProfileLoader::builder().cache_size(1).build();
-        
+
         // Create two temp files
         let temp_dir = tempfile::tempdir().unwrap();
         let p1 = temp_dir.path().join("p1.yaml");
@@ -510,7 +514,7 @@ mod tests {
 
         loader.load(p1.to_str().unwrap()).await.unwrap();
         loader.load(p2.to_str().unwrap()).await.unwrap();
-        
+
         // p1 should be evicted now
         let result = loader.load(p1.to_str().unwrap()).await.unwrap();
         assert!(!result.from_cache);
@@ -525,10 +529,10 @@ mod tests {
 
         let loader = ProfileLoader::new();
         let path = file_path.to_str().unwrap();
-        
+
         loader.load(path).await.unwrap();
         loader.clear_cache().await;
-        
+
         let result = loader.load(path).await.unwrap();
         assert!(!result.from_cache);
     }

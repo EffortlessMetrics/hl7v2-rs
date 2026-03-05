@@ -1,8 +1,9 @@
 //! Benchmarks for HL7 v2 escape sequence handling performance
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use hl7v2_escape::{escape_text, unescape_text};
 use hl7v2_model::Delims;
+use std::hint::black_box;
 
 /// Create sample escaped text for benchmarking
 fn create_sample_escaped_text() -> String {

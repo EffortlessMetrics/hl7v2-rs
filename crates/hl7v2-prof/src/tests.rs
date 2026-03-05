@@ -1,10 +1,9 @@
 #[cfg(test)]
-mod tests {
+mod unit_tests {
     use crate::{
-        Profile, compare_timestamps_for_before, load_profile,
-        parse_hl7_ts_with_precision, validate,
+        Profile, compare_timestamps_for_before, load_profile, parse_hl7_ts_with_precision, validate,
     };
-    
+
     use hl7v2_core::parse;
 
     // Helper: build a tiny valid ADT A01 (PID.3 and PID.8 filled)

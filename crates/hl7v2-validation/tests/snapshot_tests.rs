@@ -4,7 +4,7 @@
 //! to detect unexpected changes in output format.
 
 use hl7v2_parser::parse;
-use hl7v2_test_utils::{builders::MessageBuilder, fixtures::SampleMessages};
+use hl7v2_test_utils::fixtures::SampleMessages;
 use hl7v2_validation::{Issue, RuleCondition, Severity, check_rule_condition};
 use insta::{assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot};
 

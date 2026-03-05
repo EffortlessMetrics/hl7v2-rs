@@ -26,7 +26,10 @@ async fn test_parse_valid_adt_a01_message() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -55,7 +58,10 @@ async fn test_parse_valid_adt_a04_message() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -84,7 +90,10 @@ async fn test_parse_valid_oru_r01_message() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -113,7 +122,10 @@ async fn test_parse_minimal_valid_message() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -142,7 +154,10 @@ async fn test_parse_malformed_message_returns_error() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -178,7 +193,10 @@ async fn test_parse_invalid_encoding_may_succeed_if_has_msh() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -204,7 +222,10 @@ async fn test_parse_empty_request_body_returns_400() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -229,7 +250,10 @@ async fn test_parse_invalid_json_returns_400() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -261,7 +285,10 @@ async fn test_parse_response_contains_segments() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -290,7 +317,10 @@ async fn test_parse_get_method_not_allowed() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("GET")
                 .body(Body::empty())

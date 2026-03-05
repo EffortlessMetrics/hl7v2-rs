@@ -16,6 +16,7 @@ fn create_basic_template() -> Template {
     }
 }
 
+#[allow(dead_code)]
 fn create_template_with_values() -> Template {
     let mut values = HashMap::new();
     values.insert("PID.3".to_string(), vec![ValueSource::UuidV4]);

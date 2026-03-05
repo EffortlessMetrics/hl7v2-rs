@@ -338,41 +338,41 @@ fn test_batch_with_multiple_messages() {
 }
 
 #[test]
-#[allow(clippy::field_reassign_with_default)]
 fn test_file_batch_structure() {
-    let mut file_batch = FileBatch::default();
+    let mut file_batch = FileBatch {
+        header: Some(Segment {
+            id: *b"FHS",
+            fields: vec![
+                Field::from_text("^~\\&"),
+                Field::from_text("FILEAPP"),
+                Field::from_text("FILEFAC"),
+            ],
+        }),
+        ..Default::default()
+    };
 
-    file_batch.header = Some(Segment {
-        id: *b"FHS",
-        fields: vec![
-            Field::from_text("^~\\&"),
-            Field::from_text("FILEAPP"),
-            Field::from_text("FILEFAC"),
-        ],
-    });
-
-    #[allow(clippy::field_reassign_with_default)]
-    let mut batch = Batch::default();
-    batch.header = Some(Segment {
-        id: *b"BHS",
-        fields: vec![
-            Field::from_text("^~\\&"),
-            Field::from_text("BATCHAPP"),
-            Field::from_text("BATCHFAC"),
-        ],
-    });
-    batch.messages.push(Message {
-        delims: Delims::default(),
-        segments: vec![Segment {
-            id: *b"MSH",
-            fields: vec![Field::from_text("^~\\&")],
+    let batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![
+                Field::from_text("^~\\&"),
+                Field::from_text("BATCHAPP"),
+                Field::from_text("BATCHFAC"),
+            ],
+        }),
+        messages: vec![Message {
+            delims: Delims::default(),
+            segments: vec![Segment {
+                id: *b"MSH",
+                fields: vec![Field::from_text("^~\\&")],
+            }],
+            charsets: vec![],
         }],
-        charsets: vec![],
-    });
-    batch.trailer = Some(Segment {
-        id: *b"BTS",
-        fields: vec![Field::from_text("1")],
-    });
+        trailer: Some(Segment {
+            id: *b"BTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
 
     file_batch.batches.push(batch);
     file_batch.trailer = Some(Segment {

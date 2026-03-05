@@ -66,7 +66,10 @@ fn programmatic_template_example() {
     );
 
     // Random numeric (6 digits)
-    values.insert("patient_id".to_string(), vec![ValueSource::Numeric { digits: 6 }]);
+    values.insert(
+        "patient_id".to_string(),
+        vec![ValueSource::Numeric { digits: 6 }],
+    );
 
     // UUID
     values.insert("control_id".to_string(), vec![ValueSource::UuidV4]);
@@ -145,7 +148,10 @@ fn batch_generation_example() {
     );
     values.insert("timestamp".to_string(), vec![ValueSource::DtmNowUtc]);
     values.insert("control_id".to_string(), vec![ValueSource::UuidV4]);
-    values.insert("patient_id".to_string(), vec![ValueSource::Numeric { digits: 6 }]);
+    values.insert(
+        "patient_id".to_string(),
+        vec![ValueSource::Numeric { digits: 6 }],
+    );
     values.insert(
         "patient_name".to_string(),
         vec![ValueSource::From(vec![

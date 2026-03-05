@@ -189,7 +189,6 @@ proptest! {
 
         // For each segment event, verify that field events follow
         let mut segment_count = 0;
-        let mut field_count = 0;
         let mut after_segment = false;
 
         for event in &events {
@@ -200,7 +199,8 @@ proptest! {
                 }
                 Event::Field { .. } => {
                     if after_segment {
-                        field_count += 1;
+                        // We could count these if needed, but the current property
+                        // just checks that segment_count is tracked
                     }
                 }
                 Event::StartMessage { .. } | Event::EndMessage => {
