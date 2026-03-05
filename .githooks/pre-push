@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-echo "pre-push: Run strict gate checks..."
+# Find the repository root
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+echo "pre-push: gate --check"
 cargo run -p xtask -- gate --check

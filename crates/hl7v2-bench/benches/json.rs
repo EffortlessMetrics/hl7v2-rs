@@ -211,17 +211,17 @@ fn bench_json_value_access(c: &mut Criterion) {
     c.bench_function("json_value_access", |b| {
         b.iter(|| {
             // Access various parts of the JSON structure
-            if let Value::Object(obj) = &json_value {
-                if let Some(Value::Array(segments)) = obj.get("segments") {
-                    for segment in segments {
-                        if let Value::Object(seg) = segment {
-                            if let Some(Value::String(id)) = seg.get("id") {
-                                black_box(id);
-                            }
-                            if let Some(Value::Array(fields)) = seg.get("fields") {
-                                for field in fields {
-                                    black_box(field);
-                                }
+            if let Value::Object(obj) = &json_value
+                && let Some(Value::Array(segments)) = obj.get("segments")
+            {
+                for segment in segments {
+                    if let Value::Object(seg) = segment {
+                        if let Some(Value::String(id)) = seg.get("id") {
+                            black_box(id);
+                        }
+                        if let Some(Value::Array(fields)) = seg.get("fields") {
+                            for field in fields {
+                                black_box(field);
                             }
                         }
                     }

@@ -37,28 +37,26 @@ impl Validator for BasicValidator {
             let seg_id = segment.id_str();
             if seg_id == "MSH" {
                 // Check MSH.7 (Date/Time) - should be valid timestamp
-                if segment.fields.len() > 6 {
-                    if let Some(dt) = segment.fields[6].first_text() {
-                        if !validate_data_type(dt, "TS") {
-                            issues.push(Issue::error(
-                                "INVALID_DATETIME",
-                                Some("MSH.7".to_string()),
-                                format!("Invalid datetime format: {}", dt),
-                            ));
-                        }
-                    }
+                if segment.fields.len() > 6
+                    && let Some(dt) = segment.fields[6].first_text()
+                    && !validate_data_type(dt, "TS")
+                {
+                    issues.push(Issue::error(
+                        "INVALID_DATETIME",
+                        Some("MSH.7".to_string()),
+                        format!("Invalid datetime format: {}", dt),
+                    ));
                 }
                 // Check MSH.9 (Message Type) - should be valid
-                if segment.fields.len() > 8 {
-                    if let Some(msg_type) = segment.fields[8].first_text() {
-                        if !msg_type.contains('^') {
-                            issues.push(Issue::warning(
-                                "INVALID_MESSAGE_TYPE",
-                                Some("MSH.9".to_string()),
-                                "Message type should contain trigger event".to_string(),
-                            ));
-                        }
-                    }
+                if segment.fields.len() > 8
+                    && let Some(msg_type) = segment.fields[8].first_text()
+                    && !msg_type.contains('^')
+                {
+                    issues.push(Issue::warning(
+                        "INVALID_MESSAGE_TYPE",
+                        Some("MSH.9".to_string()),
+                        "Message type should contain trigger event".to_string(),
+                    ));
                 }
             } else if seg_id == "PID" {
                 // Check PID.3 (Patient ID) - should be valid
@@ -73,30 +71,28 @@ impl Validator for BasicValidator {
                     }
                 }
                 // Check PID.7 (Date of Birth) - should be valid date
-                if segment.fields.len() > 6 {
-                    if let Some(dob) = segment.fields[6].first_text() {
-                        if !dob.is_empty() && !validate_data_type(dob, "DT") {
-                            issues.push(Issue::error(
-                                "INVALID_DOB",
-                                Some("PID.7".to_string()),
-                                format!("Invalid date of birth format: {}", dob),
-                            ));
-                        }
-                    }
+                if segment.fields.len() > 6
+                    && let Some(dob) = segment.fields[6].first_text()
+                    && !dob.is_empty()
+                    && !validate_data_type(dob, "DT")
+                {
+                    issues.push(Issue::error(
+                        "INVALID_DOB",
+                        Some("PID.7".to_string()),
+                        format!("Invalid date of birth format: {}", dob),
+                    ));
                 }
                 // Check PID.19 (SSN) - should be valid if present
-                if segment.fields.len() > 18 {
-                    if let Some(ssn) = segment.fields[18].first_text() {
-                        if !ssn.is_empty()
-                            && (!ssn.chars().all(|c| c.is_ascii_digit()) || ssn.len() != 9)
-                        {
-                            issues.push(Issue::warning(
-                                "INVALID_SSN",
-                                Some("PID.19".to_string()),
-                                format!("Invalid SSN format: {}", ssn),
-                            ));
-                        }
-                    }
+                if segment.fields.len() > 18
+                    && let Some(ssn) = segment.fields[18].first_text()
+                    && !ssn.is_empty()
+                    && (!ssn.chars().all(|c| c.is_ascii_digit()) || ssn.len() != 9)
+                {
+                    issues.push(Issue::warning(
+                        "INVALID_SSN",
+                        Some("PID.19".to_string()),
+                        format!("Invalid SSN format: {}", ssn),
+                    ));
                 }
             }
         }
@@ -148,14 +144,14 @@ impl Validator for StrictValidator {
                                 Some("MSH.7".to_string()),
                                 "Message datetime is required".to_string(),
                             ));
-                        } else if let Some(dt_val) = dt {
-                            if !validate_data_type(dt_val, "TS") {
-                                issues.push(Issue::error(
-                                    "INVALID_DATETIME",
-                                    Some("MSH.7".to_string()),
-                                    format!("Invalid datetime format: {}", dt_val),
-                                ));
-                            }
+                        } else if let Some(dt_val) = dt
+                            && !validate_data_type(dt_val, "TS")
+                        {
+                            issues.push(Issue::error(
+                                "INVALID_DATETIME",
+                                Some("MSH.7".to_string()),
+                                format!("Invalid datetime format: {}", dt_val),
+                            ));
                         }
                     }
 
@@ -231,16 +227,16 @@ impl Validator for StrictValidator {
                     }
 
                     // PID.7 - DOB validation
-                    if segment.fields.len() > 6 {
-                        if let Some(dob) = segment.fields[6].first_text() {
-                            if !dob.is_empty() && !validate_data_type(dob, "DT") {
-                                issues.push(Issue::error(
-                                    "INVALID_DOB",
-                                    Some("PID.7".to_string()),
-                                    format!("Invalid date of birth: {}", dob),
-                                ));
-                            }
-                        }
+                    if segment.fields.len() > 6
+                        && let Some(dob) = segment.fields[6].first_text()
+                        && !dob.is_empty()
+                        && !validate_data_type(dob, "DT")
+                    {
+                        issues.push(Issue::error(
+                            "INVALID_DOB",
+                            Some("PID.7".to_string()),
+                            format!("Invalid date of birth: {}", dob),
+                        ));
                     }
 
                     // PID.8 - Administrative Sex (required)
