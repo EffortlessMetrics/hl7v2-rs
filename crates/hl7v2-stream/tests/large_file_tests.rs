@@ -665,9 +665,10 @@ fn test_field_memory_is_released() {
     let mut found_large_field = false;
     while let Ok(Some(event)) = parser.next_event() {
         if let Event::Field { raw, .. } = &event
-            && raw.len() == 1_000_000 {
-                found_large_field = true;
-            }
+            && raw.len() == 1_000_000
+        {
+            found_large_field = true;
+        }
         // Event is dropped here
     }
 

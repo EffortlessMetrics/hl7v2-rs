@@ -538,4 +538,3 @@ criterion_group!(
 );
 
 criterion_main!(template_benches);
-
