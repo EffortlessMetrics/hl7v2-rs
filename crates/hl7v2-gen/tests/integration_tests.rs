@@ -91,7 +91,7 @@ fn test_generation_with_uuid() {
     let messages = generate(&template, 42, 10).unwrap();
 
     // Each message should have a unique control ID
-    let mut control_ids: Vec<Vec<u8>> = messages.iter().map(|m| hl7v2_core::write(m)).collect();
+    let mut control_ids: Vec<Vec<u8>> = messages.iter().map(hl7v2_core::write).collect();
 
     // Check uniqueness
     control_ids.sort();

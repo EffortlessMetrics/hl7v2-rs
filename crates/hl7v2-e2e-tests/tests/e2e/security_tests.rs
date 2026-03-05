@@ -5,9 +5,8 @@
 //! - CORS headers
 //! - Request size limits
 
-use axum::http::{header, Request, StatusCode};
-use hl7v2_server::{build_router, AppState};
-use http_body_util::BodyExt;
+use axum::http::{Request, StatusCode, header};
+use hl7v2_server::{AppState, build_router};
 use std::sync::Arc;
 use std::time::Instant;
 use tower::ServiceExt;
@@ -25,7 +24,10 @@ async fn test_auth_missing_api_key_fails() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -51,7 +53,10 @@ async fn test_auth_valid_api_key_succeeds() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -64,7 +69,10 @@ async fn test_auth_valid_api_key_succeeds() {
 
     // Should be OK (or at least not Unauthorized)
     // 422 because message is truncated, but not 401
-    assert!(response.status() == StatusCode::OK || response.status() == StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        response.status() == StatusCode::OK
+            || response.status() == StatusCode::UNPROCESSABLE_ENTITY
+    );
 }
 
 #[tokio::test]
@@ -80,7 +88,10 @@ async fn test_auth_invalid_api_key_fails() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse")
                 .method("POST")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -105,10 +116,14 @@ async fn test_health_metrics_public() {
     let app = build_router(state);
 
     // Health should be public
-    let response = app.clone()
+    let response = app
+        .clone()
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/health")
                 .body(axum::body::Body::empty())
                 .unwrap(),
@@ -121,7 +136,10 @@ async fn test_health_metrics_public() {
     let response = app
         .oneshot(
             Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/metrics")
                 .body(axum::body::Body::empty())
                 .unwrap(),

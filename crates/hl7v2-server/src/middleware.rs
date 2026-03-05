@@ -14,7 +14,7 @@ use axum::{
 };
 use http::StatusCode;
 use std::sync::Arc;
-use tracing::{info_span, warn};
+use tracing::info_span;
 
 use crate::server::AppState;
 

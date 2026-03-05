@@ -8,7 +8,6 @@
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use hl7v2_template::{Template, ValueSource, generate, generate_corpus};
 use hl7v2_template_values::generate_value;
-use rand::RngExt;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use std::collections::HashMap;
@@ -539,3 +538,4 @@ criterion_group!(
 );
 
 criterion_main!(template_benches);
+

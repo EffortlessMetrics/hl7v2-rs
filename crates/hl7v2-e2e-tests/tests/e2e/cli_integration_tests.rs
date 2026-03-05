@@ -17,6 +17,7 @@ use super::common::init_tracing;
 // =========================================================================
 
 /// Create a CLI command
+#[allow(deprecated)]
 fn cli() -> Command {
     Command::cargo_bin("hl7v2-cli").expect("Failed to find hl7v2-cli binary")
 }
@@ -73,29 +74,32 @@ fn sample_oru_r01() -> String {
     .to_string()
 }
 
-/// Basic validation profile
+/// Basic validation profile YAML
 fn basic_profile() -> String {
-    r#"
-name: Basic_Profile
-version: "1.0"
-message_types:
-  - type: ADT
-    trigger: A01
-    required_segments:
-      - MSH
-      - PID
-      - PV1
-  - type: ADT
-    trigger: A04
-    required_segments:
-      - MSH
-      - PID
-  - type: ORU
-    trigger: R01
-    required_segments:
-      - MSH
-      - PID
-      - OBR
+    r#"message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+  - id: EVN
+  - id: PID
+  - id: PV1
+"#
+    .to_string()
+}
+
+/// Basic generation template YAML
+fn basic_template() -> String {
+    r#"name: BasicTemplate
+delims: "^~\\&"
+segments:
+  - "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|20230101120000||ADT^A01|MSG001|P|2.5"
+  - "PID|1||12345^^^HOSP^MR||DOE^JOHN"
+  - "PV1|1|I|ICU^101^A"
+values:
+  PID.3:
+    - type: Numeric
+      value:
+        digits: 8
 "#
     .to_string()
 }
@@ -279,7 +283,6 @@ mod validate_command {
     use super::*;
 
     #[test]
-    #[ignore = "Profile format needs to be aligned with CLI implementation"]
     fn test_val_valid_adt_a01() {
         init_tracing();
 
@@ -297,7 +300,6 @@ mod validate_command {
     }
 
     #[test]
-    #[ignore = "Profile format needs to be aligned with CLI implementation"]
     fn test_val_valid_oru_r01() {
         init_tracing();
 
@@ -315,7 +317,6 @@ mod validate_command {
     }
 
     #[test]
-    #[ignore = "Profile format needs to be aligned with CLI implementation"]
     fn test_val_with_detailed_output() {
         init_tracing();
 
@@ -369,7 +370,6 @@ mod ack_command {
     use super::*;
 
     #[test]
-    #[ignore = "Escape sequence handling in test messages needs alignment"]
     fn test_ack_accept() {
         init_tracing();
 
@@ -389,7 +389,6 @@ mod ack_command {
     }
 
     #[test]
-    #[ignore = "Escape sequence handling in test messages needs alignment"]
     fn test_ack_error() {
         init_tracing();
 
@@ -409,7 +408,6 @@ mod ack_command {
     }
 
     #[test]
-    #[ignore = "Escape sequence handling in test messages needs alignment"]
     fn test_ack_reject() {
         init_tracing();
 
@@ -429,7 +427,6 @@ mod ack_command {
     }
 
     #[test]
-    #[ignore = "Escape sequence handling in test messages needs alignment"]
     fn test_ack_with_summary() {
         init_tracing();
 
@@ -457,19 +454,18 @@ mod generate_command {
     use super::*;
 
     #[test]
-    #[ignore = "Profile format needs to be aligned with CLI implementation"]
     fn test_gen_basic() {
         init_tracing();
 
         let dir = TempDir::new().expect("Failed to create temp dir");
-        let profile_file = create_profile_file(&dir, "profile.yaml", &basic_profile());
+        let template_file = create_profile_file(&dir, "template.yaml", &basic_template());
         let output_dir = dir.path().join("output");
         std::fs::create_dir(&output_dir).expect("Failed to create output dir");
 
         let mut cmd = cli();
         cmd.arg("gen")
             .arg("--profile")
-            .arg(&profile_file)
+            .arg(&template_file)
             .arg("--seed")
             .arg("42")
             .arg("--count")
@@ -481,19 +477,18 @@ mod generate_command {
     }
 
     #[test]
-    #[ignore = "Profile format needs to be aligned with CLI implementation"]
     fn test_gen_with_stats() {
         init_tracing();
 
         let dir = TempDir::new().expect("Failed to create temp dir");
-        let profile_file = create_profile_file(&dir, "profile.yaml", &basic_profile());
+        let template_file = create_profile_file(&dir, "template.yaml", &basic_template());
         let output_dir = dir.path().join("output");
         std::fs::create_dir(&output_dir).expect("Failed to create output dir");
 
         let mut cmd = cli();
         cmd.arg("gen")
             .arg("--profile")
-            .arg(&profile_file)
+            .arg(&template_file)
             .arg("--seed")
             .arg("12345")
             .arg("--count")
@@ -646,7 +641,6 @@ mod edge_cases {
     }
 
     #[test]
-    #[ignore = "Profile format needs to be aligned with CLI implementation"]
     fn test_val_with_mllp_input() {
         init_tracing();
 
@@ -674,7 +668,6 @@ mod edge_cases {
     }
 
     #[test]
-    #[ignore = "Escape sequence handling in test messages needs alignment"]
     fn test_ack_mllp_output() {
         init_tracing();
 
@@ -702,7 +695,6 @@ mod workflows {
     use super::*;
 
     #[test]
-    #[ignore = "Profile format and escape sequence handling needs alignment"]
     fn test_full_workflow_parse_validate_ack() {
         init_tracing();
 
@@ -750,7 +742,6 @@ mod workflows {
     }
 
     #[test]
-    #[ignore = "Profile format needs to be aligned with CLI implementation"]
     fn test_workflow_normalize_and_validate() {
         init_tracing();
 

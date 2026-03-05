@@ -71,6 +71,7 @@ fn person_name_strategy() -> impl Strategy<Value = String> {
 }
 
 /// Generate any ASCII string
+#[allow(dead_code)]
 fn ascii_string_strategy() -> impl Strategy<Value = String> {
     ".*"
 }

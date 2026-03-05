@@ -8,10 +8,9 @@
 
 use bytes::BytesMut;
 use hl7v2_ack::{AckCode, ack};
-use hl7v2_network::{MessageHandler, MllpClientBuilder, MllpCodec, MllpServer, MllpServerConfig};
+use hl7v2_network::{MllpClientBuilder, MllpCodec, MllpServer, MllpServerConfig};
 use hl7v2_parser::parse;
 use hl7v2_test_utils::{MockMllpServer, SampleMessages};
-use hl7v2_writer::write;
 use tokio_util::codec::{Decoder, Encoder};
 
 use super::common::init_tracing;
@@ -270,11 +269,11 @@ mod client_server_tests {
             let message =
                 parse(SampleMessages::adt_a01().as_bytes()).expect("Should parse test message");
 
-            let ack = client
+            
+            client
                 .send_message(&message)
                 .await
-                .expect("Should send and receive");
-            ack
+                .expect("Should send and receive")
         };
 
         let (server_result, client_result) = tokio::join!(
@@ -301,7 +300,7 @@ mod client_server_tests {
 
 mod concurrent_connections {
     use super::*;
-    use std::net::SocketAddr;
+    
 
     async fn find_available_port() -> u16 {
         super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
@@ -330,8 +329,8 @@ mod concurrent_connections {
 
             // Accept connections for a short time
             for _ in 0..3 {
-                if let Ok(conn) = timeout(Duration::from_millis(500), server.accept()).await {
-                    if let Ok(mut conn) = conn {
+                if let Ok(conn) = timeout(Duration::from_millis(500), server.accept()).await
+                    && let Ok(mut conn) = conn {
                         connection_count_clone.fetch_add(1, Ordering::SeqCst);
 
                         let msg_count = message_count_clone.clone();
@@ -344,7 +343,6 @@ mod concurrent_connections {
                             }
                         });
                     }
-                }
             }
         });
 
@@ -409,11 +407,10 @@ mod concurrent_connections {
 
             // Process multiple messages on same connection
             for _ in 0..5 {
-                if let Ok(Some(msg)) = conn.receive_message().await {
-                    if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
+                if let Ok(Some(msg)) = conn.receive_message().await
+                    && let Ok(ack_msg) = ack(&msg, AckCode::AA) {
                         let _ = conn.send_message(&ack_msg).await;
                     }
-                }
             }
         });
 
@@ -540,7 +537,7 @@ mod error_handling {
 
 mod stress_tests {
     use super::*;
-    use std::net::SocketAddr;
+    
 
     async fn find_available_port() -> u16 {
         super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
@@ -566,8 +563,8 @@ mod stress_tests {
             server.bind(addr).await.expect("Server should bind");
 
             for _ in 0..100 {
-                if let Ok(conn) = timeout(Duration::from_millis(100), server.accept()).await {
-                    if let Ok(mut conn) = conn {
+                if let Ok(conn) = timeout(Duration::from_millis(100), server.accept()).await
+                    && let Ok(mut conn) = conn {
                         let count = total_clone.clone();
                         tokio::spawn(async move {
                             while let Ok(Some(msg)) = conn.receive_message().await {
@@ -578,7 +575,6 @@ mod stress_tests {
                             }
                         });
                     }
-                }
             }
         });
 

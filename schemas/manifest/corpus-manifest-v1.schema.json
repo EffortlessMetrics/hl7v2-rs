@@ -10,7 +10,7 @@
       "type": "string",
       "description": "hl7v2-rs tool version",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "examples": ["1.2.0", "0.1.0"]
+      "examples": ["1.2.0"]
     },
     "seed": {
       "type": "integer",

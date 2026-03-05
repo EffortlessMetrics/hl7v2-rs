@@ -11,7 +11,7 @@
 //! Run with: cargo run --example mllp_client
 
 use hl7v2_core::{Message, get, parse, write};
-use hl7v2_network::{MllpClient, MllpClientBuilder};
+use hl7v2_network::MllpClientBuilder;
 use std::time::Duration;
 
 /// Default MLLP server address
@@ -121,15 +121,15 @@ fn display_ack_details(ack: &Message) {
     // Interpret the acknowledgment code
     if let Some(code) = ack_code {
         match code {
-            s if s == "AA" => {
-                println!("  Status: ✓ Application Accept - Message processed successfully")
+            "AA" => {
+                println!("  Status: ✓ Application Accept - Message processed successfully");
             }
-            s if s == "AE" => println!("  Status: ✗ Application Error - Processing failed"),
-            s if s == "AR" => println!("  Status: ✗ Application Reject - Message rejected"),
-            s if s == "CA" => println!("  Status: ✓ Commit Accept"),
-            s if s == "CE" => println!("  Status: ✗ Commit Error"),
-            s if s == "CR" => println!("  Status: ✗ Commit Reject"),
-            _ => println!("  Status: ? Unknown acknowledgment code: {}", code),
+            "AE" => println!("  Status: ✗ Application Error - Processing failed"),
+            "AR" => println!("  Status: ✗ Application Reject - Message rejected"),
+            "CA" => println!("  Status: ✓ Commit Accept"),
+            "CE" => println!("  Status: ✗ Commit Error"),
+            "CR" => println!("  Status: ✗ Commit Reject"),
+            _ => println!("  Status: ? Unknown ACK code: {}", code),
         }
     }
     println!();

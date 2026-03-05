@@ -77,7 +77,7 @@
         # Default package
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "hl7v2-rs";
-          version = "0.1.0";
+          version = "1.2.0";
 
           src = ./.;
 

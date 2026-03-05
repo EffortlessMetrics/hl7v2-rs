@@ -413,53 +413,60 @@ impl<D: BufRead> StreamParser<D> {
                     return Ok(Some(Event::EndMessage));
                 }
 
-                    // Parse delimiters from MSH segment
-                    let new_delims = Delims::parse_from_msh(
-                        std::str::from_utf8(&segment_data).map_err(|_| Error::InvalidCharset)?,
-                    )
-                    .map_err(|e| Error::ParseError {
-                        segment_id: "MSH".to_string(),
-                        field_index: 0,
-                        source: Box::new(e),
-                    })?;
+                // Parse delimiters from MSH segment
+                let new_delims = Delims::parse_from_msh(
+                    std::str::from_utf8(&segment_data).map_err(|_| Error::InvalidCharset)?,
+                )
+                .map_err(|e| Error::ParseError {
+                    segment_id: "MSH".to_string(),
+                    field_index: 0,
+                    source: Box::new(e),
+                })?;
 
-                    // Switch to the new delimiters for this message only
-                    self.delims = new_delims.clone();
-                    self.pre_msh = false;
-                    self.in_message = true;
-                    // Initialize message size counter
-                    self.current_message_size = segment_len;
+                // Switch to the new delimiters for this message only
+                self.delims = new_delims.clone();
+                self.pre_msh = false;
+                self.in_message = true;
+                // Initialize message size counter
+                self.current_message_size = segment_len;
 
-                    // Generate field events for MSH segment
-                    self.generate_msh_field_events(&segment_data)?;
+                // Generate field events for MSH segment
+                self.generate_msh_field_events(&segment_data)?;
 
-                    return Ok(Some(Event::StartMessage { delims: new_delims }));
-                }
+                return Ok(Some(Event::StartMessage { delims: new_delims }));
+            }
 
-                // For any other segment
-                if self.in_message && segment_data.len() >= 3 && segment_data[0..3].iter().all(|c| c.is_ascii_alphanumeric()) {
-                    let segment_id = segment_data[0..3].to_vec();
+            // For any other segment
+            if self.in_message
+                && segment_data.len() >= 3
+                && segment_data[0..3].iter().all(|c| c.is_ascii_alphanumeric())
+            {
+                let segment_id = segment_data[0..3].to_vec();
 
-                    // Generate field events for this segment
-                    self.generate_field_events(&segment_data)?;
+                // Generate field events for this segment
+                self.generate_field_events(&segment_data)?;
 
-                    return Ok(Some(Event::Segment { id: segment_id }));
-                } else if !self.in_message && self.pre_msh && segment_data.len() >= 3 && segment_data[0..3].iter().all(|c| c.is_ascii_alphanumeric()) {
-                    // We're in pre-MSH mode but this isn't an MSH segment,
-                    // so start a message with default delimiters
-                    self.delims = Delims::default();
-                    self.pre_msh = false;
-                    self.in_message = true;
-                    // Initialize message size counter
-                    self.current_message_size = segment_len;
+                return Ok(Some(Event::Segment { id: segment_id }));
+            } else if !self.in_message
+                && self.pre_msh
+                && segment_data.len() >= 3
+                && segment_data[0..3].iter().all(|c| c.is_ascii_alphanumeric())
+            {
+                // We're in pre-MSH mode but this isn't an MSH segment,
+                // so start a message with default delimiters
+                self.delims = Delims::default();
+                self.pre_msh = false;
+                self.in_message = true;
+                // Initialize message size counter
+                self.current_message_size = segment_len;
 
-                    // Generate field events for this segment
-                    self.generate_field_events(&segment_data)?;
+                // Generate field events for this segment
+                self.generate_field_events(&segment_data)?;
 
-                    return Ok(Some(Event::StartMessage {
-                        delims: Delims::default(),
-                    }));
-                }
+                return Ok(Some(Event::StartMessage {
+                    delims: Delims::default(),
+                }));
+            }
         }
     }
 

@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
 };
 use std::sync::Arc;
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
@@ -39,15 +39,27 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 
     // Apply authentication if API key is configured in state
     if state.api_key.is_some() {
-        api_routes = api_routes.layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
+        api_routes = api_routes.layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
     }
 
     // Main router
     Router::new()
-        .merge(SwaggerUi::new("/api/docs").config(utoipa_swagger_ui::Config::from("/api/openapi.yaml")))
-        .route("/api/openapi.yaml", get(|| async { 
-            ([(axum::http::header::CONTENT_TYPE, "text/yaml")], OPENAPI_YAML)
-        }))
+        .merge(
+            SwaggerUi::new("/api/docs")
+                .config(utoipa_swagger_ui::Config::from("/api/openapi.yaml")),
+        )
+        .route(
+            "/api/openapi.yaml",
+            get(|| async {
+                (
+                    [(axum::http::header::CONTENT_TYPE, "text/yaml")],
+                    OPENAPI_YAML,
+                )
+            }),
+        )
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
         .route("/metrics", get(metrics_handler))
@@ -103,7 +115,10 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
@@ -144,7 +159,10 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -156,9 +174,12 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        // TODO: Fix assertion - check actual response format
-        assert!(body_str.contains("\"message_type\":\"ADT^A01\"") || body_str.contains("metadata"));
+        let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let response_data: crate::models::ParseResponse = serde_json::from_slice(&body_bytes).unwrap();
+        
+        assert_eq!(response_data.metadata.message_type, "ADT^A01^ADT_A01");
+        assert_eq!(response_data.metadata.version, "2.5.1");
+        assert_eq!(response_data.metadata.sending_application, "SendingApp");
+        assert!(response_data.message.is_some());
     }
 }

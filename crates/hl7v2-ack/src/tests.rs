@@ -42,7 +42,7 @@ fn test_ack_code_debug() {
 #[test]
 fn test_ack_code_clone() {
     let code = AckCode::AA;
-    let cloned = code.clone();
+    let cloned = code;
     assert_eq!(code, cloned);
 }
 
@@ -409,7 +409,7 @@ fn test_err_segment_structure() {
     let err = &ack_message.segments[2];
 
     // ERR-1: Error Code and Location (empty in our implementation)
-    assert!(get_field_value(err, 1).is_some() || err.fields.len() >= 1);
+    assert!(get_field_value(err, 1).is_some() || !err.fields.is_empty());
 
     // ERR-3: HL7 Error Code
     let error_message = get_field_value(err, 3).unwrap();

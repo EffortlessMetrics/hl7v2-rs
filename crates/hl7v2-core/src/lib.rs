@@ -21,17 +21,24 @@
 //! For memory-constrained environments or very large messages, enable the `stream` feature
 //! and use `StreamParser` with configured memory bounds:
 //!
-//! ```ignore
+//! ```rust,no_run
 //! use hl7v2_core::{StreamParser, Event};
+//! use std::io::BufReader;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let reader = BufReader::new(std::io::stdin());
+//! let mut parser = StreamParser::new(reader);
 //!
 //! // Stream parse with bounded memory
-//! for event in StreamParser::new().parse(large_message_bytes) {
-//!     match event? {
-//!         Event::SegmentStart(id) => { /* handle segment */ }
-//!         Event::Field(value) => { /* handle field */ }
+//! while let Some(event_result) = parser.next_event().transpose() {
+//!     match event_result? {
+//!         Event::Segment { id } => { /* handle segment */ }
+//!         Event::Field { num, raw } => { /* handle field */ }
 //!         _ => {}
 //!     }
 //! }
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Features

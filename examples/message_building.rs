@@ -177,60 +177,45 @@ fn build_pid_segment() -> Result<Segment, Error> {
     // PID-13: Phone Number - Home
     // PID-14: Phone Number - Business - often empty
 
-    let mut fields = Vec::new();
-
-    // PID-1: Set ID
-    fields.push(create_simple_field("1"));
-
-    // PID-2: Patient ID (External) - empty
-    fields.push(create_empty_field());
-
-    // PID-3: Patient Identifier List (MRN with check digit and assigning authority)
-    // Format: ID^CheckDigit^CheckDigitScheme^AssigningAuthority^IdentifierType
-    fields.push(create_composite_field(&[
-        "12345678", "", "", "HOSPITAL", "MR",
-    ]));
-
-    // PID-4: Alternate Patient ID - empty
-    fields.push(create_empty_field());
-
-    // PID-5: Patient Name (Family^Given^Middle^Suffix^Prefix)
-    fields.push(create_composite_field(&["DOE", "JOHN", "ROBERT", "", "MR"]));
-
-    // PID-6: Mother's Maiden Name - empty
-    fields.push(create_empty_field());
-
-    // PID-7: Date/Time of Birth (YYYYMMDD)
-    fields.push(create_simple_field("19850315"));
-
-    // PID-8: Administrative Sex (M, F, O, U)
-    fields.push(create_simple_field("M"));
-
-    // PID-9: Patient Alias - empty
-    fields.push(create_empty_field());
-
-    // PID-10: Race (CE data type - coded element)
-    fields.push(create_composite_field(&["2106-3", "White", "HL70005"]));
-
-    // PID-11: Patient Address (Street^Street2^City^State^Zip^Country^AddressType)
-    fields.push(create_composite_field(&[
-        "123 MAIN ST",
-        "APT 4B",
-        "ANYTOWN",
-        "CA",
-        "12345",
-        "USA",
-        "H",
-    ]));
-
-    // PID-12: County Code - empty
-    fields.push(create_empty_field());
-
-    // PID-13: Phone Number - Home
-    fields.push(create_simple_field("(555)123-4567"));
-
-    // PID-14: Phone Number - Business - empty
-    fields.push(create_empty_field());
+    let fields = vec![
+        // PID-1: Set ID
+        create_simple_field("1"),
+        // PID-2: Patient ID (External) - empty
+        create_empty_field(),
+        // PID-3: Patient Identifier List (MRN with check digit and assigning authority)
+        // Format: ID^CheckDigit^CheckDigitScheme^AssigningAuthority^IdentifierType
+        create_composite_field(&["12345678", "", "", "HOSPITAL", "MR"]),
+        // PID-4: Alternate Patient ID - empty
+        create_empty_field(),
+        // PID-5: Patient Name (Family^Given^Middle^Suffix^Prefix)
+        create_composite_field(&["DOE", "JOHN", "ROBERT", "", "MR"]),
+        // PID-6: Mother's Maiden Name - empty
+        create_empty_field(),
+        // PID-7: Date/Time of Birth (YYYYMMDD)
+        create_simple_field("19850315"),
+        // PID-8: Administrative Sex (M, F, O, U)
+        create_simple_field("M"),
+        // PID-9: Patient Alias - empty
+        create_empty_field(),
+        // PID-10: Race (CE data type - coded element)
+        create_composite_field(&["2106-3", "White", "HL70005"]),
+        // PID-11: Patient Address (Street^Street2^City^State^Zip^Country^AddressType)
+        create_composite_field(&[
+            "123 MAIN ST",
+            "APT 4B",
+            "ANYTOWN",
+            "CA",
+            "12345",
+            "USA",
+            "H",
+        ]),
+        // PID-12: County Code - empty
+        create_empty_field(),
+        // PID-13: Phone Number - Home
+        create_simple_field("(555)123-4567"),
+        // PID-14: Phone Number - Business - empty
+        create_empty_field(),
+    ];
 
     Ok(Segment {
         id: *b"PID",
@@ -248,39 +233,28 @@ fn build_pv1_segment() -> Result<Segment, Error> {
     // PV1-5: Preadmit Number - often empty
     // ... more fields
 
-    let mut fields = Vec::new();
-
-    // PV1-1: Set ID
-    fields.push(create_simple_field("1"));
-
-    // PV1-2: Patient Class
-    fields.push(create_simple_field("I"));
-
-    // PV1-3: Assigned Patient Location (Point of Care^Room^Bed)
-    fields.push(create_composite_field(&["3N", "301", "A"]));
-
-    // PV1-4: Admission Type (E=Emergency, U=Urgent, E=Elective)
-    fields.push(create_simple_field("E"));
-
-    // PV1-5: Preadmit Number - empty
-    fields.push(create_empty_field());
-
-    // PV1-6: Prior Patient Location - empty
-    fields.push(create_empty_field());
-
-    // PV1-7: Attending Doctor (ID^Name)
-    fields.push(create_composite_field(&[
-        "DR123", "SMITH", "JOHN", "", "", "MD",
-    ]));
-
-    // PV1-8: Referring Doctor - empty
-    fields.push(create_empty_field());
-
-    // PV1-9: Consulting Doctor - empty
-    fields.push(create_empty_field());
-
-    // PV1-10: Hospital Service
-    fields.push(create_simple_field("MED"));
+    let fields = vec![
+        // PV1-1: Set ID
+        create_simple_field("1"),
+        // PV1-2: Patient Class
+        create_simple_field("I"),
+        // PV1-3: Assigned Patient Location (Point of Care^Room^Bed)
+        create_composite_field(&["3N", "301", "A"]),
+        // PV1-4: Admission Type (E=Emergency, U=Urgent, E=Elective)
+        create_simple_field("E"),
+        // PV1-5: Preadmit Number - empty
+        create_empty_field(),
+        // PV1-6: Prior Patient Location - empty
+        create_empty_field(),
+        // PV1-7: Attending Doctor (ID^Name)
+        create_composite_field(&["DR123", "SMITH", "JOHN", "", "", "MD"]),
+        // PV1-8: Referring Doctor - empty
+        create_empty_field(),
+        // PV1-9: Consulting Doctor - empty
+        create_empty_field(),
+        // PV1-10: Hospital Service
+        create_simple_field("MED"),
+    ];
 
     Ok(Segment {
         id: *b"PV1",
@@ -401,16 +375,14 @@ fn build_ack_message() -> Result<Message, Error> {
     };
 
     // Build MSA (Message Acknowledgment) segment
-    let mut msa_fields = Vec::new();
-
-    // MSA-1: Acknowledgment Code (AA=Application Accept)
-    msa_fields.push(create_simple_field("AA"));
-
-    // MSA-2: Message Control ID (from original message)
-    msa_fields.push(create_simple_field("ORIGINAL123"));
-
-    // MSA-3: Text Message
-    msa_fields.push(create_simple_field("Message accepted"));
+    let msa_fields = vec![
+        // MSA-1: Acknowledgment Code (AA=Application Accept)
+        create_simple_field("AA"),
+        // MSA-2: Message Control ID (from original message)
+        create_simple_field("ORIGINAL123"),
+        // MSA-3: Text Message
+        create_simple_field("Message accepted"),
+    ];
 
     let msa = Segment {
         id: *b"MSA",

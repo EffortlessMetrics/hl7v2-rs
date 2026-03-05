@@ -18,6 +18,7 @@ fn text_without_delimiters() -> impl Strategy<Value = String> {
 }
 
 /// Generate custom delimiters
+#[allow(dead_code)]
 fn custom_delims() -> impl Strategy<Value = Delims> {
     (
         any::<char>(),

@@ -299,20 +299,18 @@ fn process_message_with_ack(hl7_bytes: &[u8]) -> Result<Vec<u8>, String> {
     if patient_name.is_none() || patient_name.as_ref().map(|s| s.is_empty()).unwrap_or(true) {
         errors.push("Missing patient name (PID.5)");
     }
-    if let Some(ref bd) = birth_date {
-        if !bd.is_empty() && bd.len() != 8 {
+    if let Some(bd) = birth_date
+        && !bd.is_empty() && bd.len() != 8 {
             errors.push("Invalid birth date format (expected YYYYMMDD)");
         }
-    }
-    if let Some(ref s) = sex {
-        if !s.is_empty() {
+    if let Some(s) = sex
+        && !s.is_empty() {
             let valid_values = ["M", "F", "O", "U"];
-            let valid = valid_values.iter().any(|&v| v == *s);
+            let valid = valid_values.contains(&s);
             if !valid {
                 errors.push("Invalid sex value (expected M, F, O, or U)");
             }
         }
-    }
 
     // Generate appropriate ACK
     let ack_msg = if errors.is_empty() {

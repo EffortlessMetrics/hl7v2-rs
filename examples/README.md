@@ -214,7 +214,7 @@ Some examples require specific features to be enabled:
 ```toml
 # Cargo.toml
 [dependencies]
-hl7v2-core = { version = "0.1.0", features = ["network", "stream"] }
+hl7v2-core = { version = "1.2.0", features = ["network", "stream"] }
 ```
 
 - `network` - Enables MLLP client/server functionality
@@ -244,7 +244,7 @@ cargo run --package hl7v2-cli -- serve --port 2575
 Enable required features in your `Cargo.toml`:
 
 ```toml
-hl7v2-core = { version = "0.1.0", features = ["network"] }
+hl7v2-core = { version = "1.2.0", features = ["network"] }
 ```
 
 ## Contributing
