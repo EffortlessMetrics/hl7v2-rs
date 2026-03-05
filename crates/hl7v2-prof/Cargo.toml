@@ -32,7 +32,7 @@ tokio = { workspace = true, features = ["rt", "macros", "time", "fs"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
 
 # LRU cache for profile caching
-lru = "0.13"
+lru = "0.16"
 
 # Async synchronization primitives
 async-lock = "3.4"
