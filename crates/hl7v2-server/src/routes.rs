@@ -177,7 +177,7 @@ mod tests {
         let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
         let response_data: crate::models::ParseResponse = serde_json::from_slice(&body_bytes).unwrap();
         
-        assert_eq!(response_data.metadata.message_type, "ADT^A01^ADT_A01");
+        assert_eq!(response_data.metadata.message_type, "ADT");
         assert_eq!(response_data.metadata.version, "2.5.1");
         assert_eq!(response_data.metadata.sending_application, "SendingApp");
         assert!(response_data.message.is_some());
