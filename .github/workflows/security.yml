@@ -111,10 +111,12 @@ jobs:
 
       - name: Check for stale license references
         run: |
-          if rg -n "MIT OR Apache|SPDX-License-Identifier:\s*(MIT|Apache-2\.0)" \
+          if rg -n "(MIT OR Apache|Apache-2\.0|SPDX-License-Identifier:\s*(MIT|Apache-2\.0))" \
             --glob '!deny.toml' \
             --glob '!Cargo.lock' \
             --glob '!THIRD_PARTY_NOTICES.md' \
+            --glob '!target/**' \
+            --glob '!.github/workflows/security.yml' \
             .; then
             echo "::error::Found MIT/Apache license references in project files"
             exit 1
