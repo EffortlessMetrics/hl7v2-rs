@@ -15,8 +15,8 @@
           inherit system overlays;
         };
 
-        # Pin Rust version to match MSRV (1.89 = edition 2024)
-        # Note: Using latest available Rust toolchain from rust-overlay
+        # Pin Rust version to match MSRV (1.92 = edition 2024)
+        # Note: Using stable Rust toolchain from rust-overlay
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
         };
@@ -45,6 +45,8 @@
           cargo-outdated
           cargo-llvm-cov
           cargo-nextest
+          cargo-expand
+          cargo-deny
 
           # Schema validation
           nodejs
@@ -70,6 +72,7 @@
           yq-go
           just
           watchexec
+          gh
         ];
 
       in

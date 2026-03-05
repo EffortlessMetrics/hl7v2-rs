@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 set -e
-cargo run -p xtask -- gate
+
+echo "pre-push: Run strict gate checks..."
+cargo run -p xtask -- gate --check

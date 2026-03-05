@@ -1,3 +1,10 @@
 #!/usr/bin/env bash
 set -e
-cargo run -p xtask -- gate
+
+# Only run checks if Rust or Cargo files changed
+if ! git diff --cached --name-only --diff-filter=ACMR | grep -E '\.rs$|(^|/)Cargo\.toml$|^Cargo\.lock$' >/dev/null; then
+  exit 0
+fi
+
+echo "pre-commit: Run gate checks..."
+cargo run -p xtask -- gate --changed
