@@ -319,6 +319,13 @@ fn then_get_content(world: &mut HL7World) {
     assert!(world.bool_result);
 }
 
+#[then("the message should be valid")]
+fn then_message_valid(world: &mut HL7World) {
+    // Verify the unwrapped message is valid HL7 by parsing it
+    let result = parse(&world.raw_bytes);
+    assert!(result.is_ok(), "Message should be valid HL7");
+}
+
 // ============================================================================
 // Escape Steps
 // ============================================================================
