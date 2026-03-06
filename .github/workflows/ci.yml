@@ -52,11 +52,11 @@ jobs:
         with:
           shared-key: fast-${{ matrix.rust }}
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Check formatting (xtask)
+        run: cargo run -p xtask -- gate --check --only fmt
 
-      - name: Run clippy lints
-        run: cargo clippy --workspace --all-features -- -D warnings
+      - name: Run clippy lints (xtask)
+        run: cargo run -p xtask -- gate --check --only clippy
 
       - name: Run unit tests
         run: cargo test --lib --workspace --all-features

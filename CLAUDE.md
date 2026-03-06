@@ -20,8 +20,11 @@ The pre-push hook runs a strict gate:
 
 ### CI parity
 
-CI runs the same gate:
-- `cargo run -p xtask -- gate --check`
+CI Stage 1 uses xtask for fmt/clippy, then runs unit + doc tests separately:
+- `cargo run -p xtask -- gate --check --only fmt`
+- `cargo run -p xtask -- gate --check --only clippy`
+- `cargo test --lib --workspace --all-features`
+- `cargo test --doc --workspace --all-features`
 
 ### One-time setup (per clone)
 

@@ -74,15 +74,14 @@ bench:
 # Clean build artifacts
 clean:
     cargo clean
-    rm -rf target/
 
 # Run local development stack
 dev-up:
-    docker-compose -f infrastructure/docker-compose.yml up -d
+    docker-compose -f infrastructure/docker/docker-compose.yml up -d
 
 # Stop local development stack
 dev-down:
-    docker-compose -f infrastructure/docker-compose.yml down
+    docker-compose -f infrastructure/docker/docker-compose.yml down
 
 # CI: Run all CI checks
 ci: gate-check audit docs-build

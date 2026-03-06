@@ -1,5 +1,0 @@
-# Clippy configuration
-
-# Allow certain lints that are too strict for this project
-allow-unwrap-in-tests = true
-allow-expect-in-tests = true
