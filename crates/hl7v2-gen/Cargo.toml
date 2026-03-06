@@ -29,6 +29,12 @@ serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 [dev-dependencies]
 proptest = "1.6"
 rand = "0.10.0"
+cucumber = "0.22.1"
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
 hl7v2-query = { path = "../hl7v2-query" }
 hl7v2-normalize = { path = "../hl7v2-normalize" }
 hl7v2-parser = { path = "../hl7v2-parser" }
+
+[[test]]
+name = "bdd_tests"
+harness = false
