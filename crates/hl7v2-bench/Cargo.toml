@@ -31,7 +31,7 @@ hl7v2-template-values = { path = "../hl7v2-template-values" }
 hl7v2-validation = { path = "../hl7v2-validation" }
 
 # Async runtime for network benchmarks
-tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread", "macros", "time", "net", "io-util", "sync"] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "time", "net", "io-util", "sync"] }
 futures = "0.3.32"
 
 # Serialization

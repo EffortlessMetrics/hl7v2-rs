@@ -18,4 +18,4 @@ hl7v2-parser = { path = "../hl7v2-parser" }
 
 [dev-dependencies]
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
-proptest = "1.4"
+proptest = "1.6"

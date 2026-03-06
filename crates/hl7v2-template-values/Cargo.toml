@@ -22,7 +22,7 @@ serde = { workspace = true, features = ["derive"] }
 cucumber = "0.22.1"
 proptest = "1.6.0"
 serde_json = { workspace = true }
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [[test]]
 name = "bdd_tests"
