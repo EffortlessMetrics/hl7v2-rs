@@ -1,13 +1,13 @@
 //! HL7 v2 field path parsing and resolution.
 //!
 //! This crate provides path-based access to HL7 v2 message fields,
-//! supporting the standard path notation (e.g., "PID.5.1", "MSH.9[1].2").
+//! supporting the standard path notation (e.g., `PID.5.1`, `MSH.9[1].2`).
 //!
 //! # Path Format
 //!
-//! - `SEGMENT.FIELD` - Access a field (e.g., "PID.5")
-//! - `SEGMENT.FIELD.COMPONENT` - Access a component (e.g., "PID.5.1")
-//! - `SEGMENT.FIELD[REP].COMPONENT` - Access with repetition (e.g., "PID.5[2].1")
+//! - `SEGMENT.FIELD` - Access a field (e.g., `PID.5`)
+//! - `SEGMENT.FIELD.COMPONENT` - Access a component (e.g., `PID.5.1`)
+//! - `SEGMENT.FIELD[REP].COMPONENT` - Access with repetition (e.g., `PID.5[2].1`)
 //! - `SEGMENT.FIELD.COMPONENT.SUBCOMPONENT` - Access subcomponent
 //!
 //! # Example
@@ -135,11 +135,11 @@ impl std::fmt::Display for Path {
 ///
 /// # Supported Formats
 ///
-/// - `SEGMENT.FIELD` - e.g., "PID.5"
-/// - `SEGMENT.FIELD.COMPONENT` - e.g., "PID.5.1"
-/// - `SEGMENT.FIELD[REP]` - e.g., "PID.5[2]"
-/// - `SEGMENT.FIELD[REP].COMPONENT` - e.g., "PID.5[2].1"
-/// - `SEGMENT.FIELD.COMPONENT.SUBCOMPONENT` - e.g., "PID.5.1.1"
+/// - `SEGMENT.FIELD` - e.g., `PID.5`
+/// - `SEGMENT.FIELD.COMPONENT` - e.g., `PID.5.1`
+/// - `SEGMENT.FIELD[REP]` - e.g., `PID.5[2]`
+/// - `SEGMENT.FIELD[REP].COMPONENT` - e.g., `PID.5[2].1`
+/// - `SEGMENT.FIELD.COMPONENT.SUBCOMPONENT` - e.g., `PID.5.1.1`
 ///
 /// # Example
 ///

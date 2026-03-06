@@ -43,7 +43,7 @@ cargo test
 
 ### 2. Understand the Project Status
 
-**Start here**: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
+**Start here**: [docs/STATUS.md](docs/STATUS.md)
 - What's implemented
 - What's being worked on
 - Known limitations
@@ -53,7 +53,7 @@ cargo test
 - Feature priorities
 - Dependencies and critical path
 
-**Finally**: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
+**Finally**: [ROADMAP.md](ROADMAP.md)
 - Sprint-level tasks
 - Story point estimates
 - Detailed technical requirements
@@ -62,7 +62,7 @@ cargo test
 
 **For v1.2.0 work** (active development):
 - Search GitHub Issues for `[v1.2.0]` label
-- Check IMPLEMENTATION_PLAN.md for sprint tasks
+- Check ROADMAP.md for sprint tasks
 - Look for `good-first-issue` if you're new
 
 **Areas that need help**:
@@ -101,7 +101,7 @@ git checkout -b docs/testing-guide
 - Document public APIs with examples
 - Add/update README sections if needed
 - Comment complex algorithms
-- Update IMPLEMENTATION_STATUS.md if changing features
+- Update docs/STATUS.md if changing features
 
 ### 6. Commit Your Work
 
@@ -176,7 +176,7 @@ Fixes #38
 
 ### Before You Report
 
-- Check [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) - it's a known limitation?
+- Check [docs/STATUS.md](docs/STATUS.md) - it's a known limitation?
 - Search existing issues
 - Try on latest main branch
 
@@ -219,7 +219,7 @@ Stack overflow / panic
 ### Before You Request
 
 - Check ROADMAP.md - is it already planned?
-- Check IMPLEMENTATION_PLAN.md - is it in sprint work?
+- Check ROADMAP.md - is it in sprint work?
 - Check existing issues
 
 ### How to Request
@@ -245,7 +245,7 @@ Add LRU cache with ETag support to profile loader as per ROADMAP.md v1.2.0.
 - Simple file-based cache (insufficient for production)
 
 **Timeline**
-This is in IMPLEMENTATION_PLAN.md Sprint 4, so high priority for v1.2.0.
+This is in ROADMAP.md Sprint 4, so high priority for v1.2.0.
 ```
 
 ---
@@ -255,7 +255,7 @@ This is in IMPLEMENTATION_PLAN.md Sprint 4, so high priority for v1.2.0.
 ### Documentation Style
 
 - **README.md**: Features, quick start, high-level architecture
-- **IMPLEMENTATION_STATUS.md**: What's actually implemented now
+- **docs/STATUS.md**: What's actually implemented now
 - **ROADMAP.md**: Future direction and timelines
 - **DEVELOPMENT.md**: Developer setup and workflow
 - **Design docs** (.qoder/quests/): Detailed technical specifications
@@ -361,7 +361,7 @@ See [TESTING.md](TESTING.md) for profiling tools.
 
 ## v1.2.0 Priorities
 
-From [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md), these are critical:
+From [ROADMAP.md](ROADMAP.md), these are critical:
 
 1. **Network Module** (BLOCKING)
    - MLLP frame handler
@@ -480,7 +480,7 @@ We value all contributions—code, docs, testing, design discussion, etc.
 
 - **Code questions**: Open GitHub discussions
 - **Process questions**: Comment on issues/PRs
-- **General**: Check [ROADMAP.md](ROADMAP.md) and [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) first
+- **General**: Check [ROADMAP.md](ROADMAP.md) and [docs/STATUS.md](docs/STATUS.md) first
 
 ---
 

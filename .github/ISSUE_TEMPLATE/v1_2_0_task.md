@@ -21,7 +21,7 @@ Clear description of what needs to be done.
 Why is this important? Link to:
 - Design docs
 - ROADMAP.md section
-- IMPLEMENTATION_PLAN.md sprint details
+- ROADMAP.md sprint details
 
 ## Requirements
 
@@ -39,7 +39,7 @@ How do we know this is done?
 - [ ] 90%+ test coverage for new code
 - [ ] All tests pass (unit + integration)
 - [ ] No performance regression
-- [ ] Documented in code/README/IMPLEMENTATION_STATUS.md
+- [ ] Documented in code/README/docs/STATUS.md
 
 ## Technical Notes
 
@@ -63,14 +63,14 @@ How to test this:
 - [ ] Clippy clean
 - [ ] Documentation updated
 - [ ] Merged to main
-- [ ] IMPLEMENTATION_STATUS.md updated
+- [ ] docs/STATUS.md updated
 
 ## References
 
 - [ROADMAP.md](../../ROADMAP.md)
-- [IMPLEMENTATION_PLAN.md](../../IMPLEMENTATION_PLAN.md)
+- [ROADMAP.md](../../ROADMAP.md)
 - [Advanced features design](../../.qoder/quests/hl7v2-advanced-features-implementation.md)
-- [IMPLEMENTATION_STATUS.md](../../IMPLEMENTATION_STATUS.md)
+- [docs/STATUS.md](../../docs/STATUS.md)
 
 ## Links
 

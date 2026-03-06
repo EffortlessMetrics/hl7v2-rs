@@ -8,13 +8,13 @@ This design follows a normative approach with specific implementation requiremen
 
 > **Status note:** This document is a **design** spec. For the canonical,
 > up-to-date implementation status (what is actually shipped), see
-> [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md). Where this design
-> and that status document disagree, **IMPLEMENTATION_STATUS.md wins**.
+> [docs/STATUS.md](../../docs/STATUS.md). Where this design
+> and that status document disagree, **docs/STATUS.md wins**.
 
 **Quick Links**:
 - [ROADMAP.md](../ROADMAP.md) - Complete v1.2.0 - v2.0.0 roadmap with timelines
-- [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md) - Detailed task breakdown and sprint planning
-- [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) - Current implementation status of all features
+- [ROADMAP.md](../../ROADMAP.md) - Detailed task breakdown and sprint planning
+- [docs/STATUS.md](../../docs/STATUS.md) - Current implementation status of all features
 
 ## 1.1 Current Implementation Status
 
@@ -103,7 +103,7 @@ graph TD
 
 ### 4.1 Streaming Parser for Large Messages
 
-**Implementation Status:** ⚠️ Partial — see [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for canonical details
+**Implementation Status:** ⚠️ Partial — see [docs/STATUS.md](../../docs/STATUS.md) for canonical details
 
 The streaming parser currently provides:
 
@@ -213,7 +213,7 @@ Profile inheritance and merging have been fully implemented with:
 - Constraint merging with proper precedence handling
 - Rule and value set composition
 - Inheritance conflict resolution with child precedence
-- ❌ Cycle detection with `E_Profile_Cycle` error (design only, not implemented yet — see IMPLEMENTATION_STATUS.md)
+- ❌ Cycle detection with `E_Profile_Cycle` error (design only, not implemented yet — see docs/STATUS.md)
 
 **Design Approach:**
 - Extend existing profile inheritance mechanism

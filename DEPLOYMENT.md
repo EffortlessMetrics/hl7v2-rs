@@ -696,14 +696,14 @@ cargo run --bin hl7v2-server
 ### Support
 
 - **Issues**: https://github.com/EffortlessMetrics/hl7v2-rs/issues
-- **Documentation**: [README.md](README.md), [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
+- **Documentation**: [README.md](README.md), [docs/STATUS.md](docs/STATUS.md)
 - **Architecture Decisions**: [.qoder/adr/](/.qoder/adr/)
 - **API Spec**: [schemas/openapi/hl7v2-api.yaml](schemas/openapi/hl7v2-api.yaml)
 
 ## Related Documentation
 
 - [README.md](README.md) - Project overview and features
-- [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) - Implementation roadmap
+- [docs/STATUS.md](docs/STATUS.md) - Implementation roadmap
 - [NIX_USAGE.md](NIX_USAGE.md) - Nix flake usage guide
 - [OpenAPI Specification](schemas/openapi/hl7v2-api.yaml) - Complete API reference
 - [Example Profiles](examples/profiles/README.md) - Conformance profile examples

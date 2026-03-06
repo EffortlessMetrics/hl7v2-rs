@@ -6,8 +6,8 @@
 //! # Supported Formats
 //!
 //! - `DT` (Date): YYYYMMDD
-//! - `TM` (Time): HHMM[SS[.S[S[S[S]]]]]
-//! - `TS` (Timestamp): YYYYMMDD[HHMM[SS[.S[S[S[S]]]]]]
+//! - `TM` (Time): HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\]
+//! - `TS` (Timestamp): YYYYMMDD\[HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\]\]
 //!
 //! # Example
 //!

@@ -122,7 +122,7 @@ pub struct ValidationError {
     pub code: String,
     /// Human-readable error message
     pub message: String,
-    /// Location in message (e.g., "PID.5[1].1")
+    /// Location in message (e.g., `PID.5[1].1`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<String>,
     /// Severity level

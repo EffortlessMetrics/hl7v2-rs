@@ -20,8 +20,8 @@ A clear and concise description of any alternative solutions or features you've 
 
 **Check the roadmap**
 - Is this feature already planned? Check [ROADMAP.md](../../ROADMAP.md)
-- For v1.2.0: Check [IMPLEMENTATION_PLAN.md](../../IMPLEMENTATION_PLAN.md)
-- Is this a known limitation? Check [IMPLEMENTATION_STATUS.md](../../IMPLEMENTATION_STATUS.md)
+- For v1.2.0: Check [ROADMAP.md](../../ROADMAP.md)
+- Is this a known limitation? Check [docs/STATUS.md](../../docs/STATUS.md)
 
 **Related documents**
 - Link to design docs if applicable

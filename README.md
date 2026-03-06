@@ -4,7 +4,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.2.0 (Stable). For a detailed breakdown of features, see [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+> **Status**: v1.2.0 (Stable). For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Features
 
@@ -132,7 +132,7 @@ hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml
 
 # (Planned) Emit a JSON validation report
 # hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report validation_errors.json
-# See IMPLEMENTATION_STATUS.md for current CLI flag support.
+# See docs/STATUS.md for current CLI flag support.
 ```
 
 ### Normalize Messages
@@ -278,7 +278,7 @@ Each crate is independently usable as a library, enabling integration into other
 - Determinism: 100% reproducible generation with the same seed + template
 - Latency: sub-millisecond parsing for typical messages on a modern CPU
 
-For exact benchmark numbers and hardware, see [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
+For exact benchmark numbers and hardware, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Memory Efficiency
 

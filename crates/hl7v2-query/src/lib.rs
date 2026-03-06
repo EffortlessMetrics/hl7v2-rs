@@ -7,7 +7,7 @@
 //!
 //! # Path Format
 //!
-//! Paths use the format: `SEGMENT.FIELD[REP].COMPONENT`
+//! Paths use the format: `SEGMENT.FIELD\[REP\].COMPONENT`
 //!
 //! Examples:
 //! - `PID.5.1` - First component of 5th field in PID segment (first repetition)
@@ -28,12 +28,12 @@
 
 use hl7v2_model::{Atom, Message, Presence, Segment};
 
-/// Get value at path (e.g., "PID.5[1].1")
+/// Get value at path (e.g., `PID.5[1].1`)
 ///
 /// # Arguments
 ///
 /// * `msg` - The message to query
-/// * `path` - The path to the field (e.g., "PID.5.1", "PID.5[1].1", "MSH.9")
+/// * `path` - The path to the field (e.g., `PID.5.1`, `PID.5[1].1`, `MSH.9`)
 ///
 /// # Returns
 ///
@@ -57,8 +57,8 @@ use hl7v2_model::{Atom, Message, Presence, Segment};
 /// ```
 pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     // Parse the path
-    // Format: SEGMENT.FIELD[REP].COMPONENT
-    // Examples: "PID.5.1", "PID.5[1].1", "MSH.9"
+    // Format: SEGMENT.FIELD\[REP\].COMPONENT
+    // Examples: `PID.5.1`, `PID.5[1].1`, `MSH.9`
 
     let mut parts = path.split('.');
     let segment_id = parts.next()?;

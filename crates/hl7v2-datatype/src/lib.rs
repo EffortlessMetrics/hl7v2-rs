@@ -293,12 +293,12 @@ pub fn is_date(value: &str) -> bool {
     hl7v2_datetime::is_valid_hl7_date(value)
 }
 
-/// Check if value is a valid time (HHMM[SS[.S[S[S[S]]]]] format)
+/// Check if value is a valid time (HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\] format)
 pub fn is_time(value: &str) -> bool {
     hl7v2_datetime::is_valid_hl7_time(value)
 }
 
-/// Check if value is a valid timestamp (YYYYMMDD[HHMM[SS[.S[S[S[S]]]]]] format)
+/// Check if value is a valid timestamp (YYYYMMDD\[HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\]\] format)
 pub fn is_timestamp(value: &str) -> bool {
     hl7v2_datetime::is_valid_hl7_timestamp(value)
 }
