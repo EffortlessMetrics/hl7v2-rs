@@ -44,7 +44,7 @@ The default assumption is: **preserve history unless a real blocker requires rew
 | Historical license files (LICENSE-MIT, etc.) | CLEAN | **Never existed** in any commit |
 | MIT boilerplate text | CLEAN | **Never existed** in any file |
 | Mirrors / deployment configs | CLEAN | Single canonical GitHub remote, no mirrors |
-| Docker / container configs | CLEAN | None exist |
+| Docker / container / deployment configs | CLEAN | Dockerfile, docker-compose, K8s manifests, Grafana, OPA policies, and deployment docs exist in-repo; all correctly reference AGPL-3.0-or-later. No published container images, registry artifacts, or distributed bundles were found. |
 | Existing audit report + receipts | CLEAN | Comprehensive, 9 receipt files |
 
 ---
@@ -138,9 +138,9 @@ git remote -v
 **Result:** Single remote `origin` pointing to `git@github.com:EffortlessMetrics/hl7v2-rs.git`.
 
 - No secondary remotes or mirrors configured
-- No Docker/container configuration files exist in the repository
-- No deployment pipeline configurations reference or embed license metadata
-- No CI/CD artifacts (npm packages, Docker images, etc.) have been published
+- Docker, Kubernetes, and deployment configuration files exist in `infrastructure/` and `DEPLOYMENT.md`; all correctly reference AGPL-3.0-or-later
+- CI/CD workflows exist in `.github/workflows/`; none publish container images or binary artifacts
+- No published container images, registry artifacts, or deployment bundles were found carrying any license metadata
 
 ---
 
@@ -174,7 +174,7 @@ No history rewrite is needed. The repository's full development history can be r
 
 4. **No crates were published to crates.io.** There are no immutable publication artifacts that could carry conflicting metadata.
 
-5. **No mirrors or deployment pipelines need reseeding.** Single canonical GitHub remote, no container images, no package registry publications.
+5. **No mirrors or published deployment artifacts need reseeding.** Single canonical GitHub remote. Deployment configuration exists in-repo (Docker, K8s, Nix) and correctly references AGPL-3.0-or-later, but no published container images, registry artifacts, or mirrored distribution surfaces were found.
 
 6. **CI regression check actively prevents future drift.** The `.github/workflows/security.yml` workflow blocks any MIT/Apache self-claims on every push.
 
