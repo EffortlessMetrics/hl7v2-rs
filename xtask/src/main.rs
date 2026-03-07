@@ -74,16 +74,21 @@ fn main() -> Result<()> {
 fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
     println!("🚀 Running gate checks...");
 
-    let crates = if changed_only {
-        get_changed_crates()?
+    let (changed_only, crates) = if changed_only {
+        match get_changed_scope()? {
+            ChangedScope::Crates(c) => (true, c),
+            ChangedScope::Workspace => {
+                println!("Non-crate files changed. Running full workspace gate.");
+                (false, vec![])
+            }
+            ChangedScope::None => {
+                println!("No files changed. Skipping checks.");
+                return Ok(());
+            }
+        }
     } else {
-        vec![]
+        (false, vec![])
     };
-
-    if changed_only && crates.is_empty() {
-        println!("No crates changed. Skipping checks.");
-        return Ok(());
-    }
 
     let run_fmt = only.as_deref().is_none_or(|s| s == "fmt");
     let run_clippy = only.as_deref().is_none_or(|s| s == "clippy");
@@ -408,22 +413,36 @@ fn run_command_git(args: &[&str]) -> Result<()> {
 }
 
 fn command_exists(cmd: &str) -> bool {
-    let cmd_with_exe = if cfg!(windows) {
-        format!("{}.exe", cmd)
+    if cfg!(windows) {
+        Command::new("where")
+            .arg(cmd)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
     } else {
-        cmd.to_string()
-    };
-
-    Command::new("where")
-        .arg(&cmd_with_exe)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+        let safe = cmd.replace('\'', r"'\''");
+        Command::new("sh")
+            .args(["-lc", &format!("command -v '{safe}' >/dev/null 2>&1")])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
 }
 
-fn get_changed_crates() -> Result<Vec<String>> {
+enum ChangedScope {
+    /// Only crates/<name>/ files changed — scoped gate possible
+    Crates(Vec<String>),
+    /// Non-crate files changed — full workspace gate required
+    Workspace,
+    /// Nothing changed
+    None,
+}
+
+fn get_changed_scope() -> Result<ChangedScope> {
     let output = Command::new("git")
         .args(["diff", "--name-only", "HEAD"])
         .output()?;
@@ -434,15 +453,30 @@ fn get_changed_crates() -> Result<Vec<String>> {
 
     let files = String::from_utf8(output.stdout)?;
     let mut changed_crates = HashSet::new();
+    let mut has_non_crate_files = false;
 
     for line in files.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
         if line.starts_with("crates/") {
             let parts: Vec<&str> = line.split('/').collect();
             if parts.len() > 1 {
                 changed_crates.insert(parts[1].to_string());
             }
+        } else {
+            has_non_crate_files = true;
         }
     }
 
-    Ok(changed_crates.into_iter().collect())
+    if changed_crates.is_empty() && !has_non_crate_files {
+        return Ok(ChangedScope::None);
+    }
+
+    if has_non_crate_files {
+        return Ok(ChangedScope::Workspace);
+    }
+
+    Ok(ChangedScope::Crates(changed_crates.into_iter().collect()))
 }

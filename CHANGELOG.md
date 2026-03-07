@@ -112,13 +112,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No configuration file support
 - Network module contains stubs only
 
-See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete status.
+See [docs/STATUS.md](docs/STATUS.md) for complete status.
 
 ### Documentation
 
-- Created [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) - Transparent feature status
-- Created [ROADMAP.md](ROADMAP.md) - v1.2.0-v2.0.0 roadmap
-- Created [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Sprint-level planning
+- Created [docs/STATUS.md](docs/STATUS.md) - Transparent feature status
+- Created [ROADMAP.md](ROADMAP.md) - v1.2.0-v2.0.0 roadmap and sprint-level planning
 - Created [CONTRIBUTING.md](CONTRIBUTING.md) - Contributor guide
 - Created [DEVELOPMENT.md](DEVELOPMENT.md) - Developer setup guide
 - Created [TESTING.md](TESTING.md) - Testing procedures
@@ -149,7 +148,7 @@ See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete status.
 - Corpus manifest
 - Expression engine improvements
 
-**See**: [ROADMAP.md](ROADMAP.md) and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
+**See**: [ROADMAP.md](ROADMAP.md) and [docs/STATUS.md](docs/STATUS.md)
 
 ### v1.3.0 (Planned - 12 weeks after v1.2)
 - Language bindings (C, Python, JavaScript, Java)
@@ -222,7 +221,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 - Zero unsafe code in public APIs
 - Comprehensive error handling
 
-See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete feature list.
+See [docs/STATUS.md](docs/STATUS.md) for complete feature list.
 
 ---
 
@@ -230,7 +229,7 @@ See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for complete feature li
 
 - [GitHub Repository](https://github.com/EffortlessMetrics/hl7v2-rs)
 - [Documentation](README.md)
-- [Implementation Status](IMPLEMENTATION_STATUS.md)
+- [Implementation Status](docs/STATUS.md)
 - [Development Roadmap](ROADMAP.md)
 - [Contributing Guide](CONTRIBUTING.md)
 

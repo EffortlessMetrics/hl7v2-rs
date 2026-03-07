@@ -22,8 +22,8 @@ The primary CI workflow that runs on every push and pull request.
 #### Jobs:
 
 1. **fast** - Fast feedback checks
-   - Format check (`cargo fmt --check`)
-   - Clippy lints (`cargo clippy`)
+   - Format check (`cargo run -p xtask -- gate --check --only fmt`)
+   - Clippy lints (`cargo run -p xtask -- gate --check --only clippy`)
    - Unit tests (`cargo test --lib`)
    - Doc tests (`cargo test --doc`)
 
@@ -181,10 +181,9 @@ The following jobs use `continue-on-error: true`:
 
 1. **Run fast checks locally before pushing:**
    ```bash
-   cargo fmt --all -- --check
-   cargo clippy --workspace --all-targets -- -D warnings
-   cargo test --lib --workspace
-   cargo test --doc --workspace
+   cargo run -p xtask -- gate --check
+   # or equivalently:
+   just gate-check
    ```
 
 2. **Run integration tests before creating PR:**
