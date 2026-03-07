@@ -33,9 +33,17 @@ fn text_with_delimiters() -> impl Strategy<Value = String> {
     proptest::string::string_regex("[A-Za-z0-9 |^~\\\\&]{0,50}").unwrap()
 }
 
-/// Generate a segment ID (3 uppercase letters)
+/// Generate a segment ID (3 uppercase letters, excluding MSH which is special)
 fn segment_id() -> impl Strategy<Value = [u8; 3]> {
-    (0u8..26, 0u8..26, 0u8..26).prop_map(|(a, b, c)| [b'A' + a, b'A' + b, b'A' + c])
+    (0u8..26, 0u8..26, 0u8..26).prop_map(|(a, b, c)| {
+        let id = [b'A' + a, b'A' + b, b'A' + c];
+        // Exclude MSH since it's a special segment that should only appear at message start
+        if &id == b"MSH" {
+            [b'M', b'S', b'I'] // Use MSI as a substitute
+        } else {
+            id
+        }
+    })
 }
 
 /// Generate a simple field

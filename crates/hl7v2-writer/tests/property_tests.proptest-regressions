@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a961865418be740ec5342371c08cec6163abc97e4369e6ce0cf7e4a0f1c3f60b # shrinks to messages = [Message { delims: Delims { field: '|', comp: '^', rep: '~', esc: '\\', sub: '&' }, segments: [Segment { id: [77, 83, 72], fields: [Field { reps: [Rep { comps: [Comp { subs: [Text("^~\\&")] }] }] }, Field { reps: [Rep { comps: [Comp { subs: [Text("APP")] }] }] }, Field { reps: [Rep { comps: [Comp { subs: [Text("FAC")] }] }] }] }, Segment { id: [77, 83, 72], fields: [Field { reps: [Rep { comps: [Comp { subs: [Text(" ")] }] }] }] }], charsets: [] }]
