@@ -13,3 +13,6 @@ categories = ["parser-implementations"]
 
 [dependencies]
 thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.6"

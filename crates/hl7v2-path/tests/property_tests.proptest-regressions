@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc ebcede49ee0ce5a91088f48989c1a640a1eba4de234c0e4f656fb16bb9ae34fc # shrinks to path = Path { segment: "AAA", field: 1, repetition: None, component: None, subcomponent: Some(1) }
