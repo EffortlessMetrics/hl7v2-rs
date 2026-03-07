@@ -20,6 +20,6 @@ hl7v2-json = { path = "../hl7v2-json" }
 [dev-dependencies]
 hl7v2-parser = { path = "../hl7v2-parser" }
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
-proptest = "1.5"
+proptest = "1.6"
 serde_json = "1.0"
 

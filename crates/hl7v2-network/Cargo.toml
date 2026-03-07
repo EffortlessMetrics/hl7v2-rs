@@ -18,7 +18,7 @@ hl7v2-parser = { path = "../hl7v2-parser" }
 hl7v2-writer = { path = "../hl7v2-writer" }
 
 # Async runtime and networking
-tokio = { version = "1.49.0", features = ["net", "io-util", "time", "macros", "rt", "sync"] }
+tokio = { workspace = true, features = ["net", "io-util", "time", "macros", "rt", "sync"] }
 tokio-util = { version = "0.7.18", features = ["codec"] }
 bytes = "1.11.1"
 futures = "0.3.32"
@@ -32,7 +32,7 @@ default = []
 tls = ["rustls", "tokio-rustls"]
 
 [dev-dependencies]
-tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "time", "net", "io-util"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time", "net", "io-util"] }
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 proptest = "1.6"
 tokio-test = "0.4"
