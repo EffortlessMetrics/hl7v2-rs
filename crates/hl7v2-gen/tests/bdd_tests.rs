@@ -5,9 +5,7 @@
 use std::collections::HashMap;
 
 use cucumber::{World, given, then, when};
-use hl7v2_gen::{
-    AckCode, Faker, Message, Template, ValueSource, ack, ack_with_error, generate,
-};
+use hl7v2_gen::{AckCode, Faker, Message, Template, ValueSource, ack, ack_with_error, generate};
 
 /// Test world for generation BDD tests
 #[derive(Debug, World)]
@@ -82,10 +80,7 @@ fn given_dynamic_template(world: &mut GenWorld) {
 #[given(regex = r#"a template with PID\.5 fixed to "([^"]+)""#)]
 fn given_template_fixed_pid5(world: &mut GenWorld, value: String) {
     let mut values = HashMap::new();
-    values.insert(
-        "PID.5".to_string(),
-        vec![ValueSource::Fixed(value)],
-    );
+    values.insert("PID.5".to_string(), vec![ValueSource::Fixed(value)]);
     world.template = Some(Template {
         name: "fixed".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -153,10 +148,7 @@ fn given_template_numeric(world: &mut GenWorld) {
 #[given(regex = r#"a template with PID\.7 as date between "(\d+)" and "(\d+)""#)]
 fn given_template_date_range(world: &mut GenWorld, start: String, end: String) {
     let mut values = HashMap::new();
-    values.insert(
-        "PID.7".to_string(),
-        vec![ValueSource::Date { start, end }],
-    );
+    values.insert("PID.7".to_string(), vec![ValueSource::Date { start, end }]);
     world.template = Some(Template {
         name: "date".to_string(),
         delims: r#"^~\&"#.to_string(),
@@ -268,13 +260,19 @@ fn when_generate_n_again(world: &mut GenWorld, count: usize, seed: u64) {
 
 #[when("I generate an ACK with code AA")]
 fn when_generate_ack_aa(world: &mut GenWorld) {
-    let msg = world.original_message.as_ref().expect("No original message");
+    let msg = world
+        .original_message
+        .as_ref()
+        .expect("No original message");
     world.ack_message = Some(ack(msg, AckCode::AA).expect("ACK generation failed"));
 }
 
 #[when(regex = r#"I generate an ACK with error code AE and text "([^"]+)""#)]
 fn when_generate_ack_error(world: &mut GenWorld, text: String) {
-    let msg = world.original_message.as_ref().expect("No original message");
+    let msg = world
+        .original_message
+        .as_ref()
+        .expect("No original message");
     world.ack_message =
         Some(ack_with_error(msg, AckCode::AE, Some(&text)).expect("ACK generation failed"));
 }

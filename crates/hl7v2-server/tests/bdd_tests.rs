@@ -229,7 +229,8 @@ async fn when_post_with_auth(world: &mut ServerWorld, key: String, uri: String) 
 fn then_status(world: &mut ServerWorld, status: u16) {
     let actual = world.response_status.expect("No response received");
     assert_eq!(
-        actual, status,
+        actual,
+        status,
         "Expected status {}, got {}. Body: {}",
         status,
         actual,
