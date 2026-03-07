@@ -1,0 +1,33 @@
+=== Commit messages mentioning MIT ===
+1239653 chore(ci): catch standalone MIT in license regression check
+c3fb6d1 feat: add ADRs, API contracts, and comprehensive CI/CD
+8ad8fa6 chore(workspace): update package metadata and Rust version
+
+=== Commit messages mentioning Apache ===
+c3fb6d1 feat: add ADRs, API contracts, and comprehensive CI/CD
+8ad8fa6 chore(workspace): update package metadata and Rust version
+
+=== Commit messages mentioning AGPL ===
+24db09f chore: Restore license governance and third-party notices (#110)
+56e6d45 chore: restore cargo-deny config and add third-party notices
+9edfcaa docs: Clarify zero-copy limitations and fix ignored test (#98)
+15a41ef feat: Complete v1.2.0 buildout priorities (#96)
+82156fc chore: update licensing information to AGPL-3.0-or-later and add Contributor License Agreement
+b699c7d feat(nix): improve flake configuration and add comprehensive documentation
+c3fb6d1 feat: add ADRs, API contracts, and comprehensive CI/CD
+8ad8fa6 chore(workspace): update package metadata and Rust version
+
+=== Commit messages mentioning license ===
+1239653 chore(ci): catch standalone MIT in license regression check
+24db09f chore: Restore license governance and third-party notices (#110)
+9023309 chore: enhance license regression check to exclude additional files
+19ff46d chore: add license regression check to identify stale license references
+56e6d45 chore: restore cargo-deny config and add third-party notices
+9edfcaa docs: Clarify zero-copy limitations and fix ignored test (#98)
+15a41ef feat: Complete v1.2.0 buildout priorities (#96)
+82156fc chore: update licensing information to AGPL-3.0-or-later and add Contributor License Agreement
+a6f45a8 Fix CI failures and clippy lints
+9554ad2 Fix CI failures and security vulnerabilities
+b699c7d feat(nix): improve flake configuration and add comprehensive documentation
+c3fb6d1 feat: add ADRs, API contracts, and comprehensive CI/CD
+8ad8fa6 chore(workspace): update package metadata and Rust version

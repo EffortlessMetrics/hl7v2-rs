@@ -4,7 +4,7 @@
 //! hold for arbitrary inputs.
 
 use hl7v2_core::parse;
-use hl7v2_prof::{load_profile, validate, Profile};
+use hl7v2_prof::{Profile, load_profile, validate};
 use proptest::prelude::*;
 
 // ============================================================================
@@ -42,13 +42,8 @@ fn safe_text_strategy() -> impl Strategy<Value = String> {
     "[A-Za-z0-9 ]{1,50}"
 }
 
-
 /// Generate a simple valid profile YAML
-fn simple_profile_yaml(
-    msg_struct: String,
-    version: String,
-    segment_ids: Vec<String>,
-) -> String {
+fn simple_profile_yaml(msg_struct: String, version: String, segment_ids: Vec<String>) -> String {
     let segments_yaml = segment_ids
         .iter()
         .map(|id| format!("  - id: \"{}\"", id))
@@ -363,7 +358,7 @@ cross_field_rules:
     actions: []
 "#;
         let profile = load_profile(yaml).unwrap();
-        let msg_str = adt_a01_message("MSG001", "12345", &sex);
+        let msg_str = adt_a01_message("MSG001", "12345", sex);
         let msg = parse(msg_str.as_bytes()).unwrap();
 
         // Validation should never panic
@@ -469,11 +464,11 @@ proptest! {
 /// Generate text with HL7 encoding characters
 fn text_with_encoding_chars() -> impl Strategy<Value = String> {
     prop_oneof![
-        Just("|".to_string()),       // Field separator
-        Just("^".to_string()),       // Component separator
-        Just("~".to_string()),       // Repetition separator
-        Just("\\".to_string()),      // Escape character
-        Just("&".to_string()),       // Subcomponent separator
+        Just("|".to_string()),  // Field separator
+        Just("^".to_string()),  // Component separator
+        Just("~".to_string()),  // Repetition separator
+        Just("\\".to_string()), // Escape character
+        Just("&".to_string()),  // Subcomponent separator
         Just("test|value".to_string()),
         Just("test^value".to_string()),
         Just("test~value".to_string()),
@@ -605,7 +600,7 @@ valuesets:
       - "O"
 "#;
         let profile = load_profile(yaml).unwrap();
-        let msg_str = adt_a01_message("MSG001", "12345", &sex);
+        let msg_str = adt_a01_message("MSG001", "12345", sex);
         let msg = parse(msg_str.as_bytes()).unwrap();
 
         let problems = validate(&msg, &profile);
@@ -966,8 +961,8 @@ fn unicode_text_strategy() -> impl Strategy<Value = String> {
         // Hebrew
         Just("שלום".to_string()),
         // Emoji
-        Just("🏥".to_string()),  // Hospital
-        Just("💊".to_string()),  // Pill
+        Just("🏥".to_string()), // Hospital
+        Just("💊".to_string()), // Pill
         Just("👨‍⚕️".to_string()), // Doctor
     ]
 }

@@ -344,4 +344,4 @@ Planned test additions:
 
 ## License
 
-These integration tests are part of the hl7v2-rs project and licensed under AGPL-3.0.
+These integration tests are part of the hl7v2-rs project and licensed under AGPL-3.0-or-later.

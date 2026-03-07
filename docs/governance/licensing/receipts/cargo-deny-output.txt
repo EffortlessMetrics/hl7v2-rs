@@ -1,0 +1,24 @@
+      │   └── tokio v1.50.0 (*)
+      ├── rustix v1.1.4 (*)
+      ├── socket2 v0.6.3
+      │   ├── hyper-util v0.1.20 (*)
+      │   └── tokio v1.50.0 (*)
+      ├── tempfile v3.26.0 (*)
+      ├── tokio v1.50.0 (*)
+      └── winapi-util v0.1.11
+          ├── ignore v0.4.25
+          │   └── globwalk v0.9.1
+          │       └── cucumber v0.22.1 (*)
+          ├── same-file v1.0.6
+          │   ├── ignore v0.4.25 (*)
+          │   └── walkdir v2.5.0
+          │       ├── criterion v0.5.1 (*)
+          │       ├── globwalk v0.9.1 (*)
+          │       └── ignore v0.4.25 (*)
+          └── walkdir v2.5.0 (*)
+
+advisories ok, bans ok, licenses ok, sources ok
+---
+Full output: 63KB (duplicate crate warnings + dependency tree)
+Final result: advisories ok, bans ok, licenses ok, sources ok
+Exit code: 0
