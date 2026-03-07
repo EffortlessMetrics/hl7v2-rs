@@ -41,3 +41,5 @@ async-lock = "3.4"
 tempfile = "3.26.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "fs"] }
 wiremock = "0.6"
+proptest = "1.6"
+hl7v2-parser = { path = "../hl7v2-parser" }

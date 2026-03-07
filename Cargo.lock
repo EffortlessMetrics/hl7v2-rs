@@ -1431,6 +1431,7 @@ dependencies = [
  "hl7v2-parser",
  "hl7v2-stream",
  "hl7v2-writer",
+ "proptest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -1596,6 +1597,7 @@ name = "hl7v2-model"
 version = "1.2.0"
 dependencies = [
  "serde",
+ "serde_json",
  "thiserror 2.0.18",
 ]
 
@@ -1647,6 +1649,7 @@ dependencies = [
 name = "hl7v2-path"
 version = "1.2.0"
 dependencies = [
+ "proptest",
  "thiserror 2.0.18",
 ]
 
@@ -1661,6 +1664,7 @@ dependencies = [
  "hl7v2-parser",
  "hl7v2-validation",
  "lru",
+ "proptest",
  "regex",
  "reqwest",
  "serde",

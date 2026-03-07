@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc e7d587eaae1d2626582fa63be3c0f1d724eb5401224387ce28b7275e90715369 # shrinks to sex = "F"
