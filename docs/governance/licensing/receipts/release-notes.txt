@@ -1,0 +1,24 @@
+title:	v1.2.0: Production Readiness & Architectural Finalization
+tag:	v1.2.0
+draft:	false
+prerelease:	false
+immutable:	false
+author:	EffortlessSteven
+created:	2026-03-05T07:00:47Z
+published:	2026-03-05T07:01:12Z
+url:	https://github.com/EffortlessMetrics/hl7v2-rs/releases/tag/v1.2.0
+--
+This release brings the \hl7v2-rs\ ecosystem to full production readiness.
+
+### Key Highlights
+- **Workspace Architecture**: The project has been fully refactored into a scalable workspace of 28 focused microcrates.
+- **Server API**: Production-grade HTTP/REST endpoints with constant-time API Key authentication and per-IP rate limiting (\	ower-governor\).
+- **Observability**: Integrated Prometheus metrics export (\/metrics\) and detailed structured tracing.
+- **Streaming Engine**: Bounded-memory event-based parser available in the CLI via the \--streaming\ flag, capable of securely parsing multi-gigabyte files.
+- **Documentation**: A full suite of Architecture Decision Records (ADRs) and comprehensive \README.md\ guides for every crate.
+
+### Licensing
+- **License**: AGPL-3.0-or-later (see LICENSE)
+- **Contributions**: All contributions are subject to the project [CLA.md](https://github.com/EffortlessMetrics/hl7v2-rs/blob/main/CLA.md).
+
+This release has passed an extensive, 100% green verification suite, including real-logic BDD testing, E2E CLI testing, property-based edge-case generation, and a zero-vulnerability \cargo audit\.

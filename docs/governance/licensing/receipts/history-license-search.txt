@@ -1,0 +1,91 @@
+=== Git log for commits touching license fields ===
+fa1d839 chore: Fix CI check suite failures (JSON schema, query logic, workflow deps)
+0bf8392 Revert security changes and stop work as requested
+adc7cb9 Fix CI issues: update actions and fix clippy warnings
+cae3af2 Phase 2 Buildout: Error Types, Usage Examples, Performance Benchmarks (#99)
+909c65b feat(cli): enhance interactive mode UX and fix CI config
+7873d50 Fix CI Failures and Secure Dependencies
+f531465 Fix CI failures and security issues
+a6f45a8 Fix CI failures and clippy lints
+6679180 Fix CI failures and lint issues
+b226f76 fix(ci): repair build configuration and resolve lints
+4032e89 Fix CI failures and warnings
+3f2a80f fix(ci): resolve CI failures and deprecations
+5d766ee fix(ci): address CI failures, deprecations, and lints
+2893c4c Fix CI failures: update actions, fix config, resolve warnings
+
+=== Git log searching for MIT/Apache in diffs ===
+4370910 Centralize CI and hook helpers in xtask
+24db09f chore: Restore license governance and third-party notices (#110)
+19ff46d chore: add license regression check to identify stale license references
+f75dc22 Merge pull request #87 from EffortlessMetrics/feat/comprehensive-testing-infrastructure
+82156fc chore: update licensing information to AGPL-3.0-or-later and add Contributor License Agreement
+c3fb6d1 feat: add ADRs, API contracts, and comprehensive CI/CD
+8ad8fa6 chore(workspace): update package metadata and Rust version
+d04e739 docs(readme): add project overview and usage instructions
+
+=== Showing the initial commit license ===
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                            Preamble
+
+  The GNU Affero General Public License is a free, copyleft license for
+software and other kinds of works, specifically designed to ensure
+cooperation with the community in the case of network server software.
+
+  The licenses for most software and other practical works are designed
+to take away your freedom to share and change the works.  By contrast,
+our General Public Licenses are intended to guarantee your freedom to
+share and change all versions of a program--to make sure it remains free
+software for all its users.
+
+  When we speak of free software, we are referring to freedom, not
+...
+
+=== Showing commit d04e739 Cargo.toml (if exists) ===
+[workspace]
+members = [
+    "crates/hl7v2-core",
+    "crates/hl7v2-prof",
+    "crates/hl7v2-gen",
+    "crates/hl7v2-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+authors = ["Kiro <kiro@example.com>"]
+description = "Modern Rust HL7v2 Processor"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/your-org/hl7v2-rs"
+keywords = ["hl7", "healthcare", "parser", "validator"]
+categories = ["parser-implementations", "encoding"]
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+uuid = { version = "1.0", features = ["v4"] }
+=== Showing commit 8ad8fa6 diff ===
+commit 8ad8fa6eb581a140a9f1e30984c929d9197f6294
+Author: Steven Zimmerman <git@effortlesssteven.com>
+Date:   Sun Aug 31 08:54:24 2025 -0400
+
+    chore(workspace): update package metadata and Rust version
+    
+    - Bump Rust version from 1.88 to 1.89
+    - Change author to Steven Zimmerman with new contact email
+    - Update package license to AGPL v3 from MIT OR Apache-2.0
+    - Modify repository URL to EffortlessSteven's GitHub repo
+    - Adjust description and keywords to match updated metadata
+
+ Cargo.toml | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)

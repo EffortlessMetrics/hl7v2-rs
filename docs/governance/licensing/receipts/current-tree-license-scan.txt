@@ -1,0 +1,201 @@
+ROADMAP.md:- ✅ **Security**: API Key authentication and per-IP rate limiting.
+README.md:# (Planned) Emit a JSON validation report
+README.md:- **Concurrency limiting**: Built-in backpressure (100 concurrent requests default)
+README.md:    max_message_size: 1024 * 1024,  // 1 MB limit
+README.md:- **Encoding Rules**: Full support for standard HL7 delimiters and escape sequences
+README.md:By submitting a contribution (pull request, patch, issue comment containing code, etc.),
+CLA.md:By submitting a contribution (pull request, patch, issue comment containing code,
+CLA.md:  or additions to existing work, that you intentionally submit for inclusion in this
+CLA.md:- Each Contribution is your original creation, or you have sufficient rights to submit
+CLA.md:  permission to submit Contributions on behalf of your employer, or your employer has
+SECURITY.md:- Any suggested mitigations.
+DEPLOYMENT.md:        limits:
+DEPLOYMENT.md:          limits:
+DEPLOYMENT.md:          value: "200"  # Increase concurrency limit
+DEPLOYMENT.md:**Concurrency Limiting:**
+DEPLOYMENT.md:**Request Limits:**
+DEPLOYMENT.md:- Implement rate limiting at API gateway
+DEPLOYMENT.md:### Concurrency Limit
+DEPLOYMENT.md:See [ADR-006](/.qoder/adr/ADR-006-rate-limiting-and-backpressure.md) for guidance.
+DEPLOYMENT.md:### Resource Limits
+DEPLOYMENT.md:  limits:
+DEPLOYMENT.md:# Check for 503 responses (concurrency limit hit)
+DEPLOYMENT.md:# Reduce concurrency limit
+DEPLOYMENT.md:- [ADR-006: Rate Limiting Strategy](/.qoder/adr/ADR-006-rate-limiting-and-backpressure.md)
+LICENSE: Everyone is permitted to copy and distribute verbatim copies
+LICENSE:The GNU General Public License permits making a modified version and
+LICENSE:released a new version of the Affero GPL which permits relicensing under
+LICENSE:conditions are met.  This License explicitly affirms your unlimited
+LICENSE:  Conveying under any other circumstances is permitted solely under
+LICENSE:the covered work, and you disclaim any intention to limit operation or
+LICENSE:used to limit the access or legal rights of the compilation's users
+LICENSE:beyond what the individual works permit.  Inclusion of a covered work
+LICENSE:    a) Disclaiming warranty or limiting liability differently from the
+LICENSE:    d) Limiting the use for publicity purposes of names of licensors or
+LICENSE:a further restriction but permits relicensing or conveying under this
+LICENSE:hereafter acquired, that would be infringed by some manner, permitted
+LICENSE:agreement or commitment, however denominated, not to enforce a patent
+LICENSE:party means to make such an agreement or commitment not to enforce a
+LICENSE:  Nothing in this License shall be construed as excluding or limiting
+LICENSE:  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+LICENSE:OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
+LICENSE:  16. Limitation of Liability.
+LICENSE:THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY
+LICENSE:USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF
+LICENSE:  If the disclaimer of warranty and limitation of liability provided
+flake.nix:            # Set up pre-commit hooks
+flake.nix:            if [ ! -f .git/hooks/pre-commit ]; then
+flake.nix:              echo "Setting up pre-commit hooks..."
+flake.nix:              cat > .git/hooks/pre-commit << 'EOF'
+flake.nix:echo "Running pre-commit checks..."
+flake.nix:echo "✅ Pre-commit checks passed!"
+flake.nix:              chmod +x .git/hooks/pre-commit
+flake.nix:              echo "✅ Pre-commit hooks installed"
+CHANGELOG.md:- **Security**: API Key authentication (`X-API-Key` header) and per-IP rate limiting via `tower-governor`.
+CHANGELOG.md:- Event-based streaming parser with delimiter switching
+CHANGELOG.md:### Known Limitations (v1.1.0)
+NIX_USAGE.md:- Sets up git pre-commit hooks automatically
+NIX_USAGE.md:## Pre-Commit Hooks
+NIX_USAGE.md:The development shell automatically installs git pre-commit hooks that run:
+SESSION_SUMMARY.md:### 1. PR Feedback Cleanup ✅ (Commit: `42ec52d`)
+SESSION_SUMMARY.md:### 2. Systematic Build-Out Plan ✅ (Commit: `f08c9f8`)
+SESSION_SUMMARY.md:### 3. Schema-Driven Design Infrastructure ✅ (Commit: `694388e`)
+SESSION_SUMMARY.md:- Delimiters configuration
+SESSION_SUMMARY.md:### 4. BDD Framework with Cucumber ✅ (Commit: `694388e`)
+SESSION_SUMMARY.md:- Parse ADT messages with standard/custom delimiters
+SESSION_SUMMARY.md:### 5. Nix for Reproducible Builds ✅ (Commit: `694388e`)
+SESSION_SUMMARY.md:- Pre-commit hooks (fmt, clippy, test, schema validation)
+SESSION_SUMMARY.md:### 6. Justfile Task Automation ✅ (Commit: `694388e`)
+SESSION_SUMMARY.md:### 7. Infrastructure-as-Code ✅ (Commit: `694388e`)
+SESSION_SUMMARY.md:- Resource limits (256Mi-512Mi memory, 250m-500m CPU)
+SESSION_SUMMARY.md:### 8. Policy-as-Code with OPA ✅ (Commit: `694388e`)
+SESSION_SUMMARY.md:- ✅ **Quality gates** - Pre-commit hooks, CI checks
+SESSION_SUMMARY.md:- ✅ Pre-commit hooks prevent bad commits
+SESSION_SUMMARY.md:- ✅ Pre-commit hooks ensure consistency
+SESSION_SUMMARY.md:- Pre-commit hooks enforce standards
+SESSION_SUMMARY.md:# Commit (pre-commit hooks run automatically)
+SESSION_SUMMARY.md:git commit -m "feat: implement new feature"
+SESSION_SUMMARY.md:**Commits**: 3 (42ec52d, f08c9f8, 694388e)
+test_data\advanced_template.yaml:      value: ["Smith", "Johnson", "Williams", "Brown", "Jones"]
+test_data\dynamic_template.yaml:      value: ["Smith", "Johnson", "Williams", "Brown", "Jones"]
+CONTRIBUTING.md:By submitting a contribution, you agree to [CLA.md](CLA.md) and you license your
+CONTRIBUTING.md:- Known limitations
+CONTRIBUTING.md:### 6. Commit Your Work
+CONTRIBUTING.md:**Commit Message Format**:
+CONTRIBUTING.md:- Force-push updates (don't add merge commits)
+CONTRIBUTING.md:- Squash commit if multiple small commits
+CONTRIBUTING.md:- Check [docs/STATUS.md](docs/STATUS.md) - it's a known limitation?
+CONTRIBUTING.md:5. Submit PR with `docs()` commit type
+CONTRIBUTING.md:- Write clear commit messages
+CONTRIBUTING.md:We're committed to providing a welcoming and inclusive environment:
+TESTING.md:        fn invalid_delimiter() { /* ... */ }
+TESTING.md:### Pre-commit Checks
+TESTING.md:# Before committing
+api\README.md:- Rate limiting documentation
+schemas\README.md:- Delimiters configuration
+api\proto\hl7v2.proto:  // Delimiters used
+api\proto\hl7v2.proto:  Delimiters delimiters = 1;
+api\proto\hl7v2.proto:// Delimiters
+api\proto\hl7v2.proto:message Delimiters {
+api\proto\hl7v2.proto:  // Use canonical delimiters
+api\proto\hl7v2.proto:  bool canonical_delimiters = 1;
+infrastructure\policies\validation.rego:    admit_date := pv1_seg.fields[44].value
+infrastructure\policies\validation.rego:    birth_date > admit_date
+infrastructure\policies\validation.rego:# ADT^A01 (Admit) required fields
+infrastructure\policies\validation.rego:# Rate Limiting and Quotas
+docs\TESTING_ARCHITECTURE.md:/// Sample ADT^A01 message - Admit/Visit Notification
+docs\TESTING_ARCHITECTURE.md:    "PV1|1|I|ICU^101^01||||DOC123^Smith^Jane||||||||V123456\r"
+docs\TESTING_ARCHITECTURE.md:    "PID|1||MRN456^^^Hospital^MR||Smith^Jane^M||19900215|F\r"
+docs\TESTING_ARCHITECTURE.md:    /// Message with custom delimiters
+docs\TESTING_ARCHITECTURE.md:        "PID|1||123||Doe^John~Smith^Jane\r"
+docs\TESTING_ARCHITECTURE.md:        "EVN|A01|20250128152312+0000|20250128160000||DOC123^Smith^Jane^^^^MD^^^NPI^12345\r",
+docs\TESTING_ARCHITECTURE.md:    /// Use custom delimiters
+docs\TESTING_ARCHITECTURE.md:| `test_<unit>_<scenario>_with_<condition>` | `test_parse_with_custom_delimiters` | Tests with specific conditions |
+docs\TESTING_ARCHITECTURE.md:        F --> G[Property Tests - Limited]
+docs\TESTING_ARCHITECTURE.md:      - name: Property tests (limited cases)
+docs\TESTING_ARCHITECTURE.md:    fn test_parse_with_custom_delimiters_succeeds() {
+examples\template_generation.rs:            "SMITH^JOHN".to_string(),
+examples\template_generation.rs:            "SMITH^JANE".to_string(),
+docs\TESTING_ANALYSIS.md:**Priority:** Low - Benchmark crate, limited test needs
+docs\TESTING_ANALYSIS.md:**Purpose:** HL7 v2 data type validation. Provides validation functions for primitive types (ST, ID, DT, TM, TS, NM, etc.) and commonly used validation patterns.
+docs\TESTING_ANALYSIS.md:- `test_escape_multiple_delimiters` - Multiple delimiter escaping
+docs\TESTING_ANALYSIS.md:- `test_custom_delimiters` - Custom delimiter support
+docs\TESTING_ANALYSIS.md:**Purpose:** Core data model for HL7 v2 messages. Provides foundational data structures (Message, Segment, Field, Repetition, Component, Atom) and delimiter configuration.
+docs\TESTING_ANALYSIS.md:- `test_delims_default` - Default delimiters
+docs\TESTING_ANALYSIS.md:- `test_delims_parse_from_msh` - Delimiter parsing from MSH
+docs\TESTING_ANALYSIS.md:- `test_delims_rejects_duplicates` - Duplicate delimiter rejection
+docs\TESTING_ANALYSIS.md:**Purpose:** HL7 v2 message normalization. Parses and writes messages in consistent format with optional canonical delimiter rewriting.
+docs\TESTING_ANALYSIS.md:- `normalize_preserves_custom_delimiters_when_not_canonical` - Custom delimiter preservation
+docs\TESTING_ANALYSIS.md:- `normalize_converts_to_canonical_delimiters` - Canonical conversion
+docs\TESTING_ANALYSIS.md:- Edge cases for delimiter conversion
+docs\TESTING_ANALYSIS.md:- `test_expression_guardrails` - Expression limits
+docs\TESTING_ANALYSIS.md:- `test_custom_delimiters` - Custom delimiter handling
+docs\TESTING_ANALYSIS.md:**Priority:** High - Limited test coverage for streaming
+docs\TESTING_ANALYSIS.md:- Custom delimiter writing tests
+docs\TESTING_ANALYSIS.md:   - Critical component with limited test coverage
+examples\streaming_parser.rs:                    "  Delimiters: field='{}' comp='{}' rep='{}' esc='{}' sub='{}'",
+examples\streaming_parser.rs:    println!("    // Configure the parser with memory limits");
+docs\STATUS.md:- ✅ **Rate Limiting**: Per-IP throttling to prevent DoS.
+examples\README.md:- Set custom delimiters
+infrastructure\k8s\deployment.yaml:          limits:
+docs\CI_PIPELINE.md:   - Limited property tests (100 cases)
+docs\CI_PIPELINE.md:- Cancel in-progress runs when a new commit is pushed
+docs\CI_PIPELINE.md:3. **Check property tests locally (limited):**
+docs\API_GUIDE.md:- `429 Too Many Requests`: Rate limit exceeded.
+schemas\openapi\hl7v2-api.yaml:    ## Rate Limiting
+schemas\openapi\hl7v2-api.yaml:    - Exceeded limits return 429 Too Many Requests
+schemas\openapi\hl7v2-api.yaml:        - Custom delimiters (auto-detected from MSH)
+schemas\openapi\hl7v2-api.yaml:          description: Rate limit exceeded
+schemas\openapi\hl7v2-api.yaml:        - Canonical delimiters
+schemas\openapi\hl7v2-api.yaml:      required: [parsed, delimiters, segments]
+schemas\openapi\hl7v2-api.yaml:        delimiters:
+schemas\openapi\hl7v2-api.yaml:          $ref: '#/components/schemas/Delimiters'
+schemas\openapi\hl7v2-api.yaml:        canonical_delimiters:
+schemas\openapi\hl7v2-api.yaml:    Delimiters:
+docs\MICROCRATE_ANALYSIS.md:    CA,  // Commit Accept
+docs\MICROCRATE_ANALYSIS.md:    CE,  // Commit Error
+docs\MICROCRATE_ANALYSIS.md:    CR,  // Commit Reject
+docs\MICROCRATE_ANALYSIS.md:    CA,  // Commit Accept
+docs\MICROCRATE_ANALYSIS.md:    CE,  // Commit Error
+docs\MICROCRATE_ANALYSIS.md:    CR,  // Commit Reject
+docs\MICROCRATE_ANALYSIS.md:- Canonical delimiter conversion
+docs\MICROCRATE_ANALYSIS.md:**Priority:** LOW - Small scope, limited use cases
+docs\MICROCRATE_ANALYSIS.md:**Priority:** LOW - Limited standalone use cases
+docs\MICROCRATE_ANALYSIS.md:- `create_concurrency_limit_layer()` - Concurrency limiting
+docs\MICROCRATE_ANALYSIS.md:- `create_custom_concurrency_limit_layer()` - Custom limits
+docs\MICROCRATE_ANALYSIS.md:pub fn create_concurrency_limit_layer() -> ConcurrencyLimitLayer;
+docs\MICROCRATE_ANALYSIS.md:pub fn create_custom_concurrency_limit_layer(max: usize) -> ConcurrencyLimitLayer;
+docs\MICROCRATE_ANALYSIS.md:**Priority:** LOW - Server-specific, limited reuse
+docs\MICROCRATE_ANALYSIS.md:6. **`hl7v2-profile-defs`** (LOW) - Schema separation, limited standalone use
+docs\plans\v1.2.0-completion.md:- ✅ Security & Observability (API Key, Metrics, Rate Limiting)
+docs\plans\v1.2.0-completion.md:- ✅ **Memory Bounds**: Configurable limits to prevent DoS.
+docs\plans\v1.2.0-completion.md:- ✅ **Canonicalization**: Transform messages to standard delimiters.
+examples\message_building.rs://! - Set custom delimiters
+examples\message_building.rs:    // Example 1: Build a message with default delimiters
+examples\message_building.rs:    // Example 2: Build a message with custom delimiters
+examples\message_building.rs:    match build_message_with_custom_delimiters() {
+examples\message_building.rs:            println!("✓ Successfully built message with custom delimiters\n");
+examples\message_building.rs:/// Build an ADT^A01 (Admit) message with default delimiters
+examples\message_building.rs:    // Create default delimiters (|^~\&)
+examples\message_building.rs:    // PV1-5: Preadmit Number - often empty
+examples\message_building.rs:        // PV1-5: Preadmit Number - empty
+examples\message_building.rs:        create_composite_field(&["DR123", "SMITH", "JOHN", "", "", "MD"]),
+examples\message_building.rs:/// Build a message with custom delimiters
+examples\message_building.rs:fn build_message_with_custom_delimiters() -> Result<Message, Error> {
+examples\message_building.rs:    println!("--- Example 2: Building Message with Custom Delimiters ---");
+examples\message_building.rs:    // Create custom delimiters
+examples\message_building.rs:    // Note: All delimiters must be distinct
+examples\message_building.rs:    println!("Custom delimiters:");
+examples\parsing_basics.rs:/// A simple HL7 v2 ADT^A01 (Admit) message
+examples\parsing_basics.rs:        "  Delimiters: field='{}' component='{}' repetition='{}' escape='{}' subcomponent='{}'",
+examples\parsing_basics.rs:    // Example of a message with duplicate delimiters
+examples\parsing_basics.rs:                "✗ Unexpectedly parsed message with duplicate delimiters: {:?}",
+examples\parsing_basics.rs:            println!("✓ Correctly detected duplicate delimiters");
+docs\plans\historical-v1.0.0-plan.md:- ✅ Basic message parsing with delimiter handling
+docs\plans\historical-v1.0.0-plan.md:    Given an HL7 ADT^A01 message with standard delimiters
+docs\plans\historical-v1.0.0-plan.md:  Scenario: Parse message with custom delimiters
+docs\plans\historical-v1.0.0-plan.md:    Given an HL7 message with pipe delimiter "|" and component delimiter "^"
+docs\plans\historical-v1.0.0-plan.md:    Then the parser should detect the delimiters correctly
+docs\plans\historical-v1.0.0-plan.md:    And field parsing should use the detected delimiters
+docs\plans\historical-v1.0.0-plan.md:#[given(expr = "an HL7 ADT^A01 message with standard delimiters")]
+--- Scan complete ---

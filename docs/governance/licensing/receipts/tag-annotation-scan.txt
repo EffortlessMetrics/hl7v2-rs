@@ -1,0 +1,25 @@
+=== Tag list ===
+v1.2.0
+
+=== Tag v1.2.0 details ===
+tag v1.2.0
+Tagger: Steven Zimmerman <git@effortlesssteven.com>
+
+Release v1.2.0: Production Readiness & Architectural Finalization
+1782d9a2009396c5a56685f1f8ce7bf4c72cb236
+chore: Final workspace cleanup and documentation archiving (#109)
+
+=== LICENSE at v1.2.0 (first 20 lines) ===
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                            Preamble
+
+  The GNU Affero General Public License is a free, copyleft license for
+software and other kinds of works, specifically designed to ensure
+cooperation with the community in the case of network server software.
+...

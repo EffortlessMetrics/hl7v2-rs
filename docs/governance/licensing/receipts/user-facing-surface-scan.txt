@@ -1,0 +1,58 @@
+.\THIRD_PARTY_NOTICES.md:7:- **MIT License**: Used by many core Rust ecosystem crates (e.g., `serde`, `tokio`).
+.\THIRD_PARTY_NOTICES.md:8:- **Apache License 2.0**: Used by many core Rust ecosystem crates (e.g., `tracing`, `hyper`).
+.\README.md:328:This project is licensed under the GNU Affero General Public License, version 3 or later
+.\README.md:329:(**AGPL-3.0-or-later**). See [LICENSE](LICENSE).
+.\README.md:335:**AGPL-3.0-or-later**.
+.\CONTRIBUTING.md:11:hl7v2-rs is licensed under **AGPL-3.0-or-later**.
+.\CONTRIBUTING.md:14:contribution under **AGPL-3.0-or-later**.
+.\CHANGELOG.md:240:This project is licensed under the GNU Affero General Public License, version 3 or later
+.\CHANGELOG.md:241:(**AGPL-3.0-or-later**). See [LICENSE](LICENSE).
+.\NIX_USAGE.md:336:This flake configuration is part of the hl7v2-rs project and is licensed under AGPL-3.0-or-later.
+.\CLA.md:23:the terms of **AGPL-3.0-or-later** (GNU Affero General Public License, version 3 or
+.\DEPLOYMENT.md:714:This deployment guide is part of the hl7v2-rs project and licensed under AGPL-3.0-or-later.
+.\schemas\openapi\hl7v2-api.yaml:38:    name: AGPL-3.0-or-later
+.\examples\README.md:262:These examples are part of the hl7v2-rs project and are licensed under the same terms (AGPL-3.0-or-later).
+.\docs\governance\licensing-audit-2026-03-06.md:6:**License:** AGPL-3.0-or-later
+.\docs\governance\licensing-audit-2026-03-06.md:13:All 30 Cargo.toml packages, the LICENSE file, README, CHANGELOG, CLA, CONTRIBUTING, OpenAPI spec, GitHub release notes, and CI enforcement are uniformly AGPL-3.0-or-later. No stale self-licensing claims exist in the current tree. The sole historical MIT/Apache reference was in the workspace Cargo.toml for exactly 2 early commits before being changed to AGPL, while the LICENSE file was AGPL from the very first commit. No history rewrite is needed.
+.\docs\governance\licensing-audit-2026-03-06.md:22:| `Cargo.toml` `[workspace.package].license` | CLEAN | `"AGPL-3.0-or-later"` (line 45) |
+.\docs\governance\licensing-audit-2026-03-06.md:26:| `README.md` | CLEAN | Lines 326-335: explicitly states AGPL-3.0-or-later |
+.\docs\governance\licensing-audit-2026-03-06.md:27:| `CHANGELOG.md` | CLEAN | Lines 238-241: states AGPL-3.0-or-later |
+.\docs\governance\licensing-audit-2026-03-06.md:28:| `CONTRIBUTING.md` | CLEAN | Lines 9-14: states AGPL-3.0-or-later |
+.\docs\governance\licensing-audit-2026-03-06.md:29:| `CLA.md` | CLEAN | Lines 17-24: license grant under AGPL-3.0-or-later |
+.\docs\governance\licensing-audit-2026-03-06.md:31:| `deny.toml` | INTENTIONAL | Allow-list includes MIT, Apache-2.0, etc. for *dependencies only*; AGPL-3.0-or-later included for self |
+.\docs\governance\licensing-audit-2026-03-06.md:32:| `schemas/openapi/hl7v2-api.yaml` | CLEAN | Lines 37-39: `name: AGPL-3.0-or-later` with URL to LICENSE |
+.\docs\governance\licensing-audit-2026-03-06.md:55:| `d04e739` (2nd commit) | `Cargo.toml`: `license = "MIT OR Apache-2.0"` | HISTORICAL-ONLY — placeholder metadata in early scaffold, never published/tagged |
+.\docs\governance\licensing-audit-2026-03-06.md:56:| `8ad8fa6` (3rd commit) | `-license = "MIT OR Apache-2.0"` -> `+license = "AGPL v3"` | HISTORICAL-ONLY — the fix commit; MIT/Apache existed for exactly 2 commits |
+.\docs\governance\licensing-audit-2026-03-06.md:57:| Later commits | `license = "AGPL v3"` -> `"AGPL-3.0-or-later"` | CLEAN — normalized to proper SPDX identifier |
+.\docs\governance\licensing-audit-2026-03-06.md:58:| `v1.2.0` tag | `license = "AGPL-3.0-or-later"` at tag | CLEAN |
+.\docs\governance\licensing-audit-2026-03-06.md:65:The LICENSE file has been AGPL since the initial commit (`1aa9ab5`). Only the Cargo.toml metadata field briefly said `"MIT OR Apache-2.0"` for 2 unpublished commits before being corrected in `8ad8fa6`. This is a non-issue — the actual license grant (LICENSE file) was always AGPL.
+.\docs\governance\licensing-audit-2026-03-06.md:69:- `8ad8fa6` — "Update package license to AGPL v3 from MIT OR Apache-2.0"
+.\docs\governance\licensing-audit-2026-03-06.md:70:- `82156fc` — "update licensing information to AGPL-3.0-or-later and add Contributor License Agreement"
+.\docs\governance\licensing-audit-2026-03-06.md:83:| **GitHub Release `v1.2.0`** | CLEAN — body explicitly states "License: AGPL-3.0-or-later (see LICENSE)" |
+.\docs\governance\licensing-audit-2026-03-06.md:98:license = "AGPL-3.0-or-later"   # line 45
+.\docs\governance\licensing-audit-2026-03-06.md:102:Every crate uses `license.workspace = true`, inheriting `AGPL-3.0-or-later`:
+.\docs\governance\licensing-audit-2026-03-06.md:145:- AGPL-3.0-or-later (for self-references)
+.\docs\governance\licensing-audit-2026-03-06.md:170:| Update release notes | **No** — v1.2.0 notes already state AGPL-3.0-or-later |
+.\docs\governance\licensing-audit-2026-03-06.md:180:- [x] All 30 Cargo.toml files resolve to `AGPL-3.0-or-later`
+.\docs\governance\licensing-audit-2026-03-06.md:182:- [x] GitHub release v1.2.0 explicitly states AGPL-3.0-or-later
+.\docs\governance\licensing-audit-2026-03-06.md:215:(AGPL-3\.0-or-later|GNU Affero General Public License|MIT OR Apache|MIT License|
+.\docs\governance\licensing-audit-2026-03-06.md:216: Apache License(, Version 2\.0)?|SPDX-License-Identifier:\s*(MIT|Apache-2\.0|AGPL-3\.0-or-later))
+.\docs\governance\licensing-audit-2026-03-06.md:223:| `README.md` | 328-329, 335 | "GNU Affero General Public License... **AGPL-3.0-or-later**" | AGPL self-licensing |
+.\docs\governance\licensing-audit-2026-03-06.md:224:| `CHANGELOG.md` | 240-241 | "GNU Affero General Public License... (**AGPL-3.0-or-later**)" | AGPL self-licensing |
+.\docs\governance\licensing-audit-2026-03-06.md:225:| `CONTRIBUTING.md` | 11, 14 | "licensed under **AGPL-3.0-or-later**" | AGPL self-licensing |
+.\docs\governance\licensing-audit-2026-03-06.md:226:| `CLA.md` | 23 | "terms of **AGPL-3.0-or-later** (GNU Affero General Public License..." | AGPL self-licensing |
+.\docs\governance\licensing-audit-2026-03-06.md:227:| `examples/README.md` | 262 | "licensed under the same terms (AGPL-3.0-or-later)" | AGPL self-licensing |
+.\docs\governance\licensing-audit-2026-03-06.md:228:| `schemas/openapi/hl7v2-api.yaml` | 38 | `name: AGPL-3.0-or-later` | AGPL self-licensing |
+.\docs\governance\licensing-audit-2026-03-06.md:229:| `THIRD_PARTY_NOTICES.md` | 7 | "**MIT License**: Used by many core Rust ecosystem crates" | Third-party attribution |
+.\docs\governance\licensing-audit-2026-03-06.md:230:| `THIRD_PARTY_NOTICES.md` | 8 | "**Apache License 2.0**: Used by many core Rust ecosystem crates" | Third-party attribution |
+.\docs\governance\licensing-audit-2026-03-06.md:231:| `.github/workflows/security.yml` | 115 | `rg -n "(\bMIT\b\|MIT OR Apache\|Apache-2\.0\|..."` | Dependency policy (CI regression check) |
+.\docs\governance\licensing-audit-2026-03-06.md:241:**GitHub Release `v1.2.0`:** Previously verified in Section C — body states "License: AGPL-3.0-or-later (see LICENSE)".
+.\docs\governance\licensing-audit-2026-03-06.md:247:2. **Do release notes or tags contain stale self-licensing language?** — **No.** The v1.2.0 tag annotation contains no license text; the release body correctly states AGPL-3.0-or-later.
+.\docs\governance\licensing-audit-2026-03-06.md:249:3. **Are all current self-licensing statements consistently AGPL-3.0-or-later?** — **Yes.** Four files previously used the shorthand "AGPL-3.0" (without "-or-later") and were corrected in this addendum pass (see below).
+.\docs\governance\licensing-audit-2026-03-06.md:253:Four user-facing files used "AGPL-3.0" instead of the full SPDX identifier "AGPL-3.0-or-later":
+.\docs\governance\licensing-audit-2026-03-06.md:257:| `infrastructure/grafana/README.md` | 440 | "licensed under AGPL-3.0." | "licensed under AGPL-3.0-or-later." |
+.\docs\governance\licensing-audit-2026-03-06.md:258:| `crates/hl7v2-server/tests/README.md` | 347 | "licensed under AGPL-3.0." | "licensed under AGPL-3.0-or-later." |
+.\docs\governance\licensing-audit-2026-03-06.md:259:| `DEPLOYMENT.md` | 714 | "licensed under AGPL-3.0." | "licensed under AGPL-3.0-or-later." |
+.\docs\governance\licensing-audit-2026-03-06.md:260:| `NIX_USAGE.md` | 336 | "licensed under AGPL-3.0." | "licensed under AGPL-3.0-or-later." |
+.\infrastructure\grafana\README.md:440:These dashboards are part of the hl7v2-rs project and licensed under AGPL-3.0-or-later.
+.\crates\hl7v2-server\tests\README.md:347:These integration tests are part of the hl7v2-rs project and licensed under AGPL-3.0-or-later.

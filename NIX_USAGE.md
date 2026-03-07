@@ -333,4 +333,4 @@ nix-collect-garbage -d
 
 ## License
 
-This flake configuration is part of the hl7v2-rs project and is licensed under AGPL-3.0.
+This flake configuration is part of the hl7v2-rs project and is licensed under AGPL-3.0-or-later.
