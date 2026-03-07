@@ -147,7 +147,7 @@ pub fn is_date(value: &str) -> bool {
     true
 }
 
-/// Check if value is a valid time (HHMM[SS[.S[S[S[S]]]]] format)
+/// Check if value is a valid time (HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\] format)
 pub fn is_time(value: &str) -> bool {
     if value.is_empty() || value.len() > 16 {
         return false;
@@ -187,7 +187,7 @@ pub fn is_time(value: &str) -> bool {
     true
 }
 
-/// Check if value is a valid timestamp (YYYYMMDD[HHMM[SS[.S[S[S[S]]]]]] format)
+/// Check if value is a valid timestamp (YYYYMMDD\[HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\]\] format)
 pub fn is_timestamp(value: &str) -> bool {
     if value.len() < 8 {
         return false;

@@ -191,7 +191,7 @@ pub fn unwrap_mllp_checked(bytes: &[u8]) -> Result<&[u8], MllpError> {
 
 /// Unwrap MLLP-framed bytes and return owned data.
 ///
-/// This is a convenience function that returns an owned Vec<u8>.
+/// This is a convenience function that returns an owned `Vec<u8>`.
 ///
 /// # Arguments
 ///

@@ -1,6 +1,6 @@
 //! Profile loader with remote loading and caching support.
 //!
-//! This module provides the [`ProfileLoader`] struct for loading HL7 v2 profiles
+//! This module provides the [`ProfileLoader`](crate::loader::ProfileLoader) struct for loading HL7 v2 profiles
 //! from local files or remote URLs with ETag-based caching.
 
 use std::sync::Arc;

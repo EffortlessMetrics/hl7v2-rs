@@ -36,7 +36,7 @@ Error output here
 - Installed from: [source/crates.io]
 
 **Related documents**
-- Link to [IMPLEMENTATION_STATUS.md](../../IMPLEMENTATION_STATUS.md) if this is a known limitation
+- Link to [docs/STATUS.md](../../docs/STATUS.md) if this is a known limitation
 - Link to related issues or PRs
 
 **Additional context**

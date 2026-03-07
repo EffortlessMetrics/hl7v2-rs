@@ -19,7 +19,7 @@ Before releasing, ensure:
 - [ ] Clippy is clean (`cargo clippy --workspace --all-targets -- -D warnings`).
 - [ ] Formatting is correct (`cargo fmt --all -- --check`).
 - [ ] `CHANGELOG.md` is updated with the new version and changes.
-- [ ] `IMPLEMENTATION_STATUS.md` is updated.
+- [ ] `docs/STATUS.md` is updated.
 - [ ] `README.md` and crate-specific READMEs are up to date.
 - [ ] MSRV is verified.
 
