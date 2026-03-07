@@ -152,28 +152,21 @@ Feature: HL7 v2 Message Validation
   # ============================================================================
 
   Scenario: Error severity blocks validation
-    Given a profile with:
-      | field | constraint | severity |
-      | PID.3 | required   | error    |
+    Given a profile with error severity for PID.3
     And a message missing PID.3
     When I validate the message
     Then validation should fail
     And there should be 1 error
 
   Scenario: Warning severity does not block validation
-    Given a profile with:
-      | field | constraint | severity |
-      | PID.6 | required   | warning  |
+    Given a profile with warning severity for PID.6
     And a message missing PID.6
     When I validate the message
     Then validation should succeed
     And there should be 1 warning
 
   Scenario: Mixed severity levels
-    Given a profile with:
-      | field | constraint | severity |
-      | PID.3 | required   | error    |
-      | PID.6 | required   | warning  |
+    Given a profile with mixed severity for PID.3 error and PID.6 warning
     And a message missing both PID.3 and PID.6
     When I validate the message
     Then validation should fail

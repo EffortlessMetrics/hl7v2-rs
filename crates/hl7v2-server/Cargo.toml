@@ -41,6 +41,12 @@ utoipa = { version = "5.4", features = ["yaml"] }
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
+cucumber = "0.22.1"
+serde_json = { workspace = true }
+
+[[test]]
+name = "bdd_tests"
+harness = false
 
 [[bin]]
 name = "hl7v2-server"

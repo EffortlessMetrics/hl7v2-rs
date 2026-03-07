@@ -4,8 +4,8 @@
 
 use cucumber::{World, given, then, when};
 use hl7v2_core::{
-    Delims, Error, Message, escape_text, get, is_mllp_framed, needs_escaping, parse, parse_mllp,
-    unescape_text, unwrap_mllp, wrap_mllp,
+    Batch, Delims, Error, Message, escape_text, get, is_mllp_framed, needs_escaping, parse,
+    parse_batch, parse_mllp, unescape_text, unwrap_mllp, wrap_mllp,
 };
 
 /// Test world for BDD tests
@@ -26,6 +26,8 @@ pub struct HL7World {
     error: Option<Error>,
     /// Boolean result for checks
     bool_result: bool,
+    /// Parsed batch for batch tests
+    batch: Option<Batch>,
 }
 
 impl HL7World {
@@ -38,6 +40,7 @@ impl HL7World {
             delims: None,
             error: None,
             bool_result: false,
+            batch: None,
         }
     }
 }
@@ -237,6 +240,73 @@ fn then_missing_rep_none(world: &mut HL7World) {
 }
 
 // ============================================================================
+// Batch Parsing Steps
+// ============================================================================
+
+#[given("an HL7 batch with BHS and BTS containing 2 messages")]
+fn given_batch_with_bhs_bts(world: &mut HL7World) {
+    let batch = concat!(
+        "BHS|^~\\&|SENDER|||20231119|BATCH001\r",
+        "MSH|^~\\&|SENDER||RECEIVER||20231119||ADT^A01|1|P|2.5\r",
+        "PID|1||123\r",
+        "MSH|^~\\&|SENDER||RECEIVER||20231119||ADT^A01|2|P|2.5\r",
+        "PID|1||456\r",
+        "BTS|2\r",
+    );
+    world.raw_bytes = batch.as_bytes().to_vec();
+}
+
+#[when("I parse the batch")]
+fn when_parse_batch(world: &mut HL7World) {
+    let batch = parse_batch(&world.raw_bytes).expect("Batch parse failed");
+    world.batch = Some(batch);
+}
+
+#[then(regex = r"the batch should contain (\d+) messages")]
+fn then_batch_message_count(world: &mut HL7World, count: usize) {
+    let batch = world.batch.as_ref().expect("No batch parsed");
+    assert_eq!(batch.messages.len(), count);
+}
+
+#[then(regex = r#"batch message (\d+) should have patient ID "([^"]+)""#)]
+fn then_batch_message_patient_id(world: &mut HL7World, index: usize, expected_id: String) {
+    let batch = world.batch.as_ref().expect("No batch parsed");
+    let msg = &batch.messages[index - 1];
+    let pid3 = get(msg, "PID.3").expect("PID.3 not found");
+    assert_eq!(pid3, expected_id);
+}
+
+// ============================================================================
+// Scenario Outline Steps
+// ============================================================================
+
+#[given(regex = r#"an HL7 message of type "([^"]+)""#)]
+fn given_message_of_type(world: &mut HL7World, message_type: String) {
+    let hl7 = format!(
+        "MSH|^~\\&|App|Fac|Recv|Fac|20231119||{}|123|P|2.5\rPID|1||12345||Doe^John\r",
+        message_type
+    );
+    world.raw_bytes = hl7.into_bytes();
+}
+
+#[then(regex = r#"the message type should be "([^"]+)""#)]
+fn then_message_type(world: &mut HL7World, expected: String) {
+    let msg = world
+        .message
+        .as_ref()
+        .expect("No message parsed")
+        .as_ref()
+        .expect("Parse failed");
+    let parts: Vec<&str> = expected.split('^').collect();
+    let msh9_1 = get(msg, "MSH.9.1").expect("MSH.9.1 not found");
+    assert_eq!(msh9_1, parts[0]);
+    if parts.len() > 1 {
+        let msh9_2 = get(msg, "MSH.9.2").expect("MSH.9.2 not found");
+        assert_eq!(msh9_2, parts[1]);
+    }
+}
+
+// ============================================================================
 // MLLP Steps
 // ============================================================================
 
@@ -317,6 +387,13 @@ fn then_find_boundaries(world: &mut HL7World) {
 fn then_get_content(world: &mut HL7World) {
     // Already verified
     assert!(world.bool_result);
+}
+
+#[then("the message should be valid")]
+fn then_message_valid(world: &mut HL7World) {
+    // Verify the unwrapped message is valid HL7 by parsing it
+    let result = parse(&world.raw_bytes);
+    assert!(result.is_ok(), "Message should be valid HL7");
 }
 
 // ============================================================================
