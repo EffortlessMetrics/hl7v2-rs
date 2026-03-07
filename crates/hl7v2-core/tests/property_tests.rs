@@ -2,7 +2,7 @@
 //!
 //! These tests verify that core properties hold for arbitrary inputs.
 
-use hl7v2_core::{parse, write, Delims, Field, Message, Segment};
+use hl7v2_core::{Delims, Field, Message, Segment, parse, write};
 use proptest::prelude::*;
 
 // ============================================================================
@@ -471,7 +471,7 @@ proptest! {
             if !rep.comps.is_empty() {
                 let comp = &rep.comps[0];
                 // Should have the 4 encoding characters
-                prop_assert!(comp.subs.len() >= 1);
+                prop_assert!(!comp.subs.is_empty());
             }
         }
     }

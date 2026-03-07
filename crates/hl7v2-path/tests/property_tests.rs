@@ -46,26 +46,36 @@ fn arbitrary_path() -> impl Strategy<Value = Path> {
     // Level 4: segment.field.component.subcomponent
     // Level 5: segment.field[rep].component.subcomponent
 
-    let simple = (segment_id(), field_number()).prop_map(|(seg, field)| {
-        Path::new(&seg, field)
-    });
+    let simple = (segment_id(), field_number()).prop_map(|(seg, field)| Path::new(&seg, field));
 
-    let with_rep = (segment_id(), field_number(), repetition_index()).prop_map(|(seg, field, rep)| {
-        Path::new(&seg, field).with_repetition(rep)
-    });
+    let with_rep = (segment_id(), field_number(), repetition_index())
+        .prop_map(|(seg, field, rep)| Path::new(&seg, field).with_repetition(rep));
 
-    let with_comp = (segment_id(), field_number(), component_number()).prop_map(|(seg, field, comp)| {
-        Path::new(&seg, field).with_component(comp)
-    });
+    let with_comp = (segment_id(), field_number(), component_number())
+        .prop_map(|(seg, field, comp)| Path::new(&seg, field).with_component(comp));
 
-    let with_rep_and_comp = (segment_id(), field_number(), repetition_index(), component_number())
+    let with_rep_and_comp = (
+        segment_id(),
+        field_number(),
+        repetition_index(),
+        component_number(),
+    )
         .prop_map(|(seg, field, rep, comp)| {
-            Path::new(&seg, field).with_repetition(rep).with_component(comp)
+            Path::new(&seg, field)
+                .with_repetition(rep)
+                .with_component(comp)
         });
 
-    let with_comp_and_sub = (segment_id(), field_number(), component_number(), subcomponent_number())
+    let with_comp_and_sub = (
+        segment_id(),
+        field_number(),
+        component_number(),
+        subcomponent_number(),
+    )
         .prop_map(|(seg, field, comp, sub)| {
-            Path::new(&seg, field).with_component(comp).with_subcomponent(sub)
+            Path::new(&seg, field)
+                .with_component(comp)
+                .with_subcomponent(sub)
         });
 
     let full = (
@@ -94,22 +104,22 @@ fn arbitrary_path() -> impl Strategy<Value = Path> {
 
 /// Generate a path string from components
 fn path_string() -> impl Strategy<Value = String> {
-    let simple_path = (segment_id(), field_number()).prop_map(|(seg, field)| {
-        format!("{}.{}", seg, field)
-    });
+    let simple_path =
+        (segment_id(), field_number()).prop_map(|(seg, field)| format!("{}.{}", seg, field));
 
-    let with_rep = (segment_id(), field_number(), repetition_index()).prop_map(|(seg, field, rep)| {
-        format!("{}.{}[{}]", seg, field, rep)
-    });
+    let with_rep = (segment_id(), field_number(), repetition_index())
+        .prop_map(|(seg, field, rep)| format!("{}.{}[{}]", seg, field, rep));
 
-    let with_comp = (segment_id(), field_number(), component_number()).prop_map(|(seg, field, comp)| {
-        format!("{}.{}.{}", seg, field, comp)
-    });
+    let with_comp = (segment_id(), field_number(), component_number())
+        .prop_map(|(seg, field, comp)| format!("{}.{}.{}", seg, field, comp));
 
-    let with_rep_and_comp = (segment_id(), field_number(), repetition_index(), component_number())
-        .prop_map(|(seg, field, rep, comp)| {
-            format!("{}.{}[{}].{}", seg, field, rep, comp)
-        });
+    let with_rep_and_comp = (
+        segment_id(),
+        field_number(),
+        repetition_index(),
+        component_number(),
+    )
+        .prop_map(|(seg, field, rep, comp)| format!("{}.{}[{}].{}", seg, field, rep, comp));
 
     let full_path = (
         segment_id(),

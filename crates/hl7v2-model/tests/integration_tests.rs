@@ -265,7 +265,10 @@ mod segment_manipulation_tests {
 
         assert_eq!(original.id, cloned.id);
         assert_eq!(original.fields.len(), cloned.fields.len());
-        assert_eq!(original.fields[0].first_text(), cloned.fields[0].first_text());
+        assert_eq!(
+            original.fields[0].first_text(),
+            cloned.fields[0].first_text()
+        );
     }
 
     #[test]
@@ -287,10 +290,7 @@ mod segment_manipulation_tests {
     fn test_segment_direct_construction() {
         let segment = Segment {
             id: *b"EVN",
-            fields: vec![
-                Field::from_text("A01"),
-                Field::from_text("20230101120000"),
-            ],
+            fields: vec![Field::from_text("A01"), Field::from_text("20230101120000")],
         };
 
         assert_eq!(segment.id_str(), "EVN");

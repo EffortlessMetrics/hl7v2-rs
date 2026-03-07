@@ -50,11 +50,6 @@ fn simple_field() -> impl Strategy<Value = Field> {
     safe_text().prop_map(|t| Field::from_text(&t))
 }
 
-/// Generate a field with potential delimiters
-fn complex_field() -> impl Strategy<Value = Field> {
-    text_with_delimiters().prop_map(|t| Field::from_text(&t))
-}
-
 /// Generate a component
 fn component() -> impl Strategy<Value = Comp> {
     safe_text().prop_map(|t| Comp::from_text(&t))
