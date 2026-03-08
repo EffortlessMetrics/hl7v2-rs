@@ -495,7 +495,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.89
+          toolchain: 1.92
 
       - name: Format
         run: cargo fmt --all -- --check
