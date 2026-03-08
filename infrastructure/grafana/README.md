@@ -422,7 +422,7 @@ Follow Prometheus naming conventions:
 ## Related Documentation
 
 - [DEPLOYMENT.md](../../DEPLOYMENT.md) - Server deployment guide
-- [ADR-006](../../.qoder/adr/ADR-006-rate-limiting-and-backpressure.md) - Rate limiting strategy
+- [ADR-006](../../docs/adr/0012-rate-limiting-and-backpressure.md) - Rate limiting strategy
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
 

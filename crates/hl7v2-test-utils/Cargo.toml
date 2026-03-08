@@ -5,6 +5,8 @@ version.workspace = true
 edition.workspace = true
 description = "Shared test utilities for hl7v2-rs workspace"
 license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
 publish = false  # Dev-only crate
 repository.workspace = true
 
