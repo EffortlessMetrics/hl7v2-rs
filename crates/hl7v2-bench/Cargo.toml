@@ -14,21 +14,21 @@ categories = ["development-tools", "parsing"]
 
 [dependencies]
 # Core dependencies
-hl7v2-core = { path = "../hl7v2-core" }
-hl7v2-escape = { path = "../hl7v2-escape" }
-hl7v2-mllp = { path = "../hl7v2-mllp" }
-hl7v2-model = { path = "../hl7v2-model" }
-hl7v2-normalize = { path = "../hl7v2-normalize" }
-hl7v2-parser = { path = "../hl7v2-parser" }
-hl7v2-writer = { path = "../hl7v2-writer" }
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
+hl7v2-escape = { version = "1.2.0", path = "../hl7v2-escape" }
+hl7v2-mllp = { version = "1.2.0", path = "../hl7v2-mllp" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
+hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize" }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
+hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
 
 # New benchmark dependencies
-hl7v2-batch = { path = "../hl7v2-batch" }
-hl7v2-json = { path = "../hl7v2-json" }
-hl7v2-network = { path = "../hl7v2-network" }
-hl7v2-template = { path = "../hl7v2-template" }
-hl7v2-template-values = { path = "../hl7v2-template-values" }
-hl7v2-validation = { path = "../hl7v2-validation" }
+hl7v2-batch = { version = "1.2.0", path = "../hl7v2-batch" }
+hl7v2-json = { version = "1.2.0", path = "../hl7v2-json" }
+hl7v2-network = { version = "1.2.0", path = "../hl7v2-network" }
+hl7v2-template = { version = "1.2.0", path = "../hl7v2-template" }
+hl7v2-template-values = { version = "1.2.0", path = "../hl7v2-template-values" }
+hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation" }
 
 # Async runtime for network benchmarks
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "time", "net", "io-util", "sync"] }

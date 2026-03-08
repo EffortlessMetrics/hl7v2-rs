@@ -88,17 +88,17 @@ publish = false
 
 [dependencies]
 # Core dependencies for examples
-hl7v2-core = { path = "crates/hl7v2-core", features = ["network", "stream"] }
-hl7v2-parser = { path = "crates/hl7v2-parser" }
-hl7v2-model = { path = "crates/hl7v2-model" }
-hl7v2-mllp = { path = "crates/hl7v2-mllp" }
-hl7v2-batch = { path = "crates/hl7v2-batch" }
-hl7v2-stream = { path = "crates/hl7v2-stream" }
-hl7v2-validation = { path = "crates/hl7v2-validation" }
-hl7v2-prof = { path = "crates/hl7v2-prof" }
-hl7v2-ack = { path = "crates/hl7v2-ack" }
-hl7v2-template = { path = "crates/hl7v2-template" }
-hl7v2-network = { path = "crates/hl7v2-network" }
+hl7v2-core = { version = "1.2.0", path = "crates/hl7v2-core", features = ["network", "stream"] }
+hl7v2-parser = { version = "1.2.0", path = "crates/hl7v2-parser" }
+hl7v2-model = { version = "1.2.0", path = "crates/hl7v2-model" }
+hl7v2-mllp = { version = "1.2.0", path = "crates/hl7v2-mllp" }
+hl7v2-batch = { version = "1.2.0", path = "crates/hl7v2-batch" }
+hl7v2-stream = { version = "1.2.0", path = "crates/hl7v2-stream" }
+hl7v2-validation = { version = "1.2.0", path = "crates/hl7v2-validation" }
+hl7v2-prof = { version = "1.2.0", path = "crates/hl7v2-prof" }
+hl7v2-ack = { version = "1.2.0", path = "crates/hl7v2-ack" }
+hl7v2-template = { version = "1.2.0", path = "crates/hl7v2-template" }
+hl7v2-network = { version = "1.2.0", path = "crates/hl7v2-network" }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

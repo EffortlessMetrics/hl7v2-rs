@@ -13,7 +13,7 @@ bytes = "1.11.1"
 tokio-util = { version = "0.7.18", features = ["codec"] }
 
 # The crate being fuzzed
-hl7v2-network = { path = ".." }
+hl7v2-network = { version = "1.2.0", path = ".." }
 
 [[bin]]
 name = "mllp_codec"

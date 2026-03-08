@@ -12,7 +12,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-hl7v2-core = { path = "../hl7v2-core" }
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = "0.10.9"

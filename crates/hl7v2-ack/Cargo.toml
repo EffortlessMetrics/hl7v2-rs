@@ -12,11 +12,11 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-hl7v2-core = { path = "../hl7v2-core" }
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
 chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
 
 [dev-dependencies]
-hl7v2-test-utils = { path = "../hl7v2-test-utils" }
-hl7v2-writer = { path = "../hl7v2-writer" }
+hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
+hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
 proptest = "1.6"
 

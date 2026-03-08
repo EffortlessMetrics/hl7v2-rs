@@ -12,7 +12,7 @@ keywords = ["hl7", "healthcare", "json", "serialization"]
 categories = ["encoding", "parser-implementations"]
 
 [dependencies]
-hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
 serde_json = { workspace = true }
 
 [dev-dependencies]

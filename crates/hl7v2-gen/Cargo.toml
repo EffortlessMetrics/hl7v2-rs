@@ -13,16 +13,16 @@ categories.workspace = true
 
 [dependencies]
 # Use microcrates directly for finer-grained dependencies
-hl7v2-model = { path = "../hl7v2-model" }
-hl7v2-writer = { path = "../hl7v2-writer" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
+hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
 # Keep hl7v2-core for backward compatibility
-hl7v2-core = { path = "../hl7v2-core" }
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
 # ACK generation is now in its own crate
-hl7v2-ack = { path = "../hl7v2-ack" }
+hl7v2-ack = { version = "1.2.0", path = "../hl7v2-ack" }
 # Faker functionality is now in its own crate
-hl7v2-faker = { path = "../hl7v2-faker" }
+hl7v2-faker = { version = "1.2.0", path = "../hl7v2-faker" }
 # Template functionality is now in its own crate
-hl7v2-template = { path = "../hl7v2-template" }
+hl7v2-template = { version = "1.2.0", path = "../hl7v2-template" }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 
@@ -31,9 +31,9 @@ proptest = "1.6"
 rand = "0.10.0"
 cucumber = "0.22.1"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
-hl7v2-query = { path = "../hl7v2-query" }
-hl7v2-normalize = { path = "../hl7v2-normalize" }
-hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-query = { version = "1.2.0", path = "../hl7v2-query" }
+hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize" }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
 
 [[test]]
 name = "bdd_tests"

@@ -15,7 +15,7 @@ categories = ["parser-implementations", "encoding"]
 regex = "1.0"
 thiserror = { workspace = true }
 chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }
-hl7v2-datetime = { path = "../hl7v2-datetime" }
+hl7v2-datetime = { version = "1.2.0", path = "../hl7v2-datetime" }
 
 [dev-dependencies]
 proptest = "1.6"

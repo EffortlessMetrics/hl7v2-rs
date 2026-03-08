@@ -12,9 +12,9 @@ keywords = ["hl7", "healthcare", "query", "path"]
 categories = ["parser-implementations", "encoding"]
 
 [dependencies]
-hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
 
 [dev-dependencies]
 proptest = "1.6"
-hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
 

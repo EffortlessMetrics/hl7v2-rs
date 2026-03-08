@@ -13,12 +13,12 @@ categories.workspace = true
 
 [dependencies]
 # Use microcrates directly for finer-grained dependencies
-hl7v2-model = { path = "../hl7v2-model" }
-hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
 # Keep hl7v2-core for backward compatibility
-hl7v2-core = { path = "../hl7v2-core" }
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
 # Validation crate for reusable validation logic
-hl7v2-validation = { path = "../hl7v2-validation" }
+hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation" }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 regex = "1.12.3"
