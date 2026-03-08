@@ -4,7 +4,7 @@ Thank you for considering contributing to hl7v2-rs! This project is actively dev
 
 ## Code of Conduct
 
-Be respectful, inclusive, and constructive in all interactions. We're building healthcare infrastructure—let's do it right.
+Please follow the project [Code of Conduct](CODE_OF_CONDUCT.md) in all interactions.
 
 ## License + CLA
 
