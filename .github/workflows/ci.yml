@@ -1,5 +1,5 @@
 # HL7 v2 Rust Workspace - CI Pipeline
-# Implements the4-stage pipeline design from docs/TESTING_ARCHITECTURE.md
+# Implements the 4-stage pipeline design from docs/TESTING_ARCHITECTURE.md
 #
 # Stage 1 (Fast - 2 min): Format, Clippy, Unit tests, Doc tests
 # Stage 2 (Standard - 5 min): Integration tests, BDD tests, Limited property tests
