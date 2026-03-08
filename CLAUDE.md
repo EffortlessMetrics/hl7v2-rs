@@ -97,4 +97,3 @@ Dependency flow: microcrates → core → prof/gen → cli/server. All shared de
 - **Error handling**: Each crate has its own error type using `thiserror`. Errors preserve context with `#[source]` chains.
 - **Tests**: Unit tests in `src/tests.rs` modules (`#[cfg(test)]`), integration tests in `tests/` directories.
 - **Commit messages**: `<type>(<scope>): <subject>` — types: feat, fix, docs, style, refactor, test, chore; scopes: core, prof, gen, cli, network, etc.
-
