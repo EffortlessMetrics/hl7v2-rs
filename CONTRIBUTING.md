@@ -1,6 +1,6 @@
 # Contributing to hl7v2-rs
 
-Thank you for considering contributing to hl7v2-rs! This project is actively developing v1.2.0 with significant work on server mode, remote profiles, and streaming improvements. We welcome contributions and have organized this guide to help you get started.
+Thank you for considering contributing to hl7v2-rs! We welcome contributions and have organized this guide to help you get started.
 
 ## Code of Conduct
 
@@ -49,28 +49,14 @@ cargo test
 - Known limitations
 
 **Then read**: [ROADMAP.md](ROADMAP.md)
-- v1.2.0 goals (next 8 weeks)
-- Feature priorities
+- Feature priorities and future direction
 - Dependencies and critical path
-
-**Finally**: [ROADMAP.md](ROADMAP.md)
-- Sprint-level tasks
-- Story point estimates
-- Detailed technical requirements
 
 ### 3. Pick an Issue
 
-**For v1.2.0 work** (active development):
-- Search GitHub Issues for `[v1.2.0]` label
-- Check ROADMAP.md for sprint tasks
-- Look for `good-first-issue` if you're new
-
-**Areas that need help**:
-- **Network module** (CRITICAL PRIORITY)
-- Server mode HTTP/gRPC endpoints
-- Remote profile loading
-- CLI enhancements
-- Testing and benchmarks
+- Look for issues labeled `good-first-issue` if you're new
+- Check [ROADMAP.md](ROADMAP.md) for upcoming priorities
+- Browse open issues for areas that interest you
 
 ### 4. Create a Feature Branch
 
@@ -140,34 +126,21 @@ Fixes #38
 
 ### 7. Create a Pull Request
 
-**Title Format**:
-```
-[v1.2.0] <Feature/Fix Description>
-```
-
 **PR Description** (use template in .github/):
 - Briefly explain what/why
 - Link to related issues
 - Describe testing approach
 - Note any breaking changes
 
-**Reviewers**:
-- Tag relevant team members
-- Allow 1-3 business days for review
-- Be open to feedback
-
 ### 8. Address Review Comments
 
 - Reply to each comment
 - Update code if needed
-- Force-push updates (don't add merge commits)
-- Re-request review when done
 
-### 9. Merge & Deploy
+### 9. Merge
 
-- Require 2 approvals for core changes
-- Pass all CI checks
-- Squash commit if multiple small commits
+- A maintainer will review and merge your PR
+- All CI checks must pass
 - Delete branch after merge
 
 ---
@@ -209,7 +182,7 @@ Stack overflow / panic
 
 **Environment**
 - OS: Linux
-- Rust: 1.89
+- Rust: 1.92
 ```
 
 ---
@@ -218,8 +191,7 @@ Stack overflow / panic
 
 ### Before You Request
 
-- Check ROADMAP.md - is it already planned?
-- Check ROADMAP.md - is it in sprint work?
+- Check [ROADMAP.md](ROADMAP.md) - is it already planned?
 - Check existing issues
 
 ### How to Request
@@ -230,7 +202,7 @@ Include:
 - Use case / problem you're solving
 - Proposed solution
 - Alternatives you've considered
-- Is this for v1.2, v1.3, or v2.0?
+- Which milestone is this relevant to?
 
 **Example**:
 ```markdown
@@ -238,14 +210,14 @@ Include:
 Currently no way to cache remote profiles, causing repeated HTTP calls.
 
 **Proposed Solution**
-Add LRU cache with ETag support to profile loader as per ROADMAP.md v1.2.0.
+Add LRU cache with ETag support to profile loader.
 
 **Alternatives**
 - Let users implement caching in wrapper code (not ideal)
 - Simple file-based cache (insufficient for production)
 
 **Timeline**
-This is in ROADMAP.md Sprint 4, so high priority for v1.2.0.
+See ROADMAP.md for priority details.
 ```
 
 ---
@@ -258,7 +230,6 @@ This is in ROADMAP.md Sprint 4, so high priority for v1.2.0.
 - **docs/STATUS.md**: What's actually implemented now
 - **ROADMAP.md**: Future direction and timelines
 - **DEVELOPMENT.md**: Developer setup and workflow
-- **Design docs** (.qoder/quests/): Detailed technical specifications
 - **Code comments**: Explain the "why", not the "what"
 - **Rustdoc**: Public API documentation with examples
 
@@ -333,7 +304,7 @@ fn test_feature_error_case() {
 
 ## Performance & Benchmarking
 
-### Performance Targets (v1.2.0)
+### Performance Targets
 
 See [ROADMAP.md](ROADMAP.md) for complete list:
 - Parse: ≥100k small msgs/min
@@ -359,44 +330,10 @@ See [TESTING.md](TESTING.md) for profiling tools.
 
 ---
 
-## v1.2.0 Priorities
-
-From [ROADMAP.md](ROADMAP.md), these are critical:
-
-1. **Network Module** (BLOCKING)
-   - MLLP frame handler
-   - TCP connection management
-   - Tests
-
-2. **Server Mode HTTP**
-   - /hl7/parse endpoint
-   - /hl7/validate endpoint
-   - /hl7/ack endpoint
-   - Error handling
-
-3. **Remote Profile Loading**
-   - HTTP fetching
-   - S3/GCS support
-   - LRU caching
-
-4. **Authentication/RBAC**
-   - Bearer token validation
-   - Role-based access control
-   - PHI redaction in logs
-
-5. **Streaming Improvements**
-   - Backpressure with bounded queue
-   - Memory bounds enforcement
-   - Resume across boundaries
-
----
-
 ## Getting Help
 
-- **Questions about contributing?** Open a GitHub discussion
+- **Questions about contributing?** Open a GitHub Discussion or Issue
 - **Need clarification on a task?** Comment on the related issue
-- **Want to pair program?** Reach out to team members
-- **Found a blocker?** Post in Discord/Slack (team channel)
 
 ---
 
@@ -481,16 +418,6 @@ We value all contributions—code, docs, testing, design discussion, etc.
 - **Code questions**: Open GitHub discussions
 - **Process questions**: Comment on issues/PRs
 - **General**: Check [ROADMAP.md](ROADMAP.md) and [docs/STATUS.md](docs/STATUS.md) first
-
----
-
-## Code of Conduct
-
-We're committed to providing a welcoming and inclusive environment:
-- Respect different perspectives
-- Assume good intent
-- Be constructive in feedback
-- Report violations to maintainers
 
 ---
 

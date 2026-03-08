@@ -339,7 +339,7 @@ Planned test additions:
 
 - [OpenAPI Specification](../../../schemas/openapi/hl7v2-api.yaml) - API contract
 - [Example Profiles](../../../examples/profiles/) - Sample conformance profiles
-- [ADR-006](../../../.qoder/adr/ADR-006-rate-limiting-and-backpressure.md) - Rate limiting strategy
+- [ADR-006](../../../docs/adr/0012-rate-limiting-and-backpressure.md) - Rate limiting strategy
 - [Server Documentation](../README.md) - Server configuration and deployment
 
 ## License
