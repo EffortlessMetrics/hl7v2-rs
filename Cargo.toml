@@ -46,6 +46,8 @@ license = "AGPL-3.0-or-later"
 repository = "https://github.com/EffortlessMetrics/hl7v2-rs"
 keywords = ["hl7", "healthcare", "parser", "validator"]
 categories = ["parser-implementations", "encoding"]
+homepage = "https://github.com/EffortlessMetrics/hl7v2-rs"
+documentation = "https://docs.rs/hl7v2-core"
 
 [workspace.dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
