@@ -13,8 +13,8 @@ categories.workspace = true
 
 [dependencies]
 # Core HL7 v2 parsing and model
-hl7v2-core = { path = "../hl7v2-core" }
-hl7v2-model = { path = "../hl7v2-model" }
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
 
 # Serialization
 serde = { workspace = true, features = ["derive"] }
@@ -27,8 +27,8 @@ chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-fea
 
 [dev-dependencies]
 # Test utilities from workspace
-hl7v2-test-utils = { path = "../hl7v2-test-utils" }
-hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
 
 # Property-based testing
 proptest = "1.6"
@@ -43,7 +43,7 @@ cucumber = { version = "0.22", default-features = false, features = ["macros"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 pretty_assertions = "1.4"
 assert_matches = "1.5"
-hl7v2-query = { path = "../hl7v2-query" }
+hl7v2-query = { version = "1.2.0", path = "../hl7v2-query" }
 
 [[test]]
 name = "integration_tests"

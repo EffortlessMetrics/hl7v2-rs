@@ -12,16 +12,16 @@ repository.workspace = true
 
 [dependencies]
 # Local crates - full system integration
-hl7v2-core = { path = "../hl7v2-core", features = ["network"] }
-hl7v2-parser = { path = "../hl7v2-parser" }
-hl7v2-writer = { path = "../hl7v2-writer" }
-hl7v2-ack = { path = "../hl7v2-ack" }
-hl7v2-validation = { path = "../hl7v2-validation" }
-hl7v2-prof = { path = "../hl7v2-prof" }
-hl7v2-test-utils = { path = "../hl7v2-test-utils" }
-hl7v2-mllp = { path = "../hl7v2-mllp" }
-hl7v2-network = { path = "../hl7v2-network" }
-hl7v2-server = { path = "../hl7v2-server" }
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core", features = ["network"] }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
+hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
+hl7v2-ack = { version = "1.2.0", path = "../hl7v2-ack" }
+hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation" }
+hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof" }
+hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
+hl7v2-mllp = { version = "1.2.0", path = "../hl7v2-mllp" }
+hl7v2-network = { version = "1.2.0", path = "../hl7v2-network" }
+hl7v2-server = { version = "1.2.0", path = "../hl7v2-server" }
 
 # Async runtime
 tokio = { workspace = true, features = ["full", "test-util"] }
