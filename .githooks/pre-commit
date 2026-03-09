@@ -1,28 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-# Find the repository root
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
-
-# Only run if Rust/Cargo files are staged
-if ! git diff --cached --name-only --diff-filter=ACMR | rg -q '\.rs$|(^|/)Cargo\.toml$|^Cargo\.lock$'; then
-  exit 0
-fi
-
-# Capture staged files BEFORE we mutate anything
-# Use a temporary file to store the list of staged files
-staged_list_file=$(mktemp)
-git diff --cached --name-only --diff-filter=ACMR -z > "$staged_list_file"
-
-echo "pre-commit: lint-fix"
-cargo run -p xtask -- lint-fix
-
-# Restage only what was staged (NUL-safe)
-# We use xargs with -0 to handle the NUL-separated list
-xargs -0 -a "$staged_list_file" git add
-rm -f "$staged_list_file"
-
-# Optional: Run a fast gate verify here if desired
-# echo "pre-commit: fast gate verify"
-# cargo run -p xtask -- gate --changed
+cargo run -p xtask -- hook-pre-commit
