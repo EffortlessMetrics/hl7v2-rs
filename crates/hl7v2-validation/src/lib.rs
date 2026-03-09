@@ -193,6 +193,10 @@ pub fn is_timestamp(value: &str) -> bool {
         return false;
     }
 
+    if !value.is_ascii() {
+        return false;
+    }
+
     // First 8 characters should be a valid date
     let date_part = &value[0..8];
     if !is_date(date_part) {
