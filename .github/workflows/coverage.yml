@@ -9,6 +9,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 6am UTC
   workflow_dispatch:
     inputs:
       upload_to_codecov:
@@ -31,6 +33,7 @@ jobs:
   # ============================================================================
   tarpaulin:
     name: Tarpaulin Coverage
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -228,7 +231,7 @@ jobs:
   coverage-summary:
     name: Coverage Summary
     runs-on: ubuntu-latest
-    needs: [tarpaulin, llvm-cov]
+    needs: [llvm-cov]
     if: always()
     steps:
       - name: Generate summary
@@ -239,7 +242,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Tarpaulin | ${{ needs.tarpaulin.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| LLVM Cov | ${{ needs.llvm-cov.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Coverage reports are available as artifacts and uploaded to Codecov." >> $GITHUB_STEP_SUMMARY
