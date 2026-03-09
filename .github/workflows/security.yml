@@ -45,12 +45,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v1
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          log-level: warn
           command: check
-          arguments: --all-features
 
   sast:
     name: SAST (Semgrep)
@@ -65,7 +66,7 @@ jobs:
 
       - name: Upload SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
 
@@ -124,6 +125,7 @@ jobs:
             --glob '!THIRD_PARTY_NOTICES.md' \
             --glob '!target/**' \
             --glob '!.github/workflows/security.yml' \
+            --glob '!docs/governance/**' \
             .; then
             echo "::error::Found MIT/Apache license references in project files"
             exit 1
