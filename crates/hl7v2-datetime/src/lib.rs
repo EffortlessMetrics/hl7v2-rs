@@ -182,6 +182,12 @@ pub fn parse_hl7_tm(s: &str) -> Result<(u32, u32, u32, Option<u32>), DateTimeErr
         )));
     }
 
+    if !s.is_ascii() {
+        return Err(DateTimeError::InvalidTimeFormat(
+            "Non-ASCII characters".into(),
+        ));
+    }
+
     // Parse hour and minute (required)
     let hour: u32 = s[0..2]
         .parse()
@@ -252,6 +258,12 @@ pub fn parse_hl7_ts(s: &str) -> Result<NaiveDateTime, DateTimeError> {
         )));
     }
 
+    if !s.is_ascii() {
+        return Err(DateTimeError::InvalidTimestampFormat(
+            "Non-ASCII characters".into(),
+        ));
+    }
+
     // Parse date part
     let date = parse_hl7_dt(&s[0..8])?;
 
@@ -271,6 +283,12 @@ pub fn parse_hl7_ts(s: &str) -> Result<NaiveDateTime, DateTimeError> {
 /// Parse HL7 timestamp with precision information
 pub fn parse_hl7_ts_with_precision(s: &str) -> Result<ParsedTimestamp, DateTimeError> {
     let s = s.trim();
+
+    if !s.is_ascii() {
+        return Err(DateTimeError::InvalidTimestampFormat(
+            "Non-ASCII characters".into(),
+        ));
+    }
 
     // Determine precision from length
     let precision = match s.len() {
