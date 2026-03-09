@@ -140,8 +140,7 @@ proptest! {
 
 proptest! {
     #[test]
-    fn test_is_timestamp_never_panics(value in "[0-9]*") {
-        // Use ASCII digits only to avoid multi-byte UTF-8 issues in string slicing
+    fn test_is_timestamp_never_panics(value in ".*") {
         let _ = is_timestamp(&value);
     }
 }
@@ -650,6 +649,14 @@ proptest! {
         let _ = is_identifier(&long_string);
         let _ = validate_data_type(&long_string, "ST");
     }
+}
+
+#[test]
+fn test_is_timestamp_unicode_does_not_panic() {
+    // Regression: multi-byte UTF-8 must not panic in byte slicing
+    let _ = is_timestamp("2023\u{1F525}\u{1F525}");
+    let _ = is_timestamp("\u{00E9}\u{00E9}\u{00E9}\u{00E9}\u{00E9}");
+    assert!(!is_timestamp("20230101\u{00E9}"));
 }
 
 // Helper function for is_string test
