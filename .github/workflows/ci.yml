@@ -3,13 +3,13 @@
 #
 # Stage 1 (Fast - 2 min): Format, Clippy, Unit tests, Doc tests
 # Stage 2 (Standard - 5 min): Integration tests, BDD tests, Limited property tests
-# Stage 3 (Extended - 10 min): Full property tests, Coverage, Benchmarks (main branch only)
+# Stage 3 (Extended - 10 min): Full property tests, Benchmarks (main branch only)
 
 name: CI
 
 on:
   push:
-    branches: [main, 'release/**']
+    branches: [main, 'release/**', 'claude/**']
   pull_request:
     branches: [main]
   merge_group:
@@ -108,7 +108,23 @@ jobs:
       - name: Run limited property tests
         env:
           PROPTEST_CASES: 100
-        run: cargo test --workspace --features proptest property || echo "Property tests completed"
+        run: |
+          cargo test -p hl7v2-ack --test property_tests
+          cargo test -p hl7v2-batch --test property_tests
+          cargo test -p hl7v2-core --test property_tests
+          cargo test -p hl7v2-corpus --test property_tests
+          cargo test -p hl7v2-datatype --test property_tests
+          cargo test -p hl7v2-datetime --test property_tests
+          cargo test -p hl7v2-escape --test property_tests
+          cargo test -p hl7v2-faker --test property_tests
+          cargo test -p hl7v2-json --test property_tests
+          cargo test -p hl7v2-mllp --test property_tests
+          cargo test -p hl7v2-normalize --test property_tests
+          cargo test -p hl7v2-path --test property_tests
+          cargo test -p hl7v2-prof --test property_tests
+          cargo test -p hl7v2-query --test property_tests
+          cargo test -p hl7v2-template --test property_tests
+          cargo test -p hl7v2-writer --test property_tests
         timeout-minutes: 5
 
   # ============================================================================
@@ -123,13 +139,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, beta]
+        rust: [stable, beta, '1.92']
         exclude:
-          # Reduce CI load: skip beta on non-linux
+          # beta and MSRV only on ubuntu to reduce CI load
           - os: windows-latest
             rust: beta
           - os: macos-latest
             rust: beta
+          - os: windows-latest
+            rust: '1.92'
+          - os: macos-latest
+            rust: '1.92'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -164,45 +184,33 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: extended-stable
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
-      - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin
-
       - name: Run full property tests
         env:
           PROPTEST_CASES: 1000
-        run: cargo test --workspace --features proptest property || echo "Property tests completed"
-        timeout-minutes: 10
-
-      - name: Generate coverage report
         run: |
-          cargo tarpaulin --workspace --all-features --out Xml --out Html \
-            --output-dir coverage/ --timeout 600 --skip-clean
-        timeout-minutes: 15
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 30
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage/cobertura.xml
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+          cargo test -p hl7v2-ack --test property_tests
+          cargo test -p hl7v2-batch --test property_tests
+          cargo test -p hl7v2-core --test property_tests
+          cargo test -p hl7v2-corpus --test property_tests
+          cargo test -p hl7v2-datatype --test property_tests
+          cargo test -p hl7v2-datetime --test property_tests
+          cargo test -p hl7v2-escape --test property_tests
+          cargo test -p hl7v2-faker --test property_tests
+          cargo test -p hl7v2-json --test property_tests
+          cargo test -p hl7v2-mllp --test property_tests
+          cargo test -p hl7v2-normalize --test property_tests
+          cargo test -p hl7v2-path --test property_tests
+          cargo test -p hl7v2-prof --test property_tests
+          cargo test -p hl7v2-query --test property_tests
+          cargo test -p hl7v2-template --test property_tests
+          cargo test -p hl7v2-writer --test property_tests
+        timeout-minutes: 10
 
   # ============================================================================
   # Stage 3 (Parallel): Benchmarks
@@ -228,19 +236,8 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          cargo bench --workspace -- --output-format bencher | tee benchmark-results.txt || true
+          cargo bench --workspace 2>&1 | tee benchmark-results.txt || true
         timeout-minutes: 10
-        continue-on-error: true
-
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          tool: 'cargo'
-          output-file-path: benchmark-results.txt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: false
-          comment-on-alert: true
-          fail-on-alert: false
         continue-on-error: true
 
       - name: Upload benchmark artifact
