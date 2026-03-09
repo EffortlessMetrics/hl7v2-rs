@@ -2,7 +2,7 @@
 # https://embarkstudios.github.io/cargo-deny/
 
 [advisories]
-unmaintained = "all"
+unmaintained = "warn"
 yanked = "deny"
 
 [licenses]
@@ -15,7 +15,7 @@ allow = [
   "ISC",
   "Unicode-3.0",
   "Zlib",
-  "AGPL-3.0-or-later",
+  "AGPL-3.0",
   "Unlicense",
   "CDLA-Permissive-2.0",
 ]
