@@ -92,21 +92,15 @@ fn build_cors_layer() -> CorsLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hl7v2_test_utils::deterministic_api_key;
     use crate::server::AppState;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
     use http_body_util::BodyExt;
-    use uselesskey::{Factory, TokenSpec};
     use std::time::Instant;
     use tower::ServiceExt; // For `oneshot`
-
-    fn deterministic_api_key(seed: &str) -> String {
-        let mut factory = Factory::deterministic(seed);
-        let token = factory.token("server-auth", TokenSpec::ApiKey);
-        token.secret().to_string()
-    }
 
     fn build_test_router_with_api_key(seed: &str) -> (Router, String) {
         let metrics_handle = crate::metrics::init_metrics_recorder();

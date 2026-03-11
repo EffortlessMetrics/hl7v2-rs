@@ -274,7 +274,7 @@ async fn test_new_scenario() {
 
 ✅ **Test both success and failure**: Positive and negative cases
 
-✅ **Deterministic auth fixtures**: Use generated API keys for auth tests instead of hardcoded secrets. We now use `uselesskey` for this in auth-path route tests.
+✅ **Deterministic auth fixtures**: Use generated API keys for auth tests instead of hardcoded secrets via shared `hl7v2-test-utils` helpers backed by `uselesskey`.
 
 ✅ **Verify HTTP status codes**: Check exact status when possible
 
@@ -329,7 +329,7 @@ Track test execution metrics:
 
 Planned test additions:
 - [ ] Concurrency limit testing (503 responses)
-- [x] Authentication middleware tests (deterministic keys via `uselesskey`)
+- [x] Authentication middleware tests (deterministic keys via shared `uselesskey` fixtures)
 - [ ] Rate limiting behavior tests
 - [ ] WebSocket support tests (if added)
 - [ ] MLLP framing tests
