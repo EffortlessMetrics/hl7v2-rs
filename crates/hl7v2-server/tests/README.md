@@ -274,6 +274,8 @@ async fn test_new_scenario() {
 
 ✅ **Test both success and failure**: Positive and negative cases
 
+✅ **Deterministic auth fixtures**: Use generated API keys for auth tests instead of hardcoded secrets. We now use `uselesskey` for this in auth-path route tests.
+
 ✅ **Verify HTTP status codes**: Check exact status when possible
 
 ✅ **Validate response format**: Check content-type and structure
@@ -327,7 +329,7 @@ Track test execution metrics:
 
 Planned test additions:
 - [ ] Concurrency limit testing (503 responses)
-- [ ] Authentication middleware tests
+- [x] Authentication middleware tests (deterministic keys via `uselesskey`)
 - [ ] Rate limiting behavior tests
 - [ ] WebSocket support tests (if added)
 - [ ] MLLP framing tests

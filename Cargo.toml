@@ -74,6 +74,7 @@ futures = "0.3.32"
 bytes = "1.11.1"
 tokio-util = "0.7.18"
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
+uselesskey = "0.2.0"
 
 # Example dependencies (workspace examples)
 [package]
