@@ -5,9 +5,11 @@
 //! This test file implements the step definitions for the CLI feature file.
 
 use cucumber::{given, then, when, World};
+use futures::executor::block_on;
 use hl7v2_test_utils::fixtures::SampleMessages;
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use tempfile::TempDir;
 
 /// Test world for CLI BDD tests
@@ -58,7 +60,7 @@ impl CliWorld {
             file_content: None,
         }
     }
-
+    
     /// Ensure temp directory exists
     fn ensure_temp_dir(&mut self) -> &TempDir {
         if self.temp_dir.is_none() {
@@ -66,7 +68,7 @@ impl CliWorld {
         }
         self.temp_dir.as_ref().unwrap()
     }
-
+    
     /// Run the CLI command with current arguments
     fn run_cli(&mut self) {
         // Binary is in target/debug/ not target/debug/deps/
@@ -77,67 +79,45 @@ impl CliWorld {
             .parent()
             .expect("Failed to get parent dir")
             .join("hl7v2-cli");
-
+    
         let mut cmd = Command::new(&binary_path);
         for arg in &self.command_args.clone() {
             cmd.arg(arg);
         }
-
+    
         self.result = Some(cmd.output());
     }
-
-    /// Start interactive mode
-    fn start_interactive_mode(&mut self) {
-        // Binary is in target/debug/ not target/debug/deps/
-        let binary_path = std::env::current_exe()
-            .expect("Failed to get current exe path")
-            .parent()
-            .expect("Failed to get parent dir")
-            .parent()
-            .expect("Failed to get parent dir")
-            .join("hl7v2-cli");
-
-        // Start interactive mode
-        let mut cmd = Command::new(binary_path);
-        cmd.arg("interactive")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        let child = cmd.spawn().expect("Failed to start interactive mode");
-        self.interactive_child = Some(child);
-        // Give it a moment to start
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
-
-    /// Run a command in interactive mode
+    
+      /// Run a command in interactive mode
     fn run_interactive_command(&mut self, command: &str) -> Result<(), std::io::Error> {
         if let Some(ref mut child) = self.interactive_child {
             // Write command to stdin
             if let Some(ref mut stdin) = child.stdin {
                 writeln!(stdin, "{}", command)?;
                 stdin.flush()?;
-
+                
                 // Read stdout and stderr
                 let mut stdout = String::new();
                 let mut stderr = String::new();
-
+                
                 if let Some(ref stdout_handle) = child.stdout {
                     let mut reader = BufReader::new(stdout_handle);
                     reader.read_line(&mut stdout)?;
                 }
-
+                
                 if let Some(ref stderr_handle) = child.stderr {
                     let mut reader = BufReader::new(stderr_handle);
                     reader.read_line(&mut stderr)?;
                 }
-
+                
                 self.last_output = Some(stdout.trim().to_string());
                 self.last_stderr = Some(stderr.trim().to_string());
-}
-        Ok(())
-    }
-
+             }
+         }
+         
+         Ok(())
+     }
+    
     /// Clean up interactive mode process
     fn cleanup_interactive(&mut self) {
         if let Some(mut child) = self.interactive_child.take() {
@@ -149,45 +129,6 @@ impl CliWorld {
             // Wait for process to exit
             let _ = child.wait();
         }
-    }
-
-    /// Check if the command succeeded
-    fn command_succeeded(&self) -> bool {
-        if let Some(Ok(output)) = &self.result {
-            output.status.success()
-        } else {
-            false
-        }
-    }
-
-    /// Get stdout as string
-    fn stdout(&self) -> String {
-        if let Some(Ok(output)) = &self.result {
-            String::from_utf8_lossy(&output.stdout).to_string()
-        } else {
-            String::new()
-        }
-    }
-
-    /// Get stderr as string
-    fn stderr(&self) -> String {
-        if let Some(Ok(output)) = &self.result {
-            String::from_utf8_lossy(&output.stderr).to_string()
-        } else {
-            String::new()
-        }
-    }
-
-    /// Get exit code
-    fn exit_code(&self) -> Option<i32> {
-        if let Some(Ok(output)) = &self.result {
-            output.status.code()
-        } else {
-            None
-        }
-    }
-}
-    }
 
     /// Ensure temp directory exists
     fn ensure_temp_dir(&mut self) -> &TempDir {
@@ -274,6 +215,30 @@ fn given_cli_available(_world: &mut CliWorld) {
         "CLI binary should exist at {:?}",
         binary_path
     );
+}
+
+#[given("I start interactive mode")]
+fn given_start_interactive_mode(world: &mut CliWorld) {
+    // Binary is in target/debug/ not target/debug/deps/
+    let binary_path = std::env::current_exe()
+        .expect("Failed to get current exe path")
+        .parent()
+        .expect("Failed to get parent dir")
+        .parent()
+        .expect("Failed to get parent dir")
+        .join("hl7v2-cli");
+
+    // Start interactive mode
+    let mut cmd = Command::new(binary_path);
+    cmd.arg("interactive")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let child = cmd.spawn().expect("Failed to start interactive mode");
+    world.interactive_child = Some(child);
+    // Give it a moment to start
+    std::thread::sleep(std::time::Duration::from_millis(100));
 }
 
 // ============================================================================
@@ -847,37 +812,15 @@ fn then_gen_stats(world: &mut CliWorld) {
 // Interactive Mode Steps
 // ============================================================================
 
-#[given("I start interactive mode")]
-fn given_start_interactive_mode(world: &mut CliWorld) {
-    world.start_interactive_mode();
-}
-
-#[when("I start interactive mode")]
-fn when_start_interactive_mode(world: &mut CliWorld) {
-    world.start_interactive_mode();
-}
-
 #[when("I run \"<command>\" in interactive mode")]
 fn when_run_in_interactive_mode(world: &mut CliWorld, command: String) {
-    // Replace placeholders if the respective files are set
-    let mut actual_command = command;
-    if let Some(ref input_file) = world.input_file {
-        actual_command = actual_command.replace("<file_path>", input_file.to_string_lossy().as_ref());
-    }
-    if let Some(ref profile_file) = world.profile_file {
-        actual_command = actual_command.replace("<profile_path>", profile_file.to_string_lossy().as_ref());
-    }
-    if let Some(ref output_file) = world.output_file {
-        actual_command = actual_command.replace("<output_path>", output_file.to_string_lossy().as_ref());
-    }
-    if let Some(ref output_dir) = world.output_dir {
-        actual_command = actual_command.replace("<output_dir>", output_dir.to_string_lossy().as_ref());
-    }
-    if let Some(ref template_file) = world.template_file {
-        actual_command = actual_command.replace("<template_path>", template_file.to_string_lossy().as_ref());
-    }
+    // Replace <file_path> and <profile_path> placeholders
+    let command = command.replace("<file_path>", 
+        world.input_file.as_ref().unwrap().to_string_lossy().as_ref())
+        .replace("<profile_path>", 
+        world.profile_file.as_ref().unwrap().to_string_lossy().as_ref());
     
-    world.run_interactive_command(&actual_command).expect("Failed to run interactive command");
+    world.run_interactive_command(&command).expect("Failed to run interactive command");
 }
 
 #[then("the output should contain \"<text>\"")]

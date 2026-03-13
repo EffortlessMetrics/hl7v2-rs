@@ -1,15 +1,16 @@
 //! Deterministic security-oriented test fixtures.
 
-use uselesskey::{Factory, TokenSpec};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 /// Returns a deterministic API key for tests.
 ///
 /// This key is derived from the supplied `seed`, making it stable across test
 /// runs without storing raw secrets in source control.
 pub fn deterministic_api_key(seed: &str) -> String {
-    let mut factory = Factory::deterministic(seed);
-    let token = factory.token("hl7v2-server-auth", TokenSpec::ApiKey);
-    token.secret().to_string()
+    let mut hasher = DefaultHasher::new();
+    seed.hash(&mut hasher);
+    format!("test-key-{:016x}", hasher.finish())
 }
 
 #[cfg(test)]

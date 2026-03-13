@@ -1,4 +1,4 @@
-# ADR-006: Rate Limiting and Backpressure Strategy
+# ADR-012: Rate Limiting and Backpressure Strategy
 
 **Date**: 2025-11-19
 **Status**: ACCEPTED

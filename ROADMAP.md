@@ -10,6 +10,20 @@ This roadmap balances stability with feature completeness. Each version has clea
 
 ---
 
+## Now/Next/Later
+**Now** (Current Sprint/Immediate): 
+- Weeks 1-2: Network Module Foundation (MLLP codec, TCP server)
+
+**Next** (Upcoming): 
+- Weeks 3-4: Backpressure & Memory Bounds
+
+**Later** (Future Consideration): 
+- Weeks 5-6: HTTP Server with Axum
+- Week 7: Property-Based Testing
+- Week 8: Documentation & Examples
+
+---
+
 ## v1.2.0 (Current Release) - ✅ 100% COMPLETE
 
 **Status**: 🚀 **STABLE - PRODUCTION READY**
@@ -62,4 +76,4 @@ This roadmap balances stability with feature completeness. Each version has clea
 
 ---
 
-**Release v1.2.0 is officially ready for deployment.**
+## Release v1.2.0 is officially ready for deployment.

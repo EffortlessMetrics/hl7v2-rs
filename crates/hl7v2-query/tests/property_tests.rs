@@ -192,7 +192,11 @@ proptest! {
 
         let path = format!("{}.1", segment_id);
         let result = get(&message, &path);
-        prop_assert_eq!(result, Some("value"));
+        if segment_id == "MSH" {
+            prop_assert_eq!(result, Some("|"));
+        } else {
+            prop_assert_eq!(result, Some("value"));
+        }
     }
 }
 
