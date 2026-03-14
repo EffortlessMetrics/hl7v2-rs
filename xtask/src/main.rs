@@ -373,11 +373,15 @@ mod tests {
 
 fn hook_pre_commit() -> Result<()> {
     let staged = git_output(&["diff", "--cached", "--name-only", "--diff-filter=ACMR"])?;
-    let staged_files: Vec<&str> = staged.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+    let staged_files: Vec<&str> = staged
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
 
-    let has_relevant = staged_files.iter().any(|f| {
-        f.ends_with(".rs") || f.ends_with("Cargo.toml") || f.ends_with("Cargo.lock")
-    });
+    let has_relevant = staged_files
+        .iter()
+        .any(|f| f.ends_with(".rs") || f.ends_with("Cargo.toml") || f.ends_with("Cargo.lock"));
 
     if !has_relevant {
         return Ok(());

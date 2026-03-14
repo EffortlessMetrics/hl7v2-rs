@@ -1,4 +1,4 @@
-use super::*;
+use hl7v2_gen::{Template, generate};
 use std::collections::HashMap;
 
 // Basic test to verify the file works
@@ -30,7 +30,7 @@ fn test_generate_simple_message() {
 
     let messages = generate(&template, 42, 2).unwrap();
     assert_eq!(messages.len(), 2);
-    
+
     for message in &messages {
         assert_eq!(message.segments.len(), 2);
         assert_eq!(std::str::from_utf8(&message.segments[0].id).unwrap(), "MSH");
