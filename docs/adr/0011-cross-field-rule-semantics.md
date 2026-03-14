@@ -1,4 +1,4 @@
-# ADR-005: Cross-Field Rule Semantics
+# ADR-011: Cross-Field Rule Semantics
 
 ## Status
 

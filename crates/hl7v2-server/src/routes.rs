@@ -92,6 +92,7 @@ fn build_cors_layer() -> CorsLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hl7v2_test_utils::deterministic_api_key;
     use crate::server::AppState;
     use axum::{
         body::Body,
@@ -100,6 +101,54 @@ mod tests {
     use http_body_util::BodyExt;
     use std::time::Instant;
     use tower::ServiceExt; // For `oneshot`
+
+    fn build_test_router_with_api_key(seed: &str) -> (Router, String) {
+        let metrics_handle = crate::metrics::init_metrics_recorder();
+        let api_key = deterministic_api_key(seed);
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
+            api_key: Some(api_key.clone()),
+        });
+        (build_router(state), api_key)
+    }
+
+    fn parse_request_payload() -> String {
+        let request_body = serde_json::json!({
+            "message": "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|123456|P|2.5\rPID|1||MRN123^^^Facility^MR||Doe^John^A||19800101|M\r",
+            "mllp_framed": false,
+            "options": {
+                "include_json": true,
+                "validate_structure": true
+            }
+        });
+
+        serde_json::to_string(&request_body).unwrap()
+    }
+
+    async fn request_parse(app: Router, api_key: Option<&str>) -> (StatusCode, Vec<u8>) {
+        let mut request = Request::builder()
+            .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                8080,
+            ))))
+            .uri("/hl7/parse")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(Body::from(parse_request_payload()))
+            .unwrap();
+
+        if let Some(key) = api_key {
+            request
+                .headers_mut()
+                .insert("X-API-Key", axum::http::HeaderValue::from_str(key).unwrap());
+        }
+
+        let response = app.oneshot(request).await.unwrap();
+        let status = response.status();
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        (status, body.to_vec())
+    }
 
     #[tokio::test]
     async fn test_health_endpoint() {
@@ -175,6 +224,31 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let response_data: crate::models::ParseResponse =
+            serde_json::from_slice(&body_bytes).unwrap();
+
+        assert_eq!(response_data.metadata.message_type, "ADT");
+        assert_eq!(response_data.metadata.version, "2.5");
+        assert_eq!(response_data.metadata.sending_application, "SendingApp");
+        assert!(response_data.message.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_parse_endpoint_rejects_missing_api_key() {
+        let key_seed = "server::api-auth::missing-key";
+        let (app, _) = build_test_router_with_api_key(key_seed);
+        let (status, _) = request_parse(app, None).await;
+
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_parse_endpoint_accepts_valid_deterministic_api_key() {
+        let key_seed = "server::api-auth::valid-key";
+        let (app, key) = build_test_router_with_api_key(key_seed);
+        let (status, body_bytes) = request_parse(app, Some(&key)).await;
+
+        assert_eq!(status, StatusCode::OK);
         let response_data: crate::models::ParseResponse =
             serde_json::from_slice(&body_bytes).unwrap();
 
