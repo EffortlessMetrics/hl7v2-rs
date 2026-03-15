@@ -46,7 +46,7 @@ fn build_test_router(
     const OPENAPI_YAML: &str = include_str!("../../../schemas/openapi/hl7v2-api.yaml");
 
     // Create API routes (without /hl7 prefix, as they will be nested)
-    let mut api_routes = axum::Router::new()
+    let api_routes = axum::Router::new()
         .route("/parse", axum::routing::post(parse_handler))
         .route("/validate", axum::routing::post(validate_handler));
 
