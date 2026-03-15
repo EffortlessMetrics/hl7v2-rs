@@ -92,12 +92,12 @@ fn build_cors_layer() -> CorsLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hl7v2_test_utils::deterministic_api_key;
     use crate::server::AppState;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
+    use hl7v2_test_utils::deterministic_api_key;
     use http_body_util::BodyExt;
     use std::time::Instant;
     use tower::ServiceExt; // For `oneshot`

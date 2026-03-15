@@ -11,8 +11,8 @@ use hl7v2_server::{
 use std::sync::Arc;
 use std::time::Instant;
 use tower::ServiceExt; // For `oneshot`
-use tower_governor::governor::GovernorConfigBuilder;
 use tower::limit::ConcurrencyLimitLayer;
+use tower_governor::governor::GovernorConfigBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
@@ -65,12 +65,14 @@ fn build_test_router(
                 )
             }),
         )
-        .route("/health", axum::routing::get(|| async {
-            (StatusCode::OK, "{\"status\":\"healthy\"}")
-        }))
-        .route("/ready", axum::routing::get(|| async {
-            "{\"ready\":true}"
-        }))
+        .route(
+            "/health",
+            axum::routing::get(|| async { (StatusCode::OK, "{\"status\":\"healthy\"}") }),
+        )
+        .route(
+            "/ready",
+            axum::routing::get(|| async { "{\"ready\":true}" }),
+        )
         .route("/metrics", axum::routing::get(metrics_handler))
         .nest("/hl7", api_routes) // Nest under /hl7 to match the original router
         .with_state(state)
@@ -79,10 +81,12 @@ fn build_test_router(
             hl7v2_server::metrics::middleware::metrics_middleware,
         ))
         .layer(CompressionLayer::new())
-        .layer(CorsLayer::new()
-            .allow_origin(Any)
-            .allow_methods(Any)
-            .allow_headers(Any))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        )
         .layer(TraceLayer::new_for_http())
         .layer(tower_governor::GovernorLayer::new(governor_conf.clone())) // Rate limiting
         .layer(ConcurrencyLimitLayer::new(max_concurrency)) // Concurrency limiting
@@ -99,7 +103,10 @@ async fn test_rate_limiting_allows_requests_within_limit() {
         let response = app_clone
             .oneshot(
                 Request::builder()
-                    .extension(ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                    .extension(ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
                     .uri("/hl7/parse") // Note: /hl7 prefix due to nesting
                     .method("POST")
                     .header("Content-Type", "application/json")
@@ -129,7 +136,10 @@ async fn test_rate_limiting_blocks_requests_over_limit() {
     let response = app_clone
         .oneshot(
             Request::builder()
-                .extension(ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse") // Note: /hl7 prefix due to nesting
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -139,14 +149,21 @@ async fn test_rate_limiting_blocks_requests_over_limit() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK, "First request should succeed");
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "First request should succeed"
+    );
 
     // Second request immediately after should be rate limited
     let app_clone = app.clone();
     let response = app_clone
         .oneshot(
             Request::builder()
-                .extension(ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                .extension(ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
                 .uri("/hl7/parse") // Note: /hl7 prefix due to nesting
                 .method("POST")
                 .header("Content-Type", "application/json")
@@ -177,7 +194,10 @@ async fn test_concurrency_limiting_allows_requests_under_limit() {
             app_clone
                 .oneshot(
                     Request::builder()
-                        .extension(ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                        .extension(ConnectInfo(std::net::SocketAddr::from((
+                            [127, 0, 0, 1],
+                            8080,
+                        ))))
                         .uri("/hl7/parse") // Note: /hl7 prefix due to nesting
                         .method("POST")
                         .header("Content-Type", "application/json")
@@ -193,7 +213,7 @@ async fn test_concurrency_limiting_allows_requests_under_limit() {
     // Wait for all requests to complete
     for task in tasks {
         let response = task.await.unwrap();
-        // Should be OK or possibly 422 for validation, but not 503 (service unavailable) which 
+        // Should be OK or possibly 422 for validation, but not 503 (service unavailable) which
         // might indicate concurrency limit exceeded
         assert_ne!(
             response.status(),
@@ -216,7 +236,10 @@ async fn test_concurrency_limiting_blocks_requests_over_limit() {
             app_clone
                 .oneshot(
                     Request::builder()
-                        .extension(ConnectInfo(std::net::SocketAddr::from(([127, 0, 0, 1], 8080))))
+                        .extension(ConnectInfo(std::net::SocketAddr::from((
+                            [127, 0, 0, 1],
+                            8080,
+                        ))))
                         .uri("/hl7/parse") // Note: /hl7 prefix due to nesting
                         .method("POST")
                         .header("Content-Type", "application/json")
