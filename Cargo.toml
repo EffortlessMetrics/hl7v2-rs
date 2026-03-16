@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    # Top-level name-claim crate
+    "crates/hl7v2",
     # Microcrates (SRP-focused)
     "crates/hl7v2-model",
     "crates/hl7v2-escape",
