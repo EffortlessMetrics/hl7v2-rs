@@ -23,8 +23,8 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 # Test utilities
-hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
-hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+hl7v2-parser = { path = "../hl7v2-parser" }
 
 # Property-based testing
 proptest = "1.6"
