@@ -33,6 +33,7 @@ pub mod assertions;
 pub mod builders;
 pub mod fixtures;
 pub mod mocks;
+pub mod security_fixtures;
 
 // Re-exports for convenience
 pub use assertions::{
@@ -42,6 +43,7 @@ pub use assertions::{
 pub use builders::{MessageBuilder, SegmentBuilder};
 pub use fixtures::SampleMessages;
 pub use mocks::{MockMessageHandler, MockMllpServer};
+pub use security_fixtures::deterministic_api_key;
 
 /// Prelude module for convenient imports
 pub mod prelude {
@@ -52,6 +54,7 @@ pub mod prelude {
     pub use crate::builders::{MessageBuilder, SegmentBuilder};
     pub use crate::fixtures::SampleMessages;
     pub use crate::mocks::{MockMessageHandler, MockMllpServer};
+    pub use crate::security_fixtures::deterministic_api_key;
 }
 
 #[cfg(test)]

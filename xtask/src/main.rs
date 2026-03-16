@@ -49,6 +49,10 @@ enum Commands {
         #[arg(long)]
         no_open: bool,
     },
+    /// Git pre-commit hook: lint-fix staged Rust/Cargo files
+    HookPreCommit,
+    /// Git pre-push hook: run full gate checks
+    HookPrePush,
 }
 
 fn main() -> Result<()> {
@@ -66,6 +70,8 @@ fn main() -> Result<()> {
         Commands::Outdated => outdated()?,
         Commands::Scaffold { name, description } => scaffold(&name, description)?,
         Commands::Docs { no_open } => docs(no_open)?,
+        Commands::HookPreCommit => hook_pre_commit()?,
+        Commands::HookPrePush => hook_pre_push()?,
     }
 
     Ok(())
@@ -365,6 +371,40 @@ mod tests {
     Ok(())
 }
 
+fn hook_pre_commit() -> Result<()> {
+    let staged = git_output(&["diff", "--cached", "--name-only", "--diff-filter=ACMR"])?;
+    let staged_files: Vec<&str> = staged
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect();
+
+    let has_relevant = staged_files
+        .iter()
+        .any(|f| f.ends_with(".rs") || f.ends_with("Cargo.toml") || f.ends_with("Cargo.lock"));
+
+    if !has_relevant {
+        return Ok(());
+    }
+
+    println!("pre-commit: lint-fix");
+    lint_fix()?;
+
+    // Restage the files that were originally staged (in chunks to avoid command-line length limits)
+    for chunk in staged_files.chunks(50) {
+        let mut args: Vec<&str> = vec!["add"];
+        args.extend_from_slice(chunk);
+        run_command_git(&args)?;
+    }
+
+    Ok(())
+}
+
+fn hook_pre_push() -> Result<()> {
+    println!("pre-push: gate --check");
+    gate(true, false, None)
+}
+
 fn docs(no_open: bool) -> Result<()> {
     println!("📚 Generating documentation...");
     let mut args = vec!["doc", "--workspace", "--no-deps"];
@@ -412,6 +452,21 @@ fn run_command_git(args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+fn git_output(args: &[&str]) -> Result<String> {
+    let output = Command::new("git")
+        .args(args)
+        .stderr(Stdio::inherit())
+        .output()?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "Git command 'git {}' failed with exit code: {:?}",
+            args.join(" "),
+            output.status.code()
+        ));
+    }
+    Ok(String::from_utf8(output.stdout)?)
+}
+
 fn command_exists(cmd: &str) -> bool {
     if cfg!(windows) {
         Command::new("where")
@@ -443,15 +498,7 @@ enum ChangedScope {
 }
 
 fn get_changed_scope() -> Result<ChangedScope> {
-    let output = Command::new("git")
-        .args(["diff", "--name-only", "HEAD"])
-        .output()?;
-
-    if !output.status.success() {
-        return Err(anyhow!("Failed to run git diff"));
-    }
-
-    let files = String::from_utf8(output.stdout)?;
+    let files = git_output(&["diff", "--name-only", "HEAD"])?;
     let mut changed_crates = HashSet::new();
     let mut has_non_crate_files = false;
 

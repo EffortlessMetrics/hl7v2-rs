@@ -1,4 +1,4 @@
-# ADR-007: Authentication Strategy
+# ADR-013: Authentication Strategy
 
 **Date**: 2026-03-04
 **Status**: ACCEPTED

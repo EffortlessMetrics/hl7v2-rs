@@ -1,4 +1,4 @@
-# ADR-008: Observability Architecture
+# ADR-014: Observability Architecture
 
 **Date**: 2026-03-04
 **Status**: ACCEPTED
