@@ -18,8 +18,8 @@ hl7v2-mllp = { version = "1.2.0", path = "../hl7v2-mllp" }
 hl7v2-json = { version = "1.2.0", path = "../hl7v2-json" }
 
 [dev-dependencies]
-hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
-hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
+hl7v2-parser = { path = "../hl7v2-parser" }
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 proptest = "1.6"
 serde_json = "1.0"
 
