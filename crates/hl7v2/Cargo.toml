@@ -1,0 +1,22 @@
+[package]
+name = "hl7v2"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage = "https://github.com/EffortlessMetrics/hl7v2-rs"
+documentation = "https://docs.rs/hl7v2"
+description = "HL7 v2 message parser and processor for Rust"
+readme = "README.md"
+
+[features]
+default = []
+network = ["hl7v2-core/network"]
+stream = ["hl7v2-core/stream"]
+
+[dependencies]
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
