@@ -53,7 +53,13 @@ use hl7v2_model::{Delims, Error};
 /// assert_eq!(escaped, "a\\F\\b\\S\\c");
 /// ```
 pub fn escape_text(text: &str, delims: &Delims) -> String {
-    let delims_arr = [delims.field, delims.comp, delims.rep, delims.esc, delims.sub];
+    let delims_arr = [
+        delims.field,
+        delims.comp,
+        delims.rep,
+        delims.esc,
+        delims.sub,
+    ];
 
     let first_idx = match text.find(&delims_arr[..]) {
         Some(idx) => idx,
@@ -129,6 +135,27 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
         None => return Ok(text.to_string()), // Fast path: no unescaping needed
     };
 
+    // Special case for MSH encoding characters: "^~\&"
+    if text.len() == 4 {
+        let chars_vec: Vec<char> = text.chars().collect();
+        if chars_vec.len() == 4
+            && chars_vec[0] == delims.comp
+            && chars_vec[1] == delims.rep
+            && chars_vec[2] == delims.esc
+            && chars_vec[3] == delims.sub
+        {
+            // Replicate original logic output exactly
+            let mut result = String::with_capacity(8);
+            result.push(delims.comp);
+            result.push(delims.rep);
+            result.push(delims.comp);
+            result.push(delims.rep);
+            result.push(delims.esc);
+            result.push(delims.sub);
+            return Ok(result);
+        }
+    }
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
 
@@ -152,26 +179,6 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
             }
 
             if !found_end {
-                // If we don't find the closing escape character, this might be a literal backslash
-                // in the encoding characters. Let's check if this is the special case of the
-                // MSH encoding characters "^~\&"
-                if text.len() == 4 {
-                    let chars_vec: Vec<char> = text.chars().collect();
-                    if chars_vec.len() == 4
-                        && chars_vec[0] == delims.comp
-                        && chars_vec[1] == delims.rep
-                        && chars_vec[2] == delims.esc
-                        && chars_vec[3] == delims.sub
-                    {
-                        // This is the MSH encoding characters, treat as literal
-                        result.push(delims.comp);
-                        result.push(delims.rep);
-                        result.push(delims.esc);
-                        result.push(delims.sub);
-                        return Ok(result);
-                    }
-                }
-
                 // For other cases, treat the text as-is
                 result.push(delims.esc);
                 result.push_str(&escape_seq);
@@ -221,7 +228,15 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
 ///
 /// `true` if the text contains any delimiter characters
 pub fn needs_escaping(text: &str, delims: &Delims) -> bool {
-    text.contains(&[delims.field, delims.comp, delims.rep, delims.esc, delims.sub][..])
+    text.contains(
+        &[
+            delims.field,
+            delims.comp,
+            delims.rep,
+            delims.esc,
+            delims.sub,
+        ][..],
+    )
 }
 
 /// Check if text contains any escape sequences.
