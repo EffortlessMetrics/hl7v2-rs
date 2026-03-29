@@ -64,7 +64,7 @@ pub async fn auth_middleware(
         .and_then(|h| h.to_str().ok());
 
     match provided_key {
-        Some(key) if key == expected_key => {
+        Some(key) if constant_time_eq(key, expected_key) => {
             // Valid key - allow request
             Ok(next.run(request).await)
         }
@@ -104,6 +104,27 @@ pub fn create_concurrency_limit_layer() -> tower::limit::ConcurrencyLimitLayer {
 /// * `max` - Maximum number of concurrent requests
 pub fn create_custom_concurrency_limit_layer(max: usize) -> tower::limit::ConcurrencyLimitLayer {
     tower::limit::ConcurrencyLimitLayer::new(max)
+}
+
+/// Perform a constant-time string comparison to mitigate timing attacks.
+///
+/// This function compares two strings character by character and always takes
+/// an amount of time proportional to the length of `a` and `b`, avoiding
+/// early exits that could reveal information about the expected string.
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    let a_bytes = a.as_bytes();
+    let b_bytes = b.as_bytes();
+
+    if a_bytes.len() != b_bytes.len() {
+        return false;
+    }
+
+    let mut result = 0;
+    for (byte_a, byte_b) in a_bytes.iter().zip(b_bytes.iter()) {
+        result |= byte_a ^ byte_b;
+    }
+
+    result == 0
 }
 
 #[cfg(test)]
