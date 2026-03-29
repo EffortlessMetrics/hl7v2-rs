@@ -1,0 +1,4 @@
+
+## 2024-03-24 - Do not modify Cargo.toml without instruction
+**Learning:** Adding new dependencies (even dev-dependencies like `criterion` for temporary benchmarking) to `Cargo.toml` without explicit user instruction is a severe violation and will be rejected, especially if it breaks the workspace build. Also, when modifying foundational or shared crates (e.g., `hl7v2-escape`, `hl7v2-core`), testing only the modified crate (`cargo test -p <crate>`) is insufficient.
+**Action:** Always run the full workspace test suite (`cargo test`) to ensure no regressions are introduced in dependent crates, and never modify `Cargo.toml` or `package.json` to add new dependencies without explicit permission from the user. Use local standalone benchmark files or scripts outside the project dependency tree if measurements are absolutely necessary.
