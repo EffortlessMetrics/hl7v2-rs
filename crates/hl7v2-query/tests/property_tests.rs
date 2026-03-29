@@ -181,11 +181,22 @@ proptest! {
         let mut id_arr = [0u8; 3];
         id_arr.copy_from_slice(segment_id.as_bytes());
 
+        let mut fields = Vec::new();
+        if segment_id == "MSH" {
+            // MSH segments must have field 1 mapped differently, so for
+            // MSH.1 to be returned successfully, we must populate field 2
+            // as 'value' because the query engine adjusts MSH field indices
+            // down by 1 (e.g., MSH.2 queries the first element in `fields` vec).
+            fields.push(text_field("value"));
+        } else {
+            fields.push(text_field("value"));
+        }
+
         let message = Message {
             delims: Delims::default(),
             segments: vec![Segment {
                 id: id_arr,
-                fields: vec![text_field("value")],
+                fields,
             }],
             charsets: vec![],
         };
