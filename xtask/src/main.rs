@@ -780,3 +780,51 @@ fn get_changed_scope() -> Result<ChangedScope> {
 
     Ok(ChangedScope::Crates(changed_crates.into_iter().collect()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn publish_order_uses_workspace_dependency_order() {
+        let ordered = publish_order(None).expect("workspace publish order should resolve");
+
+        assert!(ordered.contains(&"hl7v2-core".to_string()));
+        assert!(ordered.contains(&"hl7v2".to_string()));
+        assert!(ordered.contains(&"hl7v2-template-values".to_string()));
+        assert!(!ordered.contains(&"xtask".to_string()));
+
+        assert_dependency_precedes(&ordered, "hl7v2-datatype", "hl7v2-core");
+        assert_dependency_precedes(&ordered, "hl7v2-core", "hl7v2");
+        assert_dependency_precedes(&ordered, "hl7v2-template-values", "hl7v2-template");
+    }
+
+    #[test]
+    fn publish_order_can_resume_from_a_named_crate() {
+        let ordered = publish_order(None).expect("workspace publish order should resolve");
+        let resumed =
+            publish_order(Some("hl7v2-core")).expect("resume point should exist in workspace");
+        let start = ordered
+            .iter()
+            .position(|crate_name| crate_name == "hl7v2-core")
+            .expect("hl7v2-core should be publishable");
+
+        assert_eq!(resumed, ordered[start..].to_vec());
+    }
+
+    fn assert_dependency_precedes(ordered: &[String], dependency: &str, dependent: &str) {
+        let dependency_index = ordered
+            .iter()
+            .position(|crate_name| crate_name == dependency)
+            .unwrap_or_else(|| panic!("{dependency} should be present in publish order"));
+        let dependent_index = ordered
+            .iter()
+            .position(|crate_name| crate_name == dependent)
+            .unwrap_or_else(|| panic!("{dependent} should be present in publish order"));
+
+        assert!(
+            dependency_index < dependent_index,
+            "{dependency} should appear before {dependent}"
+        );
+    }
+}
