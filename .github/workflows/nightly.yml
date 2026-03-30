@@ -166,7 +166,7 @@ jobs:
           PROPTEST_CASES: 10000
           PROPTEST_MAX_DEFAULT_SIZE: 1000
         run: |
-          cargo test --workspace --features proptest property \
+          cargo test --workspace --test property_tests \
             -- --nocapture
         timeout-minutes: 25
 
