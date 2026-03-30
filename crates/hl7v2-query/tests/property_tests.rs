@@ -196,7 +196,12 @@ proptest! {
 
         let path = format!("{}.1", segment_id);
         let result = get(&message, &path);
-        prop_assert_eq!(result, Some("value"));
+        if segment_id == "MSH" {
+            // `get` returns borrowed field data, so MSH-1 is exposed via presence semantics.
+            prop_assert_eq!(result, None);
+        } else {
+            prop_assert_eq!(result, Some("value"));
+        }
     }
 }
 
