@@ -178,6 +178,10 @@ proptest! {
 proptest! {
     #[test]
     fn test_get_different_segment_ids(segment_id in "[A-Z]{3}") {
+        // MSH field access has dedicated coverage below because MSH-1 is a
+        // protocol delimiter, not a normal stored segment field.
+        prop_assume!(segment_id != "MSH");
+
         let mut id_arr = [0u8; 3];
         id_arr.copy_from_slice(segment_id.as_bytes());
 
@@ -192,11 +196,7 @@ proptest! {
 
         let path = format!("{}.1", segment_id);
         let result = get(&message, &path);
-        if segment_id == "MSH" {
-            prop_assert_eq!(result, Some("|"));
-        } else {
-            prop_assert_eq!(result, Some("value"));
-        }
+        prop_assert_eq!(result, Some("value"));
     }
 }
 
