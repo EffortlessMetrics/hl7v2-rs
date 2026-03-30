@@ -41,9 +41,11 @@ jobs:
           shared-key: publish-crates-io
 
       - name: Show publish plan
+        env:
+          PUBLISH_FROM: ${{ github.event.inputs.from }}
         run: |
-          if [ -n "${{ github.event.inputs.from }}" ]; then
-            cargo run -p xtask -- publish-plan --from "${{ github.event.inputs.from }}"
+          if [ -n "$PUBLISH_FROM" ]; then
+            cargo run -p xtask -- publish-plan --from "$PUBLISH_FROM"
           else
             cargo run -p xtask -- publish-plan
           fi
@@ -62,9 +64,10 @@ jobs:
         if: github.event.inputs.execute == 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          PUBLISH_FROM: ${{ github.event.inputs.from }}
         run: |
-          if [ -n "${{ github.event.inputs.from }}" ]; then
-            cargo run -p xtask -- publish --yes --from "${{ github.event.inputs.from }}"
+          if [ -n "$PUBLISH_FROM" ]; then
+            cargo run -p xtask -- publish --yes --from "$PUBLISH_FROM"
           else
             cargo run -p xtask -- publish --yes
           fi
