@@ -8,6 +8,7 @@ authors.workspace = true
 description = "Streaming/event-based parser for HL7 v2 messages"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 

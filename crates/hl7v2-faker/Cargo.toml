@@ -8,6 +8,7 @@ authors.workspace = true
 description = "Realistic HL7 v2 test data generation (names, addresses, medical codes, etc.)"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "faker", "test-data", "mock"]
 categories = ["development-tools::testing", "parser-implementations"]
 

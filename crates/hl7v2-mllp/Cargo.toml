@@ -8,6 +8,7 @@ authors.workspace = true
 description = "MLLP (Minimal Lower Layer Protocol) framing for HL7 v2"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "mllp", "protocol", "framing"]
 categories = ["network-programming", "encoding"]
 

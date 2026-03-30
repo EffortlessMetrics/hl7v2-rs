@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HL7 v2 batch message handling (FHS/BHS/FTS/BTS)"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "batch", "file", "processing"]
 categories = ["parser-implementations"]
 

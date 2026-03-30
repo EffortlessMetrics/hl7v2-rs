@@ -8,6 +8,7 @@ authors.workspace = true
 description = "High-level API and core functionality for hl7v2-rs."
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 

@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HTTP/REST API server for HL7v2 message processing"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 

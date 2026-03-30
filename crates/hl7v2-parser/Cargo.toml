@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HL7 v2 message parser"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "parser"]
 categories = ["parser-implementations", "encoding"]
 

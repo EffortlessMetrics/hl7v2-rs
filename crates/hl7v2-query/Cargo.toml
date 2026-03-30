@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HL7 v2 path-based field access and query functionality"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "query", "path"]
 categories = ["parser-implementations", "encoding"]
 
