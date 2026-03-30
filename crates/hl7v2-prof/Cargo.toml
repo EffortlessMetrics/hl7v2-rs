@@ -29,7 +29,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros", "time", "fs"] }
 
 # HTTP client for remote profile loading
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "http2"] }
 
 # LRU cache for profile caching
 lru = "0.16"
