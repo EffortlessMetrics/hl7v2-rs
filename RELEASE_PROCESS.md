@@ -58,20 +58,22 @@ git push origin v1.2.0
 
 ### 5. Publish to Crates.io
 
-We publish crates in order of their dependencies. Use the following order:
-
-1.  **Microcrates**: `hl7v2-model`, `hl7v2-escape`, `hl7v2-mllp`, `hl7v2-parser`, `hl7v2-writer`, `hl7v2-json`, `hl7v2-normalize`, `hl7v2-datetime`, `hl7v2-datatype`, `hl7v2-path`, `hl7v2-query`, `hl7v2-batch`.
-2.  **Feature Crates**: `hl7v2-network`, `hl7v2-stream`, `hl7v2-validation`, `hl7v2-prof`, `hl7v2-ack`, `hl7v2-faker`, `hl7v2-template`, `hl7v2-template-values`, `hl7v2-corpus`.
-3.  **Facade**: `hl7v2-core`.
-4.  **Applications**: `hl7v2-cli`, `hl7v2-server`.
-
-Note: `hl7v2-bench`, `hl7v2-test-utils`, and `hl7v2-e2e-tests` are set to `publish = false`.
+Use `xtask` to derive the publish order from the workspace dependency graph so the sequence stays correct as crates are added or dependencies change.
 
 ```bash
-# Example for publishing a crate
-cd crates/hl7v2-model
-cargo publish
+# Preview the publish order
+cargo run -p xtask -- publish-plan
+
+# Publish the full sequence
+cargo run -p xtask -- publish --yes
+
+# Resume from a specific crate if crates.io index propagation interrupted the run
+cargo run -p xtask -- publish --yes --from hl7v2-template-values
 ```
+
+The publish sequence excludes non-published workspace members such as `hl7v2-bench`, `hl7v2-test-utils`, `hl7v2-e2e-tests`, `xtask`, and the root `hl7v2-examples` package.
+
+For GitHub Actions based releases, use the manual `Publish to crates.io` workflow. It prints the derived order first and only publishes when `execute=true` is selected and the `CARGO_REGISTRY_TOKEN` secret is configured.
 
 ### 6. Create GitHub Release
 

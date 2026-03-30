@@ -57,6 +57,10 @@ audit:
 outdated:
     cargo run -p xtask -- outdated
 
+# Print crates.io publish order derived from workspace metadata
+publish-plan:
+    cargo run -p xtask -- publish-plan
+
 # Run tests with nextest (faster)
 test:
     @if command -v cargo-nextest > /dev/null; then \
