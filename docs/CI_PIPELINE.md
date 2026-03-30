@@ -193,7 +193,7 @@ The following jobs use `continue-on-error: true`:
 
 3. **Check property tests locally (limited):**
    ```bash
-   PROPTEST_CASES=100 cargo test --workspace --features proptest property
+   PROPTEST_CASES=100 cargo test --workspace --test property_tests -- --nocapture
    ```
 
 ### For Maintainers
