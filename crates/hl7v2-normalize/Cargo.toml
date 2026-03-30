@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HL7 v2 message normalization"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "normalize", "canonical"]
 categories = ["encoding", "parser-implementations"]
 

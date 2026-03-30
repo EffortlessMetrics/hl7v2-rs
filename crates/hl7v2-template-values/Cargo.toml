@@ -8,6 +8,7 @@ authors.workspace = true
 description = "Value generation helpers for HL7 v2 templates"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 

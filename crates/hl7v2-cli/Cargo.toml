@@ -8,6 +8,7 @@ authors.workspace = true
 description = "Command-line interface for HL7 v2 message manipulation and validation."
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 

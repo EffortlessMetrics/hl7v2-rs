@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HL7 v2 message profile and conformance processing."
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 

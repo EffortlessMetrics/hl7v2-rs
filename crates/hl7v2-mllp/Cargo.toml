@@ -8,6 +8,7 @@ authors.workspace = true
 description = "MLLP (Minimal Lower Layer Protocol) framing for HL7 v2"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "mllp", "protocol", "framing"]
 categories = ["network-programming", "encoding"]
 
@@ -16,7 +17,7 @@ hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 proptest = "1.6"
 
 [features]
