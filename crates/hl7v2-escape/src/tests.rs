@@ -143,6 +143,25 @@ fn test_unescape_unknown_sequence() {
     assert_eq!(unescaped, "a\\X\\b");
 }
 
+#[test]
+fn test_roundtrip_unknown_escape_sequence() {
+    let delims = Delims::default();
+    // Test that unknown escape sequences round-trip correctly
+    let original = "\\Hhighlight\\N text";
+    let unescaped = unescape_text(original, &delims).unwrap();
+    let escaped = escape_text(&unescaped, &delims);
+
+    println!("Original: {}", original);
+    println!("After unescape: {}", unescaped);
+    println!("After escape: {}", escaped);
+
+    // The roundtrip should preserve the original
+    assert_eq!(
+        escaped, original,
+        "Roundtrip should preserve unknown escape sequences"
+    );
+}
+
 // ============================================================================
 // Roundtrip Tests
 // ============================================================================

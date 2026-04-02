@@ -35,7 +35,7 @@ use hl7v2_parser::parse;
 use thiserror::Error;
 
 /// Error type for batch operations
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum BatchError {
     #[error("Invalid batch structure: {0}")]
     InvalidStructure(String),
@@ -234,6 +234,19 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
         // Single batch without file wrapper
         let batch = parse_single_batch(&lines)?;
         let mut file_batch = FileBatch::new();
+        // Override batch_type to Single for BHS-only batches
+        file_batch.info.batch_type = BatchType::Single;
+        // Propagate the nested batch's info to the FileBatch for single batches
+        file_batch.info.encoding_characters = batch.info.encoding_characters.clone();
+        file_batch.info.sending_application = batch.info.sending_application.clone();
+        file_batch.info.sending_facility = batch.info.sending_facility.clone();
+        file_batch.info.receiving_application = batch.info.receiving_application.clone();
+        file_batch.info.receiving_facility = batch.info.receiving_facility.clone();
+        file_batch.info.security = batch.info.security.clone();
+        file_batch.info.batch_name = batch.info.batch_name.clone();
+        file_batch.info.batch_comment = batch.info.batch_comment.clone();
+        file_batch.info.message_count = batch.info.message_count;
+        file_batch.info.trailer_comment = batch.info.trailer_comment.clone();
         file_batch.add_batch(batch);
         Ok(file_batch)
     } else if first_line.starts_with("MSH") {
@@ -261,9 +274,11 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
     let mut file_batch = FileBatch::new();
     let mut current_batch_lines: Vec<&str> = Vec::new();
     let mut in_batch = false;
+    let mut has_fhs = false;
 
     for line in lines {
         if line.starts_with("FHS") {
+            has_fhs = true;
             file_batch.header = Some(parse_segment(line)?);
             let info = extract_batch_info(line, "FHS")?;
             // Preserve batch_type which is already set to File
@@ -272,6 +287,8 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
             file_batch.info.sending_facility = info.sending_facility;
             file_batch.info.receiving_application = info.receiving_application;
             file_batch.info.receiving_facility = info.receiving_facility;
+            file_batch.info.file_creation_time = info.file_creation_time;
+            file_batch.info.security = info.security;
             file_batch.info.batch_name = info.batch_name;
             file_batch.info.batch_comment = info.batch_comment;
         } else if line.starts_with("FTS") {
@@ -304,6 +321,16 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
         }
     }
 
+    // Validate that FHS is present for file batches
+    if !has_fhs {
+        return Err(BatchError::MissingSegment("FHS".to_string()));
+    }
+
+    // If message_count is not set from FTS, calculate from batches
+    if file_batch.info.message_count.is_none() {
+        file_batch.info.message_count = Some(file_batch.total_message_count());
+    }
+
     Ok(file_batch)
 }
 
@@ -311,12 +338,16 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
 fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
     let mut batch = Batch::new();
     let mut message_lines: Vec<&str> = Vec::new();
+    let mut has_bhs = false;
+    let mut has_bts = false;
 
     for line in lines {
         if line.starts_with("BHS") {
+            has_bhs = true;
             batch.header = Some(parse_segment(line)?);
             batch.info = extract_batch_info(line, "BHS")?;
         } else if line.starts_with("BTS") {
+            has_bts = true;
             batch.trailer = Some(parse_segment(line)?);
             let info = extract_batch_info(line, "BTS")?;
             batch.info.message_count = info.message_count;
@@ -342,9 +373,25 @@ fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
         batch.add_message(msg);
     }
 
-    // Verify message count if specified
+    // Validate that BHS is present for single batches (if there are messages or BTS)
+    if !has_bhs && (has_bts || !batch.messages.is_empty()) {
+        return Err(BatchError::MissingSegment("BHS".to_string()));
+    }
+
+    // Validate that BTS is present for single batches (if there are messages or BHS)
+    if !has_bts && (has_bhs || !batch.messages.is_empty()) {
+        return Err(BatchError::MissingSegment("BTS".to_string()));
+    }
+
+    // Ensure message_count is set even for empty batches
+    if batch.info.message_count.is_none() {
+        batch.info.message_count = Some(batch.message_count());
+    }
+
+    // Verify message count if specified and not zero
     if let Some(expected) = batch.info.message_count
         && expected != batch.message_count()
+        && expected != 0
     {
         return Err(BatchError::CountMismatch {
             expected,
@@ -420,6 +467,11 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
     }
 
     let field_sep = line.chars().nth(3).unwrap_or('|');
+
+    // Store of field separator
+    info.field_separator = Some(field_sep);
+
+    // Split fields, preserving empty fields
     let fields: Vec<&str> = line[4..].split(field_sep).collect();
 
     // FTS/BTS-1 is message count, FTS/BTS-2 is trailer comment
@@ -431,14 +483,18 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
         return Ok(info);
     }
 
-    // FHS/BHS fields (0-indexed after split):
-    // After split from position 4, fields[0] is the first field after separator
-    // fields[0] = Encoding Characters (BHS-2)
-    // fields[1] = Sending Application (BHS-3)
-    // fields[2] = Sending Facility (BHS-4)
-    // fields[3] = Receiving Application (BHS-5)
-    // fields[4] = Receiving Facility (BHS-6)
-    // etc.
+    // FHS/BHS fields (0-indexed after split from position 4):
+    // line[4..] = "^~\&|SendingApp|..." so fields[0] = encoding chars
+    // fields[0] = Encoding Characters (BHS-2 / FHS-2)
+    // fields[1] = Sending Application (BHS-3 / FHS-3)
+    // fields[2] = Sending Facility (BHS-4 / FHS-4)
+    // fields[3] = Receiving Application (BHS-5 / FHS-5)
+    // fields[4] = Receiving Facility (BHS-6 / FHS-6)
+    // fields[5] = Date/Time (BHS-7 / FHS-7)
+    // fields[6] = Security (BHS-8 / FHS-8)
+    // fields[7] = (BHS-9 / FHS-9 — unused)
+    // fields[8] = Name/ID (BHS-10 / FHS-10)
+    // fields[9] = Batch Comment (BHS-11 / FHS-11)
     if !fields.is_empty() {
         info.encoding_characters = Some(fields[0].to_string());
     }
@@ -453,6 +509,15 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
     }
     if fields.len() > 4 {
         info.receiving_facility = Some(fields[4].to_string());
+    }
+    if fields.len() > 5 {
+        let datetime = fields[5].to_string();
+        if segment_type == "FHS" {
+            info.file_creation_time = Some(datetime);
+        }
+    }
+    if fields.len() > 6 {
+        info.security = Some(fields[6].to_string());
     }
     if fields.len() > 8 {
         info.batch_name = Some(fields[8].to_string());

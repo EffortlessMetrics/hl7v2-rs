@@ -57,35 +57,61 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
     // In worst case, every character might need escaping (3 chars each)
     let max_size = text.len() * 3;
     let mut result = String::with_capacity(max_size);
+    let mut chars = text.chars().peekable();
 
-    for ch in text.chars() {
-        match ch {
-            c if c == delims.field => {
-                result.push(delims.esc);
-                result.push('F');
-                result.push(delims.esc);
+    while let Some(ch) = chars.next() {
+        // Check if this is the start of an escape sequence
+        if ch == delims.esc {
+            // Look ahead to see if this is a valid escape sequence
+            // Format: \X\ where X is the escape code (can be multiple characters)
+            // But NOT \E\ (which is the escape sequence for the escape character itself)
+            let mut temp_chars = chars.clone();
+            let mut escape_code = String::new();
+            let mut found_end = false;
+
+            for esc_ch in temp_chars.by_ref() {
+                if esc_ch == delims.esc {
+                    found_end = true;
+                    break;
+                }
+                escape_code.push(esc_ch);
             }
-            c if c == delims.comp => {
+
+            if found_end && !escape_code.is_empty() && escape_code != "E" {
+                // This is a valid escape sequence \code\ (but not \E\)
+                // Preserve it as-is
                 result.push(delims.esc);
-                result.push('S');
+                result.push_str(&escape_code);
                 result.push(delims.esc);
-            }
-            c if c == delims.rep => {
-                result.push(delims.esc);
-                result.push('R');
-                result.push(delims.esc);
-            }
-            c if c == delims.esc => {
+                // Consume the escape code and closing escape character
+                for _ in 0..escape_code.len() {
+                    chars.next();
+                }
+                chars.next(); // Consume the closing escape character
+            } else {
+                // Not a valid escape sequence (or is \E\), escape the backslash
                 result.push(delims.esc);
                 result.push('E');
                 result.push(delims.esc);
             }
-            c if c == delims.sub => {
-                result.push(delims.esc);
-                result.push('T');
-                result.push(delims.esc);
-            }
-            _ => result.push(ch),
+        } else if ch == delims.field {
+            result.push(delims.esc);
+            result.push('F');
+            result.push(delims.esc);
+        } else if ch == delims.comp {
+            result.push(delims.esc);
+            result.push('S');
+            result.push(delims.esc);
+        } else if ch == delims.rep {
+            result.push(delims.esc);
+            result.push('R');
+            result.push(delims.esc);
+        } else if ch == delims.sub {
+            result.push(delims.esc);
+            result.push('T');
+            result.push(delims.esc);
+        } else {
+            result.push(ch);
         }
     }
 

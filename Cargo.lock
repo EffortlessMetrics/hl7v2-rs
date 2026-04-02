@@ -1314,21 +1314,25 @@ name = "hl7v2-ack"
 version = "1.2.0"
 dependencies = [
  "chrono",
+ "cucumber",
  "hl7v2-core",
  "hl7v2-test-utils",
  "hl7v2-writer",
  "proptest",
+ "tokio",
 ]
 
 [[package]]
 name = "hl7v2-batch"
 version = "1.2.0"
 dependencies = [
+ "cucumber",
  "hl7v2-model",
  "hl7v2-parser",
  "hl7v2-test-utils",
  "proptest",
  "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -1539,9 +1543,11 @@ dependencies = [
 name = "hl7v2-json"
 version = "1.2.0"
 dependencies = [
+ "cucumber",
  "hl7v2-model",
  "proptest",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -1585,10 +1591,12 @@ dependencies = [
 name = "hl7v2-normalize"
 version = "1.2.0"
 dependencies = [
+ "cucumber",
  "hl7v2-model",
  "hl7v2-parser",
  "hl7v2-writer",
  "proptest",
+ "tokio",
 ]
 
 [[package]]
@@ -1611,8 +1619,10 @@ dependencies = [
 name = "hl7v2-path"
 version = "1.2.0"
 dependencies = [
+ "cucumber",
  "proptest",
  "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -1641,9 +1651,11 @@ dependencies = [
 name = "hl7v2-query"
 version = "1.2.0"
 dependencies = [
+ "cucumber",
  "hl7v2-model",
  "hl7v2-parser",
  "proptest",
+ "tokio",
 ]
 
 [[package]]
@@ -1760,6 +1772,7 @@ dependencies = [
 name = "hl7v2-writer"
 version = "1.2.0"
 dependencies = [
+ "cucumber",
  "hl7v2-escape",
  "hl7v2-json",
  "hl7v2-mllp",
@@ -1768,6 +1781,7 @@ dependencies = [
  "hl7v2-test-utils",
  "proptest",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

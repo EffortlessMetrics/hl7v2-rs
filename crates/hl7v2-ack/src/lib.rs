@@ -206,12 +206,20 @@ fn create_ack_msh_segment(original: &Message, _code: AckCode) -> Result<Segment,
         }],
     });
 
-    // MSH-9: Message Type - use ACK or the original type
+    // MSH-9: Message Type - should be "ACK^MessageType^TriggerEvent"
+    // Format: ACK^MessageType^TriggerEvent (2 components)
+    // The original message_type may contain ^ separators (e.g., "ADT^A01")
+    // We preserve it as a single component to maintain the original format
     fields.push(Field {
         reps: vec![Rep {
-            comps: vec![Comp {
-                subs: vec![Atom::Text(message_type)],
-            }],
+            comps: vec![
+                Comp {
+                    subs: vec![Atom::Text("ACK".to_string())],
+                },
+                Comp {
+                    subs: vec![Atom::Text(message_type.clone())],
+                },
+            ],
         }],
     });
 

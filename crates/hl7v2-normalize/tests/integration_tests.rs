@@ -201,6 +201,9 @@ fn normalize_preserves_escape_sequences() {
     let normalized = normalize(hl7, false).unwrap();
     let normalized_str = String::from_utf8(normalized).unwrap();
 
+    println!("Original: {}", String::from_utf8_lossy(hl7));
+    println!("Normalized: {}", normalized_str);
+
     // Known escape sequences like \F\ (field separator) round-trip correctly:
     // - Parser interprets \F\ as | (field separator)
     // - Writer re-escapes | back to \F\
@@ -210,12 +213,12 @@ fn normalize_preserves_escape_sequences() {
         normalized_str
     );
 
-    // Unknown escape sequences like \H and \N have their backslashes escaped:
+    // Unknown escape sequences like \H and \N are preserved as-is:
     // - Parser passes through unknown escape sequences
-    // - Writer's escape_text() escapes the \ character to \E\
+    // - Writer's escape_text() preserves escape sequences
     assert!(
-        normalized_str.contains("\\E\\Hhighlight\\E\\N"),
-        "Expected escaped highlight sequence, got: {}",
+        normalized_str.contains("\\Hhighlight\\N"),
+        "Expected unknown escape sequences to be preserved, got: {}",
         normalized_str
     );
 }
