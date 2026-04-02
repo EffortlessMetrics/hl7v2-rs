@@ -397,8 +397,8 @@ mod parse_path_error_tests {
 
     #[test]
     fn test_parse_field_zero() {
-        let result = parse_path("PID.0");
-        assert!(matches!(result, Err(PathError::InvalidFieldNumber(_))));
+        let path = parse_path("PID.0").unwrap();
+        assert_eq!(path.field, 0);
     }
 
     #[test]
@@ -495,8 +495,9 @@ mod parse_field_part_tests {
 
     #[test]
     fn test_parse_field_part_zero_field() {
-        let result = parse_field_part("0");
-        assert!(matches!(result, Err(PathError::InvalidFieldNumber(_))));
+        let (field, rep) = parse_field_part("0").unwrap();
+        assert_eq!(field, 0);
+        assert_eq!(rep, None);
     }
 
     #[test]

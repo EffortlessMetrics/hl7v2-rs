@@ -237,6 +237,7 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
         // Override batch_type to Single for BHS-only batches
         file_batch.info.batch_type = BatchType::Single;
         // Propagate the nested batch's info to the FileBatch for single batches
+        file_batch.info.field_separator = batch.info.field_separator;
         file_batch.info.encoding_characters = batch.info.encoding_characters.clone();
         file_batch.info.sending_application = batch.info.sending_application.clone();
         file_batch.info.sending_facility = batch.info.sending_facility.clone();
@@ -289,6 +290,7 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
             file_batch.info.receiving_facility = info.receiving_facility;
             file_batch.info.file_creation_time = info.file_creation_time;
             file_batch.info.security = info.security;
+            file_batch.info.field_separator = info.field_separator;
             file_batch.info.batch_name = info.batch_name;
             file_batch.info.batch_comment = info.batch_comment;
         } else if line.starts_with("FTS") {

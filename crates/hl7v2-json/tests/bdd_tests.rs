@@ -320,19 +320,19 @@ fn given_empty_message(world: &mut JsonWorld) {
 // When Steps
 // ============================================================================
 
-#[when("I convert to message to JSON")]
+#[when("I convert the message to JSON")]
 fn when_convert_json(world: &mut JsonWorld) {
     let msg = world.message.as_ref().expect("No message");
     world.json_value = Some(to_json(msg));
 }
 
-#[when("I convert to message to JSON string")]
+#[when("I convert the message to JSON string")]
 fn when_convert_json_string(world: &mut JsonWorld) {
     let msg = world.message.as_ref().expect("No message");
     world.json_string = Some(to_json_string(msg));
 }
 
-#[when("I convert to message to pretty JSON string")]
+#[when("I convert the message to pretty JSON string")]
 fn when_convert_pretty_json_string(world: &mut JsonWorld) {
     let msg = world.message.as_ref().expect("No message");
     world.pretty_json_string = Some(to_json_string_pretty(msg));
@@ -476,7 +476,7 @@ fn then_json_special_chars(world: &mut JsonWorld) {
     assert!(json.is_object());
 }
 
-#[then("JSON should contain to message type")]
+#[then("the JSON should contain the message type")]
 fn then_json_message_type(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
@@ -495,7 +495,7 @@ fn then_json_long_values(world: &mut JsonWorld) {
     assert!(json.is_object());
 }
 
-#[then("JSON should reflect to custom delimiters")]
+#[then("the JSON should reflect the custom delimiters")]
 fn then_json_custom_delimiters(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert_eq!(json["meta"]["delims"]["field"], "#");

@@ -37,7 +37,7 @@ impl PathWorld {
 // Given Steps
 // ============================================================================
 
-#[given(regex = r#"path string "([^"]+)""#)]
+#[given(regex = r#"^the path string "([^"]+)"$"#)]
 fn given_path_string(world: &mut PathWorld, path: String) {
     world.path_string = path;
 }
@@ -85,49 +85,49 @@ fn when_format_path(world: &mut PathWorld) {
 // Then Steps
 // ============================================================================
 
-#[then(regex = r#"segment should be "([^"]+)""#)]
+#[then(regex = r#"^the segment should be "([^"]+)"$"#)]
 fn then_segment(world: &mut PathWorld, segment: String) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.segment, segment);
 }
 
-#[then(regex = r#"field should be (\d+)"#)]
+#[then(regex = r#"^the field should be (\d+)$"#)]
 fn then_field(world: &mut PathWorld, field: usize) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.field, field);
 }
 
-#[then(regex = r#"repetition should be (\d+)"#)]
+#[then(regex = r#"^the repetition should be (\d+)$"#)]
 fn then_repetition(world: &mut PathWorld, rep: usize) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.repetition, Some(rep));
 }
 
-#[then("repetition should be None")]
+#[then("the repetition should be None")]
 fn then_repetition_none(world: &mut PathWorld) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.repetition, None);
 }
 
-#[then(regex = r#"component should be (\d+)"#)]
+#[then(regex = r#"^the component should be (\d+)$"#)]
 fn then_component(world: &mut PathWorld, comp: usize) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.component, Some(comp));
 }
 
-#[then("component should be None")]
+#[then("the component should be None")]
 fn then_component_none(world: &mut PathWorld) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.component, None);
 }
 
-#[then(regex = r#"subcomponent should be (\d+)"#)]
+#[then(regex = r#"^the subcomponent should be (\d+)$"#)]
 fn then_subcomponent(world: &mut PathWorld, sub: usize) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.subcomponent, Some(sub));
 }
 
-#[then("subcomponent should be None")]
+#[then("the subcomponent should be None")]
 fn then_subcomponent_none(world: &mut PathWorld) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.subcomponent, None);
@@ -138,7 +138,7 @@ fn then_parsing_fail(world: &mut PathWorld) {
     assert!(world.path_result.as_ref().unwrap().is_err());
 }
 
-#[then("error should indicate invalid format")]
+#[then("the error should indicate invalid format")]
 fn then_error_invalid_format(world: &mut PathWorld) {
     match &world.error {
         Some(PathError::InvalidFormat(_)) => (),
@@ -146,7 +146,7 @@ fn then_error_invalid_format(world: &mut PathWorld) {
     }
 }
 
-#[then("error should indicate invalid segment ID")]
+#[then("the error should indicate invalid segment ID")]
 fn then_error_invalid_segment(world: &mut PathWorld) {
     match &world.error {
         Some(PathError::InvalidSegmentId(_)) => (),
@@ -154,7 +154,7 @@ fn then_error_invalid_segment(world: &mut PathWorld) {
     }
 }
 
-#[then("error should indicate invalid field number")]
+#[then("the error should indicate invalid field number")]
 fn then_error_invalid_field(world: &mut PathWorld) {
     match &world.error {
         Some(PathError::InvalidFieldNumber(_)) => (),
@@ -162,7 +162,7 @@ fn then_error_invalid_field(world: &mut PathWorld) {
     }
 }
 
-#[then("error should indicate invalid component number")]
+#[then("the error should indicate invalid component number")]
 fn then_error_invalid_component(world: &mut PathWorld) {
     match &world.error {
         Some(PathError::InvalidComponentNumber(_)) => (),
@@ -170,7 +170,7 @@ fn then_error_invalid_component(world: &mut PathWorld) {
     }
 }
 
-#[then("error should indicate invalid repetition index")]
+#[then("the error should indicate invalid repetition index")]
 fn then_error_invalid_repetition(world: &mut PathWorld) {
     match &world.error {
         Some(PathError::InvalidRepetitionIndex(_)) => (),
@@ -178,7 +178,7 @@ fn then_error_invalid_repetition(world: &mut PathWorld) {
     }
 }
 
-#[then(regex = r#"result should be "([^"]+)""#)]
+#[then(regex = r#"^the result should be "([^"]+)"$"#)]
 fn then_result_string(world: &mut PathWorld, expected: String) {
     assert_eq!(world.formatted_path, expected);
 }

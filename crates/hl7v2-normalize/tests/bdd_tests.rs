@@ -105,7 +105,8 @@ fn given_no_msh(world: &mut NormalizeWorld) {
 
 #[given("a message with malformed delimiters")]
 fn given_malformed_delimiters(world: &mut NormalizeWorld) {
-    world.raw_bytes = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|MSG001|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r".to_vec();
+    // Use duplicate delimiters (field sep '|' repeated as component sep) to trigger a parse error
+    world.raw_bytes = b"MSH||~\\&|SendingApp\r".to_vec();
 }
 
 #[given(regex = r#"a ([A-Z]{3}\^[A-Z0-9]{2,3}) message"#)]
@@ -141,7 +142,7 @@ fn given_non_canonical(world: &mut NormalizeWorld) {
 // When Steps
 // ============================================================================
 
-#[when("I normalize to message")]
+#[when("I normalize the message")]
 fn when_normalize(world: &mut NormalizeWorld) {
     world.result = Some(normalize(&world.raw_bytes, world.canonical_delims));
     if let Ok(bytes) = world.result.as_ref().unwrap() {
@@ -150,19 +151,19 @@ fn when_normalize(world: &mut NormalizeWorld) {
     }
 }
 
-#[when("I normalize to message with canonical delimiters")]
+#[when("I normalize the message with canonical delimiters")]
 fn when_normalize_canonical(world: &mut NormalizeWorld) {
     world.canonical_delims = true;
     when_normalize(world);
 }
 
-#[when("I normalize to message without canonical delimiters")]
+#[when("I normalize the message without canonical delimiters")]
 fn when_normalize_no_canonical(world: &mut NormalizeWorld) {
     world.canonical_delims = false;
     when_normalize(world);
 }
 
-#[when("I attempt to normalize to message")]
+#[when("I attempt to normalize the message")]
 fn when_attempt_normalize(world: &mut NormalizeWorld) {
     when_normalize(world);
 }
@@ -186,7 +187,7 @@ fn then_canonical_delimiters(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.starts_with("MSH|^~\\&|"));
 }
 
-#[then("normalized message should preserve to custom delimiters")]
+#[then("the normalized message should preserve the custom delimiters")]
 fn then_preserve_custom_delimiters(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.starts_with("MSH#"));
 }

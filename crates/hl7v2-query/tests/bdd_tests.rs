@@ -245,7 +245,7 @@ fn given_message_special_chars(world: &mut QueryWorld) {
 // When Steps
 // ============================================================================
 
-#[when(regex = r#"I query to path "([^"]+)""#)]
+#[when(regex = r#"I query the path "([^"]+)""#)]
 fn when_query_path(world: &mut QueryWorld, path: String) {
     world.path = path.clone();
     let msg = world.message.as_ref().expect("No message");

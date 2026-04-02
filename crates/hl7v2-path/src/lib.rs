@@ -168,9 +168,12 @@ pub fn parse_path(s: &str) -> Result<Path, PathError> {
         )));
     }
 
-    // Parse segment ID (must be 3 characters, uppercase letters/digits)
+    // Parse segment ID (must be 3 characters, start with letter, rest alphanumeric)
     let segment = parts[0].to_uppercase();
-    if segment.len() != 3 || !segment.chars().all(|c| c.is_ascii_alphanumeric()) {
+    if segment.len() != 3
+        || !segment.starts_with(|c: char| c.is_ascii_alphabetic())
+        || !segment.chars().all(|c| c.is_ascii_alphanumeric())
+    {
         return Err(PathError::InvalidSegmentId(segment));
     }
 
@@ -235,12 +238,6 @@ fn parse_field_part(s: &str) -> Result<(usize, Option<usize>), PathError> {
             .parse::<usize>()
             .map_err(|_| PathError::InvalidFieldNumber(field_str.to_string()))?;
 
-        if field == 0 {
-            return Err(PathError::InvalidFieldNumber(
-                "Field must be >= 1".to_string(),
-            ));
-        }
-
         let rep = rep_str
             .parse::<usize>()
             .map_err(|_| PathError::InvalidRepetitionIndex(rep_str.to_string()))?;
@@ -257,12 +254,6 @@ fn parse_field_part(s: &str) -> Result<(usize, Option<usize>), PathError> {
         let field = s
             .parse::<usize>()
             .map_err(|_| PathError::InvalidFieldNumber(s.to_string()))?;
-
-        if field == 0 {
-            return Err(PathError::InvalidFieldNumber(
-                "Field must be >= 1".to_string(),
-            ));
-        }
 
         Ok((field, None))
     }

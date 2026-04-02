@@ -17,14 +17,14 @@ Feature: HL7 v2 Path-based Field Query
     Given a message with a field containing 2 repetitions
     When I query the path "PID.5[1].1"
     Then the result should be "Doe"
-    And when I query the path "PID.5[2].1"
+    When I query the path "PID.5[2].1"
     Then the result should be "Smith"
 
   Scenario: Query MSH field
     Given a message with MSH and PID segments
     When I query the path "MSH.9.1"
     Then the result should be "ADT"
-    And when I query the path "MSH.9.2"
+    When I query the path "MSH.9.2"
     Then the result should be "A01"
 
   Scenario: Query non-existent segment
@@ -56,7 +56,7 @@ Feature: HL7 v2 Path-based Field Query
     Given a message with a field containing multiple components
     When I query the path "PID.3.1"
     Then the result should be "123456"
-    And when I query the path "PID.3.4"
+    When I query the path "PID.3.4"
     Then the result should be "MR"
 
   Scenario: Query field with subcomponents

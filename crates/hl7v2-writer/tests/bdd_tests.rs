@@ -225,7 +225,7 @@ fn given_message_empty_fields(world: &mut WriterWorld) {
     world.message = Some(message);
 }
 
-#[given("a message with null values")]
+#[given("a message with explicit null values")]
 fn given_message_null_values(world: &mut WriterWorld) {
     let delims = Delims::default();
     let mut pid = WriterWorld::create_pid_segment();
@@ -277,8 +277,17 @@ fn given_message_charset(world: &mut WriterWorld) {
 fn given_message_type(world: &mut WriterWorld, message_type: String) {
     let delims = Delims::default();
     let mut msh = WriterWorld::create_msh_segment(&delims);
-    // Set MSH-9 to message type
-    msh.fields[8] = hl7v2_model::Field::from_text(&message_type);
+    // Build MSH-9 as a proper multi-component field so the writer
+    // serialises it with the component separator (^) instead of
+    // escaping the literal caret.
+    let parts: Vec<&str> = message_type.split('^').collect();
+    let rep = hl7v2_model::Rep {
+        comps: parts
+            .into_iter()
+            .map(hl7v2_model::Comp::from_text)
+            .collect(),
+    };
+    msh.fields[8] = hl7v2_model::Field { reps: vec![rep] };
 
     let message = Message {
         delims: delims.clone(),
@@ -326,14 +335,14 @@ fn given_non_canonical(world: &mut WriterWorld) {
 // When Steps
 // ============================================================================
 
-#[when("I write to message to bytes")]
+#[when("I write the message to bytes")]
 fn when_write_message(world: &mut WriterWorld) {
     let msg = world.message.as_ref().expect("No message");
     world.output = write(msg);
     world.output_str = String::from_utf8_lossy(&world.output).to_string();
 }
 
-#[when("I write to message with MLLP framing")]
+#[when("I write the message with MLLP framing")]
 fn when_write_mllp(world: &mut WriterWorld) {
     let msg = world.message.as_ref().expect("No message");
     world.output = write_mllp(msg);
@@ -373,7 +382,7 @@ fn then_segments_separated_cr(world: &mut WriterWorld) {
     assert!(world.output_str.as_bytes()[pid_pos - 1] == b'\r');
 }
 
-#[then("the output should use to custom delimiters")]
+#[then("the output should use the custom delimiters")]
 fn then_output_custom_delimiters(world: &mut WriterWorld) {
     assert!(world.output_str.starts_with("MSH#"));
     assert!(world.output_str.contains("$*@!"));
@@ -415,7 +424,7 @@ fn then_null_values_quotes(world: &mut WriterWorld) {
     assert!(world.output_str.contains("\"\""));
 }
 
-#[then("the MSH segment should contain to delimiters in field 2")]
+#[then("the MSH segment should contain the delimiters in field 2")]
 fn then_msh_delimiters_field2(world: &mut WriterWorld) {
     assert!(world.output_str.contains("#$*@!"));
 }
@@ -431,8 +440,8 @@ fn then_charset_msh18(world: &mut WriterWorld) {
     assert!(world.output_str.contains("UNICODE UTF-8"));
 }
 
-#[then(regex = r#"the output should contain to message type"#)]
-fn then_output_contains_message_type(world: &mut WriterWorld, _message_type: String) {
+#[then("the output should contain the message type")]
+fn then_output_contains_message_type(world: &mut WriterWorld) {
     assert!(
         world.output_str.contains("ADT^A01")
             || world.output_str.contains("ORU^R01")
@@ -461,7 +470,7 @@ fn then_output_mllp_end(world: &mut WriterWorld) {
     assert!(world.output.ends_with(&[0x1C, 0x0D]));
 }
 
-#[then("the message content should be between blocks")]
+#[then("the message content should be between the blocks")]
 fn then_output_mllp_content(world: &mut WriterWorld) {
     assert!(world.output_str.contains("MSH|"));
 }
