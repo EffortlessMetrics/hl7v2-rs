@@ -351,13 +351,12 @@ proptest! {
 }
 
 proptest! {
-    /// Test that field number 0 is accepted (segment-level access)
+    /// Test that field number 0 is rejected (field must be >= 1)
     #[test]
-    fn prop_field_zero_accepted(segment in segment_id()) {
+    fn prop_field_zero_rejected(segment in segment_id()) {
         let path_str = format!("{}.0", segment);
         let result = parse_path(&path_str);
-        prop_assert!(result.is_ok());
-        prop_assert_eq!(result.unwrap().field, 0);
+        prop_assert!(result.is_err());
     }
 }
 

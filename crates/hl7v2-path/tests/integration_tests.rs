@@ -487,9 +487,9 @@ mod error_handling_scenarios {
     /// Test that invalid field numbers are rejected
     #[test]
     fn test_invalid_field_numbers() {
-        // Zero is valid (segment-level access)
+        // Zero is invalid (field must be >= 1)
         let result = parse_path("PID.0");
-        assert!(result.is_ok());
+        assert!(matches!(result, Err(PathError::InvalidFieldNumber(_))));
 
         // Negative (parsed as non-numeric due to dash)
         let result = parse_path("PID.-1");

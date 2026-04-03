@@ -238,6 +238,12 @@ fn parse_field_part(s: &str) -> Result<(usize, Option<usize>), PathError> {
             .parse::<usize>()
             .map_err(|_| PathError::InvalidFieldNumber(field_str.to_string()))?;
 
+        if field == 0 {
+            return Err(PathError::InvalidFieldNumber(
+                "Field must be >= 1".to_string(),
+            ));
+        }
+
         let rep = rep_str
             .parse::<usize>()
             .map_err(|_| PathError::InvalidRepetitionIndex(rep_str.to_string()))?;
@@ -254,6 +260,12 @@ fn parse_field_part(s: &str) -> Result<(usize, Option<usize>), PathError> {
         let field = s
             .parse::<usize>()
             .map_err(|_| PathError::InvalidFieldNumber(s.to_string()))?;
+
+        if field == 0 {
+            return Err(PathError::InvalidFieldNumber(
+                "Field must be >= 1".to_string(),
+            ));
+        }
 
         Ok((field, None))
     }

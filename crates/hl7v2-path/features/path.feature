@@ -113,8 +113,9 @@ Feature: HL7 v2 Field Path Parsing
 
   Scenario: Parse path with zero field number
     Given the path string "PID.0.1"
-    When I parse the path
-    Then the field should be 0
+    When I attempt to parse the path
+    Then parsing should fail
+    And the error should indicate invalid field number
 
   Scenario: Format path to string
     Given a parsed path with segment "PID" field 5 component 1

@@ -199,7 +199,7 @@ impl FileBatch {
 
     /// Get total message count across all batches
     pub fn total_message_count(&self) -> usize {
-        self.batches.iter().map(|b| b.message_count()).sum()
+        self.batches.iter().map(Batch::message_count).sum()
     }
 
     /// Iterate over all messages across all batches
@@ -390,10 +390,9 @@ fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
         batch.info.message_count = Some(batch.message_count());
     }
 
-    // Verify message count if specified and not zero
+    // Verify message count if specified
     if let Some(expected) = batch.info.message_count
         && expected != batch.message_count()
-        && expected != 0
     {
         return Err(BatchError::CountMismatch {
             expected,
