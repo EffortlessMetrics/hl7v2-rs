@@ -59,33 +59,28 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
     let mut result = String::with_capacity(max_size);
 
     for ch in text.chars() {
-        match ch {
-            c if c == delims.field => {
-                result.push(delims.esc);
-                result.push('F');
-                result.push(delims.esc);
-            }
-            c if c == delims.comp => {
-                result.push(delims.esc);
-                result.push('S');
-                result.push(delims.esc);
-            }
-            c if c == delims.rep => {
-                result.push(delims.esc);
-                result.push('R');
-                result.push(delims.esc);
-            }
-            c if c == delims.esc => {
-                result.push(delims.esc);
-                result.push('E');
-                result.push(delims.esc);
-            }
-            c if c == delims.sub => {
-                result.push(delims.esc);
-                result.push('T');
-                result.push(delims.esc);
-            }
-            _ => result.push(ch),
+        if ch == delims.esc {
+            result.push(delims.esc);
+            result.push('E');
+            result.push(delims.esc);
+        } else if ch == delims.field {
+            result.push(delims.esc);
+            result.push('F');
+            result.push(delims.esc);
+        } else if ch == delims.comp {
+            result.push(delims.esc);
+            result.push('S');
+            result.push(delims.esc);
+        } else if ch == delims.rep {
+            result.push(delims.esc);
+            result.push('R');
+            result.push(delims.esc);
+        } else if ch == delims.sub {
+            result.push(delims.esc);
+            result.push('T');
+            result.push(delims.esc);
+        } else {
+            result.push(ch);
         }
     }
 

@@ -487,7 +487,7 @@ mod error_handling_scenarios {
     /// Test that invalid field numbers are rejected
     #[test]
     fn test_invalid_field_numbers() {
-        // Zero
+        // Zero is invalid (field must be >= 1)
         let result = parse_path("PID.0");
         assert!(matches!(result, Err(PathError::InvalidFieldNumber(_))));
 

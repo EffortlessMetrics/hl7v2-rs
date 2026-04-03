@@ -23,4 +23,10 @@ hl7v2-parser = { path = "../hl7v2-parser" }
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 proptest = "1.6"
 serde_json = "1.0"
+cucumber = "0.22.1"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "bdd_tests"
+harness = false
 

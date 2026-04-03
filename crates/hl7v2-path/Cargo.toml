@@ -17,3 +17,9 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.6"
+cucumber = "0.22.1"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "bdd_tests"
+harness = false

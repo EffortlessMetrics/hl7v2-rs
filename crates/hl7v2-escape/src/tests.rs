@@ -143,6 +143,21 @@ fn test_unescape_unknown_sequence() {
     assert_eq!(unescaped, "a\\X\\b");
 }
 
+#[test]
+fn test_roundtrip_unknown_escape_sequence() {
+    let delims = Delims::default();
+    // Unknown escape sequences are passed through literally by unescape
+    // (including backslashes), so re-escaping must escape those backslashes.
+    // Unknown sequences therefore do NOT roundtrip back to their original form.
+    let original = "\\Hhighlight\\N text";
+    let unescaped = unescape_text(original, &delims).unwrap();
+    // unescape passes unknown \Hhighlight\ through as-is
+    assert_eq!(unescaped, "\\Hhighlight\\N text");
+    let escaped = escape_text(&unescaped, &delims);
+    // escape_text treats every \ as a literal escape char → \E\
+    assert_eq!(escaped, "\\E\\Hhighlight\\E\\N text");
+}
+
 // ============================================================================
 // Roundtrip Tests
 // ============================================================================

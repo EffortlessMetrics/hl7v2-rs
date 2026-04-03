@@ -20,4 +20,10 @@ chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-fea
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
 proptest = "1.6"
+cucumber = "0.22.1"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "bdd_tests"
+harness = false
 
