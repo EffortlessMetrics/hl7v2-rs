@@ -342,76 +342,76 @@ fn when_convert_pretty_json_string(world: &mut JsonWorld) {
 // Then Steps
 // ============================================================================
 
-#[then("JSON should be valid")]
+#[then("the JSON should be valid")]
 fn then_json_valid(world: &mut JsonWorld) {
     assert!(world.json_value.is_some());
 }
 
-#[then("JSON should contain \"meta\" object")]
+#[then("the JSON should contain \"meta\" object")]
 fn then_json_meta(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.get("meta").is_some());
 }
 
-#[then("JSON should contain \"segments\" array")]
+#[then("the JSON should contain \"segments\" array")]
 fn then_json_segments(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.get("segments").is_some());
 }
 
-#[then("result should be a valid JSON string")]
+#[then("the result should be a valid JSON string")]
 fn then_json_string_valid(world: &mut JsonWorld) {
     let json_str = world.json_string.as_ref().expect("No JSON string");
     let parsed: Value = serde_json::from_str(json_str).expect("Invalid JSON");
     assert!(parsed.is_object());
 }
 
-#[then("result should be formatted with indentation")]
+#[then("the result should be formatted with indentation")]
 fn then_pretty_formatted(world: &mut JsonWorld) {
     let json_str = world.pretty_json_string.as_ref().expect("No pretty JSON");
     assert!(json_str.contains('\n'));
     assert!(json_str.contains("  "));
 }
 
-#[then("JSON should contain delimiter information")]
+#[then("the JSON should contain delimiter information")]
 fn then_json_delimiters(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json["meta"]["delims"].is_object());
 }
 
-#[then("field separator should be \"|\"")]
+#[then("the field separator should be \"|\"")]
 fn then_field_separator(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert_eq!(json["meta"]["delims"]["field"], "|");
 }
 
-#[then("component separator should be \"^\"")]
+#[then("the component separator should be \"^\"")]
 fn then_component_separator(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert_eq!(json["meta"]["delims"]["comp"], "^");
 }
 
-#[then("JSON should contain charset information")]
+#[then("the JSON should contain charset information")]
 fn then_json_charset(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json["meta"]["charsets"].is_array());
 }
 
-#[then("JSON should contain segment \"MSH\"")]
+#[then("the JSON should contain segment \"MSH\"")]
 fn then_json_msh(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     let segments = json["segments"].as_array().expect("Not an array");
     assert!(segments.iter().any(|s| s["id"] == "MSH"));
 }
 
-#[then("JSON should contain segment \"PID\"")]
+#[then("the JSON should contain segment \"PID\"")]
 fn then_json_pid(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     let segments = json["segments"].as_array().expect("Not an array");
     assert!(segments.iter().any(|s| s["id"] == "PID"));
 }
 
-#[then("JSON should contain field values from MSH")]
+#[then("the JSON should contain field values from MSH")]
 fn then_json_msh_fields(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     let segments = json["segments"].as_array().expect("Not an array");
@@ -422,7 +422,7 @@ fn then_json_msh_fields(world: &mut JsonWorld) {
     assert!(msh["fields"].is_object());
 }
 
-#[then("JSON should contain field values from PID")]
+#[then("the JSON should contain field values from PID")]
 fn then_json_pid_fields(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     let segments = json["segments"].as_array().expect("Not an array");
@@ -433,44 +433,44 @@ fn then_json_pid_fields(world: &mut JsonWorld) {
     assert!(pid["fields"].is_object());
 }
 
-#[then("JSON should represent empty fields correctly")]
+#[then("the JSON should represent empty fields correctly")]
 fn then_json_empty_fields(world: &mut JsonWorld) {
     // Empty fields should be handled correctly
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
 }
 
-#[then("JSON should represent null values correctly")]
+#[then("the JSON should represent null values correctly")]
 fn then_json_null_values(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
 }
 
-#[then("JSON should represent repetitions as an array")]
+#[then("the JSON should represent repetitions as an array")]
 fn then_json_repetitions_array(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
 }
 
-#[then("JSON should represent components correctly")]
+#[then("the JSON should represent components correctly")]
 fn then_json_components(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
 }
 
-#[then("JSON should represent subcomponents correctly")]
+#[then("the JSON should represent subcomponents correctly")]
 fn then_json_subcomponents(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
 }
 
-#[then("JSON should handle escape sequences properly")]
+#[then("the JSON should handle escape sequences properly")]
 fn then_json_escape_sequences(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
 }
 
-#[then("JSON should handle special characters properly")]
+#[then("the JSON should handle special characters properly")]
 fn then_json_special_chars(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
@@ -482,14 +482,14 @@ fn then_json_message_type(world: &mut JsonWorld) {
     assert!(json.is_object());
 }
 
-#[then("JSON should contain all segments")]
+#[then("the JSON should contain all segments")]
 fn then_json_all_segments(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     let segments = json["segments"].as_array().expect("Not an array");
     assert_eq!(segments.len(), 3);
 }
 
-#[then("JSON should preserve long values")]
+#[then("the JSON should preserve long values")]
 fn then_json_long_values(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     assert!(json.is_object());
@@ -502,7 +502,7 @@ fn then_json_custom_delimiters(world: &mut JsonWorld) {
     assert_eq!(json["meta"]["delims"]["comp"], "$");
 }
 
-#[then("JSON should have empty segments array")]
+#[then("the JSON should have empty segments array")]
 fn then_json_empty_segments(world: &mut JsonWorld) {
     let json = world.json_value.as_ref().expect("No JSON");
     let segments = json["segments"].as_array().expect("Not an array");

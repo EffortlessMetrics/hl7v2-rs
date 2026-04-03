@@ -213,12 +213,12 @@ fn normalize_preserves_escape_sequences() {
         normalized_str
     );
 
-    // Unknown escape sequences like \H and \N are preserved as-is:
-    // - Parser passes through unknown escape sequences
-    // - Writer's escape_text() preserves escape sequences
+    // Unknown escape sequences like \Hhighlight\ are passed through literally
+    // by the parser (including backslashes). When the writer re-escapes, those
+    // literal backslashes become \E\, so the output changes form.
     assert!(
-        normalized_str.contains("\\Hhighlight\\N"),
-        "Expected unknown escape sequences to be preserved, got: {}",
+        normalized_str.contains("\\E\\Hhighlight\\E\\N"),
+        "Expected unknown escape sequences to have backslashes escaped, got: {}",
         normalized_str
     );
 }

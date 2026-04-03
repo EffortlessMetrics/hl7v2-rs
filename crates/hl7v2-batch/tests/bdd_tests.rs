@@ -295,8 +295,8 @@ fn then_nested_batches(world: &mut BatchWorld) {
     assert_eq!(batch.info.batch_type, BatchType::File);
 }
 
-#[then("the sending application should be \"SendingApp\"")]
-fn then_sending_app(world: &mut BatchWorld) {
+#[then(regex = r#"^the sending application should be "([^"]+)"$"#)]
+fn then_sending_app(world: &mut BatchWorld, expected: String) {
     let batch = world.batch.as_ref().expect("No batch");
     // For single batches, check the nested batch's info
     let info = if batch.info.batch_type == BatchType::Single && !batch.batches.is_empty() {
@@ -304,13 +304,11 @@ fn then_sending_app(world: &mut BatchWorld) {
     } else {
         &batch.info
     };
-    // Note: The test data has encoding characters in the first field position
-    // The parser extracts this as encoding_characters, not sending_application
-    assert_eq!(info.encoding_characters, Some("^~\\&".to_string()));
+    assert_eq!(info.sending_application, Some(expected));
 }
 
-#[then("the sending facility should be \"SendingFac\"")]
-fn then_sending_fac(world: &mut BatchWorld) {
+#[then(regex = r#"^the sending facility should be "([^"]+)"$"#)]
+fn then_sending_fac(world: &mut BatchWorld, expected: String) {
     let batch = world.batch.as_ref().expect("No batch");
     // For single batches, check the nested batch's info
     let info = if batch.info.batch_type == BatchType::Single && !batch.batches.is_empty() {
@@ -318,11 +316,11 @@ fn then_sending_fac(world: &mut BatchWorld) {
     } else {
         &batch.info
     };
-    assert_eq!(info.sending_facility, Some("SendingFac".to_string()));
+    assert_eq!(info.sending_facility, Some(expected));
 }
 
-#[then("the receiving application should be \"ReceivingApp\"")]
-fn then_receiving_app(world: &mut BatchWorld) {
+#[then(regex = r#"^the receiving application should be "([^"]+)"$"#)]
+fn then_receiving_app(world: &mut BatchWorld, expected: String) {
     let batch = world.batch.as_ref().expect("No batch");
     // For single batches, check the nested batch's info
     let info = if batch.info.batch_type == BatchType::Single && !batch.batches.is_empty() {
@@ -330,11 +328,11 @@ fn then_receiving_app(world: &mut BatchWorld) {
     } else {
         &batch.info
     };
-    assert_eq!(info.receiving_application, Some("ReceivingApp".to_string()));
+    assert_eq!(info.receiving_application, Some(expected));
 }
 
-#[then("the receiving facility should be \"ReceivingFac\"")]
-fn then_receiving_fac(world: &mut BatchWorld) {
+#[then(regex = r#"^the receiving facility should be "([^"]+)"$"#)]
+fn then_receiving_fac(world: &mut BatchWorld, expected: String) {
     let batch = world.batch.as_ref().expect("No batch");
     // For single batches, check the nested batch's info
     let info = if batch.info.batch_type == BatchType::Single && !batch.batches.is_empty() {
@@ -342,7 +340,7 @@ fn then_receiving_fac(world: &mut BatchWorld) {
     } else {
         &batch.info
     };
-    assert_eq!(info.receiving_facility, Some("ReceivingFac".to_string()));
+    assert_eq!(info.receiving_facility, Some(expected));
 }
 
 #[then("the batch name should be \"BATCH001\"")]

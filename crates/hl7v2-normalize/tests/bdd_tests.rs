@@ -172,17 +172,17 @@ fn when_attempt_normalize(world: &mut NormalizeWorld) {
 // Then Steps
 // ============================================================================
 
-#[then("normalized message should be valid HL7")]
+#[then("the normalized message should be valid HL7")]
 fn then_normalized_valid(world: &mut NormalizeWorld) {
     assert!(world.result.as_ref().unwrap().is_ok());
 }
 
-#[then("normalized message should start with \"MSH|\"")]
+#[then("the normalized message should start with \"MSH|\"")]
 fn then_normalized_starts_msh(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.starts_with("MSH|"));
 }
 
-#[then("normalized message should use canonical delimiters \"|^~\\\\&\"")]
+#[then("the normalized message should use canonical delimiters \"|^~\\\\&\"")]
 fn then_canonical_delimiters(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.starts_with("MSH|^~\\&|"));
 }
@@ -192,50 +192,50 @@ fn then_preserve_custom_delimiters(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.starts_with("MSH#"));
 }
 
-#[then("normalized message should have consistent spacing")]
+#[then("the normalized message should have consistent spacing")]
 fn then_consistent_spacing(world: &mut NormalizeWorld) {
     // Verify the message is valid
     assert!(world.result.as_ref().unwrap().is_ok());
 }
 
-#[then("normalized message should contain all segments")]
+#[then("the normalized message should contain all segments")]
 fn then_all_segments(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("MSH|"));
     assert!(world.normalized_str.contains("PID|"));
     assert!(world.normalized_str.contains("PV1|"));
 }
 
-#[then("normalized message should preserve escape sequences")]
+#[then("the normalized message should preserve escape sequences")]
 fn then_preserve_escape(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("\\F\\"));
 }
 
-#[then("normalized message should preserve repetitions")]
+#[then("the normalized message should preserve repetitions")]
 fn then_preserve_repetitions(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("~"));
 }
 
-#[then("normalized message should preserve components")]
+#[then("the normalized message should preserve components")]
 fn then_preserve_components(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("^"));
 }
 
-#[then("normalized message should preserve subcomponents")]
+#[then("the normalized message should preserve subcomponents")]
 fn then_preserve_subcomponents(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("&"));
 }
 
-#[then("normalized message should preserve null values")]
+#[then("the normalized message should preserve null values")]
 fn then_preserve_null(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("\"\""));
 }
 
-#[then("normalized message should preserve empty fields")]
+#[then("the normalized message should preserve empty fields")]
 fn then_preserve_empty(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("||"));
 }
 
-#[then("normalized message should preserve charset")]
+#[then("the normalized message should preserve charset")]
 fn then_preserve_charset(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("UNICODE UTF-8"));
 }
@@ -250,48 +250,48 @@ fn then_error_returned(world: &mut NormalizeWorld) {
     assert!(world.result.as_ref().unwrap().is_err());
 }
 
-#[then(regex = r#"normalized message should contain "([^"]+)""#)]
+#[then(regex = r#"the normalized message should contain "([^"]+)""#)]
 fn then_normalized_contains(world: &mut NormalizeWorld, text: String) {
     assert!(world.normalized_str.contains(&text));
 }
 
-#[then("normalized message should preserve special characters")]
+#[then("the normalized message should preserve special characters")]
 fn then_preserve_special(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains(","));
 }
 
-#[then("normalized message should preserve long values")]
+#[then("the normalized message should preserve long values")]
 fn then_preserve_long(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.len() > 500);
 }
 
-#[then("output should start with \"MSH|^~\\\\&|\"")]
+#[then("the output should start with \"MSH|^~\\\\&|\"")]
 fn then_output_starts_canonical(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.starts_with("MSH|^~\\&|"));
 }
 
-#[then("field separator should be \"|\"")]
+#[then("the field separator should be \"|\"")]
 fn then_field_separator(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.starts_with("MSH|"));
 }
 
-#[then("component separator should be \"^\"")]
+#[then("the component separator should be \"^\"")]
 fn then_component_separator(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("^"));
 }
 
-#[then("repetition separator should be \"~\"")]
+#[then("the repetition separator should be \"~\"")]
 fn then_repetition_separator(world: &mut NormalizeWorld) {
     // This would require a message with repetitions
     assert!(world.result.as_ref().unwrap().is_ok());
 }
 
-#[then("escape character should be \"\\\\\"")]
+#[then("the escape character should be \"\\\\\"")]
 fn then_escape_char(world: &mut NormalizeWorld) {
     assert!(world.normalized_str.contains("\\"));
 }
 
-#[then("subcomponent separator should be \"&\"")]
+#[then("the subcomponent separator should be \"&\"")]
 fn then_subcomponent_separator(world: &mut NormalizeWorld) {
     // This would require a message with subcomponents
     assert!(world.result.as_ref().unwrap().is_ok());

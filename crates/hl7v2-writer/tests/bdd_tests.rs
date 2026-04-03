@@ -388,22 +388,22 @@ fn then_output_custom_delimiters(world: &mut WriterWorld) {
     assert!(world.output_str.contains("$*@!"));
 }
 
-#[then("repetitions should be separated by tilde \"~\"")]
+#[then("the repetitions should be separated by tilde \"~\"")]
 fn then_repetitions_tilde(world: &mut WriterWorld) {
     assert!(world.output_str.contains("~"));
 }
 
-#[then("components should be separated by caret \"^\"")]
+#[then("the components should be separated by caret \"^\"")]
 fn then_components_caret(world: &mut WriterWorld) {
     assert!(world.output_str.contains("^"));
 }
 
-#[then("subcomponents should be separated by ampersand \"&\"")]
+#[then("the subcomponents should be separated by ampersand \"&\"")]
 fn then_subcomponents_ampersand(world: &mut WriterWorld) {
     assert!(world.output_str.contains("&"));
 }
 
-#[then("special characters should be properly escaped")]
+#[then("the special characters should be properly escaped")]
 fn then_special_chars_escaped(world: &mut WriterWorld) {
     assert!(world.output_str.contains("\\F\\"));
 }
