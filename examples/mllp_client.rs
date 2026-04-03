@@ -53,7 +53,7 @@ async fn main() {
 
     // Example 2: Client with custom configuration
     println!("--- Example 2: Custom Configuration ---\n");
-    let config_info = r#"
+    let config_info = r"
 Client configuration:
     MllpClientBuilder::new()
         .connect_timeout(Duration::from_secs(5))
@@ -61,7 +61,7 @@ Client configuration:
         .write_timeout(Duration::from_secs(10))
         .max_frame_size(10 * 1024 * 1024)  // 10MB
         .build()
-"#;
+";
     println!("{}", config_info);
     println!();
 
@@ -139,7 +139,7 @@ fn display_ack_details(ack: &Message) {
     println!("Full ACK message:");
     println!(
         "{}",
-        String::from_utf8_lossy(&ack_bytes).replace("\r", "\r\n")
+        String::from_utf8_lossy(&ack_bytes).replace('\r', "\r\n")
     );
 }
 

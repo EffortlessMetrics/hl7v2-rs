@@ -76,7 +76,7 @@ fn given_from_to_fac(world: &mut AckWorld) {
 // When Steps
 // ============================================================================
 
-#[when(regex = r#"I generate an ACK with code (AA|AE|AR|CA|CE|CR)"#)]
+#[when(regex = r"I generate an ACK with code (AA|AE|AR|CA|CE|CR)")]
 fn when_generate_ack(world: &mut AckWorld, code: String) {
     let ack_code = match code.as_str() {
         "AA" => AckCode::AA,

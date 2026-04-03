@@ -306,7 +306,7 @@ mod integration_tests {
         let result = String::from_utf8(bytes).unwrap();
 
         assert!(result.starts_with("MSH|"));
-        assert!(result.ends_with("\r"));
+        assert!(result.ends_with('\r'));
     }
 
     #[test]

@@ -674,12 +674,12 @@ mod error_tests {
         assert!(err.to_string().contains("Unknown type"));
 
         let err = DataTypeError::TooShort { length: 3, min: 5 };
-        assert!(err.to_string().contains("3"));
-        assert!(err.to_string().contains("5"));
+        assert!(err.to_string().contains('3'));
+        assert!(err.to_string().contains('5'));
 
         let err = DataTypeError::TooLong { length: 10, max: 5 };
         assert!(err.to_string().contains("10"));
-        assert!(err.to_string().contains("5"));
+        assert!(err.to_string().contains('5'));
 
         let err = DataTypeError::PatternMismatch {
             value: "abc".to_string(),
@@ -691,7 +691,7 @@ mod error_tests {
         let err = DataTypeError::NotInAllowedSet {
             value: "X".to_string(),
         };
-        assert!(err.to_string().contains("X"));
+        assert!(err.to_string().contains('X'));
 
         let err = DataTypeError::ChecksumFailed;
         assert!(err.to_string().contains("Checksum"));

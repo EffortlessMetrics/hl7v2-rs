@@ -570,7 +570,7 @@ fn snapshot_adt_a01_validation_report() {
         let condition = RuleCondition {
             field: field.to_string(),
             operator: op.to_string(),
-            value: value.map(|s| s.to_string()),
+            value: value.map(std::string::ToString::to_string),
             values,
         };
 
@@ -608,7 +608,7 @@ fn snapshot_oru_r01_validation_report() {
         let condition = RuleCondition {
             field: field.to_string(),
             operator: op.to_string(),
-            value: value.map(|s| s.to_string()),
+            value: value.map(std::string::ToString::to_string),
             values,
         };
 

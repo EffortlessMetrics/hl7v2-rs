@@ -118,7 +118,7 @@ fn programmatic_template_example() {
             if let Some(msg) = messages.first() {
                 println!("Generated Message:");
                 let bytes = write(msg);
-                println!("{}", String::from_utf8_lossy(&bytes).replace("\r", "\r\n"));
+                println!("{}", String::from_utf8_lossy(&bytes).replace('\r', "\r\n"));
 
                 // Show extracted values
                 println!("\nExtracted values:");

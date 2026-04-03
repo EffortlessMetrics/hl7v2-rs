@@ -80,7 +80,7 @@ fn parse_and_collect(msg: &str) -> Vec<Event> {
 fn bench_throughput_small_messages(c: &mut Criterion) {
     let mut group = c.benchmark_group("throughput_small");
 
-    for size in [1, 5, 10, 50].iter() {
+    for size in &[1, 5, 10, 50] {
         let msg = generate_multiple_messages(*size);
         let bytes = msg.len();
 
@@ -96,7 +96,7 @@ fn bench_throughput_small_messages(c: &mut Criterion) {
 fn bench_throughput_large_messages(c: &mut Criterion) {
     let mut group = c.benchmark_group("throughput_large");
 
-    for segments in [100, 500, 1000, 5000].iter() {
+    for segments in &[100, 500, 1000, 5000] {
         let msg = generate_large_message(*segments);
         let bytes = msg.len();
 
@@ -116,7 +116,7 @@ fn bench_throughput_large_messages(c: &mut Criterion) {
 fn bench_field_sizes(c: &mut Criterion) {
     let mut group = c.benchmark_group("field_sizes");
 
-    for field_size in [100, 1_000, 10_000, 100_000].iter() {
+    for field_size in &[100, 1_000, 10_000, 100_000] {
         let msg = generate_message_with_long_field(*field_size);
         let bytes = msg.len();
 
@@ -206,7 +206,7 @@ fn bench_buffer_sizes(c: &mut Criterion) {
 
     let msg = generate_large_message(1000);
 
-    for buffer_size in [64, 256, 1024, 4096, 16384].iter() {
+    for buffer_size in &[64, 256, 1024, 4096, 16384] {
         group.bench_with_input(
             BenchmarkId::new("buffer", buffer_size),
             buffer_size,

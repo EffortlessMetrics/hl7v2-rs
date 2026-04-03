@@ -105,7 +105,7 @@ fn test_fragmented_message_single_byte() {
     let framed = wrap_mllp(msg);
 
     // Add one byte at a time
-    for byte in framed.iter() {
+    for byte in &framed {
         iter.extend(&[*byte]);
     }
 

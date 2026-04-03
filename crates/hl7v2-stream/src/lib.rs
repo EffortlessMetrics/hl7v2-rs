@@ -439,7 +439,7 @@ impl<D: BufRead> StreamParser<D> {
             // For any other segment
             if self.in_message
                 && segment_data.len() >= 3
-                && segment_data[0..3].iter().all(|c| c.is_ascii_alphanumeric())
+                && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric)
             {
                 let segment_id = segment_data[0..3].to_vec();
 
@@ -450,7 +450,7 @@ impl<D: BufRead> StreamParser<D> {
             } else if !self.in_message
                 && self.pre_msh
                 && segment_data.len() >= 3
-                && segment_data[0..3].iter().all(|c| c.is_ascii_alphanumeric())
+                && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric)
             {
                 // We're in pre-MSH mode but this isn't an MSH segment,
                 // so start a message with default delimiters

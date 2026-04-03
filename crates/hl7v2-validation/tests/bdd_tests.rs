@@ -80,7 +80,7 @@ impl ValidationWorld {
     fn get_last_field_value(&self) -> Option<String> {
         let msg = self.parsed_message.as_ref()?;
         let path = self.last_validated_field.as_ref()?;
-        hl7v2_query::get(msg, path).map(|s| s.to_string())
+        hl7v2_query::get(msg, path).map(std::string::ToString::to_string)
     }
 
     fn add_error(&mut self, code: &str, path: &str, detail: &str) {
@@ -1398,7 +1398,7 @@ fn when_validate_segment_order(world: &mut ValidationWorld) {
     world.validation_passed = true;
 
     if let Some(msg) = &world.parsed_message {
-        let segment_names: Vec<&str> = msg.segments.iter().map(|s| s.id_str()).collect();
+        let segment_names: Vec<&str> = msg.segments.iter().map(hl7v2_core::Segment::id_str).collect();
 
         let evn_idx = segment_names.iter().position(|&s| s == "EVN");
         let pid_idx = segment_names.iter().position(|&s| s == "PID");
@@ -1603,7 +1603,7 @@ fn then_error_lists_values(world: &mut ValidationWorld) {
     let has_values = world
         .issues
         .iter()
-        .any(|i| i.detail.contains("M") || i.code == "INVALID_CODE_VALUE");
+        .any(|i| i.detail.contains('M') || i.code == "INVALID_CODE_VALUE");
     assert!(has_values, "Expected error listing valid values not found");
 }
 

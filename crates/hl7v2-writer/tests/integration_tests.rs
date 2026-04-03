@@ -72,7 +72,7 @@ fn test_adt_a01_message() {
     assert!(result.contains("PV1|"));
 
     // Verify segment count
-    assert_eq!(result.matches("\r").count(), 4);
+    assert_eq!(result.matches('\r').count(), 4);
 }
 
 #[test]

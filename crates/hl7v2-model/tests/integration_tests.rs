@@ -697,7 +697,7 @@ mod error_tests {
 
         let msg = err.to_string();
         assert!(msg.contains("PID"));
-        assert!(msg.contains("3"));
+        assert!(msg.contains('3'));
     }
 }
 

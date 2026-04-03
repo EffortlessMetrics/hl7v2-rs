@@ -108,7 +108,7 @@ fn bench_parse_file_batch(c: &mut Criterion) {
 fn bench_batch_by_message_count(c: &mut Criterion) {
     let mut group = c.benchmark_group("batch_message_count");
 
-    for count in [10, 100, 1000].iter() {
+    for count in &[10, 100, 1000] {
         let batch = create_single_batch(*count);
         let bytes = batch.as_bytes();
 
@@ -209,7 +209,7 @@ fn bench_message_parsing_from_batch(c: &mut Criterion) {
                 let result = parse(full_msg.as_bytes());
                 let _ = black_box(result);
             }
-        })
+        });
     });
 }
 
@@ -228,7 +228,7 @@ fn bench_batch_iteration(c: &mut Criterion) {
                 }
             }
             black_box(count)
-        })
+        });
     });
 }
 
@@ -302,7 +302,7 @@ fn bench_batch_memory_efficiency(c: &mut Criterion) {
             let parsed = parse_batch(black_box(bytes)).expect("Failed to parse");
             let count = parsed.total_message_count();
             black_box(count)
-        })
+        });
     });
 
     // Parse and access first message
@@ -312,7 +312,7 @@ fn bench_batch_memory_efficiency(c: &mut Criterion) {
             let first_msg = parsed.iter_all_messages().next();
             let segment_count = first_msg.map(|m| m.segments.len()).unwrap_or(0);
             black_box(segment_count)
-        })
+        });
     });
 
     group.finish();

@@ -337,7 +337,7 @@ fn test_extract_batch_info_minimal() {
             || info
                 .encoding_characters
                 .as_ref()
-                .is_some_and(|s| s.is_empty())
+                .is_some_and(std::string::String::is_empty)
     );
 }
 
@@ -385,8 +385,8 @@ fn test_batch_error_display() {
         expected: 5,
         actual: 3,
     };
-    assert!(error.to_string().contains("5"));
-    assert!(error.to_string().contains("3"));
+    assert!(error.to_string().contains('5'));
+    assert!(error.to_string().contains('3'));
 }
 
 // ============================================================================

@@ -137,7 +137,7 @@ fn event_processing_example() {
                         ("MSH", 12) => msg.version = Some(value.to_string()),
                         ("PID", 3) if value.contains("^^^") => {
                             // Extract patient ID (first component)
-                            msg.patient_id = value.split('^').next().map(|s| s.to_string());
+                            msg.patient_id = value.split('^').next().map(std::string::ToString::to_string);
                         }
                         ("PID", 5) => msg.patient_name = Some(value.to_string()),
                         _ => {}

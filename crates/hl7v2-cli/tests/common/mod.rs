@@ -75,14 +75,14 @@ constraints:
 
 /// Helper to create a template YAML for message generation
 pub fn simple_template() -> &'static str {
-    r#"
+    r"
 message:
   type: ADT
   trigger: A01
 segments:
   - MSH
   - PID
-"#
+"
 }
 
 /// Helper to create an invalid HL7 message

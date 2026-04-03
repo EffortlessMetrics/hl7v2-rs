@@ -444,7 +444,7 @@ pub fn generate_golden_hashes(
 
     // Calculate hash for each message
     let mut hashes = Vec::with_capacity(count);
-    for message in messages.iter() {
+    for message in &messages {
         // Convert message to string
         let message_string = hl7v2_core::write(message);
 

@@ -138,9 +138,9 @@ fn normalize_converts_all_delimiter_types() {
     let normalized_str = String::from_utf8(normalized).unwrap();
 
     // Check canonical delimiters are used
-    assert!(normalized_str.contains("|"));
-    assert!(normalized_str.contains("^"));
-    assert!(normalized_str.contains("~"));
+    assert!(normalized_str.contains('|'));
+    assert!(normalized_str.contains('^'));
+    assert!(normalized_str.contains('~'));
 }
 
 #[test]

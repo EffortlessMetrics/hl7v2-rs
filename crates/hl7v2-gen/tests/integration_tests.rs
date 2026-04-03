@@ -11,12 +11,12 @@ use std::collections::HashMap;
 fn test_full_adt_a01_generation() {
     let template = Template {
         name: "adt_a01".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"EVN|A01|20250128152312||"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John^Robert||19700101|M|||123 Main St^^Anytown^CA^12345^USA||(555)123-4567|||M|S|123456789||"#.to_string(),
-            r#"PV1|1|I|ICU^01^01||||123456^Smith^John^J^^MD||||||||ADM|A0||||||||||||||||||||||||||"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"EVN|A01|20250128152312||".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John^Robert||19700101|M|||123 Main St^^Anytown^CA^12345^USA||(555)123-4567|||M|S|123456789||".to_string(),
+            r"PV1|1|I|ICU^01^01||||123456^Smith^John^J^^MD||||||||ADM|A0||||||||||||||||||||||||||".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -57,10 +57,10 @@ fn test_generation_with_value_substitution() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John||19700101|M"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John||19700101|M".to_string(),
         ],
         values,
     };
@@ -81,9 +81,9 @@ fn test_generation_with_uuid() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
         ],
         values,
     };
@@ -206,10 +206,10 @@ fn test_faker_value_integration() {
 fn test_generate_parse_query() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -233,10 +233,10 @@ fn test_generate_parse_query() {
 fn test_generate_normalize() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -263,10 +263,10 @@ fn test_generate_normalize() {
 fn test_large_corpus_generation() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -288,14 +288,14 @@ fn test_large_corpus_generation() {
 fn test_oru_r01_generation() {
     let template = Template {
         name: "oru_r01".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|LabSystem|Lab|HIS|Hospital|20250128152312||ORU^R01|LAB00001|P|2.5.1"#
+            r"MSH|^~\&|LabSystem|Lab|HIS|Hospital|20250128152312||ORU^R01|LAB00001|P|2.5.1"
                 .to_string(),
-            r#"PID|1||PATID123||Smith^Jane"#.to_string(),
-            r#"OBR|1||ORD001|CBC^Complete Blood Count^L"#.to_string(),
-            r#"OBX|1|NM|HB^Hemoglobin^L||13.2|g/dL|11.5-17.5||||F"#.to_string(),
-            r#"OBX|2|NM|WBC^White Blood Count^L||7.5|10^9/L|4.0-11.0||||F"#.to_string(),
+            r"PID|1||PATID123||Smith^Jane".to_string(),
+            r"OBR|1||ORD001|CBC^Complete Blood Count^L".to_string(),
+            r"OBX|1|NM|HB^Hemoglobin^L||13.2|g/dL|11.5-17.5||||F".to_string(),
+            r"OBX|2|NM|WBC^White Blood Count^L||7.5|10^9/L|4.0-11.0||||F".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -309,10 +309,10 @@ fn test_oru_r01_generation() {
 fn test_adt_a04_generation() {
     let template = Template {
         name: "adt_a04".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|ADT1|MCM|LABADT|MCM|198808181126||ADT^A04|MSG00001|P|2.5.1"#.to_string(),
-            r#"PID|1||PATID1234^5^M11^ADT1^MR^MCM~~~123456789||JONES^WILLIAM^A^III||19610615|M"#
+            r"MSH|^~\&|ADT1|MCM|LABADT|MCM|198808181126||ADT^A04|MSG00001|P|2.5.1".to_string(),
+            r"PID|1||PATID1234^5^M11^ADT1^MR^MCM~~~123456789||JONES^WILLIAM^A^III||19610615|M"
                 .to_string(),
         ],
         values: HashMap::new(),
@@ -336,7 +336,7 @@ fn test_invalid_template_handling() {
         name: "test".to_string(),
         delims: "^^".to_string(), // Invalid - too short
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -353,10 +353,10 @@ fn test_invalid_template_handling() {
 fn test_same_seed_same_output() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -381,10 +381,10 @@ fn test_different_seed_different_output() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values,
     };

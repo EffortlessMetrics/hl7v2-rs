@@ -462,7 +462,7 @@ hl7v2-test-utils = {{ path = "../hl7v2-test-utils" }}
 
     // README.md
     let readme = format!(
-        r#"# {crate_name}
+        r"# {crate_name}
 
 {description}
 
@@ -471,13 +471,13 @@ hl7v2-test-utils = {{ path = "../hl7v2-test-utils" }}
 ```rust
 use {crate_name}::*;
 ```
-"#
+"
     );
     fs::write(crate_path.join("README.md"), readme)?;
 
     // CLAUDE.md
     let claude = format!(
-        r#"# {crate_name} Development
+        r"# {crate_name} Development
 
 ## Build & Test
 
@@ -486,7 +486,7 @@ cargo build -p {crate_name}
 cargo test -p {crate_name}
 cargo clippy -p {crate_name} -- -D warnings
 ```
-"#
+"
     );
     fs::write(crate_path.join("CLAUDE.md"), claude)?;
 
@@ -521,7 +521,7 @@ fn hook_pre_commit() -> Result<()> {
     let staged = git_output(&["diff", "--cached", "--name-only", "--diff-filter=ACMR"])?;
     let staged_files: Vec<&str> = staged
         .lines()
-        .map(|l| l.trim())
+        .map(str::trim)
         .filter(|l| !l.is_empty())
         .collect();
 
@@ -742,7 +742,7 @@ fn command_exists(cmd: &str) -> bool {
 }
 
 enum ChangedScope {
-    /// Only crates/<name>/ files changed — scoped gate possible
+    /// Only `crates/<name>/` files changed — scoped gate possible
     Crates(Vec<String>),
     /// Non-crate files changed — full workspace gate required
     Workspace,

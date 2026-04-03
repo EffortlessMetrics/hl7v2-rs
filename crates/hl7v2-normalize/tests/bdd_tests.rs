@@ -109,7 +109,7 @@ fn given_malformed_delimiters(world: &mut NormalizeWorld) {
     world.raw_bytes = b"MSH||~\\&|SendingApp\r".to_vec();
 }
 
-#[given(regex = r#"a ([A-Z]{3}\^[A-Z0-9]{2,3}) message"#)]
+#[given(regex = r"a ([A-Z]{3}\^[A-Z0-9]{2,3}) message")]
 fn given_message_type(world: &mut NormalizeWorld, message_type: String) {
     let msg = format!(
         "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||{}|MSG001|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r",
@@ -212,17 +212,17 @@ fn then_preserve_escape(world: &mut NormalizeWorld) {
 
 #[then("the normalized message should preserve repetitions")]
 fn then_preserve_repetitions(world: &mut NormalizeWorld) {
-    assert!(world.normalized_str.contains("~"));
+    assert!(world.normalized_str.contains('~'));
 }
 
 #[then("the normalized message should preserve components")]
 fn then_preserve_components(world: &mut NormalizeWorld) {
-    assert!(world.normalized_str.contains("^"));
+    assert!(world.normalized_str.contains('^'));
 }
 
 #[then("the normalized message should preserve subcomponents")]
 fn then_preserve_subcomponents(world: &mut NormalizeWorld) {
-    assert!(world.normalized_str.contains("&"));
+    assert!(world.normalized_str.contains('&'));
 }
 
 #[then("the normalized message should preserve null values")]
@@ -257,7 +257,7 @@ fn then_normalized_contains(world: &mut NormalizeWorld, text: String) {
 
 #[then("the normalized message should preserve special characters")]
 fn then_preserve_special(world: &mut NormalizeWorld) {
-    assert!(world.normalized_str.contains(","));
+    assert!(world.normalized_str.contains(','));
 }
 
 #[then("the normalized message should preserve long values")]
@@ -277,7 +277,7 @@ fn then_field_separator(world: &mut NormalizeWorld) {
 
 #[then("the component separator should be \"^\"")]
 fn then_component_separator(world: &mut NormalizeWorld) {
-    assert!(world.normalized_str.contains("^"));
+    assert!(world.normalized_str.contains('^'));
 }
 
 #[then("the repetition separator should be \"~\"")]
@@ -288,7 +288,7 @@ fn then_repetition_separator(world: &mut NormalizeWorld) {
 
 #[then("the escape character should be \"\\\\\"")]
 fn then_escape_char(world: &mut NormalizeWorld) {
-    assert!(world.normalized_str.contains("\\"));
+    assert!(world.normalized_str.contains('\\'));
 }
 
 #[then("the subcomponent separator should be \"&\"")]

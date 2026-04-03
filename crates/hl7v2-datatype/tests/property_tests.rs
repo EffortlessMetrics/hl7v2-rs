@@ -108,7 +108,7 @@ proptest! {
     #[test]
     fn test_identifier_with_control_chars_invalid(s in ".*") {
         // If string contains control characters, it should be invalid
-        let has_control = s.chars().any(|c| c.is_control());
+        let has_control = s.chars().any(char::is_control);
         if has_control {
             prop_assert!(!is_identifier(&s));
         }

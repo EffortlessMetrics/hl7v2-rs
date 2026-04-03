@@ -91,13 +91,13 @@ fn then_segment(world: &mut PathWorld, segment: String) {
     assert_eq!(path.segment, segment);
 }
 
-#[then(regex = r#"^the field should be (\d+)$"#)]
+#[then(regex = r"^the field should be (\d+)$")]
 fn then_field(world: &mut PathWorld, field: usize) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.field, field);
 }
 
-#[then(regex = r#"^the repetition should be (\d+)$"#)]
+#[then(regex = r"^the repetition should be (\d+)$")]
 fn then_repetition(world: &mut PathWorld, rep: usize) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.repetition, Some(rep));
@@ -109,7 +109,7 @@ fn then_repetition_none(world: &mut PathWorld) {
     assert_eq!(path.repetition, None);
 }
 
-#[then(regex = r#"^the component should be (\d+)$"#)]
+#[then(regex = r"^the component should be (\d+)$")]
 fn then_component(world: &mut PathWorld, comp: usize) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.component, Some(comp));
@@ -121,7 +121,7 @@ fn then_component_none(world: &mut PathWorld) {
     assert_eq!(path.component, None);
 }
 
-#[then(regex = r#"^the subcomponent should be (\d+)$"#)]
+#[then(regex = r"^the subcomponent should be (\d+)$")]
 fn then_subcomponent(world: &mut PathWorld, sub: usize) {
     let path = world.path.as_ref().expect("No path");
     assert_eq!(path.subcomponent, Some(sub));

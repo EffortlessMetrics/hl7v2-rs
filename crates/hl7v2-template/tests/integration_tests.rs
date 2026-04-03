@@ -7,10 +7,10 @@ use std::collections::HashMap;
 fn create_basic_template() -> Template {
     Template {
         name: "ADT_A01".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values: HashMap::new(),
     }
@@ -27,10 +27,10 @@ fn create_template_with_values() -> Template {
 
     Template {
         name: "ADT_A01_Dynamic".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||{{PID.3}}||{{PID.5.1}}"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||{{PID.3}}||{{PID.5.1}}".to_string(),
         ],
         values,
     }
@@ -69,10 +69,10 @@ fn integration_different_seeds_different_results() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||{{PID.3}}||Test"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||{{PID.3}}||Test".to_string(),
         ],
         values,
     };
@@ -101,18 +101,18 @@ fn integration_corpus_generation() {
 fn integration_diverse_corpus() {
     let template1 = Template {
         name: "ADT_A01".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App1|Fac1|App2|Fac2|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
+            r"MSH|^~\&|App1|Fac1|App2|Fac2|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
         ],
         values: HashMap::new(),
     };
 
     let template2 = Template {
         name: "ORU_R01".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App1|Fac1|App2|Fac2|20250128152312||ORU^R01|2|P|2.5.1"#.to_string(),
+            r"MSH|^~\&|App1|Fac1|App2|Fac2|20250128152312||ORU^R01|2|P|2.5.1".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -170,9 +170,9 @@ fn integration_manifest_creation() {
 fn integration_msh_segment_handling() {
     let template = Template {
         name: "MSH_Test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|123|P|2.5.1|||AL|AL"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|123|P|2.5.1|||AL|AL".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -192,7 +192,7 @@ fn integration_custom_delimiters() {
     let template = Template {
         name: "CustomDelims".to_string(),
         delims: "@#$%".to_string(), // component@, repetition#, escape$, subcomponent%
-        segments: vec![r#"MSH|@#$%|App|Fac|App|Fac|20250128152312||ADT@A01|1|P|2.5.1"#.to_string()],
+        segments: vec![r"MSH|@#$%|App|Fac|App|Fac|20250128152312||ADT@A01|1|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -211,12 +211,12 @@ fn integration_custom_delimiters() {
 fn integration_multiple_segments() {
     let template = Template {
         name: "MultiSegment".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
-            r#"EVN|A01|20250128152312"#.to_string(),
-            r#"PID|1||12345||Doe^John^A||19800101|M"#.to_string(),
-            r#"PV1|1|I|ICU^101^^HOSP|||||||ADM||||||||IN|||||||||||||||||||||||||20250128152312"#
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
+            r"EVN|A01|20250128152312".to_string(),
+            r"PID|1||12345||Doe^John^A||19800101|M".to_string(),
+            r"PV1|1|I|ICU^101^^HOSP|||||||ADM||||||||IN|||||||||||||||||||||||||20250128152312"
                 .to_string(),
         ],
         values: HashMap::new(),
@@ -242,10 +242,10 @@ fn integration_value_source_fixed() {
 
     let template = Template {
         name: "FixedValue".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
-            r#"PID|1||123||{{PID.5.1}}"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
+            r"PID|1||123||{{PID.5.1}}".to_string(),
         ],
         values,
     };
@@ -275,10 +275,10 @@ fn integration_value_source_from() {
 
     let template = Template {
         name: "FromValue".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
-            r#"PID|1||123||Test||19700101|{{PID.8}}"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
+            r"PID|1||123||Test||19700101|{{PID.8}}".to_string(),
         ],
         values,
     };
@@ -293,8 +293,8 @@ fn integration_value_source_from() {
 fn integration_empty_template_values() {
     let template = Template {
         name: "EmptyValues".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string()],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 

@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn test_invalid_truncated() {
         let msg = SampleMessages::invalid("truncated").unwrap();
-        assert!(!msg.ends_with("\r"));
+        assert!(!msg.ends_with('\r'));
     }
 
     #[test]

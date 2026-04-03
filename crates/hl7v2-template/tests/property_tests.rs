@@ -16,10 +16,10 @@ prop_compose! {
     fn arb_basic_template()(name in arb_template_name()) -> Template {
         Template {
             name,
-            delims: r#"^~\&"#.to_string(),
+            delims: r"^~\&".to_string(),
             segments: vec![
-                r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#.to_string(),
-                r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+                r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1".to_string(),
+                r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
             ],
             values: HashMap::new(),
         }
@@ -54,9 +54,9 @@ proptest! {
     fn prop_golden_hashes_length(seed in 0u64..10000u64, count in 1usize..20) {
         let template = Template {
             name: "test".to_string(),
-            delims: r#"^~\&"#.to_string(),
+            delims: r"^~\&".to_string(),
             segments: vec![
-                r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
+                r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
             ],
             values: HashMap::new(),
         };
@@ -76,9 +76,9 @@ proptest! {
     fn prop_golden_hash_verification(seed in 0u64..10000u64, count in 1usize..10) {
         let template = Template {
             name: "test".to_string(),
-            delims: r#"^~\&"#.to_string(),
+            delims: r"^~\&".to_string(),
             segments: vec![
-                r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
+                r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
             ],
             values: HashMap::new(),
         };
@@ -102,10 +102,10 @@ proptest! {
 
         let template = Template {
             name: "test".to_string(),
-            delims: r#"^~\&"#.to_string(),
+            delims: r"^~\&".to_string(),
             segments: vec![
-                r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
-                r#"PID|1||{{PID.3}}||Test"#.to_string(),
+                r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
+                r"PID|1||{{PID.3}}||Test".to_string(),
             ],
             values,
         };
@@ -126,9 +126,9 @@ proptest! {
     fn prop_corpus_batch_generation(seed in 0u64..10000u64, total in 10usize..100, batch in 5usize..20) {
         let template = Template {
             name: "test".to_string(),
-            delims: r#"^~\&"#.to_string(),
+            delims: r"^~\&".to_string(),
             segments: vec![
-                r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
+                r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
             ],
             values: HashMap::new(),
         };
@@ -187,9 +187,9 @@ proptest! {
     fn prop_message_hash_consistency(seed in 0u64..10000u64) {
         let template = Template {
             name: "test".to_string(),
-            delims: r#"^~\&"#.to_string(),
+            delims: r"^~\&".to_string(),
             segments: vec![
-                r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
+                r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
             ],
             values: HashMap::new(),
         };
@@ -209,9 +209,9 @@ proptest! {
     fn prop_template_name_preserved(name in arb_template_name()) {
         let template = Template {
             name: name.clone(),
-            delims: r#"^~\&"#.to_string(),
+            delims: r"^~\&".to_string(),
             segments: vec![
-                r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1"#.to_string(),
+                r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|1|P|2.5.1".to_string(),
             ],
             values: HashMap::new(),
         };

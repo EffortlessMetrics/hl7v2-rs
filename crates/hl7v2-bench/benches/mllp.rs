@@ -20,7 +20,7 @@ fn bench_mllp_wrap(c: &mut Criterion) {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -33,7 +33,7 @@ fn bench_mllp_unwrap_and_parse(c: &mut Criterion) {
         b.iter(|| {
             let result = parse_mllp(black_box(&mllp_bytes));
             black_box(result)
-        })
+        });
     });
 }
 
