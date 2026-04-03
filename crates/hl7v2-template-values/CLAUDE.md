@@ -1,16 +1,16 @@
 # hl7v2-template-values
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-template-values
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-template-values
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-template-values -- -D warnings
-`
+```

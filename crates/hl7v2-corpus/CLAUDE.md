@@ -1,16 +1,16 @@
 # hl7v2-corpus
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-corpus
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-corpus
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-corpus -- -D warnings
-`
+```

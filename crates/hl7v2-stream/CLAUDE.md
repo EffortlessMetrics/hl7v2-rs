@@ -1,16 +1,16 @@
 # hl7v2-stream
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-stream
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-stream
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-stream -- -D warnings
-`
+```

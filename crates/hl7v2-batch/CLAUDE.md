@@ -1,16 +1,16 @@
 # hl7v2-batch
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-batch
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-batch
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-batch -- -D warnings
-`
+```

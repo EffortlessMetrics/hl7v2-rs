@@ -1,16 +1,16 @@
 # hl7v2-e2e-tests
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-e2e-tests
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-e2e-tests
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-e2e-tests -- -D warnings
-`
+```

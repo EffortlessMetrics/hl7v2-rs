@@ -1,16 +1,16 @@
 # hl7v2-datetime
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-datetime
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-datetime
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-datetime -- -D warnings
-`
+```

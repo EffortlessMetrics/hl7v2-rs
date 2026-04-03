@@ -1,16 +1,16 @@
 # hl7v2-faker
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-faker
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-faker
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-faker -- -D warnings
-`
+```

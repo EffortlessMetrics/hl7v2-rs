@@ -1,16 +1,16 @@
 # hl7v2-normalize
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-normalize
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-normalize
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-normalize -- -D warnings
-`
+```
