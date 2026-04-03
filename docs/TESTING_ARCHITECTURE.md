@@ -789,7 +789,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       
       - name: Property tests (limited cases)
-        run: PROPTEST_CASES=100 cargo test --features proptest
+        run: PROPTEST_CASES=100 cargo test --workspace --test property_tests -- --nocapture
 
   coverage:
     name: Coverage Report
@@ -1118,7 +1118,7 @@ cargo test --test '*' -p hl7v2-parser
 cargo test --test bdd_tests -p hl7v2-core
 
 # Run property tests with more cases
-PROPTEST_CASES=1000 cargo test --features proptest
+PROPTEST_CASES=1000 cargo test --workspace --test property_tests -- --nocapture
 
 # Run benchmarks
 cargo bench

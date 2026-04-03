@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HL7 v2 JSON serialization"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "json", "serialization"]
 categories = ["encoding", "parser-implementations"]
 
@@ -17,4 +18,10 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.6"
+cucumber = "0.22.1"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "bdd_tests"
+harness = false
 

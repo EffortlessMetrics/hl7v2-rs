@@ -1,0 +1,73 @@
+name: Publish to crates.io
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Resume publishing from this crate name"
+        required: false
+        type: string
+      execute:
+        description: "Actually publish crates after printing the plan"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: publish-crates-io
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: Publish Workspace Crates
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: publish-crates-io
+
+      - name: Show publish plan
+        env:
+          PUBLISH_FROM: ${{ github.event.inputs.from }}
+        run: |
+          if [ -n "$PUBLISH_FROM" ]; then
+            cargo run -p xtask -- publish-plan --from "$PUBLISH_FROM"
+          else
+            cargo run -p xtask -- publish-plan
+          fi
+
+      - name: Verify crates.io token
+        if: github.event.inputs.execute == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "::error::CARGO_REGISTRY_TOKEN secret is not configured."
+            exit 1
+          fi
+
+      - name: Publish crates
+        if: github.event.inputs.execute == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          PUBLISH_FROM: ${{ github.event.inputs.from }}
+        run: |
+          if [ -n "$PUBLISH_FROM" ]; then
+            cargo run -p xtask -- publish --yes --from "$PUBLISH_FROM"
+          else
+            cargo run -p xtask -- publish --yes
+          fi

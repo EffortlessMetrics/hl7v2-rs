@@ -8,6 +8,7 @@ authors.workspace = true
 description = "Command-line interface for HL7 v2 message manipulation and validation."
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
@@ -30,7 +31,7 @@ hl7v2-stream = { version = "1.2.0", path = "../hl7v2-stream" }
 assert_cmd = "2.0"
 predicates = "3.1"
 tempfile = "3.19"
-hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 cucumber = { version = "0.22", default-features = false, features = ["macros"] }
 futures = "0.3"
 

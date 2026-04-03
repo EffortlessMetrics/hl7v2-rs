@@ -8,6 +8,7 @@ authors.workspace = true
 description = "Code generation utilities for creating Rust models from HL7 v2 profiles."
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 

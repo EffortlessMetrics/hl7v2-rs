@@ -63,7 +63,8 @@ jobs:
             --skip-clean \
             --exclude-files '*/tests/*' \
             --exclude-files '*/examples/*' \
-            --exclude-files '*/benches/*'
+            --exclude-files '*/benches/*' \
+            --exclude-files 'xtask/**'
         timeout-minutes: 20
 
       - name: Upload coverage artifact
@@ -132,7 +133,7 @@ jobs:
             --all-features \
             --lcov \
             --output-path coverage/llvm/lcov.info \
-            --ignore-filename-regex='(tests|examples|benches)/'
+            --ignore-filename-regex='(tests|examples|benches|xtask)/'
         timeout-minutes: 15
 
       - name: Generate HTML report
@@ -142,7 +143,7 @@ jobs:
             --all-features \
             --html \
             --output-dir coverage/llvm/html/ \
-            --ignore-filename-regex='(tests|examples|benches)/'
+            --ignore-filename-regex='(tests|examples|benches|xtask)/'
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -207,7 +208,7 @@ jobs:
             --all-features \
             --lcov \
             --output-path coverage/pr/lcov.info \
-            --ignore-filename-regex='(tests|examples|benches)/'
+            --ignore-filename-regex='(tests|examples|benches|xtask)/'
 
       - name: Checkout base branch
         run: |
@@ -221,7 +222,7 @@ jobs:
             --all-features \
             --lcov \
             --output-path coverage/base/lcov.info \
-            --ignore-filename-regex='(tests|examples|benches)/'
+            --ignore-filename-regex='(tests|examples|benches|xtask)/'
 
       - name: Compare coverage
         run: |

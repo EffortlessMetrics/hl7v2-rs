@@ -1,9 +1,12 @@
 use anyhow::{Result, anyhow};
+use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package};
 use clap::{Parser, Subcommand};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::process::{Command, Stdio};
+use std::thread::sleep;
+use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "xtask")]
@@ -35,6 +38,27 @@ enum Commands {
     Audit,
     /// Check for outdated dependencies
     Outdated,
+    /// Print the crates.io publish order for workspace crates
+    PublishPlan {
+        /// Resume from this crate name
+        #[arg(long)]
+        from: Option<String>,
+    },
+    /// Publish workspace crates to crates.io in dependency order
+    Publish {
+        /// Resume from this crate name
+        #[arg(long)]
+        from: Option<String>,
+        /// Confirm that this should publish to crates.io
+        #[arg(long)]
+        yes: bool,
+        /// Retry attempts for crates.io index propagation or transient failures
+        #[arg(long, default_value_t = 10)]
+        retry_attempts: u32,
+        /// Delay between retries, and between successful crate publishes
+        #[arg(long, default_value_t = 30)]
+        retry_delay_secs: u64,
+    },
     /// Scaffold a new microcrate
     Scaffold {
         /// Name of the crate (without hl7v2- prefix)
@@ -68,6 +92,13 @@ fn main() -> Result<()> {
         Commands::Setup => setup()?,
         Commands::Audit => audit()?,
         Commands::Outdated => outdated()?,
+        Commands::PublishPlan { from } => publish_plan(from)?,
+        Commands::Publish {
+            from,
+            yes,
+            retry_attempts,
+            retry_delay_secs,
+        } => publish(from, yes, retry_attempts, retry_delay_secs)?,
         Commands::Scaffold { name, description } => scaffold(&name, description)?,
         Commands::Docs { no_open } => docs(no_open)?,
         Commands::HookPreCommit => hook_pre_commit()?,
@@ -269,6 +300,121 @@ fn outdated() -> Result<()> {
     Ok(())
 }
 
+fn publish_plan(from: Option<String>) -> Result<()> {
+    let crates = publish_order(from.as_deref())?;
+
+    println!("📋 crates.io publish order");
+    for (index, crate_name) in crates.iter().enumerate() {
+        println!("{:>2}. {}", index + 1, crate_name);
+    }
+
+    println!();
+    println!("Execute with:");
+    if let Some(start) = crates.first() {
+        println!("  cargo run -p xtask -- publish --yes --from {}", start);
+    } else {
+        println!("  cargo run -p xtask -- publish --yes");
+    }
+
+    Ok(())
+}
+
+fn publish(
+    from: Option<String>,
+    yes: bool,
+    retry_attempts: u32,
+    retry_delay_secs: u64,
+) -> Result<()> {
+    if !yes {
+        return Err(anyhow!(
+            "Refusing to publish without --yes. Run `cargo run -p xtask -- publish-plan` first."
+        ));
+    }
+
+    let crates = publish_order(from.as_deref())?;
+    if env::var_os("CARGO_REGISTRY_TOKEN").is_none() {
+        println!(
+            "Warning: CARGO_REGISTRY_TOKEN is not set; cargo publish will use local cargo credentials if available."
+        );
+    }
+
+    println!("🚢 Publishing {} crates to crates.io...", crates.len());
+    for (index, crate_name) in crates.iter().enumerate() {
+        publish_crate(crate_name, retry_attempts, retry_delay_secs)?;
+        if index + 1 < crates.len() && retry_delay_secs > 0 {
+            println!(
+                "Waiting {}s for crates.io index propagation before continuing...",
+                retry_delay_secs
+            );
+            sleep(Duration::from_secs(retry_delay_secs));
+        }
+    }
+
+    println!("✅ Publish sequence complete!");
+    Ok(())
+}
+
+fn publish_crate(crate_name: &str, retry_attempts: u32, retry_delay_secs: u64) -> Result<()> {
+    let max_attempts = retry_attempts.max(1);
+    for attempt in 1..=max_attempts {
+        println!(
+            "Publishing {} (attempt {}/{})...",
+            crate_name, attempt, max_attempts
+        );
+
+        let output = Command::new("cargo")
+            .args(["publish", "-p", crate_name, "--locked"])
+            .output()?;
+
+        let stdout = String::from_utf8(output.stdout)?;
+        let stderr = String::from_utf8(output.stderr)?;
+
+        if !stdout.is_empty() {
+            print!("{stdout}");
+        }
+        if !stderr.is_empty() {
+            eprint!("{stderr}");
+        }
+
+        if output.status.success() {
+            return Ok(());
+        }
+
+        let combined = format!("{stdout}\n{stderr}");
+        if combined.contains("is already uploaded") || combined.contains("already exists") {
+            println!(
+                "Skipping {} because this version is already present on crates.io.",
+                crate_name
+            );
+            return Ok(());
+        }
+
+        let retryable = combined.contains("no matching package named")
+            || combined.contains("failed to get successful HTTP response")
+            || combined.contains("network failure seems to have happened")
+            || combined.contains("Timeout was reached")
+            || combined.contains("429 Too Many Requests")
+            || combined.contains("SSL connect error");
+
+        if retryable && attempt < max_attempts {
+            println!(
+                "Retryable publish failure for {}. Waiting {}s before retry...",
+                crate_name, retry_delay_secs
+            );
+            sleep(Duration::from_secs(retry_delay_secs));
+            continue;
+        }
+
+        return Err(anyhow!(
+            "Failed to publish {} after {} attempt(s).",
+            crate_name,
+            attempt
+        ));
+    }
+
+    unreachable!("publish loop always returns or errors")
+}
+
 fn scaffold(name: &str, description: Option<String>) -> Result<()> {
     let crate_name = if name.starts_with("hl7v2-") {
         name.to_string()
@@ -415,6 +561,113 @@ fn docs(no_open: bool) -> Result<()> {
     Ok(())
 }
 
+fn publish_order(from: Option<&str>) -> Result<Vec<String>> {
+    let metadata = MetadataCommand::new().exec()?;
+    let packages = publishable_workspace_packages(&metadata);
+    let ordered = topological_publish_order(&packages)?;
+
+    match from {
+        Some(start) => {
+            let index = ordered
+                .iter()
+                .position(|crate_name| crate_name == start)
+                .ok_or_else(|| anyhow!("Unknown publishable crate '{}'", start))?;
+            Ok(ordered[index..].to_vec())
+        }
+        None => Ok(ordered),
+    }
+}
+
+fn publishable_workspace_packages(metadata: &Metadata) -> HashMap<String, Package> {
+    let workspace_members: HashSet<_> = metadata.workspace_members.iter().cloned().collect();
+
+    metadata
+        .packages
+        .iter()
+        .filter(|pkg| workspace_members.contains(&pkg.id))
+        .filter(|pkg| {
+            pkg.publish
+                .as_ref()
+                .is_none_or(|registries| !registries.is_empty())
+        })
+        .filter(|pkg| pkg.name != "xtask" && pkg.name != "hl7v2-examples")
+        .cloned()
+        .map(|pkg| (pkg.name.to_string(), pkg))
+        .collect()
+}
+
+fn topological_publish_order(packages: &HashMap<String, Package>) -> Result<Vec<String>> {
+    let mut indegree: BTreeMap<String, usize> = packages
+        .keys()
+        .cloned()
+        .map(|name| (name, 0usize))
+        .collect();
+    let mut dependents: BTreeMap<String, BTreeSet<String>> = packages
+        .keys()
+        .cloned()
+        .map(|name| (name, BTreeSet::new()))
+        .collect();
+
+    for package in packages.values() {
+        for dependency in internal_publish_dependencies(package, packages) {
+            dependents
+                .entry(dependency)
+                .or_default()
+                .insert(package.name.to_string());
+            *indegree
+                .get_mut(package.name.as_ref())
+                .expect("publishable package should have indegree entry") += 1;
+        }
+    }
+
+    let mut ready: BTreeSet<String> = indegree
+        .iter()
+        .filter(|(_, degree)| **degree == 0)
+        .map(|(name, _)| name.clone())
+        .collect();
+    let mut ordered = Vec::with_capacity(packages.len());
+
+    while let Some(next) = ready.pop_first() {
+        ordered.push(next.clone());
+        if let Some(children) = dependents.get(&next) {
+            for child in children {
+                let degree = indegree
+                    .get_mut(child)
+                    .expect("child package should have indegree entry");
+                *degree -= 1;
+                if *degree == 0 {
+                    ready.insert(child.clone());
+                }
+            }
+        }
+    }
+
+    if ordered.len() != packages.len() {
+        let remaining: Vec<_> = indegree
+            .into_iter()
+            .filter_map(|(name, degree)| (degree > 0).then_some(name))
+            .collect();
+        return Err(anyhow!(
+            "Could not derive publish order due to internal dependency cycle(s): {}",
+            remaining.join(", ")
+        ));
+    }
+
+    Ok(ordered)
+}
+
+fn internal_publish_dependencies(
+    package: &Package,
+    packages: &HashMap<String, Package>,
+) -> BTreeSet<String> {
+    package
+        .dependencies
+        .iter()
+        .filter(|dep| dep.kind != DependencyKind::Development)
+        .filter_map(|dep| packages.contains_key(&dep.name).then_some(dep.name.clone()))
+        .collect()
+}
+
 fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
     let status = Command::new(cmd)
         .args(args)
@@ -526,4 +779,52 @@ fn get_changed_scope() -> Result<ChangedScope> {
     }
 
     Ok(ChangedScope::Crates(changed_crates.into_iter().collect()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn publish_order_uses_workspace_dependency_order() {
+        let ordered = publish_order(None).expect("workspace publish order should resolve");
+
+        assert!(ordered.contains(&"hl7v2-core".to_string()));
+        assert!(ordered.contains(&"hl7v2".to_string()));
+        assert!(ordered.contains(&"hl7v2-template-values".to_string()));
+        assert!(!ordered.contains(&"xtask".to_string()));
+
+        assert_dependency_precedes(&ordered, "hl7v2-datatype", "hl7v2-core");
+        assert_dependency_precedes(&ordered, "hl7v2-core", "hl7v2");
+        assert_dependency_precedes(&ordered, "hl7v2-template-values", "hl7v2-template");
+    }
+
+    #[test]
+    fn publish_order_can_resume_from_a_named_crate() {
+        let ordered = publish_order(None).expect("workspace publish order should resolve");
+        let resumed =
+            publish_order(Some("hl7v2-core")).expect("resume point should exist in workspace");
+        let start = ordered
+            .iter()
+            .position(|crate_name| crate_name == "hl7v2-core")
+            .expect("hl7v2-core should be publishable");
+
+        assert_eq!(resumed, ordered[start..].to_vec());
+    }
+
+    fn assert_dependency_precedes(ordered: &[String], dependency: &str, dependent: &str) {
+        let dependency_index = ordered
+            .iter()
+            .position(|crate_name| crate_name == dependency)
+            .unwrap_or_else(|| panic!("{dependency} should be present in publish order"));
+        let dependent_index = ordered
+            .iter()
+            .position(|crate_name| crate_name == dependent)
+            .unwrap_or_else(|| panic!("{dependent} should be present in publish order"));
+
+        assert!(
+            dependency_index < dependent_index,
+            "{dependency} should appear before {dependent}"
+        );
+    }
 }

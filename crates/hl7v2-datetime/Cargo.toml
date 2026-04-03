@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HL7 v2 date/time parsing and validation"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords = ["hl7", "healthcare", "datetime", "date", "time"]
 categories = ["date-and-time", "parser-implementations"]
 

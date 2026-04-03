@@ -8,6 +8,7 @@ authors.workspace = true
 description = "HTTP/REST API server for HL7v2 message processing"
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
@@ -27,7 +28,7 @@ tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
 metrics = { workspace = true }
-metrics-exporter-prometheus = { workspace = true }
+metrics-exporter-prometheus = { version = "0.18.1", default-features = false, features = ["http-listener"] }
 tower_governor = { workspace = true }
 governor = "0.8"
 serde_yaml = { workspace = true }
@@ -43,7 +44,7 @@ tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
 cucumber = "0.22.1"
 serde_json = { workspace = true }
-hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 
 [[test]]
 name = "bdd_tests"

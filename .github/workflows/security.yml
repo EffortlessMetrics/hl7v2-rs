@@ -95,18 +95,27 @@ jobs:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    # Requires the dependency graph to be enabled in repo settings
-    # (Settings → Code security and analysis → Dependency graph)
-    # TODO: remove continue-on-error once dependency graph is enabled in repo settings
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check dependency graph status
+        id: dependency-graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(gh api "repos/${{ github.repository }}" --jq '.security_and_analysis.dependency_graph.status // "disabled"')
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
       - name: Dependency Review
+        if: steps.dependency-graph.outputs.status == 'enabled'
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: moderate
           deny-licenses: GPL-3.0
+
+      - name: Skip Dependency Review
+        if: steps.dependency-graph.outputs.status != 'enabled'
+        run: echo "Dependency graph is disabled; skipping dependency review."
 
   license-regression:
     name: License Regression Check

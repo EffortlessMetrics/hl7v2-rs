@@ -8,6 +8,7 @@ authors.workspace = true
 description = "Comprehensive HL7 v2 message, segment, and field validation."
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
@@ -27,7 +28,7 @@ chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-fea
 
 [dev-dependencies]
 # Test utilities from workspace
-hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
 
 # Property-based testing
