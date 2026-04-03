@@ -19,4 +19,10 @@ thiserror = { workspace = true }
 [dev-dependencies]
 proptest = "1.6"
 chrono = { version = "0.4", features = ["serde", "std", "clock"], default-features = false }
+cucumber = "0.22.1"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[[test]]
+name = "bdd_tests"
+harness = false
 
