@@ -236,7 +236,11 @@ fn test_complex_message_with_all_segment_types() {
     let message = parse(hl7.as_bytes()).unwrap();
 
     // Verify all segment types are present
-    let segment_ids: Vec<&str> = message.segments.iter().map(hl7v2_model::Segment::id_str).collect();
+    let segment_ids: Vec<&str> = message
+        .segments
+        .iter()
+        .map(hl7v2_model::Segment::id_str)
+        .collect();
 
     assert!(segment_ids.contains(&"MSH"));
     assert!(segment_ids.contains(&"EVN"));

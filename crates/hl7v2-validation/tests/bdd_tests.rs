@@ -1398,7 +1398,11 @@ fn when_validate_segment_order(world: &mut ValidationWorld) {
     world.validation_passed = true;
 
     if let Some(msg) = &world.parsed_message {
-        let segment_names: Vec<&str> = msg.segments.iter().map(hl7v2_core::Segment::id_str).collect();
+        let segment_names: Vec<&str> = msg
+            .segments
+            .iter()
+            .map(hl7v2_core::Segment::id_str)
+            .collect();
 
         let evn_idx = segment_names.iter().position(|&s| s == "EVN");
         let pid_idx = segment_names.iter().position(|&s| s == "PID");

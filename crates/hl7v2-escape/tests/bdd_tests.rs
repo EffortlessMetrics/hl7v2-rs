@@ -70,9 +70,8 @@ fn when_escape(world: &mut EscapeWorld) {
 
 #[when("I unescape the text")]
 fn when_unescape(world: &mut EscapeWorld) {
-    world.result = Some(
-        unescape_text(&world.text, &world.delims).expect("unescape_text should not fail"),
-    );
+    world.result =
+        Some(unescape_text(&world.text, &world.delims).expect("unescape_text should not fail"));
 }
 
 #[when("I escape then unescape the text")]
@@ -89,7 +88,11 @@ fn when_roundtrip(world: &mut EscapeWorld) {
 #[then(regex = r#"^the result should be "([^"]*)"$"#)]
 fn then_result_should_be(world: &mut EscapeWorld, expected: String) {
     let actual = world.result.as_ref().expect("No result produced");
-    assert_eq!(actual, &expected, "Expected '{}' but got '{}'", expected, actual);
+    assert_eq!(
+        actual, &expected,
+        "Expected '{}' but got '{}'",
+        expected, actual
+    );
 }
 
 #[then("needs_escaping should return true")]

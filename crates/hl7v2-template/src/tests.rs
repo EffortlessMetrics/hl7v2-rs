@@ -12,9 +12,7 @@ fn test_template_creation() {
     let template = Template {
         name: "test".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -333,9 +331,7 @@ fn test_value_source_uuid_v4() {
     let template = Template {
         name: "test".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values,
     };
 
@@ -414,9 +410,7 @@ fn test_generate_corpus() {
     let template = Template {
         name: "test".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -429,18 +423,14 @@ fn test_generate_diverse_corpus() {
     let template1 = Template {
         name: "adt_a01".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
     let template2 = Template {
         name: "oru_r01".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -454,18 +444,14 @@ fn test_generate_distributed_corpus() {
     let template1 = Template {
         name: "adt".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
     let template2 = Template {
         name: "oru".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -484,9 +470,7 @@ fn test_generate_golden_hashes() {
     let template = Template {
         name: "test".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -504,9 +488,7 @@ fn test_verify_golden_hashes() {
     let template = Template {
         name: "test".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -522,9 +504,7 @@ fn test_verify_golden_hashes_mismatch() {
     let template = Template {
         name: "test".to_string(),
         delims: r"^~\&".to_string(),
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -560,9 +540,7 @@ fn test_generate_invalid_delims() {
     let template = Template {
         name: "test".to_string(),
         delims: "^^".to_string(), // Too short
-        segments: vec![
-            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 

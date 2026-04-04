@@ -192,11 +192,7 @@ fn then_day(world: &mut DateTimeWorld, expected: u32) {
 #[then("date parsing should fail")]
 fn then_date_parsing_fails(world: &mut DateTimeWorld) {
     assert!(
-        world
-            .date_result
-            .as_ref()
-            .expect("No date result")
-            .is_err(),
+        world.date_result.as_ref().expect("No date result").is_err(),
         "Expected date parsing to fail"
     );
 }
@@ -263,11 +259,7 @@ fn then_fractional_value(world: &mut DateTimeWorld, expected: u32) {
 #[then("time parsing should fail")]
 fn then_time_parsing_fails(world: &mut DateTimeWorld) {
     assert!(
-        world
-            .time_result
-            .as_ref()
-            .expect("No time result")
-            .is_err(),
+        world.time_result.as_ref().expect("No time result").is_err(),
         "Expected time parsing to fail"
     );
 }

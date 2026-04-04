@@ -801,10 +801,9 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
 
     // Right-hand value(s):
     let rhs_first = condition.value.as_deref();
-    let rhs_list: Vec<&str> = condition
-        .values
-        .as_ref()
-        .map_or(Vec::new(), |v| v.iter().map(std::string::String::as_str).collect());
+    let rhs_list: Vec<&str> = condition.values.as_ref().map_or(Vec::new(), |v| {
+        v.iter().map(std::string::String::as_str).collect()
+    });
 
     match condition.operator.as_str() {
         // value/string ops

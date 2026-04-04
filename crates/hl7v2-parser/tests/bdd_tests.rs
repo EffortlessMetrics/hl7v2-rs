@@ -68,7 +68,11 @@ fn given_custom_delimiters(world: &mut ParserWorld, delims: String) {
     // Build MSH with custom delimiters: MSH<field><comp><rep><esc><sub><field>...
     let msg = format!(
         "MSH{f}{c}{r}{e}{s}{f}SendingApp{f}SendingFac{f}ReceivingApp{f}ReceivingFac{f}20250128152312{f}{f}ADT{c}A01{f}MSG001{f}P{f}2.5.1\r",
-        f = field, c = comp, r = rep, e = esc, s = sub
+        f = field,
+        c = comp,
+        r = rep,
+        e = esc,
+        s = sub
     );
     world.raw_bytes = msg.into_bytes();
 }
@@ -114,10 +118,7 @@ fn given_empty_input(world: &mut ParserWorld) {
 
 #[given(regex = r#"^a message starting with "([^"]+)" instead of MSH$"#)]
 fn given_non_msh_start(world: &mut ParserWorld, segment: String) {
-    let msg = format!(
-        "{}|1||123456^^^HOSP^MR||Doe^John\r",
-        segment
-    );
+    let msg = format!("{}|1||123456^^^HOSP^MR||Doe^John\r", segment);
     world.raw_bytes = msg.into_bytes();
 }
 
@@ -137,7 +138,7 @@ fn given_escape_sequence(world: &mut ParserWorld, _esc: String) {
 #[given("a message with 10 OBX segments")]
 fn given_many_obx(world: &mut ParserWorld) {
     let mut msg = String::from(
-        "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ORU^R01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r"
+        "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ORU^R01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r",
     );
     for i in 1..=10 {
         msg.push_str(&format!("OBX|{}|NM|1234-{}^Test^LN||{}\r", i, i, i * 10));
@@ -439,10 +440,18 @@ fn then_pid3_comp5(world: &mut ParserWorld, expected: String) {
 fn then_pid3_comp1_subcomponents(world: &mut ParserWorld, sub1: String, sub2: String) {
     use hl7v2_model::Atom;
     let msg = world.message.as_ref().expect("No parsed message");
-    let pid = msg.segments.iter().find(|s| &s.id == b"PID").expect("PID not found");
+    let pid = msg
+        .segments
+        .iter()
+        .find(|s| &s.id == b"PID")
+        .expect("PID not found");
     // PID-3 is field index 2 (0-based)
     let comp = &pid.fields[2].reps[0].comps[0];
-    assert!(comp.subs.len() >= 2, "Expected at least 2 subcomponents, got {}", comp.subs.len());
+    assert!(
+        comp.subs.len() >= 2,
+        "Expected at least 2 subcomponents, got {}",
+        comp.subs.len()
+    );
     assert_eq!(comp.subs[0], Atom::Text(sub1));
     assert_eq!(comp.subs[1], Atom::Text(sub2));
 }

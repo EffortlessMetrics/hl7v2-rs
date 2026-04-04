@@ -69,8 +69,7 @@ fn given_dynamic_template(world: &mut GenWorld) {
         name: "dynamic".to_string(),
         delims: r"^~\&".to_string(),
         segments: vec![
-            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"
-                .to_string(),
+            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
             r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values,
@@ -85,8 +84,7 @@ fn given_template_fixed_pid5(world: &mut GenWorld, value: String) {
         name: "fixed".to_string(),
         delims: r"^~\&".to_string(),
         segments: vec![
-            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"
-                .to_string(),
+            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
             r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values,
@@ -95,15 +93,17 @@ fn given_template_fixed_pid5(world: &mut GenWorld, value: String) {
 
 #[given(regex = r#"a template with PID\.8 from list "([^"]+)""#)]
 fn given_template_from_list(world: &mut GenWorld, list: String) {
-    let items: Vec<String> = list.split(',').map(std::string::ToString::to_string).collect();
+    let items: Vec<String> = list
+        .split(',')
+        .map(std::string::ToString::to_string)
+        .collect();
     let mut values = HashMap::new();
     values.insert("PID.8".to_string(), vec![ValueSource::From(items)]);
     world.template = Some(Template {
         name: "from_list".to_string(),
         delims: r"^~\&".to_string(),
         segments: vec![
-            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"
-                .to_string(),
+            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
             r"PID|1||123456^^^HOSP^MR||Doe^John||19800101|M".to_string(),
         ],
         values,
@@ -118,8 +118,7 @@ fn given_template_uuid(world: &mut GenWorld) {
         name: "uuid".to_string(),
         delims: r"^~\&".to_string(),
         segments: vec![
-            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"
-                .to_string(),
+            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
             r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values,
@@ -137,8 +136,7 @@ fn given_template_numeric(world: &mut GenWorld) {
         name: "numeric".to_string(),
         delims: r"^~\&".to_string(),
         segments: vec![
-            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"
-                .to_string(),
+            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
             r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values,
@@ -153,8 +151,7 @@ fn given_template_date_range(world: &mut GenWorld, start: String, end: String) {
         name: "date".to_string(),
         delims: r"^~\&".to_string(),
         segments: vec![
-            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"
-                .to_string(),
+            r"MSH|^~\&|App|Fac|Recv|Fac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
             r"PID|1||123456^^^HOSP^MR||Doe^John|||M||||".to_string(),
         ],
         values,

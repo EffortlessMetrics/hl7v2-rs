@@ -124,9 +124,7 @@ impl Validator for StrictValidator {
                     // MSH.3 - Sending Application (required)
                     if segment.fields.len() > 2 {
                         let sending_app = segment.fields[2].first_text();
-                        if sending_app.is_none()
-                            || sending_app.map(str::is_empty).unwrap_or(true)
-                        {
+                        if sending_app.is_none() || sending_app.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_SENDING_APP",
                                 Some("MSH.3".to_string()),
@@ -198,8 +196,7 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let patient_id = segment.fields[2].first_text();
-                        if patient_id.is_none() || patient_id.map(str::is_empty).unwrap_or(true)
-                        {
+                        if patient_id.is_none() || patient_id.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_PATIENT_ID",
                                 Some("PID.3".to_string()),
@@ -288,8 +285,7 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let value_type = segment.fields[1].first_text();
-                        if value_type.is_none() || value_type.map(str::is_empty).unwrap_or(true)
-                        {
+                        if value_type.is_none() || value_type.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_VALUE_TYPE",
                                 Some("OBX.2".to_string()),
