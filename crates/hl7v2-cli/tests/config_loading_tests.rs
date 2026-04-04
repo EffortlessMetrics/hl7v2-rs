@@ -6,6 +6,10 @@
 //! Related issue: EFF-158 - CLI and server accept --config flag but configuration
 //! file loading may not be properly integrated
 
+// NOTE: EFF-158 contamination - allow deprecated cargo_bin usage temporarily
+// until upstream EFF-158 is resolved with proper assert_cmd API migration.
+#![allow(deprecated)]
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::io::Write;

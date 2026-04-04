@@ -208,7 +208,7 @@ impl AnomalyScore {
 pub struct Guard {
     config: GuardConfig,
     baselines: Arc<RwLock<HashMap<String, SenderBaseline>>>,
-    pattern_detector: PatternDetector,
+    pattern_detector: Arc<RwLock<PatternDetector>>,
 }
 
 impl Guard {
@@ -219,7 +219,7 @@ impl Guard {
         Self {
             config,
             baselines: Arc::new(RwLock::new(HashMap::new())),
-            pattern_detector,
+            pattern_detector: Arc::new(RwLock::new(pattern_detector)),
         }
     }
 
@@ -263,7 +263,8 @@ impl Guard {
         }
 
         // Pattern detection
-        let pattern_result = self.pattern_detector.check_patterns(features)?;
+        let mut detector = self.pattern_detector.write().unwrap();
+        let pattern_result = detector.check_patterns(features)?;
         if pattern_result.is_duplicate {
             score.pattern_score = 0.5;
             reasons.push("Duplicate message detected".to_string());
@@ -272,6 +273,9 @@ impl Guard {
             score.pattern_score = 1.0;
             reasons.push("Replay attack detected".to_string());
         }
+
+        // Record message for future duplicate/replay detection
+        detector.record_message(features);
 
         // Determine severity and action
         let severity = if reasons.is_empty() {
