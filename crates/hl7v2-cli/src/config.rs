@@ -421,10 +421,10 @@ pub fn apply_env_overrides(config: &mut Config) {
     if let Ok(host) = std::env::var("HL7V2_SERVER_HOST") {
         config.server.host = host;
     }
-    if let Ok(port) = std::env::var("HL7V2_SERVER_PORT") {
-        if let Ok(port_num) = port.parse() {
-            config.server.port = port_num;
-        }
+    if let Ok(port) = std::env::var("HL7V2_SERVER_PORT")
+        && let Ok(port_num) = port.parse()
+    {
+        config.server.port = port_num;
     }
     if let Ok(log_level) = std::env::var("HL7V2_LOG_LEVEL") {
         config.server.log_level = log_level.clone();
@@ -453,6 +453,7 @@ pub fn apply_env_overrides(config: &mut Config) {
 /// Merge two configurations, with `other` taking precedence.
 ///
 /// This is used to merge CLI arguments over config file values.
+#[cfg(test)]
 pub fn merge_config(base: Config, override_config: Config) -> Config {
     Config {
         server: ServerConfig {
