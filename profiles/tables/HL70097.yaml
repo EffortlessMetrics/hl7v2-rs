@@ -1,0 +1,18 @@
+# HL7 Table 0097 - Quantity Method
+# HL7 v2.5.1 Standard
+# Used for measurement methods
+
+hl7_table:
+  id: "HL70097"
+  name: "Quantity Method"
+  version: "2.5.1"
+  codes:
+    - value: "ACT"
+      description: "Actual count"
+      status: "A"
+    - value: "EST"
+      description: "Estimated"
+      status: "A"
+    - value: "CAL"
+      description: "Calculated"
+      status: "A"

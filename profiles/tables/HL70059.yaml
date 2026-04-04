@@ -1,0 +1,36 @@
+# HL7 Table 0059 - DRG Status Patient
+# HL7 v2.5.1 Standard
+# Used for DRG status
+
+hl7_table:
+  id: "HL70059"
+  name: "DRG Status Patient"
+  version: "2.5.1"
+  codes:
+    - value: "1"
+      description: "Normal length of stay"
+      status: "A"
+    - value: "2"
+      description: "Short length of stay"
+      status: "A"
+    - value: "3"
+      description: "Long length of stay"
+      status: "A"
+    - value: "4"
+      description: "Transfer to another hospital"
+      status: "A"
+    - value: "5"
+      description: "Transfer to nursing home"
+      status: "A"
+    - value: "6"
+      description: "Transfer to rehabilitation facility"
+      status: "A"
+    - value: "7"
+      description: "Expired"
+      status: "A"
+    - value: "8"
+      description: "Left against medical advice"
+      status: "A"
+    - value: "9"
+      description: "Still patient"
+      status: "A"

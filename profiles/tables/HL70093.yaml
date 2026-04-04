@@ -1,0 +1,21 @@
+# HL7 Table 0093 - Release Information
+# HL7 v2.5.1 Standard
+# Used for privacy/confidentiality
+
+hl7_table:
+  id: "HL70093"
+  name: "Release Information"
+  version: "2.5.1"
+  codes:
+    - value: "Y"
+      description: "Yes, release information"
+      status: "A"
+    - value: "N"
+      description: "No, do not release information"
+      status: "A"
+    - value: "C"
+      description: "Release to specified categories"
+      status: "A"
+    - value: "R"
+      description: "Restricted access"
+      status: "A"

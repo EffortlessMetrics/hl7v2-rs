@@ -1,0 +1,33 @@
+# HL7 Table 0090 - Order Type
+# HL7 v2.5.1 Standard
+# Used in order segments
+
+hl7_table:
+  id: "HL70090"
+  name: "Order Type"
+  version: "2.5.1"
+  codes:
+    - value: "LAB"
+      description: "Laboratory"
+      status: "A"
+    - value: "RAD"
+      description: "Radiology"
+      status: "A"
+    - value: "MED"
+      description: "Medication"
+      status: "A"
+    - value: "NUR"
+      description: "Nursing"
+      status: "A"
+    - value: "DIET"
+      description: "Dietary"
+      status: "A"
+    - value: "PT"
+      description: "Physical therapy"
+      status: "A"
+    - value: "OT"
+      description: "Occupational therapy"
+      status: "A"
+    - value: "OTHER"
+      description: "Other"
+      status: "A"

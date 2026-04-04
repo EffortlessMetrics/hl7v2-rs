@@ -1,0 +1,30 @@
+# HL7 Table 0065 - Specimen Action Code
+# HL7 v2.5.1 Standard
+# Used in SPM segment for specimen handling
+
+hl7_table:
+  id: "HL70065"
+  name: "Specimen Action Code"
+  version: "2.5.1"
+  codes:
+    - value: "A"
+      description: "Add ordered tests to existing specimen"
+      status: "A"
+    - value: "G"
+      description: "Generated order; reflex order based on"
+      status: "A"
+    - value: "L"
+      description: "Lab to obtain"
+      status: "A"
+    - value: "O"
+      description: "Specimen obtained by service other than lab"
+      status: "A"
+    - value: "P"
+      description: "Pending specimen; Order sent prior to delivery"
+      status: "A"
+    - value: "R"
+      description: "Revised order"
+      status: "A"
+    - value: "S"
+      description: "Schedule the tests requested"
+      status: "A"

@@ -1,0 +1,21 @@
+# HL7 Table 0072 - Insurance Line
+# HL7 v2.5.1 Standard
+# Used in insurance segments
+
+hl7_table:
+  id: "HL70072"
+  name: "Insurance Line"
+  version: "2.5.1"
+  codes:
+    - value: "1"
+      description: "Primary"
+      status: "A"
+    - value: "2"
+      description: "Secondary"
+      status: "A"
+    - value: "3"
+      description: "Tertiary"
+      status: "A"
+    - value: "4"
+      description: "Quaternary"
+      status: "A"
