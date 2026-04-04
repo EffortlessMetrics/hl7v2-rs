@@ -41,7 +41,7 @@ use crate::server::AppState;
 pub async fn phi_aware_logging_middleware(request: Request, next: Next) -> Response {
     let method = request.method().clone();
     let uri = request.uri().clone();
-    
+
     // Extract trace ID if available for request correlation
     let trace_id = request
         .headers()
@@ -49,22 +49,24 @@ pub async fn phi_aware_logging_middleware(request: Request, next: Next) -> Respo
         .or_else(|| request.headers().get("x-request-id"))
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string());
-    
+
     // Log request metadata only (NO body content)
     match &trace_id {
-        Some(id) => tracing::info!(method = %method, uri = %uri, trace_id = %id, "Request received"),
+        Some(id) => {
+            tracing::info!(method = %method, uri = %uri, trace_id = %id, "Request received")
+        }
         None => tracing::info!(method = %method, uri = %uri, "Request received"),
     }
-    
+
     let response = next.run(request).await;
     let status = response.status();
-    
+
     // Log response status only (NO body content)
     match &trace_id {
         Some(id) => tracing::info!(status = %status, trace_id = %id, "Response sent"),
         None => tracing::info!(status = %status, "Response sent"),
     }
-    
+
     response
 }
 

@@ -52,13 +52,15 @@ pub enum RedactionError {
 }
 
 /// Strategy for redacting a field
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[allow(unpredictable_function_pointer_comparisons)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub enum RedactionStrategy {
     /// Replace with a fixed string
     Replace(String),
     /// Replace with hash of original value
     Hash,
     /// Replace with masking characters (e.g., ***)
+    #[default]
     Mask,
     /// Remove the field entirely (empty)
     Remove,
@@ -67,12 +69,6 @@ pub enum RedactionStrategy {
     /// Custom transformation function (not serializable)
     #[serde(skip)]
     Custom(fn(&str) -> String),
-}
-
-impl Default for RedactionStrategy {
-    fn default() -> Self {
-        RedactionStrategy::Mask
-    }
 }
 
 /// A rule for redacting a specific field
@@ -250,12 +246,11 @@ impl RedactionEngine {
         let path_parts = self.parse_path(message, &rule.path)?;
 
         // Find and modify the field
-        if let Some((segment_idx, field_idx, sub_idx)) = path_parts {
-            if let Some(segment) = message.segments.get_mut(segment_idx) {
-                if let Some(field) = segment.fields.get_mut(field_idx) {
-                    self.apply_strategy_to_field(field, &rule.strategy, sub_idx);
-                }
-            }
+        if let Some((segment_idx, field_idx, sub_idx)) = path_parts
+            && let Some(segment) = message.segments.get_mut(segment_idx)
+            && let Some(field) = segment.fields.get_mut(field_idx)
+        {
+            self.apply_strategy_to_field(field, &rule.strategy, sub_idx);
         }
 
         Ok(had_value)
@@ -317,10 +312,10 @@ impl RedactionEngine {
             RedactionStrategy::Replace(value) => {
                 if let Some(idx) = sub_idx {
                     // Modify specific component
-                    if let Some(rep) = field.reps.get_mut(0) {
-                        if let Some(comp) = rep.comps.get_mut(idx - 1) {
-                            comp.subs = vec![Atom::Text(value.clone())];
-                        }
+                    if let Some(rep) = field.reps.get_mut(0)
+                        && let Some(comp) = rep.comps.get_mut(idx - 1)
+                    {
+                        comp.subs = vec![Atom::Text(value.clone())];
                     }
                 } else {
                     // Replace entire field

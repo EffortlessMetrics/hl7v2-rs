@@ -14,7 +14,9 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use crate::handlers::{health_handler, parse_handler, validate_handler};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::{auth_middleware, create_concurrency_limit_layer, phi_aware_logging_middleware};
+use crate::middleware::{
+    auth_middleware, create_concurrency_limit_layer, phi_aware_logging_middleware,
+};
 use crate::server::AppState;
 
 /// OpenAPI specification content

@@ -1,7 +1,7 @@
 //! Integration tests for hl7v2-redact
 
 use hl7v2_parser::parse;
-use hl7v2_redact::{redact_hipaa, redact_phi, RedactionEngine, RedactionRule, RedactionStrategy};
+use hl7v2_redact::{RedactionEngine, RedactionRule, RedactionStrategy, redact_hipaa, redact_phi};
 
 /// A realistic HL7 ADT^A01 message with PHI
 fn realistic_adt_message() -> &'static str {
