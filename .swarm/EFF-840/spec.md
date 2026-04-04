@@ -1,441 +1,535 @@
-# Spec: hl7v2-guard ML Anomaly Detection (EFF-840)
+# EFF-840: hl7v2-guard Execution Specification
 
-**Issue:** [EFF-840](/EFF/issues/EFF-840)  
-**Status:** Spec Complete - Ready for Verification  
-**Branch:** `EFF-840`  
-**PR:** Not yet created (spec exists on branch only)
+## Overview
 
----
-
-## Problem Statement
-
-Healthcare messaging systems face security threats (PHI exfiltration, replay attacks, injection) and operational issues (duplicate orders, misdirected results). The hl7v2-rs workspace currently has:
-- **hl7v2-validation**: Structure-only field validation
-- **hl7v2-audit**: Event logging without pattern detection  
-- **hl7v2-analytics**: Basic statistics without anomaly scoring
-
-**Gap:** Zero intelligent ML-based anomaly detection exists in the entire workspace (confirmed: 0 issues for "anomaly", "ml", "classification").
+**Issue**: [EFF-840](/EFF/issues/EFF-840)  
+**Crate**: `hl7v2-guard`  
+**Purpose**: ML-based anomaly detection and message classification for HL7v2 messages  
+**Branch**: `EFF-840`  
+**Status**: Spec Design Phase
 
 ---
 
-## Solution: hl7v2-guard Crate
+## 1. Requirements
 
-A new crate providing statistical ML-based anomaly detection and automated threat response for HL7 messages.
+### 1.1 Functional Requirements
 
-### Guiding Principles
+| ID | Requirement | Priority | Phase |
+|----|-------------|----------|-------|
+| FR-1 | Detect message volume anomalies (spikes/drops) | P0 | 1 |
+| FR-2 | Detect duplicate messages within configurable time windows | P0 | 1 |
+| FR-3 | Identify unusual field values via statistical outlier detection | P0 | 1 |
+| FR-4 | Detect replay attacks via control ID + timestamp analysis | P0 | 2 |
+| FR-5 | Profile sender behavior and detect deviations | P1 | 2 |
+| FR-6 | Analyze timing patterns (business hours vs off-hours) | P1 | 2 |
+| FR-7 | Support configurable anomaly scoring thresholds | P0 | 1 |
+| FR-8 | Provide explainable anomaly reasons (compliance requirement) | P0 | 1-2 |
+| FR-9 | Support configurable response actions (alert, quarantine, block) | P1 | 3 |
+| FR-10 | Integrate with hl7v2-audit for anomaly event trails | P0 | 1 |
 
-1. **Deterministic & Explainable:** Statistical methods only (no neural networks) for healthcare compliance
-2. **Local Processing:** No external ML APIs (PHI never leaves the system)
-3. **Safety First:** Default alert-only, never block by default (patient safety)
-4. **Bounded Resources:** Memory and CPU limits for production safety
+### 1.2 Non-Functional Requirements
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| NFR-1 | Deterministic, explainable detection (no black-box ML) | P0 |
+| NFR-2 | Sub-millisecond anomaly scoring latency (per-message) | P0 |
+| NFR-3 | No external ML service dependencies (on-premise only) | P0 |
+| NFR-4 | HIPAA-compliant (no PHI leakage in features/models) | P0 |
+| NFR-5 | Thread-safe for concurrent message processing | P0 |
+| NFR-6 | Configurable baselines (per-sender, global, or hybrid) | P1 |
+| NFR-7 | Memory-bounded state management for sliding windows | P1 |
 
 ---
 
-## Architecture
+## 2. Architecture
+
+### 2.1 Crate Structure
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Incoming HL7 Message                      │
-└───────────────────────────────┬─────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Feature Extraction                         │
-│  • Message hash (SHA-256)                                     │
-│  • Sender ID, timestamp, message type                       │
-│  • Field value extraction                                     │
-└───────────────────────────────┬─────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Anomaly Detection                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ Volume       │  │ Field        │  │ Timing       │      │
-│  │ Analysis     │  │ Outliers     │  │ Analysis     │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ Duplicate    │  │ Replay       │  │ Sender       │      │
-│  │ Detection    │  │ Detection    │  │ Behavior     │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-└───────────────────────────────┬─────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Decision & Action                         │
-│  Score → Severity → Action (alert/quarantine/block/throttle)│
-└─────────────────────────────────────────────────────────────┘
+crates/hl7v2-guard/
+├── Cargo.toml
+├── src/
+│   ├── lib.rs              # Public API exports
+│   ├── config.rs           # Configuration types
+│   ├── detector/           # Anomaly detection engines
+│   │   ├── mod.rs
+│   │   ├── volume.rs       # Time-series volume detection
+│   │   ├── duplicate.rs    # Duplicate message detection
+│   │   ├── outlier.rs      # Statistical outlier detection
+│   │   ├── replay.rs       # Replay attack detection
+│   │   └── timing.rs       # Timing pattern analysis
+│   ├── profiler/           # Sender behavior profiling
+│   │   ├── mod.rs
+│   │   └── sender.rs
+│   ├── scorer.rs           # Anomaly scoring engine
+│   ├── response/           # Response actions
+│   │   ├── mod.rs
+│   │   ├── alert.rs
+│   │   ├── quarantine.rs
+│   │   └── throttle.rs
+│   ├── baseline/           # Baseline learning
+│   │   ├── mod.rs
+│   │   ├── window.rs       # Sliding window statistics
+│   │   └── learner.rs      # Baseline learning logic
+│   └── types.rs            # Core types (Anomaly, Score, etc.)
+└── tests/
+    ├── bdd/                # BDD scenario tests
+    └── integration/        # Integration tests
 ```
 
----
-
-## Phased Implementation
-
-### Phase 1: Statistical Anomaly Detection
-
-**Capabilities:**
-- **Volume spike detection:** Z-score based message volume analysis per sender
-- **Field outlier detection:** Statistical outliers in numeric and coded fields
-- **Baseline learning:** 7-day sliding window for normal pattern establishment
-- **Anomaly scoring:** Z-score with configurable threshold (default: 3.0)
-
-**Algorithms:**
-```rust
-// Volume spike detection
-pub fn detect_volume_spike(
-    current_count: f64,
-    baseline_mean: f64,
-    baseline_stddev: f64,
-    threshold: f64,
-) -> bool {
-    let z_score = (current_count - baseline_mean) / baseline_stddev;
-    z_score.abs() > threshold
-}
-
-// Welford's online algorithm for baseline stats
-pub struct StreamingStats {
-    count: usize,
-    mean: f64,
-    m2: f64, // sum of squared differences
-}
-```
-
----
-
-### Phase 2: Pattern Classification
-
-**Capabilities:**
-- **Duplicate detection:** SHA-256 hash comparison within 5-minute window
-- **Replay detection:** Control ID (MSH-10) tracking with content hash
-- **Sender behavior profiles:** Expected message types per sender
-- **Timing analysis:** Off-hours access detection
-- **Distribution drift:** Message type mix changes
-
-**Algorithms:**
-```rust
-// Duplicate detection
-pub fn is_duplicate(
-    message_hash: &str,
-    recent_hashes: &HashMap<String, DateTime<Utc>>,
-    window: Duration,
-) -> bool {
-    if let Some(timestamp) = recent_hashes.get(message_hash) {
-        Utc::now() - timestamp < window
-    } else {
-        false
-    }
-}
-
-// Replay detection
-pub fn is_replay(
-    control_id: &str,
-    content_hash: &str,
-    known_ids: &HashMap<String, String>, // control_id -> content_hash
-) -> bool {
-    if let Some(known_hash) = known_ids.get(control_id) {
-        known_hash != content_hash // Same ID, different content = replay
-    } else {
-        false
-    }
-}
-```
-
----
-
-### Phase 3: Automated Response
-
-**Actions:**
-| Action | Behavior | Use Case |
-|--------|----------|----------|
-| `alert` | Send notification, continue processing | Default safe option |
-| `quarantine` | Hold for review, return 202 Accepted | Suspicious messages |
-| `block` | Reject with 403 Forbidden | Confirmed threats |
-| `throttle` | Rate limit sender, return 429 | Anomalous senders |
-
-**Alert Channels:**
-- Webhook: POST to configured URL
-- Email: Send to configured recipients
-- Slack: Post to configured channel
-- Audit: Log to hl7v2-audit
-
----
-
-## API Surface
-
-### Core Types
+### 2.2 Core Types
 
 ```rust
-/// Guard configuration
-pub struct GuardConfig {
-    pub enabled: bool,
-    pub baseline_days: u32,
-    pub z_threshold: f64,
-    pub duplicate_window: Duration,
-    pub action: GuardAction,
-    pub webhook_url: Option<String>,
-    pub max_memory_mb: usize,
+/// Unique identifier for an anomaly detection rule
+pub struct RuleId(pub String);
+
+/// Severity level for anomalies
+pub enum Severity {
+    Low,      // Log only
+    Medium,   // Alert + log
+    High,     // Quarantine + alert
+    Critical, // Block + alert
 }
 
 /// Anomaly detection result
-pub struct AnomalyResult {
-    pub message_id: String,
+pub struct Anomaly {
+    pub rule_id: RuleId,
+    pub severity: Severity,
+    pub score: f64,           // 0.0 - 1.0
+    pub reason: String,       // Human-readable explanation
+    pub confidence: f64,      // 0.0 - 1.0
     pub timestamp: DateTime<Utc>,
-    pub score: f64,           // 0.0-1.0 combined score
-    pub severity: Severity,   // Info/Warning/Critical
-    pub reasons: Vec<String>, // Explainable reasons
-    pub action_taken: GuardAction,
+    pub message_hash: String, // For correlation
 }
 
-pub enum Severity {
-    Info,     // Z-score 1.0-2.0
-    Warning,  // Z-score 2.0-3.0  
-    Critical, // Z-score > 3.0
+/// Configurable response to anomalies
+pub enum ResponseAction {
+    Log,        // Record in audit trail only
+    Alert(AlertConfig),      // Send notification
+    Quarantine(Duration),    // Hold for review
+    Block,      // Reject message
+    Throttle(RateLimit),     // Rate limit sender
 }
 
-pub enum GuardAction {
-    Alert,
-    Quarantine,
-    Block,
-    Throttle,
+/// Detection configuration
+pub struct GuardConfig {
+    pub volume_config: VolumeConfig,
+    pub duplicate_window: Duration,
+    pub outlier_threshold: f64,  // Z-score threshold
+    pub baseline_window: Duration,
+    pub response_rules: Vec<ResponseRule>,
 }
 ```
 
-### Main Interface
+### 2.3 Public API
 
 ```rust
-impl Guard {
-    pub fn new(config: GuardConfig) -> Self;
+/// Main guard engine - thread-safe, clonable
+#[derive(Clone)]
+pub struct GuardEngine {
+    // ... internal state
+}
+
+impl GuardEngine {
+    /// Create new guard engine with configuration
+    pub fn new(config: GuardConfig) -> Result<Self, GuardError>;
     
     /// Analyze a message for anomalies
-    pub fn analyze(&self, message: &Hl7Message) -> AnomalyResult;
+    pub async fn analyze(&self, message: &Hl7v2Message) -> Vec<Anomaly>;
     
-    /// Update baseline with new observation
-    pub fn update_baseline(&self, observation: Observation);
+    /// Get current baseline statistics
+    pub fn baseline_stats(&self) -> BaselineStats;
     
-    /// Get current baseline stats for sender
-    pub fn get_sender_stats(&self, sender_id: &str) -> Option<SenderStats>;
+    /// Update configuration at runtime
+    pub fn reconfigure(&mut self, config: GuardConfig) -> Result<(), GuardError>;
+}
+
+/// Convenience function for one-off analysis
+pub async fn detect_anomalies(
+    message: &Hl7v2Message,
+    config: &GuardConfig,
+) -> Result<Vec<Anomaly>, GuardError>;
+```
+
+---
+
+## 3. Design Decisions
+
+### 3.1 Statistical vs ML Approach
+
+**Decision**: Use statistical anomaly detection (Z-score, IQR, moving averages) rather than neural networks or external ML services.
+
+**Rationale**:
+- Healthcare requires explainable decisions for compliance audits
+- Deterministic behavior is safety-critical (no unpredictable false positives)
+- No PHI leakage risk to external APIs
+- Simpler to validate and test exhaustively
+
+**Trade-offs**:
+- Limited to known statistical patterns
+- Cannot detect complex multi-dimensional anomalies as effectively as deep learning
+- Mitigation: Phase 4 (optional) can add ONNX support for pre-trained models
+
+### 3.2 Real-time vs Batch Detection
+
+**Decision**: Real-time per-message detection with optional batch correlation.
+
+**Rationale**:
+- Immediate response to threats (replay attacks, duplicates)
+- Lower latency for message processing pipeline
+- Can still correlate across messages via sliding window state
+
+**Implementation**:
+- Each message analyzed immediately upon receipt
+- Stateful detectors maintain sliding window statistics
+- Async batch correlation for cross-sender patterns
+
+### 3.3 Baseline Scope
+
+**Decision**: Support per-sender, global, and hybrid baselines via configuration.
+
+**Rationale**:
+- Different senders have different normal patterns (lab vs ADT vs pharmacy)
+- Global baseline catches system-wide issues
+- Hybrid approach: per-sender for volume/timing, global for duplicates
+
+**Configuration**:
+```rust
+pub enum BaselineScope {
+    Global,              // One baseline for all messages
+    PerSender,           // Baseline per sending application/facility
+    Hybrid(ScopeRules),  // Configurable per-detector
 }
 ```
 
+### 3.4 State Management
+
+**Decision**: In-memory sliding windows with optional persistence for baselines.
+
+**Rationale**:
+- Fast access for real-time scoring
+- Bounded memory via configurable window sizes
+- Baseline persistence allows restart without re-learning
+
+**Memory bounds**:
+- Volume windows: Fixed-size circular buffers (configurable, default 10k entries)
+- Duplicate detection: Bloom filter + LRU cache (configurable, default 100k messages)
+- Sender profiles: LRU cache with TTL (configurable, default 1000 active senders)
+
 ---
 
-## Configuration
+## 4. BDD Scenarios
 
-### Environment Variables
+### 4.1 Volume Anomaly Detection
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HL7V2_GUARD_ENABLED` | `true` | Master enable/disable |
-| `HL7V2_GUARD_BASELINE_DAYS` | `7` | Baseline learning window |
-| `HL7V2_GUARD_Z_THRESHOLD` | `3.0` | Anomaly Z-score threshold |
-| `HL7V2_GUARD_DUPLICATE_WINDOW_MIN` | `5` | Duplicate detection window |
-| `HL7V2_GUARD_BUSINESS_HOURS_START` | `08:00` | Business hours start |
-| `HL7V2_GUARD_BUSINESS_HOURS_END` | `18:00` | Business hours end |
-| `HL7V2_GUARD_WEBHOOK_URL` | - | Alert webhook URL |
-| `HL7V2_GUARD_ACTION` | `alert` | Default action |
-| `HL7V2_GUARD_MAX_MEMORY_MB` | `100` | Max baseline memory |
+```gherkin
+Feature: Message Volume Anomaly Detection
+  As a security operator
+  I want to detect unusual message volume patterns
+  So that I can identify potential DDoS attacks or system failures
 
-### Code Example
+  Background:
+    Given the guard engine is configured with default settings
+    And the baseline window is 7 days
 
-```rust
-use hl7v2_guard::{Guard, GuardConfig, GuardAction};
+  Scenario: Normal volume within expected range
+    Given the baseline average is 1000 messages per hour
+    When 950 messages are received in one hour
+    Then no volume anomaly should be detected
+    And the anomaly score should be below 0.3
 
-let config = GuardConfig::builder()
-    .enabled(true)
-    .baseline_days(7)
-    .z_threshold(3.0)
-    .duplicate_window(Duration::minutes(5))
-    .action(GuardAction::Alert)
-    .webhook_url("https://alerts.example.com/webhook")
-    .build();
+  Scenario: Volume spike detected
+    Given the baseline average is 1000 messages per hour
+    When 5000 messages are received in one hour
+    Then a volume anomaly should be detected
+    And the severity should be "High"
+    And the anomaly score should be above 0.8
+    And the reason should mention "5x above baseline"
 
-let guard = Guard::new(config);
+  Scenario: Volume drop detected
+    Given the baseline average is 1000 messages per hour
+    When 50 messages are received in one hour
+    Then a volume anomaly should be detected
+    And the severity should be "Medium"
+    And the reason should mention "95% below baseline"
 
-// Analyze a message
-let result = guard.analyze(&message);
+  Scenario: Gradual volume increase (baseline poisoning prevention)
+    Given the baseline average is 1000 messages per hour
+    When volume increases by 10% per hour for 12 hours
+    Then no anomaly should be detected after 12 hours
+    And the baseline should have adapted to the new normal
+```
 
-if result.severity == Severity::Critical {
-    println!("Critical anomaly: {:?}", result.reasons);
-}
+### 4.2 Duplicate Detection
+
+```gherkin
+Feature: Duplicate Message Detection
+  As a patient safety officer
+  I want to detect duplicate medication orders
+  So that I can prevent duplicate dosing
+
+  Background:
+    Given the duplicate detection window is 5 minutes
+    And the guard engine is configured with default settings
+
+  Scenario: No duplicate - different control IDs
+    Given a message with control ID "MSG001" is processed
+    When a message with control ID "MSG002" is received within 5 minutes
+    Then no duplicate anomaly should be detected
+
+  Scenario: Exact duplicate detected
+    Given a message with control ID "MSG001" and hash "abc123" is processed
+    When a message with control ID "MSG001" and hash "abc123" is received within 5 minutes
+    Then a duplicate anomaly should be detected
+    And the severity should be "Critical"
+    And the reason should mention "exact duplicate"
+
+  Scenario: Near-duplicate (replay attack) detected
+    Given a message with control ID "MSG001" and timestamp "10:00:00" is processed
+    When a message with control ID "MSG001" and timestamp "10:00:01" is received
+    Then a replay anomaly should be detected
+    And the severity should be "High"
+    And the reason should mention "control ID replay"
+
+  Scenario: Duplicate outside time window
+    Given a message with control ID "MSG001" was processed 6 minutes ago
+    When a message with control ID "MSG001" is received now
+    Then no duplicate anomaly should be detected
+    And the reason should note "outside detection window"
+```
+
+### 4.3 Statistical Outlier Detection
+
+```gherkin
+Feature: Statistical Outlier Detection
+  As a data quality analyst
+  I want to detect unusual field values
+  So that I can identify data corruption or injection attempts
+
+  Background:
+    Given the outlier threshold is Z-score > 3.0
+    And the baseline has 1000 observations of field "PV1.2"
+
+  Scenario: Normal value within distribution
+    Given the field "PV1.2" has mean 5.0 and stddev 1.0
+    When a message with "PV1.2" = 5.5 is received
+    Then no outlier anomaly should be detected
+
+  Scenario: Extreme outlier detected
+    Given the field "PV1.2" has mean 5.0 and stddev 1.0
+    When a message with "PV1.2" = 15.0 is received
+    Then an outlier anomaly should be detected
+    And the Z-score should be approximately 10.0
+    And the severity should be "High"
+
+  Scenario: Insufficient data for outlier detection
+    Given the field "PV1.3" has only 10 observations
+    When a message with "PV1.3" = 999.0 is received
+    Then the confidence should be low (< 0.5)
+    And the severity should be reduced to "Low"
+```
+
+### 4.4 Sender Behavior Profiling
+
+```gherkin
+Feature: Sender Behavior Profiling
+  As a security analyst
+  I want to detect when a sender behaves unusually
+  So that I can identify compromised accounts
+
+  Background:
+    Given sender "LAB001" has an established profile
+    And the profile tracks message types and volume
+
+  Scenario: Normal behavior from known sender
+    Given sender "LAB001" typically sends "ORU^R01" messages
+    When "LAB001" sends an "ORU^R01" message
+    Then no behavior anomaly should be detected
+
+  Scenario: Unexpected message type from sender
+    Given sender "LAB001" typically sends "ORU^R01" messages
+    And "LAB001" has never sent "ADT^A01" messages
+    When "LAB001" sends an "ADT^A01" message
+    Then a behavior anomaly should be detected
+    And the reason should mention "unexpected message type"
+    And the severity should be "Medium"
+
+  Scenario: Off-hours access detected
+    Given sender "LAB001" typically sends messages 08:00-18:00
+    When "LAB001" sends a message at 02:00
+    Then a timing anomaly should be detected
+    And the reason should mention "off-hours access"
+    And the severity should be "Low" (may be legitimate on-call)
+```
+
+### 4.5 Response Actions
+
+```gherkin
+Feature: Anomaly Response Actions
+  As a security operator
+  I want configurable responses to anomalies
+  So that I can balance security with operational continuity
+
+  Background:
+    Given the guard engine is configured with response rules
+
+  Scenario: Low severity - log only
+    Given a "Low" severity anomaly is detected
+    And the response rule maps "Low" to "Log"
+    When the anomaly is processed
+    Then the anomaly should be recorded in audit trail
+    And no alert should be sent
+    And the message should proceed normally
+
+  Scenario: High severity - quarantine
+    Given a "High" severity anomaly is detected
+    And the response rule maps "High" to "Quarantine(30min)"
+    When the anomaly is processed
+    Then the message should be held in quarantine
+    And an alert should be sent
+    And the audit trail should record the quarantine action
+
+  Scenario: Critical severity - block
+    Given a "Critical" severity anomaly is detected
+    And the response rule maps "Critical" to "Block"
+    When the anomaly is processed
+    Then the message should be rejected
+    And an alert should be sent
+    And the sender should receive an error response
 ```
 
 ---
 
-## Integration Points
+## 5. Implementation Phases
 
-### With hl7v2-server (Middleware)
+### Phase 1: Statistical Anomaly Detection (MVP)
 
-```rust
-async fn guard_middleware(
-    message: Hl7Message,
-    guard: Arc<Guard>,
-) -> Result<Response, GuardError> {
-    let result = guard.analyze(&message);
-    
-    match result.action_taken {
-        GuardAction::Alert => {
-            send_alert(&result).await;
-            Ok(Response::Continue)
-        }
-        GuardAction::Quarantine => {
-            quarantine_message(&message).await;
-            Ok(Response::Accepted) // 202
-        }
-        GuardAction::Block => {
-            Err(GuardError::AnomalyBlocked(result.reasons))
-        }
-        GuardAction::Throttle => {
-            throttle_sender(&message.sender()).await;
-            Ok(Response::TooManyRequests) // 429
-        }
-    }
-}
-```
+**Goal**: Core anomaly detection capabilities
 
-### With hl7v2-audit
-
-```rust
-// All anomalies logged for compliance
-audit::log_event(AuditEvent::AnomalyDetected {
-    message_id: result.message_id,
-    severity: result.severity,
-    reasons: result.reasons,
-    action: result.action_taken,
-});
-```
-
----
-
-## Performance Targets
-
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Anomaly scoring latency | <10ms p99 | Per-message |
-| Throughput | 1000 msg/sec | Sustained |
-| Memory usage | <100MB | Baseline storage |
-| CPU overhead | <5% | Relative to no guard |
-
----
-
-## Test Coverage
-
-### Unit Tests
-- Z-score calculation accuracy
-- Baseline mean/stddev calculation  
-- Hash collision resistance
-- Sliding window eviction
-
-### Integration Tests
-- End-to-end message analysis
-- Webhook alert delivery
-- Quarantine queue operations
-- Rate limiting enforcement
-
-### BDD Scenarios (20 scenarios)
-See `.swarm/EFF-840/scenarios.md` for complete list covering:
-1. Volume spike detection
-2. Duplicate medication orders
-3. Replay attack detection
-4. Off-hours access
-5. Sender behavior changes
-6. Action enforcement (alert/quarantine/block/throttle)
-7. Severity levels
-8. Webhook delivery
-9. Guard enable/disable
-10. Multi-factor scoring
-
----
-
-## Design Decisions
-
-### 1. Statistical ML Only (No Neural Networks)
-**Why:** Healthcare requires explainable decisions for FDA/HIPAA compliance. Black box models can't pass audits.
-
-### 2. Local-Only Processing (No External APIs)
-**Why:** PHI must never leave the system. External APIs create HIPAA compliance risk.
-
-### 3. Default Alert-Only (Never Block by Default)
-**Why:** Patient safety is paramount. False positives cannot block care. Gradual adoption: alert → review → block.
-
-### 4. 7-Day Sliding Window Baseline
-**Why:** Captures weekly patterns (weekday vs weekend). Healthcare changes slowly. No retraining required.
-
----
-
-## Options Considered
-
-| Option | Decision | Rationale |
-|--------|----------|-----------|
-| Embedded statistical ML | **SELECTED** | Explainable, deterministic, compliant |
-| External ML API (AWS/Azure) | REJECTED | PHI leakage risk, latency, cost |
-| SIEM integration only | DEFERRED | Complementary, not replacement |
-| Neural networks | REJECTED | Black box, not explainable |
-
----
-
-## Dependencies
-
-| Crate | Purpose | Integration |
-|-------|---------|-------------|
-| hl7v2-audit | Audit trail | Anomaly events logged |
-| hl7v2-analytics | Baseline stats | Data source |
-| hl7v2-terminology | Code patterns | Optional |
-
----
-
-## Risks and Mitigations
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| False positives block care | Medium | Critical | Default alert-only, never block |
-| Baseline poisoning | Low | High | Sliding window, manual reset |
-| Performance overhead | Low | Medium | <10ms target, Welford's algorithm |
-| PHI in ML features | Medium | High | Hash-based, no raw values |
-
----
-
-## Out of Scope
-
-1. **Deep learning models** (transformers, neural networks) - Not explainable
-2. **External ML APIs** - PHI leakage risk
-3. **Automatic model retraining** - Requires labeled data
-4. **Cross-tenant learning** - Privacy violation
-5. **Real-time model serving** - Overkill for statistical methods
-
----
-
-## Future Enhancements
-
-1. **ONNX Runtime Integration** - For pre-trained models (Phase 4)
-2. **Distributed Baselines** - Shared learning across instances
-3. **Custom Rule Engine** - User-defined detection rules
-4. **Automatic Threshold Tuning** - Self-adjusting Z-scores
-
----
-
-## Verification Checklist
-
-- [ ] New crate `hl7v2-guard` created
-- [ ] Volume spike detection (Z-score > 3.0)
-- [ ] Field outlier detection
-- [ ] 7-day baseline learning
-- [ ] Duplicate detection (5-min window)
-- [ ] Replay detection (control ID tracking)
-- [ ] Off-hours access detection
-- [ ] Sender behavior profiles
-- [ ] Alert action (webhook delivery)
-- [ ] Quarantine action (queue storage)
-- [ ] Block action (403 Forbidden)
-- [ ] Throttle action (429 Too Many Requests)
-- [ ] Default alert-only (never block by default)
-- [ ] Performance <10ms p99
-- [ ] All 20 BDD scenarios pass
+**Deliverables**:
+- [ ] Volume spike/drop detection (time-series)
+- [ ] Duplicate message detection (hash + control ID)
+- [ ] Statistical outlier detection (Z-score)
+- [ ] Basic explainability (reason strings)
 - [ ] Integration with hl7v2-audit
 
+**Test coverage**: BDD scenarios for FR-1, FR-2, FR-3, FR-7, FR-8, FR-10
+
+### Phase 2: Pattern Classification
+
+**Goal**: Advanced pattern detection
+
+**Deliverables**:
+- [ ] Replay attack detection (control ID + timestamp correlation)
+- [ ] Sender behavior profiling (message type tracking)
+- [ ] Timing pattern analysis (business hours detection)
+- [ ] Per-sender baselines
+- [ ] Confidence scoring
+
+**Test coverage**: BDD scenarios for FR-4, FR-5, FR-6
+
+### Phase 3: Automated Response
+
+**Goal**: Configurable automated actions
+
+**Deliverables**:
+- [ ] Response rule engine
+- [ ] Alert notification system (webhook, email)
+- [ ] Quarantine queue implementation
+- [ ] Rate limiting for throttling
+- [ ] Response action audit trail
+
+**Test coverage**: BDD scenarios for FR-9
+
+### Phase 4: ML Model Integration (Optional)
+
+**Goal**: Advanced ML capabilities (if Phases 1-3 insufficient)
+
+**Deliverables**:
+- [ ] ONNX runtime integration
+- [ ] Feature extraction pipeline
+- [ ] Model versioning
+- [ ] A/B testing framework
+
+**Decision gate**: Proceed only if customer requirements exceed statistical capabilities
+
 ---
 
-## References
+## 6. Dependencies
 
-- Requirements: `.swarm/EFF-840/requirements.md`
-- Design: `.swarm/EFF-840/design.md`
-- BDD Scenarios: `.swarm/EFF-840/scenarios.md`
-- Working Notes: `.swarm/EFF-840/notes.md`
+### 6.1 Internal Dependencies
+
+| Crate | Purpose | Integration Point |
+|-------|---------|-------------------|
+| hl7v2-audit | Anomaly event trails | `audit::log_event()` |
+| hl7v2-analytics | Baseline statistics | `analytics::MessageStats` |
+| hl7v2-parser | Message parsing | `parser::Hl7v2Message` |
+| hl7v2-types | Core HL7 types | `types::Message` |
+
+### 6.2 External Dependencies
+
+| Crate | Purpose | Version |
+|-------|---------|---------|
+| chrono | Date/time handling | ^0.4 |
+| statrs | Statistical functions | ^0.16 |
+| bloomfilter | Duplicate detection | ^1.0 |
+| lru | LRU caches | ^0.12 |
+| serde | Configuration serialization | ^1.0 |
+| thiserror | Error handling | ^1.0 |
+| tracing | Observability | ^0.1 |
+
+### 6.3 Optional Dependencies (Phase 4)
+
+| Crate | Purpose | Version |
+|-------|---------|---------|
+| ort | ONNX runtime | ^2.0 |
+
+---
+
+## 7. Risks and Mitigations
+
+| Risk | Impact | Likelihood | Mitigation |
+|------|--------|------------|------------|
+| False positives block legitimate messages | Critical (patient safety) | Medium | Configurable thresholds, confidence scoring, quarantine before block |
+| Baseline poisoning by gradual attack | High | Low | Minimum sample sizes, anomaly on baseline shift, manual baseline review |
+| Performance degradation | Medium | Low | Bounded memory, async processing, benchmark tests |
+| PHI in features/models | Critical (compliance) | Low | Hash-based features only, no raw values in models |
+| Alert fatigue | Medium | Medium | Severity levels, alert aggregation, configurable rules |
+
+---
+
+## 8. Open Questions
+
+1. **Baseline learning period**: Is 7-day default appropriate for all deployment scenarios?
+2. **PHI handling**: Should we use field hashes or can we use normalized values?
+3. **Integration with SIEM**: Should alerts be SIEM-compatible (CEF, LEEF formats)?
+4. **Multi-tenancy**: Do we need separate baselines per tenant in multi-tenant deployments?
+5. **Model updates**: How frequently should baselines be persisted to storage?
+
+---
+
+## 9. Acceptance Criteria
+
+- [ ] All Phase 1 BDD scenarios pass
+- [ ] Anomaly detection latency < 1ms per message (p99)
+- [ ] Memory usage bounded (< 100MB for default config)
+- [ ] 100% test coverage for detector logic
+- [ ] Audit trail integration verified
+- [ ] Documentation complete (API docs, user guide)
+- [ ] No external ML service dependencies
+- [ ] HIPAA compliance checklist complete
+
+---
+
+## 10. References
+
+- Issue: [EFF-840](/EFF/issues/EFF-840)
+- Dependencies: [EFF-116](/EFF/issues/EFF-116), [EFF-17](/EFF/issues/EFF-17)
+- Scout Recommendation: See issue description Section 7
+- Related: [EFF-832](/EFF/issues/EFF-832) (terminology)
+
+---
+
+*Spec Version: 1.0*  
+*Last Updated: 2026-04-04*  
+*Spec Designer: [@spec-designer](/EFF/agents/spec-designer)*

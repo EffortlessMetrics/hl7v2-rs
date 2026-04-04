@@ -1,471 +1,354 @@
-# Design: hl7v2-guard ML Anomaly Detection (EFF-840)
+# Design Notes: hl7v2-guard
 
-**Issue:** [EFF-840](/EFF/issues/EFF-840)  
-**Status:** Design Complete  
-**Last Updated:** 2026-04-04
+## Architecture Decisions
 
----
+### 1. Detector Pattern
 
-## Architecture Overview
+Each anomaly detector implements a common trait:
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Incoming HL7 Message                             │
-└───────────────────────────────┬─────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     hl7v2-guard Pipeline                            │
-│                                                                     │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐   │
-│  │  Message Hash   │  │  Feature        │  │  Anomaly Scoring    │   │
-│  │  (SHA-256)      │→ │  Extraction     │→ │  (Z-score, stats)   │   │
-│  └─────────────────┘  └─────────────────┘  └─────────────────────┘   │
-│         │                      │                      │             │
-│         ▼                      ▼                      ▼             │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │                    Pattern Detection Engine                       │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │ │
-│  │  │ Duplicate    │  │ Replay       │  │ Timing       │          │ │
-│  │  │ Detection    │  │ Detection    │  │ Analysis     │          │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘          │ │
-│  │  ┌──────────────┐  ┌──────────────┐                           │ │
-│  │  │ Sender       │  │ Distribution │                           │ │
-│  │  │ Behavior     │  │ Drift        │                           │ │
-│  │  └──────────────┘  └──────────────┘                           │ │
-│  └─────────────────────────────────────────────────────────────────┘ │
-│                               │                                       │
-│                               ▼                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │                    Decision Engine                                │ │
-│  │  Score → Severity → Action (alert/quarantine/block/throttle)      │ │
-│  └─────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Response Actions                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐           │
-│  │ Alert    │  │Quarantine│  │  Block   │  │ Throttle │           │
-│  │(webhook) │  │ (queue)  │  │ (reject) │  │ (rate)   │           │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘           │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Key Design Decisions
-
-### Decision 1: Statistical ML Only (No Neural Networks)
-
-**Choice:** Use statistical anomaly detection (Z-score, IQR, moving averages) rather than deep learning.
-
-**Rationale:**
-- Healthcare requires deterministic, explainable decisions (FDA/ HIPAA)
-- Neural networks are black boxes - can't explain why message flagged
-- Statistical methods are sufficient for the patterns we need to detect
-- No training data requirements
-- Fast inference (<10ms)
-
-**Implementation:**
 ```rust
-pub fn calculate_z_score(value: f64, mean: f64, stddev: f64) -> f64 {
-    (value - mean) / stddev
-}
-
-pub fn is_anomaly(z_score: f64, threshold: f64) -> bool {
-    z_score.abs() > threshold
+pub trait AnomalyDetector: Send + Sync {
+    /// Unique identifier for this detector
+    fn rule_id(&self) -> RuleId;
+    
+    /// Analyze a message and return any detected anomalies
+    fn detect(&self, message: &MessageContext) -> Vec<Anomaly>;
+    
+    /// Update internal state/baseline with this message
+    fn learn(&mut self, message: &MessageContext);
+    
+    /// Get current baseline statistics (for monitoring/debugging)
+    fn baseline_stats(&self) -> DetectorStats;
 }
 ```
 
----
+This allows:
+- Composable detectors (combine multiple strategies)
+- Runtime configuration (enable/disable detectors)
+- Testability (mock detectors for isolated testing)
 
-### Decision 2: Local-Only Processing (No External ML APIs)
+### 2. Message Context
 
-**Choice:** All anomaly detection runs in-process, no external API calls.
+Instead of passing raw HL7 messages, we use a `MessageContext` that pre-computes commonly used features:
 
-**Rationale:**
-- PHI must not leave the system (HIPAA compliance)
-- External APIs introduce latency and availability risk
-- Air-gapped deployments must work without internet
-
-**Implementation:**
-- Pure Rust implementation
-- No HTTP clients for ML inference
-- All models embedded or statistical
-
----
-
-### Decision 3: Default Alert-Only (Never Block by Default)
-
-**Choice:** Default action is `alert`, never `block` or `quarantine`.
-
-**Rationale:**
-- Patient safety is paramount - false positives can't block care
-- Operators must explicitly opt-in to blocking actions
-- Gradual adoption path: alert → review → configure block
-
-**Implementation:**
 ```rust
-impl Default for GuardConfig {
-    fn default() -> Self {
-        Self {
-            action: GuardAction::Alert, // Never Block by default
-            ...
+pub struct MessageContext {
+    pub raw_message: Hl7v2Message,
+    pub message_hash: String,          // SHA-256 of canonical form
+    pub control_id: String,              // MSH.10
+    pub sender: String,                // MSH.3 (sending application)
+    pub message_type: MessageType,     // MSH.9 (ADT^A01, ORU^R01, etc.)
+    pub timestamp: DateTime<Utc>,      // MSH.7 (message timestamp)
+    pub field_values: HashMap<String, String>, // Cached field accessors
+}
+```
+
+Pre-computing these values avoids redundant parsing in multiple detectors.
+
+### 3. Sliding Window Implementation
+
+For time-series detectors, we use a circular buffer with fixed capacity:
+
+```rust
+pub struct SlidingWindow<T> {
+    buffer: VecDeque<T>,
+    capacity: usize,
+    window_duration: Duration,
+}
+
+impl<T: Timestamped> SlidingWindow<T> {
+    pub fn add(&mut self, item: T) {
+        // Remove items outside time window
+        let cutoff = Utc::now() - self.window_duration;
+        while self.buffer.front().map(|i| i.timestamp() < cutoff).unwrap_or(false) {
+            self.buffer.pop_front();
         }
-    }
-}
-```
-
----
-
-### Decision 4: Sliding Window Baselines
-
-**Choice:** Use 7-day sliding window for baseline learning, not fixed training period.
-
-**Rationale:**
-- Healthcare patterns change slowly (seasonal, weekly cycles)
-- Sliding window adapts to gradual changes without retraining
-- 7 days captures weekly patterns (weekday vs weekend)
-
-**Implementation:**
-```rust
-pub struct Baseline {
-    window: Duration, // 7 days
-    data: VecDeque<TimestampedValue>,
-}
-
-impl Baseline {
-    pub fn update(&mut self, value: f64) {
-        self.data.push_back(TimestampedValue::now(value));
-        // Remove values older than window
-        self.data.retain(|v| v.age() < self.window);
+        
+        // Add new item
+        if self.buffer.len() >= self.capacity {
+            self.buffer.pop_front();
+        }
+        self.buffer.push_back(item);
     }
     
-    pub fn mean(&self) -> f64 { /* calculate from data */ }
-    pub fn stddev(&self) -> f64 { /* calculate from data */ }
-}
-```
-
----
-
-### Decision 5: Multi-Factor Scoring
-
-**Choice:** Anomaly score combines multiple factors, not single metric.
-
-**Rationale:**
-- Volume spike alone may be normal (batch job)
-- Volume + off-hours + unusual sender = high confidence anomaly
-- Multiple weak signals combine to strong detection
-
-**Implementation:**
-```rust
-pub struct AnomalyScore {
-    pub volume_score: f64,       // 0.0-1.0
-    pub timing_score: f64,       // 0.0-1.0
-    pub sender_score: f64,       // 0.0-1.0
-    pub pattern_score: f64,      // 0.0-1.0
-}
-
-impl AnomalyScore {
-    pub fn combined(&self) -> f64 {
-        // Weighted average
-        0.4 * self.volume_score +
-        0.2 * self.timing_score +
-        0.2 * self.sender_score +
-        0.2 * self.pattern_score
+    pub fn stats(&self) -> WindowStats {
+        // Compute mean, stddev, min, max
     }
 }
 ```
 
----
+This provides:
+- O(1) amortized insertion
+- O(n) statistics computation (where n = window size, bounded)
+- Automatic expiration of old data
 
-## Data Structures
+### 4. Bloom Filter for Duplicates
 
-### Core Types
-
-```rust
-/// Guard configuration
-pub struct GuardConfig {
-    pub enabled: bool,
-    pub baseline_days: u32,
-    pub z_threshold: f64,
-    pub duplicate_window: Duration,
-    pub action: GuardAction,
-    pub webhook_url: Option<String>,
-}
-
-/// Anomaly detection result
-pub struct AnomalyResult {
-    pub message_id: String,
-    pub timestamp: DateTime<Utc>,
-    pub score: AnomalyScore,
-    pub severity: Severity,
-    pub reasons: Vec<String>,
-    pub action_taken: GuardAction,
-}
-
-/// Severity levels
-pub enum Severity {
-    Info,     // Z-score 1.0-2.0
-    Warning,  // Z-score 2.0-3.0
-    Critical, // Z-score > 3.0
-}
-
-/// Available actions
-pub enum GuardAction {
-    Alert,      // Send notification
-    Quarantine, // Hold for review
-    Block,      // Reject message
-    Throttle,   // Rate limit sender
-}
-```
-
-### Baseline Storage
+For duplicate detection at scale, we combine a Bloom filter with LRU cache:
 
 ```rust
-/// Per-sender baseline statistics
-pub struct SenderBaseline {
-    pub sender_id: String,
-    pub volume_stats: TimeSeriesStats,  // messages per window
-    pub field_stats: HashMap<String, FieldStats>,
-    pub message_type_distribution: HashMap<String, f64>,
-    pub last_updated: DateTime<Utc>,
-}
-
-/// Time-series statistics
-pub struct TimeSeriesStats {
-    pub values: VecDeque<TimestampedValue>,
-    pub window: Duration,
-}
-
-/// Field-level statistics
-pub struct FieldStats {
-    pub field_path: String,
-    pub numeric_stats: Option<NumericStats>,
-    pub cardinality: usize,  // unique values count
-    pub entropy: f64,          // distribution entropy
-}
-
-pub struct NumericStats {
-    pub count: usize,
-    pub mean: f64,
-    pub m2: f64,  // for Welford's online algorithm
-    pub min: f64,
-    pub max: f64,
-}
-```
-
-### Pattern Detection
-
-```rust
-/// Duplicate detection state
 pub struct DuplicateDetector {
-    pub window: Duration,
-    pub hashes: HashMap<String, DateTime<Utc>>, // hash -> first seen
+    bloom: Bloom<[u8]>,          // Fast negative check (definitely not seen)
+    cache: LruCache<String, MessageMeta>, // Exact check (might be seen)
+    window: Duration,
 }
 
-/// Replay detection state
-pub struct ReplayDetector {
-    pub control_ids: HashMap<String, ControlIdRecord>,
-}
-
-pub struct ControlIdRecord {
-    pub first_seen: DateTime<Utc>,
-    pub hash: String,  // message content hash
-}
-
-/// Sender behavior profile
-pub struct SenderProfile {
-    pub sender_id: String,
-    pub expected_message_types: HashSet<String>,
-    pub business_hours: BusinessHours,
-    pub reputation_score: f64,  // 0.0-1.0
-}
-```
-
----
-
-## Algorithms
-
-### Volume Spike Detection
-
-```
-1. Track message count per sender per time window
-2. Maintain 7-day baseline (mean, stddev)
-3. Calculate Z-score: (current - mean) / stddev
-4. If Z-score > threshold (default 3.0), flag anomaly
-5. Update baseline with new value (sliding window)
-```
-
-### Duplicate Detection
-
-```
-1. Calculate SHA-256 hash of normalized message
-2. Check if hash exists in recent window (default 5 min)
-3. If found: calculate field-level diff for near-duplicate detection
-4. Flag exact duplicate or near-duplicate based on threshold
-5. Store hash with timestamp
-6. Clean up expired hashes (older than window)
-```
-
-### Replay Detection
-
-```
-1. Extract MSH-10 (Message Control ID)
-2. Check if control ID seen before from same sender
-3. If seen: compare content hash
-4. If hash differs: flag as replay attack
-5. If hash same: flag as duplicate
-6. Store control ID with content hash
-```
-
-### Sender Behavior Analysis
-
-```
-1. Learn expected message types per sender over 7 days
-2. Flag messages of unexpected type
-3. Track sender reputation (anomaly history)
-4. Adjust thresholds based on reputation (trusted senders get higher thresholds)
-```
-
----
-
-## Integration Points
-
-### With hl7v2-audit
-
-```rust
-// Log anomaly detection events
-audit::log_event(AuditEvent::AnomalyDetected {
-    message_id: result.message_id,
-    severity: result.severity,
-    reasons: result.reasons,
-    action: result.action_taken,
-});
-```
-
-### With hl7v2-analytics
-
-```rust
-// Use analytics for baseline data
-let baseline_stats = analytics::get_sender_stats(sender_id, window);
-guard.update_baseline(baseline_stats);
-```
-
-### With hl7v2-server
-
-```rust
-// Middleware integration
-async fn guard_middleware(
-    message: Hl7Message,
-    guard: Arc<Guard>,
-) -> Result<Response, GuardAction> {
-    let result = guard.analyze(&message);
-    
-    match result.action_taken {
-        GuardAction::Alert => {
-            send_alert(&result).await;
-            Ok(Response::Continue)
+impl DuplicateDetector {
+    pub fn check(&mut self, msg: &MessageContext) -> Option<DuplicateType> {
+        let hash = msg.message_hash.clone();
+        
+        // Bloom filter: if not in bloom, definitely not duplicate
+        if !self.bloom.check(hash.as_bytes()) {
+            self.bloom.set(hash.as_bytes());
+            self.cache.put(hash, msg.meta());
+            return None;
         }
-        GuardAction::Quarantine => {
-            quarantine_message(&message).await;
-            Ok(Response::Accepted) // 202 Accepted
+        
+        // Bloom says maybe - check cache for exact match
+        if let Some(meta) = self.cache.get(&hash) {
+            if meta.control_id == msg.control_id {
+                return Some(DuplicateType::Exact);
+            } else if meta.control_id == msg.control_id {
+                return Some(DuplicateType::Replay);
+            }
         }
-        GuardAction::Block => {
-            Err(GuardError::AnomalyBlocked(result.reasons))
-        }
-        GuardAction::Throttle => {
-            throttle_sender(&message.sender()).await;
-            Ok(Response::TooManyRequests) // 429
-        }
+        
+        None
     }
 }
 ```
 
----
+Bloom filter provides:
+- Memory-efficient probabilistic tracking (no false negatives)
+- ~1% false positive rate with proper sizing
+- 10x less memory than exact set
 
-## Configuration
+### 5. Sender Profile Storage
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HL7V2_GUARD_ENABLED` | `true` | Master enable/disable |
-| `HL7V2_GUARD_BASELINE_DAYS` | `7` | Baseline learning window |
-| `HL7V2_GUARD_Z_THRESHOLD` | `3.0` | Anomaly Z-score threshold |
-| `HL7V2_GUARD_DUPLICATE_WINDOW_MIN` | `5` | Duplicate detection window (minutes) |
-| `HL7V2_GUARD_BUSINESS_HOURS_START` | `08:00` | Business hours start |
-| `HL7V2_GUARD_BUSINESS_HOURS_END` | `18:00` | Business hours end |
-| `HL7V2_GUARD_WEBHOOK_URL` | - | Alert webhook URL |
-| `HL7V2_GUARD_ACTION` | `alert` | Default action |
-| `HL7V2_GUARD_MAX_MEMORY_MB` | `100` | Max baseline memory |
-
-### Code Configuration
+Sender profiles use an LRU cache with time-to-live:
 
 ```rust
-let config = GuardConfig::builder()
-    .enabled(true)
-    .baseline_days(7)
-    .z_threshold(3.0)
-    .duplicate_window(Duration::minutes(5))
-    .action(GuardAction::Alert)
-    .webhook_url("https://alerts.example.com/webhook")
-    .build();
+pub struct SenderProfileCache {
+    profiles: LruCache<String, SenderProfile>,
+    ttl: Duration,
+}
 
-let guard = Guard::new(config);
+pub struct SenderProfile {
+    sender_id: String,
+    message_type_counts: HashMap<String, u64>,
+    hourly_distribution: [u64; 24],  // Messages per hour
+    volume_stats: RunningStats,     // Online mean/stddev calculation
+    last_seen: DateTime<Utc>,
+}
+
+impl SenderProfile {
+    pub fn update(&mut self, msg: &MessageContext) {
+        // Update message type counts
+        *self.message_type_counts.entry(msg.message_type.to_string()).or_insert(0) += 1;
+        
+        // Update hourly distribution
+        let hour = msg.timestamp.hour() as usize;
+        self.hourly_distribution[hour] += 1;
+        
+        // Update running statistics
+        self.volume_stats.add(1.0); // One message
+        
+        self.last_seen = msg.timestamp;
+    }
+    
+    pub fn is_business_hours(&self) -> bool {
+        // Check if typical activity is during 08:00-18:00
+        let business_hours: u64 = self.hourly_distribution[8..18].iter().sum();
+        let total: u64 = self.hourly_distribution.iter().sum();
+        (business_hours as f64) / (total as f64) > 0.7
+    }
+}
 ```
 
+### 6. Async Processing Strategy
+
+The GuardEngine uses a channel-based architecture for thread safety:
+
+```rust
+pub struct GuardEngine {
+    config: Arc<RwLock<GuardConfig>>,
+    detectors: Arc<Vec<Box<dyn AnomalyDetector>>>,
+    response_tx: mpsc::Sender<ResponseCommand>,
+}
+
+enum ResponseCommand {
+    Alert(Anomaly),
+    Quarantine(MessageContext, Duration),
+    Block(MessageContext),
+}
+
+impl GuardEngine {
+    pub async fn analyze(&self, message: &MessageContext) -> Vec<Anomaly> {
+        let mut anomalies = Vec::new();
+        
+        // Run all detectors (parallel via rayon or sequential based on config)
+        for detector in self.detectors.iter() {
+            if let Some(detected) = detector.detect(message) {
+                anomalies.extend(detected);
+            }
+        }
+        
+        // Trigger responses async
+        for anomaly in &anomalies {
+            if let Some(action) = self.config.read().await.response_for(&anomaly.severity) {
+                let _ = self.response_tx.send(ResponseCommand::from((action, anomaly.clone()))).await;
+            }
+        }
+        
+        anomalies
+    }
+}
+```
+
+### 7. Configuration Schema
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuardConfig {
+    // Volume detection
+    pub volume: VolumeConfig,
+    
+    // Duplicate detection
+    pub duplicate: DuplicateConfig,
+    
+    // Outlier detection
+    pub outlier: OutlierConfig,
+    
+    // Sender profiling
+    pub sender_profile: SenderProfileConfig,
+    
+    // Response rules
+    pub responses: Vec<ResponseRule>,
+    
+    // General settings
+    pub baseline_scope: BaselineScope,
+    pub learning_mode: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VolumeConfig {
+    pub enabled: bool,
+    pub window_size: Duration,      // Default: 1 hour
+    pub z_threshold: f64,             // Default: 3.0
+    pub min_samples: usize,           // Default: 30
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuplicateConfig {
+    pub enabled: bool,
+    pub window: Duration,             // Default: 5 minutes
+    pub bloom_capacity: usize,          // Default: 100_000
+    pub lru_capacity: usize,          // Default: 10_000
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutlierConfig {
+    pub enabled: bool,
+    pub z_threshold: f64,             // Default: 3.0
+    pub min_samples: usize,           // Default: 30
+    pub fields: Vec<String>,          // Fields to monitor
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseRule {
+    pub condition: ResponseCondition,
+    pub action: ResponseAction,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum ResponseCondition {
+    Severity { min: Severity },
+    AnomalyType { types: Vec<String> },
+    ScoreThreshold { min: f64 },
+    Custom { expression: String }, // For future extensibility
+}
+```
+
+### 8. Error Handling Strategy
+
+```rust
+#[derive(Error, Debug)]
+pub enum GuardError {
+    #[error("configuration error: {0}")]
+    Config(String),
+    
+    #[error("detection error in {detector}: {message}")]
+    Detection { detector: RuleId, message: String },
+    
+    #[error("baseline persistence failed: {0}")]
+    Persistence(String),
+    
+    #[error("audit integration failed: {0}")]
+    Audit(String),
+}
+
+// For recoverable errors, log and continue
+type GuardResult<T> = Result<T, GuardError>;
+
+impl GuardEngine {
+    pub async fn analyze_safe(&self, message: &MessageContext) -> (Vec<Anomaly>, Vec<GuardError>) {
+        let mut anomalies = Vec::new();
+        let mut errors = Vec::new();
+        
+        for detector in self.detectors.iter() {
+            match detector.detect(message) {
+                Ok(detected) => anomalies.extend(detected),
+                Err(e) => {
+                    tracing::error!("Detector {} failed: {}", detector.rule_id(), e);
+                    errors.push(e);
+                    // Continue with other detectors
+                }
+            }
+        }
+        
+        (anomalies, errors)
+    }
+}
+```
+
+### 9. Testing Strategy
+
+**Unit Tests**:
+- Each detector in isolation with mock data
+- Statistical calculations (Z-score, etc.)
+- Configuration parsing
+
+**Integration Tests**:
+- Full message flow through GuardEngine
+- Audit integration verification
+- Baseline persistence round-trip
+
+**Property-Based Tests**:
+- Anomaly scores always in [0, 1]
+- Confidence decreases with fewer samples
+- Z-score calculation correctness
+
+**BDD Tests**:
+- Cucumber or similar for scenario execution
+- Gherkin files from bdd-scenarios.md
+
+### 10. Performance Considerations
+
+| Operation | Target Latency | Strategy |
+|-----------|----------------|----------|
+| Single detector | < 0.1ms | Pre-computed features, no I/O |
+| Full analysis | < 1ms | Parallel detector execution |
+| Baseline update | < 0.5ms | In-memory only, async persistence |
+| Duplicate check | < 0.05ms | Bloom filter + LRU |
+
+**Memory Budget**:
+- Default configuration: < 100MB
+- Per-sender profile: ~1KB
+- Sliding window (1k entries): ~16KB
+- Bloom filter (100k entries): ~120KB
+
 ---
 
-## Testing Strategy
-
-### Unit Tests
-- Z-score calculation accuracy
-- Baseline mean/stddev calculation
-- Hash collision resistance
-- Sliding window eviction
-
-### Integration Tests
-- End-to-end message analysis
-- Webhook alert delivery
-- Quarantine queue operations
-- Rate limiting enforcement
-
-### BDD Scenarios
-See `.swarm/EFF-840/scenarios.md` for 12 detailed scenarios covering:
-- Volume spike detection
-- Duplicate order detection
-- Replay attack detection
-- Off-hours access detection
-- Sender behavior changes
-- Action enforcement
-
----
-
-## Performance Considerations
-
-### Memory Bounds
-- Baseline data: configurable max (default 100MB)
-- Hash stores: LRU cache with TTL
-- Automatic eviction when memory pressure detected
-
-### CPU Efficiency
-- Statistical calculations use Welford's online algorithm
-- Hash computation uses hardware-accelerated SHA-256
-- No blocking operations in hot path
-
-### Throughput
-- Target: 1000 messages/second
-- Anomaly scoring: <10ms p99
-- No external API calls in critical path
-
----
-
-## Future Enhancements
-
-1. **ONNX Runtime Integration** - For pre-trained models (Phase 4)
-2. **Distributed Baselines** - Shared learning across instances
-3. **Custom Rule Engine** - User-defined detection rules
-4. **ML Model A/B Testing** - Compare detection algorithms
-5. **Automatic Threshold Tuning** - Self-adjusting Z-scores
+*Document Version: 1.0*  
+*For: [EFF-840](/EFF/issues/EFF-840)*
