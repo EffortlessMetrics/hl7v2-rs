@@ -73,7 +73,10 @@ async fn test_persistent_cache_creation_fails_with_invalid_database_url() {
     // SPEC: Should fail gracefully with invalid connection string
     let result = PersistentProfileCache::new("not-a-valid-url").await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ProfileCacheError::InvalidDatabaseUrl(_)));
+    assert!(matches!(
+        result.unwrap_err(),
+        ProfileCacheError::InvalidDatabaseUrl(_)
+    ));
 }
 
 // ============================================================================
@@ -87,9 +90,7 @@ async fn test_profile_can_be_stored_in_persistent_cache() {
     let profile_id = "test/adt_a01/2.5.1";
 
     // SPEC: store() should persist profile to PostgreSQL
-    let result = cache
-        .store(profile_id, TEST_PROFILE_YAML, None)
-        .await;
+    let result = cache.store(profile_id, TEST_PROFILE_YAML, None).await;
 
     assert!(result.is_ok());
 
@@ -122,7 +123,10 @@ async fn test_stored_profile_has_checksum_for_integrity() {
     let cache = create_test_cache().await;
     let profile_id = "test/adt_a01";
 
-    cache.store(profile_id, TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store(profile_id, TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
 
     // SPEC: Checksum (SHA-256) should be computed and stored
     let record = cache.get_record(profile_id).await.unwrap();
@@ -141,7 +145,10 @@ async fn test_get_from_memory_cache_is_fast() {
     let profile_id = "test/adt_a01";
 
     // Pre-populate both tiers
-    cache.store(profile_id, TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store(profile_id, TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
 
     // First get - may come from either tier
     let _ = cache.get(profile_id).await.unwrap();
@@ -163,7 +170,10 @@ async fn test_get_populates_memory_from_persistent_cache() {
     let profile_id = "test/adt_a01";
 
     // Store only to persistent tier (simulating warm restart)
-    cache.store(profile_id, TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store(profile_id, TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
     cache.clear_memory_cache().await;
 
     assert_eq!(cache.cache_stats().await.memory_entries, 0);
@@ -247,7 +257,10 @@ async fn test_invalidate_removes_from_both_tiers() {
     let cache = create_test_cache().await;
     let profile_id = "test/adt_a01";
 
-    cache.store(profile_id, TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store(profile_id, TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
     assert_eq!(cache.cache_stats().await.persistent_entries, 1);
 
     // Invalidate
@@ -266,9 +279,18 @@ async fn test_invalidate_by_prefix() {
     let cache = create_test_cache().await;
 
     // Store profiles with different prefixes
-    cache.store("remote/adt_a01", TEST_PROFILE_YAML, None).await.unwrap();
-    cache.store("remote/adt_a04", TEST_PROFILE_YAML, None).await.unwrap();
-    cache.store("local/custom", TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store("remote/adt_a01", TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
+    cache
+        .store("remote/adt_a04", TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
+    cache
+        .store("local/custom", TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
 
     // Invalidate all remote profiles
     let removed_count = cache.invalidate_prefix("remote/").await;
@@ -310,12 +332,20 @@ async fn test_update_profile_with_integrity_check() {
     let profile_id = "test/adt_a01";
 
     // Initial store
-    cache.store(profile_id, TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store(profile_id, TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
     let original_record = cache.get_record(profile_id).await.unwrap();
 
     // Update with matching checksum (optimistic concurrency)
     let result = cache
-        .update(profile_id, TEST_PROFILE_YAML_V2, None, Some(&original_record.checksum))
+        .update(
+            profile_id,
+            TEST_PROFILE_YAML_V2,
+            None,
+            Some(&original_record.checksum),
+        )
         .await;
 
     assert!(result.is_ok());
@@ -333,16 +363,27 @@ async fn test_update_fails_on_checksum_mismatch() {
     let cache = create_test_cache().await;
     let profile_id = "test/adt_a01";
 
-    cache.store(profile_id, TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store(profile_id, TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
 
     // Try to update with wrong checksum
     let result = cache
-        .update(profile_id, TEST_PROFILE_YAML_V2, None, Some("wrong-checksum"))
+        .update(
+            profile_id,
+            TEST_PROFILE_YAML_V2,
+            None,
+            Some("wrong-checksum"),
+        )
         .await;
 
     // SPEC: Should fail with conflict error
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ProfileCacheError::Conflict { .. }));
+    assert!(matches!(
+        result.unwrap_err(),
+        ProfileCacheError::Conflict { .. }
+    ));
 }
 
 #[tokio::test]
@@ -378,7 +419,10 @@ async fn test_cache_tracks_hits_and_misses() {
     let profile_id = "test/adt_a01";
 
     // Store the profile
-    cache.store(profile_id, TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store(profile_id, TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
 
     // Reset stats
     cache.reset_stats().await;
@@ -459,10 +503,15 @@ async fn test_constraint_violation_is_mapped_to_error() {
     let cache = create_test_cache().await;
 
     // Store profile
-    cache.store("test/adt_a01", TEST_PROFILE_YAML, None).await.unwrap();
+    cache
+        .store("test/adt_a01", TEST_PROFILE_YAML, None)
+        .await
+        .unwrap();
 
     // Try to store with same ID but different content (violates unique constraint)
-    let result = cache.store("test/adt_a01", TEST_PROFILE_YAML_V2, None).await;
+    let result = cache
+        .store("test/adt_a01", TEST_PROFILE_YAML_V2, None)
+        .await;
 
     // SPEC: Should return conflict error
     assert!(result.is_err());
@@ -477,15 +526,15 @@ async fn test_constraint_violation_is_mapped_to_error() {
 async fn test_profile_loader_can_use_persistent_cache() {
     // SPEC: ProfileLoader should accept a persistent cache backend via builder
     let cache = create_test_cache().await;
-    
+
     // This represents the desired API:
     // let loader = ProfileLoader::builder()
     //     .persistent_cache(cache)
     //     .build();
-    
+
     // Placeholder: Just verify cache was created
     assert!(cache.is_test_placeholder());
-    
+
     // After loading a profile, it should be queryable from cache by ID
     // let _ = loader.load("some/profile.yaml").await.unwrap();
     // let cached = loader.get_from_cache("test/adt_a01").await;
@@ -497,10 +546,10 @@ async fn test_profile_loader_can_use_persistent_cache() {
 async fn test_remote_load_populates_persistent_cache() {
     // SPEC: Loading from remote URL should populate both memory and persistent cache
     let cache = create_test_cache().await;
-    
+
     // Placeholder assertion until ProfileLoader integration exists
     assert!(cache.is_test_placeholder());
-    
+
     // Desired behavior:
     // let loader = ProfileLoader::builder()
     //     .persistent_cache(cache.clone())
@@ -524,12 +573,9 @@ async fn test_batch_store_operation() {
     let profiles: Vec<(String, &str)> = (0..5)
         .map(|i| (format!("test/profile_{}", i), TEST_PROFILE_YAML))
         .collect();
-    
+
     // Convert to slice of references for the API
-    let profile_refs: Vec<(&str, &str)> = profiles
-        .iter()
-        .map(|(k, v)| (k.as_str(), *v))
-        .collect();
+    let profile_refs: Vec<(&str, &str)> = profiles.iter().map(|(k, v)| (k.as_str(), *v)).collect();
 
     // SPEC: Batch store should use single transaction
     let results = cache.store_all(&profile_refs).await;
