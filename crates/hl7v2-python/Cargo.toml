@@ -1,0 +1,36 @@
+[package]
+readme = "README.md"
+name = "hl7v2-python"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Python bindings for the hl7v2-rs library via PyO3"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["hl7", "healthcare", "python", "pyo3", "bindings"]
+categories = ["parser-implementations", "api-bindings"]
+
+[lib]
+name = "hl7v2"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.21", features = ["abi3-py38", "extension-module"] }
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
+hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
+hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation" }
+hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+pyo3 = { version = "0.21", features = ["abi3-py38"] }
+
+# Build scripts for maturin integration
+[package.metadata.maturin]
+python-source = "python"
+module-name = "hl7v2"
