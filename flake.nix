@@ -130,33 +130,18 @@
             echo "  kubectl apply -f infrastructure/k8s/ - Deploy to Kubernetes"
             echo ""
 
-            # Set up pre-commit hooks
+            # Set up pre-commit hooks (use xtask for consistency with .githooks/)
             if [ ! -f .git/hooks/pre-commit ]; then
               echo "Setting up pre-commit hooks..."
               cat > .git/hooks/pre-commit << 'EOF'
 #!/usr/bin/env bash
-set -e
-
-echo "Running pre-commit checks..."
-
-# Format check
-cargo fmt --all -- --check
-
-# Clippy
-cargo clippy --all-targets --all-features -- -D warnings
-
-# Tests
-cargo test --all
-
-# Schema validation (if schema exists)
-if command -v ajv &> /dev/null && [ -f schemas/profile/profile-v1.schema.json ]; then
-  ajv validate -s schemas/profile/profile-v1.schema.json -d 'examples/profiles/*.yaml' || true
-fi
-
-echo "✅ Pre-commit checks passed!"
+set -euo pipefail
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+cargo run -p xtask -- hook-pre-commit
 EOF
               chmod +x .git/hooks/pre-commit
-              echo "✅ Pre-commit hooks installed"
+              echo "✅ Pre-commit hooks installed (xtask-based, consistent with .githooks/)"
             fi
           '';
 
