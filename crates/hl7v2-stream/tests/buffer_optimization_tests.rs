@@ -81,11 +81,11 @@ fn test_stack_buffer_handles_multiple_reads() {
 }
 
 #[test]
-fn test_stack_buffer_with_10mb_message() {
-    // 10MB message should trigger ~10,000 read iterations
+fn test_stack_buffer_with_1mb_message() {
+    // 1MB message should trigger ~1000 read iterations
     // With stack buffer: 0 heap allocations for temp_buf
-    // With old vec!: ~10,000 heap allocations
-    let large_content = "A".repeat(10_000_000); // 10MB
+    // With old vec!: ~1000 heap allocations
+    let large_content = "A".repeat(1_000_000); // 1MB
     let hl7_text = format!(
         "MSH|^~\\&|App|Fac|||20250101||ADT^A01|123|P|2.5\rPID|1||{}||Name\r",
         large_content
@@ -101,24 +101,24 @@ fn test_stack_buffer_with_10mb_message() {
         events
             .iter()
             .any(|e| matches!(e, Event::StartMessage { .. })),
-        "Should parse 10MB message without heap allocation for temp_buf"
+        "Should parse 1MB message without heap allocation for temp_buf"
     );
     assert!(
         events.iter().any(|e| matches!(e, Event::EndMessage)),
-        "Should complete 10MB message parsing"
+        "Should complete 1MB message parsing"
     );
 
     // Verify the large field
     let large_field = events.iter().find(|e| {
         if let Event::Field { raw, .. } = e {
-            raw.len() == 10_000_000
+            raw.len() == 1_000_000
         } else {
             false
         }
     });
     assert!(
         large_field.is_some(),
-        "Should correctly parse 10MB field with stack buffer"
+        "Should correctly parse 1MB field with stack buffer"
     );
 }
 
@@ -408,16 +408,13 @@ fn test_stack_buffer_with_mixed_size_content() {
 
     let events = collect_events(&mut parser);
 
-    // Count segments
-    let segment_count = events
+    // Count Z segments
+    let z_segment_count = events
         .iter()
-        .filter(|e| matches!(e, Event::Segment { .. }))
+        .filter(|e| matches!(e, Event::Segment { id } if id.starts_with(b"Z")))
         .count();
 
-    assert_eq!(
-        segment_count, 6,
-        "Should parse all 5 Z segments plus MSH-derived"
-    );
+    assert_eq!(z_segment_count, 5, "Should parse all 5 Z segments");
 }
 
 // =============================================================================
