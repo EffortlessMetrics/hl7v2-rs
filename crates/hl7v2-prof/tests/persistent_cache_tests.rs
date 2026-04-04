@@ -22,6 +22,11 @@
 
 use std::time::Duration;
 
+use hl7v2_prof::persistent_cache::{
+    CacheStats, CachedProfile, PersistentProfileCache, PersistentProfileCacheBuilder,
+    ProfileCacheError, ProfileRecord,
+};
+
 /// Sample profile YAML for testing
 const TEST_PROFILE_YAML: &str = r#"
 message_structure: ADT_A01
@@ -607,168 +612,6 @@ async fn test_batch_retrieve_operation() {
     // SPEC: Should return all found profiles
     assert_eq!(results.len(), 5);
     assert!(results.iter().all(|r| r.is_some()));
-}
-
-/// Placeholder type that should be implemented
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-struct PersistentProfileCache;
-
-#[allow(dead_code)]
-impl PersistentProfileCache {
-    async fn new(_url: &str) -> Result<Self, ProfileCacheError> {
-        todo!("PersistentProfileCache::new not implemented")
-    }
-
-    async fn store(
-        &self,
-        _profile_id: &str,
-        _yaml: &str,
-        _etag: Option<&str>,
-    ) -> Result<(), ProfileCacheError> {
-        todo!("PersistentProfileCache::store not implemented")
-    }
-
-    async fn get(&self, _profile_id: &str) -> Option<CachedProfile> {
-        todo!("PersistentProfileCache::get not implemented")
-    }
-
-    async fn get_record(&self, _profile_id: &str) -> Option<ProfileRecord> {
-        todo!("PersistentProfileCache::get_record not implemented")
-    }
-
-    async fn update(
-        &self,
-        _profile_id: &str,
-        _yaml: &str,
-        _etag: Option<&str>,
-        _expected_checksum: Option<&str>,
-    ) -> Result<(), ProfileCacheError> {
-        todo!("PersistentProfileCache::update not implemented")
-    }
-
-    async fn invalidate(&self, _profile_id: &str) -> bool {
-        todo!("PersistentProfileCache::invalidate not implemented")
-    }
-
-    async fn invalidate_prefix(&self, _prefix: &str) -> usize {
-        todo!("PersistentProfileCache::invalidate_prefix not implemented")
-    }
-
-    async fn clear(&self) {
-        todo!("PersistentProfileCache::clear not implemented")
-    }
-
-    async fn clear_memory_cache(&self) {
-        todo!("PersistentProfileCache::clear_memory_cache not implemented")
-    }
-
-    async fn warm_restart(&self) -> Result<(), ProfileCacheError> {
-        todo!("PersistentProfileCache::warm_restart not implemented")
-    }
-
-    async fn is_cached(&self, _profile_id: &str) -> bool {
-        todo!("PersistentProfileCache::is_cached not implemented")
-    }
-
-    async fn cache_stats(&self) -> CacheStats {
-        todo!("PersistentProfileCache::cache_stats not implemented")
-    }
-
-    async fn reset_stats(&self) {
-        todo!("PersistentProfileCache::reset_stats not implemented")
-    }
-
-    async fn store_all(&self, _profiles: &[(&str, &str)]) -> Vec<Result<(), ProfileCacheError>> {
-        todo!("PersistentProfileCache::store_all not implemented")
-    }
-
-    async fn get_all(&self, _ids: &[String]) -> Vec<Option<CachedProfile>> {
-        todo!("PersistentProfileCache::get_all not implemented")
-    }
-
-    /// Test helper to verify this is a placeholder
-    fn is_test_placeholder(&self) -> bool {
-        true
-    }
-}
-
-/// Placeholder builder
-#[allow(dead_code)]
-struct PersistentProfileCacheBuilder;
-
-#[allow(dead_code)]
-impl PersistentProfileCacheBuilder {
-    fn database_url(self, _url: &str) -> Self {
-        todo!()
-    }
-
-    fn memory_cache_size(self, _size: usize) -> Self {
-        todo!()
-    }
-
-    fn timeout(self, _timeout: Duration) -> Self {
-        todo!()
-    }
-
-    async fn build(self) -> Result<PersistentProfileCache, ProfileCacheError> {
-        todo!()
-    }
-}
-
-#[allow(dead_code)]
-impl PersistentProfileCache {
-    fn builder() -> PersistentProfileCacheBuilder {
-        todo!()
-    }
-}
-
-/// Placeholder error type
-#[derive(Debug)]
-#[allow(dead_code)]
-enum ProfileCacheError {
-    InvalidDatabaseUrl(String),
-    DatabaseConnection(String),
-    Conflict { profile_id: String, reason: String },
-    NotFound(String),
-    Timeout,
-    Serialization(String),
-    Other(String),
-}
-
-/// Placeholder for cached profile
-#[derive(Debug)]
-#[allow(dead_code)]
-struct CachedProfile {
-    #[allow(dead_code)]
-    profile: hl7v2_prof::Profile,
-    #[allow(dead_code)]
-    from_persistent_cache: bool,
-    #[allow(dead_code)]
-    from_cache: bool,
-}
-
-/// Placeholder for database record
-#[derive(Debug)]
-#[allow(dead_code)]
-struct ProfileRecord {
-    profile_id: String,
-    content: String,
-    etag: Option<String>,
-    checksum: String,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-/// Placeholder for cache statistics
-#[derive(Debug, Default)]
-#[allow(dead_code)]
-struct CacheStats {
-    memory_entries: usize,
-    persistent_entries: usize,
-    memory_hits: usize,
-    persistent_hits: usize,
-    misses: usize,
 }
 
 /// Helper to create a test cache
