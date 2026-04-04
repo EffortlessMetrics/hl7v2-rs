@@ -1,0 +1,49 @@
+message_structure: "DFT_P03"
+version: "2.5.1"
+parent: "GENERIC"
+message_type: "DFT^P03^DFT_P03"
+description: "Detailed Financial Transaction - Posting charges to patient account"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "EVN"
+    required: true
+  - id: "PID"
+    required: true
+  - id: "PV1"
+    required: false
+  - id: "FT1"
+    required: true
+    repetition: true
+    description: "Financial Transaction Segment"
+constraints:
+  - path: "PID.3"
+    required: true
+    description: "Patient identifier required"
+  - path: "FT1.4"
+    required: true
+    description: "Transaction type required (CD=Credit, DE=Debit, CG=Charge, PY=Payment, AJ=Adjustment)"
+  - path: "FT1.5"
+    required: true
+    description: "Transaction date required"
+  - path: "FT1.6"
+    required: true
+    description: "Transaction posting date required"
+  - path: "FT1.7"
+    required: true
+    description: "Transaction amount required"
+valuesets:
+  - path: "FT1.4"
+    name: "HL70177"
+    description: "Transaction Type"
+    codes:
+      - "CG"
+      - "CD"
+      - "PY"
+      - "AJ"
+      - "DE"
+      - "CO"
+      - "RA"
+      - "RU"
+      - "RE"
+      - "RC"
