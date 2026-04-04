@@ -23,6 +23,9 @@ serde = { workspace = true, features = ["derive"] }
 # Regular expressions for pattern validation
 regex = "1.12.3"
 
+# LRU cache for compiled regex patterns
+lru = "0.12"
+
 # Date/time handling for temporal validation
 chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
 

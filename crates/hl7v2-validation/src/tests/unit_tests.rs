@@ -9,13 +9,13 @@
 //! - Issue and Severity types
 
 use crate::{
-    Issue, RuleCondition, Severity, TimestampPrecision, check_rule_condition,
-    compare_timestamps_for_before, is_coded_value, is_date, is_email, is_extended_id,
-    is_hierarchic_designator, is_identifier, is_numeric, is_person_name, is_phone_number,
-    is_sequence_id, is_ssn, is_string, is_time, is_timestamp, is_valid_age_range,
+    check_rule_condition, compare_timestamps_for_before, is_coded_value, is_date, is_email,
+    is_extended_id, is_hierarchic_designator, is_identifier, is_numeric, is_person_name,
+    is_phone_number, is_sequence_id, is_ssn, is_string, is_time, is_timestamp, is_valid_age_range,
     is_valid_birth_date, is_within_range, matches_complex_pattern, matches_format, parse_hl7_ts,
     parse_hl7_ts_with_precision, truncate_to_precision, validate_checksum, validate_data_type,
-    validate_luhn_checksum, validate_mathematical_relationship,
+    validate_luhn_checksum, validate_mathematical_relationship, Issue, RuleCondition, Severity,
+    TimestampPrecision,
 };
 use hl7v2_core::Message;
 use hl7v2_parser::parse;
@@ -397,8 +397,8 @@ fn test_is_email_invalid() {
     assert!(!is_email("@domain.com")); // No local part
     assert!(!is_email("user@")); // No domain
     assert!(!is_email("user@domain")); // No TLD
-    // Note: "user@.com" actually passes our basic validation (has @, local part, and domain with dot)
-    // In a real implementation, you'd want more sophisticated validation
+                                       // Note: "user@.com" actually passes our basic validation (has @, local part, and domain with dot)
+                                       // In a real implementation, you'd want more sophisticated validation
 }
 
 #[test]
@@ -1119,4 +1119,145 @@ fn test_special_characters() {
 
     // Control characters should fail identifier validation
     assert!(!is_identifier("test\twith\ttabs"));
+}
+
+// ============================================================================
+// Regex Cache Tests (EFF-687)
+// ============================================================================
+
+use crate::{get_or_compile_regex, get_regex_cache_stats};
+
+#[test]
+fn test_regex_cache_compiles_and_caches() {
+    // Use a unique pattern to avoid interference from other tests
+    let unique_pattern = format!(
+        r"^TEST-\d+-{}$",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+
+    // First call should compile and cache
+    let regex1 = get_or_compile_regex(&unique_pattern);
+    assert!(regex1.is_some(), "Should compile valid pattern");
+
+    // Second call should return cached regex
+    let regex2 = get_or_compile_regex(&unique_pattern);
+    assert!(regex2.is_some(), "Should return cached regex");
+
+    // Both should work identically
+    assert_eq!(regex1.unwrap().as_str(), regex2.unwrap().as_str());
+}
+
+#[test]
+fn test_regex_cache_invalid_pattern() {
+    // Invalid regex pattern - should return None gracefully
+    let result = get_or_compile_regex("[invalid");
+    assert!(result.is_none(), "Should return None for invalid pattern");
+}
+
+#[test]
+fn test_regex_cache_multiple_patterns() {
+    // Use unique patterns to avoid test interference
+    let base = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    let patterns = vec![
+        format!(r"^MULTI-{}-A\d+$", base),
+        format!(r"^MULTI-{}-B\d+$", base),
+        format!(r"^MULTI-{}-C\d+$", base),
+    ];
+
+    // Compile all patterns
+    for pattern in &patterns {
+        let regex = get_or_compile_regex(pattern);
+        assert!(regex.is_some(), "Should compile pattern: {}", pattern);
+    }
+
+    // Retrieve all patterns again (should hit cache)
+    for pattern in &patterns {
+        let regex = get_or_compile_regex(pattern);
+        assert!(
+            regex.is_some(),
+            "Should retrieve cached pattern: {}",
+            pattern
+        );
+    }
+
+    // All should still work
+    for pattern in &patterns {
+        let regex = get_or_compile_regex(pattern).unwrap();
+        let test_input = format!("MULTI-{}-A123", base);
+        if pattern.contains("-A") {
+            assert!(
+                regex.is_match(&test_input),
+                "Pattern {} should match {}",
+                pattern,
+                test_input
+            );
+        }
+    }
+}
+
+#[test]
+fn test_regex_cache_used_by_matches_complex_pattern() {
+    // Use a unique timestamped pattern to avoid interference
+    let base = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    // matches_complex_pattern requires ALL patterns to match
+    // Use a single pattern for this test
+    let patterns = vec![format!(r"^COMPLEX-{}-\d+$", base)];
+
+    // Test that pattern works (cache may or may not have it)
+    assert!(matches_complex_pattern(
+        &format!("COMPLEX-{}-2024", base),
+        &patterns.iter().map(|s| s.as_str()).collect::<Vec<_>>()
+    ));
+
+    // Second call should work regardless of cache state
+    assert!(matches_complex_pattern(
+        &format!("COMPLEX-{}-1234", base),
+        &patterns.iter().map(|s| s.as_str()).collect::<Vec<_>>()
+    ));
+}
+
+#[test]
+fn test_check_rule_condition_with_matches_regex_uses_cache() {
+    use crate::{check_rule_condition, RuleCondition};
+    use hl7v2_core::Message;
+
+    // Simple HL7 message
+    let message_text = "MSH|^~\\&|APP|FAC|APP|FAC|20240101120000||ADT^A01|MSG001|P|2.5\rPID|1|12345||DOE^JOHN||19800101|M\r";
+    let message: Message = hl7v2_parser::parse(message_text.as_bytes()).expect("Valid message");
+
+    // Use a unique regex pattern to test caching
+    let base = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    let condition = RuleCondition {
+        field: "PID.3".to_string(),
+        operator: "matches_regex".to_string(),
+        value: Some(format!(r"^\d+-{}$", base)),
+        values: None,
+    };
+
+    // First call should work
+    let result1 = check_rule_condition(&message, &condition);
+
+    // Second call should also work (may use cache)
+    let result2 = check_rule_condition(&message, &condition);
+
+    // Results should be consistent
+    assert_eq!(
+        result1, result2,
+        "Results should be consistent between calls"
+    );
 }

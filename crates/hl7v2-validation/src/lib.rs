@@ -28,6 +28,71 @@ use chrono::{NaiveDate, NaiveDateTime};
 use hl7v2_core::Message;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::{OnceLock, RwLock};
+use std::num::NonZeroUsize;
+use lru::LruCache;
+
+// ============================================================================
+// Regex Cache Module (EFF-687)
+// ============================================================================
+
+/// Default capacity for the regex cache
+const REGEX_CACHE_CAPACITY: usize = 100;
+
+/// Global thread-safe regex cache using OnceLock for lazy initialization
+static REGEX_CACHE: OnceLock<RwLock<LruCache<String, Regex>>> = OnceLock::new();
+
+/// Get or initialize the regex cache
+fn get_regex_cache() -> &'static RwLock<LruCache<String, Regex>> {
+    REGEX_CACHE.get_or_init(|| {
+        let capacity = NonZeroUsize::new(REGEX_CACHE_CAPACITY)
+            .unwrap_or_else(|| NonZeroUsize::new(1).unwrap());
+        RwLock::new(LruCache::new(capacity))
+    })
+}
+
+/// Get a compiled regex from cache or compile and cache it
+/// 
+/// # Arguments
+/// * `pattern` - The regex pattern string
+/// 
+/// # Returns
+/// * `Some(Regex)` - The compiled regex (cached or newly compiled)
+/// * `None` - If the pattern is invalid
+pub fn get_or_compile_regex(pattern: &str) -> Option<Regex> {
+    // Note: LruCache::get requires mutable access to update LRU tracking
+    // So we use write lock for both get and put operations
+    let mut cache = get_regex_cache().write().ok()?;
+    
+    // Check if already in cache
+    if let Some(regex) = cache.get(pattern) {
+        return Some(regex.clone());
+    }
+    
+    // Not in cache - compile it
+    let regex = Regex::new(pattern).ok()?;
+    
+    // Store in cache
+    cache.put(pattern.to_string(), regex.clone());
+    
+    Some(regex)
+}
+
+/// Clear the regex cache (useful for testing)
+pub fn clear_regex_cache() {
+    if let Ok(mut cache) = get_regex_cache().write() {
+        cache.clear();
+    }
+}
+
+/// Get cache statistics for monitoring (returns current size and capacity)
+pub fn get_regex_cache_stats() -> (usize, usize) {
+    if let Ok(cache) = get_regex_cache().read() {
+        (cache.len(), cache.cap().get())
+    } else {
+        (0, REGEX_CACHE_CAPACITY)
+    }
+}
 
 /// Severity of validation issues
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -379,11 +444,10 @@ pub fn is_within_range(value: &str, min: &str, max: &str) -> bool {
 pub fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
     // All patterns must match
     patterns.iter().all(|pattern| {
-        if let Ok(regex) = Regex::new(pattern) {
-            regex.is_match(value)
-        } else {
-            false
-        }
+        // Use cached regex for performance (EFF-687)
+        get_or_compile_regex(pattern)
+            .map(|regex| regex.is_match(value))
+            .unwrap_or(false)
     })
 }
 
@@ -826,8 +890,10 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         "in" => lhs.map(|l| rhs_list.contains(&l)).unwrap_or(false),
         "matches_regex" => {
             if let (Some(l), Some(pat)) = (lhs, rhs_first) {
-                // compile per-call for simplicity; optimize later with a cache if needed
-                Regex::new(pat).map(|re| re.is_match(l)).unwrap_or(false)
+                // Use cached regex for performance (EFF-687)
+                get_or_compile_regex(pat)
+                    .map(|re| re.is_match(l))
+                    .unwrap_or(false)
             } else {
                 false
             }
