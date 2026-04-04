@@ -30,6 +30,8 @@ members = [
     "crates/hl7v2-gen",
     "crates/hl7v2-cli",
     "crates/hl7v2-server",
+    # Security and monitoring
+    "crates/hl7v2-guard",
     # Testing utilities
     "crates/hl7v2-test-utils",
     # End-to-end tests

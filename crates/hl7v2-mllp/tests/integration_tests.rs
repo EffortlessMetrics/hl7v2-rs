@@ -4,8 +4,8 @@
 //! HL7 message scenarios.
 
 use hl7v2_mllp::{
-    MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
-    is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+    find_complete_mllp_message, is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+    MllpFrameIterator, MLLP_END_1, MLLP_END_2, MLLP_START,
 };
 
 // ============================================================================
@@ -59,9 +59,9 @@ fn test_multiple_messages_in_sequence() {
     let framed3 = wrap_mllp(msg3);
 
     // Add all to iterator
-    iter.extend(&framed1);
-    iter.extend(&framed2);
-    iter.extend(&framed3);
+    iter.extend(&framed1).unwrap();
+    iter.extend(&framed2).unwrap();
+    iter.extend(&framed3).unwrap();
 
     // Extract all
     assert_eq!(&iter.next_message().unwrap().unwrap(), msg1);
@@ -106,7 +106,7 @@ fn test_fragmented_message_single_byte() {
 
     // Add one byte at a time
     for byte in &framed {
-        iter.extend(&[*byte]);
+        iter.extend(&[*byte]).unwrap();
     }
 
     // Should be able to extract the message
@@ -123,7 +123,7 @@ fn test_fragmented_message_small_chunks() {
 
     // Add in 5-byte chunks
     for chunk in framed.chunks(5) {
-        iter.extend(chunk);
+        iter.extend(chunk).unwrap();
     }
 
     let extracted = iter.next_message().unwrap().unwrap();
@@ -142,15 +142,15 @@ fn test_fragmented_across_messages() {
 
     // Add first message and part of second
     let split_point = framed2.len() / 2;
-    iter.extend(&framed1);
-    iter.extend(&framed2[..split_point]);
+    iter.extend(&framed1).unwrap();
+    iter.extend(&framed2[..split_point]).unwrap();
 
     // Should get first message
     assert_eq!(&iter.next_message().unwrap().unwrap(), msg1);
     assert!(iter.next_message().is_none());
 
     // Add rest of second
-    iter.extend(&framed2[split_point..]);
+    iter.extend(&framed2[split_point..]).unwrap();
     assert_eq!(&iter.next_message().unwrap().unwrap(), msg2);
 }
 
@@ -218,7 +218,7 @@ fn test_iterator_clear() {
     let mut iter = MllpFrameIterator::new();
 
     // Add some data
-    iter.extend(b"random data");
+    iter.extend(b"random data").unwrap();
     assert!(iter.buffer_len() > 0);
 
     // Clear
@@ -228,7 +228,7 @@ fn test_iterator_clear() {
     // Should work normally after clear
     let msg = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(msg);
-    iter.extend(&framed);
+    iter.extend(&framed).unwrap();
     assert_eq!(&iter.next_message().unwrap().unwrap(), msg);
 }
 
@@ -240,7 +240,7 @@ fn test_iterator_buffer_management() {
     for i in 0..100 {
         let msg = format!("MSH|^~\\&|TEST{}\r", i);
         let framed = wrap_mllp(msg.as_bytes());
-        iter.extend(&framed);
+        iter.extend(&framed).unwrap();
 
         let extracted = iter.next_message().unwrap().unwrap();
         assert_eq!(&extracted, msg.as_bytes());
