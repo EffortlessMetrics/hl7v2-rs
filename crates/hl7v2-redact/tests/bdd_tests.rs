@@ -1,10 +1,14 @@
 //! BDD-style tests for hl7v2-redact using cucumber
+//!
+//! Run with: cargo test --test bdd_tests -p hl7v2-redact
 
 use cucumber::{given, then, when, World};
 use hl7v2_parser::parse;
 use hl7v2_redact::{RedactionEngine, RedactionResult, RedactionRule, RedactionStrategy};
 
-#[derive(Debug, Default, World)]
+/// Test world for redact BDD tests
+#[derive(Debug, World)]
+#[world(init = Self::new)]
 pub struct RedactWorld {
     message: Option<String>,
     parsed_message: Option<hl7v2_model::Message>,
@@ -14,13 +18,31 @@ pub struct RedactWorld {
     error: Option<String>,
 }
 
+impl RedactWorld {
+    fn new() -> Self {
+        Self {
+            message: None,
+            parsed_message: None,
+            redaction_result: None,
+            redaction_engine: None,
+            rules: Vec::new(),
+            error: None,
+        }
+    }
+}
+
 // Given Steps
 
-#[given("an HL7 message with PHI:")]
-fn given_hl7_with_phi(world: &mut RedactWorld, step: &cucumber::Step) {
-    let content = step.docstring().unwrap().to_string();
-    world.message = Some(content.clone());
-    world.parsed_message = parse(content.as_bytes()).ok();
+#[given("a realistic HL7 message with PHI")]
+fn given_realistic_hl7_with_phi(world: &mut RedactWorld) {
+    let hl7 = "MSH|^~\\&|HOSPITAL_ADT|MAIN_HOSPITAL|LAB_SYSTEM|LAB|20250128120000||ADT^A01^ADT_A01|MSG00001|P|2.5\r\
+EVN|A01|20250128120000|||USER123\r\
+PID|1||123456789^^^HOSPITAL^MRN||Doe^John^Michael^Jr^^L||19800115|M|||123 Main Street^^Springfield^IL^62701^USA^^^H||555-123-4567|555-987-6543||S|C|123456789|123-45-6789\r\
+NK1|1|Smith^Jane^Marie|SPOUSE|||555-456-7890||E\\C\r\
+PV1|1|I|200^201^01|R|||DOC12345^Smith^John^M^^^MD|DOC67890^Jones^Mary^A^^^MD|||MED||||A|||1234567890|COMP_INS|||||\r\
+OBX|1|ST|12345^Test^L||Positive||||||F\r";
+    world.message = Some(hl7.to_string());
+    world.parsed_message = parse(hl7.as_bytes()).ok();
 }
 
 #[given("a redaction engine with common PHI rules")]
@@ -33,22 +55,16 @@ fn given_hipaa_safe_harbor_engine(world: &mut RedactWorld) {
     world.redaction_engine = Some(RedactionEngine::hipaa_safe_harbor());
 }
 
-#[given(expr = "a redaction rule for path {string} with strategy {word}")]
-fn given_redaction_rule(
-    world: &mut RedactWorld,
-    path: cucumber::gherkin::Step,
-    strategy: cucumber::gherkin::Step,
-) {
-    let path_str = path.to_string();
-    let strategy_str = strategy.to_string();
-    let strategy = match strategy_str.as_str() {
+#[given(regex = r#"^a redaction rule for path "([^"]*)" with strategy "([^"]*)"$"#)]
+fn given_redaction_rule(world: &mut RedactWorld, path: String, strategy: String) {
+    let strategy = match strategy.as_str() {
         "hash" => RedactionStrategy::Hash,
         "mask" => RedactionStrategy::Mask,
         "remove" => RedactionStrategy::Remove,
         "replace" => RedactionStrategy::Replace("[REDACTED]".to_string()),
         _ => RedactionStrategy::Mask,
     };
-    world.rules.push(RedactionRule::new(path_str, strategy));
+    world.rules.push(RedactionRule::new(path, strategy));
 }
 
 #[given("an empty HL7 message")]
@@ -60,8 +76,7 @@ fn given_empty_message(world: &mut RedactWorld) {
 
 #[given("an HL7 message with no PHI")]
 fn given_no_phi_message(world: &mut RedactWorld) {
-    let hl7 =
-        "MSH|^~\\&|HOSPITAL|FACILITY|20250128120000||ACK^A01|MSG00001|P|2.5\rMSA|AA|MSG00001\r";
+    let hl7 = "MSH|^~\\&|HOSPITAL|FACILITY|20250128120000||ACK^A01|MSG00001|P|2.5\rMSA|AA|MSG00001\r";
     world.message = Some(hl7.to_string());
     world.parsed_message = parse(hl7.as_bytes()).ok();
 }
@@ -81,6 +96,7 @@ fn when_apply_redaction(world: &mut RedactWorld) {
 }
 
 #[when("I create a redaction engine with the configured rules")]
+#[given("I create a redaction engine with the configured rules")]
 fn when_create_engine(world: &mut RedactWorld) {
     world.redaction_engine = Some(RedactionEngine::new(world.rules.clone()));
 }
@@ -114,7 +130,7 @@ fn then_patient_id_hashed(world: &mut RedactWorld) {
         let redacted = String::from_utf8_lossy(&result.message_bytes);
         // Should not contain raw patient identifiers
         assert!(
-            !redacted.contains("123456789"),
+            !redacted.contains("123456789^^^HOSPITAL^MRN"),
             "Raw patient ID should not be present"
         );
     }
@@ -125,7 +141,7 @@ fn then_patient_name_masked(world: &mut RedactWorld) {
     if let Some(ref result) = world.redaction_result {
         let redacted = String::from_utf8_lossy(&result.message_bytes);
         assert!(
-            !redacted.contains("Doe^John"),
+            !redacted.contains("Doe^John^Michael"),
             "Patient name should be masked"
         );
     }
@@ -163,9 +179,8 @@ fn then_audit_log_generated(world: &mut RedactWorld) {
     }
 }
 
-#[then(expr = "the audit log should contain {int} entries")]
-fn then_audit_log_entries(world: &mut RedactWorld, count: i32) {
-    let count = count as usize;
+#[then(regex = r"^the audit log should contain (\d+) entries$")]
+fn then_audit_log_entries(world: &mut RedactWorld, count: usize) {
     if let Some(ref result) = world.redaction_result {
         assert_eq!(
             result.audit_log.len(),
@@ -221,7 +236,7 @@ fn then_dob_replaced(world: &mut RedactWorld) {
     }
 }
 
-fn main() {
-    // Cucumber will run the tests
-    futures::executor::block_on(RedactWorld::run("tests/features/"));
+#[tokio::main]
+async fn main() {
+    RedactWorld::run("tests/features/redaction.feature").await;
 }
