@@ -1423,10 +1423,12 @@ name = "hl7v2-datatype"
 version = "1.2.0"
 dependencies = [
  "chrono",
+ "cucumber",
  "hl7v2-datetime",
  "proptest",
  "regex",
  "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -1516,9 +1518,11 @@ name = "hl7v2-faker"
 version = "1.2.0"
 dependencies = [
  "chrono",
+ "cucumber",
  "proptest",
  "rand 0.10.0",
  "rand_distr",
+ "tokio",
  "uuid",
 ]
 
