@@ -7,28 +7,10 @@
 //! - Conditional constraints
 //! - Data type constraints
 
-use hl7v2_core::parse;
-use hl7v2_prof::{load_profile, validate, Profile};
+use hl7v2_prof::load_profile;
 
-/// Helper: Build a valid ADT A01 message
-fn valid_adt_a01() -> String {
-    let mut s = String::new();
-    s.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
-    s.push_str("EVN|A01|20250101000000|\r");
-    s.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
-    s.push_str("PV1|1|I|WARD1||||DOC123|||||||||||||||||||||||||20250101\r");
-    s
-}
-
-/// Helper: Check if issues contain a specific error code
-fn has_error_code(issues: &[hl7v2_prof::Issue], code: &str) -> bool {
-    issues.iter().any(|i| i.code == code)
-}
-
-/// Helper: Check if issues contain error for a specific path
-fn has_error_for_path(issues: &[hl7v2_prof::Issue], path: &str) -> bool {
-    issues.iter().any(|i| i.path.as_deref() == Some(path))
-}
+mod common;
+use common::{has_error_code, has_error_for_path, valid_adt_a01, validate_message};
 
 // ============================================================================
 // Test 1: Required field validation passes when field present
@@ -47,9 +29,8 @@ constraints:
     required: true
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     assert!(
         issues.is_empty(),
@@ -75,9 +56,8 @@ constraints:
     required: true
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // PID.99 doesn't exist, so should trigger required field error
     assert!(
@@ -102,15 +82,14 @@ constraints:
     required: true
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with empty PID.3
     let mut msg_str = String::new();
     msg_str.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
     msg_str.push_str("PID|1|||^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r"); // Empty PID.3
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = validate_message(&msg_str, &profile);
 
     assert!(
         has_error_code(&issues, "MISSING_REQUIRED_FIELD"),
@@ -134,9 +113,8 @@ lengths:
     max: 100
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // "Doe" is 3 chars, well under 100 limit
     assert!(issues.is_empty(), "Expected no length issues: {:?}", issues);
@@ -157,9 +135,8 @@ lengths:
     max: 2
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // "Doe" is 3 chars, exceeds 2 char limit
     assert!(
@@ -184,9 +161,8 @@ lengths:
     max: 3
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // "Doe" is 3 chars, exactly at boundary
     assert!(
@@ -211,9 +187,8 @@ lengths:
     max: 2
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // "Doe" is 3 chars, 1 over boundary
     assert!(
@@ -239,9 +214,8 @@ constraints:
       min: 2
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // PID.5 is "Doe^John" - 2 components, at minimum
     // Note: Component validation may vary by implementation
@@ -266,9 +240,8 @@ constraints:
       eq: ["PV1.2", "I"]
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // PV1.2 is "I" (inpatient), so PV1.3 is required and present
     assert!(
@@ -296,9 +269,8 @@ constraints:
       eq: ["PV1.2", "X"]
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // PV1.2 is "I" not "X", so the constraint should not apply
     assert!(
@@ -324,9 +296,8 @@ advanced_datatypes:
     min_length: 2
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // "Doe" is 3 chars, over minimum of 2
     assert!(
@@ -352,9 +323,8 @@ advanced_datatypes:
     max_length: 10
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // "Doe" is 3 chars, under max of 10
     assert!(
@@ -380,9 +350,8 @@ advanced_datatypes:
     pattern: "^[0-9]+$"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // PID.3 is "123456" - matches numeric pattern
     assert!(
@@ -408,9 +377,8 @@ advanced_datatypes:
     pattern: "^[0-9]+$"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // "Doe" contains letters, doesn't match numeric pattern
     assert!(
@@ -435,9 +403,8 @@ datatypes:
     type: "DT"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // PID.7 is "19800101" which is a valid DT format
     assert!(
@@ -475,9 +442,8 @@ valuesets:
       - "F"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = validate_message(&valid_adt_a01(), &profile);
 
     // All constraints should pass
     assert!(
@@ -502,15 +468,14 @@ constraints:
     required: true
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with empty PID.3
     let mut msg_str = String::new();
     msg_str.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
     msg_str.push_str("PID|1|||^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = validate_message(&msg_str, &profile);
 
     // Should have error with path pointing to PID.3
     assert!(
@@ -535,15 +500,14 @@ constraints:
     required: false
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with empty PID.3 but not required
     let mut msg_str = String::new();
     msg_str.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
     msg_str.push_str("PID|1|||^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = validate_message(&msg_str, &profile);
 
     // Empty optional field should not error
     assert!(

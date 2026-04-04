@@ -7,35 +7,10 @@
 //! - Complex multi-field rules
 //! - Contextual validation rules
 
-use hl7v2_core::parse;
-use hl7v2_prof::{load_profile, validate, Profile};
+use hl7v2_prof::load_profile;
 
-/// Helper: Build a valid ADT A01 message
-fn valid_adt_a01() -> String {
-    let mut s = String::new();
-    s.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
-    s.push_str("EVN|A01|20250101000000|\r");
-    s.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
-    s.push_str("PV1|1|I|WARD1||||DOC123|||||||||||||||||||||||||20250101\r");
-    s
-}
-
-/// Helper: Build a valid ORU R01 message
-fn valid_oru_r01() -> String {
-    let mut s = String::new();
-    s.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ORU^R01|MSG1|P|2.5.1\r");
-    s.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
-    s.push_str("PV1|1|O|||||||||||||||||||||||||||||||\r");
-    s.push_str("ORC|RE|ORD123||20250101\r");
-    s.push_str("OBR|1|ORD123||TEST^Test Panel^L|20250101000000\r");
-    s.push_str("OBX|1|NM|TEST1^Test 1^L||100|mg/dL|10-200|N|||F\r");
-    s
-}
-
-/// Helper: Check if issues contain a specific error code
-fn has_error_code(issues: &[hl7v2_prof::Issue], code: &str) -> bool {
-    issues.iter().any(|i| i.code == code)
-}
+mod common;
+use common::{has_error_code, valid_adt_a01, valid_oru_r01};
 
 // ============================================================================
 // Test 1: Conditional rule - if condition met, action executes
@@ -61,9 +36,8 @@ cross_field_rules:
         message: "Ward location required for inpatients"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Should pass - inpatient with ward
     assert!(
@@ -97,9 +71,8 @@ cross_field_rules:
         message: "Required field missing for inpatient"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Should fail because PV1.99 doesn't exist
     assert!(
@@ -130,9 +103,8 @@ cross_field_rules:
     actions: []
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // PID.8 is "M" so assertion passes
     assert!(
@@ -163,9 +135,8 @@ cross_field_rules:
     actions: []
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // PID.8 is "M" not "F", so assertion fails
     assert!(
@@ -199,7 +170,7 @@ cross_field_rules:
         message: "Outpatients should not have admission date"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Outpatient with no admission date
     let mut msg_str = String::new();
@@ -207,8 +178,7 @@ cross_field_rules:
     msg_str.push_str("PID|1||123456|||||||||||||||||||\r");
     msg_str.push_str("PV1|1|O||||||||||||||||||||||||||||||\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Should pass - outpatient with no admission date
     assert!(
@@ -240,7 +210,7 @@ cross_field_rules:
     actions: []
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with admission before discharge
     let mut msg_str = String::new();
@@ -248,8 +218,7 @@ cross_field_rules:
     msg_str.push_str("PID|1||123456|||||||||||||||||||\r");
     msg_str.push_str("PV1|1|I|WARD|||||||||||||||||||||||||||20250101||20250105\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Should pass - admission before discharge
     // Note: The "before" operator behavior depends on the timestamp comparison implementation
@@ -279,7 +248,7 @@ cross_field_rules:
     actions: []
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with discharge before admission (invalid)
     let mut msg_str = String::new();
@@ -287,8 +256,7 @@ cross_field_rules:
     msg_str.push_str("PID|1||123456|||||||||||||||||||\r");
     msg_str.push_str("PV1|1|I|WARD|||||||||||||||||||||||||||20250105||20250101\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Should fail - discharge before admission
     assert!(
@@ -320,7 +288,7 @@ cross_field_rules:
     actions: []
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with same admission and discharge date
     let mut msg_str = String::new();
@@ -328,8 +296,7 @@ cross_field_rules:
     msg_str.push_str("PID|1||123456|||||||||||||||||||\r");
     msg_str.push_str("PV1|1|I|WARD|||||||||||||||||||||||||||20250101||20250101\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Equal dates should fail with "before" operator (strict comparison)
     // Note: This behavior depends on the compare_timestamps_for_before implementation
@@ -361,7 +328,7 @@ cross_field_rules:
         message: "Visit ID required for emergency patients"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Emergency patient without visit ID
     let mut msg_str = String::new();
@@ -369,8 +336,7 @@ cross_field_rules:
     msg_str.push_str("PID|1||123456|||||||||||||||||||\r");
     msg_str.push_str("PV1|1|E||||||||||||||||||||||||||||||\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Should fail - emergency patient without visit ID
     assert!(
@@ -400,9 +366,8 @@ contextual_rules:
     validation_type: "require"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Should pass - inpatient with room
     assert!(
@@ -432,9 +397,8 @@ contextual_rules:
     validation_type: "require"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Should fail - inpatient without required field
     assert!(
@@ -464,7 +428,7 @@ contextual_rules:
     validation_type: "prohibit"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Outpatient with no bed
     let mut msg_str = String::new();
@@ -472,8 +436,7 @@ contextual_rules:
     msg_str.push_str("PID|1||123456|||||||||||||||||||\r");
     msg_str.push_str("PV1|1|O||||||||||||||||||||||||||||||\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Should pass - outpatient without bed
     assert!(
@@ -503,7 +466,7 @@ temporal_rules:
     allow_equal: false
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with different date precisions
     let mut msg_str = String::new();
@@ -512,8 +475,7 @@ temporal_rules:
     msg_str.push_str("PV1|1|I|WARD|||||||||||||||||||||||||||20241201||\r");
     msg_str.push_str("ORC|RE|||20241201103000\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Should handle different date precisions
     // 20241201 (date only) should be before 20241201103000 (datetime)
@@ -547,9 +509,8 @@ cross_field_rules:
         datatype: "ST"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Should validate PID.3 data type
     // Note: "present" operator may not be implemented, documenting expected behavior
@@ -582,9 +543,8 @@ temporal_rules:
     allow_equal: true
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_oru_r01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_oru_r01(), &profile);
 
     // Multiple temporal rules should all be checked
     // Results depend on dates in the test message

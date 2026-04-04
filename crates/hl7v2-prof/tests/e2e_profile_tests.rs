@@ -6,57 +6,10 @@
 //! - ORU^R01 observation validation
 //! - Complex profile scenarios
 
-use hl7v2_core::parse;
-use hl7v2_prof::{load_profile, validate, Profile};
+use hl7v2_prof::load_profile;
 
-/// Helper: Build a valid ADT A01 message
-fn valid_adt_a01() -> String {
-    let mut s = String::new();
-    s.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
-    s.push_str("EVN|A01|20250101000000|\r");
-    s.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
-    s.push_str("PV1|1|I|WARD1||||DOC123|||||||||||||||||||||||||20250101\r");
-    s
-}
-
-/// Helper: Build an invalid ADT A01 message (missing required fields)
-fn invalid_adt_a01() -> String {
-    let mut s = String::new();
-    s.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
-    s.push_str("EVN|A01|20250101000000|\r");
-    s.push_str("PID|1|||^^^HOSP^MR||Doe^John||19800101|X||||||||||||||||\r"); // Missing PID.3, invalid sex
-    s.push_str("PV1|1|I|||||||||||||||||||||||||||||||||\r"); // Missing PV1.3
-    s
-}
-
-/// Helper: Build a valid ORU R01 message
-fn valid_oru_r01() -> String {
-    let mut s = String::new();
-    s.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ORU^R01|MSG1|P|2.5.1\r");
-    s.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
-    s.push_str("PV1|1|O|||||||||||||||||||||||||||||||\r");
-    s.push_str("ORC|RE|ORD123||20250101\r");
-    s.push_str("OBR|1|ORD123||TEST^Test Panel^L|20250101000000\r");
-    s.push_str("OBX|1|NM|TEST1^Test 1^L||100|mg/dL|10-200|N|||F\r");
-    s
-}
-
-/// Helper: Build an invalid ORU R01 message (missing observation value)
-fn invalid_oru_r01() -> String {
-    let mut s = String::new();
-    s.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ORU^R01|MSG1|P|2.5.1\r");
-    s.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
-    s.push_str("PV1|1|O|||||||||||||||||||||||||||||||\r");
-    s.push_str("ORC|RE|ORD123||20250101\r");
-    s.push_str("OBR|1|ORD123||TEST^Test Panel^L|20250101000000\r");
-    s.push_str("OBX|1|NM|TEST1^Test 1^L||||mg/dL|10-200|N|||F\r"); // Empty OBX.5
-    s
-}
-
-/// Helper: Check if issues contain a specific error code
-fn has_error_code(issues: &[hl7v2_prof::Issue], code: &str) -> bool {
-    issues.iter().any(|i| i.code == code)
-}
+mod common;
+use common::{has_error_code, invalid_adt_a01, invalid_oru_r01, valid_adt_a01, valid_oru_r01};
 
 // ============================================================================
 // Test 1: Valid ADT^A01 passes with comprehensive profile
@@ -91,9 +44,8 @@ lengths:
     max: 80
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     assert!(issues.is_empty(), "Valid ADT^A01 should pass: {:?}", issues);
 }
@@ -126,9 +78,8 @@ valuesets:
       - "U"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(invalid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&invalid_adt_a01(), &profile);
 
     // Should have multiple errors
     assert!(!issues.is_empty(), "Invalid ADT^A01 should have errors");
@@ -181,9 +132,8 @@ valuesets:
       - "CWE"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_oru_r01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_oru_r01(), &profile);
 
     // Valid ORU^R01 should pass
     assert!(issues.is_empty(), "Valid ORU^R01 should pass: {:?}", issues);
@@ -209,9 +159,8 @@ constraints:
     required: true
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(invalid_oru_r01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&invalid_oru_r01(), &profile);
 
     // Should fail due to missing observation value
     assert!(
@@ -255,9 +204,8 @@ table_precedence:
   - "HL70001"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Valid code in HL7 table should pass
     assert!(
@@ -297,9 +245,8 @@ temporal_rules:
     allow_equal: false
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Valid message with both rules
     assert!(
@@ -365,9 +312,8 @@ cross_field_rules:
     actions: []
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Valid message with comprehensive profile
     // Note: Some constraints may not be fully implemented
@@ -386,9 +332,8 @@ version: "2.5.1"
 segments: []
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Empty profile should not cause errors
     assert!(
@@ -418,9 +363,8 @@ valuesets:
       - "U"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Valid sex code should pass
     assert!(
@@ -447,9 +391,8 @@ lengths:
     max: 100
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // All fields under length limit should pass
     assert!(issues.is_empty(), "Valid lengths should pass: {:?}", issues);
@@ -479,9 +422,8 @@ valuesets:
       - "X"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Should have multiple errors:
     // - PID.99 missing (required)
@@ -513,15 +455,14 @@ valuesets:
       - "F"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with issues
     let mut msg_str = String::new();
     msg_str.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
     msg_str.push_str("PID|1|||^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Error details should be descriptive
     for issue in &issues {
@@ -553,9 +494,8 @@ custom_rules:
     script: "field(PID.5.1).length() > 1"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // "Doe" is more than 1 character
     assert!(
@@ -584,9 +524,8 @@ advanced_datatypes:
     pattern: "^[0-9]+$"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Valid date format and numeric ID
     assert!(
@@ -619,9 +558,8 @@ valuesets:
       - "X"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // Should report multiple different errors
     let error_codes: std::collections::HashSet<_> = issues.iter().map(|i| &i.code).collect();

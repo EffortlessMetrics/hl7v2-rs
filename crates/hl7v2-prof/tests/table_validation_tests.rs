@@ -7,23 +7,10 @@
 //! - Table precedence rules
 //! - Empty field handling in valuesets
 
-use hl7v2_core::parse;
-use hl7v2_prof::{load_profile, validate, Profile};
+use hl7v2_prof::load_profile;
 
-/// Helper: Build a valid ADT A01 message
-fn valid_adt_a01() -> String {
-    let mut s = String::new();
-    s.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
-    s.push_str("EVN|A01|20250101000000|\r");
-    s.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
-    s.push_str("PV1|1|I|WARD1||||DOC123|||||||||||||||||||||||||20250101\r");
-    s
-}
-
-/// Helper: Check if issues contain a specific error code
-fn has_error_code(issues: &[hl7v2_prof::Issue], code: &str) -> bool {
-    issues.iter().any(|i| i.code == code)
-}
+mod common;
+use common::{has_error_code, valid_adt_a01};
 
 // ============================================================================
 // Test 1: Valid code value passes validation
@@ -45,9 +32,8 @@ valuesets:
       - "U"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // "M" is in the allowed values, so no errors expected
     assert!(
@@ -76,9 +62,8 @@ valuesets:
       - "U"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // "M" is NOT in the allowed values, so should get an error
     assert!(!issues.is_empty(), "Expected error for invalid code value");
@@ -107,15 +92,14 @@ valuesets:
       - "F"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with empty PID.8 field
     let mut msg_str = String::new();
     msg_str.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
     msg_str.push_str("PID|1||123456||||||||||||||\r"); // Empty PID.8
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Note: Current implementation validates empty fields against valuesets
     // This may be a gap - empty fields might need to be skipped
@@ -153,9 +137,8 @@ table_precedence:
   - "HL70001"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // "M" is an active code, should pass
     assert!(
@@ -190,15 +173,14 @@ table_precedence:
   - "HL70001"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with deprecated code
     let mut msg_str = String::new();
     msg_str.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
     msg_str.push_str("PID|1||123456||||||||||||||X\r"); // Deprecated code
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Note: Current implementation only allows "A" or "active" status
     // Deprecated codes ("D") should be rejected but may not be
@@ -228,9 +210,8 @@ valuesets:
       - "N"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
-    let msg = parse(valid_adt_a01().as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let profile = load_profile(yaml).unwrap();
+    let issues = common::validate_message(&valid_adt_a01(), &profile);
 
     // "M" is one of many valid codes
     assert!(
@@ -271,15 +252,14 @@ table_precedence:
   - "HL70001"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Test with restricted code
     let mut msg_str = String::new();
     msg_str.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
     msg_str.push_str("PID|1||123456||||||||||||||O\r"); // Restricted code
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Note: Current implementation only allows "A" or "active" status
     // "R" (restricted) status should be rejected but may not be
@@ -305,15 +285,14 @@ valuesets:
       - "f"
 "#;
 
-    let profile: Profile = load_profile(yaml).unwrap();
+    let profile = load_profile(yaml).unwrap();
 
     // Message with uppercase code when lowercase required
     let mut msg_str = String::new();
     msg_str.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
     msg_str.push_str("PID|1||123456||||||||||||||M\r"); // Uppercase M
 
-    let msg = parse(msg_str.as_bytes()).unwrap();
-    let issues = validate(&msg, &profile);
+    let issues = common::validate_message(&msg_str, &profile);
 
     // Should be case-sensitive and fail
     assert!(
