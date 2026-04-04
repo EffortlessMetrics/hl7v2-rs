@@ -9,6 +9,9 @@ use hl7v2_datetime::{
     parse_hl7_ts_with_precision, today_hl7,
 };
 
+/// Parsed time components: (hour, minute, second, optional fractional)
+type TimeComponents = (u32, u32, u32, Option<u32>);
+
 /// Test world for DateTime BDD tests
 #[derive(Debug, World)]
 #[world(init = Self::new)]
@@ -22,7 +25,7 @@ pub struct DateTimeWorld {
     date_result: Option<Result<chrono::NaiveDate, DateTimeError>>,
 
     // ---- time parse results ----
-    time_result: Option<Result<(u32, u32, u32, Option<u32>), DateTimeError>>,
+    time_result: Option<Result<TimeComponents, DateTimeError>>,
 
     // ---- timestamp parse results ----
     ts_result: Option<Result<chrono::NaiveDateTime, DateTimeError>>,
