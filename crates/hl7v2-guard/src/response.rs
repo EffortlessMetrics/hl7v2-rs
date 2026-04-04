@@ -15,6 +15,7 @@ pub enum AlertChannel {
 
 /// Alert payload sent to channels.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct AlertPayload {
     /// Message ID.
     pub message_id: String,
