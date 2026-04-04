@@ -1671,6 +1671,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "hl7v2-redact"
+version = "1.2.0"
+dependencies = [
+ "cucumber",
+ "hl7v2-core",
+ "hl7v2-model",
+ "hl7v2-parser",
+ "hl7v2-query",
+ "hl7v2-test-utils",
+ "hl7v2-writer",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
 name = "hl7v2-server"
 version = "1.2.0"
 dependencies = [

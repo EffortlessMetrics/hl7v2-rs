@@ -6,6 +6,12 @@
 //! - Authentication and authorization
 //! - Rate limiting
 //! - Concurrency control
+//!
+//! # PHI Protection
+//!
+//! The logging middleware in this module is designed to NOT log request or
+//! response bodies, which may contain Protected Health Information (PHI).
+//! Only request metadata (method, URI) and response status are logged.
 
 use axum::{
     extract::{Request, State},
@@ -14,15 +20,61 @@ use axum::{
 };
 use http::StatusCode;
 use std::sync::Arc;
-use tracing::info_span;
 
 use crate::server::AppState;
 
-/// Trace request middleware
+/// PHI-aware logging middleware
+///
+/// Logs request and response metadata WITHOUT logging request/response bodies,
+/// ensuring HIPAA compliance by not exposing PHI in logs.
+///
+/// # What is logged:
+/// - HTTP method
+/// - Request URI (path)
+/// - Response status code
+/// - Trace ID (if available in headers)
+///
+/// # What is NOT logged:
+/// - Request body (may contain PHI)
+/// - Response body (may contain PHI)
+/// - Request/response headers (may contain authentication tokens)
+pub async fn phi_aware_logging_middleware(request: Request, next: Next) -> Response {
+    let method = request.method().clone();
+    let uri = request.uri().clone();
+    
+    // Extract trace ID if available for request correlation
+    let trace_id = request
+        .headers()
+        .get("x-trace-id")
+        .or_else(|| request.headers().get("x-request-id"))
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string());
+    
+    // Log request metadata only (NO body content)
+    match &trace_id {
+        Some(id) => tracing::info!(method = %method, uri = %uri, trace_id = %id, "Request received"),
+        None => tracing::info!(method = %method, uri = %uri, "Request received"),
+    }
+    
+    let response = next.run(request).await;
+    let status = response.status();
+    
+    // Log response status only (NO body content)
+    match &trace_id {
+        Some(id) => tracing::info!(status = %status, trace_id = %id, "Response sent"),
+        None => tracing::info!(status = %status, "Response sent"),
+    }
+    
+    response
+}
+
+/// Trace request middleware (deprecated: use phi_aware_logging_middleware)
 ///
 /// Wraps each request in a tracing span with request metadata.
+/// Note: This middleware uses tracing spans rather than explicit logging.
+#[deprecated(since = "1.2.0", note = "Use phi_aware_logging_middleware instead")]
 pub async fn trace_request(request: Request, next: Next) -> Response {
-    let span = info_span!(
+    let span = tracing::info_span!(
         "HTTP request",
         method = %request.method(),
         uri = %request.uri(),
