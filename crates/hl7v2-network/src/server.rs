@@ -17,7 +17,6 @@ use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tokio_util::codec::Framed;
-use tracing;
 
 /// Configuration for MLLP server
 #[derive(Debug, Clone)]
