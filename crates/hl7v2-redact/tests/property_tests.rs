@@ -3,7 +3,7 @@
 //! Uses proptest to verify redaction properties hold across arbitrary inputs.
 
 use hl7v2_parser::parse;
-use hl7v2_redact::{redact_hipaa, redact_phi, RedactionEngine, RedactionRule, RedactionStrategy};
+use hl7v2_redact::{RedactionEngine, RedactionRule, RedactionStrategy, redact_hipaa, redact_phi};
 use proptest::prelude::*;
 
 // ============================================================================
