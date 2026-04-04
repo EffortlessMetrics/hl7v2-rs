@@ -25,12 +25,12 @@
 //! ## Asynchronous API
 //!
 //! ```no_run
+//! # #[cfg(feature = "file")]
+//! # async fn example() {
 //! use hl7v2_core::file::async_impl::read_message_async;
 //!
-//! #[tokio::main]
-//! async fn main() {
-//!     let message = read_message_async("message.hl7").await.unwrap();
-//! }
+//! let message = read_message_async("message.hl7").await.unwrap();
+//! # }
 //! ```
 
 use hl7v2_model::{Batch, Error, FileBatch, Message};
