@@ -1,0 +1,65 @@
+groups:
+- name: hl7v2-server-alerts
+  rules:
+  # High error rate alert
+  - alert: HL7v2HighErrorRate
+    expr: |
+      (
+        sum(rate(hl7v2_http_requests_total{status=~"5.."}[5m]))
+        /
+        sum(rate(hl7v2_http_requests_total[5m]))
+      ) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "HL7v2 Server High Error Rate"
+      description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+  # High latency alert
+  - alert: HL7v2HighLatency
+    expr: |
+      histogram_quantile(0.95,
+        sum(rate(hl7v2_message_duration_seconds_bucket[5m])) by (le)
+      ) > 0.5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "HL7v2 Server High Latency"
+      description: "P95 latency is {{ $value }}s over the last 5 minutes"
+
+  # MLLP connection failures
+  - alert: HL7v2MLLPConnectionFailures
+    expr: |
+      rate(hl7v2_mllp_connection_failures_total[5m]) > 0.1
+    for: 3m
+    labels:
+      severity: critical
+    annotations:
+      summary: "HL7v2 MLLP Connection Failures"
+      description: "MLLP connection failure rate is {{ $value }}/sec"
+
+  # Pod crash looping
+  - alert: HL7v2PodCrashLooping
+    expr: |
+      rate(kube_pod_container_status_restarts_total{namespace="hl7v2-system"}[15m]) > 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "HL7v2 Server Pod Crash Looping"
+      description: "Pod {{ $labels.pod }} is crash looping"
+
+  # Low available replicas
+  - alert: HL7v2LowReplicas
+    expr: |
+      kube_deployment_status_replicas_available{deployment="hl7v2-server"}
+        <
+      kube_deployment_spec_replicas{deployment="hl7v2-server"} * 0.5
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "HL7v2 Server Low Replicas"
+      description: "Only {{ $value }} replicas available"

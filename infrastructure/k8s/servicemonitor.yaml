@@ -1,0 +1,25 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hl7v2-server
+  namespace: hl7v2-system
+  labels:
+    app: hl7v2-server
+    prometheus.io/scrape: "true"
+spec:
+  selector:
+    matchLabels:
+      app: hl7v2-server
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 10s
+    scrapeTimeout: 5s
+    honorLabels: true
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: 'hl7v2_.*'
+      action: keep
+  namespaceSelector:
+    matchNames:
+    - hl7v2-system
