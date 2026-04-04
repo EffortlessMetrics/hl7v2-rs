@@ -162,6 +162,7 @@ struct InternalStats {
 
 /// Memory cache entry containing the profile and metadata.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct MemoryCacheEntry {
     profile: Profile,
     etag: Option<String>,
@@ -190,17 +191,9 @@ impl Default for CacheConfig {
 }
 
 /// Builder for configuring and creating a [`PersistentProfileCache`].
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PersistentProfileCacheBuilder {
     config: CacheConfig,
-}
-
-impl Default for PersistentProfileCacheBuilder {
-    fn default() -> Self {
-        Self {
-            config: CacheConfig::default(),
-        }
-    }
 }
 
 impl PersistentProfileCacheBuilder {
@@ -273,6 +266,7 @@ pub struct PersistentProfileCache {
     /// Statistics tracking
     stats: Arc<RwLock<InternalStats>>,
     /// Cache configuration
+    #[allow(dead_code)]
     config: CacheConfig,
 }
 
@@ -740,18 +734,14 @@ impl PersistentProfileCache {
                 Err(_) => 0,
             };
 
-        let stats = {
-            let stats = self.stats.read().await;
-            CacheStats {
-                memory_entries,
-                persistent_entries,
-                memory_hits: stats.memory_hits,
-                persistent_hits: stats.persistent_hits,
-                misses: stats.misses,
-            }
-        };
-
-        stats
+        let stats = self.stats.read().await;
+        CacheStats {
+            memory_entries,
+            persistent_entries,
+            memory_hits: stats.memory_hits,
+            persistent_hits: stats.persistent_hits,
+            misses: stats.misses,
+        }
     }
 
     /// Reset the hit/miss statistics.
