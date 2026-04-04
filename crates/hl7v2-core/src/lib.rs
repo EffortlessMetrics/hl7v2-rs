@@ -9,6 +9,7 @@
 //! - `hl7v2-normalize`: Message normalization
 //! - `hl7v2-stream`: Streaming/event-based parsing (optional, enable with `stream` feature)
 //! - `hl7v2-network`: Network client/server (optional, enable with `network` feature)
+//! - `file` module: File reading utilities (optional, enable with `file` feature)
 //!
 //! For backward compatibility, all types and functions are re-exported here.
 //! For new code, consider using the microcrates directly for finer-grained dependencies.
@@ -44,10 +45,32 @@
 //! # }
 //! ```
 //!
+//! # File Reading
+//!
+//! Enable the `file` feature to read HL7 messages from files with support for
+//! multiple encodings and line ending formats:
+//!
+//! ```rust,no_run
+//! # #[cfg(feature = "file")]
+//! # {
+//! use hl7v2_core::file::{read_message, read_batch};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Read a single message
+//! let message = read_message("message.hl7")?;
+//!
+//! // Read a batch file
+//! let batch = read_batch("batch.hl7")?;
+//! # Ok(())
+//! # }
+//! # }
+//! ```
+//!
 //! # Features
 //!
 //! - `stream`: Enables the streaming parser (`StreamParser` and `Event` types)
 //! - `network`: Enables the network module (async client/server)
+//! - `file`: Enables file reading utilities (`file` module with sync/async APIs)
 
 // Re-export model types
 pub use hl7v2_model::{
@@ -59,8 +82,8 @@ pub use hl7v2_escape::{escape_text, needs_escaping, needs_unescaping, unescape_t
 
 // Re-export MLLP types and functions
 pub use hl7v2_mllp::{
-    MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
-    is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+    find_complete_mllp_message, is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+    MllpFrameIterator, MLLP_END_1, MLLP_END_2, MLLP_START,
 };
 
 // Re-export parser functions
@@ -82,6 +105,9 @@ pub use hl7v2_network as network;
 // Re-export stream module when feature is enabled
 #[cfg(feature = "stream")]
 pub use hl7v2_stream::{Event, StreamParser};
+
+// File reading module (requires "file" feature for async)
+pub mod file;
 
 #[cfg(test)]
 mod tests {
