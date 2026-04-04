@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_parse_simple_message() {
         let hl7 = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
@@ -33,7 +31,7 @@ mod tests {
         let hl7 = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
         let message = hl7v2_parser::parse(hl7.as_bytes()).unwrap();
         let generated = hl7v2_writer::write(&message);
-        let generated_str = String::from_utf8_lossy(&generated);
+        let _generated_str = String::from_utf8_lossy(&generated);
 
         // The generated message should be parseable
         let reparsed = hl7v2_parser::parse(&generated).unwrap();
@@ -43,7 +41,7 @@ mod tests {
     #[test]
     fn test_normalize_message() {
         let hl7 = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
-        let message = hl7v2_parser::parse(hl7.as_bytes()).unwrap();
+        let _message = hl7v2_parser::parse(hl7.as_bytes()).unwrap();
         let normalized = hl7v2_normalize::normalize(hl7.as_bytes(), true).unwrap();
 
         // Normalized message should start with canonical delimiters
