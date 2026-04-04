@@ -296,9 +296,8 @@ fn read_file_with_options<P: AsRef<Path>>(
 /// Decode bytes to string using specified encoding.
 fn decode_bytes(bytes: &[u8], encoding: FileEncoding) -> Result<String, FileError> {
     match encoding {
-        FileEncoding::Utf8 => {
-            String::from_utf8(bytes.to_vec()).map_err(|e| FileError::Encoding(format!("Invalid UTF-8: {}", e)))
-        }
+        FileEncoding::Utf8 => String::from_utf8(bytes.to_vec())
+            .map_err(|e| FileError::Encoding(format!("Invalid UTF-8: {}", e))),
         FileEncoding::Iso8859_1 => {
             let (cow, _, had_errors) = encoding_rs::ISO_8859_15.decode(bytes);
             if had_errors {
@@ -537,7 +536,7 @@ mod tests {
     fn test_read_real_test_files() {
         // Test reading actual test data files from the project
         let test_data_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../test_data");
-        
+
         // Read a valid message file
         let test_file = format!("{}/valid_message.hl7", test_data_dir);
         if std::path::Path::new(&test_file).exists() {
@@ -545,14 +544,14 @@ mod tests {
             assert_eq!(&message.segments[0].id, b"MSH");
             assert!(message.segments.len() >= 2);
         }
-        
+
         // Read test.hl7 file
         let test_file = format!("{}/test.hl7", test_data_dir);
         if std::path::Path::new(&test_file).exists() {
             let message = read_message(&test_file).unwrap();
             assert_eq!(&message.segments[0].id, b"MSH");
         }
-        
+
         // Read UTF-8 test file
         let test_file = format!("{}/utf8_test.hl7", test_data_dir);
         if std::path::Path::new(&test_file).exists() {

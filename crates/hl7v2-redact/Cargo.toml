@@ -28,6 +28,7 @@ hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 serde_json = { workspace = true }
 cucumber = "0.22.1"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+proptest = "1.6"
 
 [[test]]
 name = "bdd_tests"

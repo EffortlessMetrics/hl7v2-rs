@@ -1683,6 +1683,7 @@ dependencies = [
  "hl7v2-query",
  "hl7v2-test-utils",
  "hl7v2-writer",
+ "proptest",
  "regex",
  "serde",
  "serde_json",

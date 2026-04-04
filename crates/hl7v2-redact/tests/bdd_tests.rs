@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo test --test bdd_tests -p hl7v2-redact
 
-use cucumber::{given, then, when, World};
+use cucumber::{World, given, then, when};
 use hl7v2_parser::parse;
 use hl7v2_redact::{RedactionEngine, RedactionResult, RedactionRule, RedactionStrategy};
 
@@ -76,7 +76,8 @@ fn given_empty_message(world: &mut RedactWorld) {
 
 #[given("an HL7 message with no PHI")]
 fn given_no_phi_message(world: &mut RedactWorld) {
-    let hl7 = "MSH|^~\\&|HOSPITAL|FACILITY|20250128120000||ACK^A01|MSG00001|P|2.5\rMSA|AA|MSG00001\r";
+    let hl7 =
+        "MSH|^~\\&|HOSPITAL|FACILITY|20250128120000||ACK^A01|MSG00001|P|2.5\rMSA|AA|MSG00001\r";
     world.message = Some(hl7.to_string());
     world.parsed_message = parse(hl7.as_bytes()).ok();
 }
@@ -85,12 +86,12 @@ fn given_no_phi_message(world: &mut RedactWorld) {
 
 #[when("I apply redaction rules")]
 fn when_apply_redaction(world: &mut RedactWorld) {
-    if let Some(ref engine) = world.redaction_engine {
-        if let Some(ref message) = world.parsed_message {
-            match engine.redact(message) {
-                Ok(result) => world.redaction_result = Some(result),
-                Err(e) => world.error = Some(e.to_string()),
-            }
+    if let Some(ref engine) = world.redaction_engine
+        && let Some(ref message) = world.parsed_message
+    {
+        match engine.redact(message) {
+            Ok(result) => world.redaction_result = Some(result),
+            Err(e) => world.error = Some(e.to_string()),
         }
     }
 }
@@ -103,12 +104,12 @@ fn when_create_engine(world: &mut RedactWorld) {
 
 #[when("I apply the redaction")]
 fn when_apply_redaction_with_engine(world: &mut RedactWorld) {
-    if let Some(ref engine) = world.redaction_engine {
-        if let Some(ref message) = world.parsed_message {
-            match engine.redact(message) {
-                Ok(result) => world.redaction_result = Some(result),
-                Err(e) => world.error = Some(e.to_string()),
-            }
+    if let Some(ref engine) = world.redaction_engine
+        && let Some(ref message) = world.parsed_message
+    {
+        match engine.redact(message) {
+            Ok(result) => world.redaction_result = Some(result),
+            Err(e) => world.error = Some(e.to_string()),
         }
     }
 }
