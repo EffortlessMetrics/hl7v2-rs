@@ -671,7 +671,7 @@ fn then_output_has_messages(world: &mut CliWorld) {
     assert!(output_dir.exists(), "Output directory should exist");
 
     let count = std::fs::read_dir(output_dir)
-        .map(|entries| entries.count())
+        .map(std::iter::Iterator::count)
         .unwrap_or(0);
     assert!(
         count > 0,
@@ -679,12 +679,12 @@ fn then_output_has_messages(world: &mut CliWorld) {
     );
 }
 
-#[then(regex = r#"^the output directory should contain (\d+) messages$"#)]
+#[then(regex = r"^the output directory should contain (\d+) messages$")]
 fn then_output_has_n_messages(world: &mut CliWorld, count: usize) {
     let output_dir = world.output_dir.as_ref().expect("Output dir should be set");
 
     let actual_count = std::fs::read_dir(output_dir)
-        .map(|entries| entries.count())
+        .map(std::iter::Iterator::count)
         .unwrap_or(0);
     assert!(
         actual_count >= count,

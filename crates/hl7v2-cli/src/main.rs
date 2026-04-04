@@ -412,7 +412,7 @@ fn parse_command(
                     ),
                     Event::Segment { id } => println!("Segment: {}", String::from_utf8_lossy(&id)),
                     Event::Field { num, raw } => {
-                        println!("  Field {}: {}", num, String::from_utf8_lossy(&raw))
+                        println!("  Field {}: {}", num, String::from_utf8_lossy(&raw));
                     }
                     Event::EndMessage => println!("--- Message End ---"),
                 }

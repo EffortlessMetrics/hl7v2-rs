@@ -19,7 +19,7 @@ fn test_name_in_hl7_message_context() {
     // Should be usable in PID segment
     let pid_segment = format!("PID|1||{}^^^HOSP^MR||{}", faker.mrn(), name);
     assert!(pid_segment.contains("PID|"));
-    assert!(pid_segment.contains("^"));
+    assert!(pid_segment.contains('^'));
 }
 
 #[test]
@@ -71,11 +71,11 @@ fn test_clinical_codes_integration() {
 
     // Build DG1 segment (diagnosis)
     let dg1 = format!("DG1|1||{}|Diagnosis description", icd10);
-    assert!(dg1.contains("."));
+    assert!(dg1.contains('.'));
 
     // Build OBR segment (observation request)
     let obr = format!("OBR|1|||{}^Lab Test", loinc);
-    assert!(obr.contains("^"));
+    assert!(obr.contains('^'));
 
     // Build RXO segment (pharmacy order)
     let rxo = format!("RXO|{}^{}^TAB", medication, medication);

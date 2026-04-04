@@ -302,7 +302,7 @@ async fn test_prefetch_all() {
         .await;
 
     assert_eq!(results.len(), 3);
-    assert!(results.iter().all(|r| r.is_ok()));
+    assert!(results.iter().all(std::result::Result::is_ok));
 }
 
 #[tokio::test]

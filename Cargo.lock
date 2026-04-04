@@ -1423,10 +1423,12 @@ name = "hl7v2-datatype"
 version = "1.2.0"
 dependencies = [
  "chrono",
+ "cucumber",
  "hl7v2-datetime",
  "proptest",
  "regex",
  "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -1434,8 +1436,10 @@ name = "hl7v2-datetime"
 version = "1.2.0"
 dependencies = [
  "chrono",
+ "cucumber",
  "proptest",
  "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -1477,9 +1481,11 @@ dependencies = [
 name = "hl7v2-escape"
 version = "1.2.0"
 dependencies = [
+ "cucumber",
  "hl7v2-model",
  "hl7v2-test-utils",
  "proptest",
+ "tokio",
 ]
 
 [[package]]
@@ -1512,9 +1518,11 @@ name = "hl7v2-faker"
 version = "1.2.0"
 dependencies = [
  "chrono",
+ "cucumber",
  "proptest",
  "rand 0.10.0",
  "rand_distr",
+ "tokio",
  "uuid",
 ]
 
@@ -1554,10 +1562,12 @@ dependencies = [
 name = "hl7v2-mllp"
 version = "1.2.0"
 dependencies = [
+ "cucumber",
  "hl7v2-model",
  "hl7v2-test-utils",
  "proptest",
  "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -1604,6 +1614,7 @@ name = "hl7v2-parser"
 version = "1.2.0"
 dependencies = [
  "assert_matches",
+ "cucumber",
  "hl7v2-escape",
  "hl7v2-mllp",
  "hl7v2-model",
@@ -1613,6 +1624,7 @@ dependencies = [
  "insta",
  "pretty_assertions",
  "proptest",
+ "tokio",
 ]
 
 [[package]]

@@ -47,7 +47,7 @@ fn acceptance_ack_example() {
     let original = parse(VALID_ADT_MESSAGE).expect("Message should parse");
     println!(
         "{}",
-        String::from_utf8_lossy(VALID_ADT_MESSAGE).replace("\r", "\r\n")
+        String::from_utf8_lossy(VALID_ADT_MESSAGE).replace('\r', "\r\n")
     );
     println!();
 
@@ -80,7 +80,7 @@ fn rejection_ack_example() {
     let original = parse(INCOMPLETE_MESSAGE).expect("Message should parse");
     println!(
         "{}",
-        String::from_utf8_lossy(INCOMPLETE_MESSAGE).replace("\r", "\r\n")
+        String::from_utf8_lossy(INCOMPLETE_MESSAGE).replace('\r', "\r\n")
     );
     println!();
 
@@ -111,7 +111,7 @@ fn error_ack_example() {
     let original = parse(INVALID_DATA_MESSAGE).expect("Message should parse");
     println!(
         "{}",
-        String::from_utf8_lossy(INVALID_DATA_MESSAGE).replace("\r", "\r\n")
+        String::from_utf8_lossy(INVALID_DATA_MESSAGE).replace('\r', "\r\n")
     );
     println!();
 
@@ -277,7 +277,7 @@ fn ack_workflow_example() {
 fn display_ack(ack_msg: &Message) {
     println!("ACK Message:");
     let bytes = write(ack_msg);
-    println!("{}", String::from_utf8_lossy(&bytes).replace("\r", "\r\n"));
+    println!("{}", String::from_utf8_lossy(&bytes).replace('\r', "\r\n"));
 }
 
 /// Simulated message processing with ACK generation

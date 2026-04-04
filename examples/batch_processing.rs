@@ -164,8 +164,8 @@ struct ProcessResult {
 /// Process a single message
 fn process_message(message: &Message, num: usize) -> ProcessResult {
     // Extract patient information
-    let patient_id = get(message, "PID.3.1").map(|s| s.to_string());
-    let patient_name = get(message, "PID.5").map(|s| s.to_string());
+    let patient_id = get(message, "PID.3.1").map(std::string::ToString::to_string);
+    let patient_name = get(message, "PID.5").map(std::string::ToString::to_string);
 
     println!("Message {}:", num);
     if let Some(ref id) = patient_id {
@@ -210,7 +210,7 @@ fn create_batch_example() {
     let output = write_batch_manually(&batch);
 
     println!("\nBatch output:");
-    println!("{}", String::from_utf8_lossy(&output).replace("\r", "\r\n"));
+    println!("{}", String::from_utf8_lossy(&output).replace('\r', "\r\n"));
     println!();
 }
 
@@ -303,8 +303,8 @@ fn batch_error_handling_example() {
 #[allow(dead_code)]
 fn process_message_safe(message: &Message, index: usize) -> ProcessResult {
     // Use pattern matching for safe extraction
-    let patient_id = get(message, "PID.3.1").map(|s| s.to_string());
-    let patient_name = get(message, "PID.5").map(|s| s.to_string());
+    let patient_id = get(message, "PID.3.1").map(std::string::ToString::to_string);
+    let patient_name = get(message, "PID.5").map(std::string::ToString::to_string);
 
     // Validate required fields
     if patient_id.is_none() {

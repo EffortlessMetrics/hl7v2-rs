@@ -6,9 +6,9 @@ use std::collections::HashMap;
 fn test_template_creation() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|123|P|2.5"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|123|P|2.5".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -20,10 +20,10 @@ fn test_template_creation() {
 fn test_generate_simple_message() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|123|P|2.5"#.to_string(),
-            r#"PID|1||456|Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|123|P|2.5".to_string(),
+            r"PID|1||456|Doe^John".to_string(),
         ],
         values: HashMap::new(),
     };

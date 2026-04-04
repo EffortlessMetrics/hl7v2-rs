@@ -31,7 +31,7 @@ fn bench_parse(c: &mut Criterion) {
         b.iter(|| {
             let result = parse(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -44,7 +44,7 @@ fn bench_parse_large(c: &mut Criterion) {
         b.iter(|| {
             let result = parse(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -57,7 +57,7 @@ fn bench_write(c: &mut Criterion) {
         b.iter(|| {
             let result = write(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -66,7 +66,7 @@ fn bench_parse_sizes(c: &mut Criterion) {
     let base_message = create_sample_message();
     let mut group = c.benchmark_group("parse_sizes");
 
-    for size in [1, 2, 5, 10, 20].iter() {
+    for size in &[1, 2, 5, 10, 20] {
         let mut message = String::new();
         for _ in 0..*size {
             message.push_str(&base_message);

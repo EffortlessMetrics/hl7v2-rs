@@ -142,7 +142,7 @@ pub fn assert_segment_equals(message: &Message, segment_name: &str, expected: &s
                 message
                     .segments
                     .iter()
-                    .map(|s| s.id_str())
+                    .map(hl7v2_model::Segment::id_str)
                     .collect::<Vec<_>>()
                     .join(", ")
             )
@@ -260,7 +260,7 @@ pub fn assert_field_exists(message: &Message, path: &str) {
             message
                 .segments
                 .iter()
-                .map(|s| s.id_str())
+                .map(hl7v2_model::Segment::id_str)
                 .collect::<Vec<_>>()
                 .join(", ")
         );
@@ -323,7 +323,7 @@ pub fn assert_segment_exists(message: &Message, segment_name: &str) {
         message
             .segments
             .iter()
-            .map(|s| s.id_str())
+            .map(hl7v2_model::Segment::id_str)
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -466,7 +466,7 @@ pub fn assert_segment_count(message: &Message, expected_count: usize) {
         message
             .segments
             .iter()
-            .map(|s| s.id_str())
+            .map(hl7v2_model::Segment::id_str)
             .collect::<Vec<_>>()
             .join(", ")
     );

@@ -11,10 +11,8 @@ use std::collections::HashMap;
 fn test_template_creation() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -27,7 +25,7 @@ fn test_template_creation() {
 fn test_template_clone() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec!["MSH|...".to_string()],
         values: HashMap::new(),
     };
@@ -41,7 +39,7 @@ fn test_template_clone() {
 fn test_template_debug() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec!["MSH|...".to_string()],
         values: HashMap::new(),
     };
@@ -59,10 +57,10 @@ fn test_template_debug() {
 fn test_generate_single_message() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -78,9 +76,9 @@ fn test_generate_single_message() {
 fn test_generate_multiple_messages() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -93,9 +91,9 @@ fn test_generate_multiple_messages() {
 fn test_generate_zero_messages() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -112,9 +110,9 @@ fn test_generate_zero_messages() {
 fn test_generate_deterministic() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -136,10 +134,10 @@ fn test_generate_different_seeds() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values,
     };
@@ -204,7 +202,7 @@ fn test_generate_segment_msh() {
     let values = HashMap::new();
 
     let segment = generate_segment(
-        r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#,
+        r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1",
         &values,
         &delims,
         &mut rng
@@ -220,7 +218,7 @@ fn test_generate_segment_pid() {
     let values = HashMap::new();
 
     let segment = generate_segment(
-        r#"PID|1||123456^^^HOSP^MR||Doe^John"#,
+        r"PID|1||123456^^^HOSP^MR||Doe^John",
         &values,
         &delims,
         &mut rng,
@@ -266,10 +264,10 @@ fn test_value_source_fixed() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values,
     };
@@ -288,10 +286,10 @@ fn test_value_source_numeric() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456^^^HOSP^MR||Doe^John"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
+            r"PID|1||123456^^^HOSP^MR||Doe^John".to_string(),
         ],
         values,
     };
@@ -306,17 +304,17 @@ fn test_value_source_from() {
     values.insert(
         "PID.5".to_string(),
         vec![ValueSource::From(vec![
-            r#"Smith^John"#.to_string(),
-            r#"Doe^Jane"#.to_string(),
+            r"Smith^John".to_string(),
+            r"Doe^Jane".to_string(),
         ])],
     );
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456||Doe^John"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
+            r"PID|1||123456||Doe^John".to_string(),
         ],
         values,
     };
@@ -332,10 +330,8 @@ fn test_value_source_uuid_v4() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values,
     };
 
@@ -367,10 +363,10 @@ fn test_value_source_date() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456||Doe^John||19800101"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
+            r"PID|1||123456||Doe^John||19800101".to_string(),
         ],
         values,
     };
@@ -393,10 +389,10 @@ fn test_value_source_gaussian() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1"#.to_string(),
-            r#"OBX|1|NM|TEST||100.0|units"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1".to_string(),
+            r"OBX|1|NM|TEST||100.0|units".to_string(),
         ],
         values,
     };
@@ -413,10 +409,8 @@ fn test_value_source_gaussian() {
 fn test_generate_corpus() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -428,19 +422,15 @@ fn test_generate_corpus() {
 fn test_generate_diverse_corpus() {
     let template1 = Template {
         name: "adt_a01".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
     let template2 = Template {
         name: "oru_r01".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -453,19 +443,15 @@ fn test_generate_diverse_corpus() {
 fn test_generate_distributed_corpus() {
     let template1 = Template {
         name: "adt".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
     let template2 = Template {
         name: "oru".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ORU^R01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -483,10 +469,8 @@ fn test_generate_distributed_corpus() {
 fn test_generate_golden_hashes() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -503,10 +487,8 @@ fn test_generate_golden_hashes() {
 fn test_verify_golden_hashes() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -521,10 +503,8 @@ fn test_verify_golden_hashes() {
 fn test_verify_golden_hashes_mismatch() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        delims: r"^~\&".to_string(),
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -546,7 +526,7 @@ fn test_verify_golden_hashes_mismatch() {
 fn test_generate_invalid_segment_id() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec!["INVALID|1|2|3".to_string()],
         values: HashMap::new(),
     };
@@ -560,9 +540,7 @@ fn test_generate_invalid_delims() {
     let template = Template {
         name: "test".to_string(),
         delims: "^^".to_string(), // Too short
-        segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-        ],
+        segments: vec![r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string()],
         values: HashMap::new(),
     };
 
@@ -578,9 +556,9 @@ fn test_generate_invalid_delims() {
 fn test_msh_segment_field_handling() {
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1"#.to_string(),
+            r"MSH|^~\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1".to_string(),
         ],
         values: HashMap::new(),
     };
@@ -608,10 +586,10 @@ fn test_realistic_name() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456||Doe^John"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
+            r"PID|1||123456||Doe^John".to_string(),
         ],
         values,
     };
@@ -627,10 +605,10 @@ fn test_realistic_address() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456||Doe^John|||M|||123 Main St"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
+            r"PID|1||123456||Doe^John|||M|||123 Main St".to_string(),
         ],
         values,
     };
@@ -646,10 +624,10 @@ fn test_realistic_phone() {
 
     let template = Template {
         name: "test".to_string(),
-        delims: r#"^~\&"#.to_string(),
+        delims: r"^~\&".to_string(),
         segments: vec![
-            r#"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1"#.to_string(),
-            r#"PID|1||123456||Doe^John||(555)123-4567"#.to_string(),
+            r"MSH|^~\&|App|Fac|App|Fac|20250128152312||ADT^A01|123|P|2.5.1".to_string(),
+            r"PID|1||123456||Doe^John||(555)123-4567".to_string(),
         ],
         values,
     };

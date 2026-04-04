@@ -33,7 +33,7 @@ fn bench_memory_parse(c: &mut Criterion) {
         b.iter(|| {
             let result = parse(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -46,7 +46,7 @@ fn bench_memory_parse_large(c: &mut Criterion) {
         b.iter(|| {
             let result = parse(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -59,7 +59,7 @@ fn bench_memory_write(c: &mut Criterion) {
         b.iter(|| {
             let result = write(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -72,7 +72,7 @@ fn bench_memory_parse_mllp(c: &mut Criterion) {
         b.iter(|| {
             let result = parse_mllp(black_box(&mllp_bytes));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -85,7 +85,7 @@ fn bench_memory_write_mllp(c: &mut Criterion) {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -98,7 +98,7 @@ fn bench_memory_normalize(c: &mut Criterion) {
         b.iter(|| {
             let result = normalize(black_box(bytes), false);
             black_box(result)
-        })
+        });
     });
 }
 

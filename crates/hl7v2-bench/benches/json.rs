@@ -37,7 +37,7 @@ fn bench_to_json_value(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -51,7 +51,7 @@ fn bench_to_json_string(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json_string(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -65,7 +65,7 @@ fn bench_to_json_string_pretty(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json_string_pretty(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -81,14 +81,14 @@ fn bench_json_complex_message(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 
     group.bench_function("to_json_string", |b| {
         b.iter(|| {
             let result = to_json_string(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -104,7 +104,7 @@ fn bench_json_nested_message(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -116,7 +116,7 @@ fn bench_json_throughput(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("json_throughput");
 
-    for count in [1, 10, 100, 1000].iter() {
+    for count in &[1, 10, 100, 1000] {
         group.throughput(Throughput::Elements(*count as u64));
         group.bench_with_input(BenchmarkId::new("serialize", count), count, |b, _| {
             b.iter(|| {
@@ -124,7 +124,7 @@ fn bench_json_throughput(c: &mut Criterion) {
                     let result = to_json(black_box(&parsed));
                     black_box(result);
                 }
-            })
+            });
         });
     }
 
@@ -150,7 +150,7 @@ fn bench_json_size_comparison(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json_string(black_box(&simple_parsed));
             black_box(result)
-        })
+        });
     });
 
     // Complex message
@@ -160,7 +160,7 @@ fn bench_json_size_comparison(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json_string(black_box(&complex_parsed));
             black_box(result)
-        })
+        });
     });
 
     // Nested message
@@ -170,7 +170,7 @@ fn bench_json_size_comparison(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json_string(black_box(&nested_parsed));
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -188,14 +188,14 @@ fn bench_json_vs_hl7_format(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json_string(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 
     group.bench_function("hl7_serialize", |b| {
         b.iter(|| {
             let result = write(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -227,7 +227,7 @@ fn bench_json_value_access(c: &mut Criterion) {
                     }
                 }
             }
-        })
+        });
     });
 }
 
@@ -242,7 +242,7 @@ fn bench_json_by_segment_count(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json(black_box(&small_parsed));
             black_box(result)
-        })
+        });
     });
 
     // 13 segments (MSH, PID, PV1, 5x OBX, 2x AL1, 2x DG1)
@@ -252,7 +252,7 @@ fn bench_json_by_segment_count(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json(black_box(&medium_parsed));
             black_box(result)
-        })
+        });
     });
 
     // Create a larger message with more segments
@@ -269,7 +269,7 @@ fn bench_json_by_segment_count(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json(black_box(&large_parsed));
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -289,7 +289,7 @@ fn bench_json_memory_allocation(c: &mut Criterion) {
             let json_value = to_json(black_box(&parsed));
             let string = serde_json::to_string(&json_value).unwrap();
             black_box(string)
-        })
+        });
     });
 
     // Direct to string
@@ -297,7 +297,7 @@ fn bench_json_memory_allocation(c: &mut Criterion) {
         b.iter(|| {
             let result = to_json_string(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 
     group.finish();

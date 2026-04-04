@@ -273,7 +273,7 @@ fn given_message_charset(world: &mut WriterWorld) {
     world.message = Some(message);
 }
 
-#[given(regex = r#"a message of type ([A-Z]{3}\^[A-Z0-9]{2,3})"#)]
+#[given(regex = r"a message of type ([A-Z]{3}\^[A-Z0-9]{2,3})")]
 fn given_message_type(world: &mut WriterWorld, message_type: String) {
     let delims = Delims::default();
     let mut msh = WriterWorld::create_msh_segment(&delims);
@@ -390,17 +390,17 @@ fn then_output_custom_delimiters(world: &mut WriterWorld) {
 
 #[then("the repetitions should be separated by tilde \"~\"")]
 fn then_repetitions_tilde(world: &mut WriterWorld) {
-    assert!(world.output_str.contains("~"));
+    assert!(world.output_str.contains('~'));
 }
 
 #[then("the components should be separated by caret \"^\"")]
 fn then_components_caret(world: &mut WriterWorld) {
-    assert!(world.output_str.contains("^"));
+    assert!(world.output_str.contains('^'));
 }
 
 #[then("the subcomponents should be separated by ampersand \"&\"")]
 fn then_subcomponents_ampersand(world: &mut WriterWorld) {
-    assert!(world.output_str.contains("&"));
+    assert!(world.output_str.contains('&'));
 }
 
 #[then("the special characters should be properly escaped")]
@@ -457,7 +457,7 @@ fn then_long_values_preserved(world: &mut WriterWorld) {
 
 #[then("the special characters should be preserved or properly escaped")]
 fn then_special_chars_preserved(world: &mut WriterWorld) {
-    assert!(world.output_str.contains(",") || world.output_str.contains("\\E\\"));
+    assert!(world.output_str.contains(',') || world.output_str.contains("\\E\\"));
 }
 
 #[then("the output should start with MLLP start block")]

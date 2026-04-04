@@ -43,7 +43,7 @@ fn bench_mllp_wrap(c: &mut Criterion) {
         b.iter(|| {
             let result = wrap_mllp(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -56,7 +56,7 @@ fn bench_mllp_wrap_large(c: &mut Criterion) {
         b.iter(|| {
             let result = wrap_mllp(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -67,7 +67,7 @@ fn bench_mllp_wrap_throughput(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("mllp_wrap_throughput");
 
-    for count in [1, 10, 100, 1000].iter() {
+    for count in &[1, 10, 100, 1000] {
         group.throughput(Throughput::Elements(*count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, _| {
             b.iter(|| {
@@ -75,7 +75,7 @@ fn bench_mllp_wrap_throughput(c: &mut Criterion) {
                     let result = wrap_mllp(black_box(bytes));
                     black_box(result);
                 }
-            })
+            });
         });
     }
 
@@ -91,7 +91,7 @@ fn bench_mllp_write_message(c: &mut Criterion) {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -104,7 +104,7 @@ fn bench_mllp_write_large_message(c: &mut Criterion) {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -119,7 +119,7 @@ fn bench_codec_encoding(c: &mut Criterion) {
             // Simulate encoding for MLLP transmission
             let wrapped = wrap_mllp(black_box(bytes));
             black_box(wrapped)
-        })
+        });
     });
 }
 
@@ -139,7 +139,7 @@ fn bench_codec_decoding(c: &mut Criterion) {
                 let message_bytes = &wrapped[start + 1..end];
                 black_box(message_bytes);
             }
-        })
+        });
     });
 }
 
@@ -155,7 +155,7 @@ fn bench_frame_size_impact(c: &mut Criterion) {
         b.iter(|| {
             let result = wrap_mllp(black_box(small_bytes));
             black_box(result)
-        })
+        });
     });
 
     // Medium message (~1KB)
@@ -166,7 +166,7 @@ fn bench_frame_size_impact(c: &mut Criterion) {
         b.iter(|| {
             let result = wrap_mllp(black_box(medium_bytes));
             black_box(result)
-        })
+        });
     });
 
     // Large message (~10KB)
@@ -185,7 +185,7 @@ fn bench_frame_size_impact(c: &mut Criterion) {
         b.iter(|| {
             let result = wrap_mllp(black_box(large_bytes));
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -199,7 +199,7 @@ fn bench_concurrent_frame_processing(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("concurrent_frames");
 
-    for concurrency in [1, 2, 4, 8].iter() {
+    for concurrency in &[1, 2, 4, 8] {
         group.bench_with_input(
             BenchmarkId::new("concurrent_wrap", concurrency),
             concurrency,
@@ -214,7 +214,7 @@ fn bench_concurrent_frame_processing(c: &mut Criterion) {
                     }
                     let results: Vec<_> = futures::future::join_all(handles).await;
                     black_box(results)
-                })
+                });
             },
         );
     }
@@ -236,7 +236,7 @@ fn bench_message_roundtrip(c: &mut Criterion) {
             // Wrap
             let wrapped = wrap_mllp(&mllp);
             black_box(wrapped)
-        })
+        });
     });
 }
 
@@ -247,7 +247,7 @@ fn bench_pipeline_throughput(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("pipeline_throughput");
 
-    for count in [1, 10, 100].iter() {
+    for count in &[1, 10, 100] {
         group.throughput(Throughput::Elements(*count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, &count| {
             b.iter(|| {
@@ -260,7 +260,7 @@ fn bench_pipeline_throughput(c: &mut Criterion) {
                     let wrapped = wrap_mllp(&mllp);
                     black_box(wrapped);
                 }
-            })
+            });
         });
     }
 
@@ -280,7 +280,7 @@ fn bench_async_overhead(c: &mut Criterion) {
         b.iter(|| {
             let result = wrap_mllp(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 
     // Async wrapping with tokio
@@ -288,7 +288,7 @@ fn bench_async_overhead(c: &mut Criterion) {
         b.to_async(&rt).iter(|| async {
             let result = wrap_mllp(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -306,7 +306,7 @@ fn bench_buffer_patterns(c: &mut Criterion) {
         b.iter(|| {
             let result = wrap_mllp(black_box(bytes));
             black_box(result)
-        })
+        });
     });
 
     // Reuse pre-allocated buffer (simulated)
@@ -318,7 +318,7 @@ fn bench_buffer_patterns(c: &mut Criterion) {
             buffer.push(0x1C);
             buffer.push(0x0D);
             black_box(buffer)
-        })
+        });
     });
 
     group.finish();
@@ -336,7 +336,7 @@ fn bench_network_serialization(c: &mut Criterion) {
         b.iter(|| {
             let result = write_mllp(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 
     // MLLP write + wrap
@@ -345,7 +345,7 @@ fn bench_network_serialization(c: &mut Criterion) {
             let mllp = write_mllp(black_box(&parsed));
             let wrapped = wrap_mllp(&mllp);
             black_box(wrapped)
-        })
+        });
     });
 
     group.finish();

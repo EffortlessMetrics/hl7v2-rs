@@ -214,7 +214,7 @@ fn given_message_special_chars(world: &mut JsonWorld) {
     world.message = Some(message);
 }
 
-#[given(regex = r#"a ([A-Z]{3}\^[A-Z0-9]{2,3}) message"#)]
+#[given(regex = r"a ([A-Z]{3}\^[A-Z0-9]{2,3}) message")]
 fn given_message_type(world: &mut JsonWorld, message_type: String) {
     let delims = Delims::default();
     let mut msh = JsonWorld::create_msh_segment(&delims);

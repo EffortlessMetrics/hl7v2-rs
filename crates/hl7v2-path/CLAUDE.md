@@ -1,16 +1,16 @@
 # hl7v2-path
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-path
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-path
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-path -- -D warnings
-`
+```

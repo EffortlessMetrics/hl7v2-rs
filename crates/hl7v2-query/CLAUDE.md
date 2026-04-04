@@ -1,16 +1,16 @@
 # hl7v2-query
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-query
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-query
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-query -- -D warnings
-`
+```

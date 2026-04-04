@@ -89,8 +89,8 @@ pub fn get_cpu_info() -> CpuInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let cpu_usage: f64 =
-        sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() as f64 / sys.cpus().len() as f64;
+    let cpu_usage: f64 = sys.cpus().iter().map(sysinfo::Cpu::cpu_usage).sum::<f32>() as f64
+        / sys.cpus().len() as f64;
 
     CpuInfo {
         cpu_usage_percent: Some(cpu_usage),

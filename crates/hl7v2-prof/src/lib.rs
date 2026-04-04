@@ -1131,7 +1131,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).length() > N"
     if script.contains(".length() > ") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.length\(\)\s*>\s*(\d+)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.length\(\)\s*>\s*(\d+)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
             let required_length: usize = captures[2].parse().map_err(|_| ())?;
@@ -1160,7 +1160,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH) in ['A', 'B', 'C']"
     if script.contains(" in [") {
-        let re = Regex::new(r#"field\(([^)]+)\)\s+in\s+\[([^\]]+)\]"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\s+in\s+\[([^\]]+)\]").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
             let values_str = &captures[2];
@@ -1169,7 +1169,7 @@ fn evaluate_custom_rule_script(
                 // Parse the allowed values
                 let allowed_values: Vec<&str> = values_str
                     .split(',')
-                    .map(|s| s.trim())
+                    .map(str::trim)
                     .map(|s| s.trim_matches('\''))
                     .collect();
 
@@ -1194,7 +1194,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).matches_regex('PATTERN')"
     if script.contains(".matches_regex(") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.matches_regex\('([^']+)'\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.matches_regex\('([^']+)'\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
             let pattern = &captures[2];
@@ -1222,7 +1222,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).starts_with('PREFIX')"
     if script.contains(".starts_with(") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.starts_with\('([^']+)'\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.starts_with\('([^']+)'\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
             let prefix = &captures[2];
@@ -1249,7 +1249,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).ends_with('SUFFIX')"
     if script.contains(".ends_with(") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.ends_with\('([^']+)'\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.ends_with\('([^']+)'\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
             let suffix = &captures[2];
@@ -1276,7 +1276,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).is_numeric()"
     if script.contains(".is_numeric()") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.is_numeric\(\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.is_numeric\(\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
@@ -1299,7 +1299,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH1) == field(PATH2)"
     if script.contains(" == field(") {
-        let re = Regex::new(r#"field\(([^)]+)\)\s*==\s*field\(([^)]+)\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\s*==\s*field\(([^)]+)\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path1 = &captures[1];
             let path2 = &captures[2];
@@ -1328,7 +1328,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).is_phone_number()"
     if script.contains(".is_phone_number()") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.is_phone_number\(\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.is_phone_number\(\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
@@ -1354,7 +1354,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).is_email()"
     if script.contains(".is_email()") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.is_email\(\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.is_email\(\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
@@ -1380,7 +1380,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).is_ssn()"
     if script.contains(".is_ssn()") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.is_ssn\(\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.is_ssn\(\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
@@ -1403,7 +1403,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH).is_valid_birth_date()"
     if script.contains(".is_valid_birth_date()") {
-        let re = Regex::new(r#"field\(([^)]+)\)\.is_valid_birth_date\(\)"#).map_err(|_| ())?;
+        let re = Regex::new(r"field\(([^)]+)\)\.is_valid_birth_date\(\)").map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
@@ -1426,7 +1426,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "is_valid_age_range(field(PATH1), field(PATH2))"
     if script.contains("is_valid_age_range(") {
-        let re = Regex::new(r#"is_valid_age_range\(field\(([^)]+)\),\s*field\(([^)]+)\)\)"#)
+        let re = Regex::new(r"is_valid_age_range\(field\(([^)]+)\),\s*field\(([^)]+)\)\)")
             .map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path1 = &captures[1];
@@ -1453,7 +1453,7 @@ fn evaluate_custom_rule_script(
 
     // Pattern: "field(PATH) between VALUE1 and VALUE2"
     if script.contains(" between ") && script.contains(" and ") {
-        let re = Regex::new(r#"field\(([^)]+)\)\s+between\s+([^\s]+)\s+and\s+([^\s]+)"#)
+        let re = Regex::new(r"field\(([^)]+)\)\s+between\s+([^\s]+)\s+and\s+([^\s]+)")
             .map_err(|_| ())?;
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
@@ -1533,7 +1533,7 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
                     // Split by comma and remove quotes
                     let allowed_values: Vec<&str> = values_str
                         .split(',')
-                        .map(|s| s.trim())
+                        .map(str::trim)
                         .map(|s| s.trim_matches('\''))
                         .collect();
 
@@ -1561,7 +1561,7 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
             if let Some(value) = hl7v2_core::get(msg, path) {
                 // Extract the regex pattern
                 let pattern_part = &rule.script[path_end + 15..];
-                if pattern_part.starts_with("'") && pattern_part.ends_with("')") {
+                if pattern_part.starts_with('\'') && pattern_part.ends_with("')") {
                     let pattern = &pattern_part[1..pattern_part.len() - 2];
                     // Simple regex matching (in a real implementation, we would use regex crate)
                     if !value.contains(pattern) && pattern != ".*" {

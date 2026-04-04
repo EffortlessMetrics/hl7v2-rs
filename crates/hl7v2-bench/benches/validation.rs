@@ -62,7 +62,7 @@ impl Validator for BasicValidator {
                 // Check PID.3 (Patient ID) - should be valid
                 if segment.fields.len() > 2 {
                     let patient_id = segment.fields[2].first_text();
-                    if patient_id.is_none() || patient_id.map(|s| s.is_empty()).unwrap_or(true) {
+                    if patient_id.is_none() || patient_id.map(str::is_empty).unwrap_or(true) {
                         issues.push(Issue::error(
                             "MISSING_PATIENT_ID",
                             Some("PID.3".to_string()),
@@ -124,9 +124,7 @@ impl Validator for StrictValidator {
                     // MSH.3 - Sending Application (required)
                     if segment.fields.len() > 2 {
                         let sending_app = segment.fields[2].first_text();
-                        if sending_app.is_none()
-                            || sending_app.map(|s| s.is_empty()).unwrap_or(true)
-                        {
+                        if sending_app.is_none() || sending_app.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_SENDING_APP",
                                 Some("MSH.3".to_string()),
@@ -138,7 +136,7 @@ impl Validator for StrictValidator {
                     // MSH.7 - Date/Time (required, must be valid)
                     if segment.fields.len() > 6 {
                         let dt = segment.fields[6].first_text();
-                        if dt.is_none() || dt.map(|s| s.is_empty()).unwrap_or(true) {
+                        if dt.is_none() || dt.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_DATETIME",
                                 Some("MSH.7".to_string()),
@@ -158,7 +156,7 @@ impl Validator for StrictValidator {
                     // MSH.9 - Message Type (required)
                     if segment.fields.len() > 8 {
                         let msg_type = segment.fields[8].first_text();
-                        if msg_type.is_none() || msg_type.map(|s| s.is_empty()).unwrap_or(true) {
+                        if msg_type.is_none() || msg_type.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_MESSAGE_TYPE",
                                 Some("MSH.9".to_string()),
@@ -179,7 +177,7 @@ impl Validator for StrictValidator {
                     // MSH.12 - Version ID (required)
                     if segment.fields.len() > 11 {
                         let version = segment.fields[11].first_text();
-                        if version.is_none() || version.map(|s| s.is_empty()).unwrap_or(true) {
+                        if version.is_none() || version.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_VERSION",
                                 Some("MSH.12".to_string()),
@@ -198,8 +196,7 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let patient_id = segment.fields[2].first_text();
-                        if patient_id.is_none() || patient_id.map(|s| s.is_empty()).unwrap_or(true)
-                        {
+                        if patient_id.is_none() || patient_id.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_PATIENT_ID",
                                 Some("PID.3".to_string()),
@@ -217,7 +214,7 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let name = segment.fields[4].first_text();
-                        if name.is_none() || name.map(|s| s.is_empty()).unwrap_or(true) {
+                        if name.is_none() || name.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_PATIENT_NAME",
                                 Some("PID.5".to_string()),
@@ -248,7 +245,7 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let sex = segment.fields[7].first_text();
-                        if sex.is_none() || sex.map(|s| s.is_empty()).unwrap_or(true) {
+                        if sex.is_none() || sex.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_SEX",
                                 Some("PID.8".to_string()),
@@ -268,7 +265,7 @@ impl Validator for StrictValidator {
                     } else {
                         let patient_class = segment.fields[1].first_text();
                         if patient_class.is_none()
-                            || patient_class.map(|s| s.is_empty()).unwrap_or(true)
+                            || patient_class.map(str::is_empty).unwrap_or(true)
                         {
                             issues.push(Issue::error(
                                 "MISSING_PATIENT_CLASS",
@@ -288,8 +285,7 @@ impl Validator for StrictValidator {
                         ));
                     } else {
                         let value_type = segment.fields[1].first_text();
-                        if value_type.is_none() || value_type.map(|s| s.is_empty()).unwrap_or(true)
-                        {
+                        if value_type.is_none() || value_type.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::error(
                                 "MISSING_VALUE_TYPE",
                                 Some("OBX.2".to_string()),
@@ -301,7 +297,7 @@ impl Validator for StrictValidator {
                     // OBX.5 - Observation Value
                     if segment.fields.len() > 4 {
                         let obs_value = segment.fields[4].first_text();
-                        if obs_value.is_none() || obs_value.map(|s| s.is_empty()).unwrap_or(true) {
+                        if obs_value.is_none() || obs_value.map(str::is_empty).unwrap_or(true) {
                             issues.push(Issue::warning(
                                 "MISSING_OBSERVATION_VALUE",
                                 Some("OBX.5".to_string()),
@@ -359,7 +355,7 @@ fn bench_basic_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -374,7 +370,7 @@ fn bench_strict_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -389,7 +385,7 @@ fn bench_lenient_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -404,7 +400,7 @@ fn bench_complex_message_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -419,7 +415,7 @@ fn bench_validation_with_issues(c: &mut Criterion) {
         b.iter(|| {
             let result = validator.validate(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -433,7 +429,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validate_data_type(black_box(date_value), black_box("DT"));
             black_box(result)
-        })
+        });
     });
 
     // Time validation
@@ -442,7 +438,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validate_data_type(black_box(time_value), black_box("TM"));
             black_box(result)
-        })
+        });
     });
 
     // Timestamp validation
@@ -451,7 +447,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validate_data_type(black_box(ts_value), black_box("TS"));
             black_box(result)
-        })
+        });
     });
 
     // Numeric validation
@@ -460,7 +456,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validate_data_type(black_box(nm_value), black_box("NM"));
             black_box(result)
-        })
+        });
     });
 
     // String validation
@@ -469,7 +465,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validate_data_type(black_box(st_value), black_box("ST"));
             black_box(result)
-        })
+        });
     });
 
     // Identifier validation
@@ -478,7 +474,7 @@ fn bench_data_type_validation(c: &mut Criterion) {
         b.iter(|| {
             let result = validate_data_type(black_box(id_value), black_box("ID"));
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -493,7 +489,7 @@ fn bench_validation_throughput(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("validation_throughput");
 
-    for count in [1, 10, 100, 1000].iter() {
+    for count in &[1, 10, 100, 1000] {
         group.throughput(Throughput::Elements(*count as u64));
         group.bench_with_input(BenchmarkId::from_parameter(count), count, |b, &count| {
             b.iter(|| {
@@ -501,7 +497,7 @@ fn bench_validation_throughput(c: &mut Criterion) {
                     let result = validator.validate(black_box(&parsed));
                     black_box(result);
                 }
-            })
+            });
         });
     }
 
@@ -522,14 +518,14 @@ fn bench_strict_vs_lenient_comparison(c: &mut Criterion) {
         b.iter(|| {
             let result = strict.validate(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 
     group.bench_function("lenient", |b| {
         b.iter(|| {
             let result = lenient.validate(black_box(&parsed));
             black_box(result)
-        })
+        });
     });
 
     group.finish();

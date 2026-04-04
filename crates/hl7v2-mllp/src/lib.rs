@@ -201,7 +201,7 @@ pub fn unwrap_mllp_checked(bytes: &[u8]) -> Result<&[u8], MllpError> {
 ///
 /// The HL7 message bytes as an owned Vec, or an error if the framing is invalid
 pub fn unwrap_mllp_owned(bytes: &[u8]) -> Result<Vec<u8>, Error> {
-    unwrap_mllp(bytes).map(|s| s.to_vec())
+    unwrap_mllp(bytes).map(<[u8]>::to_vec)
 }
 
 /// Unwrap MLLP-framed bytes and return owned data with specific MLLP error types.
@@ -217,7 +217,7 @@ pub fn unwrap_mllp_owned(bytes: &[u8]) -> Result<Vec<u8>, Error> {
 ///
 /// The HL7 message bytes as an owned Vec, or a specific MllpError if the framing is invalid
 pub fn unwrap_mllp_owned_checked(bytes: &[u8]) -> Result<Vec<u8>, MllpError> {
-    unwrap_mllp_checked(bytes).map(|s| s.to_vec())
+    unwrap_mllp_checked(bytes).map(<[u8]>::to_vec)
 }
 
 /// Find the MLLP end sequence position.

@@ -98,7 +98,7 @@ impl QueryWorld {
 
         // If path has 3+ parts (segment.field.component), use the standard get
         if parts.len() >= 3 {
-            return get(msg, path).map(|s| s.to_string());
+            return get(msg, path).map(std::string::ToString::to_string);
         }
 
         // Path has only segment.field — join all components with ^
@@ -121,7 +121,7 @@ impl QueryWorld {
         let field = if segment_id == "MSH" {
             if field_index <= 2 {
                 // MSH-1 (separator) and MSH-2 (encoding chars) — just use get()
-                return get(msg, path).map(|s| s.to_string());
+                return get(msg, path).map(std::string::ToString::to_string);
             }
             let adjusted = field_index - 2;
             segment.fields.get(adjusted)?
@@ -408,7 +408,7 @@ fn given_message_custom_delimiters(world: &mut QueryWorld) {
     world.message = Some(message);
 }
 
-#[given(regex = r#"a ([A-Z]{3}\^[A-Z0-9]{2,3}) message"#)]
+#[given(regex = r"a ([A-Z]{3}\^[A-Z0-9]{2,3}) message")]
 fn given_message_type(world: &mut QueryWorld, message_type: String) {
     let delims = Delims::default();
     let mut msh = QueryWorld::create_msh_segment(&delims);

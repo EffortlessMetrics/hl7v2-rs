@@ -1,16 +1,16 @@
 # hl7v2-parser
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-parser
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-parser
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-parser -- -D warnings
-`
+```

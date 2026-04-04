@@ -310,7 +310,7 @@ fn test_frame_iterator_byte_by_byte() {
     let framed = wrap_mllp(hl7);
 
     // Add byte by byte
-    for byte in framed.iter() {
+    for byte in &framed {
         iter.extend(&[*byte]);
         if iter.buffer_len() < framed.len() {
             assert!(iter.next_message().is_none());

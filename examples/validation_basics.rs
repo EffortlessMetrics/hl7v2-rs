@@ -277,7 +277,7 @@ fn invalid_message_example() {
     println!("Invalid message (missing fields, invalid values):");
     println!(
         "{}",
-        String::from_utf8_lossy(invalid_message).replace("\r", "\r\n")
+        String::from_utf8_lossy(invalid_message).replace('\r', "\r\n")
     );
     println!();
 

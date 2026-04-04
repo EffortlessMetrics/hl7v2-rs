@@ -1,16 +1,16 @@
 # hl7v2-network
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-network
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-network
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-network -- -D warnings
-`
+```

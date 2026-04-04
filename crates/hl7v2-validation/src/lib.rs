@@ -268,7 +268,7 @@ pub fn is_hierarchic_designator(value: &str) -> bool {
 /// Check if value is a valid phone number (basic validation)
 pub fn is_phone_number(value: &str) -> bool {
     // Remove common phone number formatting characters
-    let cleaned: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    let cleaned: String = value.chars().filter(char::is_ascii_digit).collect();
 
     // Basic phone number validation (7-15 digits)
     cleaned.len() >= 7 && cleaned.len() <= 15 && cleaned.chars().all(|c| c.is_ascii_digit())
@@ -305,7 +305,7 @@ pub fn is_email(value: &str) -> bool {
 /// Check if value is a valid SSN (Social Security Number) format
 pub fn is_ssn(value: &str) -> bool {
     // Remove dashes and spaces
-    let cleaned: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    let cleaned: String = value.chars().filter(char::is_ascii_digit).collect();
 
     // SSN should be exactly 9 digits
     if cleaned.len() != 9 {
@@ -427,7 +427,7 @@ pub fn validate_checksum(value: &str, algorithm: &str) -> bool {
 /// Validate Luhn checksum (used for credit cards, etc.)
 pub fn validate_luhn_checksum(value: &str) -> bool {
     // Remove any non-digit characters
-    let digits: String = value.chars().filter(|c| c.is_ascii_digit()).collect();
+    let digits: String = value.chars().filter(char::is_ascii_digit).collect();
 
     if digits.len() < 2 {
         return false;
@@ -801,10 +801,9 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
 
     // Right-hand value(s):
     let rhs_first = condition.value.as_deref();
-    let rhs_list: Vec<&str> = condition
-        .values
-        .as_ref()
-        .map_or(Vec::new(), |v| v.iter().map(|s| s.as_str()).collect());
+    let rhs_list: Vec<&str> = condition.values.as_ref().map_or(Vec::new(), |v| {
+        v.iter().map(std::string::String::as_str).collect()
+    });
 
     match condition.operator.as_str() {
         // value/string ops

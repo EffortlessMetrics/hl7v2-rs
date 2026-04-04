@@ -507,7 +507,11 @@ fn test_segment_order_adt_a01() {
     let msg = parse_message(msg_content);
 
     // Expected order for ADT^A01: MSH, EVN, PID, PV1
-    let segment_names: Vec<&str> = msg.segments.iter().map(|s| s.id_str()).collect();
+    let segment_names: Vec<&str> = msg
+        .segments
+        .iter()
+        .map(hl7v2_core::Segment::id_str)
+        .collect();
 
     assert!(segment_names.contains(&"MSH"), "Should have MSH");
     assert!(segment_names.contains(&"PID"), "Should have PID");

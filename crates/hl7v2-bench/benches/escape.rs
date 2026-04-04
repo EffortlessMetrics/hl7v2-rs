@@ -24,7 +24,7 @@ fn bench_unescape_text(c: &mut Criterion) {
         b.iter(|| {
             let result = unescape_text(black_box(&text), black_box(&delims));
             black_box(result)
-        })
+        });
     });
 }
 
@@ -37,7 +37,7 @@ fn bench_escape_text(c: &mut Criterion) {
         b.iter(|| {
             let result = escape_text(black_box(&text), black_box(&delims));
             black_box(result)
-        })
+        });
     });
 }
 

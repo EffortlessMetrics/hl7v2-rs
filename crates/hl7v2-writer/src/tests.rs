@@ -38,7 +38,7 @@ fn test_write_minimal_msh() {
 
     assert!(result.starts_with("MSH|"));
     assert!(result.contains("^~\\&"));
-    assert!(result.ends_with("\r"));
+    assert!(result.ends_with('\r'));
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn test_write_msh_with_fields() {
     // ^ is component separator, gets escaped as \S\
     assert!(result.contains("ADT\\S\\A01"));
     assert!(result.contains("MSG00001"));
-    assert!(result.ends_with("\r"));
+    assert!(result.ends_with('\r'));
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn test_write_single_segment() {
     assert!(result.contains("12345"));
     // ^ is component separator, gets escaped as \S\
     assert!(result.contains("DOE\\S\\JOHN\\S\\A"));
-    assert!(result.ends_with("\r"));
+    assert!(result.ends_with('\r'));
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn test_write_single_repetition() {
     let result = String::from_utf8(bytes).unwrap();
 
     assert!(result.contains("VALUE"));
-    assert!(!result.contains("~")); // No repetition separator
+    assert!(!result.contains('~')); // No repetition separator
 }
 
 #[test]
@@ -254,7 +254,7 @@ fn test_write_single_component() {
     let result = String::from_utf8(bytes).unwrap();
 
     assert!(result.contains("SINGLE"));
-    assert!(!result.contains("^")); // No component separator in single component
+    assert!(!result.contains('^')); // No component separator in single component
 }
 
 #[test]
@@ -342,7 +342,7 @@ fn test_write_single_subcomponent() {
     let result = String::from_utf8(bytes).unwrap();
 
     assert!(result.contains("SINGLE"));
-    assert!(!result.contains("&")); // No subcomponent separator
+    assert!(!result.contains('&')); // No subcomponent separator
 }
 
 #[test]
@@ -505,7 +505,7 @@ fn test_write_no_escape_needed() {
 
     // No escaping needed
     assert!(result.contains("normal text 123"));
-    assert!(!result.contains("\\"));
+    assert!(!result.contains('\\'));
 }
 
 // ============================================================================
@@ -811,7 +811,7 @@ fn test_to_json_string_basic() {
     let json_str = to_json_string(&message);
 
     assert!(json_str.contains("segments"));
-    assert!(!json_str.contains("\n")); // Compact format
+    assert!(!json_str.contains('\n')); // Compact format
 }
 
 #[test]
@@ -828,7 +828,7 @@ fn test_to_json_string_pretty() {
     let json_str = to_json_string_pretty(&message);
 
     assert!(json_str.contains("segments"));
-    assert!(json_str.contains("\n")); // Pretty format has newlines
+    assert!(json_str.contains('\n')); // Pretty format has newlines
 }
 
 // ============================================================================

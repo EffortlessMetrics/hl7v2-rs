@@ -186,7 +186,7 @@ BTS|1|End of batch\r";
     world.raw_bytes = batch.to_vec();
 }
 
-#[given(regex = r#"a batch containing ([A-Z]{3}\^[A-Z0-9]{2,3}) messages"#)]
+#[given(regex = r"a batch containing ([A-Z]{3}\^[A-Z0-9]{2,3}) messages")]
 fn given_batch_message_type(world: &mut BatchWorld, message_type: String) {
     let batch = format!(
         "BHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120000|||BATCH001|Test batch\r\
@@ -495,7 +495,7 @@ fn then_trailer_comment(world: &mut BatchWorld) {
     assert_eq!(info.trailer_comment, Some("End of batch".to_string()));
 }
 
-#[then(regex = r#"each message should be of type ([A-Z]{3}\^[A-Z0-9]{2,3})"#)]
+#[then(regex = r"each message should be of type ([A-Z]{3}\^[A-Z0-9]{2,3})")]
 fn then_each_message_type(world: &mut BatchWorld, _message_type: String) {
     then_parse_success(world);
 }

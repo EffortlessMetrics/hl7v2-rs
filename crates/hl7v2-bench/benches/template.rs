@@ -174,7 +174,7 @@ fn bench_simple_template_generation(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&template), 42, 1);
             black_box(result)
-        })
+        });
     });
 }
 
@@ -186,7 +186,7 @@ fn bench_template_with_values_generation(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&template), 42, 1);
             black_box(result)
-        })
+        });
     });
 }
 
@@ -198,7 +198,7 @@ fn bench_complex_template_generation(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&template), 42, 1);
             black_box(result)
-        })
+        });
     });
 }
 
@@ -208,13 +208,13 @@ fn bench_generation_throughput(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("generation_throughput");
 
-    for count in [1, 10, 100, 1000].iter() {
+    for count in &[1, 10, 100, 1000] {
         group.throughput(Throughput::Elements(*count as u64));
         group.bench_with_input(BenchmarkId::new("messages", count), count, |b, &count| {
             b.iter(|| {
                 let result = generate(black_box(&template), 42, count);
                 black_box(result)
-            })
+            });
         });
     }
 
@@ -233,7 +233,7 @@ fn bench_value_source_resolution(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&fixed), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // From list
@@ -246,7 +246,7 @@ fn bench_value_source_resolution(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&from_list), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Numeric
@@ -255,7 +255,7 @@ fn bench_value_source_resolution(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&numeric), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // UUID v4
@@ -264,7 +264,7 @@ fn bench_value_source_resolution(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&uuid), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Date
@@ -276,7 +276,7 @@ fn bench_value_source_resolution(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&date), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Gaussian
@@ -289,7 +289,7 @@ fn bench_value_source_resolution(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&gaussian), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -307,7 +307,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&name), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Realistic address
@@ -316,7 +316,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&address), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Realistic phone
@@ -325,7 +325,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&phone), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Realistic SSN
@@ -334,7 +334,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&ssn), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Realistic MRN
@@ -343,7 +343,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&mrn), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Realistic ICD-10
@@ -352,7 +352,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&icd10), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Realistic LOINC
@@ -361,7 +361,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&loinc), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Realistic medication
@@ -370,7 +370,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&med), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     // Realistic allergen
@@ -379,7 +379,7 @@ fn bench_realistic_value_generators(c: &mut Criterion) {
         b.iter(|| {
             let result = generate_value(black_box(&allergen), &mut rng);
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -391,13 +391,13 @@ fn bench_corpus_generation(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("corpus_generation");
 
-    for count in [10, 100, 1000].iter() {
+    for count in &[10, 100, 1000] {
         group.throughput(Throughput::Elements(*count as u64));
         group.bench_with_input(BenchmarkId::new("corpus", count), count, |b, &count| {
             b.iter(|| {
                 let result = generate_corpus(black_box(&template), 42, count, 100);
                 black_box(result)
-            })
+            });
         });
     }
 
@@ -414,7 +414,7 @@ fn bench_template_complexity(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&simple), 42, 1);
             black_box(result)
-        })
+        });
     });
 
     // Medium template (2 segments, 8 value sources)
@@ -423,7 +423,7 @@ fn bench_template_complexity(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&medium), 42, 1);
             black_box(result)
-        })
+        });
     });
 
     // Complex template (12 segments, 15+ value sources)
@@ -432,7 +432,7 @@ fn bench_template_complexity(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&complex), 42, 1);
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -448,7 +448,7 @@ fn bench_deterministic_generation(c: &mut Criterion) {
             let result = generate(black_box(&template), iteration, 1);
             iteration += 1;
             black_box(result)
-        })
+        });
     });
 }
 
@@ -463,7 +463,7 @@ fn bench_batch_generation(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&template), 42, 10);
             black_box(result)
-        })
+        });
     });
 
     // Medium batch
@@ -471,7 +471,7 @@ fn bench_batch_generation(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&template), 42, 100);
             black_box(result)
-        })
+        });
     });
 
     // Large batch
@@ -479,7 +479,7 @@ fn bench_batch_generation(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&template), 42, 1000);
             black_box(result)
-        })
+        });
     });
 
     group.finish();
@@ -493,7 +493,7 @@ fn bench_numeric_template(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&template), 42, 1);
             black_box(result)
-        })
+        });
     });
 }
 
@@ -508,14 +508,14 @@ fn bench_value_generation_overhead(c: &mut Criterion) {
         b.iter(|| {
             let result = generate(black_box(&template_no_values), 42, 1);
             black_box(result)
-        })
+        });
     });
 
     group.bench_function("with_values", |b| {
         b.iter(|| {
             let result = generate(black_box(&template_with_values), 42, 1);
             black_box(result)
-        })
+        });
     });
 
     group.finish();

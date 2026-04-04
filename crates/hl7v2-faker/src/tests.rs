@@ -109,7 +109,7 @@ fn test_address_has_street_number() {
     let address = faker.address();
 
     // Should start with a street number (100-9999)
-    let street_number: String = address.chars().take_while(|c| c.is_ascii_digit()).collect();
+    let street_number: String = address.chars().take_while(char::is_ascii_digit).collect();
     let num: i32 = street_number.parse().unwrap();
     assert!((100..=9999).contains(&num));
 }
@@ -177,7 +177,7 @@ fn test_ssn_all_digits() {
     let mut faker = Faker::new(&mut rng);
     let ssn = faker.ssn();
 
-    let digits_only: String = ssn.chars().filter(|c| c.is_ascii_digit()).collect();
+    let digits_only: String = ssn.chars().filter(char::is_ascii_digit).collect();
     assert_eq!(digits_only.len(), 9);
 }
 

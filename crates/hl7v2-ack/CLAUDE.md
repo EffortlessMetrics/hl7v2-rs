@@ -1,16 +1,16 @@
 # hl7v2-ack
 
 ## Build
-`ash
+```bash
 cargo build -p hl7v2-ack
-`
+```
 
 ## Test
-`ash
+```bash
 cargo test -p hl7v2-ack
-`
+```
 
 ## Lint
-`ash
+```bash
 cargo clippy -p hl7v2-ack -- -D warnings
-`
+```

@@ -713,7 +713,7 @@ mod workflows {
 
         // Verify JSON output
         let output = String::from_utf8_lossy(&parse_result.get_output().stdout);
-        assert!(output.contains("{"));
+        assert!(output.contains('{'));
 
         // Step 2: Validate
         let mut cmd = cli();
