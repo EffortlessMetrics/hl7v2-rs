@@ -4,6 +4,9 @@
 //!
 //! EFF-1136 is specifically about the tokio dev-dependency in hl7v2-gen.
 
+// Test code uses nested if statements for readability - allow this pattern
+#![allow(clippy::collapsible_if)]
+
 use std::fs;
 use std::path::Path;
 
@@ -22,35 +25,43 @@ fn find_hardcoded_dependencies<P: AsRef<Path>>(cargo_toml_path: P) -> Result<Vec
     let mut hardcoded = Vec::new();
 
     // Check [dependencies] section
-    if let Some(deps_table) = manifest.get("dependencies").and_then(|d| d.as_table()) {
-        for dep_name in ISSUE_SCOPED_DEPS {
-            if let Some(dep_value) = deps_table.get(*dep_name) {
-                if is_hardcoded_version(dep_value) {
-                    hardcoded.push(dep_name.to_string());
+    if let Some(deps) = manifest.get("dependencies") {
+        if let Some(deps_table) = deps.as_table() {
+            for dep_name in ISSUE_SCOPED_DEPS {
+                if let Some(dep_value) = deps_table.get(*dep_name) {
+                    if is_hardcoded_version(dep_value) {
+                        hardcoded.push(dep_name.to_string());
+                    }
                 }
             }
         }
     }
 
     // Check [dev-dependencies] section
-    if let Some(deps_table) = manifest.get("dev-dependencies").and_then(|d| d.as_table()) {
-        for dep_name in ISSUE_SCOPED_DEPS {
-            if let Some(dep_value) = deps_table.get(*dep_name) {
-                if is_hardcoded_version(dep_value) {
-                    hardcoded.push(format!("{} (dev)", dep_name));
+    if let Some(dev_deps) = manifest.get("dev-dependencies") {
+        if let Some(deps_table) = dev_deps.as_table() {
+            for dep_name in ISSUE_SCOPED_DEPS {
+                if let Some(dep_value) = deps_table.get(*dep_name) {
+                    if is_hardcoded_version(dep_value) {
+                        hardcoded.push(format!("{} (dev)", dep_name));
+                    }
                 }
             }
         }
     }
 
     // Check [target.*.dependencies] sections
-    if let Some(target_table) = manifest.get("target").and_then(|t| t.as_table()) {
-        for (_, target_deps) in target_table {
-            if let Some(deps_table) = target_deps.get("dependencies").and_then(|d| d.as_table()) {
-                for dep_name in ISSUE_SCOPED_DEPS {
-                    if let Some(dep_value) = deps_table.get(*dep_name) {
-                        if is_hardcoded_version(dep_value) {
-                            hardcoded.push(format!("{} (target)", dep_name));
+    if let Some(target) = manifest.get("target") {
+        if let Some(target_table) = target.as_table() {
+            for (_, target_deps) in target_table {
+                if let Some(deps) = target_deps.get("dependencies") {
+                    if let Some(deps_table) = deps.as_table() {
+                        for dep_name in ISSUE_SCOPED_DEPS {
+                            if let Some(dep_value) = deps_table.get(*dep_name) {
+                                if is_hardcoded_version(dep_value) {
+                                    hardcoded.push(format!("{} (target)", dep_name));
+                                }
+                            }
                         }
                     }
                 }
@@ -69,11 +80,10 @@ fn is_hardcoded_version(dep_value: &toml::Value) -> bool {
         // Table with version field: tokio = { version = "1.0", ... }
         toml::Value::Table(table) => {
             // If it has workspace = true, it's OK
-            if table
-                .get("workspace")
-                .is_some_and(|w| w.as_bool() == Some(true))
-            {
-                return false;
+            if let Some(workspace) = table.get("workspace") {
+                if workspace.as_bool() == Some(true) {
+                    return false;
+                }
             }
             // If it has a version field, it's hardcoded
             if table.contains_key("version") {
@@ -103,22 +113,20 @@ fn get_workspace_cargo_tomls() -> Vec<std::path::PathBuf> {
 
     // Read workspace members from root Cargo.toml
     let root_cargo_toml = workspace_root.join("Cargo.toml");
-    let manifest: Option<toml::Value> = fs::read_to_string(&root_cargo_toml)
-        .ok()
-        .and_then(|c| toml::from_str(&c).ok());
-
-    if let Some(manifest) = manifest {
-        if let Some(members_array) = manifest
-            .get("workspace")
-            .and_then(|w| w.get("members"))
-            .and_then(|m| m.as_array())
-        {
-            for member in members_array {
-                if let Some(member_str) = member.as_str() {
-                    let member_path = workspace_root.join(member_str);
-                    let cargo_toml = member_path.join("Cargo.toml");
-                    if cargo_toml.exists() {
-                        paths.push(cargo_toml);
+    if let Ok(content) = fs::read_to_string(&root_cargo_toml) {
+        if let Ok(manifest) = toml::from_str::<toml::Value>(&content) {
+            if let Some(workspace) = manifest.get("workspace") {
+                if let Some(members) = workspace.get("members") {
+                    if let Some(members_array) = members.as_array() {
+                        for member in members_array {
+                            if let Some(member_str) = member.as_str() {
+                                let member_path = workspace_root.join(member_str);
+                                let cargo_toml = member_path.join("Cargo.toml");
+                                if cargo_toml.exists() {
+                                    paths.push(cargo_toml);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -160,99 +168,61 @@ fn hl7v2_gen_tokio_uses_workspace_version() {
 
 #[test]
 fn hl7v2_gen_has_no_hardcoded_tokio_version() {
-    //! Ensure hl7v2-gen does not regress back to a hardcoded tokio version.
+    //! EFF-1136: Ensure no hardcoded tokio version exists in hl7v2-gen
+    //!
+    //! Complementary test to verify the tokio dependency alignment.
 
     let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let cargo_toml = crate_dir.join("Cargo.toml");
 
     let hardcoded = find_hardcoded_dependencies(&cargo_toml).expect("Failed to parse Cargo.toml");
 
+    // Filter for tokio entries only
+    let tokio_violations: Vec<&String> = hardcoded
+        .iter()
+        .filter(|d| d.starts_with("tokio"))
+        .collect();
+
     assert!(
-        hardcoded.is_empty(),
-        "Found a hardcoded tokio version in hl7v2-gen. \
-         These should use workspace = true instead:\n  - {}",
-        hardcoded.join("\n  - ")
+        tokio_violations.is_empty(),
+        "EFF-1136 REGRESSION: Found hardcoded tokio version in hl7v2-gen: {:?}",
+        tokio_violations
     );
 }
 
 // =============================================================================
-// Cross-Crate Workspace Dependency Alignment Tests
+// Future: Cross-Crate Dependency Alignment Tests (EFF-1137+)
 // =============================================================================
-
-// NOTE: These tests are temporarily disabled as they check all workspace crates,
-// but EFF-1136 is specifically about fixing hl7v2-gen. A follow-up PR will
-// address the remaining crates.
-
-/*
-#[test]
-fn all_crates_use_workspace_for_tokio() {
-    //! Verify ALL workspace crates use workspace = true for tokio
-    //!
-    //! This test scans all workspace crates and fails if any crate
-    //! has a hardcoded tokio version instead of using workspace = true.
-
-    let cargo_tomls = get_workspace_cargo_tomls();
-    let mut violations = Vec::new();
-
-    for cargo_toml in &cargo_tomls {
-        let hardcoded = find_hardcoded_dependencies(cargo_toml)
-            .expect(&format!("Failed to parse {:?}", cargo_toml));
-
-        let tokio_violations: Vec<&String> = hardcoded
-            .iter()
-            .filter(|d| d.starts_with("tokio"))
-            .collect();
-
-        if !tokio_violations.is_empty() {
-            let crate_name = cargo_toml
-                .parent()
-                .and_then(|p| p.file_name())
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown");
-            violations.push(format!("{}: {:?}", crate_name, tokio_violations));
-        }
-    }
-
-    assert!(
-        violations.is_empty(),
-        "Found crates with hardcoded tokio versions (should use workspace = true):\n  - {}",
-        violations.join("\n  - ")
-    );
-}
-
-#[test]
-fn all_crates_use_workspace_for_managed_deps() {
-    //! Verify ALL workspace crates use workspace = true for all managed deps
-
-    let cargo_tomls = get_workspace_cargo_tomls();
-    let mut violations = Vec::new();
-
-    for cargo_toml in &cargo_tomls {
-        let hardcoded = find_hardcoded_dependencies(cargo_toml)
-            .expect(&format!("Failed to parse {:?}", cargo_toml));
-
-        if !hardcoded.is_empty() {
-            let crate_name = cargo_toml
-                .parent()
-                .and_then(|p| p.file_name())
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown");
-            violations.push(format!("{}: {:?}", crate_name, hardcoded));
-        }
-    }
-
-    assert!(
-        violations.is_empty(),
-        "Found crates with hardcoded versions for workspace-managed dependencies:\n  - {}\n\n\
-         All of these should use workspace = true to prevent version drift.",
-        violations.join("\n  - ")
-    );
-}
-*/
-
-// =============================================================================
-// BDD-Style Scenarios (run via cucumber in bdd_tests.rs)
-// =============================================================================
-
-// Note: These are not standalone tests but support the BDD feature file
-// scenarios defined in features/dependency_alignment.feature
+// These tests are commented out pending the broader dependency alignment epic.
+// Uncomment and enable when ready to enforce workspace = true across all crates.
+//
+// #[test]
+// fn all_workspace_crates_use_workspace_dependencies() {
+//     let cargo_tomls = get_workspace_cargo_tomls();
+//     let mut all_violations = Vec::new();
+//
+//     for cargo_toml in cargo_tomls {
+//         match find_hardcoded_dependencies(&cargo_toml) {
+//             Ok(violations) => {
+//                 if !violations.is_empty() {
+//                     let crate_name = cargo_toml
+//                         .parent()
+//                         .and_then(|p| p.file_name())
+//                         .and_then(|n| n.to_str())
+//                         .unwrap_or("unknown");
+//                     all_violations.push((crate_name.to_string(), violations));
+//                 }
+//             }
+//             Err(e) => {
+//                 // Log but don't fail - test data may not be valid TOML
+//                 eprintln!("Warning: Could not check {:?}: {}", cargo_toml, e);
+//             }
+//         }
+//     }
+//
+//     assert!(
+//         all_violations.is_empty(),
+//         "Found hardcoded dependencies in workspace crates: {:?}",
+//         all_violations
+//     );
+// }
