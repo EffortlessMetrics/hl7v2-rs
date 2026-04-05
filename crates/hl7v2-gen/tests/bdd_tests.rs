@@ -568,7 +568,10 @@ fn given_workspace_root_defines_deps(world: &mut DependencyWorld) {
     // This step just validates the workspace setup exists
     let workspace_root = DependencyWorld::get_workspace_root();
     let root_cargo = workspace_root.join("Cargo.toml");
-    assert!(root_cargo.exists(), "Workspace root Cargo.toml should exist");
+    assert!(
+        root_cargo.exists(),
+        "Workspace root Cargo.toml should exist"
+    );
 }
 
 #[given("all workspace member crates")]
@@ -590,9 +593,8 @@ fn given_crate_uses_workspace(world: &mut DependencyWorld, dep_name: String) {
 #[given("a newly scaffolded workspace crate")]
 fn given_newly_scaffolded_crate(world: &mut DependencyWorld) {
     // Placeholder for new crate scenario
-    world.current_cargo_toml = Some(
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
-    );
+    world.current_cargo_toml =
+        Some(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"));
 }
 
 // ============================================================================
@@ -657,7 +659,14 @@ fn when_check_all_deps(world: &mut DependencyWorld) {
     world.violations.clear();
 
     let workspace_managed = [
-        "tokio", "serde", "serde_json", "thiserror", "anyhow", "chrono", "rand", "regex",
+        "tokio",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "anyhow",
+        "chrono",
+        "rand",
+        "regex",
     ];
 
     let world_ref = DependencyWorld::new();
@@ -665,10 +674,9 @@ fn when_check_all_deps(world: &mut DependencyWorld) {
         for dep_name in &workspace_managed {
             if world_ref.has_hardcoded_version(cargo_toml, dep_name) {
                 let crate_name = world.crate_name_from_path(cargo_toml);
-                world.violations.push(format!(
-                    "{} has hardcoded {} version",
-                    crate_name, dep_name
-                ));
+                world
+                    .violations
+                    .push(format!("{} has hardcoded {} version", crate_name, dep_name));
             }
         }
     }
