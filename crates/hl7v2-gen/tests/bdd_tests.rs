@@ -564,7 +564,7 @@ fn given_all_workspace_crates(world: &mut DependencyWorld) {
 }
 
 #[given("the workspace root Cargo.toml defines managed dependencies")]
-fn given_workspace_root_defines_deps(world: &mut DependencyWorld) {
+fn given_workspace_root_defines_deps(_world: &mut DependencyWorld) {
     // This step just validates the workspace setup exists
     let workspace_root = DependencyWorld::get_workspace_root();
     let root_cargo = workspace_root.join("Cargo.toml");
