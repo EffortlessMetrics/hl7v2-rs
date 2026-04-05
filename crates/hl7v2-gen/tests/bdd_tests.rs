@@ -441,17 +441,16 @@ impl DependencyWorld {
         let manifest: toml::Value = toml::from_str(&content).expect("Parse workspace Cargo.toml");
 
         let mut paths = Vec::new();
-        if let Some(workspace) = manifest.get("workspace") {
-            if let Some(members) = workspace.get("members") {
-                if let Some(members_array) = members.as_array() {
-                    for member in members_array {
-                        if let Some(member_str) = member.as_str() {
-                            let member_path = workspace_root.join(member_str);
-                            let cargo_toml = member_path.join("Cargo.toml");
-                            if cargo_toml.exists() {
-                                paths.push(cargo_toml);
-                            }
-                        }
+        if let Some(workspace) = manifest.get("workspace")
+            && let Some(members) = workspace.get("members")
+            && let Some(members_array) = members.as_array()
+        {
+            for member in members_array {
+                if let Some(member_str) = member.as_str() {
+                    let member_path = workspace_root.join(member_str);
+                    let cargo_toml = member_path.join("Cargo.toml");
+                    if cargo_toml.exists() {
+                        paths.push(cargo_toml);
                     }
                 }
             }
@@ -470,21 +469,19 @@ impl DependencyWorld {
         };
 
         // Check [dependencies]
-        if let Some(deps) = manifest.get("dependencies") {
-            if let Some(deps_table) = deps.as_table() {
-                if let Some(dep_value) = deps_table.get(dep_name) {
-                    return self.checks_workspace_true(dep_value);
-                }
-            }
+        if let Some(deps) = manifest.get("dependencies")
+            && let Some(deps_table) = deps.as_table()
+            && let Some(dep_value) = deps_table.get(dep_name)
+        {
+            return self.checks_workspace_true(dep_value);
         }
 
         // Check [dev-dependencies]
-        if let Some(deps) = manifest.get("dev-dependencies") {
-            if let Some(deps_table) = deps.as_table() {
-                if let Some(dep_value) = deps_table.get(dep_name) {
-                    return self.checks_workspace_true(dep_value);
-                }
-            }
+        if let Some(deps) = manifest.get("dev-dependencies")
+            && let Some(deps_table) = deps.as_table()
+            && let Some(dep_value) = deps_table.get(dep_name)
+        {
+            return self.checks_workspace_true(dep_value);
         }
 
         // If dependency not found, it doesn't use workspace = true
@@ -511,12 +508,11 @@ impl DependencyWorld {
 
         let sections = ["dependencies", "dev-dependencies"];
         for section in &sections {
-            if let Some(deps) = manifest.get(section) {
-                if let Some(deps_table) = deps.as_table() {
-                    if let Some(dep_value) = deps_table.get(dep_name) {
-                        return self.is_hardcoded(dep_value);
-                    }
-                }
+            if let Some(deps) = manifest.get(section)
+                && let Some(deps_table) = deps.as_table()
+                && let Some(dep_value) = deps_table.get(dep_name)
+            {
+                return self.is_hardcoded(dep_value);
             }
         }
         false
@@ -527,10 +523,10 @@ impl DependencyWorld {
             toml::Value::String(_) => true, // "1.0" is hardcoded
             toml::Value::Table(table) => {
                 // Check if it has workspace = true
-                if let Some(workspace) = table.get("workspace") {
-                    if workspace.as_bool() == Some(true) {
-                        return false;
-                    }
+                if let Some(workspace) = table.get("workspace")
+                    && workspace.as_bool() == Some(true)
+                {
+                    return false;
                 }
                 // Has version field means hardcoded
                 table.contains_key("version")
@@ -615,7 +611,7 @@ fn when_check_dependency(world: &mut DependencyWorld, dep_name: String) {
 fn when_tokio_has_hardcoded_version(world: &mut DependencyWorld, version: String) {
     world.current_dep = Some("tokio".to_string());
     world.should_fail = true;
-    world.expected_error = Some(format!("EFF-1136 REGRESSION"));
+    world.expected_error = Some("EFF-1136 REGRESSION".to_string());
     // Simulate the violation
     world.violations.push(format!(
         "tokio has hardcoded version {} (should use workspace = true)",
