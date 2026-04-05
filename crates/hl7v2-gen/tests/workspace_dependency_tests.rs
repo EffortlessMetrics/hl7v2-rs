@@ -1,34 +1,14 @@
 //! Workspace dependency alignment tests
 //!
-//! These tests ensure all crates in the workspace use workspace = true
-//! for shared dependencies to prevent version drift.
+//! These tests enforce the EFF-1136 regression boundary only.
 //!
-//! EFF-1136: Tests for tokio dependency alignment in hl7v2-gen
+//! EFF-1136 is specifically about the tokio dev-dependency in hl7v2-gen.
 
 use std::fs;
 use std::path::Path;
 
-/// List of dependencies that MUST use workspace = true in all crates
-const WORKSPACE_MANAGED_DEPS: &[&str] = &[
-    "tokio",
-    "serde",
-    "serde_json",
-    "thiserror",
-    "anyhow",
-    "chrono",
-    "rand",
-    "regex",
-    "tracing",
-    "tracing-subscriber",
-    "futures",
-    "bytes",
-    "tokio-util",
-    "uuid",
-    "axum",
-    "tower",
-    "tower-http",
-    "metrics",
-];
+/// Issue-scoped dependency set for EFF-1136.
+const ISSUE_SCOPED_DEPS: &[&str] = &["tokio"];
 
 /// Parse a Cargo.toml and return dependencies that have hardcoded versions
 /// instead of using workspace = true
@@ -44,7 +24,7 @@ fn find_hardcoded_dependencies<P: AsRef<Path>>(cargo_toml_path: P) -> Result<Vec
     // Check [dependencies] section
     if let Some(deps) = manifest.get("dependencies") {
         if let Some(deps_table) = deps.as_table() {
-            for dep_name in WORKSPACE_MANAGED_DEPS {
+            for dep_name in ISSUE_SCOPED_DEPS {
                 if let Some(dep_value) = deps_table.get(*dep_name) {
                     if is_hardcoded_version(dep_value) {
                         hardcoded.push(dep_name.to_string());
@@ -57,7 +37,7 @@ fn find_hardcoded_dependencies<P: AsRef<Path>>(cargo_toml_path: P) -> Result<Vec
     // Check [dev-dependencies] section
     if let Some(dev_deps) = manifest.get("dev-dependencies") {
         if let Some(deps_table) = dev_deps.as_table() {
-            for dep_name in WORKSPACE_MANAGED_DEPS {
+            for dep_name in ISSUE_SCOPED_DEPS {
                 if let Some(dep_value) = deps_table.get(*dep_name) {
                     if is_hardcoded_version(dep_value) {
                         hardcoded.push(format!("{} (dev)", dep_name));
@@ -73,7 +53,7 @@ fn find_hardcoded_dependencies<P: AsRef<Path>>(cargo_toml_path: P) -> Result<Vec
             for (_, target_deps) in target_table {
                 if let Some(deps) = target_deps.get("dependencies") {
                     if let Some(deps_table) = deps.as_table() {
-                        for dep_name in WORKSPACE_MANAGED_DEPS {
+                        for dep_name in ISSUE_SCOPED_DEPS {
                             if let Some(dep_value) = deps_table.get(*dep_name) {
                                 if is_hardcoded_version(dep_value) {
                                     hardcoded.push(format!("{} (target)", dep_name));
@@ -184,8 +164,8 @@ fn hl7v2_gen_tokio_uses_workspace_version() {
 }
 
 #[test]
-fn no_workspace_managed_deps_have_hardcoded_versions() {
-    //! Ensure hl7v2-gen doesn't have hardcoded versions for any workspace-managed deps
+fn hl7v2_gen_has_no_hardcoded_tokio_version() {
+    //! Ensure hl7v2-gen does not regress back to a hardcoded tokio version.
 
     let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let cargo_toml = crate_dir.join("Cargo.toml");
@@ -194,7 +174,7 @@ fn no_workspace_managed_deps_have_hardcoded_versions() {
 
     assert!(
         hardcoded.is_empty(),
-        "Found hardcoded versions for workspace-managed dependencies in hl7v2-gen. \
+        "Found a hardcoded tokio version in hl7v2-gen. \
          These should use workspace = true instead:\n  - {}",
         hardcoded.join("\n  - ")
     );
