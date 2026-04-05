@@ -29,9 +29,10 @@ serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 
 [dev-dependencies]
 proptest = "1.6"
-rand = "0.10.0"
+rand = { workspace = true }
 cucumber = "0.22.1"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+toml = "0.8"
 hl7v2-query = { version = "1.2.0", path = "../hl7v2-query" }
 hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize" }
 hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
