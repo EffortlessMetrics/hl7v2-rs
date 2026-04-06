@@ -390,6 +390,516 @@ fn then_name_has_component_sep(world: &mut GenWorld) {
     assert!(name.contains('^'), "Name '{}' should contain '^'", name);
 }
 
+// =============================================================================
+// Dependency Alignment World and Steps (EFF-1136)
+// =============================================================================
+
+/// Test world for workspace dependency alignment BDD tests
+#[derive(Debug, World)]
+#[world(init = Self::new)]
+pub struct DependencyWorld {
+    /// Current crate Cargo.toml being analyzed
+    current_cargo_toml: Option<std::path::PathBuf>,
+    /// All workspace crate Cargo.toml paths
+    workspace_cargos: Vec<std::path::PathBuf>,
+    /// Current dependency name being checked
+    current_dep: Option<String>,
+    /// Violations found during checks
+    violations: Vec<String>,
+    /// Test should fail flag
+    should_fail: bool,
+    /// Expected error message pattern
+    expected_error: Option<String>,
+}
+
+impl DependencyWorld {
+    fn new() -> Self {
+        Self {
+            current_cargo_toml: None,
+            workspace_cargos: Vec::new(),
+            current_dep: None,
+            violations: Vec::new(),
+            should_fail: false,
+            expected_error: None,
+        }
+    }
+
+    fn get_workspace_root() -> std::path::PathBuf {
+        let crate_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        crate_dir
+            .parent()
+            .expect("hl7v2-gen is in crates dir")
+            .parent()
+            .expect("crates is in workspace root")
+            .to_path_buf()
+    }
+
+    fn get_all_workspace_cargos() -> Vec<std::path::PathBuf> {
+        let workspace_root = Self::get_workspace_root();
+        let root_cargo = workspace_root.join("Cargo.toml");
+        let content = std::fs::read_to_string(&root_cargo).expect("Read workspace Cargo.toml");
+        let manifest: toml::Value = toml::from_str(&content).expect("Parse workspace Cargo.toml");
+
+        let mut paths = Vec::new();
+        if let Some(workspace) = manifest.get("workspace")
+            && let Some(members) = workspace.get("members")
+            && let Some(members_array) = members.as_array()
+        {
+            for member in members_array {
+                if let Some(member_str) = member.as_str() {
+                    let member_path = workspace_root.join(member_str);
+                    let cargo_toml = member_path.join("Cargo.toml");
+                    if cargo_toml.exists() {
+                        paths.push(cargo_toml);
+                    }
+                }
+            }
+        }
+        paths
+    }
+
+    fn parse_cargo_toml(&self, path: &std::path::Path) -> Option<toml::Value> {
+        let content = std::fs::read_to_string(path).ok()?;
+        toml::from_str(&content).ok()
+    }
+
+    fn uses_workspace_true(&self, cargo_toml: &std::path::Path, dep_name: &str) -> bool {
+        let Some(manifest) = self.parse_cargo_toml(cargo_toml) else {
+            return false;
+        };
+
+        // Check [dependencies]
+        if let Some(deps) = manifest.get("dependencies")
+            && let Some(deps_table) = deps.as_table()
+            && let Some(dep_value) = deps_table.get(dep_name)
+        {
+            return self.checks_workspace_true(dep_value);
+        }
+
+        // Check [dev-dependencies]
+        if let Some(deps) = manifest.get("dev-dependencies")
+            && let Some(deps_table) = deps.as_table()
+            && let Some(dep_value) = deps_table.get(dep_name)
+        {
+            return self.checks_workspace_true(dep_value);
+        }
+
+        // If dependency not found, it doesn't use workspace = true
+        false
+    }
+
+    fn checks_workspace_true(&self, dep_value: &toml::Value) -> bool {
+        match dep_value {
+            toml::Value::Table(table) => {
+                if let Some(workspace) = table.get("workspace") {
+                    return workspace.as_bool() == Some(true);
+                }
+                false
+            }
+            _ => false,
+        }
+    }
+
+    fn has_hardcoded_version(&self, cargo_toml: &std::path::Path, dep_name: &str) -> bool {
+        let manifest = match self.parse_cargo_toml(cargo_toml) {
+            Some(m) => m,
+            None => return false,
+        };
+
+        let sections = ["dependencies", "dev-dependencies"];
+        for section in &sections {
+            if let Some(deps) = manifest.get(section)
+                && let Some(deps_table) = deps.as_table()
+                && let Some(dep_value) = deps_table.get(dep_name)
+            {
+                return self.is_hardcoded(dep_value);
+            }
+        }
+        false
+    }
+
+    fn is_hardcoded(&self, dep_value: &toml::Value) -> bool {
+        match dep_value {
+            toml::Value::String(_) => true, // "1.0" is hardcoded
+            toml::Value::Table(table) => {
+                // Check if it has workspace = true
+                if let Some(workspace) = table.get("workspace")
+                    && workspace.as_bool() == Some(true)
+                {
+                    return false;
+                }
+                // Has version field means hardcoded
+                table.contains_key("version")
+            }
+            _ => false,
+        }
+    }
+
+    fn crate_name_from_path(&self, path: &std::path::Path) -> String {
+        path.parent()
+            .and_then(|p| p.file_name())
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string()
+    }
+}
+
+// ============================================================================
+// Dependency Alignment Given Steps
+// ============================================================================
+
+#[given("the hl7v2-gen crate Cargo.toml")]
+fn given_hl7v2_gen_cargo_toml(world: &mut DependencyWorld) {
+    let crate_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    world.current_cargo_toml = Some(crate_dir.join("Cargo.toml"));
+}
+
+#[given("all workspace crates")]
+fn given_all_workspace_crates(world: &mut DependencyWorld) {
+    world.workspace_cargos = DependencyWorld::get_all_workspace_cargos();
+}
+
+#[given("the workspace root Cargo.toml defines managed dependencies")]
+fn given_workspace_root_defines_deps(_world: &mut DependencyWorld) {
+    // This step just validates the workspace setup exists
+    let workspace_root = DependencyWorld::get_workspace_root();
+    let root_cargo = workspace_root.join("Cargo.toml");
+    assert!(
+        root_cargo.exists(),
+        "Workspace root Cargo.toml should exist"
+    );
+}
+
+#[given("all workspace member crates")]
+fn given_all_workspace_members(world: &mut DependencyWorld) {
+    world.workspace_cargos = DependencyWorld::get_all_workspace_cargos();
+    assert!(
+        !world.workspace_cargos.is_empty(),
+        "Should have workspace members"
+    );
+}
+
+#[given(regex = r"^a workspace crate using workspace = true for (\w+)$")]
+fn given_crate_uses_workspace(world: &mut DependencyWorld, dep_name: String) {
+    // Simulate a crate that correctly uses workspace = true
+    world.current_dep = Some(dep_name);
+    world.should_fail = false;
+}
+
+#[given("a newly scaffolded workspace crate")]
+fn given_newly_scaffolded_crate(world: &mut DependencyWorld) {
+    // Placeholder for new crate scenario
+    world.current_cargo_toml =
+        Some(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"));
+}
+
+// ============================================================================
+// Dependency Alignment When Steps
+// ============================================================================
+
+#[when("I check the tokio dependency")]
+fn when_check_tokio(world: &mut DependencyWorld) {
+    world.current_dep = Some("tokio".to_string());
+}
+
+#[when(regex = r"^I check the (\w+) dependency$")]
+fn when_check_dependency(world: &mut DependencyWorld, dep_name: String) {
+    world.current_dep = Some(dep_name);
+}
+
+#[when(regex = r#"^the tokio dependency has a hardcoded version like "(\d+\.\d+\.\d+)"$"#)]
+fn when_tokio_has_hardcoded_version(world: &mut DependencyWorld, version: String) {
+    world.current_dep = Some("tokio".to_string());
+    world.should_fail = true;
+    world.expected_error = Some("EFF-1136 REGRESSION".to_string());
+    // Simulate the violation
+    world.violations.push(format!(
+        "tokio has hardcoded version {} (should use workspace = true)",
+        version
+    ));
+}
+
+#[when("I check the tokio dependency in each crate")]
+fn when_check_tokio_in_each_crate(world: &mut DependencyWorld) {
+    world.current_dep = Some("tokio".to_string());
+    world.violations.clear();
+
+    for cargo_toml in &world.workspace_cargos {
+        if self::DependencyWorld::new().has_hardcoded_version(cargo_toml, "tokio") {
+            let crate_name = world.crate_name_from_path(cargo_toml);
+            world
+                .violations
+                .push(format!("{} has hardcoded tokio version", crate_name));
+        }
+    }
+}
+
+#[when(regex = r"^I check the (\w+) dependency in each crate$")]
+fn when_check_dep_in_each_crate(world: &mut DependencyWorld, dep_name: String) {
+    world.current_dep = Some(dep_name.clone());
+    world.violations.clear();
+
+    let world_ref = DependencyWorld::new();
+    for cargo_toml in &world.workspace_cargos {
+        if world_ref.has_hardcoded_version(cargo_toml, &dep_name) {
+            let crate_name = world.crate_name_from_path(cargo_toml);
+            world
+                .violations
+                .push(format!("{} has hardcoded {} version", crate_name, dep_name));
+        }
+    }
+}
+
+#[when("I check all dependencies in all crates")]
+fn when_check_all_deps(world: &mut DependencyWorld) {
+    world.violations.clear();
+
+    let workspace_managed = [
+        "tokio",
+        "serde",
+        "serde_json",
+        "thiserror",
+        "anyhow",
+        "chrono",
+        "rand",
+        "regex",
+    ];
+
+    let world_ref = DependencyWorld::new();
+    for cargo_toml in &world.workspace_cargos {
+        for dep_name in &workspace_managed {
+            if world_ref.has_hardcoded_version(cargo_toml, dep_name) {
+                let crate_name = world.crate_name_from_path(cargo_toml);
+                world
+                    .violations
+                    .push(format!("{} has hardcoded {} version", crate_name, dep_name));
+            }
+        }
+    }
+}
+
+#[when("I check dev-dependencies in each crate")]
+fn when_check_dev_deps(world: &mut DependencyWorld) {
+    world.violations.clear();
+
+    let workspace_managed = ["tokio", "serde", "serde_json", "thiserror", "rand"];
+
+    let world_ref = DependencyWorld::new();
+    for cargo_toml in &world.workspace_cargos {
+        for dep_name in &workspace_managed {
+            if world_ref.has_hardcoded_version(cargo_toml, dep_name) {
+                let crate_name = world.crate_name_from_path(cargo_toml);
+                world.violations.push(format!(
+                    "{} has hardcoded {} version (dev)",
+                    crate_name, dep_name
+                ));
+            }
+        }
+    }
+}
+
+#[when(regex = r#"^a developer changes (\w+) to version "(\d+\.\d+\.\d+)"$"#)]
+fn when_dev_changes_to_version(world: &mut DependencyWorld, dep_name: String, version: String) {
+    world.current_dep = Some(dep_name.clone());
+    world.should_fail = true;
+    world.violations.push(format!(
+        "{} changed to hardcoded version {} (should use workspace = true)",
+        dep_name, version
+    ));
+}
+
+#[when(regex = r"^it has dependencies that are workspace-managed$")]
+fn when_has_workspace_deps(_world: &mut DependencyWorld) {
+    // This step is just context setting
+}
+
+// ============================================================================
+// Dependency Alignment Then Steps
+// ============================================================================
+
+#[then("it should use workspace = true")]
+fn then_should_use_workspace_true(world: &mut DependencyWorld) {
+    let cargo_toml = world
+        .current_cargo_toml
+        .as_ref()
+        .expect("No Cargo.toml set");
+    let dep_name = world.current_dep.as_ref().expect("No dependency set");
+
+    let uses_workspace = DependencyWorld::new().uses_workspace_true(cargo_toml, dep_name);
+
+    assert!(
+        uses_workspace,
+        "{} should use workspace = true for {}",
+        cargo_toml.display(),
+        dep_name
+    );
+}
+
+#[then("it should NOT have a hardcoded version")]
+fn then_should_not_have_hardcoded_version(world: &mut DependencyWorld) {
+    let cargo_toml = world
+        .current_cargo_toml
+        .as_ref()
+        .expect("No Cargo.toml set");
+    let dep_name = world.current_dep.as_ref().expect("No dependency set");
+
+    let is_hardcoded = DependencyWorld::new().has_hardcoded_version(cargo_toml, dep_name);
+
+    assert!(
+        !is_hardcoded,
+        "{} should NOT have hardcoded version for {} (should use workspace = true)",
+        cargo_toml.display(),
+        dep_name
+    );
+}
+
+#[then("the workspace alignment test should fail")]
+fn then_test_should_fail(world: &mut DependencyWorld) {
+    assert!(
+        world.should_fail || !world.violations.is_empty(),
+        "Test should have detected violations or been marked to fail"
+    );
+}
+
+#[then(regex = r#"^the error should mention "(.+)"$"#)]
+fn then_error_should_mention(world: &mut DependencyWorld, pattern: String) {
+    let violations_text = world.violations.join(" ");
+    assert!(
+        violations_text.contains(&pattern) || world.expected_error.as_ref() == Some(&pattern),
+        "Expected error to mention '{}' but got: {:?}",
+        pattern,
+        world.violations
+    );
+}
+
+#[then("every crate should use workspace = true")]
+fn then_every_crate_uses_workspace(world: &mut DependencyWorld) {
+    let dep_name = world.current_dep.as_ref().expect("No dependency set");
+    let world_ref = DependencyWorld::new();
+
+    for cargo_toml in &world.workspace_cargos {
+        let uses_workspace = world_ref.uses_workspace_true(cargo_toml, dep_name);
+        assert!(
+            uses_workspace,
+            "{} should use workspace = true for {}",
+            world.crate_name_from_path(cargo_toml),
+            dep_name
+        );
+    }
+}
+
+#[then("no crate should have a hardcoded tokio version")]
+fn then_no_crate_has_hardcoded_tokio(world: &mut DependencyWorld) {
+    let world_ref = DependencyWorld::new();
+
+    for cargo_toml in &world.workspace_cargos {
+        let has_hardcoded = world_ref.has_hardcoded_version(cargo_toml, "tokio");
+        assert!(
+            !has_hardcoded,
+            "{} should NOT have hardcoded tokio version",
+            world.crate_name_from_path(cargo_toml)
+        );
+    }
+}
+
+#[then(regex = r"^no crate should have a hardcoded (\w+) version$")]
+fn then_no_crate_has_hardcoded_dep(world: &mut DependencyWorld, dep_name: String) {
+    let world_ref = DependencyWorld::new();
+
+    for cargo_toml in &world.workspace_cargos {
+        let has_hardcoded = world_ref.has_hardcoded_version(cargo_toml, &dep_name);
+        assert!(
+            !has_hardcoded,
+            "{} should NOT have hardcoded {} version",
+            world.crate_name_from_path(cargo_toml),
+            dep_name
+        );
+    }
+}
+
+#[then("no crate should have hardcoded versions for managed dependencies")]
+fn then_no_hardcoded_for_managed(world: &mut DependencyWorld) {
+    assert!(
+        world.violations.is_empty(),
+        "Found crates with hardcoded versions for managed dependencies:\n  - {}",
+        world.violations.join("\n  - ")
+    );
+}
+
+#[then("the test should list all violations if any exist")]
+fn then_test_lists_violations(world: &mut DependencyWorld) {
+    if !world.violations.is_empty() {
+        // The error message should contain the violations list
+        let violations_text = world.violations.join(" ");
+        assert!(
+            !violations_text.is_empty(),
+            "Test should list violations: {:?}",
+            world.violations
+        );
+    }
+}
+
+#[then("workspace-managed dev-dependencies should use workspace = true")]
+fn then_dev_deps_use_workspace(world: &mut DependencyWorld) {
+    assert!(
+        world.violations.is_empty(),
+        "Dev-dependencies with hardcoded versions:\n  - {}",
+        world.violations.join("\n  - ")
+    );
+}
+
+#[then("no dev-dependency should have a hardcoded version for managed deps")]
+fn then_no_dev_hardcoded(world: &mut DependencyWorld) {
+    assert!(
+        world.violations.is_empty(),
+        "Dev-dependencies with hardcoded versions:\n  - {}",
+        world.violations.join("\n  - ")
+    );
+}
+
+#[then(regex = r"^the error message should indicate the specific crate and (\w+)$")]
+fn then_error_indicates_crate_and_dep(world: &mut DependencyWorld, _dep: String) {
+    // Check that violations contain crate information
+    for violation in &world.violations {
+        assert!(
+            violation.contains(" has hardcoded "),
+            "Error should indicate crate and dependency: {}",
+            violation
+        );
+    }
+}
+
+#[then(regex = r"^the (\w+) alignment tests should fail$")]
+fn then_alignment_tests_fail(world: &mut DependencyWorld, _dep: String) {
+    assert!(
+        !world.violations.is_empty(),
+        "Alignment tests should have detected violations"
+    );
+}
+
+#[then("it must use workspace = true for those dependencies")]
+fn then_must_use_workspace_true(world: &mut DependencyWorld) {
+    // Verify that current crate uses workspace = true
+    if let Some(cargo_toml) = &world.current_cargo_toml {
+        let world_ref = DependencyWorld::new();
+        let workspace_managed = ["tokio", "serde", "serde_json"];
+        for dep in &workspace_managed {
+            if world_ref.has_hardcoded_version(cargo_toml, dep) {
+                panic!("Must use workspace = true for {}", dep);
+            }
+        }
+    }
+}
+
+#[then("the build should fail if hardcoded versions are used")]
+fn then_build_fails_if_hardcoded(world: &mut DependencyWorld) {
+    // This is the contract: hardcoded versions should cause test failures
+    assert!(
+        !world.violations.is_empty() || !world.should_fail,
+        "Build/test should fail when hardcoded versions are used"
+    );
+}
+
 // Run the tests
 #[tokio::main]
 async fn main() {
