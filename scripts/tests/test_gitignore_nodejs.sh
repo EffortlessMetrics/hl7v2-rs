@@ -13,7 +13,6 @@ set -uo pipefail
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Test counters
@@ -41,7 +40,7 @@ test_node_modules_pattern_exists() {
     echo "=== Test: node_modules pattern exists in .gitignore ==="
     
     local result=0
-    grep -q "^node_modules/" "$GITIGNORE_FILE" 2>/dev/null || result=$?
+    grep -q "^node_modules/$" "$GITIGNORE_FILE" 2>/dev/null || result=$?
     
     if [[ $result -eq 0 ]]; then
         pass "node_modules/ pattern exists in .gitignore"
@@ -56,7 +55,7 @@ test_package_lock_pattern_exists() {
     echo "=== Test: package-lock.json pattern exists in .gitignore ==="
     
     local result=0
-    grep -q "^package-lock.json" "$GITIGNORE_FILE" 2>/dev/null || result=$?
+    grep -q "^package-lock\.json$" "$GITIGNORE_FILE" 2>/dev/null || result=$?
     
     if [[ $result -eq 0 ]]; then
         pass "package-lock.json pattern exists in .gitignore"
@@ -72,7 +71,7 @@ test_node_modules_is_ignored() {
     
     # First check if pattern exists
     local pattern_exists=0
-    grep -q "^node_modules/" "$GITIGNORE_FILE" 2>/dev/null || pattern_exists=$?
+    grep -q "^node_modules/$" "$GITIGNORE_FILE" 2>/dev/null || pattern_exists=$?
     
     if [[ $pattern_exists -ne 0 ]]; then
         fail "Cannot test - node_modules/ pattern not yet in .gitignore"
@@ -109,7 +108,7 @@ test_package_lock_is_ignored() {
     
     # First check if pattern exists
     local pattern_exists=0
-    grep -q "^package-lock.json" "$GITIGNORE_FILE" 2>/dev/null || pattern_exists=$?
+    grep -q "^package-lock\.json$" "$GITIGNORE_FILE" 2>/dev/null || pattern_exists=$?
     
     if [[ $pattern_exists -ne 0 ]]; then
         fail "Cannot test - package-lock.json pattern not yet in .gitignore"
@@ -144,7 +143,7 @@ test_node_modules_pattern_format() {
     echo "=== Test: node_modules pattern has correct format ==="
     
     local pattern
-    pattern=$(grep "^node_modules" "$GITIGNORE_FILE" 2>/dev/null || true)
+    pattern=$(grep "^node_modules/$" "$GITIGNORE_FILE" 2>/dev/null || true)
     
     if [[ -z "$pattern" ]]; then
         fail "node_modules pattern not found - cannot verify format"
@@ -157,7 +156,7 @@ test_node_modules_pattern_format() {
         fail "node_modules pattern missing trailing '/' - should be 'node_modules/' not 'node_modules'"
     fi
     
-    if [[ "$pattern" == *\\\* ]]; then
+    if [[ "$pattern" == *\\* ]]; then
         fail "node_modules pattern contains backslash - should use forward slash"
     else
         pass "node_modules pattern uses forward slash format"
@@ -172,8 +171,8 @@ test_section_header_exists() {
     # Check for Node.js patterns in file
     local has_node_modules=0
     local has_pkg_lock=0
-    grep -q "^node_modules/" "$GITIGNORE_FILE" 2>/dev/null || has_node_modules=$?
-    grep -q "^package-lock.json" "$GITIGNORE_FILE" 2>/dev/null || has_pkg_lock=$?
+    grep -q "^node_modules/$" "$GITIGNORE_FILE" 2>/dev/null || has_node_modules=$?
+    grep -q "^package-lock\.json$" "$GITIGNORE_FILE" 2>/dev/null || has_pkg_lock=$?
     
     if [[ $has_node_modules -ne 0 && $has_pkg_lock -ne 0 ]]; then
         fail "Cannot verify - Node.js patterns not yet added to .gitignore"
@@ -183,8 +182,8 @@ test_section_header_exists() {
     # Look for a comment indicating Node.js section near the patterns
     # Get line numbers of patterns
     local node_line pkg_line
-    node_line=$(grep -n "^node_modules/" "$GITIGNORE_FILE" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
-    pkg_line=$(grep -n "^package-lock.json" "$GITIGNORE_FILE" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+    node_line=$(grep -n "^node_modules/$" "$GITIGNORE_FILE" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
+    pkg_line=$(grep -n "^package-lock\.json$" "$GITIGNORE_FILE" 2>/dev/null | head -1 | cut -d: -f1 || echo "0")
     
     # Check up to 5 lines before the first pattern for a comment
     local first_line=$node_line
@@ -199,9 +198,12 @@ test_section_header_exists() {
         fi
         
         local context
-        context=$(sed -n "${start_line},${first_line}p" "$GITIGNORE_FILE" 2>/dev/null || true)
+        # Exclude the pattern line itself to avoid false positives
+        local end_line=$((first_line - 1))
+        context=$(sed -n "${start_line},${end_line}p" "$GITIGNORE_FILE" 2>/dev/null || true)
         
-        if echo "$context" | grep -qi "node\|npm"; then
+        # Look for comment lines mentioning node/npm (not pattern lines)
+        if echo "$context" | grep -qE '^\s*#.*\b(node|npm|Node\.js)\b'; then
             pass "Node.js section header comment found near patterns"
         else
             fail "Node.js patterns lack descriptive section header comment"
