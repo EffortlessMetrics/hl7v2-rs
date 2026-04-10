@@ -25,3 +25,10 @@ target
 *.pem
 *.key
 *.p12
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+# Agent workspace files
+.swarm/
