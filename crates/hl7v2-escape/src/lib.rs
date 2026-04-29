@@ -199,7 +199,15 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
 ///
 /// `true` if the text contains any delimiter characters
 pub fn needs_escaping(text: &str, delims: &Delims) -> bool {
-    text.contains(&[delims.field, delims.comp, delims.rep, delims.esc, delims.sub][..])
+    text.contains(
+        &[
+            delims.field,
+            delims.comp,
+            delims.rep,
+            delims.esc,
+            delims.sub,
+        ][..],
+    )
 }
 
 /// Check if text contains any escape sequences.
