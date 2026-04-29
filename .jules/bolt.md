@@ -1,3 +1,0 @@
-## 2025-04-29 - str::contains with character slices is faster than iterating characters
-**Learning:** In Rust, checking if a string contains any of a set of characters using `str::contains` with a slice of characters (e.g., `text.contains(&['\n', '\r'][..])`) is measurably faster (10-25% improvement) than manually iterating over characters and checking them (e.g., `text.chars().any(|c| c == '\n' || c == '\r')`). This is due to compiler and standard library optimizations in `str::contains` for searching slices.
-**Action:** Use `text.contains(&[char1, char2, ...][..])` instead of manual `chars().any()` or loops when checking strings against a small, known set of special characters.
