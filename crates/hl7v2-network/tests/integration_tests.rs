@@ -472,6 +472,7 @@ async fn test_server_configuration() {
         write_timeout: Duration::from_secs(10),
         max_frame_size: 5 * 1024 * 1024,
         backlog: 64,
+        max_concurrent_connections: 50,
         ack_timing: hl7v2_network::AckTimingPolicy::Immediate,
     };
 

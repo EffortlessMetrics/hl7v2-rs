@@ -465,11 +465,13 @@ mod server_tests {
             write_timeout: Duration::from_secs(5),
             max_frame_size: 1024,
             backlog: 64,
+            max_concurrent_connections: 50,
             ack_timing: AckTimingPolicy::Delayed(Duration::from_millis(50)),
         };
 
         assert_eq!(config.read_timeout, Duration::from_secs(5));
         assert_eq!(config.backlog, 64);
+        assert_eq!(config.max_concurrent_connections, 50);
         assert!(matches!(config.ack_timing, AckTimingPolicy::Delayed(_)));
     }
 
@@ -488,18 +490,18 @@ mod server_tests {
     struct EchoHandler;
 
     impl MessageHandler for EchoHandler {
-        fn handle_message(&self, message: Message) -> Result<Option<Message>, Error> {
+        async fn handle_message(&self, message: Message) -> Result<Option<Message>, Error> {
             // Echo the message back as ACK
             Ok(Some(message))
         }
     }
 
-    #[test]
-    fn test_message_handler_echo() {
+    #[tokio::test]
+    async fn test_message_handler_echo() {
         let handler = EchoHandler;
         let message = create_test_message();
 
-        let result = handler.handle_message(message);
+        let result = handler.handle_message(message).await;
         assert!(result.is_ok());
         assert!(result.unwrap().is_some());
     }
@@ -508,17 +510,17 @@ mod server_tests {
     struct SilentHandler;
 
     impl MessageHandler for SilentHandler {
-        fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
+        async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
             Ok(None)
         }
     }
 
-    #[test]
-    fn test_message_handler_silent() {
+    #[tokio::test]
+    async fn test_message_handler_silent() {
         let handler = SilentHandler;
         let message = create_test_message();
 
-        let result = handler.handle_message(message);
+        let result = handler.handle_message(message).await;
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
     }
@@ -527,19 +529,19 @@ mod server_tests {
     struct ErrorHandler;
 
     impl MessageHandler for ErrorHandler {
-        fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
+        async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
             Err(Error::InvalidFieldFormat {
                 details: "Test error".to_string(),
             })
         }
     }
 
-    #[test]
-    fn test_message_handler_error() {
+    #[tokio::test]
+    async fn test_message_handler_error() {
         let handler = ErrorHandler;
         let message = create_test_message();
 
-        let result = handler.handle_message(message);
+        let result = handler.handle_message(message).await;
         assert!(result.is_err());
     }
 }
@@ -680,7 +682,7 @@ mod network_tests {
         }
 
         impl MessageHandler for TestHandler {
-            fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
+            async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
                 self.notify.notify_one();
                 Ok(Some(create_test_message()))
             }
@@ -703,7 +705,7 @@ mod network_tests {
         });
 
         // Give server time to start
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         // Create client and connect
         let mut client = MllpClientBuilder::new()
@@ -732,7 +734,7 @@ mod network_tests {
         }
 
         impl MessageHandler for CountingHandler {
-            fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
+            async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
                 self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 Ok(Some(create_test_message()))
             }
@@ -755,7 +757,7 @@ mod network_tests {
         });
 
         // Give server time to start
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         // Create multiple clients
         let mut handles = vec![];
@@ -780,10 +782,93 @@ mod network_tests {
         }
 
         // Give time for messages to be processed
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
 
         // Verify all messages were handled
         assert!(count.load(std::sync::atomic::Ordering::SeqCst) >= 3);
+    }
+
+    /// Test server concurrency limit
+    #[tokio::test]
+    async fn test_server_concurrency_limit() {
+        struct SlowHandler {
+            active_count: Arc<std::sync::atomic::AtomicU32>,
+            max_active: Arc<std::sync::atomic::AtomicU32>,
+        }
+
+        impl MessageHandler for SlowHandler {
+            async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
+                let current = self.active_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                
+                // Track max concurrent handlers active
+                let mut max = self.max_active.load(std::sync::atomic::Ordering::SeqCst);
+                while current > max {
+                    match self.max_active.compare_exchange(
+                        max,
+                        current,
+                        std::sync::atomic::Ordering::SeqCst,
+                        std::sync::atomic::Ordering::SeqCst,
+                    ) {
+                        Ok(_) => break,
+                        Err(actual) => max = actual,
+                    }
+                }
+
+                // Sleep to keep the connection/handler active
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                
+                self.active_count.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(Some(create_test_message()))
+            }
+        }
+
+        // Start server with limit of 2 concurrent connections
+        let config = MllpServerConfig {
+            max_concurrent_connections: 2,
+            ..Default::default()
+        };
+        let mut server = MllpServer::new(config);
+        let bind_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
+        server.bind(bind_addr).await.unwrap();
+        let server_addr = server.local_addr().unwrap();
+
+        let active_count = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let max_active = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let handler = SlowHandler {
+            active_count: active_count.clone(),
+            max_active: max_active.clone(),
+        };
+
+        // Spawn server task
+        tokio::spawn(async move {
+            let _ = server.run(handler).await;
+        });
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Try to connect 5 clients
+        let mut handles = vec![];
+        for _ in 0..5 {
+            let addr = server_addr;
+            let handle = tokio::spawn(async move {
+                let mut client = MllpClientBuilder::new()
+                    .connect_timeout(Duration::from_secs(5))
+                    .build();
+
+                if let Ok(_) = client.connect(addr).await {
+                    let message = create_test_message();
+                    let _ = client.send_message(&message).await;
+                    let _ = client.close().await;
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for some time
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        // Verify that we never exceeded 2 concurrent handlers
+        assert!(max_active.load(std::sync::atomic::Ordering::SeqCst) <= 2);
     }
 
     /// Test codec handles partial frames correctly

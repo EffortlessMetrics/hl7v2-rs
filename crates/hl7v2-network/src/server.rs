@@ -29,6 +29,8 @@ pub struct MllpServerConfig {
     pub max_frame_size: usize,
     /// Backlog for the TCP listener
     pub backlog: u32,
+    /// Maximum number of concurrent connections
+    pub max_concurrent_connections: usize,
     /// ACK timing policy
     pub ack_timing: AckTimingPolicy,
 }
@@ -40,6 +42,7 @@ impl Default for MllpServerConfig {
             write_timeout: Duration::from_secs(30),
             max_frame_size: 10 * 1024 * 1024, // 10MB
             backlog: 128,
+            max_concurrent_connections: 100,
             ack_timing: AckTimingPolicy::Immediate,
         }
     }
@@ -59,7 +62,10 @@ pub enum AckTimingPolicy {
 /// Handler trait for processing incoming HL7 messages
 pub trait MessageHandler: Send + Sync {
     /// Process a message and optionally return an ACK message
-    fn handle_message(&self, message: Message) -> Result<Option<Message>, Error>;
+    fn handle_message(
+        &self,
+        message: Message,
+    ) -> impl std::future::Future<Output = Result<Option<Message>, Error>> + Send;
 }
 
 /// MLLP TCP server
@@ -103,6 +109,7 @@ impl MllpServer {
     /// Run the server, processing messages with the given handler
     ///
     /// This will accept connections and spawn a task for each connection.
+    /// Uses a semaphore to limit the number of concurrent connections.
     pub async fn run<H: MessageHandler + 'static>(
         &mut self,
         handler: H,
@@ -112,14 +119,26 @@ impl MllpServer {
         })?;
 
         let handler = std::sync::Arc::new(handler);
+        let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(
+            self.config.max_concurrent_connections,
+        ));
 
         loop {
+            // Wait for a permit before accepting a new connection
+            // This provides backpressure at the TCP level
+            let permit = semaphore.clone().acquire_owned().await.map_err(|e| {
+                std::io::Error::new(std::io::ErrorKind::Other, format!("Semaphore error: {}", e))
+            })?;
+
             let (stream, peer_addr) = listener.accept().await?;
             let handler = handler.clone();
             let config = self.config.clone();
 
             // Spawn a task to handle this connection
             tokio::spawn(async move {
+                // The permit is held by this task and dropped when it finishes
+                let _permit = permit;
+
                 if let Err(e) = handle_connection(stream, peer_addr, handler, config).await {
                     eprintln!("Error handling connection from {}: {}", peer_addr, e);
                 }
@@ -172,7 +191,7 @@ async fn handle_connection<H: MessageHandler>(
                 };
 
                 // Handle the message
-                let ack = match handler.handle_message(message) {
+                let ack = match handler.handle_message(message).await {
                     Ok(Some(ack)) => ack,
                     Ok(None) => continue, // No ACK requested
                     Err(e) => {
@@ -287,7 +306,7 @@ mod tests {
     struct TestHandler;
 
     impl MessageHandler for TestHandler {
-        fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
+        async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
             // Simple ACK - just echo the message back
             Ok(None)
         }

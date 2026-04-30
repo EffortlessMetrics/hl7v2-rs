@@ -52,7 +52,7 @@
 //! struct MyHandler;
 //!
 //! impl MessageHandler for MyHandler {
-//!     fn handle_message(&self, message: Message) -> Result<Option<Message>, Error> {
+//!     async fn handle_message(&self, message: Message) -> Result<Option<Message>, Error> {
 //!         // Process the message and optionally return an ACK
 //!         println!("Received message with {} segments", message.segments.len());
 //!         Ok(None) // Return Some(ack_message) to send an ACK
