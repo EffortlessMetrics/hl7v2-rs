@@ -703,8 +703,8 @@ constraints:
 
         #[test]
         fn test_stats_command_execution() {
-            use crate::stats_command;
             use crate::ReportFormat;
+            use crate::stats_command;
             let dir = TempDir::new().expect("Failed to create temp dir");
             let file_path = create_temp_hl7_file(&dir, "test.hl7");
 
@@ -712,7 +712,6 @@ constraints:
             let result = stats_command(&file_path, false, true, &ReportFormat::Text);
             assert!(result.is_ok());
         }
-
 
         // -------------------------------------------------------------------------
         // --streaming flag tests

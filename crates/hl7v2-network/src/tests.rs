@@ -798,8 +798,11 @@ mod network_tests {
 
         impl MessageHandler for SlowHandler {
             async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
-                let current = self.active_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-                
+                let current = self
+                    .active_count
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                    + 1;
+
                 // Track max concurrent handlers active
                 let mut max = self.max_active.load(std::sync::atomic::Ordering::SeqCst);
                 while current > max {
@@ -816,8 +819,9 @@ mod network_tests {
 
                 // Sleep to keep the connection/handler active
                 tokio::time::sleep(Duration::from_millis(200)).await;
-                
-                self.active_count.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+
+                self.active_count
+                    .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
                 Ok(Some(create_test_message()))
             }
         }

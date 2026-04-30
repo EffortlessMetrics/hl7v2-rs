@@ -825,7 +825,10 @@ fn format_stats_report(
             output.push_str("\n");
             output.push_str("Segment breakdown:\n");
             for seg in &report.segments {
-                output.push_str(&format!("  {}: {} occurrence(s)\n", seg.segment_id, seg.count));
+                output.push_str(&format!(
+                    "  {}: {} occurrence(s)\n",
+                    seg.segment_id, seg.count
+                ));
             }
 
             if let Some(dists) = &report.field_distributions {
@@ -886,7 +889,6 @@ fn stats_command(
 
     Ok(())
 }
-
 
 fn ack_command(
     input: &PathBuf,
