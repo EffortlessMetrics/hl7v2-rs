@@ -91,6 +91,7 @@ async fn test_server_with_custom_config() {
         write_timeout: Duration::from_secs(5),
         max_frame_size: 1024 * 1024,
         backlog: 32,
+        max_concurrent_connections: 50,
         ack_timing: AckTimingPolicy::Immediate,
     };
 
@@ -112,6 +113,7 @@ async fn test_server_config_default() {
     assert_eq!(config.write_timeout, Duration::from_secs(30));
     assert_eq!(config.max_frame_size, 10 * 1024 * 1024);
     assert_eq!(config.backlog, 128);
+    assert_eq!(config.max_concurrent_connections, 100);
     assert_eq!(config.ack_timing, AckTimingPolicy::Immediate);
 }
 
@@ -146,7 +148,7 @@ async fn test_echo_handler_returns_message() {
     let handler = EchoHandler::new(notify);
 
     let message = create_test_message();
-    let result = handler.handle_message(message);
+    let result = handler.handle_message(message).await;
 
     assert!(result.is_ok());
     assert!(result.unwrap().is_some());
@@ -159,7 +161,7 @@ async fn test_ack_handler_returns_ack() {
     let handler = AckHandler::new(notify);
 
     let message = create_test_message();
-    let result = handler.handle_message(message);
+    let result = handler.handle_message(message).await;
 
     assert!(result.is_ok());
     let ack = result.unwrap();
@@ -173,9 +175,9 @@ async fn test_counting_handler_increments() {
     let handler = CountingHandler::new(count.clone());
 
     let message = create_test_message();
-    let _ = handler.handle_message(message.clone());
-    let _ = handler.handle_message(message.clone());
-    let _ = handler.handle_message(message);
+    let _ = handler.handle_message(message.clone()).await;
+    let _ = handler.handle_message(message.clone()).await;
+    let _ = handler.handle_message(message).await;
 
     assert_eq!(count.load(std::sync::atomic::Ordering::SeqCst), 3);
 }
@@ -186,7 +188,7 @@ async fn test_silent_handler_returns_none() {
     let handler = SilentHandler;
 
     let message = create_test_message();
-    let result = handler.handle_message(message);
+    let result = handler.handle_message(message).await;
 
     assert!(result.is_ok());
     assert!(result.unwrap().is_none());
@@ -198,7 +200,7 @@ async fn test_error_handler_returns_error() {
     let handler = ErrorHandler;
 
     let message = create_test_message();
-    let result = handler.handle_message(message);
+    let result = handler.handle_message(message).await;
 
     assert!(result.is_err());
 }

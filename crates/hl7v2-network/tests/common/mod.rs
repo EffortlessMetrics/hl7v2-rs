@@ -164,7 +164,7 @@ impl EchoHandler {
 }
 
 impl MessageHandler for EchoHandler {
-    fn handle_message(&self, message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
         self.notify.notify_one();
         Ok(Some(message))
     }
@@ -182,7 +182,7 @@ impl AckHandler {
 }
 
 impl MessageHandler for AckHandler {
-    fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
         self.notify.notify_one();
         // Create a simple ACK
         Ok(Some(create_test_message()))
@@ -203,8 +203,8 @@ impl DelayedHandler {
 }
 
 impl MessageHandler for DelayedHandler {
-    fn handle_message(&self, message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
-        // Note: This is synchronous, actual delay would need async handling
+    async fn handle_message(&self, message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
+        tokio::time::sleep(self.delay).await;
         self.notify.notify_one();
         Ok(Some(message))
     }
@@ -222,7 +222,7 @@ impl CountingHandler {
 }
 
 impl MessageHandler for CountingHandler {
-    fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
         self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(Some(create_test_message()))
     }
@@ -232,7 +232,7 @@ impl MessageHandler for CountingHandler {
 pub struct ErrorHandler;
 
 impl MessageHandler for ErrorHandler {
-    fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
         Err(hl7v2_model::Error::InvalidFieldFormat {
             details: "Test error".to_string(),
         })
@@ -243,7 +243,7 @@ impl MessageHandler for ErrorHandler {
 pub struct SilentHandler;
 
 impl MessageHandler for SilentHandler {
-    fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, _message: Message) -> Result<Option<Message>, hl7v2_model::Error> {
         Ok(None)
     }
 }
