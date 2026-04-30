@@ -618,102 +618,101 @@ constraints:
         }
 
         // -------------------------------------------------------------------------
-        // --distributions flag tests (stats with field distributions)
+        // Stats command logic tests
         // -------------------------------------------------------------------------
 
         #[test]
-        fn test_stats_field_distributions() {
+        fn test_collect_stats_basic() {
+            use hl7v2_core::parse;
             let content = SampleMessages::adt_a01();
             let message = parse(content.as_bytes()).expect("Parse should succeed");
 
-            // Collect segment statistics
-            let mut segment_counts: std::collections::HashMap<String, usize> =
-                std::collections::HashMap::new();
-            for segment in &message.segments {
-                *segment_counts
-                    .entry(segment.id_str().to_string())
-                    .or_insert(0) += 1;
-            }
+            let stats = crate::collect_stats(&message, false);
 
-            assert!(!segment_counts.is_empty());
-            assert!(segment_counts.contains_key("MSH"));
+            assert_eq!(stats.segment_count, message.segments.len());
+            assert!(stats.field_distributions.is_none());
+            assert!(stats.segments.iter().any(|s| s.segment_id == "MSH"));
+            assert!(stats.segments.iter().any(|s| s.segment_id == "PID"));
         }
 
         #[test]
-        fn test_stats_report_json_format() {
+        fn test_collect_stats_with_distributions() {
+            use hl7v2_core::parse;
             let content = SampleMessages::adt_a01();
             let message = parse(content.as_bytes()).expect("Parse should succeed");
 
-            // Collect segment statistics
-            let mut segment_counts: std::collections::HashMap<String, usize> =
-                std::collections::HashMap::new();
-            for segment in &message.segments {
-                *segment_counts
-                    .entry(segment.id_str().to_string())
-                    .or_insert(0) += 1;
-            }
+            let stats = crate::collect_stats(&message, true);
 
-            let segments: Vec<crate::SegmentStats> = segment_counts
-                .into_iter()
-                .map(|(id, count)| crate::SegmentStats {
-                    segment_id: id,
-                    count,
-                })
-                .collect();
+            assert!(stats.field_distributions.is_some());
+            let dists = stats.field_distributions.unwrap();
+            assert!(!dists.is_empty());
+            // Should contain MSH.3, etc. (skips MSH.0 as per logic)
+            assert!(dists.iter().any(|d| d.path == "MSH.3"));
+        }
+
+        #[test]
+        fn test_format_stats_report_text() {
+            let segments = vec![
+                crate::SegmentStats {
+                    segment_id: "MSH".to_string(),
+                    count: 1,
+                },
+                crate::SegmentStats {
+                    segment_id: "PID".to_string(),
+                    count: 1,
+                },
+            ];
 
             let report = crate::StatsReport {
                 input_file: "test.hl7".to_string(),
-                file_size: content.len(),
-                segment_count: message.segments.len(),
+                file_size: 100,
+                segment_count: 2,
                 segments,
                 field_distributions: None,
             };
 
-            // Verify JSON serialization works
-            let json = serde_json::to_string_pretty(&report).expect("Should serialize to JSON");
-            assert!(json.contains("input_file"));
-            assert!(json.contains("segment_count"));
+            let output = crate::format_stats_report(&report, &crate::ReportFormat::Text)
+                .expect("Should format as text");
+
+            assert!(output.contains("Message Statistics:"));
+            assert!(output.contains("Input file: test.hl7"));
+            assert!(output.contains("Total segments: 2"));
+            assert!(output.contains("MSH: 1 occurrence(s)"));
+            assert!(output.contains("PID: 1 occurrence(s)"));
         }
 
         #[test]
-        fn test_stats_report_with_distributions() {
-            let content = SampleMessages::adt_a01();
-            let message = parse(content.as_bytes()).expect("Parse should succeed");
+        fn test_format_stats_report_yaml() {
+            let report = crate::StatsReport {
+                input_file: "test.hl7".to_string(),
+                file_size: 100,
+                segment_count: 1,
+                segments: vec![crate::SegmentStats {
+                    segment_id: "MSH".to_string(),
+                    count: 1,
+                }],
+                field_distributions: None,
+            };
 
-            // Collect field distributions
-            let mut distributions: Vec<crate::FieldDistribution> = Vec::new();
+            let output = crate::format_stats_report(&report, &crate::ReportFormat::Yaml)
+                .expect("Should format as YAML");
 
-            for segment in &message.segments {
-                let segment_id = segment.id_str();
-
-                for (field_idx, field) in segment.fields.iter().enumerate().take(5) {
-                    if field_idx == 0 {
-                        continue;
-                    }
-
-                    let path = format!("{}.{}", segment_id, field_idx);
-                    let value = field.first_text().unwrap_or("").to_string();
-
-                    if let Some(existing) = distributions.iter_mut().find(|d| d.path == path) {
-                        if !existing.sample_values.contains(&value)
-                            && existing.sample_values.len() < 10
-                        {
-                            existing.sample_values.push(value);
-                        }
-                        existing.unique_values = existing.sample_values.len();
-                    } else {
-                        distributions.push(crate::FieldDistribution {
-                            path,
-                            unique_values: 1,
-                            sample_values: vec![value],
-                        });
-                    }
-                }
-            }
-
-            // Verify we collected some distributions
-            assert!(!distributions.is_empty());
+            assert!(output.contains("input_file: test.hl7"));
+            assert!(output.contains("segment_count: 1"));
         }
+
+        #[test]
+        fn test_stats_command_execution() {
+            use crate::stats_command;
+            use crate::ReportFormat;
+            let dir = TempDir::new().expect("Failed to create temp dir");
+            let file_path = create_temp_hl7_file(&dir, "test.hl7");
+
+            // Execute stats command
+            let result = stats_command(&file_path, false, true, &ReportFormat::Text);
+            assert!(result.is_ok());
+        }
+
 
         // -------------------------------------------------------------------------
         // --streaming flag tests
