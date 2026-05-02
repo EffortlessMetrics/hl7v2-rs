@@ -16,6 +16,8 @@ use http::StatusCode;
 use std::sync::Arc;
 use tracing::info_span;
 
+use subtle::ConstantTimeEq;
+
 use crate::server::AppState;
 
 /// Trace request middleware
@@ -64,7 +66,7 @@ pub async fn auth_middleware(
         .and_then(|h| h.to_str().ok());
 
     match provided_key {
-        Some(key) if key == expected_key => {
+        Some(key) if key.as_bytes().ct_eq(expected_key.as_bytes()).into() => {
             // Valid key - allow request
             Ok(next.run(request).await)
         }
