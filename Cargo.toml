@@ -27,6 +27,7 @@ members = [
     "crates/hl7v2-core",
     "crates/hl7v2-bench",
     "crates/hl7v2-prof",
+    "crates/hl7v2-redact",
     "crates/hl7v2-guard",
     "crates/hl7v2-gen",
     "crates/hl7v2-cli",
@@ -80,6 +81,7 @@ serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 uselesskey = "0.4.0"
 hl7v2-core = { version = "1.2.0", path = "crates/hl7v2-core" }
 hl7v2-model = { version = "1.2.0", path = "crates/hl7v2-model" }
+hl7v2-test-utils = { version = "1.2.0", path = "crates/hl7v2-test-utils" }
 
 # Example dependencies (workspace examples)
 [package]
