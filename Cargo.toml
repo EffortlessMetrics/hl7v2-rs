@@ -33,6 +33,8 @@ members = [
     "crates/hl7v2-server",
     # Language bindings
     "crates/hl7v2-python",
+    # Security and monitoring
+    "crates/hl7v2-guard",
     # Testing utilities
     "crates/hl7v2-test-utils",
     # End-to-end tests
