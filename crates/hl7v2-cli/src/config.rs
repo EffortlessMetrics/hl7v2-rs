@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 
 /// Root configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[allow(dead_code)]
 pub struct Config {
     /// Server settings
     #[serde(default)]
@@ -25,6 +26,7 @@ pub struct Config {
 
 /// Server configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct ServerConfig {
     /// Bind address
     pub host: String,
@@ -46,6 +48,7 @@ impl Default for ServerConfig {
 
 /// CLI configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct CliConfig {
     /// Default HL7 version
     pub default_version: String,
@@ -64,6 +67,7 @@ impl Default for CliConfig {
 
 /// Logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct LogConfig {
     /// Log level (error, warn, info, debug, trace)
     pub level: String,
@@ -84,6 +88,7 @@ impl Default for LogConfig {
 }
 
 /// Load configuration from a file
+#[allow(dead_code)]
 pub fn load_config(path: impl AsRef<Path>) -> Result<Config, Box<dyn std::error::Error>> {
     let path_ref = path.as_ref();
     let content = fs::read_to_string(path_ref)?;
@@ -97,14 +102,15 @@ pub fn load_config(path: impl AsRef<Path>) -> Result<Config, Box<dyn std::error:
 }
 
 /// Apply environment variable overrides to configuration
+#[allow(dead_code)]
 pub fn apply_env_overrides(config: &mut Config) {
     if let Ok(host) = std::env::var("HL7_HOST") {
         config.server.host = host;
     }
-    if let Ok(port_str) = std::env::var("HL7_PORT") {
-        if let Ok(port) = port_str.parse::<u16>() {
-            config.server.port = port;
-        }
+    if let Ok(port_str) = std::env::var("HL7_PORT")
+        && let Ok(port) = port_str.parse::<u16>()
+    {
+        config.server.port = port;
     }
     if let Ok(api_key) = std::env::var("HL7_API_KEY") {
         config.server.api_key = Some(api_key);
