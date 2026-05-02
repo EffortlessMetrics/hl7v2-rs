@@ -95,7 +95,7 @@ fn test_message_ordering_by_timestamp() {
         .map(|t| parse_hl7_ts_with_precision(t).unwrap())
         .collect();
 
-    parsed.sort_by(|a, b| a.datetime.cmp(&b.datetime));
+    parsed.sort_by_key(|a| a.datetime);
 
     assert_eq!(parsed[0].datetime.hour(), 8);
     assert_eq!(parsed[1].datetime.hour(), 9);
