@@ -16,6 +16,7 @@ categories.workspace = true
 default = []
 network = ["dep:hl7v2-network"]
 stream = ["dep:hl7v2-stream"]
+file = ["tokio/fs", "tokio/io-util"]
 
 [dependencies]
 # Re-export from microcrates
@@ -36,11 +37,17 @@ hl7v2-stream = { version = "1.2.0", path = "../hl7v2-stream", optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
+
+# File reading dependencies
+tokio = { workspace = true, features = ["fs", "io-util"], optional = true }
+encoding_rs = "0.8.35"
 
 [dev-dependencies]
 cucumber = "0.22.1"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 proptest = "1.6"
+tempfile = "3.14"
 
 [[test]]
 name = "bdd_tests"

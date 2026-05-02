@@ -1,0 +1,27 @@
+# HL7 Table 0088 - Reason for the Coded Appointment
+# HL7 v2.5.1 Standard
+# Used in appointment scheduling
+
+hl7_table:
+  id: "HL70088"
+  name: "Reason for the Coded Appointment"
+  version: "2.5.1"
+  codes:
+    - value: "ROUTINE"
+      description: "Routine appointment"
+      status: "A"
+    - value: "FOLLOWUP"
+      description: "Follow-up"
+      status: "A"
+    - value: "EMERGENCY"
+      description: "Emergency"
+      status: "A"
+    - value: "CONSULT"
+      description: "Consultation"
+      status: "A"
+    - value: "PREOP"
+      description: "Pre-operative"
+      status: "A"
+    - value: "POSTOP"
+      description: "Post-operative"
+      status: "A"

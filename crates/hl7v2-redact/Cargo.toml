@@ -1,0 +1,35 @@
+[package]
+name = "hl7v2-redact"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "PHI (Protected Health Information) redaction for HL7 v2 messages"
+license.workspace = true
+repository.workspace = true
+keywords = ["hl7", "healthcare", "phi", "redaction", "privacy"]
+categories = ["parser-implementations", "encoding"]
+homepage.workspace = true
+documentation = "https://docs.rs/hl7v2-redact"
+
+[dependencies]
+hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
+hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
+hl7v2-query = { version = "1.2.0", path = "../hl7v2-query" }
+thiserror = { workspace = true }
+regex = { workspace = true }
+sha2 = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+serde_json = { workspace = true }
+cucumber = "0.22.1"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+proptest = "1.6"
+
+[[test]]
+name = "bdd_tests"
+harness = false

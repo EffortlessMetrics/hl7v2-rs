@@ -1,0 +1,30 @@
+# HL7 Table 0081 - Result Flags
+# HL7 v2.5.1 Standard
+# Used in OBX segment
+
+hl7_table:
+  id: "HL70081"
+  name: "Result Flags"
+  version: "2.5.1"
+  codes:
+    - value: "L"
+      description: "Below low normal"
+      status: "A"
+    - value: "H"
+      description: "Above high normal"
+      status: "A"
+    - value: "LL"
+      description: "Below lower panic limits"
+      status: "A"
+    - value: "HH"
+      description: "Above upper panic limits"
+      status: "A"
+    - value: "<"
+      description: "Off scale low"
+      status: "A"
+    - value: ">"
+      description: "Off scale high"
+      status: "A"
+    - value: "N"
+      description: "Normal"
+      status: "A"

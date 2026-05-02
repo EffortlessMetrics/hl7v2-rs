@@ -1,0 +1,18 @@
+# HL7 Table 0099 - VIP Indicator
+# HL7 v2.5.1 Standard
+# Used in PV1 segment for VIP status
+
+hl7_table:
+  id: "HL70099"
+  name: "VIP Indicator"
+  version: "2.5.1"
+  codes:
+    - value: "Y"
+      description: "Yes - VIP patient"
+      status: "A"
+    - value: "N"
+      description: "No - not a VIP"
+      status: "A"
+    - value: "U"
+      description: "Unknown"
+      status: "A"

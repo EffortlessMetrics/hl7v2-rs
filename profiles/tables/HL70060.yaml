@@ -1,0 +1,30 @@
+# HL7 Table 0060 - DRG Status Financial Calculation
+# HL7 v2.5.1 Standard
+# Used for DRG financial calculation
+
+hl7_table:
+  id: "HL70060"
+  name: "DRG Status Financial Calculation"
+  version: "2.5.1"
+  codes:
+    - value: "0"
+      description: "Effective weight calculated"
+      status: "A"
+    - value: "1"
+      description: "Hospital specific contract"
+      status: "A"
+    - value: "2"
+      description: "State specific criteria"
+      status: "A"
+    - value: "3"
+      description: "Federal criteria"
+      status: "A"
+    - value: "4"
+      description: "Cost outliers - per diem"
+      status: "A"
+    - value: "5"
+      description: "Cost outliers - percent"
+      status: "A"
+    - value: "6"
+      description: "Outlier day weighted"
+      status: "A"

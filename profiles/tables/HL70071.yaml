@@ -1,0 +1,18 @@
+# HL7 Table 0071 - Specimen Priority
+# HL7 v2.5.1 Standard
+# Used in OBR segment
+
+hl7_table:
+  id: "HL70071"
+  name: "Specimen Priority"
+  version: "2.5.1"
+  codes:
+    - value: "1"
+      description: "Stat"
+      status: "A"
+    - value: "2"
+      description: "ASAP"
+      status: "A"
+    - value: "3"
+      description: "Routine"
+      status: "A"

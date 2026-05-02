@@ -1,0 +1,114 @@
+# Kyverno Policy Exceptions for HL7v2 Infrastructure
+# 
+# This file defines PolicyException resources that allow certain workloads
+# to bypass specific Kyverno policies when justified by operational requirements.
+#
+# API Version: kyverno.io/v2beta1
+# Required Kyverno Version: 1.10+
+#
+# Migration History:
+# - Migrated from v2alpha1 to v2beta1 (EFF-890)
+# - v2beta1 provides stability guarantees while maintaining compatibility
+
+---
+# PolicyException: emergency-deployment-exception
+# 
+# Purpose: Allow emergency deployment configurations during incident response
+# when standard security policies would impede rapid remediation.
+#
+# Justification:
+# - Incident response requires ability to deploy debug tooling quickly
+# - Temporary relaxation of security constraints for break-glass scenarios
+# - Must be paired with audit logging and time-bound access
+#
+# Scoped To:
+# - Namespace: incident-response
+# - Labels: emergency-access=true
+#
+# Risk Level: High (requires monitoring and post-incident review)
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: emergency-deployment-exception
+  namespace: kyverno
+  annotations:
+    purpose: "Emergency incident response access"
+    risk-level: "high"
+    review-cycle: "quarterly"
+spec:
+  background: true
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - Pod
+        namespaces:
+        - incident-response
+        selector:
+          matchLabels:
+            emergency-access: "true"
+  exceptions:
+  - policyName: require-non-root
+    ruleNames:
+    - check-runasnonroot
+    - check-runasuser
+  - policyName: restrict-privilege-escalation
+    ruleNames:
+    - check-privilege-escalation
+  - policyName: require-read-only-root-fs
+    ruleNames:
+    - check-read-only-root-fs
+
+---
+# PolicyException: infrastructure-tools-exception
+#
+# Purpose: Allow infrastructure tooling (CI/CD runners, monitoring agents,
+# backup utilities) to run with elevated privileges required for their function.
+#
+# Justification:
+# - Infrastructure tools need host-level access for metrics collection
+# - Build agents require privileged containers for Docker-in-Docker
+# - Backup tools need to access volumes across namespaces
+#
+# Scoped To:
+# - Namespace: infrastructure
+# - ServiceAccounts: defined in exceptions
+#
+# Risk Level: Medium (controlled via RBAC and namespace isolation)
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: infrastructure-tools-exception
+  namespace: kyverno
+  annotations:
+    purpose: "Infrastructure tooling privileged access"
+    risk-level: "medium"
+    review-cycle: "quarterly"
+spec:
+  background: true
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        - DaemonSet
+        - StatefulSet
+        - Pod
+        namespaces:
+        - infrastructure
+        - monitoring
+        - ci-runners
+  exceptions:
+  - policyName: require-non-root
+    ruleNames:
+    - "*"
+  - policyName: restrict-privilege-escalation
+    ruleNames:
+    - "*"
+  - policyName: require-read-only-root-fs
+    ruleNames:
+    - "*"
+  - policyName: restrict-capabilities
+    ruleNames:
+    - "*"

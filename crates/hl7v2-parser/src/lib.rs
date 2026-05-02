@@ -37,6 +37,27 @@ use hl7v2_model::*;
 // Re-export query functionality from hl7v2-query for backward compatibility
 pub use hl7v2_query::{get, get_presence};
 
+/// Join lines with CR delimiter, pre-allocating capacity to avoid repeated allocations.
+///
+/// This is more efficient than `.to_vec().join("\r")` which:
+/// 1. Allocates a Vec to hold line references
+/// 2. Allocates a String and copies all data
+///
+/// This function estimates the needed capacity upfront and does a single allocation.
+fn join_lines_with_cr(lines: &[&str]) -> String {
+    // Estimate capacity: sum of all line lengths + (lines.len() - 1) separators
+    let estimated_capacity: usize =
+        lines.iter().map(|line| line.len()).sum::<usize>() + lines.len().saturating_sub(1);
+    let mut result = String::with_capacity(estimated_capacity);
+    for (i, line) in lines.iter().enumerate() {
+        if i > 0 {
+            result.push('\r');
+        }
+        result.push_str(line);
+    }
+    result
+}
+
 /// Parse HL7 v2 message from bytes.
 ///
 /// This is the primary entry point for parsing HL7 messages.
@@ -462,7 +483,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
             trailer = Some(bts_segment);
         } else if line.starts_with("MSH") {
             if !current_message_lines.is_empty() {
-                let message_text = current_message_lines.to_vec().join("\r");
+                let message_text = join_lines_with_cr(&current_message_lines);
                 let message =
                     parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
                         details: format!("Failed to parse message in batch: {}", e),
@@ -477,7 +498,7 @@ fn parse_batch_with_header(lines: &[&str]) -> Result<Batch, Error> {
     }
 
     if !current_message_lines.is_empty() {
-        let message_text = current_message_lines.to_vec().join("\r");
+        let message_text = join_lines_with_cr(&current_message_lines);
         let message = parse(message_text.as_bytes()).map_err(|e| Error::BatchParseError {
             details: format!("Failed to parse final message in batch: {}", e),
         })?;
@@ -523,7 +544,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
             trailer = Some(fts_segment);
         } else if line.starts_with("BHS") {
             if !current_batch_lines.is_empty() {
-                let batch_text = current_batch_lines.to_vec().join("\r");
+                let batch_text = join_lines_with_cr(&current_batch_lines);
                 match parse_batch(batch_text.as_bytes()) {
                     Ok(batch) => batches.push(batch),
                     Err(e) => {
@@ -544,7 +565,7 @@ fn parse_file_batch_with_header(lines: &[&str]) -> Result<FileBatch, Error> {
     }
 
     if !current_batch_lines.is_empty() {
-        let batch_text = current_batch_lines.to_vec().join("\r");
+        let batch_text = join_lines_with_cr(&current_batch_lines);
         match parse_batch(batch_text.as_bytes()) {
             Ok(batch) => batches.push(batch),
             Err(e) => {

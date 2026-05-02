@@ -1,0 +1,21 @@
+# HL7 Table 0087 - Billing Status
+# HL7 v2.5.1 Standard
+# Used for billing classification
+
+hl7_table:
+  id: "HL70087"
+  name: "Billing Status"
+  version: "2.5.1"
+  codes:
+    - value: "1"
+      description: "Initial"
+      status: "A"
+    - value: "2"
+      description: "Active"
+      status: "A"
+    - value: "3"
+      description: "Completed"
+      status: "A"
+    - value: "4"
+      description: "Final"
+      status: "A"

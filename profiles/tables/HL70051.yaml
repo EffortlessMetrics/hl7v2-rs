@@ -1,0 +1,30 @@
+# HL7 Table 0051 - Diagnosis Code Type
+# HL7 v2.5.1 Standard
+# Used in DG1 segment
+
+hl7_table:
+  id: "HL70051"
+  name: "Diagnosis Code Type"
+  version: "2.5.1"
+  codes:
+    - value: "ICD9"
+      description: "ICD-9"
+      status: "A"
+    - value: "I9"
+      description: "ICD9"
+      status: "A"
+    - value: "I10"
+      description: "ICD10"
+      status: "A"
+    - value: "ICD10"
+      description: "ICD-10"
+      status: "A"
+    - value: "DSM"
+      description: "DSM-IV"
+      status: "A"
+    - value: "DSM5"
+      description: "DSM-5"
+      status: "A"
+    - value: "SNOMED"
+      description: "SNOMED CT"
+      status: "A"

@@ -1,0 +1,49 @@
+message_structure: "MDM_T02"
+version: "2.5.1"
+parent: "GENERIC"
+message_type: "MDM^T02^MDM_T02"
+description: "Medical Document Management - New Document Notification"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "EVN"
+    required: true
+  - id: "PID"
+    required: true
+  - id: "PV1"
+    required: false
+  - id: "TXA"
+    required: true
+    description: "Document Notification Segment"
+  - id: "OBX"
+    required: true
+    repetition: true
+    description: "Observation/Result Segment for document content"
+constraints:
+  - path: "PID.3"
+    required: true
+    description: "Patient identifier required"
+  - path: "TXA.2"
+    required: true
+    description: "Document type required"
+  - path: "TXA.3"
+    required: true
+    description: "Document content presentation required"
+  - path: "TXA.4"
+    required: true
+    description: "Activity date/time required"
+valuesets:
+  - path: "TXA.2"
+    name: "HL70270"
+    description: "Document Type codes"
+    codes:
+      - "N"
+      - "R"
+      - "S"
+      - "CD"
+      - "HP"
+      - "OP"
+      - "PN"
+      - "PR"
+      - "SP"
+      - "TS"

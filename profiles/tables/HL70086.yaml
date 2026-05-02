@@ -1,0 +1,33 @@
+# HL7 Table 0086 - Insurance Plan ID
+# HL7 v2.5.1 Standard
+# Used in insurance segments
+
+hl7_table:
+  id: "HL70086"
+  name: "Insurance Plan ID"
+  version: "2.5.1"
+  codes:
+    - value: "AAA"
+      description: "Private insurance"
+      status: "A"
+    - value: "BBB"
+      description: "Blue Cross/Blue Shield"
+      status: "A"
+    - value: "CCC"
+      description: "ChampUS/Tricare"
+      status: "A"
+    - value: "DDD"
+      description: "Disability"
+      status: "A"
+    - value: "EEE"
+      description: "Medicare"
+      status: "A"
+    - value: "FFF"
+      description: "Medicaid"
+      status: "A"
+    - value: "GGG"
+      description: "Workers Compensation"
+      status: "A"
+    - value: "HHH"
+      description: "Self-pay"
+      status: "A"

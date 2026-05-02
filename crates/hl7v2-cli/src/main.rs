@@ -9,11 +9,34 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process;
+mod config;
 mod monitor;
 
 mod serve;
 #[cfg(test)]
 mod tests;
+
+/// Validates that a config file exists and is readable
+fn validate_config_path(s: &str) -> Result<std::path::PathBuf, String> {
+    let path = config::resolve_config_path(s);
+
+    if !path.exists() {
+        return Err(format!("Config file not found: {}", path.display()));
+    }
+
+    if path.is_dir() {
+        return Err(format!(
+            "Config path is a directory, not a file: {}",
+            path.display()
+        ));
+    }
+
+    // Try to read and parse the config file
+    match config::load_config(&path) {
+        Ok(_) => Ok(path),
+        Err(e) => Err(format!("{}", e)),
+    }
+}
 
 #[derive(Parser)]
 #[command(
@@ -22,6 +45,16 @@ mod tests;
     version
 )]
 struct Cli {
+    /// Path to configuration file
+    #[arg(
+        short,
+        long,
+        value_name = "FILE",
+        help = "Path to configuration file (TOML or YAML format)",
+        value_parser = validate_config_path
+    )]
+    config: Option<PathBuf>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -235,6 +268,44 @@ enum ReportFormat {
     Yaml,
 }
 
+/// Parse CLI args with special handling for --config validation
+/// even when --help is requested
+fn parse_args_with_config_validation() -> Result<Cli, String> {
+    // First, check if --config was provided
+    let args: Vec<String> = std::env::args().collect();
+    let config_flag_pos = args.iter().position(|a| a == "--config" || a == "-c");
+
+    if let Some(pos) = config_flag_pos {
+        // Check if there's a value after --config
+        if let Some(config_path) = args.get(pos + 1) {
+            // Don't treat other flags as config file paths
+            if !config_path.starts_with("-") {
+                // Validate the config file exists and is parseable
+                let resolved = config::resolve_config_path(config_path);
+                if !resolved.exists() {
+                    return Err(format!(
+                        "Error: Config file not found: {}",
+                        resolved.display()
+                    ));
+                }
+                if resolved.is_dir() {
+                    return Err(format!(
+                        "Error: Config path is a directory, not a file: {}",
+                        resolved.display()
+                    ));
+                }
+                match config::load_config(&resolved) {
+                    Ok(_) => {}
+                    Err(e) => return Err(format!("Error: {}", e)),
+                }
+            }
+        }
+    }
+
+    // Now let clap do its normal parsing (which may exit on --help)
+    Ok(Cli::parse())
+}
+
 #[tokio::main]
 async fn main() {
     // Initialize tracing for server mode
@@ -245,7 +316,14 @@ async fn main() {
         )
         .init();
 
-    let cli = Cli::parse();
+    // Parse args, handling --help specially to still validate --config
+    let cli = match parse_args_with_config_validation() {
+        Ok(cli) => cli,
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    };
 
     let result = match &cli.command {
         Commands::Parse {
@@ -314,7 +392,63 @@ async fn main() {
             port,
             host,
             max_body_size,
-        } => serve::run_server(mode, *port, host, *max_body_size).await,
+        } => {
+            // Load config file if provided and merge with CLI args
+            let merged_config = if let Some(config_path) = &cli.config {
+                // Load config file with env overrides
+                match config::load_config_with_env(config_path) {
+                    Ok(mut file_config) => {
+                        // Apply CLI overrides (CLI args take precedence over config file)
+                        // Port override: only if explicitly provided (not default)
+                        let args: Vec<String> = std::env::args().collect();
+                        let port_explicit = args.iter().any(|a| {
+                            a == "--port" || a.starts_with("--port=") || a.starts_with("-p")
+                        });
+                        if port_explicit {
+                            file_config.server.port = *port;
+                        }
+
+                        // Host override: only if explicitly provided (not default)
+                        let host_explicit = args
+                            .iter()
+                            .any(|a| a == "--host" || a.starts_with("--host="));
+                        if host_explicit {
+                            file_config.server.host = host.clone();
+                        }
+
+                        // max_body_size override: only if explicitly provided
+                        let max_body_explicit = args
+                            .iter()
+                            .any(|a| a == "--max-body-size" || a.starts_with("--max-body-size="));
+                        if max_body_explicit {
+                            file_config.server.max_body_size = *max_body_size;
+                        }
+
+                        file_config
+                    }
+                    Err(e) => {
+                        eprintln!("Error: Failed to load config: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                // No config file - create config from CLI args and env
+                let mut config = config::Config::default();
+                config.server.port = *port;
+                config.server.host = host.clone();
+                config.server.max_body_size = *max_body_size;
+                config::apply_env_overrides(&mut config);
+                config
+            };
+
+            serve::run_server(
+                mode,
+                merged_config.server.port,
+                &merged_config.server.host,
+                merged_config.server.max_body_size,
+            )
+            .await
+        }
         Commands::Interactive => interactive_mode(),
     };
 
@@ -989,13 +1123,17 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
             }
             "help" => {
                 println!("Available commands:");
-                println!("  parse <file> [options]  - Parse an HL7 message");
-                println!("  norm <file> [options]   - Normalize an HL7 message");
-                println!("  val <file> <profile>    - Validate an HL7 message");
-                println!("  ack <file> [options]    - Generate an ACK for an HL7 message");
-                println!("  gen <profile> [options] - Generate synthetic messages");
-                println!("  help                    - Show this help message");
-                println!("  exit|quit               - Exit interactive mode");
+                println!("\n  Processing:");
+                println!("    parse <file> [options]  - Parse an HL7 message");
+                println!("    norm <file> [options]   - Normalize an HL7 message");
+                println!("\n  Validation:");
+                println!("    val <file> <profile>    - Validate an HL7 message");
+                println!("\n  Generation:");
+                println!("    ack <file> [options]    - Generate an ACK for an HL7 message");
+                println!("    gen <profile> [options] - Generate synthetic messages");
+                println!("\n  System:");
+                println!("    help                    - Show this help message");
+                println!("    exit|quit               - Exit interactive mode");
                 println!();
             }
             _ => {

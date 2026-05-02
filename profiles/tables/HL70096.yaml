@@ -1,0 +1,15 @@
+# HL7 Table 0096 - Sort Order
+# HL7 v2.5.1 Standard
+# Used in query sorting
+
+hl7_table:
+  id: "HL70096"
+  name: "Sort Order"
+  version: "2.5.1"
+  codes:
+    - value: "A"
+      description: "Ascending"
+      status: "A"
+    - value: "D"
+      description: "Descending"
+      status: "A"
