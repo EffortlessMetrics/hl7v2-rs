@@ -1,8 +1,8 @@
 //! Python bindings for HL7v2 via PyO3.
 
-use pyo3::prelude::*;
-use pyo3::exceptions::PyValueError;
 use hl7v2_core::{Message, parse as rust_parse, to_json as rust_to_json};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 /// HL7v2 Message wrapper for Python
 #[pyclass]
