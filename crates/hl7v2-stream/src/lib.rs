@@ -172,8 +172,10 @@ impl StreamParserBuilder {
         StreamParser {
             reader,
             delims: Delims::default(),
+            read_buf: [0u8; 8192],
+            read_pos: 0,
+            read_len: 0,
             buffer: Vec::new(),
-            pos: 0,
             pre_msh: true,
             in_message: false,
             event_queue: VecDeque::new(),
@@ -200,8 +202,10 @@ impl StreamParserBuilder {
             let mut parser = StreamParser {
                 reader: buf_reader,
                 delims: Delims::default(),
+                read_buf: [0u8; 8192],
+                read_pos: 0,
+                read_len: 0,
                 buffer: Vec::new(),
-                pos: 0,
                 pre_msh: true,
                 in_message: false,
                 event_queue: VecDeque::new(),
@@ -256,10 +260,14 @@ pub struct StreamParser<D> {
     reader: D,
     /// Current delimiters (starts with default, switches per message)
     delims: Delims,
-    /// Buffer for accumulating data
+    /// Internal buffer for reading from the underlying source
+    read_buf: [u8; 8192],
+    /// Current position in the read buffer
+    read_pos: usize,
+    /// Number of bytes currently in the read buffer
+    read_len: usize,
+    /// Buffer for accumulating the current segment or field data
     buffer: Vec<u8>,
-    /// Current position in buffer
-    pos: usize,
     /// Whether we're in pre-MSH mode
     pre_msh: bool,
     /// Whether we've started parsing a message
@@ -278,25 +286,14 @@ impl<D: BufRead> StreamParser<D> {
     /// # Arguments
     ///
     /// * `reader` - A `BufRead` source containing HL7 v2 message data
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use hl7v2_stream::StreamParser;
-    /// use std::io::{BufReader, Cursor};
-    ///
-    /// let data = b"MSH|^~\\&|App|Fac\r";
-    /// let cursor = Cursor::new(&data[..]);
-    /// let reader = BufReader::new(cursor);
-    ///
-    /// let parser = StreamParser::new(reader);
-    /// ```
     pub fn new(reader: D) -> Self {
         Self {
             reader,
             delims: Delims::default(),
+            read_buf: [0u8; 8192],
+            read_pos: 0,
+            read_len: 0,
             buffer: Vec::new(),
-            pos: 0,
             pre_msh: true,
             in_message: false,
             event_queue: VecDeque::new(),
@@ -315,8 +312,10 @@ impl<D: BufRead> StreamParser<D> {
         Self {
             reader,
             delims: Delims::default(),
+            read_buf: [0u8; 8192],
+            read_pos: 0,
+            read_len: 0,
             buffer: Vec::new(),
-            pos: 0,
             pre_msh: true,
             in_message: false,
             event_queue: VecDeque::new(),
@@ -326,16 +325,6 @@ impl<D: BufRead> StreamParser<D> {
     }
 
     /// Get the next event from the stream
-    ///
-    /// Returns `Ok(Some(event))` when an event is available, `Ok(None)` when
-    /// the stream is exhausted, and `Err(e)` on parse errors.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The data contains invalid UTF-8 where charset detection is needed
-    /// - The MSH segment has invalid delimiters
-    /// - The message exceeds the configured maximum size
     pub fn next_event(&mut self) -> Result<Option<Event>, Error> {
         // First check if we have any queued events
         if let Some(event) = self.event_queue.pop_front() {
@@ -343,147 +332,135 @@ impl<D: BufRead> StreamParser<D> {
         }
 
         loop {
-            // Do we need more data? (No \r in remaining buffer)
-            let cr_pos = self.buffer[self.pos..].iter().position(|&b| b == b'\r');
-
-            if cr_pos.is_none() {
-                let mut temp_buf = vec![0u8; 1024];
-                match self.reader.read(&mut temp_buf) {
+            // Check if we have data in the read buffer
+            if self.read_pos >= self.read_len {
+                match self.reader.read(&mut self.read_buf) {
                     Ok(0) => {
                         // End of input
+                        if !self.buffer.is_empty() {
+                            let segment_data = std::mem::take(&mut self.buffer);
+                            return self.process_segment(segment_data);
+                        }
                         if self.in_message {
                             self.in_message = false;
                             self.pre_msh = true;
-                            // Reset message size counter for next message
                             self.current_message_size = 0;
                             return Ok(Some(Event::EndMessage));
                         }
                         return Ok(None);
                     }
                     Ok(n) => {
-                        // Add the new data to our buffer
-                        self.buffer.extend_from_slice(&temp_buf[..n]);
-                        continue; // Search again
+                        self.read_len = n;
+                        self.read_pos = 0;
                     }
                     Err(_) => return Err(Error::InvalidCharset),
                 }
             }
 
-            // We have a complete segment (ending with \r)
-            let cr_pos = cr_pos.unwrap();
-            let segment_end = self.pos + cr_pos;
-            let segment_data = self.buffer[self.pos..segment_end].to_vec();
-            let segment_len = segment_data.len() + 1; // Include the \r
+            // Search for segment delimiter \r in the read buffer
+            let remaining = &self.read_buf[self.read_pos..self.read_len];
+            if let Some(rel_cr_pos) = remaining.iter().position(|&b| b == b'\r') {
+                let abs_cr_pos = self.read_pos + rel_cr_pos;
+                self.buffer.extend_from_slice(&self.read_buf[self.read_pos..abs_cr_pos]);
+                self.read_pos = abs_cr_pos + 1; // Skip the \r
 
-            // Check memory bounds before processing
-            if self.in_message {
-                self.current_message_size += segment_len;
-                if self.current_message_size > self.max_message_size {
-                    let actual_size = self.current_message_size;
-                    let max_size = self.max_message_size;
-                    let segment_id =
-                        String::from_utf8_lossy(segment_data.get(0..3).unwrap_or(b"UNK"))
-                            .to_string();
-                    // Reset state for next message
-                    self.in_message = false;
-                    self.pre_msh = true;
-                    self.current_message_size = 0;
-                    return Err(Error::InvalidFieldFormat {
-                        details: format!(
-                            "Message size {} exceeds maximum {} at segment {}",
-                            actual_size, max_size, segment_id
-                        ),
+                let segment_data = std::mem::take(&mut self.buffer);
+                let result = self.process_segment(segment_data)?;
+                if result.is_some() {
+                    return Ok(result);
+                }
+                // If process_segment returned None (e.g. non-segment data), continue searching
+            } else {
+                // No delimiter in current read_buf, append all to buffer and read more
+                self.buffer.extend_from_slice(remaining);
+                self.read_pos = self.read_len;
+                
+                // Safety check: if buffer is growing too large without a \r
+                if self.buffer.len() > self.max_message_size {
+                     return Err(Error::InvalidFieldFormat {
+                        details: format!("Segment size exceeds maximum allowed size {}", self.max_message_size),
                     });
                 }
             }
-
-            self.pos = segment_end + 1; // Skip the \r
-
-            // Check if this is an MSH segment
-            if segment_data.len() >= 3 && &segment_data[0..3] == b"MSH" {
-                // We're starting a new message
-                if self.in_message {
-                    // End the previous message first
-                    self.in_message = false;
-                    self.pre_msh = true;
-                    // Reset message size counter for new message
-                    self.current_message_size = segment_len;
-                    // REWIND pos so MSH is processed on the next call!
-                    self.pos -= segment_len;
-                    return Ok(Some(Event::EndMessage));
-                }
-
-                // Parse delimiters from MSH segment
-                let new_delims = Delims::parse_from_msh(
-                    std::str::from_utf8(&segment_data).map_err(|_| Error::InvalidCharset)?,
-                )
-                .map_err(|e| Error::ParseError {
-                    segment_id: "MSH".to_string(),
-                    field_index: 0,
-                    source: Box::new(e),
-                })?;
-
-                // Switch to the new delimiters for this message only
-                self.delims = new_delims.clone();
-                self.pre_msh = false;
-                self.in_message = true;
-                // Initialize message size counter
-                self.current_message_size = segment_len;
-
-                // Generate field events for MSH segment
-                self.generate_msh_field_events(&segment_data)?;
-
-                return Ok(Some(Event::StartMessage { delims: new_delims }));
-            }
-
-            // For any other segment
-            if self.in_message
-                && segment_data.len() >= 3
-                && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric)
-            {
-                let segment_id = segment_data[0..3].to_vec();
-
-                // Generate field events for this segment
-                self.generate_field_events(&segment_data)?;
-
-                return Ok(Some(Event::Segment { id: segment_id }));
-            } else if !self.in_message
-                && self.pre_msh
-                && segment_data.len() >= 3
-                && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric)
-            {
-                // We're in pre-MSH mode but this isn't an MSH segment,
-                // so start a message with default delimiters
-                self.delims = Delims::default();
-                self.pre_msh = false;
-                self.in_message = true;
-                // Initialize message size counter
-                self.current_message_size = segment_len;
-
-                // Generate field events for this segment
-                self.generate_field_events(&segment_data)?;
-
-                return Ok(Some(Event::StartMessage {
-                    delims: Delims::default(),
-                }));
-            }
         }
     }
 
-    /// Generate field events for a regular segment
+    /// Process a complete segment of data
+    fn process_segment(&mut self, segment_data: Vec<u8>) -> Result<Option<Event>, Error> {
+        let segment_len = segment_data.len() + 1; // Include the \r
+
+        // Check memory bounds
+        if self.in_message {
+            self.current_message_size += segment_len;
+            if self.current_message_size > self.max_message_size {
+                let actual_size = self.current_message_size;
+                let max_size = self.max_message_size;
+                self.in_message = false;
+                self.pre_msh = true;
+                self.current_message_size = 0;
+                return Err(Error::InvalidFieldFormat {
+                    details: format!("Message size {} exceeds maximum {}", actual_size, max_size),
+                });
+            }
+        }
+
+        // Check if this is an MSH segment
+        if segment_data.len() >= 3 && &segment_data[0..3] == b"MSH" {
+            if self.in_message {
+                // End previous message, save MSH to process next
+                self.in_message = false;
+                self.pre_msh = true;
+                self.buffer = segment_data;
+                self.current_message_size = 0;
+                return Ok(Some(Event::EndMessage));
+            }
+
+            // Parse delimiters
+            let new_delims = Delims::parse_from_msh(
+                std::str::from_utf8(&segment_data).map_err(|_| Error::InvalidCharset)?,
+            ).map_err(|e| Error::ParseError {
+                segment_id: "MSH".to_string(),
+                field_index: 0,
+                source: Box::new(e),
+            })?;
+
+            self.delims = new_delims.clone();
+            self.pre_msh = false;
+            self.in_message = true;
+            self.current_message_size = segment_len;
+
+            self.generate_msh_field_events(&segment_data)?;
+            return Ok(Some(Event::StartMessage { delims: new_delims }));
+        }
+
+        // Regular segment
+        if self.in_message && segment_data.len() >= 3 && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric) {
+            let id = segment_data[0..3].to_vec();
+            self.generate_field_events(&segment_data)?;
+            return Ok(Some(Event::Segment { id }));
+        }
+
+        // Auto-start if pre-MSH and looks like a segment
+        if !self.in_message && self.pre_msh && segment_data.len() >= 3 && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric) {
+            self.delims = Delims::default();
+            self.pre_msh = false;
+            self.in_message = true;
+            self.current_message_size = segment_len;
+
+            self.generate_field_events(&segment_data)?;
+            return Ok(Some(Event::StartMessage { delims: Delims::default() }));
+        }
+
+        Ok(None)
+    }
+
     fn generate_field_events(&mut self, segment_data: &[u8]) -> Result<(), Error> {
         if segment_data.len() > 4 {
-            let fields_data = &segment_data[4..]; // Skip segment ID and field separator
-            let field_separator = self.delims.field as u8;
-
-            // Split fields by the field separator
-            let fields: Vec<&[u8]> = fields_data.split(|&b| b == field_separator).collect();
-
-            // Generate field events for each field (1-based numbering)
-            for (index, field) in fields.iter().enumerate() {
-                let field_num = (index + 1) as u16;
+            let fields_data = &segment_data[4..];
+            let field_sep = self.delims.field as u8;
+            for (index, field) in fields_data.split(|&b| b == field_sep).enumerate() {
                 self.event_queue.push_back(Event::Field {
-                    num: field_num,
+                    num: (index + 1) as u16,
                     raw: field.to_vec(),
                 });
             }
@@ -491,21 +468,13 @@ impl<D: BufRead> StreamParser<D> {
         Ok(())
     }
 
-    /// Generate field events specifically for MSH segment
     fn generate_msh_field_events(&mut self, segment_data: &[u8]) -> Result<(), Error> {
         if segment_data.len() > 8 {
-            // MSH has special handling - fields start after the encoding characters
-            let fields_data = &segment_data[8..]; // Skip "MSH|^~\&"
-            let field_separator = self.delims.field as u8;
-
-            // Split fields by the field separator
-            let fields: Vec<&[u8]> = fields_data.split(|&b| b == field_separator).collect();
-
-            // Generate field events for each field (1-based numbering)
-            for (index, field) in fields.iter().enumerate() {
-                let field_num = (index + 1) as u16;
+            let fields_data = &segment_data[8..];
+            let field_sep = self.delims.field as u8;
+            for (index, field) in fields_data.split(|&b| b == field_sep).enumerate() {
                 self.event_queue.push_back(Event::Field {
-                    num: field_num,
+                    num: (index + 1) as u16,
                     raw: field.to_vec(),
                 });
             }
@@ -513,66 +482,30 @@ impl<D: BufRead> StreamParser<D> {
         Ok(())
     }
 
-    /// Get the current message size (bytes processed for current message)
-    pub fn current_message_size(&self) -> usize {
-        self.current_message_size
+    pub fn current_message_size(&self) -> usize { self.current_message_size }
+    pub fn max_message_size(&self) -> usize { self.max_message_size }
+    pub fn is_in_message(&self) -> bool { self.in_message }
+
+    pub fn resume_with_data(&mut self, data: &[u8]) {
+        self.buffer.extend_from_slice(data);
     }
 
-    /// Get the maximum allowed message size
-    pub fn max_message_size(&self) -> usize {
-        self.max_message_size
-    }
-
-    /// Check if the parser is currently within a message
-    pub fn is_in_message(&self) -> bool {
-        self.in_message
-    }
-
-    /// Resume parsing with additional data
-    ///
-    /// This method allows resuming parsing after the buffer has been exhausted.
-    /// It appends new data to any remaining partial segment data.
-    ///
-    /// # Arguments
-    ///
-    /// * `additional_data` - Additional bytes to parse
-    ///
-    /// # Note
-    ///
-    /// This is useful when reading from a stream that may not have all data
-    /// available at once. The parser preserves partial segment state across
-    /// buffer boundaries automatically.
-    pub fn resume_with_data(&mut self, additional_data: &[u8]) {
-        // Append new data to the buffer
-        self.buffer.extend_from_slice(additional_data);
-    }
-
-    /// Clear the internal buffer and reset position
-    ///
-    /// This is useful when you want to discard any buffered data and start fresh.
     pub fn clear_buffer(&mut self) {
         self.buffer.clear();
-        self.pos = 0;
+        self.read_pos = 0;
+        self.read_len = 0;
     }
 }
 
-/// Async stream parser that yields events with backpressure
-///
-/// Created by [`StreamParserBuilder::build_async`].
 pub struct AsyncStreamParser {
     receiver: Receiver<Result<Event, StreamError>>,
 }
 
 impl AsyncStreamParser {
-    /// Get the next event from the async parser
-    ///
-    /// Returns `Some(Ok(event))` when an event is available,
-    /// `Some(Err(e))` on error, and `None` when the stream is exhausted.
     pub async fn next(&mut self) -> Option<Result<Event, StreamError>> {
         self.receiver.recv().await
     }
 }
 
-// Comprehensive test suite
 #[cfg(test)]
 mod comprehensive_tests;
