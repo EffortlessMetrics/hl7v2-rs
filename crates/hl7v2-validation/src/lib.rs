@@ -26,26 +26,8 @@
 
 use chrono::{NaiveDate, NaiveDateTime};
 use hl7v2_core::Message;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-
-// ============================================================================
-// Global Regex Cache
-// ============================================================================
-
-static DATE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\d{4}[0-1]\d[0-3]\d$").unwrap());
-static TIME_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^[0-2]\d[0-5]\d([0-5]\d)?(\.\d+)?([+-]\d{4})?$").unwrap());
-static TIMESTAMP_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\d{4}[0-1]\d[0-3]\d[0-2]\d[0-5]\d([0-5]\d)?(\.\d+)?([+-]\d{4})?$").unwrap()
-});
-static PHONE_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(?:\+?\d{1,3})?[-. (]*\d{3}[-. )]*\d{3}[-. ]*\d{4}$").unwrap());
-static EMAIL_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap());
-static SSN_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\d{3}-\d{2}-\d{4}$").unwrap());
-static NUMERIC_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-?\d+(\.\d+)?$").unwrap());
 
 /// Severity of validation issues
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -139,22 +121,103 @@ pub fn is_identifier(value: &str) -> bool {
 
 /// Check if value is a valid date (YYYYMMDD format)
 pub fn is_date(value: &str) -> bool {
-    DATE_REGEX.is_match(value)
+    if value.len() != 8 {
+        return false;
+    }
+
+    // Check if all characters are digits
+    if !value.chars().all(|c| c.is_ascii_digit()) {
+        return false;
+    }
+
+    // Extract year, month, day
+    let _year = &value[0..4];
+    let month = &value[4..6];
+    let day = &value[6..8];
+
+    // Basic validation
+    if !("01"..="12").contains(&month) {
+        return false;
+    }
+
+    if !("01"..="31").contains(&day) {
+        return false;
+    }
+
+    true
 }
 
 /// Check if value is a valid time (HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\] format)
 pub fn is_time(value: &str) -> bool {
-    TIME_REGEX.is_match(value)
+    if value.is_empty() || value.len() > 16 {
+        return false;
+    }
+
+    // Check if all characters are valid (digits, period)
+    if !value.chars().all(|c| c.is_ascii_digit() || c == '.') {
+        return false;
+    }
+
+    // Must start with at least 4 digits (HHMM)
+    if value.len() < 4 {
+        return false;
+    }
+
+    // Extract hour and minute
+    let hour = &value[0..2];
+    let minute = &value[2..4];
+
+    // Basic validation
+    if hour > "23" {
+        return false;
+    }
+
+    if minute > "59" {
+        return false;
+    }
+
+    // If seconds are present
+    if value.len() >= 6 {
+        let second = &value[4..6];
+        if second > "59" {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// Check if value is a valid timestamp (YYYYMMDD\[HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\]\] format)
 pub fn is_timestamp(value: &str) -> bool {
-    TIMESTAMP_REGEX.is_match(value)
+    if value.len() < 8 {
+        return false;
+    }
+
+    if !value.is_ascii() {
+        return false;
+    }
+
+    // First 8 characters should be a valid date
+    let date_part = &value[0..8];
+    if !is_date(date_part) {
+        return false;
+    }
+
+    // If time part is present
+    if value.len() > 8 {
+        let time_part = &value[8..];
+        if !is_time(time_part) {
+            return false;
+        }
+    }
+
+    true
 }
 
 /// Check if value is numeric
 pub fn is_numeric(value: &str) -> bool {
-    NUMERIC_REGEX.is_match(value)
+    // Can be integer or decimal
+    value.parse::<f64>().is_ok()
 }
 
 /// Check if value is a sequence ID (positive integer)
@@ -204,17 +267,70 @@ pub fn is_hierarchic_designator(value: &str) -> bool {
 
 /// Check if value is a valid phone number (basic validation)
 pub fn is_phone_number(value: &str) -> bool {
-    PHONE_REGEX.is_match(value)
+    // Remove common phone number formatting characters
+    let cleaned: String = value.chars().filter(char::is_ascii_digit).collect();
+
+    // Basic phone number validation (7-15 digits)
+    cleaned.len() >= 7 && cleaned.len() <= 15 && cleaned.chars().all(|c| c.is_ascii_digit())
 }
 
 /// Check if value is a valid email address (basic validation)
 pub fn is_email(value: &str) -> bool {
-    EMAIL_REGEX.is_match(value)
+    // Basic email validation - contains @ and has characters before and after
+    if !value.contains('@') {
+        return false;
+    }
+
+    let parts: Vec<&str> = value.split('@').collect();
+    if parts.len() != 2 {
+        return false;
+    }
+
+    let local_part = parts[0];
+    let domain_part = parts[1];
+
+    // Check that both parts are non-empty
+    if local_part.is_empty() || domain_part.is_empty() {
+        return false;
+    }
+
+    // Check that domain contains at least one dot
+    if !domain_part.contains('.') {
+        return false;
+    }
+
+    true
 }
 
 /// Check if value is a valid SSN (Social Security Number) format
 pub fn is_ssn(value: &str) -> bool {
-    SSN_REGEX.is_match(value)
+    // Remove dashes and spaces
+    let cleaned: String = value.chars().filter(char::is_ascii_digit).collect();
+
+    // SSN should be exactly 9 digits
+    if cleaned.len() != 9 {
+        return false;
+    }
+
+    // First 3 digits cannot be 000, 666, or 900-999
+    let area = &cleaned[0..3];
+    if area == "000" || area == "666" || area.starts_with('9') {
+        return false;
+    }
+
+    // Next 2 digits cannot be 00
+    let group = &cleaned[3..5];
+    if group == "00" {
+        return false;
+    }
+
+    // Last 4 digits cannot be 0000
+    let serial = &cleaned[5..9];
+    if serial == "0000" {
+        return false;
+    }
+
+    true
 }
 
 /// Check if a date is valid and not in the future
@@ -710,20 +826,8 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         "in" => lhs.map(|l| rhs_list.contains(&l)).unwrap_or(false),
         "matches_regex" => {
             if let (Some(l), Some(pat)) = (lhs, rhs_first) {
-                // Check if it's one of our cached regexes
-                match pat {
-                    r"^\d{4}[0-1]\d[0-3]\d$" => DATE_REGEX.is_match(l),
-                    r"^[0-2]\d[0-5]\d([0-5]\d)?(\.\d+)?([+-]\d{4})?$" => TIME_REGEX.is_match(l),
-                    r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" => EMAIL_REGEX.is_match(l),
-                    r"^(?:\+?\d{1,3})?[-. (]*\d{3}[-. )]*\d{3}[-. ]*\d{4}$" => {
-                        PHONE_REGEX.is_match(l)
-                    }
-                    r"^\d{3}-\d{2}-\d{4}$" => SSN_REGEX.is_match(l),
-                    _ => {
-                        // Fallback to on-the-fly compilation for custom regexes
-                        Regex::new(pat).map(|re| re.is_match(l)).unwrap_or(false)
-                    }
-                }
+                // compile per-call for simplicity; optimize later with a cache if needed
+                Regex::new(pat).map(|re| re.is_match(l)).unwrap_or(false)
             } else {
                 false
             }
