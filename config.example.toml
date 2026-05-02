@@ -1,0 +1,15 @@
+# HL7v2-rs Configuration Example
+
+[server]
+host = "0.0.0.0"
+port = 8080
+# api_key = "secret-key"
+
+[cli]
+default_version = "2.5.1"
+output_format = "text"
+
+[logging]
+level = "info"
+log_to_file = false
+# log_path = "hl7v2.log"
