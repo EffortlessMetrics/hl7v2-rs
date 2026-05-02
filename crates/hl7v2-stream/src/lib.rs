@@ -332,15 +332,23 @@ impl<D: BufRead> StreamParser<D> {
         }
 
         loop {
+            // Check if we have a full segment in the buffer already (could happen via resume_with_data)
+            if let Some(pos) = self.buffer.iter().position(|&b| b == b'\r') {
+                let segment_data = self.buffer[..pos].to_vec();
+                self.buffer.drain(..pos + 1);
+                let result = self.process_segment(segment_data)?;
+                if result.is_some() {
+                    return Ok(result);
+                }
+                // If process_segment returned None, continue
+                continue;
+            }
+
             // Check if we have data in the read buffer
             if self.read_pos >= self.read_len {
                 match self.reader.read(&mut self.read_buf) {
                     Ok(0) => {
                         // End of input
-                        if !self.buffer.is_empty() {
-                            let segment_data = std::mem::take(&mut self.buffer);
-                            return self.process_segment(segment_data);
-                        }
                         if self.in_message {
                             self.in_message = false;
                             self.pre_msh = true;
@@ -410,13 +418,9 @@ impl<D: BufRead> StreamParser<D> {
 
         // Check if this is an MSH segment
         if segment_data.len() >= 3 && &segment_data[0..3] == b"MSH" {
+            let mut end_prev = false;
             if self.in_message {
-                // End previous message, save MSH to process next
-                self.in_message = false;
-                self.pre_msh = true;
-                self.buffer = segment_data;
-                self.current_message_size = 0;
-                return Ok(Some(Event::EndMessage));
+                end_prev = true;
             }
 
             // Parse delimiters
@@ -434,8 +438,15 @@ impl<D: BufRead> StreamParser<D> {
             self.in_message = true;
             self.current_message_size = segment_len;
 
-            self.generate_msh_field_events(&segment_data)?;
-            return Ok(Some(Event::StartMessage { delims: new_delims }));
+            let start_event = Event::StartMessage { delims: new_delims };
+            if end_prev {
+                self.event_queue.push_back(start_event);
+                self.generate_msh_field_events(&segment_data)?;
+                return Ok(Some(Event::EndMessage));
+            } else {
+                self.generate_msh_field_events(&segment_data)?;
+                return Ok(Some(start_event));
+            }
         }
 
         // Regular segment
