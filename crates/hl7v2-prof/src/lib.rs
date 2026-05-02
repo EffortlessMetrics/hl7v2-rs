@@ -1846,5 +1846,9 @@ fn find_valueset_by_name<'a>(profile: &'a Profile, name: &str) -> Option<&'a Val
 /// Profile loader module with remote loading and caching support
 pub mod loader;
 
+/// Persistent profile cache with PostgreSQL backend and two-tier caching
+#[cfg(feature = "persistent-cache")]
+pub mod persistent_cache;
+
 #[cfg(test)]
 mod tests;

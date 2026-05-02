@@ -859,7 +859,7 @@ mod network_tests {
                     .connect_timeout(Duration::from_secs(5))
                     .build();
 
-                if let Ok(_) = client.connect(addr).await {
+                if client.connect(addr).await.is_ok() {
                     let message = create_test_message();
                     let _ = client.send_message(&message).await;
                     let _ = client.close().await;
