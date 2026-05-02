@@ -6,8 +6,8 @@
 //! - Environment variable overrides
 
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Root configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

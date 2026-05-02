@@ -9,8 +9,8 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process;
-mod monitor;
 mod config;
+mod monitor;
 
 mod serve;
 #[cfg(test)]
