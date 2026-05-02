@@ -24,6 +24,9 @@ tokio-util = { version = "0.7.18", features = ["codec"] }
 bytes = "1.11.1"
 futures = "0.3.32"
 
+# Observability
+tracing = { workspace = true }
+
 # Optional TLS support
 rustls = { version = "0.23.37", optional = true, default-features = false, features = ["ring"] }
 tokio-rustls = { version = "0.26.4", optional = true, default-features = false, features = ["ring"] }

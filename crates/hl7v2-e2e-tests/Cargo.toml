@@ -27,7 +27,7 @@ hl7v2-server = { version = "1.2.0", path = "../hl7v2-server" }
 tokio = { workspace = true, features = ["full", "test-util"] }
 
 # HTTP client for server API tests
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Serialization
 serde = { workspace = true }
