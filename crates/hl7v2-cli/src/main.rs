@@ -10,6 +10,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process;
 mod monitor;
+mod config;
 
 mod serve;
 #[cfg(test)]
