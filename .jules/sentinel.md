@@ -1,0 +1,4 @@
+## 2024-05-24 - [Timing Attack in API Key Authentication]
+**Vulnerability:** The API key authentication middleware (`auth_middleware` in `hl7v2-server`) used a standard string equality operator (`==`) to compare the provided key with the expected key. This standard comparison short-circuits on the first mismatched character, creating a timing discrepancy that could allow an attacker to guess the API key character by character by measuring the response time.
+**Learning:** Standard string comparisons should never be used for sensitive secrets like API keys, passwords, or cryptographic tokens, even in simple middleware. Constant-time comparison is necessary to prevent timing attacks.
+**Prevention:** Always use a constant-time comparison function (e.g., iterating through all bytes and accumulating bitwise XOR differences) when validating secrets, ensuring the execution time is independent of the input contents (though dependent on the length, which is acceptable).
