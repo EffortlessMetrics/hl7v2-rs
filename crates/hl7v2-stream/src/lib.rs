@@ -347,7 +347,7 @@ impl<D: BufRead> StreamParser<D> {
             let cr_pos = self.buffer[self.pos..].iter().position(|&b| b == b'\r');
 
             if cr_pos.is_none() {
-                let mut temp_buf = vec![0u8; 1024];
+                let mut temp_buf = [0u8; 1024];
                 match self.reader.read(&mut temp_buf) {
                     Ok(0) => {
                         // End of input
