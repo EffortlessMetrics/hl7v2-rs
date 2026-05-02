@@ -56,10 +56,6 @@ pub enum MllpError {
     /// Connection timeout.
     #[error("Connection timeout")]
     Timeout,
-
-    /// Buffer overflow - the internal buffer has exceeded the maximum allowed size.
-    #[error("Buffer overflow: exceeded maximum buffer size of {0} bytes")]
-    BufferOverflow(usize),
 }
 
 impl From<std::io::Error> for MllpError {
@@ -76,9 +72,6 @@ pub const MLLP_END_1: u8 = 0x1C;
 
 /// MLLP end byte 2 (carriage return)
 pub const MLLP_END_2: u8 = 0x0D;
-
-/// Default maximum buffer size for MllpFrameIterator (10 MB)
-pub const DEFAULT_MAX_BUFFER_SIZE: usize = 10_485_760; // 10 MB
 
 /// Wrap HL7 message bytes with MLLP framing.
 ///
@@ -314,69 +307,21 @@ pub fn find_complete_mllp_message(bytes: &[u8]) -> Option<usize> {
 /// An MLLP frame iterator for streaming scenarios.
 ///
 /// This struct helps process a stream of bytes that may contain multiple
-/// MLLP-framed messages. It includes protection against memory exhaustion
-/// by enforcing a maximum buffer size limit.
-#[derive(Debug)]
+/// MLLP-framed messages.
+#[derive(Debug, Default)]
 pub struct MllpFrameIterator {
     buffer: Vec<u8>,
-    max_buffer_size: usize,
-}
-
-impl Default for MllpFrameIterator {
-    fn default() -> Self {
-        Self {
-            buffer: Vec::new(),
-            max_buffer_size: DEFAULT_MAX_BUFFER_SIZE,
-        }
-    }
 }
 
 impl MllpFrameIterator {
-    /// Create a new MLLP frame iterator with the default buffer size limit.
+    /// Create a new MLLP frame iterator.
     pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Create a new MLLP frame iterator with a custom buffer size limit.
-    ///
-    /// # Arguments
-    ///
-    /// * `max_size` - The maximum buffer size in bytes
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use hl7v2_mllp::MllpFrameIterator;
-    ///
-    /// let iterator = MllpFrameIterator::with_max_buffer_size(5 * 1024 * 1024); // 5 MB limit
-    /// ```
-    pub fn with_max_buffer_size(max_size: usize) -> Self {
-        Self {
-            buffer: Vec::new(),
-            max_buffer_size: max_size,
-        }
+        Self { buffer: Vec::new() }
     }
 
     /// Add bytes to the internal buffer.
-    ///
-    /// Returns an error if adding these bytes would exceed the maximum buffer size.
-    ///
-    /// # Arguments
-    ///
-    /// * `bytes` - The bytes to add to the buffer
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if the bytes were added successfully, or `Err(MllpError::BufferOverflow)`
-    /// if the buffer would exceed the maximum size limit.
-    pub fn extend(&mut self, bytes: &[u8]) -> Result<(), MllpError> {
-        // Check if adding these bytes would exceed the buffer limit
-        let new_len = self.buffer.len() + bytes.len();
-        if new_len > self.max_buffer_size {
-            return Err(MllpError::BufferOverflow(self.max_buffer_size));
-        }
+    pub fn extend(&mut self, bytes: &[u8]) {
         self.buffer.extend_from_slice(bytes);
-        Ok(())
     }
 
     /// Try to extract the next complete MLLP frame.
@@ -408,11 +353,6 @@ impl MllpFrameIterator {
     /// Clear the internal buffer.
     pub fn clear(&mut self) {
         self.buffer.clear();
-    }
-
-    /// Get the maximum buffer size limit.
-    pub fn max_buffer_size(&self) -> usize {
-        self.max_buffer_size
     }
 }
 

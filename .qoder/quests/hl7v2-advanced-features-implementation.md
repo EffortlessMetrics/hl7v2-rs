@@ -1060,7 +1060,7 @@ Each phase must pass the following quality gates before proceeding:
 ### Required Tools
 
 1. **Rust Toolchain**: 
-   - Minimum Supported Rust Version (MSRV): 1.92
+   - Minimum Supported Rust Version (MSRV): 1.89
    - Install via rustup: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
    - Components: `rustc`, `cargo`, `rustfmt`, `clippy`
 

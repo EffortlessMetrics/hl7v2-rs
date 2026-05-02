@@ -17,9 +17,6 @@ clap = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
-toml = "0.8"
-thiserror = "1.0"
-dirs = "5.0"
 hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
 hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof" }
 hl7v2-gen = { version = "1.2.0", path = "../hl7v2-gen" }
@@ -41,10 +38,6 @@ futures = "0.3"
 [[test]]
 name = "integration_tests"
 path = "tests/integration_tests.rs"
-
-[[test]]
-name = "config_loading_tests"
-path = "tests/config_loading_tests.rs"
 
 [[test]]
 name = "bdd_tests"

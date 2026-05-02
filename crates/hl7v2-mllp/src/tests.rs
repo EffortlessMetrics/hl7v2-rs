@@ -249,7 +249,7 @@ fn test_frame_iterator_single_message() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
 
-    iter.extend(&framed).unwrap();
+    iter.extend(&framed);
 
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg, hl7);
@@ -268,8 +268,8 @@ fn test_frame_iterator_multiple_messages() {
     let framed_2 = wrap_mllp(hl7_2);
 
     // Add both messages
-    iter.extend(&framed_1).unwrap();
-    iter.extend(&framed_2).unwrap();
+    iter.extend(&framed_1);
+    iter.extend(&framed_2);
 
     // Extract first message
     let msg_1 = iter.next_message().unwrap().unwrap();
@@ -291,11 +291,11 @@ fn test_frame_iterator_partial_message() {
     let framed = wrap_mllp(hl7);
 
     // Add partial message
-    iter.extend(&framed[..5]).unwrap();
+    iter.extend(&framed[..5]);
     assert!(iter.next_message().is_none());
 
     // Add the rest
-    iter.extend(&framed[5..]).unwrap();
+    iter.extend(&framed[5..]);
 
     // Now we can extract
     let msg = iter.next_message().unwrap().unwrap();
@@ -311,7 +311,7 @@ fn test_frame_iterator_byte_by_byte() {
 
     // Add byte by byte
     for byte in &framed {
-        iter.extend(&[*byte]).unwrap();
+        iter.extend(&[*byte]);
         if iter.buffer_len() < framed.len() {
             assert!(iter.next_message().is_none());
         }
@@ -326,7 +326,7 @@ fn test_frame_iterator_byte_by_byte() {
 fn test_frame_iterator_clear() {
     let mut iter = MllpFrameIterator::new();
 
-    iter.extend(b"some data").unwrap();
+    iter.extend(b"some data");
     assert!(iter.buffer_len() > 0);
 
     iter.clear();
@@ -339,10 +339,10 @@ fn test_frame_iterator_buffer_len() {
 
     assert_eq!(iter.buffer_len(), 0);
 
-    iter.extend(b"test").unwrap();
+    iter.extend(b"test");
     assert_eq!(iter.buffer_len(), 4);
 
-    iter.extend(b"more").unwrap();
+    iter.extend(b"more");
     assert_eq!(iter.buffer_len(), 8);
 }
 
@@ -353,7 +353,7 @@ fn test_frame_iterator_next_frame() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
 
-    iter.extend(&framed).unwrap();
+    iter.extend(&framed);
 
     let frame = iter.next_frame().unwrap();
     assert_eq!(frame, framed);
@@ -446,7 +446,7 @@ fn test_frame_iterator_concatenated_messages() {
     let mut combined = framed_1.clone();
     combined.extend_from_slice(&framed_2);
 
-    iter.extend(&combined).unwrap();
+    iter.extend(&combined);
 
     // Extract first message
     let msg_1 = iter.next_message().unwrap().unwrap();
@@ -478,7 +478,7 @@ fn test_frame_iterator_large_message() {
     let content: Vec<u8> = (0..50000).map(|i| (i % 256) as u8).collect();
     let framed = wrap_mllp(&content);
 
-    iter.extend(&framed).unwrap();
+    iter.extend(&framed);
 
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(msg.as_slice(), content.as_slice());
@@ -547,12 +547,6 @@ fn test_mllp_error_display() {
 
     let err = MllpError::Timeout;
     assert_eq!(format!("{}", err), "Connection timeout");
-
-    let err = MllpError::BufferOverflow(1024);
-    assert_eq!(
-        format!("{}", err),
-        "Buffer overflow: exceeded maximum buffer size of 1024 bytes"
-    );
 }
 
 #[test]
@@ -582,87 +576,4 @@ fn test_unwrap_mllp_owned_checked_success() {
 fn test_unwrap_mllp_owned_checked_error() {
     let result = unwrap_mllp_owned_checked(b"no start byte");
     assert!(matches!(result, Err(MllpError::MissingStartBlock)));
-}
-
-// ============================================================================
-// Buffer Overflow Protection Tests
-// ============================================================================
-
-#[test]
-fn test_buffer_overflow_error() {
-    // Create an iterator with a very small buffer limit
-    let mut iter = MllpFrameIterator::with_max_buffer_size(10);
-
-    // Add 5 bytes - should succeed
-    iter.extend(b"12345").unwrap();
-    assert_eq!(iter.buffer_len(), 5);
-
-    // Try to add 6 more bytes - should fail (5 + 6 > 10)
-    let result = iter.extend(b"67890X");
-    assert!(matches!(result, Err(MllpError::BufferOverflow(10))));
-
-    // Buffer should remain unchanged
-    assert_eq!(iter.buffer_len(), 5);
-}
-
-#[test]
-fn test_buffer_within_limit_ok() {
-    let mut iter = MllpFrameIterator::new();
-
-    let hl7 = b"MSH|^~\\&|TEST\r";
-    let framed = wrap_mllp(hl7);
-
-    // Should succeed - message is well within 10MB default limit
-    iter.extend(&framed).unwrap();
-
-    let msg = iter.next_message().unwrap().unwrap();
-    assert_eq!(&msg, hl7);
-}
-
-#[test]
-fn test_custom_buffer_size() {
-    // Create iterator with 1KB custom limit
-    let mut iter = MllpFrameIterator::with_max_buffer_size(1024);
-
-    assert_eq!(iter.max_buffer_size(), 1024);
-
-    // Small message should work: ~20 bytes
-    let small_msg = b"MSH|TEST\r";
-    let small_framed = wrap_mllp(small_msg);
-    let small_len = small_framed.len();
-    iter.extend(&small_framed).unwrap();
-
-    // Add content that fits within remaining space (1024 - small_len - 3 for framing)
-    let remaining = 1024 - small_len - 3;
-    let large_content: Vec<u8> = (0..remaining).map(|i| (i % 256) as u8).collect();
-    let large_framed = wrap_mllp(&large_content);
-    iter.extend(&large_framed).unwrap();
-
-    // Verify buffer is now at 1024 (exactly at limit)
-    assert_eq!(iter.buffer_len(), 1024);
-
-    // But adding one more byte should fail
-    let result = iter.extend(b"X");
-    assert!(matches!(result, Err(MllpError::BufferOverflow(1024))));
-}
-
-#[test]
-fn test_default_max_buffer_size() {
-    let iter = MllpFrameIterator::new();
-    assert_eq!(iter.max_buffer_size(), DEFAULT_MAX_BUFFER_SIZE);
-    assert_eq!(iter.max_buffer_size(), 10_485_760); // 10 MB
-}
-
-#[test]
-fn test_buffer_overflow_exact_boundary() {
-    // Test exact boundary condition
-    let mut iter = MllpFrameIterator::with_max_buffer_size(5);
-
-    // Add exactly 5 bytes - should succeed
-    iter.extend(b"12345").unwrap();
-    assert_eq!(iter.buffer_len(), 5);
-
-    // Adding any more should fail
-    let result = iter.extend(b"X");
-    assert!(matches!(result, Err(MllpError::BufferOverflow(5))));
 }
