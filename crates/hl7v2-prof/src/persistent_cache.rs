@@ -17,7 +17,9 @@ impl PersistentProfileCache {
     /// Create a new persistent cache
     pub fn new(capacity: usize) -> Self {
         Self {
-            l1_cache: Arc::new(RwLock::new(LruCache::new(NonZeroUsize::new(capacity).unwrap()))),
+            l1_cache: Arc::new(RwLock::new(LruCache::new(
+                NonZeroUsize::new(capacity).unwrap(),
+            ))),
         }
     }
 
