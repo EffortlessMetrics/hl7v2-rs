@@ -1,0 +1,23 @@
+[package]
+name = "hl7v2-python"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Python bindings for HL7v2 via PyO3."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "hl7v2"
+crate-type = ["cdylib"]
+
+[dependencies]
+hl7v2-core = { workspace = true }
+pyo3 = { version = "0.23", features = ["extension-module"] }
+
+[dev-dependencies]
+hl7v2-test-utils = { workspace = true }

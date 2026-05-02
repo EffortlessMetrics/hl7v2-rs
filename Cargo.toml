@@ -29,6 +29,7 @@ members = [
     "crates/hl7v2-prof",
     "crates/hl7v2-redact",
     "crates/hl7v2-guard",
+    "crates/hl7v2-python",
     "crates/hl7v2-gen",
     "crates/hl7v2-cli",
     "crates/hl7v2-server",
