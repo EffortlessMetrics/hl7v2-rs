@@ -69,7 +69,7 @@ mod tests {
     fn test_redaction() {
         let hl7 = b"MSH|^~\\&|SENDER|FACILITY\rPID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r";
         let mut message = parse(hl7).unwrap();
-        
+
         let mut config = RedactionConfig::default();
         config.fields.push("PID.5".to_string());
         config.replacement = "XXX".to_string();
