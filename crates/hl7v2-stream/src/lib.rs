@@ -361,7 +361,8 @@ impl<D: BufRead> StreamParser<D> {
             let remaining = &self.read_buf[self.read_pos..self.read_len];
             if let Some(rel_cr_pos) = remaining.iter().position(|&b| b == b'\r') {
                 let abs_cr_pos = self.read_pos + rel_cr_pos;
-                self.buffer.extend_from_slice(&self.read_buf[self.read_pos..abs_cr_pos]);
+                self.buffer
+                    .extend_from_slice(&self.read_buf[self.read_pos..abs_cr_pos]);
                 self.read_pos = abs_cr_pos + 1; // Skip the \r
 
                 let segment_data = std::mem::take(&mut self.buffer);
@@ -374,11 +375,14 @@ impl<D: BufRead> StreamParser<D> {
                 // No delimiter in current read_buf, append all to buffer and read more
                 self.buffer.extend_from_slice(remaining);
                 self.read_pos = self.read_len;
-                
+
                 // Safety check: if buffer is growing too large without a \r
                 if self.buffer.len() > self.max_message_size {
-                     return Err(Error::InvalidFieldFormat {
-                        details: format!("Segment size exceeds maximum allowed size {}", self.max_message_size),
+                    return Err(Error::InvalidFieldFormat {
+                        details: format!(
+                            "Segment size exceeds maximum allowed size {}",
+                            self.max_message_size
+                        ),
                     });
                 }
             }
@@ -418,7 +422,8 @@ impl<D: BufRead> StreamParser<D> {
             // Parse delimiters
             let new_delims = Delims::parse_from_msh(
                 std::str::from_utf8(&segment_data).map_err(|_| Error::InvalidCharset)?,
-            ).map_err(|e| Error::ParseError {
+            )
+            .map_err(|e| Error::ParseError {
                 segment_id: "MSH".to_string(),
                 field_index: 0,
                 source: Box::new(e),
@@ -434,21 +439,30 @@ impl<D: BufRead> StreamParser<D> {
         }
 
         // Regular segment
-        if self.in_message && segment_data.len() >= 3 && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric) {
+        if self.in_message
+            && segment_data.len() >= 3
+            && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric)
+        {
             let id = segment_data[0..3].to_vec();
             self.generate_field_events(&segment_data)?;
             return Ok(Some(Event::Segment { id }));
         }
 
         // Auto-start if pre-MSH and looks like a segment
-        if !self.in_message && self.pre_msh && segment_data.len() >= 3 && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric) {
+        if !self.in_message
+            && self.pre_msh
+            && segment_data.len() >= 3
+            && segment_data[0..3].iter().all(u8::is_ascii_alphanumeric)
+        {
             self.delims = Delims::default();
             self.pre_msh = false;
             self.in_message = true;
             self.current_message_size = segment_len;
 
             self.generate_field_events(&segment_data)?;
-            return Ok(Some(Event::StartMessage { delims: Delims::default() }));
+            return Ok(Some(Event::StartMessage {
+                delims: Delims::default(),
+            }));
         }
 
         Ok(None)
@@ -482,9 +496,15 @@ impl<D: BufRead> StreamParser<D> {
         Ok(())
     }
 
-    pub fn current_message_size(&self) -> usize { self.current_message_size }
-    pub fn max_message_size(&self) -> usize { self.max_message_size }
-    pub fn is_in_message(&self) -> bool { self.in_message }
+    pub fn current_message_size(&self) -> usize {
+        self.current_message_size
+    }
+    pub fn max_message_size(&self) -> usize {
+        self.max_message_size
+    }
+    pub fn is_in_message(&self) -> bool {
+        self.in_message
+    }
 
     pub fn resume_with_data(&mut self, data: &[u8]) {
         self.buffer.extend_from_slice(data);

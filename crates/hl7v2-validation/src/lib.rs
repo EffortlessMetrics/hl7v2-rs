@@ -715,7 +715,9 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
                     r"^\d{4}[0-1]\d[0-3]\d$" => DATE_REGEX.is_match(l),
                     r"^[0-2]\d[0-5]\d([0-5]\d)?(\.\d+)?([+-]\d{4})?$" => TIME_REGEX.is_match(l),
                     r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" => EMAIL_REGEX.is_match(l),
-                    r"^(?:\+?\d{1,3})?[-. (]*\d{3}[-. )]*\d{3}[-. ]*\d{4}$" => PHONE_REGEX.is_match(l),
+                    r"^(?:\+?\d{1,3})?[-. (]*\d{3}[-. )]*\d{3}[-. ]*\d{4}$" => {
+                        PHONE_REGEX.is_match(l)
+                    }
                     r"^\d{3}-\d{2}-\d{4}$" => SSN_REGEX.is_match(l),
                     _ => {
                         // Fallback to on-the-fly compilation for custom regexes
