@@ -711,7 +711,7 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         "matches_regex" => {
             if let (Some(l), Some(pat)) = (lhs, rhs_first) {
                 // Check if it's one of our cached regexes
-                let matched = match pat {
+                match pat {
                     r"^\d{4}[0-1]\d[0-3]\d$" => DATE_REGEX.is_match(l),
                     r"^[0-2]\d[0-5]\d([0-5]\d)?(\.\d+)?([+-]\d{4})?$" => TIME_REGEX.is_match(l),
                     r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" => EMAIL_REGEX.is_match(l),
@@ -723,8 +723,7 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
                         // Fallback to on-the-fly compilation for custom regexes
                         Regex::new(pat).map(|re| re.is_match(l)).unwrap_or(false)
                     }
-                };
-                matched
+                }
             } else {
                 false
             }
