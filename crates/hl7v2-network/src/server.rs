@@ -126,9 +126,11 @@ impl MllpServer {
         loop {
             // Wait for a permit before accepting a new connection
             // This provides backpressure at the TCP level
-            let permit = semaphore.clone().acquire_owned().await.map_err(|e| {
-                std::io::Error::other(format!("Semaphore error: {}", e))
-            })?;
+            let permit = semaphore
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|e| std::io::Error::other(format!("Semaphore error: {}", e)))?;
 
             let (stream, peer_addr) = listener.accept().await?;
             let handler = handler.clone();
