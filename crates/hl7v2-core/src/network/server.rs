@@ -15,7 +15,6 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tokio_util::codec::Framed;
 use futures::prelude::*;
-use tracing;
 
 /// Configuration for MLLP server
 #[derive(Debug, Clone)]
@@ -119,7 +118,7 @@ impl MllpServer {
             // Spawn a task to handle this connection
             tokio::spawn(async move {
                 if let Err(e) = handle_connection(stream, peer_addr, handler, config).await {
-                    tracing::error!(peer_addr = %peer_addr, error = %e, "Error handling connection");
+                    eprintln!("Error handling connection from {}: {}", peer_addr, e);
                 }
             });
         }
@@ -161,11 +160,11 @@ async fn handle_connection<H: MessageHandler>(
                 let message = match parse_result {
                     Ok(Ok(msg)) => msg,
                     Ok(Err(e)) => {
-                        tracing::error!(peer_addr = %peer_addr, error = %e, "Failed to parse message");
+                        eprintln!("Failed to parse message from {}: {}", peer_addr, e);
                         continue;
                     }
                     Err(_) => {
-                        tracing::warn!(peer_addr = %peer_addr, "Timeout parsing message");
+                        eprintln!("Timeout parsing message from {}", peer_addr);
                         continue;
                     }
                 };
@@ -175,7 +174,7 @@ async fn handle_connection<H: MessageHandler>(
                     Ok(Some(ack)) => ack,
                     Ok(None) => continue, // No ACK requested
                     Err(e) => {
-                        tracing::error!(peer_addr = %peer_addr, error = %e, "Error handling message");
+                        eprintln!("Error handling message from {}: {}", peer_addr, e);
                         continue;
                     }
                 };
@@ -186,7 +185,7 @@ async fn handle_connection<H: MessageHandler>(
                         // Send ACK immediately
                         let ack_bytes = crate::write(&ack);
                         if let Err(e) = framed.send(BytesMut::from(&ack_bytes[..])).await {
-                            tracing::error!(peer_addr = %peer_addr, error = %e, "Failed to send ACK (immediate)");
+                            eprintln!("Failed to send ACK to {}: {}", peer_addr, e);
                             break;
                         }
                     }
@@ -195,7 +194,7 @@ async fn handle_connection<H: MessageHandler>(
                         tokio::time::sleep(delay).await;
                         let ack_bytes = crate::write(&ack);
                         if let Err(e) = framed.send(BytesMut::from(&ack_bytes[..])).await {
-                            tracing::error!(peer_addr = %peer_addr, error = %e, "Failed to send ACK (delayed)");
+                            eprintln!("Failed to send ACK to {}: {}", peer_addr, e);
                             break;
                         }
                     }
@@ -206,7 +205,7 @@ async fn handle_connection<H: MessageHandler>(
                 }
             }
             Err(e) => {
-                tracing::error!(peer_addr = %peer_addr, error = %e, "Error reading frame");
+                eprintln!("Error reading frame from {}: {}", peer_addr, e);
                 break;
             }
         }

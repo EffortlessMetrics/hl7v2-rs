@@ -462,7 +462,7 @@ fn merge_profiles(parent: Profile, child: Profile) -> Profile {
             child.cross_field_rules,
         ),
         temporal_rules: merge_temporal_rules(parent.temporal_rules, child.temporal_rules),
-        contextual_rules: merge_contextual_rules(parent.context_field, child.contextual_rules),
+        contextual_rules: merge_contextual_rules(parent.contextual_rules, child.contextual_rules),
         custom_rules: merge_custom_rules(parent.custom_rules, child.custom_rules),
         hl7_tables: merge_hl7_tables(parent.hl7_tables, child.hl7_tables),
         table_precedence: if child.table_precedence.is_empty() {
@@ -1845,10 +1845,6 @@ fn find_valueset_by_name<'a>(profile: &'a Profile, name: &str) -> Option<&'a Val
 
 /// Profile loader module with remote loading and caching support
 pub mod loader;
-
-/// Persistent profile cache with PostgreSQL backend and two-tier caching
-#[cfg(feature = "persistent-cache")]
-pub mod persistent_cache;
 
 #[cfg(test)]
 mod tests;

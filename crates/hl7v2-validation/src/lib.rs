@@ -28,33 +28,6 @@ use chrono::{NaiveDate, NaiveDateTime};
 use hl7v2_core::Message;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{OnceLock, RwLock};
-
-/// Global regex cache for compiled patterns.
-/// Uses OnceLock for lazy initialization and RwLock for thread-safe access.
-static REGEX_CACHE: OnceLock<RwLock<HashMap<String, Regex>>> = OnceLock::new();
-
-/// Get or compile a regex pattern from the cache.
-/// Returns Some(&Regex) if the pattern is valid and cached/compiled,
-/// None if the pattern is invalid.
-fn get_cached_regex(pattern: &str) -> Option<Regex> {
-    let cache = REGEX_CACHE.get_or_init(|| RwLock::new(HashMap::new()));
-
-    // Try to read from cache first
-    {
-        let reader = cache.read().ok()?;
-        if let Some(regex) = reader.get(pattern) {
-            return Some(regex.clone());
-        }
-    }
-
-    // Not in cache, compile and insert
-    let regex = Regex::new(pattern).ok()?;
-    let mut writer = cache.write().ok()?;
-    writer.insert(pattern.to_string(), regex.clone());
-    Some(regex)
-}
 
 /// Severity of validation issues
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -406,9 +379,11 @@ pub fn is_within_range(value: &str, min: &str, max: &str) -> bool {
 pub fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
     // All patterns must match
     patterns.iter().all(|pattern| {
-        get_cached_regex(pattern)
-            .map(|regex| regex.is_match(value))
-            .unwrap_or(false)
+        if let Ok(regex) = Regex::new(pattern) {
+            regex.is_match(value)
+        } else {
+            false
+        }
     })
 }
 
@@ -851,9 +826,8 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         "in" => lhs.map(|l| rhs_list.contains(&l)).unwrap_or(false),
         "matches_regex" => {
             if let (Some(l), Some(pat)) = (lhs, rhs_first) {
-                get_cached_regex(pat)
-                    .map(|re| re.is_match(l))
-                    .unwrap_or(false)
+                // compile per-call for simplicity; optimize later with a cache if needed
+                Regex::new(pat).map(|re| re.is_match(l)).unwrap_or(false)
             } else {
                 false
             }

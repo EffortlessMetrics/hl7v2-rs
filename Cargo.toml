@@ -23,7 +23,6 @@ members = [
     "crates/hl7v2-template",
     "crates/hl7v2-template-values",
     "crates/hl7v2-corpus",
-    "crates/hl7v2-redact",
     # Higher-level crates
     "crates/hl7v2-core",
     "crates/hl7v2-bench",
@@ -31,10 +30,6 @@ members = [
     "crates/hl7v2-gen",
     "crates/hl7v2-cli",
     "crates/hl7v2-server",
-    # Language bindings
-    "crates/hl7v2-python",
-    # Security and monitoring
-    "crates/hl7v2-guard",
     # Testing utilities
     "crates/hl7v2-test-utils",
     # End-to-end tests
@@ -82,7 +77,6 @@ bytes = "1.11.1"
 tokio-util = "0.7.18"
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 uselesskey = "0.4.0"
-pyo3 = { version = "0.21", features = ["abi3-py38"] }
 
 # Example dependencies (workspace examples)
 [package]

@@ -180,7 +180,7 @@ We've transformed the hl7v2-rs project from ~65% complete to having **enterprise
 **Created**: `flake.nix` - Declarative development environment
 
 **Features:**
-- Pinned Rust 1.92 toolchain (matches MSRV)
+- Pinned Rust 1.89 toolchain (matches MSRV)
 - Platform-specific dependencies (Darwin frameworks)
 - Development tools:
   - Rust: cargo-watch, cargo-edit, cargo-audit, cargo-llvm-cov, cargo-nextest
