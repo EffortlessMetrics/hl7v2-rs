@@ -822,7 +822,7 @@ fn format_stats_report(
             output.push_str(&format!("  Input file: {}\n", report.input_file));
             output.push_str(&format!("  File size: {} bytes\n", report.file_size));
             output.push_str(&format!("  Total segments: {}\n", report.segment_count));
-            output.push_str("\n");
+            output.push('\n');
             output.push_str("Segment breakdown:\n");
             for seg in &report.segments {
                 output.push_str(&format!(
@@ -832,7 +832,7 @@ fn format_stats_report(
             }
 
             if let Some(dists) = &report.field_distributions {
-                output.push_str("\n");
+                output.push('\n');
                 output.push_str("Field value distributions:\n");
                 for dist in dists {
                     output.push_str(&format!("  {}:\n", dist.path));
