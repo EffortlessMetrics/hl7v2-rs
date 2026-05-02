@@ -1,0 +1,16 @@
+[package]
+name = "hl7v2-guard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "ML-based anomaly detection for HL7 messages."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+hl7v2-core = { workspace = true }
