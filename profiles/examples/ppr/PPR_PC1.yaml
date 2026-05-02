@@ -1,0 +1,45 @@
+message_structure: "PPR_PC1"
+version: "2.5.1"
+parent: "GENERIC"
+message_type: "PPR^PC1^PPR_PC1"
+description: "Patient Problem - Add Problem"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "PID"
+    required: true
+  - id: "PV1"
+    required: false
+  - id: "PRB"
+    required: true
+    description: "Problem Details Segment"
+constraints:
+  - path: "PID.3"
+    required: true
+    description: "Patient identifier required"
+  - path: "PRB.1"
+    required: true
+    description: "Action code required (AD=Add)"
+  - path: "PRB.2"
+    required: true
+    description: "Action date/time required"
+  - path: "PRB.3"
+    required: true
+    description: "Problem ID required"
+  - path: "PRB.4"
+    required: true
+    description: "Problem instance ID required"
+  - path: "PRB.5"
+    required: false
+    description: "Episode of care ID optional"
+valuesets:
+  - path: "PRB.1"
+    name: "HL70206"
+    description: "Segment Action Code"
+    codes:
+      - "A"
+      - "D"
+      - "U"
+      - "ADD"
+      - "UPD"
+      - "DEL"
