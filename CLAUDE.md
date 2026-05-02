@@ -51,7 +51,7 @@ cargo clippy --workspace --all-features --all-targets  # manual lint
 
 ## Architecture
 
-This is a Cargo workspace with 28 crates in `crates/`, organized in three layers:
+This is a Cargo workspace with 31 crates in `crates/`, organized in three layers:
 
 **Microcrates** (minimal dependencies, single-responsibility):
 - `hl7v2-model` — Core data types: Message, Segment, Field, Rep, Comp, Atom, Delims
@@ -74,9 +74,12 @@ This is a Cargo workspace with 28 crates in `crates/`, organized in three layers
 - `hl7v2-template` — Template-based message generation
 - `hl7v2-template-values` — Values and generators for templates
 - `hl7v2-corpus` — Pre-defined HL7 sample messages
+- `hl7v2-redact` — PHI redaction for HIPAA compliance
+- `hl7v2-index` — Search indexing with pluggable backends (Tantivy)
 
 **Mid-level crates**:
-- `hl7v2-core` — Facade re-exporting all microcrates.
+- `hl7v2` — Top-level facade crate re-exporting common functionality for easy use
+- `hl7v2-core` — Facade re-exporting all microcrates
 - `hl7v2-prof` — Profile-based validation with inheritance (YAML profiles in `profiles/`)
 - `hl7v2-gen` — Synthetic message generation facade
 - `hl7v2-bench` — High-performance benchmarks for all layers

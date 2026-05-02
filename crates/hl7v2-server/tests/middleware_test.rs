@@ -6,6 +6,7 @@ use axum::{
 use hl7v2_server::{
     handlers::{parse_handler, validate_handler},
     metrics::{init_metrics_recorder, metrics_handler},
+    middleware::phi_aware_logging_middleware,
     server::AppState,
 };
 use std::sync::Arc;
@@ -16,7 +17,6 @@ use tower_governor::governor::GovernorConfigBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
-    trace::TraceLayer,
 };
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -87,7 +87,7 @@ fn build_test_router(
                 .allow_methods(Any)
                 .allow_headers(Any),
         )
-        .layer(TraceLayer::new_for_http())
+        .layer(axum::middleware::from_fn(phi_aware_logging_middleware)) // PHI-safe logging
         .layer(tower_governor::GovernorLayer::new(governor_conf.clone())) // Rate limiting
         .layer(ConcurrencyLimitLayer::new(max_concurrency)) // Concurrency limiting
 }

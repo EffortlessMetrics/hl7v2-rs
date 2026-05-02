@@ -9,13 +9,14 @@ use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
-    trace::TraceLayer,
 };
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::handlers::{health_handler, parse_handler, validate_handler};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
+use crate::middleware::{
+    auth_middleware, create_concurrency_limit_layer, phi_aware_logging_middleware,
+};
 use crate::server::AppState;
 
 /// OpenAPI specification content
@@ -69,7 +70,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(middleware::from_fn(metrics_middleware))
         .layer(CompressionLayer::new())
         .layer(build_cors_layer())
-        .layer(TraceLayer::new_for_http())
+        .layer(middleware::from_fn(phi_aware_logging_middleware)) // PHI-safe: logs metadata only, not bodies
         .layer(GovernorLayer::new(governor_conf))
         .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
 }

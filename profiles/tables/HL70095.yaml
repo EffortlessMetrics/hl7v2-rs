@@ -1,0 +1,18 @@
+# HL7 Table 0095 - Response Modality
+# HL7 v2.5.1 Standard
+# Used in query/response
+
+hl7_table:
+  id: "HL70095"
+  name: "Response Modality"
+  version: "2.5.1"
+  codes:
+    - value: "R"
+      description: "Real time"
+      status: "A"
+    - value: "B"
+      description: "Batch"
+      status: "A"
+    - value: "T"
+      description: "Both real time and batch"
+      status: "A"

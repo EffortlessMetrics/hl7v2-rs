@@ -1,0 +1,21 @@
+# HL7 Table 0098 - Type of Agreement
+# HL7 v2.5.1 Standard
+# Used for agreements/contracts
+
+hl7_table:
+  id: "HL70098"
+  name: "Type of Agreement"
+  version: "2.5.1"
+  codes:
+    - value: "S"
+      description: "Standard"
+      status: "A"
+    - value: "U"
+      description: "Universal"
+      status: "A"
+    - value: "M"
+      description: "Mature"
+      status: "A"
+    - value: "C"
+      description: "Confidential"
+      status: "A"

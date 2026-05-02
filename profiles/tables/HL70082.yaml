@@ -1,0 +1,21 @@
+# HL7 Table 0082 - Traveler Type
+# HL7 v2.5.1 Standard
+# Used for travel documentation
+
+hl7_table:
+  id: "HL70082"
+  name: "Traveler Type"
+  version: "2.5.1"
+  codes:
+    - value: "E"
+      description: "Employee"
+      status: "A"
+    - value: "G"
+      description: "Guest"
+      status: "A"
+    - value: "P"
+      description: "Patient"
+      status: "A"
+    - value: "V"
+      description: "Visitor"
+      status: "A"

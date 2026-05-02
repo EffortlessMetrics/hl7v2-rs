@@ -1,0 +1,27 @@
+# HL7 Table 0061 - Check Digit Scheme
+# HL7 v2.5.1 Standard
+# Used for identifier validation algorithms
+
+hl7_table:
+  id: "HL70061"
+  name: "Check Digit Scheme"
+  version: "2.5.1"
+  codes:
+    - value: "N"
+      description: "No check digit (not used in Japan)"
+      status: "A"
+    - value: "M10"
+      description: "Mod 10 algorithm"
+      status: "A"
+    - value: "M11"
+      description: "Mod 11 algorithm"
+      status: "A"
+    - value: "ISO"
+      description: "ISO 7064: 1983"
+      status: "A"
+    - value: "M12"
+      description: "Mod 12 algorithm"
+      status: "A"
+    - value: "M13"
+      description: "Mod 13 algorithm"
+      status: "A"

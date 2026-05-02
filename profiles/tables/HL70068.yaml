@@ -1,0 +1,33 @@
+# HL7 Table 0068 - Living Arrangement
+# HL7 v2.5.1 Standard
+# Used in PID segment
+
+hl7_table:
+  id: "HL70068"
+  name: "Living Arrangement"
+  version: "2.5.1"
+  codes:
+    - value: "A"
+      description: "Alone"
+      status: "A"
+    - value: "F"
+      description: "Family"
+      status: "A"
+    - value: "R"
+      description: "Relatives"
+      status: "A"
+    - value: "S"
+      description: "Spouse Only"
+      status: "A"
+    - value: "U"
+      description: "Unknown"
+      status: "A"
+    - value: "O"
+      description: "Other"
+      status: "A"
+    - value: "C"
+      description: "Common law spouse"
+      status: "A"
+    - value: "N"
+      description: "Non-relative"
+      status: "A"

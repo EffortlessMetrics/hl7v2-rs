@@ -1,0 +1,15 @@
+# HL7 Table 0091 - Query Priority
+# HL7 v2.5.1 Standard
+# Used in QRF segment
+
+hl7_table:
+  id: "HL70091"
+  name: "Query Priority"
+  version: "2.5.1"
+  codes:
+    - value: "D"
+      description: "Deferred"
+      status: "A"
+    - value: "I"
+      description: "Immediate"
+      status: "A"
