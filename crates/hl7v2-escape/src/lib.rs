@@ -53,34 +53,53 @@ use hl7v2_model::{Delims, Error};
 /// assert_eq!(escaped, "a\\F\\b\\S\\c");
 /// ```
 pub fn escape_text(text: &str, delims: &Delims) -> String {
-    // Pre-calculate maximum possible size to reduce reallocations
-    // In worst case, every character might need escaping (3 chars each)
-    let max_size = text.len() * 3;
-    let mut result = String::with_capacity(max_size);
+    let delims_arr = [
+        delims.field,
+        delims.comp,
+        delims.rep,
+        delims.esc,
+        delims.sub,
+    ];
 
-    for ch in text.chars() {
-        if ch == delims.esc {
-            result.push(delims.esc);
-            result.push('E');
-            result.push(delims.esc);
-        } else if ch == delims.field {
-            result.push(delims.esc);
-            result.push('F');
-            result.push(delims.esc);
-        } else if ch == delims.comp {
-            result.push(delims.esc);
-            result.push('S');
-            result.push(delims.esc);
-        } else if ch == delims.rep {
-            result.push(delims.esc);
-            result.push('R');
-            result.push(delims.esc);
-        } else if ch == delims.sub {
-            result.push(delims.esc);
-            result.push('T');
-            result.push(delims.esc);
-        } else {
-            result.push(ch);
+    let first_idx = match text.find(&delims_arr[..]) {
+        Some(idx) => idx,
+        None => return text.to_string(), // Fast path: no escaping needed
+    };
+
+    // Pre-calculate estimated capacity (original length + some extra for escapes)
+    let mut result = String::with_capacity(text.len() + 10);
+
+    // Bulk copy the clean prefix
+    result.push_str(&text[..first_idx]);
+
+    for ch in text[first_idx..].chars() {
+        match ch {
+            c if c == delims.field => {
+                result.push(delims.esc);
+                result.push('F');
+                result.push(delims.esc);
+            }
+            c if c == delims.comp => {
+                result.push(delims.esc);
+                result.push('S');
+                result.push(delims.esc);
+            }
+            c if c == delims.rep => {
+                result.push(delims.esc);
+                result.push('R');
+                result.push(delims.esc);
+            }
+            c if c == delims.esc => {
+                result.push(delims.esc);
+                result.push('E');
+                result.push(delims.esc);
+            }
+            c if c == delims.sub => {
+                result.push(delims.esc);
+                result.push('T');
+                result.push(delims.esc);
+            }
+            _ => result.push(ch),
         }
     }
 
@@ -111,9 +130,18 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
 /// assert_eq!(unescaped, "a|b");
 /// ```
 pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
+    let first_idx = match text.find(delims.esc) {
+        Some(idx) => idx,
+        None => return Ok(text.to_string()), // Fast path: no unescaping needed
+    };
+
     // Pre-allocate result with estimated capacity to reduce reallocations
     let mut result = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
+
+    // Bulk copy the clean prefix
+    result.push_str(&text[..first_idx]);
+
+    let mut chars = text[first_idx..].chars().peekable();
 
     while let Some(ch) = chars.next() {
         if ch == delims.esc {
