@@ -76,7 +76,7 @@
               "items": {
                 "type": "object",
                 "properties": {
-                  "url": {"type": "string", "format": "uri"},
+                  "url": {"type": "string"},
                   "type": {"type": "string", "enum": ["http", "s3", "gcs"]},
                   "auth": {
                     "type": "object",
@@ -120,7 +120,7 @@
       "type": "object",
       "properties": {
         "enabled": {"type": "boolean", "default": false},
-        "endpoint": {"type": "string", "format": "uri"},
+        "endpoint": {"type": "string"},
         "metrics": {"type": "boolean", "default": true},
         "traces": {"type": "boolean", "default": true}
       }
