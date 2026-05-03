@@ -4,7 +4,21 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.2.0 (Stable). For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.2.0 (Stable / Rust 2024). For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+
+## Feature Status
+
+| Layer | Status | Evidence |
+| --- | --- | --- |
+| **Parser / Core** | Stable | Verified in PR #364 (Audit) + 120+ tests |
+| **Writer / Normalize** | Stable | Verified contract tests land |
+| **MLLP / Network** | Stable | E2E tests (OS-assigned ports) land |
+| **REST Server** | Stable | Integration tests land |
+| **gRPC Service** | Beta | Contract tests landing in PR #365 |
+| **Lifecycle** | Beta | Domain tests landing in PR #366 |
+| **Guard / Anomaly** | Experimental | Statistical baseline proven in PR #367 |
+| **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
+| **Python Bindings** | Beta | Smoke tests landing land |
 
 ## Features
 
