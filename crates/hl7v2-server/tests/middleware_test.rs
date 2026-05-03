@@ -43,7 +43,7 @@ fn build_test_router(
     );
 
     // OpenAPI specification content (copied from src/routes.rs)
-    const OPENAPI_YAML: &str = include_str!("../../../schemas/openapi/hl7v2-api.yaml");
+    const OPENAPI_YAML: &str = include_str!("../../../api/openapi/hl7v2-api-v1.yaml");
 
     // Create API routes (without /hl7 prefix, as they will be nested)
     let api_routes = axum::Router::new()
