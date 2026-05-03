@@ -66,7 +66,7 @@ impl Hl7Service for Hl7ServiceImpl {
                         .segments
                         .iter()
                         .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(8))
+                        .and_then(|s: &RustSegment| s.fields.get(7))
                         .and_then(|f: &RustField| f.first_text())
                         .unwrap_or("UNKNOWN")
                         .to_string(),
@@ -74,7 +74,7 @@ impl Hl7Service for Hl7ServiceImpl {
                         .segments
                         .iter()
                         .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(11))
+                        .and_then(|s: &RustSegment| s.fields.get(10))
                         .and_then(|f: &RustField| f.first_text())
                         .unwrap_or("UNKNOWN")
                         .to_string(),
@@ -82,7 +82,7 @@ impl Hl7Service for Hl7ServiceImpl {
                         .segments
                         .iter()
                         .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(9))
+                        .and_then(|s: &RustSegment| s.fields.get(8))
                         .and_then(|f: &RustField| f.first_text())
                         .unwrap_or("UNKNOWN")
                         .to_string(),
