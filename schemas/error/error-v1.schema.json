@@ -22,7 +22,7 @@
     },
     "segment": {
       "type": "string",
-      "pattern": "^[A-Z]{3}$",
+      "pattern": "^[A-Z0-9]{3}$",
       "description": "Segment ID where error occurred"
     },
     "field": {
@@ -47,7 +47,6 @@
     },
     "trace_id": {
       "type": "string",
-      "format": "uuid",
       "description": "Trace ID for correlation with logs"
     },
     "context": {

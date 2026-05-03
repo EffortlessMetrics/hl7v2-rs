@@ -116,7 +116,7 @@ jobs:
           node-version: '22'
 
       - name: Install ajv-cli
-        run: npm install -g ajv-cli
+        run: npm install -g ajv-cli ajv-formats
 
       - name: Validate Profile Schemas
         run: |
