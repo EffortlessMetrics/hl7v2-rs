@@ -39,8 +39,8 @@ hyper = "1.0"
 utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
 utoipa = { version = "5.4", features = ["yaml"] }
 subtle = "2.6.1"
-tonic = "0.12.3"
-prost = "0.13"
+tonic = { workspace = true }
+prost = { workspace = true }
 prost-types = "0.13"
 tokio-stream = "0.1.18"
 hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
@@ -66,6 +66,6 @@ name = "hl7v2-server"
 path = "src/main.rs"
 
 [build-dependencies]
-tonic-build = "0.12.3"
-protoc-bin-vendored = "3"
+tonic-build = { workspace = true }
+protoc-bin-vendored = { workspace = true }
 

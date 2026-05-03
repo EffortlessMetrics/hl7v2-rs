@@ -58,9 +58,9 @@ description = "High-performance HL7 v2 Processing Toolkit for Rust"
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"] }
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.50", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 metrics = "0.24"
@@ -80,6 +80,10 @@ bytes = "1.11.1"
 tokio-util = "0.7.18"
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 uselesskey = "0.4.0"
+tonic = "0.12.3"
+prost = "0.13.5"
+tonic-build = "0.12.3"
+protoc-bin-vendored = "3"
 hl7v2-core = { version = "1.2.0", path = "crates/hl7v2-core" }
 hl7v2-model = { version = "1.2.0", path = "crates/hl7v2-model" }
 hl7v2-test-utils = { version = "1.2.0", path = "crates/hl7v2-test-utils" }
