@@ -18,7 +18,7 @@ service HL7Service {
   rpc Validate(ValidateRequest) returns (ValidateResponse);
 
   // Generate an acknowledgment (ACK) message
-  rpc GenerateAck(AckRequest) returns (AckResponse);
+  rpc GenerateAck(GenerateAckRequest) returns (GenerateAckResponse);
 
   // Normalize a message
   rpc Normalize(NormalizeRequest) returns (NormalizeResponse);
@@ -262,7 +262,7 @@ message ValidationSummary {
 }
 
 // ACK Request
-message AckRequest {
+message GenerateAckRequest {
   // Original message
   bytes message = 1;
 
@@ -281,7 +281,7 @@ message AckRequest {
 }
 
 // ACK Response
-message AckResponse {
+message GenerateAckResponse {
   // Generated ACK message
   bytes ack_message = 1;
 
