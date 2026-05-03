@@ -45,3 +45,44 @@ impl PersistentProfileCache {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Profile;
+
+    #[tokio::test]
+    async fn test_cache_hit_miss() {
+        let cache = PersistentProfileCache::new(2);
+        let profile = Profile::default();
+
+        // Miss
+        assert!(cache.get("missing").await.is_none());
+
+        // Put and Hit
+        cache.put("test".to_string(), profile).await.unwrap();
+        assert!(cache.get("test").await.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_cache_eviction() {
+        let cache = PersistentProfileCache::new(2);
+        let p1 = Profile::default();
+        let p2 = Profile::default();
+        let p3 = Profile::default();
+
+        cache.put("p1".to_string(), p1).await.unwrap();
+        cache.put("p2".to_string(), p2).await.unwrap();
+
+        // Both should be in
+        assert!(cache.get("p1").await.is_some());
+        assert!(cache.get("p2").await.is_some());
+
+        // Put third, should evict p1 (LRU)
+        cache.put("p3".to_string(), p3).await.unwrap();
+
+        assert!(cache.get("p3").await.is_some());
+        assert!(cache.get("p2").await.is_some());
+        assert!(cache.get("p1").await.is_none());
+    }
+}
