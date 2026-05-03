@@ -129,7 +129,7 @@ impl From<hl7v2_core::Error> for ProfileLoadError {
 }
 
 /// A conformance profile
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Profile {
     pub message_structure: String,
     pub version: String,
