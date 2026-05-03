@@ -8,9 +8,9 @@
   "properties": {
     "message_structure": {
       "type": "string",
-      "description": "HL7 message structure (e.g., ADT^A01, ORU^R01)",
-      "pattern": "^[A-Z]{3}\\^[A-Z0-9]{3}$",
-      "examples": ["ADT^A01", "ORU^R01", "ORM^O01"]
+      "description": "HL7 message structure (e.g., ADT^A01, ADT_A01, ORU^R01)",
+      "pattern": "^[A-Z]{3}[\\^_][A-Z0-9]{3}$",
+      "examples": ["ADT^A01", "ADT_A01", "ORU^R01", "ORM^O01"]
     },
     "version": {
       "type": "string",
