@@ -1,9 +1,9 @@
 //! BDD tests for hl7v2-template-values
 
-use cucumber::{World, given, then, when};
-use hl7v2_template_values::{ValueSource, generate_value};
-use rand::SeedableRng;
+use cucumber::{given, then, when, World};
+use hl7v2_template_values::{generate_value, ValueSource};
 use rand::rngs::StdRng;
+use rand::SeedableRng;
 
 #[derive(Debug, World)]
 #[world(init = Self::new)]

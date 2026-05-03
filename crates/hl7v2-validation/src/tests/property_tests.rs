@@ -7,10 +7,10 @@
 //! - Properties hold across a wide range of inputs
 
 use crate::{
-    Issue, Severity, is_coded_value, is_date, is_email, is_identifier, is_numeric, is_person_name,
-    is_phone_number, is_sequence_id, is_ssn, is_time, is_timestamp, is_valid_birth_date,
-    is_within_range, validate_checksum, validate_data_type, validate_luhn_checksum,
-    validate_mathematical_relationship,
+    is_coded_value, is_date, is_email, is_identifier, is_numeric, is_person_name, is_phone_number,
+    is_sequence_id, is_ssn, is_time, is_timestamp, is_valid_birth_date, is_within_range,
+    validate_checksum, validate_data_type, validate_luhn_checksum,
+    validate_mathematical_relationship, Issue, Severity,
 };
 use proptest::prelude::*;
 

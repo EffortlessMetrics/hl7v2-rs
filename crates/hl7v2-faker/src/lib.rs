@@ -574,9 +574,9 @@ impl std::fmt::Display for GenerateError {
 impl std::error::Error for GenerateError {}
 
 // Re-export rand types for convenience
+pub use rand::rngs::StdRng;
 pub use rand::Rng;
 pub use rand::SeedableRng;
-pub use rand::rngs::StdRng;
 
 #[cfg(test)]
 mod tests;

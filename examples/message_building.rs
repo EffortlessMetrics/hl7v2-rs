@@ -9,6 +9,7 @@
 //! Run with: cargo run --example message_building
 
 use hl7v2_core::{
+    write, // For serializing messages
     Atom,
     Comp,
     Delims,
@@ -17,7 +18,6 @@ use hl7v2_core::{
     Message,
     Rep,
     Segment,
-    write, // For serializing messages
 };
 
 fn main() {

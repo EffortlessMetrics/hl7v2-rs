@@ -7,8 +7,8 @@
 //!
 //! Run with: cargo run --example batch_processing
 
-use hl7v2_batch::{Batch, FileBatch, parse_batch};
-use hl7v2_core::{Message, get, parse, write};
+use hl7v2_batch::{parse_batch, Batch, FileBatch};
+use hl7v2_core::{get, parse, write, Message};
 
 /// Sample batch file with FHS/BHS headers and multiple messages
 const SAMPLE_BATCH: &[u8] = b"FHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120000||BATCH001\rBHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120000||BATCH001\rMSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120001||ADT^A01^ADT_A01|MSG001|P|2.5.1\rPID|1||PAT001^^^HOSP^MR||Smith^John||19800101|M\rMSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120002||ADT^A01^ADT_A01|MSG002|P|2.5.1\rPID|1||PAT002^^^HOSP^MR||Jones^Jane||19850215|F\rMSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120003||ADT^A01^ADT_A01|MSG003|P|2.5.1\rPID|1||PAT003^^^HOSP^MR||Brown^Bob||19900320|M\rBTS|3\rFTS|3\r";
@@ -73,7 +73,8 @@ fn simple_batch_example() {
 fn display_file_batch_info(file_batch: &FileBatch) {
     println!("File Batch Information:");
 
-    if let Some(ref header) = file_batch.header {
+    if let Some(header) = file_batch.header.as_ref() {
+        let header: &hl7v2_core::Segment = header;
         println!("  Has FHS header: {}", header.id_str());
     }
 
@@ -95,7 +96,8 @@ fn display_file_batch_info(file_batch: &FileBatch) {
         }
     }
 
-    if let Some(ref trailer) = file_batch.trailer {
+    if let Some(trailer) = file_batch.trailer.as_ref() {
+        let trailer: &hl7v2_core::Segment = trailer;
         println!("\n  Has FTS trailer: {}", trailer.id_str());
     }
 }

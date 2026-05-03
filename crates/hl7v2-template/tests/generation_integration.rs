@@ -1,4 +1,4 @@
-use hl7v2_template::{Template, ValueSource, generate};
+use hl7v2_template::{generate, Template, ValueSource};
 use std::collections::HashMap;
 
 #[test]

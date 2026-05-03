@@ -1,4 +1,4 @@
-use hl7v2_gen::{Template, generate};
+use hl7v2_gen::{generate, Template};
 use std::collections::HashMap;
 
 // Basic test to verify the file works

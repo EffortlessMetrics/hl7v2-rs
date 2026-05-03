@@ -32,12 +32,15 @@ impl Hl7ServiceImpl {
 
 #[tonic::async_trait]
 impl Hl7Service for Hl7ServiceImpl {
-    async fn parse(&self, request: Request<ParseRequest>) -> Result<Response<ParseResponse>, Status> {
+    async fn parse(
+        &self,
+        request: Request<ParseRequest>,
+    ) -> Result<Response<ParseResponse>, Status> {
         let req = request.into_inner();
 
         let parse_result = if req.mllp_framed {
             match hl7v2_mllp::unwrap_mllp(&req.message) {
-                Ok(hl7) => rust_parse(&hl7),
+                Ok(hl7) => rust_parse(hl7),
                 Err(e) => {
                     return Ok(Response::new(ParseResponse {
                         success: false,
@@ -143,9 +146,15 @@ impl Hl7Service for Hl7ServiceImpl {
             let location = issue.path.map(|p| {
                 let mut loc = Location::default();
                 let parts: Vec<&str> = p.split('.').collect();
-                if !parts.is_empty() { loc.segment = parts[0].to_string(); }
-                if parts.len() > 1 { loc.field = parts[1].parse().unwrap_or(0); }
-                if parts.len() > 2 { loc.component = parts[2].parse().unwrap_or(0); }
+                if !parts.is_empty() {
+                    loc.segment = parts[0].to_string();
+                }
+                if parts.len() > 1 {
+                    loc.field = parts[1].parse().unwrap_or(0);
+                }
+                if parts.len() > 2 {
+                    loc.component = parts[2].parse().unwrap_or(0);
+                }
                 loc
             });
 
@@ -255,11 +264,11 @@ impl From<RustMessage> for proto::Message {
     fn from(msg: RustMessage) -> Self {
         proto::Message {
             delimiters: Some(proto::Delimiters {
-                field: (msg.delims.field as char).to_string(),
-                component: (msg.delims.comp as char).to_string(),
-                repetition: (msg.delims.rep as char).to_string(),
-                escape: (msg.delims.esc as char).to_string(),
-                subcomponent: (msg.delims.sub as char).to_string(),
+                field: msg.delims.field.to_string(),
+                component: msg.delims.comp.to_string(),
+                repetition: msg.delims.rep.to_string(),
+                escape: msg.delims.esc.to_string(),
+                subcomponent: msg.delims.sub.to_string(),
             }),
             segments: msg.segments.into_iter().map(Into::into).collect(),
         }

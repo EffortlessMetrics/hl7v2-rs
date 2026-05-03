@@ -4,7 +4,7 @@
 //! hold for arbitrary inputs.
 
 use hl7v2_core::parse;
-use hl7v2_prof::{Profile, load_profile, validate};
+use hl7v2_prof::{load_profile, validate, Profile};
 use proptest::prelude::*;
 
 // ============================================================================

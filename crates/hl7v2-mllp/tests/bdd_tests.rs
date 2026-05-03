@@ -2,10 +2,10 @@
 //!
 //! Run with: cargo test --test bdd_tests -p hl7v2-mllp
 
-use cucumber::{World, given, then, when};
+use cucumber::{given, then, when, World};
 use hl7v2_mllp::{
-    MllpError, MllpFrameIterator, find_complete_mllp_message, is_mllp_framed, unwrap_mllp,
-    unwrap_mllp_checked, wrap_mllp,
+    find_complete_mllp_message, is_mllp_framed, unwrap_mllp, unwrap_mllp_checked, wrap_mllp,
+    MllpError, MllpFrameIterator,
 };
 
 /// Test world for MLLP BDD tests

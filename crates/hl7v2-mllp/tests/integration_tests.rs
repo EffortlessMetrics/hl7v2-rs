@@ -4,8 +4,8 @@
 //! HL7 message scenarios.
 
 use hl7v2_mllp::{
-    MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
-    is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+    find_complete_mllp_message, is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+    MllpFrameIterator, MLLP_END_1, MLLP_END_2, MLLP_START,
 };
 
 // ============================================================================

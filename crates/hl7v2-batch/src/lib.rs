@@ -391,13 +391,13 @@ fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
     }
 
     // Verify message count if specified
-    if let Some(expected) = batch.info.message_count
-        && expected != batch.message_count()
-    {
-        return Err(BatchError::CountMismatch {
-            expected,
-            actual: batch.message_count(),
-        });
+    if let Some(expected) = batch.info.message_count {
+        if expected != batch.message_count() {
+            return Err(BatchError::CountMismatch {
+                expected,
+                actual: batch.message_count(),
+            });
+        }
     }
 
     Ok(batch)

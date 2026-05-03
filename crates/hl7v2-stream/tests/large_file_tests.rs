@@ -59,11 +59,9 @@ fn test_large_message_100_segments() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     let segment_count = events
@@ -83,11 +81,9 @@ fn test_large_message_1000_segments() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     let segment_count = events
@@ -107,11 +103,9 @@ fn test_large_message_10000_segments() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     let segment_count = events
@@ -135,11 +129,9 @@ fn test_very_long_field_1kb() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Verify long field is preserved
@@ -163,11 +155,9 @@ fn test_very_long_field_10kb() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -181,11 +171,9 @@ fn test_very_long_field_100kb() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Verify the 100KB field is preserved
@@ -210,11 +198,9 @@ fn test_very_long_field_1mb() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -236,11 +222,9 @@ fn test_segment_with_100_fields() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Count PID fields
@@ -266,11 +250,9 @@ fn test_segment_with_1000_fields() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -375,11 +357,9 @@ fn test_parsing_performance_1000_segments() {
 
     let duration = start.elapsed();
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Performance assertion: should complete in reasonable time
@@ -405,11 +385,9 @@ fn test_parsing_performance_large_field() {
 
     let duration = start.elapsed();
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     println!("Parsed message with 10x100KB fields in {:?}", duration);
@@ -440,17 +418,13 @@ fn test_boundary_at_exact_1024_bytes() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
-    assert!(
-        events
-            .iter()
-            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
-    );
+    assert!(events
+        .iter()
+        .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") }));
 }
 
 #[test]
@@ -473,11 +447,9 @@ fn test_boundary_in_middle_of_long_field() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Verify the field content is preserved correctly
@@ -515,11 +487,9 @@ fn test_stress_deeply_nested_components() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -542,11 +512,9 @@ fn test_stress_many_repetitions() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -561,11 +529,9 @@ fn test_stress_mixed_delimiters() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -599,11 +565,9 @@ fn test_large_lab_result_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Should have PID, OBR, and 500 OBX segments
@@ -666,10 +630,10 @@ fn test_field_memory_is_released() {
     // Process remaining events
     let mut found_large_field = false;
     while let Ok(Some(event)) = parser.next_event() {
-        if let Event::Field { raw, .. } = &event
-            && raw.len() == 1_000_000
-        {
-            found_large_field = true;
+        if let Event::Field { raw, .. } = &event {
+            if raw.len() == 1_000_000 {
+                found_large_field = true;
+            }
         }
         // Event is dropped here
     }

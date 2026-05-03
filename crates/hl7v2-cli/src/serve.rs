@@ -5,8 +5,8 @@
 //! - gRPC server (optional, behind feature flag)
 //! - Graceful shutdown via Ctrl+C
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use tracing::{error, info, warn};
@@ -157,11 +157,9 @@ mod tests {
     async fn test_grpc_not_implemented() {
         let result = run_grpc_server("127.0.0.1:50051").await;
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("not yet implemented")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not yet implemented"));
     }
 }
