@@ -19,7 +19,7 @@ use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
 use crate::server::AppState;
 
 /// OpenAPI specification content
-const OPENAPI_YAML: &str = include_str!("../../../schemas/openapi/hl7v2-api.yaml");
+const OPENAPI_YAML: &str = include_str!("../../../api/openapi/hl7v2-api-v1.yaml");
 
 /// Build the application router
 pub fn build_router(state: Arc<AppState>) -> Router {
