@@ -2,7 +2,9 @@
 mod tests {
     use hl7v2_server::grpc::Hl7ServiceImpl;
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
-    use hl7v2_server::grpc::proto::{AckRequest, NormalizeRequest, ParseRequest, ValidateRequest};
+    use hl7v2_server::grpc::proto::{
+        GenerateAckRequest, NormalizeRequest, ParseRequest, ValidateRequest,
+    };
     use hl7v2_server::server::AppState;
     use metrics_exporter_prometheus::PrometheusBuilder;
     use std::sync::Arc;
@@ -64,7 +66,7 @@ mod tests {
     #[tokio::test]
     async fn test_grpc_generate_ack() {
         let service = Hl7ServiceImpl::new(mock_state());
-        let request = Request::new(AckRequest {
+        let request = Request::new(GenerateAckRequest {
             message: SAMPLE_MSG.to_vec(),
             code: 1, // AA
             error_message: None,

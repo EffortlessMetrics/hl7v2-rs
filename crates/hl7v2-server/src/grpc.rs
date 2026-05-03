@@ -116,7 +116,6 @@ impl Hl7Service for Hl7ServiceImpl {
     type ParseStreamStream =
         tokio_stream::wrappers::ReceiverStream<Result<ParseStreamResponse, Status>>;
 
-
     async fn parse_stream(
         &self,
         _request: Request<tonic::Streaming<ParseStreamRequest>>,
@@ -194,17 +193,17 @@ impl Hl7Service for Hl7ServiceImpl {
 
     async fn generate_ack(
         &self,
-        request: Request<AckRequest>,
-    ) -> Result<Response<AckResponse>, Status> {
+        request: Request<GenerateAckRequest>,
+    ) -> Result<Response<GenerateAckResponse>, Status> {
         let req = request.into_inner();
 
         let message = rust_parse(&req.message)
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
 
         let ack_code = match req.code() {
-            ack_request::AckCode::Aa => hl7v2_gen::AckCode::AA,
-            ack_request::AckCode::Ae => hl7v2_gen::AckCode::AE,
-            ack_request::AckCode::Ar => hl7v2_gen::AckCode::AR,
+            generate_ack_request::AckCode::Aa => hl7v2_gen::AckCode::AA,
+            generate_ack_request::AckCode::Ae => hl7v2_gen::AckCode::AE,
+            generate_ack_request::AckCode::Ar => hl7v2_gen::AckCode::AR,
             _ => hl7v2_gen::AckCode::AA,
         };
 
@@ -213,7 +212,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let ack_bytes = hl7v2_writer::write(&ack_msg);
         let proto_ack = proto::Message::from(ack_msg);
 
-        Ok(Response::new(AckResponse {
+        Ok(Response::new(GenerateAckResponse {
             ack_message: ack_bytes,
             parsed_ack: Some(proto_ack),
         }))
