@@ -429,7 +429,7 @@ valuesets:
     // - PID.99 missing (required)
     // - PID.8 invalid valueset
     assert!(
-        issues.len() >= 1,
+        !issues.is_empty(),
         "Should have at least 1 error: {:?}",
         issues
     );
@@ -564,7 +564,7 @@ valuesets:
     // Should report multiple different errors
     let error_codes: std::collections::HashSet<_> = issues.iter().map(|i| &i.code).collect();
     assert!(
-        error_codes.len() >= 1,
+        !error_codes.is_empty(),
         "Should have at least one unique error type"
     );
 }
