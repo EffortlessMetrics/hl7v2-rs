@@ -113,11 +113,12 @@ impl Hl7Service for Hl7ServiceImpl {
         }
     }
 
-    type ParseStreamStream = tokio_stream::wrappers::ReceiverStream<Result<ParseResponse, Status>>;
+    type ParseStreamStream =
+        tokio_stream::wrappers::ReceiverStream<Result<ParseStreamResponse, Status>>;
 
     async fn parse_stream(
         &self,
-        _request: Request<tonic::Streaming<ParseRequest>>,
+        _request: Request<tonic::Streaming<ParseStreamRequest>>,
     ) -> Result<Response<Self::ParseStreamStream>, Status> {
         Err(Status::unimplemented("Streaming parse not yet implemented"))
     }
