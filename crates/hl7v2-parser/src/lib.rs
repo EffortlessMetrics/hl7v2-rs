@@ -398,10 +398,9 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 /// Extract character sets from MSH-18 field
 fn extract_charsets(segments: &[Segment]) -> Vec<String> {
     // Look for the MSH segment (should be the first one)
-    if let Some(msh_segment) = segments.first()
-        && &msh_segment.id == b"MSH"
-    {
-        // MSH-18 is parsed field index 17
+    if let Some(msh_segment) = segments.first() {
+        if &msh_segment.id == b"MSH" {
+            // MSH-18 is parsed field index 17
         if msh_segment.fields.len() > 17 {
             let field_18 = &msh_segment.fields[17];
 
@@ -425,6 +424,7 @@ fn extract_charsets(segments: &[Segment]) -> Vec<String> {
                 return charsets;
             }
         }
+    }
     }
     vec![]
 }

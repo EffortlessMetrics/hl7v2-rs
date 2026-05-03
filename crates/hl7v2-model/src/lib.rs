@@ -287,6 +287,11 @@ impl Rep {
     pub fn add_comp(&mut self, comp: Comp) {
         self.comps.push(comp);
     }
+
+    /// Get the first text value in this repetition
+    pub fn first_text(&self) -> Option<&str> {
+        self.comps.first()?.first_text()
+    }
 }
 
 impl Default for Rep {
@@ -317,6 +322,11 @@ impl Comp {
     /// Add a subcomponent to the component
     pub fn add_sub(&mut self, atom: Atom) {
         self.subs.push(atom);
+    }
+
+    /// Get the first text value in this component
+    pub fn first_text(&self) -> Option<&str> {
+        self.subs.first()?.as_text()
     }
 }
 

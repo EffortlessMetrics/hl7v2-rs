@@ -282,13 +282,13 @@ fn generate_atom(
     rng: &mut StdRng,
 ) -> Result<Atom, Error> {
     // Check if this field has a value source defined in the template
-    if let Some(value_sources) = values.get(field_path)
-        && !value_sources.is_empty()
-    {
-        // Use the first value source for now (in a real implementation, we might cycle through them)
-        let value_source = &value_sources[0];
-        let value = generate_value(value_source, rng)?;
-        return Ok(Atom::Text(value));
+    if let Some(value_sources) = values.get(field_path) {
+        if !value_sources.is_empty() {
+            // Use the first value source for now (in a real implementation, we might cycle through them)
+            let value_source = &value_sources[0];
+            let value = generate_value(value_source, rng)?;
+            return Ok(Atom::Text(value));
+        }
     }
 
     // If no value source is defined, use the template text as-is

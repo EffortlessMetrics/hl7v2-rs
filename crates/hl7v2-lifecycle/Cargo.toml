@@ -1,0 +1,21 @@
+[package]
+name = "hl7v2-lifecycle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Message archival, retention, and compliance management for HL7 v2 messages."
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+hl7v2-core = { workspace = true }
+hl7v2-model = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+chrono = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+hl7v2-test-utils = { workspace = true }

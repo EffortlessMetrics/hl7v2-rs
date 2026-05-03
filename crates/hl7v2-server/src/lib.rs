@@ -36,6 +36,7 @@ pub mod middleware;
 pub mod models;
 pub mod routes;
 pub mod server;
+pub mod grpc;
 
 pub use routes::build_router;
 pub use server::{AppState, Server, ServerBuilder, ServerConfig};

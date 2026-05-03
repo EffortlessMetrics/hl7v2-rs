@@ -1117,16 +1117,16 @@ fn when_validate_message(world: &mut ValidationWorld) {
         let mut issues_to_add: Vec<Issue> = Vec::new();
 
         // Check for unknown message type
-        if let Some(msh_9) = hl7v2_query::get(msg, "MSH.9")
-            && msh_9.contains("UNKNOWN")
-        {
-            issues_to_add.push(Issue::error(
-                "CARDINALITY_VIOLATION", // Matching existing Then step if needed, or fix Then step
-                Some("MSH.9".to_string()),
-                "Unknown message type".to_string(),
-            ));
-            // Wait! The Then step for this scenario says "validation should fail".
-            // I should use a code that matches one of the Then steps if possible.
+        if let Some(msh_9) = hl7v2_query::get(msg, "MSH.9") {
+            if msh_9.contains("UNKNOWN") {
+                issues_to_add.push(Issue::error(
+                    "CARDINALITY_VIOLATION", // Matching existing Then step if needed, or fix Then step
+                    Some("MSH.9".to_string()),
+                    "Unknown message type".to_string(),
+                ));
+                // Wait! The Then step for this scenario says "validation should fail".
+                // I should use a code that matches one of the Then steps if possible.
+            }
         }
 
         // Check required fields (only if not overridden by profile constraints)
@@ -1195,14 +1195,14 @@ fn when_validate_message(world: &mut ValidationWorld) {
             }
 
             // Check max length
-            if let Some(max) = constraint.max_length
-                && value.len() > max
-            {
-                issues_to_add.push(Issue::error(
-                    "FIELD_LENGTH_EXCEEDED",
-                    Some(field.clone()),
-                    format!("{} exceeds maximum length of {}", field, max),
-                ));
+            if let Some(max) = constraint.max_length {
+                if value.len() > max {
+                    issues_to_add.push(Issue::error(
+                        "FIELD_LENGTH_EXCEEDED",
+                        Some(field.clone()),
+                        format!("{} exceeds maximum length of {}", field, max),
+                    ));
+                }
             }
 
             // Check allowed values
@@ -1246,15 +1246,16 @@ fn when_validate_message(world: &mut ValidationWorld) {
             }
 
             // Check range
-            if let (Some(min), Some(max)) = (constraint.range_min, constraint.range_max)
-                && let Ok(val) = value.parse::<f64>()
-                && (val < min || val > max)
-            {
-                issues_to_add.push(Issue::error(
-                    "VALUE_OUT_OF_RANGE",
-                    Some(field.clone()),
-                    format!("{} is outside range {}-{}", field, min, max),
-                ));
+            if let (Some(min), Some(max)) = (constraint.range_min, constraint.range_max) {
+                if let Ok(val) = value.parse::<f64>() {
+                    if val < min || val > max {
+                        issues_to_add.push(Issue::error(
+                            "VALUE_OUT_OF_RANGE",
+                            Some(field.clone()),
+                            format!("{} is outside range {}-{}", field, min, max),
+                        ));
+                    }
+                }
             }
 
             // Check Luhn checksum
@@ -1407,10 +1408,10 @@ fn when_validate_segment_order(world: &mut ValidationWorld) {
         let evn_idx = segment_names.iter().position(|&s| s == "EVN");
         let pid_idx = segment_names.iter().position(|&s| s == "PID");
 
-        if let (Some(evn), Some(pid)) = (evn_idx, pid_idx)
-            && evn > pid
-        {
-            world.add_error("INVALID_SEGMENT_ORDER", "EVN", "EVN must appear before PID");
+        if let (Some(evn), Some(pid)) = (evn_idx, pid_idx) {
+            if evn > pid {
+                world.add_error("INVALID_SEGMENT_ORDER", "EVN", "EVN must appear before PID");
+            }
         }
     }
 }
