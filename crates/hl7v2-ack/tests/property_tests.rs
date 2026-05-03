@@ -145,11 +145,10 @@ proptest! {
 
         if let Ok(original) = parse(message_str.as_bytes())
             && let Ok(ack_msg) = ack(&original, AckCode::AA)
+            && let msa = &ack_msg.segments[1]
+            && let Some(ack_control_id) = get_field_value(msa, 2)
         {
-            let msa = &ack_msg.segments[1];
-            if let Some(ack_control_id) = get_field_value(msa, 2) {
-                prop_assert_eq!(ack_control_id, ctrl_id);
-            }
+            prop_assert_eq!(ack_control_id, ctrl_id);
         }
     }
 
@@ -189,11 +188,10 @@ proptest! {
 
         if let Ok(original) = parse(message_str.as_bytes())
             && let Ok(ack_msg) = ack(&original, AckCode::AA)
+            && let ack_msh = &ack_msg.segments[0]
+            && let Some(ack_version) = get_field_value(ack_msh, 11)
         {
-            let ack_msh = &ack_msg.segments[0];
-            if let Some(ack_version) = get_field_value(ack_msh, 11) {
-                prop_assert_eq!(ack_version, version);
-            }
+            prop_assert_eq!(ack_version, version);
         }
     }
 
@@ -207,11 +205,10 @@ proptest! {
 
         if let Ok(original) = parse(message_str.as_bytes())
             && let Ok(ack_msg) = ack(&original, AckCode::AA)
+            && let ack_msh = &ack_msg.segments[0]
+            && let Some(ack_proc_id) = get_field_value(ack_msh, 10)
         {
-            let ack_msh = &ack_msg.segments[0];
-            if let Some(ack_proc_id) = get_field_value(ack_msh, 10) {
-                prop_assert_eq!(ack_proc_id, proc_id);
-            }
+            prop_assert_eq!(ack_proc_id, proc_id);
         }
     }
 
@@ -238,11 +235,10 @@ proptest! {
 
         if let Ok(original) = parse(message_str.as_bytes())
             && let Ok(ack_msg) = ack(&original, code)
+            && let msa = &ack_msg.segments[1]
+            && let Some(ack_code_value) = get_field_value(msa, 1)
         {
-            let msa = &ack_msg.segments[1];
-            if let Some(ack_code_value) = get_field_value(msa, 1) {
-                prop_assert_eq!(ack_code_value, code.as_str());
-            }
+            prop_assert_eq!(ack_code_value, code.as_str());
         }
     }
 

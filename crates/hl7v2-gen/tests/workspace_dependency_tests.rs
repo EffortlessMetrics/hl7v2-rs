@@ -25,43 +25,43 @@ fn find_hardcoded_dependencies<P: AsRef<Path>>(cargo_toml_path: P) -> Result<Vec
     let mut hardcoded = Vec::new();
 
     // Check [dependencies] section
-    if let Some(deps) = manifest.get("dependencies") {
-        if let Some(deps_table) = deps.as_table() {
-            for dep_name in ISSUE_SCOPED_DEPS {
-                if let Some(dep_value) = deps_table.get(*dep_name) {
-                    if is_hardcoded_version(dep_value) {
-                        hardcoded.push(dep_name.to_string());
-                    }
+    if let Some(deps) = manifest.get("dependencies")
+        && let Some(deps_table) = deps.as_table()
+    {
+        for dep_name in ISSUE_SCOPED_DEPS {
+            if let Some(dep_value) = deps_table.get(*dep_name) {
+                if is_hardcoded_version(dep_value) {
+                    hardcoded.push(dep_name.to_string());
                 }
             }
         }
     }
 
     // Check [dev-dependencies] section
-    if let Some(dev_deps) = manifest.get("dev-dependencies") {
-        if let Some(deps_table) = dev_deps.as_table() {
-            for dep_name in ISSUE_SCOPED_DEPS {
-                if let Some(dep_value) = deps_table.get(*dep_name) {
-                    if is_hardcoded_version(dep_value) {
-                        hardcoded.push(format!("{} (dev)", dep_name));
-                    }
+    if let Some(dev_deps) = manifest.get("dev-dependencies")
+        && let Some(deps_table) = dev_deps.as_table()
+    {
+        for dep_name in ISSUE_SCOPED_DEPS {
+            if let Some(dep_value) = deps_table.get(*dep_name) {
+                if is_hardcoded_version(dep_value) {
+                    hardcoded.push(format!("{} (dev)", dep_name));
                 }
             }
         }
     }
 
     // Check [target.*.dependencies] sections
-    if let Some(target) = manifest.get("target") {
-        if let Some(target_table) = target.as_table() {
-            for (_, target_deps) in target_table {
-                if let Some(deps) = target_deps.get("dependencies") {
-                    if let Some(deps_table) = deps.as_table() {
-                        for dep_name in ISSUE_SCOPED_DEPS {
-                            if let Some(dep_value) = deps_table.get(*dep_name) {
-                                if is_hardcoded_version(dep_value) {
-                                    hardcoded.push(format!("{} (target)", dep_name));
-                                }
-                            }
+    if let Some(target) = manifest.get("target")
+        && let Some(target_table) = target.as_table()
+    {
+        for (_, target_deps) in target_table {
+            if let Some(deps) = target_deps.get("dependencies")
+                && let Some(deps_table) = deps.as_table()
+            {
+                for dep_name in ISSUE_SCOPED_DEPS {
+                    if let Some(dep_value) = deps_table.get(*dep_name) {
+                        if is_hardcoded_version(dep_value) {
+                            hardcoded.push(format!("{} (target)", dep_name));
                         }
                     }
                 }
@@ -80,10 +80,10 @@ fn is_hardcoded_version(dep_value: &toml::Value) -> bool {
         // Table with version field: tokio = { version = "1.0", ... }
         toml::Value::Table(table) => {
             // If it has workspace = true, it's OK
-            if let Some(workspace) = table.get("workspace") {
-                if workspace.as_bool() == Some(true) {
-                    return false;
-                }
+            if let Some(workspace) = table.get("workspace")
+                && workspace.as_bool() == Some(true)
+            {
+                return false;
             }
             // If it has a version field, it's hardcoded
             if table.contains_key("version") {
@@ -113,21 +113,18 @@ fn get_workspace_cargo_tomls() -> Vec<std::path::PathBuf> {
 
     // Read workspace members from root Cargo.toml
     let root_cargo_toml = workspace_root.join("Cargo.toml");
-    if let Ok(content) = fs::read_to_string(&root_cargo_toml) {
-        if let Ok(manifest) = toml::from_str::<toml::Value>(&content) {
-            if let Some(workspace) = manifest.get("workspace") {
-                if let Some(members) = workspace.get("members") {
-                    if let Some(members_array) = members.as_array() {
-                        for member in members_array {
-                            if let Some(member_str) = member.as_str() {
-                                let member_path = workspace_root.join(member_str);
-                                let cargo_toml = member_path.join("Cargo.toml");
-                                if cargo_toml.exists() {
-                                    paths.push(cargo_toml);
-                                }
-                            }
-                        }
-                    }
+    if let Ok(content) = fs::read_to_string(&root_cargo_toml)
+        && let Ok(manifest) = toml::from_str::<toml::Value>(&content)
+        && let Some(workspace) = manifest.get("workspace")
+        && let Some(members) = workspace.get("members")
+        && let Some(members_array) = members.as_array()
+    {
+        for member in members_array {
+            if let Some(member_str) = member.as_str() {
+                let member_path = workspace_root.join(member_str);
+                let cargo_toml = member_path.join("Cargo.toml");
+                if cargo_toml.exists() {
+                    paths.push(cargo_toml);
                 }
             }
         }
