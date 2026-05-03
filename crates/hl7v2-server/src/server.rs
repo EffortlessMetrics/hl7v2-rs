@@ -7,8 +7,8 @@ use std::time::Instant;
 use tokio::net::TcpListener;
 use tracing::info;
 
-use crate::routes::build_router;
 use crate::Result;
+use crate::routes::build_router;
 
 /// Application state shared across handlers
 #[derive(Clone)]

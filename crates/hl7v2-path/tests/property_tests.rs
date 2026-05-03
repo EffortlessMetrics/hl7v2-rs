@@ -2,7 +2,7 @@
 //!
 //! These tests verify path parsing and generation properties hold for arbitrary inputs.
 
-use hl7v2_path::{parse_path, Path, PathError};
+use hl7v2_path::{Path, PathError, parse_path};
 use proptest::prelude::*;
 
 // =============================================================================

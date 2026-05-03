@@ -1,6 +1,6 @@
 //! Integration tests for hl7v2-gen
 
-use hl7v2_gen::{ack, ack_with_error, generate, AckCode, Faker, FakerValue, Template, ValueSource};
+use hl7v2_gen::{AckCode, Faker, FakerValue, Template, ValueSource, ack, ack_with_error, generate};
 use std::collections::HashMap;
 
 // =============================================================================
@@ -154,8 +154,8 @@ fn test_ack_reject() {
 
 #[test]
 fn test_faker_integration() {
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     let mut rng = StdRng::seed_from_u64(42);
     let mut faker = Faker::new(&mut rng);
@@ -179,8 +179,8 @@ fn test_faker_integration() {
 
 #[test]
 fn test_faker_value_integration() {
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     let mut rng = StdRng::seed_from_u64(42);
     let mut faker = Faker::new(&mut rng);

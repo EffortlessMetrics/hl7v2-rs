@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
-use cucumber::{given, then, when, World};
+use cucumber::{World, given, then, when};
 use hl7v2_json::{to_json, to_json_string, to_json_string_pretty};
 use hl7v2_model::{Atom, Comp, Delims, Field, Message, Rep, Segment};
 use serde_json::Value;

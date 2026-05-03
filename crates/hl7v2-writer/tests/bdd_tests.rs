@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
-use cucumber::{given, then, when, World};
+use cucumber::{World, given, then, when};
 use hl7v2_model::{Delims, Message, Segment};
 use hl7v2_writer::{write, write_mllp};
 

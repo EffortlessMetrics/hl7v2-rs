@@ -232,8 +232,8 @@ fn generate_value_from_faker<R: Rng>(
 mod tests {
     use super::*;
     use proptest::prelude::*;
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     #[test]
     fn test_fixed_value() {

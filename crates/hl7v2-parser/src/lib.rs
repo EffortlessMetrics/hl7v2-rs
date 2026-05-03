@@ -398,31 +398,31 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 /// Extract character sets from MSH-18 field
 fn extract_charsets(segments: &[Segment]) -> Vec<String> {
     // Look for the MSH segment (should be the first one)
-    if let Some(msh_segment) = segments.first() {
-        if &msh_segment.id == b"MSH" {
-            // MSH-18 is parsed field index 17
-            if msh_segment.fields.len() > 17 {
-                let field_18 = &msh_segment.fields[17];
+    if let Some(msh_segment) = segments.first()
+        && &msh_segment.id == b"MSH"
+    {
+        // MSH-18 is parsed field index 17
+        if msh_segment.fields.len() > 17 {
+            let field_18 = &msh_segment.fields[17];
 
-                if !field_18.reps.is_empty() {
-                    let rep = &field_18.reps[0];
+            if !field_18.reps.is_empty() {
+                let rep = &field_18.reps[0];
 
-                    let mut charsets = Vec::new();
-                    for comp in &rep.comps {
-                        if !comp.subs.is_empty() {
-                            match &comp.subs[0] {
-                                Atom::Text(text) => {
-                                    if !text.is_empty() {
-                                        charsets.push(text.clone());
-                                    }
+                let mut charsets = Vec::new();
+                for comp in &rep.comps {
+                    if !comp.subs.is_empty() {
+                        match &comp.subs[0] {
+                            Atom::Text(text) => {
+                                if !text.is_empty() {
+                                    charsets.push(text.clone());
                                 }
-                                Atom::Null => continue,
                             }
+                            Atom::Null => continue,
                         }
                     }
-
-                    return charsets;
                 }
+
+                return charsets;
             }
         }
     }

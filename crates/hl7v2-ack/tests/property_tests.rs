@@ -3,7 +3,7 @@
 //! These tests verify that ACK generation properties hold for
 //! arbitrary input messages.
 
-use hl7v2_ack::{ack, ack_with_error, AckCode};
+use hl7v2_ack::{AckCode, ack, ack_with_error};
 use hl7v2_core::parse;
 use proptest::prelude::*;
 
@@ -106,10 +106,10 @@ proptest! {
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
-                prop_assert_eq!(ack_msg.segments.len(), 2);
-            }
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA)
+        {
+            prop_assert_eq!(ack_msg.segments.len(), 2);
         }
     }
 
@@ -128,10 +128,10 @@ proptest! {
             send_app, send_fac, recv_app, recv_fac, ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack_with_error(&original, AckCode::AE, Some(&error_msg)) {
-                prop_assert_eq!(ack_msg.segments.len(), 3);
-            }
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack_with_error(&original, AckCode::AE, Some(&error_msg))
+        {
+            prop_assert_eq!(ack_msg.segments.len(), 3);
         }
     }
 
@@ -143,12 +143,12 @@ proptest! {
             ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
-                let msa = &ack_msg.segments[1];
-                if let Some(ack_control_id) = get_field_value(msa, 2) {
-                    prop_assert_eq!(ack_control_id, ctrl_id);
-                }
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA)
+        {
+            let msa = &ack_msg.segments[1];
+            if let Some(ack_control_id) = get_field_value(msa, 2) {
+                prop_assert_eq!(ack_control_id, ctrl_id);
             }
         }
     }
@@ -164,17 +164,17 @@ proptest! {
             send_app, recv_app
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
-                let ack_msh = &ack_msg.segments[0];
-                if let Some(ack_send_app) = get_field_value(ack_msh, 2) {
-                    // ACK sending app should be original receiving app
-                    prop_assert_eq!(ack_send_app, recv_app);
-                }
-                if let Some(ack_recv_app) = get_field_value(ack_msh, 4) {
-                    // ACK receiving app should be original sending app
-                    prop_assert_eq!(ack_recv_app, send_app);
-                }
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA)
+        {
+            let ack_msh = &ack_msg.segments[0];
+            if let Some(ack_send_app) = get_field_value(ack_msh, 2) {
+                // ACK sending app should be original receiving app
+                prop_assert_eq!(ack_send_app, recv_app);
+            }
+            if let Some(ack_recv_app) = get_field_value(ack_msh, 4) {
+                // ACK receiving app should be original sending app
+                prop_assert_eq!(ack_recv_app, send_app);
             }
         }
     }
@@ -187,12 +187,12 @@ proptest! {
             version
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
-                let ack_msh = &ack_msg.segments[0];
-                if let Some(ack_version) = get_field_value(ack_msh, 11) {
-                    prop_assert_eq!(ack_version, version);
-                }
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA)
+        {
+            let ack_msh = &ack_msg.segments[0];
+            if let Some(ack_version) = get_field_value(ack_msh, 11) {
+                prop_assert_eq!(ack_version, version);
             }
         }
     }
@@ -205,12 +205,12 @@ proptest! {
             proc_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
-                let ack_msh = &ack_msg.segments[0];
-                if let Some(ack_proc_id) = get_field_value(ack_msh, 10) {
-                    prop_assert_eq!(ack_proc_id, proc_id);
-                }
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA)
+        {
+            let ack_msh = &ack_msg.segments[0];
+            if let Some(ack_proc_id) = get_field_value(ack_msh, 10) {
+                prop_assert_eq!(ack_proc_id, proc_id);
             }
         }
     }
@@ -236,12 +236,12 @@ proptest! {
             send_app, ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, code) {
-                let msa = &ack_msg.segments[1];
-                if let Some(ack_code_value) = get_field_value(msa, 1) {
-                    prop_assert_eq!(ack_code_value, code.as_str());
-                }
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, code)
+        {
+            let msa = &ack_msg.segments[1];
+            if let Some(ack_code_value) = get_field_value(msa, 1) {
+                prop_assert_eq!(ack_code_value, code.as_str());
             }
         }
     }
@@ -254,14 +254,14 @@ proptest! {
             ctrl_id
         );
 
-        if let Ok(original) = parse(message_str.as_bytes()) {
-            if let Ok(ack_msg) = ack(&original, AckCode::AA) {
-                prop_assert_eq!(ack_msg.delims.field, original.delims.field);
-                prop_assert_eq!(ack_msg.delims.comp, original.delims.comp);
-                prop_assert_eq!(ack_msg.delims.rep, original.delims.rep);
-                prop_assert_eq!(ack_msg.delims.esc, original.delims.esc);
-                prop_assert_eq!(ack_msg.delims.sub, original.delims.sub);
-            }
+        if let Ok(original) = parse(message_str.as_bytes())
+            && let Ok(ack_msg) = ack(&original, AckCode::AA)
+        {
+            prop_assert_eq!(ack_msg.delims.field, original.delims.field);
+            prop_assert_eq!(ack_msg.delims.comp, original.delims.comp);
+            prop_assert_eq!(ack_msg.delims.rep, original.delims.rep);
+            prop_assert_eq!(ack_msg.delims.esc, original.delims.esc);
+            prop_assert_eq!(ack_msg.delims.sub, original.delims.sub);
         }
     }
 }

@@ -10,7 +10,7 @@
 //!
 //! Run with: cargo run --example mllp_client
 
-use hl7v2_core::{get, parse, write, Message};
+use hl7v2_core::{Message, get, parse, write};
 use hl7v2_network::MllpClientBuilder;
 use std::time::Duration;
 

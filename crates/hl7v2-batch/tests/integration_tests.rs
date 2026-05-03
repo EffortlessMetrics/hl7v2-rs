@@ -3,7 +3,7 @@
 //! These tests verify batch parsing and creation works correctly with
 //! real-world HL7 batch scenarios.
 
-use hl7v2_batch::{parse_batch, Batch, BatchType, FileBatch};
+use hl7v2_batch::{Batch, BatchType, FileBatch, parse_batch};
 use hl7v2_parser::parse;
 
 // ============================================================================

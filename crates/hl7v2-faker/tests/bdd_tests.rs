@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use cucumber::{given, then, when, World};
+use cucumber::{World, given, then, when};
 use hl7v2_faker::{Faker, FakerValue, GenerateError, StdRng};
 use rand::SeedableRng;
 

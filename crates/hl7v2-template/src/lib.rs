@@ -52,17 +52,17 @@
 //! ```
 
 use hl7v2_core::{Atom, Comp, Delims, Error, Field, Message, Rep, Segment};
-use hl7v2_template_values::generate_value;
 pub use hl7v2_template_values::ValueSource;
-use rand::{rngs::StdRng, RngExt, SeedableRng};
+use hl7v2_template_values::generate_value;
+use rand::{RngExt, SeedableRng, rngs::StdRng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 // Re-export corpus types for backward compatibility
 pub use hl7v2_corpus::{
-    compute_message_hash, compute_sha256, extract_message_type, CorpusConfig, CorpusError,
-    CorpusManifest, CorpusSplits, MessageInfo, ProfileInfo, TemplateInfo,
+    CorpusConfig, CorpusError, CorpusManifest, CorpusSplits, MessageInfo, ProfileInfo,
+    TemplateInfo, compute_message_hash, compute_sha256, extract_message_type,
 };
 
 /// Message template
@@ -282,13 +282,13 @@ fn generate_atom(
     rng: &mut StdRng,
 ) -> Result<Atom, Error> {
     // Check if this field has a value source defined in the template
-    if let Some(value_sources) = values.get(field_path) {
-        if !value_sources.is_empty() {
-            // Use the first value source for now (in a real implementation, we might cycle through them)
-            let value_source = &value_sources[0];
-            let value = generate_value(value_source, rng)?;
-            return Ok(Atom::Text(value));
-        }
+    if let Some(value_sources) = values.get(field_path)
+        && !value_sources.is_empty()
+    {
+        // Use the first value source for now (in a real implementation, we might cycle through them)
+        let value_source = &value_sources[0];
+        let value = generate_value(value_source, rng)?;
+        return Ok(Atom::Text(value));
     }
 
     // If no value source is defined, use the template text as-is
