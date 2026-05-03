@@ -1,8 +1,8 @@
 # HL7v2-rs Development Roadmap
 
-**Current Status**: v1.2.0 (Production-ready release)
-**Target**: v1.3.0 (Enterprise Features) / v2.0.0 (Cloud-native)
-**Last Updated**: 2026-05-01
+**Current Status**: v1.3.0 (Enterprise Readiness)
+**Target**: v1.4.0 (Cloud-native & Interop) / v2.0.0 (Global Scale)
+**Last Updated**: 2026-05-03
 
 ## Version Strategy
 
@@ -12,42 +12,35 @@ This roadmap balances stability with feature completeness. Each version has clea
 
 ## Now/Next/Later
 **Now** (Current Sprint/Immediate): 
-- Complete gRPC service implementation
-- Enhance ML models for anomaly detection
+- Finalize WASM target for browser-based processing
+- Java (JNI) bindings development
 
 **Next** (Upcoming): 
-- WASM target for browser-based processing
-- Java (JNI) bindings
-
-**Later** (Future Consideration): 
 - Native Cloud Storage connectors (S3/GCS)
 - Advanced analytics dashboard
 
+**Later** (Future Consideration): 
+- Real-time visualization REPL
+- Automatic profile generation from sample messages
+
 ---
 
-## v1.2.x (Recent Improvements) - ✅ 100% COMPLETE
+## v1.3.x (Current - Enterprise Readiness) - ✅ 80% COMPLETE
 
-**Status**: 🚀 **ENHANCED STABILITY & ECOSYSTEM**
+**Status**: 🚀 **CORE ENTERPRISE FEATURES**
 
 ### Key Features
+- ✅ **Full gRPC Service**: Native high-performance protobuf interface (Tonic) for all core operations.
+- ✅ **Message Lifecycle**: Enterprise-grade archival state machines and legal hold management.
+- ✅ **Rust 2024 Migration**: Full adoption of modern Rust standards and 1.93 toolchain.
+- ✅ **Statistical Guard**: Baseline learning for message flow anomaly detection.
 - ✅ **Python Bindings**: Official support via PyO3 for high-performance Python integration.
-- ✅ **HIPAA Readiness**: Built-in PII/PHI redaction crate for HIPAA compliance.
-- ✅ **Anomaly Detection**: Statistical/ML-based guardrails for real-time flow monitoring.
-- ✅ **Enhanced Performance**: Optimized escaping fast-paths and stack-allocated streaming buffers.
-- ✅ **Persistent Caching**: PostgreSQL-backed two-tier cache for conformance profiles.
-- ✅ **gRPC Skeleton**: Initial architectural foundation for high-performance RPCs.
+- 🚧 **WASM Target**: Browser-based parsing and validation (In Progress).
+- 🚧 **Java Bindings**: JNI-based integration (In Progress).
 
 ---
 
-## v1.3.0 (Enterprise Expansion - Next 3 months)
-
-**Status**: 🚧 **ACTIVE DEVELOPMENT**
-
-### Primary Goals
-1. **Full gRPC Service**: Native high-performance protobuf interface (Tonic).
-2. **WASM Target**: Browser-based parsing and validation.
-3. **Java Bindings**: JNI-based integration for Enterprise systems.
-4. **Custom Field Rules**: Support for embedded scripts (Lua or Rhai) in profiles.
+## v1.4.0 (Cloud & Interop - Next 3-6 months)
 
 ### Component Targets
 - **`hl7v2-server`**: Complete tonic-based gRPC endpoints and bi-directional streaming.

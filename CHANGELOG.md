@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-05-03
+
+### Added
+
+**Modernization & Integrity**
+- **Rust 2024 Migration**: Entire workspace upgraded to the Rust 2024 edition.
+- **MSRV 1.93**: Set minimum supported Rust version to 1.93 to leverage modern language features (`let chains`).
+- **Let Chains Adoption**: Extensively refactored nested conditional logic into idiomatic Rust 2024 let chains across all core crates.
+- **gRPC Service**: Fully implemented `Hl7Service` providing high-performance RPCs for Parse, Validate, GenerateAck, and Normalize.
+- **Message Lifecycle**: New `hl7v2-lifecycle` crate for enterprise message retention, archival state machines, and legal hold management.
+- **Statistical Guard**: Enhanced `hl7v2-guard` with statistical baseline anomaly detection and automated warmup learning periods.
+
+**CI & Stability**
+- **Deterministic Build**: Integrated `protoc-bin-vendored` for cross-platform gRPC code generation without external dependencies.
+- **Network Stabilization**: Refactored E2E tests to use OS-assigned ports and oneshot channel synchronization, eliminating CI flakiness.
+- **Security Hardening**: Corrected TruffleHog scan ranges and refined license regression checks to eliminate false positives in documentation.
+
+### Fixed
+- Corrected field indices for MSH metadata extraction in gRPC and Lifecycle components.
+- Resolved type inference ambiguities in examples caused by recent model refactoring.
+- Fixed numerous Clippy warnings including `collapsible-if`, `field-reassign-with-default`, and `io-other-error`.
+- Improved gRPC error reporting for invalid profiles and malformed HL7 messages.
+
+---
+
 ## [1.2.0] - 2026-03-04
 
 ### Added
