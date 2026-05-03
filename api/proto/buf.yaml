@@ -1,0 +1,9 @@
+version: v1
+lint:
+  ignore:
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - PACKAGE_DIRECTORY_MATCH # We moved it, but maybe buf needs it in the same root
+  use:
+    - DEFAULT
