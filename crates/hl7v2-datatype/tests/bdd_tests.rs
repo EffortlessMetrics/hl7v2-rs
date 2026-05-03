@@ -2,11 +2,11 @@
 //!
 //! Run with: cargo test --test bdd_tests -p hl7v2-datatype
 
-use cucumber::{given, then, when, World};
+use cucumber::{World, given, then, when};
 use hl7v2_datatype::{
-    is_email, is_ssn, is_valid_age_range, is_valid_birth_date, is_within_range, matches_format,
-    validate_datatype, validate_luhn_checksum, ChecksumAlgorithm, DataType, DataTypeError,
-    DataTypeValidator,
+    ChecksumAlgorithm, DataType, DataTypeError, DataTypeValidator, is_email, is_ssn,
+    is_valid_age_range, is_valid_birth_date, is_within_range, matches_format, validate_datatype,
+    validate_luhn_checksum,
 };
 
 /// Test world for datatype BDD tests

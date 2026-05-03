@@ -1,6 +1,6 @@
 //! Benchmarks for HL7 v2 parsing performance
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use hl7v2_parser::parse;
 use hl7v2_writer::write;
 use std::hint::black_box;

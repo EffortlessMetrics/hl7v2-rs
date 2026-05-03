@@ -36,7 +36,7 @@ use std::time::Duration;
 
 use hl7v2_model::{Error, Message};
 use tokio::net::TcpListener;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 use tokio::time::timeout;
 
 /// A mock MLLP server for testing network clients.

@@ -10,7 +10,7 @@ use async_lock::RwLock;
 use lru::LruCache;
 
 pub use crate::ProfileLoadError;
-use crate::{load_profile, Profile};
+use crate::{Profile, load_profile};
 
 /// Default cache size (number of profiles)
 const DEFAULT_CACHE_SIZE: usize = 100;

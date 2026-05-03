@@ -3,7 +3,7 @@
 //! These tests verify ACK generation works correctly with real-world
 //! HL7 message scenarios and integration with other crates.
 
-use hl7v2_ack::{ack, ack_with_error, AckCode};
+use hl7v2_ack::{AckCode, ack, ack_with_error};
 use hl7v2_core::parse;
 use hl7v2_writer::write;
 

@@ -3,11 +3,11 @@
 //! Run with: cargo test --test bdd_tests
 
 use axum::{
+    Router,
     body::Body,
     http::{Request, StatusCode},
-    Router,
 };
-use cucumber::{given, then, when, World};
+use cucumber::{World, given, then, when};
 use http_body_util::BodyExt;
 use std::sync::Arc;
 use std::time::Instant;

@@ -7,8 +7,8 @@
 //!
 //! Run with: cargo run --example ack_generation
 
-use hl7v2_ack::{ack, ack_with_error, AckCode};
-use hl7v2_core::{get, parse, write, Message};
+use hl7v2_ack::{AckCode, ack, ack_with_error};
+use hl7v2_core::{Message, get, parse, write};
 
 /// A valid ADT^A01 message
 const VALID_ADT_MESSAGE: &[u8] = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|MSG12345|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
@@ -299,18 +299,19 @@ fn process_message_with_ack(hl7_bytes: &[u8]) -> Result<Vec<u8>, String> {
     if patient_name.is_none() || patient_name.as_ref().map(|s| s.is_empty()).unwrap_or(true) {
         errors.push("Missing patient name (PID.5)");
     }
-    if let Some(bd) = birth_date {
-        if !bd.is_empty() && bd.len() != 8 {
-            errors.push("Invalid birth date format (expected YYYYMMDD)");
-        }
+    if let Some(bd) = birth_date
+        && !bd.is_empty()
+        && bd.len() != 8
+    {
+        errors.push("Invalid birth date format (expected YYYYMMDD)");
     }
-    if let Some(s) = sex {
-        if !s.is_empty() {
-            let valid_values = ["M", "F", "O", "U"];
-            let valid = valid_values.contains(&s);
-            if !valid {
-                errors.push("Invalid sex value (expected M, F, O, or U)");
-            }
+    if let Some(s) = sex
+        && !s.is_empty()
+    {
+        let valid_values = ["M", "F", "O", "U"];
+        let valid = valid_values.contains(&s);
+        if !valid {
+            errors.push("Invalid sex value (expected M, F, O, or U)");
         }
     }
 

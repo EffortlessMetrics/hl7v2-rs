@@ -7,15 +7,15 @@
 //! - Message exchange patterns
 
 use bytes::BytesMut;
-use hl7v2_ack::{ack, AckCode};
+use hl7v2_ack::{AckCode, ack};
 use hl7v2_network::{MllpClientBuilder, MllpCodec, MllpServer, MllpServerConfig};
 use hl7v2_parser::parse;
 use hl7v2_test_utils::{MockMllpServer, SampleMessages};
 use tokio_util::codec::{Decoder, Encoder};
 
 use super::common::init_tracing;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -405,10 +405,10 @@ mod concurrent_connections {
 
             // Process multiple messages on same connection
             for _ in 0..5 {
-                if let Ok(Some(msg)) = conn.receive_message().await {
-                    if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
-                        let _ = conn.send_message(&ack_msg).await;
-                    }
+                if let Ok(Some(msg)) = conn.receive_message().await
+                    && let Ok(ack_msg) = ack(&msg, AckCode::AA)
+                {
+                    let _ = conn.send_message(&ack_msg).await;
                 }
             }
         });

@@ -1,8 +1,8 @@
 //! Integration tests for hl7v2-faker
 
 use hl7v2_faker::{DateError, Faker, FakerValue, GenerateError};
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 // =============================================================================
 // HL7 Format Integration Tests

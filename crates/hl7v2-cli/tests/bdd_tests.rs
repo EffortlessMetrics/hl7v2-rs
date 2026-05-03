@@ -4,7 +4,7 @@
 //!
 //! This test file implements the step definitions for the CLI feature file.
 
-use cucumber::{given, then, when, World};
+use cucumber::{World, given, then, when};
 use hl7v2_test_utils::fixtures::SampleMessages;
 use std::path::PathBuf;
 use std::process::Command;

@@ -5,11 +5,11 @@
 //! - Message generation from template
 //! - Value source resolution
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use hl7v2_template::{generate, generate_corpus, Template, ValueSource};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use hl7v2_template::{Template, ValueSource, generate, generate_corpus};
 use hl7v2_template_values::generate_value;
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 use std::collections::HashMap;
 use std::hint::black_box;
 

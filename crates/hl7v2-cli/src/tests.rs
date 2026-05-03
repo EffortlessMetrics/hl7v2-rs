@@ -252,7 +252,7 @@ constraints:
 
     mod ack_command {
         use super::*;
-        use hl7v2_gen::{ack, AckCode};
+        use hl7v2_gen::{AckCode, ack};
 
         #[test]
         fn test_generate_ack_aa() {
@@ -703,8 +703,8 @@ constraints:
 
         #[test]
         fn test_stats_command_execution() {
-            use crate::stats_command;
             use crate::ReportFormat;
+            use crate::stats_command;
             let dir = TempDir::new().expect("Failed to create temp dir");
             let file_path = create_temp_hl7_file(&dir, "test.hl7");
 

@@ -194,43 +194,43 @@ impl DataTypeValidator {
     /// Validate a value with detailed error information
     pub fn validate_detailed(&self, value: &str) -> ValidationResult {
         // Check minimum length
-        if let Some(min) = self.min_length {
-            if value.len() < min {
-                return Err(DataTypeError::TooShort {
-                    length: value.len(),
-                    min,
-                });
-            }
+        if let Some(min) = self.min_length
+            && value.len() < min
+        {
+            return Err(DataTypeError::TooShort {
+                length: value.len(),
+                min,
+            });
         }
 
         // Check maximum length
-        if let Some(max) = self.max_length {
-            if value.len() > max {
-                return Err(DataTypeError::TooLong {
-                    length: value.len(),
-                    max,
-                });
-            }
+        if let Some(max) = self.max_length
+            && value.len() > max
+        {
+            return Err(DataTypeError::TooLong {
+                length: value.len(),
+                max,
+            });
         }
+
         // Check pattern
-        if let Some(pattern) = &self.pattern {
-            if let Ok(regex) = Regex::new(pattern) {
-                if !regex.is_match(value) {
-                    return Err(DataTypeError::PatternMismatch {
-                        value: value.to_string(),
-                        pattern: pattern.clone(),
-                    });
-                }
-            }
+        if let Some(pattern) = &self.pattern
+            && let Ok(regex) = Regex::new(pattern)
+            && !regex.is_match(value)
+        {
+            return Err(DataTypeError::PatternMismatch {
+                value: value.to_string(),
+                pattern: pattern.clone(),
+            });
         }
 
         // Check allowed values
-        if let Some(allowed) = &self.allowed_values {
-            if !allowed.contains(&value.to_string()) {
-                return Err(DataTypeError::NotInAllowedSet {
-                    value: value.to_string(),
-                });
-            }
+        if let Some(allowed) = &self.allowed_values
+            && !allowed.contains(&value.to_string())
+        {
+            return Err(DataTypeError::NotInAllowedSet {
+                value: value.to_string(),
+            });
         }
 
         // Check checksum

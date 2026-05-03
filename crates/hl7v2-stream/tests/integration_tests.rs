@@ -33,9 +33,11 @@ fn test_adt_a01_message() {
     let events = collect_events(&mut parser);
 
     // Verify structure
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Verify segments
@@ -64,15 +66,19 @@ fn test_adt_a04_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // ADT^A04 should have PID segment
-    assert!(events
-        .iter()
-        .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") }));
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
+    );
 }
 
 #[test]
@@ -84,9 +90,11 @@ fn test_oru_r01_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // ORU^R01 should have PID, OBR, OBX segments
@@ -121,9 +129,11 @@ fn test_empty_fields_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Count empty fields
@@ -155,9 +165,11 @@ fn test_special_chars_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -236,9 +248,11 @@ fn test_builder_simple_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -255,9 +269,11 @@ fn test_builder_with_pid() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") }));
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
+    );
 
     // Verify PID field content
     let pid_fields: Vec<&[u8]> = events
@@ -272,12 +288,16 @@ fn test_builder_with_pid() {
         .collect();
 
     // Should contain MRN and name
-    assert!(pid_fields
-        .iter()
-        .any(|f| String::from_utf8_lossy(f).contains("MRN123")));
-    assert!(pid_fields
-        .iter()
-        .any(|f| String::from_utf8_lossy(f).contains("Doe")));
+    assert!(
+        pid_fields
+            .iter()
+            .any(|f| String::from_utf8_lossy(f).contains("MRN123"))
+    );
+    assert!(
+        pid_fields
+            .iter()
+            .any(|f| String::from_utf8_lossy(f).contains("Doe"))
+    );
 }
 
 #[test]
@@ -295,12 +315,16 @@ fn test_builder_with_pv1() {
     let events = collect_events(&mut parser);
 
     // Should have both PID and PV1
-    assert!(events
-        .iter()
-        .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") }));
-    assert!(events
-        .iter()
-        .any(|e| { matches!(e, Event::Segment { id } if id == b"PV1") }));
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PV1") })
+    );
 }
 
 // =============================================================================
@@ -317,9 +341,11 @@ fn test_chunked_input_small_chunks() {
     let mut parser = StreamParser::new(buf_reader);
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -332,9 +358,11 @@ fn test_chunked_input_medium_chunks() {
     let mut parser = StreamParser::new(buf_reader);
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -347,9 +375,11 @@ fn test_chunked_input_large_chunks() {
     let mut parser = StreamParser::new(buf_reader);
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -577,9 +607,11 @@ fn test_memory_efficiency_large_field() {
     let events = collect_events(&mut parser);
 
     // Should parse successfully
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Large field should be preserved
@@ -609,9 +641,11 @@ fn test_memory_efficiency_many_segments() {
     let events = collect_events(&mut parser);
 
     // Should parse successfully
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Should have 1000 ZXX segments
@@ -668,17 +702,23 @@ fn test_hospital_admission_scenario() {
     let events = collect_events(&mut parser);
 
     // Verify admission message structure
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
 
     // Should have PID and PV1
-    assert!(events
-        .iter()
-        .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") }));
-    assert!(events
-        .iter()
-        .any(|e| { matches!(e, Event::Segment { id } if id == b"PV1") }));
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PV1") })
+    );
 }
 
 #[test]
@@ -694,10 +734,14 @@ fn test_lab_result_scenario() {
 
     let events = collect_events(&mut parser);
 
-    assert!(events
-        .iter()
-        .any(|e| matches!(e, Event::StartMessage { .. })));
-    assert!(events
-        .iter()
-        .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") }));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
+    );
 }

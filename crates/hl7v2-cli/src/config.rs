@@ -107,10 +107,10 @@ pub fn apply_env_overrides(config: &mut Config) {
     if let Ok(host) = std::env::var("HL7_HOST") {
         config.server.host = host;
     }
-    if let Ok(port_str) = std::env::var("HL7_PORT") {
-        if let Ok(port) = port_str.parse::<u16>() {
-            config.server.port = port;
-        }
+    if let Ok(port_str) = std::env::var("HL7_PORT")
+        && let Ok(port) = port_str.parse::<u16>()
+    {
+        config.server.port = port;
     }
     if let Ok(api_key) = std::env::var("HL7_API_KEY") {
         config.server.api_key = Some(api_key);

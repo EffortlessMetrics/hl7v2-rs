@@ -348,8 +348,8 @@ fn test_ack_with_error() {
 
 #[test]
 fn test_faker_generation() {
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     let mut rng = StdRng::seed_from_u64(42);
     let mut faker = Faker::new(&mut rng);
@@ -366,8 +366,8 @@ fn test_faker_generation() {
 
 #[test]
 fn test_faker_value_generation() {
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
 
     let mut rng = StdRng::seed_from_u64(42);
     let mut faker = Faker::new(&mut rng);

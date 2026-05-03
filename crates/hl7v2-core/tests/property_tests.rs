@@ -2,7 +2,7 @@
 //!
 //! These tests verify that core properties hold for arbitrary inputs.
 
-use hl7v2_core::{parse, write, Delims, Field, Message, Segment};
+use hl7v2_core::{Delims, Field, Message, Segment, parse, write};
 use proptest::prelude::*;
 
 // ============================================================================

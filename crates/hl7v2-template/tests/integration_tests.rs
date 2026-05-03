@@ -1,7 +1,7 @@
 //! Integration tests for hl7v2-template crate
 
+use hl7v2_template::{Template, ValueSource, generate, generate_corpus, generate_diverse_corpus};
 use hl7v2_template::{create_manifest, generate_golden_hashes, verify_golden_hashes};
-use hl7v2_template::{generate, generate_corpus, generate_diverse_corpus, Template, ValueSource};
 use std::collections::HashMap;
 
 fn create_basic_template() -> Template {

@@ -52,7 +52,7 @@ impl Hl7Service for Hl7ServiceImpl {
                             trace_id: String::new(),
                         }],
                         metadata: None,
-                    }))
+                    }));
                 }
             }
         } else {
@@ -232,10 +232,10 @@ impl Hl7Service for Hl7ServiceImpl {
             .map_err(|e| Status::invalid_argument(format!("Failed to normalize HL7: {}", e)))?;
 
         let mut final_bytes = normalized_bytes;
-        if let Some(options) = req.options {
-            if options.mllp_frame {
-                final_bytes = hl7v2_mllp::wrap_mllp(&final_bytes);
-            }
+        if let Some(options) = req.options
+            && options.mllp_frame
+        {
+            final_bytes = hl7v2_mllp::wrap_mllp(&final_bytes);
         }
 
         Ok(Response::new(NormalizeResponse {

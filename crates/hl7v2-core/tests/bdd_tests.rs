@@ -2,10 +2,10 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
-use cucumber::{given, then, when, World};
+use cucumber::{World, given, then, when};
 use hl7v2_core::{
-    escape_text, get, is_mllp_framed, needs_escaping, parse, parse_batch, parse_mllp,
-    unescape_text, unwrap_mllp, wrap_mllp, Batch, Delims, Error, Message,
+    Batch, Delims, Error, Message, escape_text, get, is_mllp_framed, needs_escaping, parse,
+    parse_batch, parse_mllp, unescape_text, unwrap_mllp, wrap_mllp,
 };
 
 /// Test world for BDD tests

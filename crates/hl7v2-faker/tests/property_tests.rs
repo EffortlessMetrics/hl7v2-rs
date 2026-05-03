@@ -2,8 +2,8 @@
 
 use hl7v2_faker::{Faker, FakerValue};
 use proptest::prelude::*;
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 // =============================================================================
 // Name Property Tests

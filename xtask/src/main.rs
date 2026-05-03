@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package};
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};

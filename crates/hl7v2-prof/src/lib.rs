@@ -37,15 +37,14 @@
 
 // Re-export validation types for backward compatibility
 pub use hl7v2_validation::{
-    check_rule_condition, compare_timestamps_for_before, get_nonempty, is_coded_value, is_date,
-    is_email, is_extended_id, is_formatted_text, is_hierarchic_designator, is_identifier,
-    is_numeric, is_person_name, is_phone_number, is_sequence_id, is_ssn, is_string, is_text_data,
-    is_time, is_timestamp, is_valid_age_range, is_valid_birth_date, is_within_range,
+    Issue, ParsedTimestamp, RuleAction, RuleCondition, Severity, TimestampPrecision,
+    ValidationResult, Validator, check_rule_condition, compare_timestamps_for_before, get_nonempty,
+    is_coded_value, is_date, is_email, is_extended_id, is_formatted_text, is_hierarchic_designator,
+    is_identifier, is_numeric, is_person_name, is_phone_number, is_sequence_id, is_ssn, is_string,
+    is_text_data, is_time, is_timestamp, is_valid_age_range, is_valid_birth_date, is_within_range,
     matches_complex_pattern, matches_format, parse_datetime, parse_hl7_ts,
     parse_hl7_ts_with_precision, truncate_to_precision, validate_checksum, validate_data_type,
-    validate_luhn_checksum, validate_mathematical_relationship, validate_mod10_checksum, Issue,
-    ParsedTimestamp, RuleAction, RuleCondition, Severity, TimestampPrecision, ValidationResult,
-    Validator,
+    validate_luhn_checksum, validate_mathematical_relationship, validate_mod10_checksum,
 };
 
 use hl7v2_core::Message;

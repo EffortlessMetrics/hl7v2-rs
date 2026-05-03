@@ -11,6 +11,7 @@
 
 ## Development Standards
 
+- **Rust Version:** Target **Rust 2024** and **MSRV 1.93**.
 - **Microcrate Architecture:** Follow the microcrate architecture (SRP-focused crates in `crates/`). New features should typically live in their own crate.
 - **Security First:** Adhere to the security practices outlined in `SECURITY.md`, including constant-time comparisons (`subtle::ct_eq`) for sensitive operations like API key validation.
 - **Performance:** Prioritize stack-allocated buffers and efficient string scanning (`str::contains` fast-paths) for core parsing logic.

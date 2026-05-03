@@ -1,6 +1,6 @@
 //! Benchmarks for HL7 v2 MLLP functionality
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use hl7v2_mllp::wrap_mllp;
 use hl7v2_parser::{parse, parse_mllp};
 use hl7v2_writer::write_mllp;

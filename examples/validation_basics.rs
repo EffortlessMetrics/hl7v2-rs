@@ -8,7 +8,7 @@
 //! Run with: cargo run --example validation_basics
 
 use hl7v2_core::parse;
-use hl7v2_prof::{load_profile, validate, Issue, Profile, Severity};
+use hl7v2_prof::{Issue, Profile, Severity, load_profile, validate};
 
 /// Sample ADT^A01 message for validation
 const SAMPLE_MESSAGE: &[u8] = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod unit_tests {
     use crate::{
-        compare_timestamps_for_before, load_profile, parse_hl7_ts_with_precision, validate, Profile,
+        Profile, compare_timestamps_for_before, load_profile, parse_hl7_ts_with_precision, validate,
     };
 
     use hl7v2_core::parse;
@@ -201,7 +201,7 @@ custom_rules:
 
 #[cfg(test)]
 mod profile_load_error_tests {
-    use crate::{load_profile_checked, ProfileLoadError};
+    use crate::{ProfileLoadError, load_profile_checked};
 
     #[test]
     fn test_load_profile_checked_valid() {
