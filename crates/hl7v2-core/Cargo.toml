@@ -13,7 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [features]
-default = []
+default = ["stream", "network"]
 network = ["dep:hl7v2-network"]
 stream = ["dep:hl7v2-stream"]
 

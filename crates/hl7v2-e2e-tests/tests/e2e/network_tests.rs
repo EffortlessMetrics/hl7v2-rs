@@ -21,8 +21,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::{sleep, timeout};
 
-static NEXT_PORT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(45000);
-
 // =========================================================================
 // Basic MLLP Framing Tests
 // =========================================================================
@@ -190,22 +188,23 @@ mod mock_server_tests {
 
 mod client_server_tests {
     use super::*;
-    use std::net::SocketAddr;
 
     #[tokio::test]
     async fn test_client_connects_to_server() {
         init_tracing();
 
-        let port = find_available_port().await;
-        let addr: SocketAddr = format!("127.0.0.1:{}", port)
-            .parse()
-            .expect("Should parse address");
+        let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
 
         // Start server in background
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind(addr).await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
+                .await
+                .expect("Server should bind");
+            let addr = server.local_addr().expect("Should have local addr");
+            addr_tx.send(addr).unwrap();
 
             // Accept one connection
             let _conn = server.accept().await.expect("Should accept connection");
@@ -214,8 +213,7 @@ mod client_server_tests {
             sleep(Duration::from_millis(100)).await;
         });
 
-        // Give server time to start
-        sleep(Duration::from_millis(100)).await;
+        let addr = addr_rx.await.expect("Should receive addr");
 
         // Client connects
         let client_result = timeout(Duration::from_secs(5), async {
@@ -235,16 +233,18 @@ mod client_server_tests {
     async fn test_client_send_and_receive() {
         init_tracing();
 
-        let port = find_available_port().await;
-        let addr: SocketAddr = format!("127.0.0.1:{}", port)
-            .parse()
-            .expect("Should parse address");
+        let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
 
         // Start server with handler
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind(addr).await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
+                .await
+                .expect("Server should bind");
+            let addr = server.local_addr().expect("Should have local addr");
+            addr_tx.send(addr).unwrap();
 
             let mut conn = server.accept().await.expect("Should accept");
 
@@ -255,8 +255,7 @@ mod client_server_tests {
             }
         });
 
-        // Give server time to start
-        sleep(Duration::from_millis(100)).await;
+        let addr = addr_rx.await.expect("Should receive addr");
 
         // Client sends message and receives ACK
         let client_task = async {
@@ -287,10 +286,6 @@ mod client_server_tests {
         let msg_type = hl7v2_core::get(&ack, "MSH.9");
         assert!(msg_type.is_some());
     }
-
-    async fn find_available_port() -> u16 {
-        super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-    }
 }
 
 // =========================================================================
@@ -300,19 +295,11 @@ mod client_server_tests {
 mod concurrent_connections {
     use super::*;
 
-    async fn find_available_port() -> u16 {
-        super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-    }
-
     #[tokio::test]
     async fn test_multiple_concurrent_clients() {
         init_tracing();
 
-        let port = find_available_port().await;
-        let addr: std::net::SocketAddr = format!("127.0.0.1:{}", port)
-            .parse()
-            .expect("Should parse address");
-
+        let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
         let connection_count = Arc::new(AtomicUsize::new(0));
         let message_count = Arc::new(AtomicUsize::new(0));
 
@@ -323,7 +310,12 @@ mod concurrent_connections {
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind(addr).await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
+                .await
+                .expect("Server should bind");
+            let addr = server.local_addr().expect("Should have local addr");
+            addr_tx.send(addr).unwrap();
 
             // Accept connections for a short time
             for _ in 0..3 {
@@ -344,8 +336,7 @@ mod concurrent_connections {
             }
         });
 
-        // Give server time to start
-        sleep(Duration::from_millis(100)).await;
+        let addr = addr_rx.await.expect("Should receive addr");
 
         // Launch multiple clients concurrently
         let mut client_handles = vec![];
@@ -390,16 +381,18 @@ mod concurrent_connections {
     async fn test_sequential_messages_same_connection() {
         init_tracing();
 
-        let port = find_available_port().await;
-        let addr: std::net::SocketAddr = format!("127.0.0.1:{}", port)
-            .parse()
-            .expect("Should parse address");
+        let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
 
         // Start server
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind(addr).await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
+                .await
+                .expect("Server should bind");
+            let addr = server.local_addr().expect("Should have local addr");
+            addr_tx.send(addr).unwrap();
 
             let mut conn = server.accept().await.expect("Should accept");
 
@@ -413,7 +406,7 @@ mod concurrent_connections {
             }
         });
 
-        sleep(Duration::from_millis(100)).await;
+        let addr = addr_rx.await.expect("Should receive addr");
 
         // Client sends multiple messages
         let client_task = async {
@@ -459,11 +452,6 @@ mod concurrent_connections {
 
 mod error_handling {
     use super::*;
-    use std::net::SocketAddr;
-
-    async fn find_available_port() -> u16 {
-        super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-    }
 
     #[tokio::test]
     async fn test_connection_timeout() {
@@ -473,8 +461,13 @@ mod error_handling {
             .connect_timeout(Duration::from_millis(100))
             .build();
 
-        // Try to connect to a non-existent server
-        let addr: SocketAddr = "127.0.0.1:59999".parse().unwrap();
+        // Try to connect to a non-existent server by binding and immediately dropping
+        let addr = {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.local_addr().unwrap()
+        };
+        // Listener dropped here, port is closed
+
         let result = client.connect(addr).await;
         assert!(
             result.is_err(),
@@ -486,16 +479,17 @@ mod error_handling {
     async fn test_server_handles_malformed_message() {
         init_tracing();
 
-        let port = find_available_port().await;
-        let addr: std::net::SocketAddr = format!("127.0.0.1:{}", port)
-            .parse()
-            .expect("Should parse address");
-
-        // Start server
+        // Start server on OS-assigned port
+        let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind(addr).await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
+                .await
+                .expect("Server should bind");
+            let addr = server.local_addr().expect("Should have local addr");
+            addr_tx.send(addr).unwrap();
 
             let mut conn = server.accept().await.expect("Should accept");
 
@@ -508,7 +502,7 @@ mod error_handling {
             }
         });
 
-        sleep(Duration::from_millis(100)).await;
+        let addr = addr_rx.await.expect("Should receive addr");
 
         // Send raw MLLP frame with invalid HL7
         let client_task = async {
@@ -537,20 +531,12 @@ mod error_handling {
 mod stress_tests {
     use super::*;
 
-    async fn find_available_port() -> u16 {
-        super::NEXT_PORT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-    }
-
     #[tokio::test]
     #[ignore = "Stress test - run manually"]
     async fn test_high_throughput_messages() {
         init_tracing();
 
-        let port = find_available_port().await;
-        let addr: std::net::SocketAddr = format!("127.0.0.1:{}", port)
-            .parse()
-            .expect("Should parse address");
-
+        let (addr_tx, addr_rx) = tokio::sync::oneshot::channel();
         let total_messages = Arc::new(AtomicUsize::new(0));
         let total_clone = total_messages.clone();
 
@@ -558,25 +544,27 @@ mod stress_tests {
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind(addr).await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0".parse::<std::net::SocketAddr>().unwrap())
+                .await
+                .expect("Server should bind");
+            let addr = server.local_addr().expect("Should have local addr");
+            addr_tx.send(addr).unwrap();
 
-            for _ in 0..100 {
-                if let Ok(Ok(mut conn)) = timeout(Duration::from_millis(100), server.accept()).await
-                {
-                    let count = total_clone.clone();
-                    tokio::spawn(async move {
-                        while let Ok(Some(msg)) = conn.receive_message().await {
-                            count.fetch_add(1, Ordering::SeqCst);
-                            if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
-                                let _ = conn.send_message(&ack_msg).await;
-                            }
+            while let Ok(mut conn) = server.accept().await {
+                let count = total_clone.clone();
+                tokio::spawn(async move {
+                    while let Ok(Some(msg)) = conn.receive_message().await {
+                        count.fetch_add(1, Ordering::SeqCst);
+                        if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
+                            let _ = conn.send_message(&ack_msg).await;
                         }
-                    });
-                }
+                    }
+                });
             }
         });
 
-        sleep(Duration::from_millis(100)).await;
+        let addr = addr_rx.await.expect("Should receive addr");
 
         // Send many messages
         let start = std::time::Instant::now();
@@ -588,8 +576,6 @@ mod stress_tests {
                     .connect_timeout(Duration::from_millis(500))
                     .read_timeout(Duration::from_millis(500))
                     .build();
-                let addr: std::net::SocketAddr =
-                    format!("127.0.0.1:{}", addr.port()).parse().unwrap();
                 if client.connect(addr).await.is_ok() {
                     let msg = parse(SampleMessages::adt_a01().as_bytes()).unwrap();
                     let _ = client.send_message(&msg).await;

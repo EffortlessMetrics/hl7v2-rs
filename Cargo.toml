@@ -46,6 +46,7 @@ resolver = "2"
 version = "1.2.0"
 edition = "2024"
 rust-version = "1.93"
+
 authors = ["EffortlessMetrics <team@effortlessmetrics.com>"]
 homepage = "https://github.com/EffortlessMetrics/hl7v2-rs"
 repository = "https://github.com/EffortlessMetrics/hl7v2-rs"

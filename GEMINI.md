@@ -16,4 +16,4 @@
 - **Security First:** Adhere to the security practices outlined in `SECURITY.md`, including constant-time comparisons (`subtle::ct_eq`) for sensitive operations like API key validation.
 - **Performance:** Prioritize stack-allocated buffers and efficient string scanning (`str::contains` fast-paths) for core parsing logic.
 - **Ecosystem Sync:** Ensure OpenAPI specifications (`schemas/openapi/`) are always in sync with the actual implementation in `crates/hl7v2-server`.
-- **Licensing:** Use AGPL-3.0-or-later for all new source files. No MIT/Apache dependencies without explicit approval.
+- **Licensing:** Use AGPL-3.0-or-later for all new source files. No permissive licenses without explicit approval.

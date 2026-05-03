@@ -42,7 +42,7 @@ impl MessageArchive {
             .segments
             .iter()
             .find(|s| &s.id == b"MSH")
-            .and_then(|msh| msh.fields.get(9))
+            .and_then(|msh| msh.fields.get(8))
             .and_then(|f| f.first_text())
             .unwrap_or("UNKNOWN")
             .to_string();
