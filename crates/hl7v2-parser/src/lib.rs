@@ -406,23 +406,21 @@ fn extract_charsets(segments: &[Segment]) -> Vec<String> {
     {
         let rep = &field_18.reps[0];
 
-                let mut charsets = Vec::new();
-                for comp in &rep.comps {
-                    if !comp.subs.is_empty() {
-                        match &comp.subs[0] {
-                            Atom::Text(text) => {
-                                if !text.is_empty() {
-                                    charsets.push(text.clone());
-                                }
-                            }
-                            Atom::Null => continue,
+        let mut charsets = Vec::new();
+        for comp in &rep.comps {
+            if !comp.subs.is_empty() {
+                match &comp.subs[0] {
+                    Atom::Text(text) => {
+                        if !text.is_empty() {
+                            charsets.push(text.clone());
                         }
                     }
+                    Atom::Null => continue,
                 }
-
-                return charsets;
             }
         }
+
+        return charsets;
     }
     vec![]
 }
