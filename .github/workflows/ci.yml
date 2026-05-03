@@ -23,6 +23,7 @@ env:
   RUST_BACKTRACE: 1
   RUSTFLAGS: -Dwarnings
   RUSTDOCFLAGS: -Dwarnings
+  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
 
 jobs:
   # ============================================================================
@@ -139,7 +140,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, beta, '1.92']
+        rust: [stable, beta, '1.93']
         exclude:
           # beta and MSRV only on ubuntu to reduce CI load
           - os: windows-latest
@@ -147,9 +148,9 @@ jobs:
           - os: macos-latest
             rust: beta
           - os: windows-latest
-            rust: '1.92'
+            rust: '1.93'
           - os: macos-latest
-            rust: '1.92'
+            rust: '1.93'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
