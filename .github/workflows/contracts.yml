@@ -79,17 +79,19 @@ jobs:
 
       - name: Validate Profile Schemas
         run: |
-          ajv validate -s schemas/profile/profile-v1.schema.json \
+          ajv validate -c ajv-formats -s
+ schemas/profile/profile-v1.schema.json \
             -d 'profiles/*.yaml' --spec=draft7
 
       - name: Validate Config Schema
         run: |
-          ajv validate -s schemas/config/hl7v2-config-v1.schema.json \
+          ajv validate -c ajv-formats -s
+ schemas/config/hl7v2-config-v1.schema.json \
             -d 'config/*.toml' --spec=draft7 || true
 
       - name: Validate Test Data
         run: |
           for schema in schemas/**/*.schema.json; do
             echo "Validating $schema"
-            ajv compile -s "$schema"
+            ajv compile -c ajv-formats -s "$schema"
           done
