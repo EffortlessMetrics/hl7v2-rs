@@ -580,10 +580,10 @@ pub fn parse_hl7_ts(s: &str) -> Option<NaiveDateTime> {
             return Some(dt);
         }
     }
-    if s.len() == 8
-        && let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d")
-    {
-        return d.and_hms_opt(0, 0, 0);
+    if s.len() == 8 {
+        if let Ok(d) = NaiveDate::parse_from_str(s, "%Y%m%d") {
+            return d.and_hms_opt(0, 0, 0);
+        }
     }
     None
 }
@@ -609,33 +609,33 @@ pub fn parse_hl7_ts_with_precision(s: &str) -> Option<ParsedTimestamp> {
     }
 
     // Try date only format
-    if s.len() == 8
-        && let Ok(date) = NaiveDate::parse_from_str(s, "%Y%m%d")
-    {
-        return Some(ParsedTimestamp {
-            datetime: date.and_hms_opt(0, 0, 0)?,
-            precision: TimestampPrecision::Day,
-        });
+    if s.len() == 8 {
+        if let Ok(date) = NaiveDate::parse_from_str(s, "%Y%m%d") {
+            return Some(ParsedTimestamp {
+                datetime: date.and_hms_opt(0, 0, 0)?,
+                precision: TimestampPrecision::Day,
+            });
+        }
     }
 
     // Try year-month format
-    if s.len() == 6
-        && let Ok(date) = NaiveDate::parse_from_str(&format!("{}01", s), "%Y%m%d")
-    {
-        return Some(ParsedTimestamp {
-            datetime: date.and_hms_opt(0, 0, 0)?,
-            precision: TimestampPrecision::Month,
-        });
+    if s.len() == 6 {
+        if let Ok(date) = NaiveDate::parse_from_str(&format!("{}01", s), "%Y%m%d") {
+            return Some(ParsedTimestamp {
+                datetime: date.and_hms_opt(0, 0, 0)?,
+                precision: TimestampPrecision::Month,
+            });
+        }
     }
 
     // Try year only format
-    if s.len() == 4
-        && let Ok(date) = NaiveDate::parse_from_str(&format!("{}0101", s), "%Y%m%d")
-    {
-        return Some(ParsedTimestamp {
-            datetime: date.and_hms_opt(0, 0, 0)?,
-            precision: TimestampPrecision::Year,
-        });
+    if s.len() == 4 {
+        if let Ok(date) = NaiveDate::parse_from_str(&format!("{}0101", s), "%Y%m%d") {
+            return Some(ParsedTimestamp {
+                datetime: date.and_hms_opt(0, 0, 0)?,
+                precision: TimestampPrecision::Year,
+            });
+        }
     }
 
     None
@@ -687,24 +687,24 @@ pub fn truncate_to_precision(dt: &NaiveDateTime, precision: TimestampPrecision) 
 /// Parse datetime string (supports various HL7 formats)
 pub fn parse_datetime(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
     // Try YYYYMMDDHHMMSS format
-    if value.len() == 14
-        && let Ok(dt) = chrono::NaiveDateTime::parse_from_str(value, "%Y%m%d%H%M%S")
-    {
-        return Some(dt.and_utc());
+    if value.len() == 14 {
+        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(value, "%Y%m%d%H%M%S") {
+            return Some(dt.and_utc());
+        }
     }
 
     // Try YYYYMMDD format
-    if value.len() == 8
-        && let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y%m%d")
-    {
-        return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
+    if value.len() == 8 {
+        if let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y%m%d") {
+            return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
+        }
     }
 
     // Try YYYY-MM-DD format
-    if value.len() == 10
-        && let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
-    {
-        return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
+    if value.len() == 10 {
+        if let Ok(date) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d") {
+            return Some(date.and_hms_opt(0, 0, 0)?.and_utc());
+        }
     }
 
     None
@@ -879,10 +879,10 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
                 return l >= lo && l <= hi;
             }
             // Fallback to integer range
-            if let (Some(l), Ok(lo), Ok(hi)) = (lhs, a.parse::<i64>(), b.parse::<i64>())
-                && let Ok(li) = l.parse::<i64>()
-            {
-                return li >= lo && li <= hi;
+            if let (Some(l), Ok(lo), Ok(hi)) = (lhs, a.parse::<i64>(), b.parse::<i64>()) {
+                if let Ok(li) = l.parse::<i64>() {
+                    return li >= lo && li <= hi;
+                }
             }
             false
         }
