@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
-use cucumber::{World, given, then, when};
+use cucumber::{given, then, when, World};
 use hl7v2_model::{Atom, Comp, Delims, Field, Message, Presence, Rep, Segment};
 use hl7v2_query::{get, get_presence};
 

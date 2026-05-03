@@ -8,7 +8,7 @@
 //! Note: These benchmarks use tokio for async operations and may require
 //! longer sample times for accurate results.
 
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use hl7v2_mllp::wrap_mllp;
 use hl7v2_parser::parse;
 use hl7v2_writer::write_mllp;
@@ -133,11 +133,11 @@ fn bench_codec_decoding(c: &mut Criterion) {
         b.to_async(&rt).iter(|| async {
             // Simulate decoding from MLLP frame
             // Find start and end markers
-            if let Some(start) = wrapped.iter().position(|&b| b == 0x0B)
-                && let Some(end) = wrapped.iter().position(|&b| b == 0x1C)
-            {
-                let message_bytes = &wrapped[start + 1..end];
-                black_box(message_bytes);
+            if let Some(start) = wrapped.iter().position(|&b| b == 0x0B) {
+                if let Some(end) = wrapped.iter().position(|&b| b == 0x1C) {
+                    let message_bytes = &wrapped[start + 1..end];
+                    black_box(message_bytes);
+                }
             }
         });
     });

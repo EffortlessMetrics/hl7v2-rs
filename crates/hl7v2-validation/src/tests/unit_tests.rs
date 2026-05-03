@@ -9,13 +9,13 @@
 //! - Issue and Severity types
 
 use crate::{
-    Issue, RuleCondition, Severity, TimestampPrecision, check_rule_condition,
-    compare_timestamps_for_before, is_coded_value, is_date, is_email, is_extended_id,
-    is_hierarchic_designator, is_identifier, is_numeric, is_person_name, is_phone_number,
-    is_sequence_id, is_ssn, is_string, is_time, is_timestamp, is_valid_age_range,
+    check_rule_condition, compare_timestamps_for_before, is_coded_value, is_date, is_email,
+    is_extended_id, is_hierarchic_designator, is_identifier, is_numeric, is_person_name,
+    is_phone_number, is_sequence_id, is_ssn, is_string, is_time, is_timestamp, is_valid_age_range,
     is_valid_birth_date, is_within_range, matches_complex_pattern, matches_format, parse_hl7_ts,
     parse_hl7_ts_with_precision, truncate_to_precision, validate_checksum, validate_data_type,
-    validate_luhn_checksum, validate_mathematical_relationship,
+    validate_luhn_checksum, validate_mathematical_relationship, Issue, RuleCondition, Severity,
+    TimestampPrecision,
 };
 use hl7v2_core::Message;
 use hl7v2_parser::parse;
@@ -397,8 +397,8 @@ fn test_is_email_invalid() {
     assert!(!is_email("@domain.com")); // No local part
     assert!(!is_email("user@")); // No domain
     assert!(!is_email("user@domain")); // No TLD
-    // Note: "user@.com" actually passes our basic validation (has @, local part, and domain with dot)
-    // In a real implementation, you'd want more sophisticated validation
+                                       // Note: "user@.com" actually passes our basic validation (has @, local part, and domain with dot)
+                                       // In a real implementation, you'd want more sophisticated validation
 }
 
 #[test]

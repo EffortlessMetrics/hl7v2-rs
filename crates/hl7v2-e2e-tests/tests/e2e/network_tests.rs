@@ -7,15 +7,15 @@
 //! - Message exchange patterns
 
 use bytes::BytesMut;
-use hl7v2_ack::{AckCode, ack};
+use hl7v2_ack::{ack, AckCode};
 use hl7v2_network::{MllpClientBuilder, MllpCodec, MllpServer, MllpServerConfig};
 use hl7v2_parser::parse;
 use hl7v2_test_utils::{MockMllpServer, SampleMessages};
 use tokio_util::codec::{Decoder, Encoder};
 
 use super::common::init_tracing;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -327,8 +327,7 @@ mod concurrent_connections {
 
             // Accept connections for a short time
             for _ in 0..3 {
-                if let Ok(conn) = timeout(Duration::from_millis(500), server.accept()).await
-                    && let Ok(mut conn) = conn
+                if let Ok(Ok(mut conn)) = timeout(Duration::from_millis(500), server.accept()).await
                 {
                     connection_count_clone.fetch_add(1, Ordering::SeqCst);
 
@@ -406,10 +405,10 @@ mod concurrent_connections {
 
             // Process multiple messages on same connection
             for _ in 0..5 {
-                if let Ok(Some(msg)) = conn.receive_message().await
-                    && let Ok(ack_msg) = ack(&msg, AckCode::AA)
-                {
-                    let _ = conn.send_message(&ack_msg).await;
+                if let Ok(Some(msg)) = conn.receive_message().await {
+                    if let Ok(ack_msg) = ack(&msg, AckCode::AA) {
+                        let _ = conn.send_message(&ack_msg).await;
+                    }
                 }
             }
         });
@@ -562,8 +561,7 @@ mod stress_tests {
             server.bind(addr).await.expect("Server should bind");
 
             for _ in 0..100 {
-                if let Ok(conn) = timeout(Duration::from_millis(100), server.accept()).await
-                    && let Ok(mut conn) = conn
+                if let Ok(Ok(mut conn)) = timeout(Duration::from_millis(100), server.accept()).await
                 {
                     let count = total_clone.clone();
                     tokio::spawn(async move {

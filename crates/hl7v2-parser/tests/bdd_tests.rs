@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo test --test bdd_tests -p hl7v2-parser
 
-use cucumber::{World, given, then, when};
+use cucumber::{given, then, when, World};
 use hl7v2_model::Error;
 use hl7v2_parser::{get, parse, parse_batch, parse_file_batch, parse_mllp};
 

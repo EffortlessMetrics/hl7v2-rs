@@ -1708,7 +1708,15 @@ dependencies = [
 name = "hl7v2-examples"
 version = "1.2.0"
 dependencies = [
+ "chrono",
+ "hl7v2-ack",
+ "hl7v2-batch",
  "hl7v2-core",
+ "hl7v2-network",
+ "hl7v2-prof",
+ "hl7v2-stream",
+ "hl7v2-template",
+ "serde_json",
  "tokio",
 ]
 

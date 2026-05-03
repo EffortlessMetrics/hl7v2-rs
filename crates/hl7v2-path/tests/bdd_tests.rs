@@ -2,8 +2,8 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
-use cucumber::{World, given, then, when};
-use hl7v2_path::{Path, PathError, parse_path};
+use cucumber::{given, then, when, World};
+use hl7v2_path::{parse_path, Path, PathError};
 
 /// Test world for Path BDD tests
 #[derive(Debug, World)]

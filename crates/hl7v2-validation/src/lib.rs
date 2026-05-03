@@ -719,7 +719,11 @@ pub fn parse_datetime(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
 pub fn get_nonempty<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     hl7v2_core::get(msg, path).and_then(|s| {
         let t = s.trim();
-        if t.is_empty() { None } else { Some(t) }
+        if t.is_empty() {
+            None
+        } else {
+            Some(t)
+        }
     })
 }
 

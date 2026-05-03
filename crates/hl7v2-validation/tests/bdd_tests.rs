@@ -2,9 +2,9 @@
 //!
 //! These tests implement the step definitions for the validation.feature file.
 
-use cucumber::{World, given, then, when};
+use cucumber::{given, then, when, World};
 use hl7v2_parser::parse;
-use hl7v2_validation::{Issue, RuleCondition, Severity, check_rule_condition};
+use hl7v2_validation::{check_rule_condition, Issue, RuleCondition, Severity};
 use std::collections::HashMap;
 
 // ============================================================================

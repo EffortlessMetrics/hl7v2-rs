@@ -37,13 +37,15 @@ pub mod fixtures {
          PV1|1|I|ICU^101^01||||DOC123^Smith^Jane|||MED||||||||V123456|||||||||||||||||||||||||20231119120000\r";
 
     /// Valid ADT^A04 message (Register Patient)
-    pub const ADT_A04_VALID: &str = "MSH|^~\\&|RegSys|Hospital|ADT|Hospital|20231119130000||ADT^A04|MSG002|P|2.5\r\
+    pub const ADT_A04_VALID: &str =
+        "MSH|^~\\&|RegSys|Hospital|ADT|Hospital|20231119130000||ADT^A04|MSG002|P|2.5\r\
          EVN|A04|20231119130000\r\
          PID|1||MRN456^^^Hospital^MR||Smith^Jane^M||19900215|F||||||||||987654321\r\
          PV1|1|O|CLINIC^201^01||||DOC456^Johnson^Robert|||||||||||V789012\r";
 
     /// Valid ORU^R01 message (Lab Results)
-    pub const ORU_R01_VALID: &str = "MSH|^~\\&|LabSys|Lab|LIS|Hospital|20231119140000||ORU^R01|MSG003|P|2.5\r\
+    pub const ORU_R01_VALID: &str =
+        "MSH|^~\\&|LabSys|Lab|LIS|Hospital|20231119140000||ORU^R01|MSG003|P|2.5\r\
          PID|1||MRN789^^^Lab^MR||Patient^Test||19850610|M\r\
          OBR|1|ORD123|FIL456|CBC^Complete Blood Count|||20231119120000|||||||\
          |||DOC789^Doctor^Chief||||||||F|||||||\r\

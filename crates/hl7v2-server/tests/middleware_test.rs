@@ -10,8 +10,8 @@ use hl7v2_server::{
 };
 use std::sync::Arc;
 use std::time::Instant;
-use tower::ServiceExt; // For `oneshot`
 use tower::limit::ConcurrencyLimitLayer;
+use tower::ServiceExt; // For `oneshot`
 use tower_governor::governor::GovernorConfigBuilder;
 use tower_http::{
     compression::CompressionLayer,

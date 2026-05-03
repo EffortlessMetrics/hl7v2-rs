@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package};
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -615,7 +615,7 @@ fn topological_publish_order(packages: &HashMap<String, Package>) -> Result<Vec<
                 .or_default()
                 .insert(package.name.to_string());
             *indegree
-                .get_mut(package.name.as_ref())
+                .get_mut(package.name.as_str())
                 .expect("publishable package should have indegree entry") += 1;
         }
     }

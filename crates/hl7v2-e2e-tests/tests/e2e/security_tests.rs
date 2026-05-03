@@ -5,8 +5,8 @@
 //! - CORS headers
 //! - Request size limits
 
-use axum::http::{Request, StatusCode, header};
-use hl7v2_server::{AppState, build_router};
+use axum::http::{header, Request, StatusCode};
+use hl7v2_server::{build_router, AppState};
 use std::sync::Arc;
 use std::time::Instant;
 use tower::ServiceExt;

@@ -62,7 +62,8 @@ mod tests {
 
     #[test]
     fn test_prepare_archive() {
-        let hl7 = b"MSH|^~\\&|SENDER|FACILITY|RECEIVER|FACILITY|20250101120000||ADT^A01|MSG123|P|2.5\r";
+        let hl7 =
+            b"MSH|^~\\&|SENDER|FACILITY|RECEIVER|FACILITY|20250101120000||ADT^A01|MSG123|P|2.5\r";
         let message = parse(hl7).unwrap();
 
         let policy = RetentionPolicy {

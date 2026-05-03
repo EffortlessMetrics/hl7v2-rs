@@ -1,7 +1,7 @@
 //! Property-based tests for hl7v2-template crate
 
 use hl7v2_template::{
-    Template, ValueSource, generate, generate_corpus, generate_golden_hashes, verify_golden_hashes,
+    generate, generate_corpus, generate_golden_hashes, verify_golden_hashes, Template, ValueSource,
 };
 use proptest::prelude::*;
 use std::collections::HashMap;

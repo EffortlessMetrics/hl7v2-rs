@@ -2,7 +2,7 @@
 
 use clap::{Parser, Subcommand};
 use hl7v2_core::{parse, to_json, write};
-use hl7v2_gen::{AckCode as GenAckCode, Template, ack, generate};
+use hl7v2_gen::{ack, generate, AckCode as GenAckCode, Template};
 use hl7v2_prof::{load_profile, validate};
 use hl7v2_stream::{Event, StreamParser};
 use std::fs;

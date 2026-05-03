@@ -3,8 +3,8 @@
 //! These tests verify MLLP framing properties hold for arbitrary inputs.
 
 use hl7v2_mllp::{
-    MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
-    is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+    find_complete_mllp_message, is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+    MllpFrameIterator, MLLP_END_1, MLLP_END_2, MLLP_START,
 };
 use proptest::prelude::*;
 
@@ -15,7 +15,11 @@ fn arbitrary_bytes_no_end_sequence() -> impl Strategy<Value = Vec<u8>> {
     proptest::collection::vec(
         proptest::arbitrary::any::<u8>().prop_map(|b| {
             // Map 0-254 to valid bytes (skip MLLP_END_1)
-            if b == MLLP_END_1 { b + 1 } else { b }
+            if b == MLLP_END_1 {
+                b + 1
+            } else {
+                b
+            }
         }),
         0..1000,
     )

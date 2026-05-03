@@ -2,8 +2,8 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
-use cucumber::{World, given, then, when};
-use hl7v2_batch::{BatchError, BatchType, FileBatch, parse_batch};
+use cucumber::{given, then, when, World};
+use hl7v2_batch::{parse_batch, BatchError, BatchType, FileBatch};
 
 /// Test world for Batch BDD tests
 #[derive(Debug, World)]

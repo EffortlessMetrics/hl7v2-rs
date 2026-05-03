@@ -4,8 +4,8 @@
 
 use std::collections::HashMap;
 
-use cucumber::{World, given, then, when};
-use hl7v2_gen::{AckCode, Faker, Message, Template, ValueSource, ack, ack_with_error, generate};
+use cucumber::{given, then, when, World};
+use hl7v2_gen::{ack, ack_with_error, generate, AckCode, Faker, Message, Template, ValueSource};
 
 /// Test world for generation BDD tests
 #[derive(Debug, World)]
@@ -276,8 +276,8 @@ fn when_generate_ack_error(world: &mut GenWorld, text: String) {
 
 #[when(regex = r#"I generate a patient name for gender "([^"]+)""#)]
 fn when_faker_name(world: &mut GenWorld, gender: String) {
-    use rand::SeedableRng;
     use rand::rngs::StdRng;
+    use rand::SeedableRng;
     let mut rng = StdRng::seed_from_u64(42);
     let mut faker = Faker::new(&mut rng);
     world.faker_result = Some(faker.name(Some(&gender)));
@@ -441,16 +441,17 @@ impl DependencyWorld {
         let manifest: toml::Value = toml::from_str(&content).expect("Parse workspace Cargo.toml");
 
         let mut paths = Vec::new();
-        if let Some(workspace) = manifest.get("workspace")
-            && let Some(members) = workspace.get("members")
-            && let Some(members_array) = members.as_array()
-        {
-            for member in members_array {
-                if let Some(member_str) = member.as_str() {
-                    let member_path = workspace_root.join(member_str);
-                    let cargo_toml = member_path.join("Cargo.toml");
-                    if cargo_toml.exists() {
-                        paths.push(cargo_toml);
+        if let Some(workspace) = manifest.get("workspace") {
+            if let Some(members) = workspace.get("members") {
+                if let Some(members_array) = members.as_array() {
+                    for member in members_array {
+                        if let Some(member_str) = member.as_str() {
+                            let member_path = workspace_root.join(member_str);
+                            let cargo_toml = member_path.join("Cargo.toml");
+                            if cargo_toml.exists() {
+                                paths.push(cargo_toml);
+                            }
+                        }
                     }
                 }
             }
@@ -469,19 +470,21 @@ impl DependencyWorld {
         };
 
         // Check [dependencies]
-        if let Some(deps) = manifest.get("dependencies")
-            && let Some(deps_table) = deps.as_table()
-            && let Some(dep_value) = deps_table.get(dep_name)
-        {
-            return self.checks_workspace_true(dep_value);
+        if let Some(deps) = manifest.get("dependencies") {
+            if let Some(deps_table) = deps.as_table() {
+                if let Some(dep_value) = deps_table.get(dep_name) {
+                    return self.checks_workspace_true(dep_value);
+                }
+            }
         }
 
         // Check [dev-dependencies]
-        if let Some(deps) = manifest.get("dev-dependencies")
-            && let Some(deps_table) = deps.as_table()
-            && let Some(dep_value) = deps_table.get(dep_name)
-        {
-            return self.checks_workspace_true(dep_value);
+        if let Some(deps) = manifest.get("dev-dependencies") {
+            if let Some(deps_table) = deps.as_table() {
+                if let Some(dep_value) = deps_table.get(dep_name) {
+                    return self.checks_workspace_true(dep_value);
+                }
+            }
         }
 
         // If dependency not found, it doesn't use workspace = true
@@ -508,11 +511,12 @@ impl DependencyWorld {
 
         let sections = ["dependencies", "dev-dependencies"];
         for section in &sections {
-            if let Some(deps) = manifest.get(section)
-                && let Some(deps_table) = deps.as_table()
-                && let Some(dep_value) = deps_table.get(dep_name)
-            {
-                return self.is_hardcoded(dep_value);
+            if let Some(deps) = manifest.get(section) {
+                if let Some(deps_table) = deps.as_table() {
+                    if let Some(dep_value) = deps_table.get(dep_name) {
+                        return self.is_hardcoded(dep_value);
+                    }
+                }
             }
         }
         false
@@ -523,10 +527,10 @@ impl DependencyWorld {
             toml::Value::String(_) => true, // "1.0" is hardcoded
             toml::Value::Table(table) => {
                 // Check if it has workspace = true
-                if let Some(workspace) = table.get("workspace")
-                    && workspace.as_bool() == Some(true)
-                {
-                    return false;
+                if let Some(workspace) = table.get("workspace") {
+                    if workspace.as_bool() == Some(true) {
+                        return false;
+                    }
                 }
                 // Has version field means hardcoded
                 table.contains_key("version")

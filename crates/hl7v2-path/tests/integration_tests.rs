@@ -1,6 +1,6 @@
 //! Integration tests for hl7v2-path crate
 
-use hl7v2_path::{Path, PathError, parse_path};
+use hl7v2_path::{parse_path, Path, PathError};
 
 mod real_world_path_scenarios {
     use super::*;

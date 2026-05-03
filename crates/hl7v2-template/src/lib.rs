@@ -52,17 +52,17 @@
 //! ```
 
 use hl7v2_core::{Atom, Comp, Delims, Error, Field, Message, Rep, Segment};
-pub use hl7v2_template_values::ValueSource;
 use hl7v2_template_values::generate_value;
-use rand::{RngExt, SeedableRng, rngs::StdRng};
+pub use hl7v2_template_values::ValueSource;
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 // Re-export corpus types for backward compatibility
 pub use hl7v2_corpus::{
-    CorpusConfig, CorpusError, CorpusManifest, CorpusSplits, MessageInfo, ProfileInfo,
-    TemplateInfo, compute_message_hash, compute_sha256, extract_message_type,
+    compute_message_hash, compute_sha256, extract_message_type, CorpusConfig, CorpusError,
+    CorpusManifest, CorpusSplits, MessageInfo, ProfileInfo, TemplateInfo,
 };
 
 /// Message template

@@ -35,11 +35,9 @@ fn test_parse_message_in_single_chunk() {
     let events = collect_events(&mut parser);
 
     // Verify we got StartMessage
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
 
     // Verify we got EndMessage
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
@@ -77,11 +75,9 @@ fn test_parse_minimal_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -130,11 +126,9 @@ fn test_parse_message_across_multiple_chunks() {
     let events = collect_events(&mut parser);
 
     // Should still get all events
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -155,11 +149,9 @@ fn test_chunk_boundary_in_middle_of_segment() {
     let events = collect_events(&mut parser);
 
     // Should still parse correctly
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Find the long field
@@ -191,11 +183,9 @@ fn test_chunk_boundary_at_field_separator() {
     let events = collect_events(&mut parser);
 
     // Should parse correctly despite boundary at separator
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -271,11 +261,9 @@ fn test_handle_empty_message() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -310,11 +298,9 @@ fn test_handle_empty_fields() {
     let events = collect_events(&mut parser);
 
     // Should parse successfully with empty fields
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
 
     // Count empty field events
     let empty_fields: Vec<_> = events
@@ -348,11 +334,9 @@ fn test_handle_very_long_field() {
     let events = collect_events(&mut parser);
 
     // Should parse successfully
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Find the long field
@@ -381,11 +365,9 @@ fn test_handle_very_long_segment() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -399,11 +381,9 @@ fn test_handle_deeply_nested_components() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Find field with components
@@ -782,19 +762,15 @@ fn test_parse_message_from_builder() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Should have PID segment
-    assert!(
-        events
-            .iter()
-            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
-    );
+    assert!(events
+        .iter()
+        .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") }));
 }
 
 #[test]
@@ -853,11 +829,9 @@ async fn test_async_parser_with_backpressure() {
     }
 
     // Should have received all events despite small buffer
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -880,11 +854,9 @@ async fn test_async_parser_buffer_size_configuration() {
             }
         }
 
-        assert!(
-            events
-                .iter()
-                .any(|e| matches!(e, Event::StartMessage { .. }))
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, Event::StartMessage { .. })));
     }
 }
 
@@ -968,11 +940,9 @@ fn test_max_message_size_allows_normal_messages() {
 
     let events = collect_events(&mut parser);
 
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 }
 
@@ -1060,11 +1030,9 @@ fn test_resume_with_additional_data() {
 
     // Should eventually get StartMessage
     events.extend(collect_events(&mut parser));
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
 }
 
 #[test]
@@ -1103,19 +1071,15 @@ fn test_partial_segment_preserved_across_reads() {
     let events = collect_events(&mut parser);
 
     // Should have parsed the complete message
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
     assert!(events.iter().any(|e| matches!(e, Event::EndMessage)));
 
     // Should have PID segment
-    assert!(
-        events
-            .iter()
-            .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") })
-    );
+    assert!(events
+        .iter()
+        .any(|e| { matches!(e, Event::Segment { id } if id == b"PID") }));
 }
 
 #[test]
@@ -1201,9 +1165,7 @@ fn test_builder_build_synchronous_parser() {
     assert_eq!(parser.max_message_size(), 1024);
 
     let events = collect_events(&mut parser);
-    assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, Event::StartMessage { .. }))
-    );
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, Event::StartMessage { .. })));
 }
