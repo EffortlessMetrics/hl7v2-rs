@@ -21,7 +21,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::{sleep, timeout};
 
-
 // =========================================================================
 // Basic MLLP Framing Tests
 // =========================================================================
@@ -201,7 +200,10 @@ mod client_server_tests {
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind("127.0.0.1:0").await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0")
+                .await
+                .expect("Server should bind");
             let addr = server.local_addr().expect("Should have local addr");
             addr_tx.send(addr).unwrap();
 
@@ -238,7 +240,10 @@ mod client_server_tests {
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind("127.0.0.1:0").await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0")
+                .await
+                .expect("Server should bind");
             let addr = server.local_addr().expect("Should have local addr");
             addr_tx.send(addr).unwrap();
 
@@ -282,7 +287,6 @@ mod client_server_tests {
         let msg_type = hl7v2_core::get(&ack, "MSH.9");
         assert!(msg_type.is_some());
     }
-
 }
 
 // =========================================================================
@@ -291,7 +295,6 @@ mod client_server_tests {
 
 mod concurrent_connections {
     use super::*;
-
 
     #[tokio::test]
     async fn test_multiple_concurrent_clients() {
@@ -308,7 +311,10 @@ mod concurrent_connections {
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind("127.0.0.1:0").await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0")
+                .await
+                .expect("Server should bind");
             let addr = server.local_addr().expect("Should have local addr");
             addr_tx.send(addr).unwrap();
 
@@ -382,7 +388,10 @@ mod concurrent_connections {
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind("127.0.0.1:0").await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0")
+                .await
+                .expect("Server should bind");
             let addr = server.local_addr().expect("Should have local addr");
             addr_tx.send(addr).unwrap();
 
@@ -446,7 +455,6 @@ mod error_handling {
     use super::*;
     use std::net::SocketAddr;
 
-
     #[tokio::test]
     async fn test_connection_timeout() {
         init_tracing();
@@ -478,7 +486,10 @@ mod error_handling {
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind("127.0.0.1:0").await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0")
+                .await
+                .expect("Server should bind");
             let addr = server.local_addr().expect("Should have local addr");
             addr_tx.send(addr).unwrap();
 
@@ -522,7 +533,6 @@ mod error_handling {
 mod stress_tests {
     use super::*;
 
-
     #[tokio::test]
     #[ignore = "Stress test - run manually"]
     async fn test_high_throughput_messages() {
@@ -536,12 +546,14 @@ mod stress_tests {
         let server_task = tokio::spawn(async move {
             let config = MllpServerConfig::default();
             let mut server = MllpServer::new(config);
-            server.bind("127.0.0.1:0").await.expect("Server should bind");
+            server
+                .bind("127.0.0.1:0")
+                .await
+                .expect("Server should bind");
             let addr = server.local_addr().expect("Should have local addr");
             addr_tx.send(addr).unwrap();
 
             while let Ok(mut conn) = server.accept().await {
-
                 if let Ok(Ok(mut conn)) = timeout(Duration::from_millis(100), server.accept()).await
                 {
                     let count = total_clone.clone();

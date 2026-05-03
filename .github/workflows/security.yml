@@ -133,6 +133,7 @@ jobs:
             --glob '!.github/workflows/security.yml' \
             --glob '!docs/governance/**' \
             --glob '!GEMINI.md' \
+            --glob '!metadata.json' \
             .; then
             echo "::error::Found MIT/Apache license references in project files"
             exit 1
