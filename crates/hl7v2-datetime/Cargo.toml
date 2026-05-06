@@ -26,3 +26,5 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 name = "bdd_tests"
 harness = false
 
+[lints]
+workspace = true

@@ -1,0 +1,6 @@
+# Repo-local Clippy policy configuration.
+#
+# Keep this file for disallowed methods/types/macros and Clippy knobs only.
+# Do not add test carveouts; the workspace policy is panic-free across
+# production and test code.
+msrv = "1.93"

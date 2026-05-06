@@ -64,3 +64,5 @@ tokio-util = { version = "0.7", features = ["codec"] }
 name = "e2e"
 path = "tests/e2e/mod.rs"
 
+[lints]
+workspace = true

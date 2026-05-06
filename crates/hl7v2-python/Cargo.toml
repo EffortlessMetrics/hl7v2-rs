@@ -21,3 +21,6 @@ pyo3 = { version = "0.24.1", features = ["extension-module"] }
 
 [dev-dependencies]
 hl7v2-test-utils = { workspace = true }
+
+[lints]
+workspace = true

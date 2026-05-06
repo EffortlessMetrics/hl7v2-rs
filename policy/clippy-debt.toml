@@ -1,0 +1,22 @@
+schema = 1
+
+[[debt]]
+lint = "clippy::unwrap_used"
+path = "crates/**/{src,tests}/**/*.rs"
+owner = "workspace-maintainers"
+reason = "Pre-existing panic-family test and parser debt predates the strict lint policy; migrate to Result-returning tests and typed parser errors."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::indexing_slicing"
+path = "crates/**/{src,tests}/**/*.rs"
+owner = "parser"
+reason = "Pre-existing parser and fixture indexing must be replaced with checked HL7 field/byte boundary helpers."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::arithmetic_side_effects"
+path = "crates/**/{src,tests}/**/*.rs"
+owner = "workspace-maintainers"
+reason = "Numeric operations need a reviewed checked/wrapping/saturating policy before this warning can be made noise-free."
+expires = "2026-07-01"

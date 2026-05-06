@@ -38,3 +38,5 @@ hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 proptest = "1.6"
 tokio-test = "0.4"
 
+[lints]
+workspace = true

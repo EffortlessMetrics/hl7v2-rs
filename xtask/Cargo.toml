@@ -12,3 +12,6 @@ publish = false
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 cargo_metadata = { workspace = true }
+
+[lints]
+workspace = true

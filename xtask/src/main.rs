@@ -5,7 +5,9 @@ use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package};
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
@@ -79,6 +81,14 @@ enum Commands {
     HookPreCommit,
     /// Git pre-push hook: run full gate checks
     HookPrePush,
+    /// Verify workspace lint policy, debt ledger, and Clippy configuration
+    CheckLintPolicy,
+    /// Check panic-family calls against the semantic allowlist
+    CheckNoPanicFamily,
+    /// Check non-Rust files against the TOML file-policy allowlist
+    CheckFilePolicy,
+    /// Print a summary of policy debt and allowlist coverage
+    PolicyReport,
 }
 
 fn main() -> Result<()> {
@@ -105,6 +115,10 @@ fn main() -> Result<()> {
         Commands::Docs { no_open } => docs(no_open)?,
         Commands::HookPreCommit => hook_pre_commit()?,
         Commands::HookPrePush => hook_pre_push()?,
+        Commands::CheckLintPolicy => check_lint_policy()?,
+        Commands::CheckNoPanicFamily => check_no_panic_family()?,
+        Commands::CheckFilePolicy => check_file_policy()?,
+        Commands::PolicyReport => policy_report()?,
     }
 
     Ok(())
@@ -668,6 +682,551 @@ fn internal_publish_dependencies(
         .filter(|dep| dep.kind != DependencyKind::Development)
         .filter_map(|dep| packages.contains_key(&dep.name).then_some(dep.name.clone()))
         .collect()
+}
+
+fn check_lint_policy() -> Result<()> {
+    println!("🔎 Checking lint policy...");
+
+    let root = env::current_dir()?;
+    let cargo_toml = fs::read_to_string(root.join("Cargo.toml"))?;
+    let policy = fs::read_to_string(root.join("policy/clippy-lints.toml"))?;
+    let debt = fs::read_to_string(root.join("policy/clippy-debt.toml"))?;
+
+    let cargo_msrv = required_value(&cargo_toml, "rust-version")?;
+    let policy_msrv = required_value(&policy, "msrv")?;
+    ensure(
+        cargo_msrv == policy_msrv,
+        format!(
+            "workspace.package.rust-version ({cargo_msrv}) must match policy/clippy-lints.toml msrv ({policy_msrv})"
+        ),
+    )?;
+
+    ensure(
+        cargo_toml.contains("[workspace.lints.rust]")
+            && cargo_toml.contains("[workspace.lints.clippy]"),
+        "root Cargo.toml must define [workspace.lints.rust] and [workspace.lints.clippy]",
+    )?;
+    for lint in required_active_lints() {
+        let cargo_name = lint
+            .strip_prefix("clippy::")
+            .or_else(|| lint.strip_prefix("rust::"))
+            .unwrap_or(lint);
+        ensure(
+            cargo_toml.contains(&format!("{cargo_name} =")) || cargo_toml.contains(lint),
+            format!("root Cargo.toml is missing active lint {lint}"),
+        )?;
+        ensure(
+            policy.contains(&format!("name = \"{lint}\"")),
+            format!("policy/clippy-lints.toml is missing active lint {lint}"),
+        )?;
+    }
+
+    ensure(
+        policy.contains("panic_free_tests = true")
+            && policy.contains("allow_test_carveouts = false")
+            && policy.contains("suppression_style = \"expect-with-reason\""),
+        "policy/clippy-lints.toml must encode panic-free tests, no test carveouts, and expect-with-reason suppressions",
+    )?;
+
+    for planned in planned_lints() {
+        ensure(
+            policy.contains(&format!("name = \"{}\"", planned.name))
+                && policy.contains(&format!("activate_when_msrv = \"{}\"", planned.msrv)),
+            format!(
+                "policy/clippy-lints.toml must track planned lint {} for MSRV {}",
+                planned.name, planned.msrv
+            ),
+        )?;
+        let cargo_name = planned
+            .name
+            .strip_prefix("clippy::")
+            .unwrap_or(planned.name);
+        ensure(
+            !version_less_than(&cargo_msrv, planned.msrv)
+                || !cargo_toml.contains(&format!("{cargo_name} =")),
+            format!(
+                "planned lint {} must not be active before MSRV {}",
+                planned.name, planned.msrv
+            ),
+        )?;
+    }
+
+    for carveout in [
+        "allow-unwrap-in-tests",
+        "allow-expect-in-tests",
+        "allow-panic-in-tests",
+        "allow-indexing-slicing-in-tests",
+        "allow-dbg-in-tests",
+    ] {
+        let clippy_toml = fs::read_to_string(root.join("clippy.toml")).unwrap_or_default();
+        ensure(
+            !clippy_toml.contains(carveout),
+            format!("clippy.toml must not contain test carveout {carveout}"),
+        )?;
+    }
+
+    let metadata = workspace_metadata()?;
+    let root_manifest = root.join("Cargo.toml");
+    for package in metadata.workspace_packages() {
+        let manifest = package.manifest_path.as_std_path();
+        if manifest == root_manifest {
+            continue;
+        }
+        let manifest_text = fs::read_to_string(manifest)?;
+        ensure(
+            manifest_text.contains("[lints]") && manifest_text.contains("workspace = true"),
+            format!("{} must inherit workspace lints", manifest.display()),
+        )?;
+    }
+
+    validate_debt_entries(&debt)?;
+
+    println!("✅ Lint policy checks passed");
+    Ok(())
+}
+
+fn check_no_panic_family() -> Result<()> {
+    println!("🔎 Checking panic-family calls...");
+
+    let root = env::current_dir()?;
+    let allowlist = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
+    validate_allow_entries(
+        &allowlist,
+        &["path", "family", "classification", "owner", "explanation"],
+    )?;
+
+    let mut violations = Vec::new();
+    let rust_files = collect_files(&root, |path| path.extension() == Some(OsStr::new("rs")))?;
+    for path in rust_files {
+        let rel = relative_path(&root, &path);
+        let text = fs::read_to_string(&path)?;
+        for (line_idx, line) in text.lines().enumerate() {
+            let Some(family) = panic_family(line) else {
+                continue;
+            };
+            if !allowlist_contains_panic(&allowlist, &rel, family) {
+                violations.push(format!(
+                    "{}:{} contains unallowlisted {family}",
+                    rel,
+                    line_idx + 1
+                ));
+            }
+        }
+    }
+
+    if !violations.is_empty() {
+        return Err(anyhow!(
+            "panic-family policy found {} unallowlisted call(s):\n{}",
+            violations.len(),
+            violations
+                .into_iter()
+                .take(50)
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+
+    println!("✅ Panic-family checks passed");
+    Ok(())
+}
+
+fn check_file_policy() -> Result<()> {
+    println!("🔎 Checking non-Rust file policy...");
+
+    let root = env::current_dir()?;
+    let allowlist_text = fs::read_to_string(root.join("policy/non-rust-allowlist.toml"))?;
+    validate_allow_entries(
+        &allowlist_text,
+        &[
+            "kind",
+            "owner",
+            "reason",
+            "surface",
+            "classification",
+            "covered_by",
+        ],
+    )?;
+    let allows = parse_file_allows(&allowlist_text);
+    let mut uncovered = Vec::new();
+    for path in collect_files(&root, |_| true)? {
+        let rel = relative_path(&root, &path);
+        if is_ignored_policy_path(&rel) || is_rust_owned_path(&path, &rel) {
+            continue;
+        }
+        if !allows.iter().any(|allow| allow.matches(&rel)) {
+            uncovered.push(rel);
+        }
+    }
+
+    if !uncovered.is_empty() {
+        return Err(anyhow!(
+            "non-Rust file policy found {} uncovered file(s):\n{}",
+            uncovered.len(),
+            uncovered
+                .into_iter()
+                .take(50)
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+
+    println!("✅ File policy checks passed");
+    Ok(())
+}
+
+fn policy_report() -> Result<()> {
+    let root = env::current_dir()?;
+    let debt = fs::read_to_string(root.join("policy/clippy-debt.toml"))?;
+    let panic_allowlist = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
+    let non_rust_allowlist = fs::read_to_string(root.join("policy/non-rust-allowlist.toml"))?;
+
+    println!("📋 Policy report");
+    println!("clippy debt entries: {}", count_tables(&debt, "[[debt]]"));
+    println!(
+        "panic allowlist entries: {}",
+        count_tables(&panic_allowlist, "[[allow]]")
+    );
+    println!(
+        "non-Rust allowlist entries: {}",
+        count_tables(&non_rust_allowlist, "[[allow]]")
+    );
+    println!("planned lint flips: {}", planned_lints().len());
+    Ok(())
+}
+
+fn workspace_metadata() -> Result<Metadata> {
+    Ok(MetadataCommand::new().exec()?)
+}
+
+fn required_active_lints() -> &'static [&'static str] {
+    &[
+        "rust::unsafe_code",
+        "rust::unused_must_use",
+        "clippy::unwrap_used",
+        "clippy::expect_used",
+        "clippy::panic",
+        "clippy::indexing_slicing",
+        "clippy::string_slice",
+        "clippy::map_err_ignore",
+        "clippy::allow_attributes_without_reason",
+    ]
+}
+
+struct PlannedLint {
+    name: &'static str,
+    msrv: &'static str,
+}
+
+fn planned_lints() -> &'static [PlannedLint] {
+    &[
+        PlannedLint {
+            name: "clippy::same_length_and_capacity",
+            msrv: "1.94",
+        },
+        PlannedLint {
+            name: "clippy::manual_ilog2",
+            msrv: "1.94",
+        },
+        PlannedLint {
+            name: "clippy::decimal_bitwise_operands",
+            msrv: "1.94",
+        },
+        PlannedLint {
+            name: "clippy::needless_type_cast",
+            msrv: "1.94",
+        },
+        PlannedLint {
+            name: "clippy::disallowed_fields",
+            msrv: "1.95",
+        },
+        PlannedLint {
+            name: "clippy::manual_checked_ops",
+            msrv: "1.95",
+        },
+        PlannedLint {
+            name: "clippy::manual_take",
+            msrv: "1.95",
+        },
+        PlannedLint {
+            name: "clippy::manual_pop_if",
+            msrv: "1.95",
+        },
+        PlannedLint {
+            name: "clippy::duration_suboptimal_units",
+            msrv: "1.95",
+        },
+        PlannedLint {
+            name: "clippy::unnecessary_trailing_comma",
+            msrv: "1.95",
+        },
+    ]
+}
+
+fn validate_debt_entries(text: &str) -> Result<()> {
+    for (idx, entry) in split_tables(text, "[[debt]]").iter().enumerate() {
+        for field in ["lint", "path", "owner", "reason", "expires"] {
+            ensure(
+                entry.contains(&format!("{field} =")),
+                format!(
+                    "policy/clippy-debt.toml debt entry {} is missing {field}",
+                    idx + 1
+                ),
+            )?;
+        }
+        let expires = required_value(entry, "expires")?;
+        ensure(
+            expires.as_str() >= "2026-05-06",
+            format!(
+                "policy/clippy-debt.toml debt entry {} expired on {expires}",
+                idx + 1
+            ),
+        )?;
+    }
+    Ok(())
+}
+
+fn validate_allow_entries(text: &str, required_fields: &[&str]) -> Result<()> {
+    for (idx, entry) in split_tables(text, "[[allow]]").iter().enumerate() {
+        for field in required_fields {
+            ensure(
+                entry.contains(&format!("{field} =")),
+                format!("allowlist entry {} is missing {field}", idx + 1),
+            )?;
+        }
+        if entry.contains("expires =") {
+            let expires = required_value(entry, "expires")?;
+            ensure(
+                expires.as_str() >= "2026-05-06",
+                format!("allowlist entry {} expired on {expires}", idx + 1),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+struct FileAllow {
+    path: Option<String>,
+    glob: Option<String>,
+}
+
+impl FileAllow {
+    fn matches(&self, rel: &str) -> bool {
+        if self.path.as_deref() == Some(rel) {
+            return true;
+        }
+        self.glob
+            .as_deref()
+            .is_some_and(|glob| glob_matches(glob, rel))
+    }
+}
+
+fn parse_file_allows(text: &str) -> Vec<FileAllow> {
+    split_tables(text, "[[allow]]")
+        .into_iter()
+        .map(|entry| FileAllow {
+            path: optional_value(&entry, "path"),
+            glob: optional_value(&entry, "glob"),
+        })
+        .collect()
+}
+
+fn split_tables(text: &str, marker: &str) -> Vec<String> {
+    let mut tables = Vec::new();
+    let mut current = Vec::new();
+    let mut in_table = false;
+
+    for line in text.lines() {
+        if line.trim() == marker {
+            if in_table && !current.is_empty() {
+                tables.push(current.join("\n"));
+                current.clear();
+            }
+            in_table = true;
+            continue;
+        }
+        if in_table {
+            current.push(line.to_string());
+        }
+    }
+
+    if in_table && !current.is_empty() {
+        tables.push(current.join("\n"));
+    }
+
+    tables
+        .into_iter()
+        .map(|entry| entry.trim().to_string())
+        .filter(|entry| !entry.is_empty())
+        .collect()
+}
+
+fn count_tables(text: &str, marker: &str) -> usize {
+    text.lines().filter(|line| line.trim() == marker).count()
+}
+
+fn required_value(text: &str, key: &str) -> Result<String> {
+    optional_value(text, key).ok_or_else(|| anyhow!("missing required key {key}"))
+}
+
+fn optional_value(text: &str, key: &str) -> Option<String> {
+    let prefix = format!("{key} =");
+    text.lines().find_map(|line| {
+        let line = line.trim();
+        line.strip_prefix(&prefix)
+            .map(str::trim)
+            .map(|value| value.trim_matches('"').to_string())
+    })
+}
+
+fn version_less_than(left: &str, right: &str) -> bool {
+    let parse = |version: &str| -> Vec<u32> {
+        version
+            .split('.')
+            .map(|part| part.parse::<u32>().unwrap_or(0))
+            .collect()
+    };
+    parse(left) < parse(right)
+}
+
+fn collect_files(root: &Path, predicate: impl Fn(&Path) -> bool) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    collect_files_inner(root, root, &predicate, &mut files)?;
+    Ok(files)
+}
+
+fn collect_files_inner(
+    root: &Path,
+    current: &Path,
+    predicate: &impl Fn(&Path) -> bool,
+    files: &mut Vec<PathBuf>,
+) -> Result<()> {
+    for entry in fs::read_dir(current)? {
+        let entry = entry?;
+        let path = entry.path();
+        let rel = relative_path(root, &path);
+        if path.is_dir() {
+            if matches!(rel.as_str(), ".git" | "target") {
+                continue;
+            }
+            collect_files_inner(root, &path, predicate, files)?;
+        } else if predicate(&path) {
+            files.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn relative_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+fn panic_family(line: &str) -> Option<&'static str> {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("//") {
+        return None;
+    }
+    [
+        ("unwrap", ".unwrap("),
+        ("expect", ".expect("),
+        ("panic", "panic!("),
+        ("todo", "todo!("),
+        ("unimplemented", "unimplemented!("),
+        ("unreachable", "unreachable!("),
+    ]
+    .into_iter()
+    .find_map(|(family, needle)| line.contains(needle).then_some(family))
+}
+
+fn allowlist_contains_panic(allowlist: &str, path: &str, family: &str) -> bool {
+    split_tables(allowlist, "[[allow]]").iter().any(|entry| {
+        optional_value(entry, "path").as_deref() == Some(path)
+            && optional_value(entry, "family").as_deref() == Some(family)
+    })
+}
+
+fn is_ignored_policy_path(rel: &str) -> bool {
+    rel.starts_with(".git/")
+        || rel.starts_with("target/")
+        || rel == "Cargo.lock"
+        || rel.starts_with("docs/")
+        || rel.ends_with(".md")
+        || rel == "LICENSE"
+        || rel == "CLA.md"
+        || rel == "CODE_OF_CONDUCT.md"
+        || rel == "CONTRIBUTING.md"
+        || rel == "CHANGELOG.md"
+        || rel == "README.md"
+        || rel == "NIX_USAGE.md"
+        || rel == "ROADMAP.md"
+        || rel == "SESSION_SUMMARY.md"
+        || rel == "TESTING.md"
+        || rel == "DEPLOYMENT.md"
+        || rel == "GEMINI.md"
+        || rel == "CLAUDE.md"
+        || rel.ends_with("/CLAUDE.md")
+        || rel.ends_with("/README.md")
+        || rel.ends_with(".txt")
+        || rel == "policy/clippy-lints.toml"
+        || rel == "policy/clippy-debt.toml"
+        || rel == "policy/no-panic-allowlist.toml"
+        || rel == "policy/non-rust-allowlist.toml"
+        || rel == "clippy.toml"
+}
+
+fn is_rust_owned_path(path: &Path, rel: &str) -> bool {
+    path.extension() == Some(OsStr::new("rs"))
+        || rel.ends_with("Cargo.toml")
+        || rel.starts_with("crates/") && rel.ends_with("/Cargo.toml")
+}
+
+fn glob_matches(glob: &str, rel: &str) -> bool {
+    if let Some(prefix) = glob.strip_suffix("/**") {
+        return rel == prefix || rel.starts_with(&format!("{prefix}/"));
+    }
+    if !glob.contains('*') {
+        return glob == rel;
+    }
+
+    let mut remaining = rel;
+    let mut parts = glob.split('*').peekable();
+    let Some(first) = parts.next() else {
+        return true;
+    };
+    if !remaining.starts_with(first) {
+        return false;
+    }
+    remaining = &remaining[first.len()..];
+
+    while let Some(part) = parts.next() {
+        if part.is_empty() {
+            continue;
+        }
+        if parts.peek().is_none() {
+            return remaining.ends_with(part)
+                || remaining.find(part).is_some_and(|idx| {
+                    let after = idx + part.len();
+                    after == remaining.len()
+                });
+        }
+        let Some(idx) = remaining.find(part) else {
+            return false;
+        };
+        remaining = &remaining[idx + part.len()..];
+    }
+
+    true
+}
+
+fn ensure(condition: bool, message: impl Into<String>) -> Result<()> {
+    if condition {
+        Ok(())
+    } else {
+        Err(anyhow!(message.into()))
+    }
 }
 
 fn run_command(cmd: &str, args: &[&str]) -> Result<()> {

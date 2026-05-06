@@ -1,0 +1,316 @@
+schema_version = "1.0"
+
+[[allow]]
+glob = ".github/workflows/*.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+reason = "GitHub Actions workflow definitions are platform-required YAML."
+surface = "ci"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "api/**/*.yaml"
+kind = "api_contract"
+owner = "api"
+reason = "OpenAPI and Buf configuration are external interoperability contracts."
+surface = "api"
+classification = "production"
+covered_by = ["cargo xtask check-file-policy", "cargo test --workspace"]
+
+[[allow]]
+glob = "api/**/*.proto"
+kind = "api_contract"
+owner = "api"
+reason = "gRPC service definitions require Protocol Buffers."
+surface = "api"
+classification = "production"
+covered_by = ["cargo xtask check-file-policy", "cargo test --workspace"]
+
+[[allow]]
+glob = "schemas/**/*.json"
+kind = "schema_contract"
+owner = "schema"
+reason = "JSON Schemas define supported HL7 and configuration interchange contracts."
+surface = "schema"
+classification = "production"
+covered_by = ["cargo xtask check-file-policy", "cargo test --workspace"]
+
+[[allow]]
+glob = "profiles/**/*.yaml"
+kind = "fixture_profile"
+owner = "profiles"
+reason = "HL7 profile fixtures are data contracts used by parser and validator tests."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+glob = "test_data/**"
+kind = "fixture_input"
+owner = "test-fixtures"
+reason = "HL7 and YAML test fixtures intentionally exercise parser and template surfaces."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+glob = "crates/**/fixtures/**"
+kind = "fixture_input"
+owner = "test-fixtures"
+reason = "Crate-local fixture files are test inputs for protocol behavior."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+glob = "crates/**/*.feature"
+kind = "bdd_fixture"
+owner = "test-fixtures"
+reason = "Gherkin feature files document behavior scenarios used by crate tests."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+glob = "crates/**/*.snap"
+kind = "snapshot_fixture"
+owner = "test-fixtures"
+reason = "Insta snapshot files capture reviewed parser output fixtures."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+glob = "crates/**/*.proptest-regressions"
+kind = "property_regression_fixture"
+owner = "test-fixtures"
+reason = "Proptest regression seeds preserve minimized property failures."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+path = "flake.nix"
+kind = "dev_environment"
+owner = "dev-infra"
+reason = "Nix flake pins reproducible development and CI tooling."
+surface = "tooling"
+classification = "tooling"
+covered_by = ["nix flake check"]
+
+[[allow]]
+path = "justfile"
+kind = "task_runner"
+owner = "dev-infra"
+reason = "Just recipes provide developer command shortcuts around Rust tooling."
+surface = "tooling"
+classification = "tooling"
+covered_by = ["cargo xtask gate --check"]
+
+[[allow]]
+path = "Makefile.toml"
+kind = "task_runner"
+owner = "dev-infra"
+reason = "cargo-make configuration supports existing automation entry points."
+surface = "tooling"
+classification = "tooling"
+covered_by = ["cargo xtask gate --check"]
+
+[[allow]]
+path = "config.example.toml"
+kind = "example_config"
+owner = "api"
+reason = "Example runtime configuration documents supported settings."
+surface = "docs"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = "metadata.json"
+kind = "release_metadata"
+owner = "release/ci"
+reason = "Release metadata is consumed as JSON by downstream automation."
+surface = "release"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = "buf.gen.yaml"
+kind = "codegen_config"
+owner = "api"
+reason = "Buf code generation configuration is required for protobuf tooling."
+surface = "api"
+classification = "tooling"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "infrastructure/**/*.yml"
+kind = "infrastructure_config"
+owner = "ops"
+reason = "Grafana, Docker, and Kubernetes infrastructure require YAML configuration."
+surface = "infrastructure"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "infrastructure/**/*.yaml"
+kind = "infrastructure_config"
+owner = "ops"
+reason = "Kubernetes and policy infrastructure require YAML configuration."
+surface = "infrastructure"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "infrastructure/**/*.json"
+kind = "infrastructure_config"
+owner = "ops"
+reason = "Grafana dashboards are JSON infrastructure configuration."
+surface = "infrastructure"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = "infrastructure/docker/Dockerfile"
+kind = "container_build"
+owner = "ops"
+reason = "Container image definition is required for deployment packaging."
+surface = "infrastructure"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = "infrastructure/policies/validation.rego"
+kind = "policy_config"
+owner = "security"
+reason = "OPA policy is authored in Rego for deployment-time validation."
+surface = "infrastructure"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "scripts/**/*.sh"
+kind = "shell_test"
+owner = "dev-infra"
+reason = "Shell checks exercise repository integration with external Git tooling."
+surface = "tooling"
+classification = "test"
+covered_by = ["scripts/tests/test_gitignore_nodejs.sh"]
+
+[[allow]]
+glob = "examples/profiles/*.yaml"
+kind = "example_profile"
+owner = "profiles"
+reason = "Example HL7 profile YAML files document supported profile shapes."
+surface = "examples"
+classification = "docs"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+glob = "crates/**/*.hl7"
+kind = "fixture_input"
+owner = "test-fixtures"
+reason = "HL7 fixture files intentionally exercise parser and network behavior."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+path = "deny.toml"
+kind = "dependency_policy"
+owner = "release/ci"
+reason = "cargo-deny policy is TOML consumed by cargo-deny."
+surface = "ci"
+classification = "config"
+covered_by = ["cargo xtask audit"]
+
+[[allow]]
+path = "tokmd.toml"
+kind = "doc_tool_config"
+owner = "docs"
+reason = "tokmd configuration controls documentation linting."
+surface = "docs"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = ".tokeignore"
+kind = "tool_ignore_config"
+owner = "dev-infra"
+reason = "Repository token-count tooling uses this ignore file."
+surface = "tooling"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = ".gitattributes"
+kind = "git_config"
+owner = "dev-infra"
+reason = "Git attributes configure repository text and diff behavior."
+surface = "tooling"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = ".envrc"
+kind = "dev_environment"
+owner = "dev-infra"
+reason = "direnv entrypoint loads the repository development environment."
+surface = "tooling"
+classification = "tooling"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = ".gitignore"
+kind = "git_config"
+owner = "dev-infra"
+reason = "Git ignore configuration is repository-required metadata."
+surface = "tooling"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = ".githooks/*"
+kind = "git_hook"
+owner = "dev-infra"
+reason = "Git hooks invoke workspace automation at local commit and push boundaries."
+surface = "tooling"
+classification = "tooling"
+covered_by = ["cargo xtask setup"]
+
+[[allow]]
+path = ".spectral.yml"
+kind = "api_lint_config"
+owner = "api"
+reason = "Spectral configuration lints OpenAPI contracts."
+surface = "api"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "profiles/*.yaml"
+kind = "fixture_profile"
+owner = "profiles"
+reason = "Top-level HL7 profile fixtures are data contracts used by parser and validator tests."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]
+
+[[allow]]
+glob = "schemas/*.json"
+kind = "schema_contract"
+owner = "schema"
+reason = "Top-level JSON Schemas define supported HL7 interchange contracts."
+surface = "schema"
+classification = "production"
+covered_by = ["cargo xtask check-file-policy", "cargo test --workspace"]
+
+[[allow]]
+glob = "crates/**/*.yaml"
+kind = "fixture_profile"
+owner = "test-fixtures"
+reason = "Crate-local YAML fixtures exercise parser and end-to-end behavior."
+surface = "fixtures"
+classification = "test"
+covered_by = ["cargo test --workspace"]

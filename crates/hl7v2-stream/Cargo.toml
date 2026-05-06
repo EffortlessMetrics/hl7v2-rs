@@ -40,3 +40,5 @@ criterion = { version = "0.5", features = ["html_reports"] }
 name = "streaming"
 harness = false
 
+[lints]
+workspace = true

@@ -45,3 +45,5 @@ name = "bdd_tests"
 path = "tests/bdd_tests.rs"
 harness = false
 
+[lints]
+workspace = true
