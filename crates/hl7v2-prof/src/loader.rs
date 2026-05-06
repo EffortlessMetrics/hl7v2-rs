@@ -26,7 +26,7 @@ struct CacheEntry {
     /// ETag for conditional requests (if available)
     etag: Option<String>,
     /// Raw YAML content for comparison (kept for potential future use)
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     raw_content: String,
 }
 

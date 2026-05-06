@@ -46,7 +46,7 @@ fn processing_id_strategy() -> impl Strategy<Value = String> {
 }
 
 /// Generate a basic MSH segment string
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn msh_segment_strategy() -> impl Strategy<Value = String> {
     (
         app_name_strategy(),

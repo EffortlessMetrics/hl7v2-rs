@@ -15,6 +15,9 @@ categories.workspace = true
 name = "hl7v2"
 crate-type = ["cdylib"]
 
+
+[lints]
+workspace = true
 [dependencies]
 hl7v2-core = { workspace = true }
 pyo3 = { version = "0.24.1", features = ["extension-module"] }

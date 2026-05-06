@@ -3,7 +3,7 @@
 //! This module provides shared test fixtures and helper functions
 //! to reduce duplication across test files.
 
-#![allow(dead_code)]
+#![expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 
 use hl7v2_core::parse;
 use hl7v2_prof::{Profile, load_profile, validate};

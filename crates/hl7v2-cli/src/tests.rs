@@ -10,7 +10,7 @@ mod cli_unit_tests {
     use tempfile::TempDir;
 
     // Helper to create a temp file with content
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     fn create_temp_file(dir: &TempDir, filename: &str, content: &[u8]) -> PathBuf {
         let path = dir.path().join(filename);
         fs::write(&path, content).expect("Failed to write temp file");
@@ -18,7 +18,7 @@ mod cli_unit_tests {
     }
 
     // Helper to create a temp HL7 file
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     fn create_temp_hl7_file(dir: &TempDir, filename: &str) -> PathBuf {
         create_temp_file(dir, filename, SampleMessages::adt_a01().as_bytes())
     }

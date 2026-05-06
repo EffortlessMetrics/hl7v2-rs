@@ -12,6 +12,9 @@ homepage.workspace = true
 keywords = ["hl7", "healthcare", "data-model"]
 categories = ["data-structures", "encoding"]
 
+
+[lints]
+workspace = true
 [dependencies]
 thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

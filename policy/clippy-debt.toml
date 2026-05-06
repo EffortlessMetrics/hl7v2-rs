@@ -1,0 +1,29 @@
+schema = 1
+
+[[debt]]
+lint = "clippy::error_impl_error"
+path = "crates/hl7v2-model/src/lib.rs"
+owner = "model"
+reason = "Existing public error type is named Error; migration needs API review before renaming or local justification."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::missing_errors_doc"
+path = "crates/hl7v2-model/src/lib.rs"
+owner = "model"
+reason = "Existing Result-returning model API needs an Errors section pass without changing API behavior."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::arithmetic_side_effects"
+path = "crates/hl7v2-model/src/lib.rs"
+owner = "model"
+reason = "Existing delimiter uniqueness loop needs reviewed checked-iteration cleanup."
+expires = "2026-07-01"
+
+[[debt]]
+lint = "clippy::indexing_slicing"
+path = "crates/hl7v2-model/src/lib.rs"
+owner = "model"
+reason = "Existing delimiter uniqueness loop indexes a small delimiter array; replace with checked iteration."
+expires = "2026-07-01"

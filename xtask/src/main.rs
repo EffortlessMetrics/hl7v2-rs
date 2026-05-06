@@ -5,7 +5,9 @@ use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package};
 use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
@@ -79,6 +81,8 @@ enum Commands {
     HookPreCommit,
     /// Git pre-push hook: run full gate checks
     HookPrePush,
+    /// Verify the workspace Clippy policy, lint inheritance, and debt ledger
+    CheckLintPolicy,
 }
 
 fn main() -> Result<()> {
@@ -105,6 +109,7 @@ fn main() -> Result<()> {
         Commands::Docs { no_open } => docs(no_open)?,
         Commands::HookPreCommit => hook_pre_commit()?,
         Commands::HookPrePush => hook_pre_push()?,
+        Commands::CheckLintPolicy => check_lint_policy()?,
     }
 
     Ok(())
@@ -132,6 +137,11 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
     let run_fmt = only.as_deref().is_none_or(|s| s == "fmt");
     let run_clippy = only.as_deref().is_none_or(|s| s == "clippy");
     let run_test = only.as_deref().is_none_or(|s| s == "test");
+
+    if only.is_none() {
+        println!("Checking lint policy...");
+        check_lint_policy()?;
+    }
 
     if run_fmt {
         if check {
@@ -452,6 +462,9 @@ readme = "README.md"
 keywords = ["hl7", "healthcare"]
 categories = ["parser-implementations"]
 
+[lints]
+workspace = true
+
 [dependencies]
 hl7v2-model = {{ path = "../hl7v2-model" }}
 thiserror = {{ workspace = true }}
@@ -551,6 +564,308 @@ fn hook_pre_commit() -> Result<()> {
 fn hook_pre_push() -> Result<()> {
     println!("pre-push: gate --check");
     gate(true, false, None)
+}
+
+fn check_lint_policy() -> Result<()> {
+    println!("🔎 Checking Clippy lint policy...");
+
+    let root_cargo = fs::read_to_string("Cargo.toml")?;
+    let policy = fs::read_to_string("policy/clippy-lints.toml")?;
+    let debt = fs::read_to_string("policy/clippy-debt.toml")?;
+    let clippy = fs::read_to_string("clippy.toml")?;
+
+    let workspace_msrv = required_value(&root_cargo, "rust-version")?;
+    let policy_msrv = required_value(&policy, "msrv")?;
+    if workspace_msrv != policy_msrv {
+        return Err(anyhow!(
+            "workspace MSRV {workspace_msrv} does not match policy MSRV {policy_msrv}"
+        ));
+    }
+
+    require_contains(&root_cargo, "[workspace.lints.rust]", "root Cargo.toml")?;
+    require_contains(&root_cargo, "[workspace.lints.clippy]", "root Cargo.toml")?;
+    require_contains(
+        &policy,
+        "panic_free_tests = true",
+        "policy/clippy-lints.toml",
+    )?;
+    require_contains(
+        &policy,
+        "allow_test_carveouts = false",
+        "policy/clippy-lints.toml",
+    )?;
+    require_contains(
+        &policy,
+        "suppression_style = \"expect-with-reason\"",
+        "policy/clippy-lints.toml",
+    )?;
+
+    for carveout in [
+        "allow-unwrap-in-tests",
+        "allow-expect-in-tests",
+        "allow-panic-in-tests",
+        "allow-indexing-slicing-in-tests",
+        "allow-dbg-in-tests",
+    ] {
+        if clippy.contains(carveout) && !comment_only_mentions(&clippy, carveout) {
+            return Err(anyhow!(
+                "clippy.toml must not configure test carveout `{carveout}`"
+            ));
+        }
+    }
+
+    for planned in [
+        "clippy::same_length_and_capacity",
+        "clippy::manual_ilog2",
+        "clippy::decimal_bitwise_operands",
+        "clippy::needless_type_cast",
+        "clippy::disallowed_fields",
+        "clippy::manual_checked_ops",
+        "clippy::manual_take",
+        "clippy::manual_pop_if",
+        "clippy::duration_suboptimal_units",
+        "clippy::unnecessary_trailing_comma",
+    ] {
+        require_contains(&policy, planned, "policy/clippy-lints.toml")?;
+        let cargo_key = planned.trim_start_matches("clippy::");
+        if root_cargo.lines().any(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with(cargo_key) && trimmed.contains('=')
+        }) {
+            return Err(anyhow!(
+                "planned lint `{planned}` is active in Cargo.toml before its recorded MSRV flip"
+            ));
+        }
+    }
+
+    for lint in active_policy_lints(&policy) {
+        let cargo_key = lint.trim_start_matches("clippy::");
+        if !root_cargo.lines().any(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with(cargo_key) && trimmed.contains('=')
+        }) {
+            return Err(anyhow!(
+                "active policy lint `{lint}` is missing from root Cargo.toml"
+            ));
+        }
+    }
+
+    for manifest in cargo_manifests()? {
+        let manifest_text = fs::read_to_string(&manifest)?;
+        if !manifest_text.contains("[lints]") || !manifest_text.contains("workspace = true") {
+            return Err(anyhow!(
+                "{} must inherit workspace lints with `[lints] workspace = true`",
+                manifest.display()
+            ));
+        }
+    }
+
+    validate_debt(&debt)?;
+    validate_suppressions(Path::new("."))?;
+
+    println!("✅ Lint policy check passed");
+    Ok(())
+}
+
+fn require_contains(haystack: &str, needle: &str, label: &str) -> Result<()> {
+    if haystack.contains(needle) {
+        Ok(())
+    } else {
+        Err(anyhow!("{label} must contain `{needle}`"))
+    }
+}
+
+fn required_value(text: &str, key: &str) -> Result<String> {
+    text.lines()
+        .map(str::trim)
+        .find_map(|line| {
+            line.strip_prefix(key)
+                .and_then(|rest| rest.trim_start().strip_prefix('='))
+                .map(|value| value.trim().trim_matches('"').to_string())
+        })
+        .ok_or_else(|| anyhow!("missing required `{key}` value"))
+}
+
+fn active_policy_lints(policy: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut current_name: Option<String> = None;
+    let mut current_active = false;
+
+    for line in policy.lines().map(str::trim) {
+        if line == "[[lint]]" {
+            if current_active {
+                if let Some(name) = current_name.take() {
+                    result.push(name);
+                }
+            }
+            current_name = None;
+            current_active = false;
+        } else if let Some(value) = line.strip_prefix("name = ") {
+            current_name = Some(value.trim_matches('"').to_string());
+        } else if line == "status = \"active\"" {
+            current_active = true;
+        }
+    }
+
+    if current_active {
+        if let Some(name) = current_name {
+            result.push(name);
+        }
+    }
+
+    result
+}
+
+fn cargo_manifests() -> Result<Vec<PathBuf>> {
+    let mut manifests = vec![PathBuf::from("Cargo.toml")];
+    for entry in fs::read_dir("crates")? {
+        let entry = entry?;
+        let path = entry.path().join("Cargo.toml");
+        if path.exists() {
+            manifests.push(path);
+        }
+    }
+    manifests.push(PathBuf::from("xtask/Cargo.toml"));
+    manifests.sort();
+    Ok(manifests)
+}
+
+fn comment_only_mentions(text: &str, needle: &str) -> bool {
+    text.lines()
+        .filter(|line| line.contains(needle))
+        .all(|line| line.trim_start().starts_with('#'))
+}
+
+fn validate_debt(debt: &str) -> Result<()> {
+    let current_date = current_utc_date()?;
+    let mut in_debt = false;
+    let mut fields = BTreeSet::new();
+    let mut expires: Option<String> = None;
+
+    for line in debt.lines().map(str::trim) {
+        if line == "[[debt]]" {
+            if in_debt {
+                require_debt_fields(&fields)?;
+                require_unexpired_debt(expires.as_deref(), &current_date)?;
+            }
+            in_debt = true;
+            fields.clear();
+            expires = None;
+        } else if in_debt {
+            for field in ["lint", "path", "owner", "reason", "expires"] {
+                if line.starts_with(field) && line.contains('=') {
+                    fields.insert(field.to_string());
+                    if field == "expires" {
+                        expires = line
+                            .split_once('=')
+                            .map(|(_, value)| value.trim().trim_matches('"').to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    if in_debt {
+        require_debt_fields(&fields)?;
+        require_unexpired_debt(expires.as_deref(), &current_date)?;
+    }
+
+    Ok(())
+}
+
+fn current_utc_date() -> Result<String> {
+    let output = Command::new("date").args(["-u", "+%F"]).output()?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "failed to determine current UTC date for debt expiry"
+        ));
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().to_string())
+}
+
+fn require_unexpired_debt(expires: Option<&str>, current_date: &str) -> Result<()> {
+    let expires =
+        expires.ok_or_else(|| anyhow!("policy/clippy-debt.toml debt entry missing `expires`"))?;
+    if expires <= current_date {
+        return Err(anyhow!(
+            "policy/clippy-debt.toml debt entry expired on {expires}"
+        ));
+    }
+    Ok(())
+}
+
+fn require_debt_fields(fields: &BTreeSet<String>) -> Result<()> {
+    for required in ["lint", "path", "owner", "reason", "expires"] {
+        if !fields.contains(required) {
+            return Err(anyhow!(
+                "policy/clippy-debt.toml debt entry missing `{required}`"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_suppressions(root: &Path) -> Result<()> {
+    for rust_file in rust_files(root)? {
+        let text = fs::read_to_string(&rust_file)?;
+        let lines: Vec<_> = text.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("#[allow") || trimmed.starts_with("#![allow") {
+                return Err(anyhow!(
+                    "{}:{} uses #[allow]; use #[expect(..., reason = \"...\")] or policy debt instead",
+                    rust_file.display(),
+                    index + 1
+                ));
+            }
+            if trimmed.starts_with("#[expect") || trimmed.starts_with("#![expect") {
+                let attr = collect_attribute(&lines[index..]);
+                if !attr.contains("reason") {
+                    return Err(anyhow!(
+                        "{}:{} uses #[expect] without a reason",
+                        rust_file.display(),
+                        index + 1
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn collect_attribute(lines: &[&str]) -> String {
+    let mut attr = String::new();
+    for line in lines {
+        attr.push_str(line);
+        if line.contains(']') {
+            break;
+        }
+    }
+    attr
+}
+
+fn rust_files(root: &Path) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    collect_rust_files(root, &mut files)?;
+    files.sort();
+    Ok(files)
+}
+
+fn collect_rust_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = path.file_name().and_then(OsStr::to_str).unwrap_or_default();
+        if path.is_dir() {
+            if matches!(name, ".git" | "target") {
+                continue;
+            }
+            collect_rust_files(&path, files)?;
+        } else if path.extension().and_then(OsStr::to_str) == Some("rs") {
+            files.push(path);
+        }
+    }
+    Ok(())
 }
 
 fn docs(no_open: bool) -> Result<()> {

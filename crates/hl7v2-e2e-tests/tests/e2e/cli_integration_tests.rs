@@ -17,7 +17,7 @@ use super::common::init_tracing;
 // =========================================================================
 
 /// Create a CLI command
-#[allow(deprecated)]
+#[expect(deprecated, reason = "tracked by the workspace lint policy rollout")]
 fn cli() -> Command {
     Command::cargo_bin("hl7v2-cli").expect("Failed to find hl7v2-cli binary")
 }

@@ -11,7 +11,7 @@ use tonic::{Request, Response, Status};
 
 // Include the generated gRPC code
 /// Generated gRPC protocol code (protobuf messages and service traits).
-#[allow(missing_docs)]
+#[expect(missing_docs, reason = "tracked by the workspace lint policy rollout")]
 pub mod proto {
     tonic::include_proto!("hl7v2.v1");
 }
@@ -21,7 +21,7 @@ use proto::*;
 
 /// Implementation of the HL7Service gRPC trait
 pub struct Hl7ServiceImpl {
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     state: Arc<AppState>,
 }
 

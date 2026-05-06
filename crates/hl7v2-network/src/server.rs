@@ -304,7 +304,7 @@ impl MllpConnection {
 mod tests {
     use super::*;
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     struct TestHandler;
 
     impl MessageHandler for TestHandler {

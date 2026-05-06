@@ -3,7 +3,7 @@
 //! This module provides shared test fixtures, helpers, and utilities
 //! used across integration tests.
 
-#![allow(dead_code)]
+#![expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 
 use hl7v2_model::{Atom, Comp, Delims, Field, Message, Rep, Segment};
 use hl7v2_network::{MessageHandler, MllpClient, MllpClientBuilder, MllpServer, MllpServerConfig};
@@ -151,12 +151,12 @@ pub fn create_adt_a01_message() -> Message {
 }
 
 /// A simple echo handler that returns the received message as ACK.
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 pub struct EchoHandler {
     pub notify: Arc<Notify>,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 impl EchoHandler {
     pub fn new(notify: Arc<Notify>) -> Self {
         Self { notify }
@@ -196,7 +196,7 @@ impl MessageHandler for AckHandler {
 }
 
 /// A handler that delays before responding.
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 pub struct DelayedHandler {
     pub delay: Duration,
     pub notify: Arc<Notify>,

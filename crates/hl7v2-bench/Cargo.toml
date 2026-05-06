@@ -12,6 +12,9 @@ repository.workspace = true
 keywords = ["hl7", "healthcare", "benchmarking", "performance"]
 categories = ["development-tools", "parsing"]
 
+
+[lints]
+workspace = true
 [dependencies]
 # Core dependencies
 hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }

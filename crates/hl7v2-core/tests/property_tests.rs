@@ -24,7 +24,7 @@ fn safe_text() -> impl Strategy<Value = String> {
 }
 
 /// Generate text that may contain HL7 delimiters (for escape testing)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn text_with_delimiters() -> impl Strategy<Value = String> {
     proptest::string::string_regex("[A-Za-z0-9 |^~\\\\&]{0,50}").unwrap()
 }
@@ -48,7 +48,7 @@ fn simple_field() -> impl Strategy<Value = Field> {
 }
 
 /// Generate a field with potential delimiters
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn complex_field() -> impl Strategy<Value = Field> {
     text_with_delimiters().prop_map(|t| Field::from_text(&t))
 }
@@ -63,7 +63,7 @@ fn simple_segment() -> impl Strategy<Value = Segment> {
 }
 
 /// Generate a segment with complex fields
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn complex_segment() -> impl Strategy<Value = Segment> {
     (
         segment_id(),
@@ -73,7 +73,7 @@ fn complex_segment() -> impl Strategy<Value = Segment> {
 }
 
 /// Generate a valid MSH segment for a message
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn msh_segment() -> impl Strategy<Value = Segment> {
     // MSH segment with standard delimiters
     Just(Segment {
@@ -139,7 +139,7 @@ fn valid_hl7_message_multi_segment() -> impl Strategy<Value = String> {
 }
 
 /// Generate custom delimiters (valid ASCII characters that aren't control chars)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn custom_delims() -> impl Strategy<Value = Delims> {
     // Use a limited set of safe delimiter characters
     (0u8..4).prop_map(|i| match i {

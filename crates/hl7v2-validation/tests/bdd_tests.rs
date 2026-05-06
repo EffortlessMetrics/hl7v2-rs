@@ -22,27 +22,27 @@ pub struct ValidationWorld {
     /// Validation issues found
     issues: Vec<Issue>,
     /// Whether validation passed
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     validation_passed: bool,
     /// Profile constraints
     profile_constraints: HashMap<String, ProfileConstraint>,
     /// Last validated field
     last_validated_field: Option<String>,
     /// Last validation result for a field
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     last_field_valid: Option<bool>,
     /// Batch validation results
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     batch_results: Vec<bool>,
 }
 
 #[derive(Debug, Clone)]
 struct ProfileConstraint {
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     max_length: Option<usize>,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     required: bool,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     severity: Severity,
     allowed_values: Option<Vec<String>>,
     pattern: Option<String>,
@@ -92,7 +92,7 @@ impl ValidationWorld {
         self.validation_passed = false;
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     fn add_warning(&mut self, code: &str, path: &str, detail: &str) {
         self.issues.push(Issue::warning(
             code,

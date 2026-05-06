@@ -18,7 +18,7 @@ fn text_without_delimiters() -> impl Strategy<Value = String> {
 }
 
 /// Generate custom delimiters
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn custom_delims() -> impl Strategy<Value = Delims> {
     (
         any::<char>(),

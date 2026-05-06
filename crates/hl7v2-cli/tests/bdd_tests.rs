@@ -31,7 +31,7 @@ pub struct CliWorld {
     /// Current command arguments
     command_args: Vec<String>,
     /// File content for testing
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     file_content: Option<String>,
 }
 

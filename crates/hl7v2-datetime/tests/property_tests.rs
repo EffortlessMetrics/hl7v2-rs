@@ -11,57 +11,57 @@ use proptest::prelude::*;
 // ============================================================================
 
 /// Generate a valid year (1-9999)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn year_strategy() -> impl Strategy<Value = i32> {
     1i32..=9999
 }
 
 /// Generate a valid month (1-12)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn month_strategy() -> impl Strategy<Value = u32> {
     1u32..=12
 }
 
 /// Generate a valid day (1-31, further validation done in test)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn day_strategy() -> impl Strategy<Value = u32> {
     1u32..=31
 }
 
 /// Generate a valid hour (0-23)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn hour_strategy() -> impl Strategy<Value = u32> {
     0u32..=23
 }
 
 /// Generate a valid minute (0-59)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn minute_strategy() -> impl Strategy<Value = u32> {
     0u32..=59
 }
 
 /// Generate a valid second (0-59)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn second_strategy() -> impl Strategy<Value = u32> {
     0u32..=59
 }
 
 /// Generate a valid HL7 date string (YYYYMMDD)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn hl7_date_strategy() -> impl Strategy<Value = String> {
     (year_strategy(), month_strategy(), day_strategy())
         .prop_map(|(y, m, d)| format!("{:04}{:02}{:02}", y, m, d))
 }
 
 /// Generate a valid HL7 time string (HHMMSS)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn hl7_time_strategy() -> impl Strategy<Value = String> {
     (hour_strategy(), minute_strategy(), second_strategy())
         .prop_map(|(h, m, s)| format!("{:02}{:02}{:02}", h, m, s))
 }
 
 /// Generate a valid HL7 timestamp string (YYYYMMDDHHMMSS)
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn hl7_timestamp_strategy() -> impl Strategy<Value = String> {
     (hl7_date_strategy(), hl7_time_strategy()).prop_map(|(d, t)| format!("{}{}", d, t))
 }

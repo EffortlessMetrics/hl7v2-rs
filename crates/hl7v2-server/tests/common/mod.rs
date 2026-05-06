@@ -1,6 +1,6 @@
 //! Common test utilities and fixtures for integration tests.
 
-#![allow(dead_code)]
+#![expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 
 use axum::Router;
 use hl7v2_server::server::{AppState, Server, ServerConfig};

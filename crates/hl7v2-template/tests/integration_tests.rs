@@ -16,7 +16,7 @@ fn create_basic_template() -> Template {
     }
 }
 
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn create_template_with_values() -> Template {
     let mut values = HashMap::new();
     values.insert("PID.3".to_string(), vec![ValueSource::UuidV4]);

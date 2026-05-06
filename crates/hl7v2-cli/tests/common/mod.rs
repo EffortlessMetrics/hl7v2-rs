@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 /// Helper to create a new CLI command
-#[allow(deprecated)]
+#[expect(deprecated, reason = "tracked by the workspace lint policy rollout")]
 pub fn cli_command() -> Command {
     Command::cargo_bin("hl7v2-cli").expect("Failed to find hl7v2-cli binary")
 }

@@ -12,6 +12,9 @@ homepage.workspace = true
 keywords = ["hl7", "healthcare", "faker", "test-data", "mock"]
 categories = ["development-tools::testing", "parser-implementations"]
 
+
+[lints]
+workspace = true
 [dependencies]
 rand = "0.10.0"
 rand_distr = "0.6.0"

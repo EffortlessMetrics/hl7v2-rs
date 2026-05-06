@@ -395,7 +395,7 @@ fn error_handling_example() {
 }
 
 /// Summary of parsing results
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 #[derive(Debug, Default)]
 struct ParseSummary {
     messages: usize,
@@ -404,7 +404,7 @@ struct ParseSummary {
     errors: Vec<String>,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 impl ParseSummary {
     fn process_event(&mut self, event: Event) {
         match event {

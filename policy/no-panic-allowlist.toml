@@ -1,0 +1,5 @@
+schema_version = "0.3"
+
+# No panic-family exceptions are approved yet.
+# Future entries must use path + family + selector identity with owner,
+# explanation, classification, advisory last_seen, and optional expiry.

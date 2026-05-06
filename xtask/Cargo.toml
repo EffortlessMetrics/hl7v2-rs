@@ -8,6 +8,9 @@ description = "Development automation tasks"
 license.workspace = true
 publish = false
 
+
+[lints]
+workspace = true
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }

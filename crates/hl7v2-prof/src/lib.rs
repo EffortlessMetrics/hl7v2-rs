@@ -5,7 +5,10 @@
 //! `hl7v2-validation` crate for core validation logic.
 
 // Allow nested if-let patterns for readability in validation code
-#![allow(clippy::collapsible_if)]
+#![expect(
+    clippy::collapsible_if,
+    reason = "tracked by the workspace lint policy rollout"
+)]
 //!
 //! # Features
 //!
@@ -1098,7 +1101,7 @@ fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: 
 }
 
 /// Validate that a field value is in the allowed HL7 table
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues: &mut Vec<Issue>) {
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead

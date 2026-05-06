@@ -71,7 +71,7 @@ fn person_name_strategy() -> impl Strategy<Value = String> {
 }
 
 /// Generate any ASCII string
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn ascii_string_strategy() -> impl Strategy<Value = String> {
     ".*"
 }

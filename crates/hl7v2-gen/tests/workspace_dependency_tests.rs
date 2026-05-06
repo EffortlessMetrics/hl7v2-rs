@@ -5,7 +5,10 @@
 //! EFF-1136 is specifically about the tokio dev-dependency in hl7v2-gen.
 
 // Test code uses nested if statements for readability - allow this pattern
-#![allow(clippy::collapsible_if)]
+#![expect(
+    clippy::collapsible_if,
+    reason = "tracked by the workspace lint policy rollout"
+)]
 
 use std::fs;
 use std::path::Path;
@@ -101,7 +104,7 @@ fn is_hardcoded_version(dep_value: &toml::Value) -> bool {
 }
 
 /// Get all workspace crate Cargo.toml paths
-#[allow(dead_code)] // Used by commented-out cross-crate tests
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")] // Used by commented-out cross-crate tests
 fn get_workspace_cargo_tomls() -> Vec<std::path::PathBuf> {
     let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()

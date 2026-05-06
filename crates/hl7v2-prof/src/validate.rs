@@ -370,7 +370,7 @@ fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: 
 }
 
 /// Validate that a field value is in the allowed HL7 table
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 pub fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues: &mut Vec<Issue>) {
     // This function is kept for backward compatibility but the new
     // validate_hl7_tables_with_precedence function should be used instead

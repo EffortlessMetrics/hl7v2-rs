@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "tracked by the workspace lint policy rollout")]
 //! Benchmarks for the hl7v2-stream crate.
 //!
 //! These benchmarks measure:

@@ -31,7 +31,7 @@ impl PerformanceMonitor {
     }
 
     /// Get a specific metric
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     pub fn get_metric(&self, name: &str) -> Option<std::time::Duration> {
         self.metrics.get(name).copied()
     }

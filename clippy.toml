@@ -1,0 +1,8 @@
+# Repo-local Clippy configuration for hl7v2-rs.
+#
+# This file is intentionally limited to domain-specific policy knobs such as
+# disallowed methods, types, or macros. Do not add test carveouts such as
+# allow-unwrap-in-tests, allow-expect-in-tests, allow-panic-in-tests,
+# allow-indexing-slicing-in-tests, or allow-dbg-in-tests: this workspace is
+# panic-free across production code and tests.
+msrv = "1.93"

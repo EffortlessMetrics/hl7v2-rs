@@ -328,7 +328,7 @@ fn process_message_with_ack(hl7_bytes: &[u8]) -> Result<Vec<u8>, String> {
 
 /// Custom error type for processing
 #[derive(Debug)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 enum ProcessError {
     Parse(hl7v2_core::Error),
     Validation(Vec<String>),

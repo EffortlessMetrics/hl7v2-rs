@@ -1,0 +1,5 @@
+schema_version = "1.0"
+
+# Non-Rust policy exceptions will be added in a follow-up file-policy rollout.
+# Entries must provide path or glob, kind, owner, reason, surface,
+# classification, covered_by, and optional expiry.

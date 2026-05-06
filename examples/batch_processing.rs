@@ -155,11 +155,11 @@ fn process_batch_messages_example() {
 struct ProcessResult {
     message_num: usize,
     success: bool,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     patient_id: Option<String>,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     patient_name: Option<String>,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
     error: Option<String>,
 }
 
@@ -302,7 +302,7 @@ fn batch_error_handling_example() {
 }
 
 /// Safe message processing with error handling
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn process_message_safe(message: &Message, index: usize) -> ProcessResult {
     // Use pattern matching for safe extraction
     let patient_id = get(message, "PID.3.1").map(std::string::ToString::to_string);

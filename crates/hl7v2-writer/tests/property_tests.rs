@@ -52,25 +52,25 @@ fn simple_field() -> impl Strategy<Value = Field> {
 }
 
 /// Generate a field with potential delimiters
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn complex_field() -> impl Strategy<Value = Field> {
     text_with_delimiters().prop_map(|t| Field::from_text(&t))
 }
 
 /// Generate a component
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn component() -> impl Strategy<Value = Comp> {
     safe_text().prop_map(|t| Comp::from_text(&t))
 }
 
 /// Generate a repetition
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn repetition() -> impl Strategy<Value = Rep> {
     proptest::collection::vec(component(), 1..4).prop_map(|comps| Rep { comps })
 }
 
 /// Generate a field with repetitions
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn field_with_reps() -> impl Strategy<Value = Field> {
     proptest::collection::vec(repetition(), 1..3).prop_map(|reps| Field { reps })
 }
@@ -85,7 +85,7 @@ fn simple_segment() -> impl Strategy<Value = Segment> {
 }
 
 /// Generate a segment with complex fields
-#[allow(dead_code)]
+#[expect(dead_code, reason = "tracked by the workspace lint policy rollout")]
 fn complex_segment() -> impl Strategy<Value = Segment> {
     (
         segment_id(),

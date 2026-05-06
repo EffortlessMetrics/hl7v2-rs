@@ -7,7 +7,13 @@ mod property_tests;
 mod unit_tests;
 
 // Re-export for convenience (unused but kept for potential future use)
-#[allow(unused_imports)]
+#[expect(
+    unused_imports,
+    reason = "tracked by the workspace lint policy rollout"
+)]
 pub use property_tests::*;
-#[allow(unused_imports)]
+#[expect(
+    unused_imports,
+    reason = "tracked by the workspace lint policy rollout"
+)]
 pub use unit_tests::*;

@@ -12,6 +12,9 @@ homepage.workspace = true
 keywords = ["hl7", "healthcare", "mllp", "protocol", "framing"]
 categories = ["network-programming", "encoding"]
 
+
+[lints]
+workspace = true
 [dependencies]
 hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
 thiserror = { workspace = true }

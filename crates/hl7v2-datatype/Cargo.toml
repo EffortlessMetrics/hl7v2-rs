@@ -12,6 +12,9 @@ homepage.workspace = true
 keywords = ["hl7", "healthcare", "datatype", "validation"]
 categories = ["parser-implementations", "encoding"]
 
+
+[lints]
+workspace = true
 [dependencies]
 regex = "1.0"
 thiserror = { workspace = true }
