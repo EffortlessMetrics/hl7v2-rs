@@ -72,6 +72,22 @@ fn sample_oru_r01() -> String {
     .to_string()
 }
 
+/// Minimal profile accepted by the validation endpoint.
+fn default_validation_profile() -> &'static str {
+    r#"
+message_structure: "GENERIC"
+version: "2.5"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "PID"
+    required: true
+constraints:
+  - path: "PID.3"
+    required: true
+"#
+}
+
 // =========================================================================
 // Health Endpoint Tests
 // =========================================================================
@@ -570,7 +586,7 @@ mod validate_endpoint {
 
         let request_body = json!({
             "message": sample_adt_a01(),
-            "profile": "default",
+            "profile": default_validation_profile(),
             "mllp_framed": false
         });
 
@@ -607,7 +623,7 @@ mod validate_endpoint {
 
         let request_body = json!({
             "message": sample_oru_r01(),
-            "profile": "default",
+            "profile": default_validation_profile(),
             "mllp_framed": false
         });
 
@@ -638,7 +654,7 @@ mod validate_endpoint {
 
         let request_body = json!({
             "message": "Invalid HL7",
-            "profile": "default",
+            "profile": default_validation_profile(),
             "mllp_framed": false
         });
 

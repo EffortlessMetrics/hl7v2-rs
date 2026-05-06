@@ -5,10 +5,23 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use serde_json::json;
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
 mod common;
+
+fn validate_request(request_body: Value) -> Request<Body> {
+    Request::builder()
+        .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+            [127, 0, 0, 1],
+            8080,
+        ))))
+        .uri("/hl7/validate")
+        .method("POST")
+        .header("Content-Type", "application/json")
+        .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+        .unwrap()
+}
 
 #[tokio::test]
 async fn test_validate_with_minimal_profile() {
@@ -20,27 +33,17 @@ async fn test_validate_with_minimal_profile() {
         "mllp_framed": false
     });
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
 
     assert_eq!(
         response.status(),
         StatusCode::OK,
         "Validation with minimal profile should succeed"
     );
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body_json["valid"], true);
 }
 
 #[tokio::test]
@@ -53,21 +56,7 @@ async fn test_validate_adt_a01_with_matching_profile() {
         "mllp_framed": false
     });
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
 
     assert_eq!(
         response.status(),
@@ -95,27 +84,13 @@ async fn test_validate_malformed_message_returns_error() {
         "mllp_framed": false
     });
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
 
-    // Should return error for malformed message
-    assert!(
-        response.status().is_client_error() || response.status().is_server_error(),
-        "Malformed message should return error status"
-    );
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body_json["code"], "PARSE_ERROR");
 }
 
 #[tokio::test]
@@ -128,31 +103,66 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
         "mllp_framed": false
     });
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
 
-    // Invalid YAML profile might still succeed if parsed as simple string
-    // or may return an error depending on validation strictness
-    assert!(
-        response.status() == StatusCode::OK
-            || response.status().is_client_error()
-            || response.status().is_server_error(),
-        "Invalid profile should be handled gracefully, got: {}",
-        response.status()
-    );
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body_json["code"], "PROFILE_LOAD_ERROR");
+}
+
+#[tokio::test]
+async fn test_validate_profile_missing_required_fields_returns_profile_load_error() {
+    let app = common::create_test_router();
+
+    let request_body = json!({
+        "message": common::fixtures::MINIMAL_VALID,
+        "profile": r#"
+message_structure: "ADT_A01"
+segments:
+  - id: "MSH"
+"#,
+        "mllp_framed": false
+    });
+
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body_json["code"], "PROFILE_LOAD_ERROR");
+}
+
+#[tokio::test]
+async fn test_validate_invalid_message_against_profile_returns_valid_false() {
+    let app = common::create_test_router();
+
+    let profile = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+constraints:
+  - path: "PID.3"
+    required: true
+"#;
+
+    let request_body = json!({
+        "message": common::fixtures::MINIMAL_VALID,
+        "profile": profile,
+        "mllp_framed": false
+    });
+
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body_json["valid"], false);
+    assert_eq!(body_json["errors"][0]["code"], "MISSING_REQUIRED_FIELD");
 }
 
 #[tokio::test]
@@ -163,21 +173,7 @@ async fn test_validate_missing_message_field_returns_400() {
         "profile": common::profiles::MINIMAL_PROFILE
     });
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
@@ -195,21 +191,7 @@ async fn test_validate_missing_profile_field_returns_400() {
         "message": common::fixtures::MINIMAL_VALID
     });
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
 
     assert!(
         response.status() == StatusCode::BAD_REQUEST
@@ -283,21 +265,7 @@ async fn test_validate_returns_json_response() {
         "mllp_framed": false
     });
 
-    let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let response = app.oneshot(validate_request(request_body)).await.unwrap();
 
     if response.status() == StatusCode::OK {
         let content_type = response

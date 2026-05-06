@@ -123,12 +123,12 @@ hl7_tables:
     name: "Administrative Sex"
     version: "2.5.1"
     codes:
-      - code: "F"
-        display: "Female"
-      - code: "M"
-        display: "Male"
-      - code: "U"
-        display: "Unknown"
+      - value: "F"
+        description: "Female"
+      - value: "M"
+        description: "Male"
+      - value: "U"
+        description: "Unknown"
 
 valuesets:
   - path: "PID.8"
