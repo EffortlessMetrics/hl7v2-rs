@@ -93,7 +93,7 @@ pub struct MessageMetadata {
 pub struct ValidateRequest {
     /// Raw HL7 message content
     pub message: String,
-    /// Profile to validate against (path or name)
+    /// Inline profile YAML content to validate against
     pub profile: String,
     /// Whether the message is MLLP framed
     #[serde(default)]
