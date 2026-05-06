@@ -1,7 +1,7 @@
 //! Request and response models for the HTTP API.
 //!
 //! These models follow JSON:API conventions where appropriate and align
-//! with the OpenAPI specification in `schemas/openapi/hl7v2-api.yaml`.
+//! with the OpenAPI specification in `api/openapi/hl7v2-api-v1.yaml`.
 
 use serde::{Deserialize, Serialize};
 
@@ -112,6 +112,114 @@ pub struct ValidateResponse {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub warnings: Vec<ValidationWarning>,
     /// Message metadata
+    pub metadata: MessageMetadata,
+}
+
+/// ACK generation request body
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AckRequest {
+    /// Raw HL7 message content
+    pub message: String,
+    /// ACK code to generate
+    pub code: AckRequestCode,
+    /// Optional error text for ERR segment generation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    /// Whether the input message is MLLP framed
+    #[serde(default)]
+    pub mllp_framed: bool,
+    /// Whether to MLLP frame the ACK response
+    #[serde(default)]
+    pub mllp_frame: bool,
+}
+
+/// HTTP ACK codes.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AckRequestCode {
+    /// Application accept
+    #[serde(rename = "AA")]
+    Aa,
+    /// Application error
+    #[serde(rename = "AE")]
+    Ae,
+    /// Application reject
+    #[serde(rename = "AR")]
+    Ar,
+    /// Commit accept
+    #[serde(rename = "CA")]
+    Ca,
+    /// Commit error
+    #[serde(rename = "CE")]
+    Ce,
+    /// Commit reject
+    #[serde(rename = "CR")]
+    Cr,
+}
+
+impl AckRequestCode {
+    /// Return the HL7 code string.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Aa => "AA",
+            Self::Ae => "AE",
+            Self::Ar => "AR",
+            Self::Ca => "CA",
+            Self::Ce => "CE",
+            Self::Cr => "CR",
+        }
+    }
+}
+
+/// ACK generation response body
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AckResponse {
+    /// Generated ACK message, optionally MLLP framed
+    pub ack_message: String,
+    /// Generated ACK code
+    pub ack_code: String,
+    /// Metadata extracted from the generated ACK message
+    pub metadata: MessageMetadata,
+}
+
+/// Normalize request body
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NormalizeRequest {
+    /// Raw HL7 message content
+    pub message: String,
+    /// Whether the input message is MLLP framed
+    #[serde(default)]
+    pub mllp_framed: bool,
+    /// Normalization options
+    #[serde(default)]
+    pub options: NormalizeOptions,
+}
+
+/// Normalize options
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NormalizeOptions {
+    /// Rewrite delimiters to canonical `|^~\&`
+    #[serde(default = "default_true")]
+    pub canonical_delimiters: bool,
+    /// MLLP frame the normalized response
+    #[serde(default)]
+    pub mllp_frame: bool,
+}
+
+impl Default for NormalizeOptions {
+    fn default() -> Self {
+        Self {
+            canonical_delimiters: true,
+            mllp_frame: false,
+        }
+    }
+}
+
+/// Normalize response body
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NormalizeResponse {
+    /// Normalized HL7 message, optionally MLLP framed
+    pub normalized_message: String,
+    /// Metadata extracted from the normalized message
     pub metadata: MessageMetadata,
 }
 

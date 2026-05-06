@@ -28,16 +28,7 @@ pub async fn parse_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<ParseRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Parse the message
-    let message_bytes = request.message.as_bytes();
-
-    let message = if request.mllp_framed {
-        hl7v2_core::parse_mllp(message_bytes)
-            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
-    } else {
-        hl7v2_core::parse(message_bytes)
-            .map_err(|e| AppError::Parse(format!("Parse error: {}", e)))?
-    };
+    let message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
@@ -63,16 +54,7 @@ pub async fn validate_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<ValidateRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Parse the message
-    let message_bytes = request.message.as_bytes();
-
-    let message = if request.mllp_framed {
-        hl7v2_core::parse_mllp(message_bytes)
-            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
-    } else {
-        hl7v2_core::parse(message_bytes)
-            .map_err(|e| AppError::Parse(format!("Parse error: {}", e)))?
-    };
+    let message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
@@ -126,6 +108,96 @@ pub async fn validate_handler(
     Ok((StatusCode::OK, Json(response)))
 }
 
+/// Handler for POST /hl7/ack
+pub async fn ack_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<AckRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
+    let ack_code = map_ack_code(request.code);
+
+    let ack_message = if let Some(error_message) = request.error_message.as_deref() {
+        hl7v2_gen::ack_with_error(&message, ack_code, Some(error_message))
+    } else {
+        hl7v2_gen::ack(&message, ack_code)
+    }
+    .map_err(|e| AppError::Internal(format!("Failed to generate ACK: {}", e)))?;
+
+    let metadata = extract_metadata(&ack_message)?;
+    let ack_bytes = hl7v2_writer::write(&ack_message);
+    let ack_bytes = if request.mllp_frame {
+        hl7v2_mllp::wrap_mllp(&ack_bytes)
+    } else {
+        ack_bytes
+    };
+
+    let response = AckResponse {
+        ack_message: String::from_utf8(ack_bytes)
+            .map_err(|e| AppError::Internal(format!("ACK was not UTF-8: {}", e)))?,
+        ack_code: request.code.as_str().to_string(),
+        metadata,
+    };
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
+/// Handler for POST /hl7/normalize
+pub async fn normalize_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<NormalizeRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let message_bytes = request.message.as_bytes();
+    let input = if request.mllp_framed {
+        hl7v2_mllp::unwrap_mllp(message_bytes)
+            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
+    } else {
+        message_bytes
+    };
+
+    let normalized_bytes = hl7v2_normalize::normalize(input, request.options.canonical_delimiters)
+        .map_err(|e| AppError::Parse(format!("Normalize error: {}", e)))?;
+    let normalized_message = hl7v2_core::parse(&normalized_bytes)
+        .map_err(|e| AppError::Parse(format!("Normalized message parse error: {}", e)))?;
+    let metadata = extract_metadata(&normalized_message)?;
+
+    let response_bytes = if request.options.mllp_frame {
+        hl7v2_mllp::wrap_mllp(&normalized_bytes)
+    } else {
+        normalized_bytes
+    };
+
+    let response = NormalizeResponse {
+        normalized_message: String::from_utf8(response_bytes)
+            .map_err(|e| AppError::Internal(format!("Normalized message was not UTF-8: {}", e)))?,
+        metadata,
+    };
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
+fn parse_request_message(
+    message_bytes: &[u8],
+    mllp_framed: bool,
+) -> Result<hl7v2_core::Message, AppError> {
+    if mllp_framed {
+        hl7v2_core::parse_mllp(message_bytes)
+            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))
+    } else {
+        hl7v2_core::parse(message_bytes).map_err(|e| AppError::Parse(format!("Parse error: {}", e)))
+    }
+}
+
+fn map_ack_code(code: AckRequestCode) -> hl7v2_gen::AckCode {
+    match code {
+        AckRequestCode::Aa => hl7v2_gen::AckCode::AA,
+        AckRequestCode::Ae => hl7v2_gen::AckCode::AE,
+        AckRequestCode::Ar => hl7v2_gen::AckCode::AR,
+        AckRequestCode::Ca => hl7v2_gen::AckCode::CA,
+        AckRequestCode::Ce => hl7v2_gen::AckCode::CE,
+        AckRequestCode::Cr => hl7v2_gen::AckCode::CR,
+    }
+}
+
 /// Extract message metadata from parsed message
 fn extract_metadata(message: &hl7v2_core::Message) -> Result<MessageMetadata, AppError> {
     // Find MSH segment
@@ -139,9 +211,7 @@ fn extract_metadata(message: &hl7v2_core::Message) -> Result<MessageMetadata, Ap
     }
 
     // Extract MSH fields
-    let message_type = hl7v2_core::get(message, "MSH.9")
-        .unwrap_or("UNKNOWN")
-        .to_string();
+    let message_type = joined_components(message, "MSH.9").unwrap_or_else(|| "UNKNOWN".to_string());
 
     let version = hl7v2_core::get(message, "MSH.12")
         .unwrap_or("2.5")
@@ -162,6 +232,25 @@ fn extract_metadata(message: &hl7v2_core::Message) -> Result<MessageMetadata, Ap
         segment_count: message.segments.len(),
         charsets: message.charsets.clone(),
     })
+}
+
+fn joined_components(message: &hl7v2_core::Message, path: &str) -> Option<String> {
+    let mut components = Vec::new();
+
+    for index in 1.. {
+        let component_path = format!("{}.{}", path, index);
+        match hl7v2_core::get(message, &component_path) {
+            Some(value) if !value.is_empty() => components.push(value.to_string()),
+            Some(_) => {}
+            None => break,
+        }
+    }
+
+    if components.is_empty() {
+        hl7v2_core::get(message, path).map(str::to_string)
+    } else {
+        Some(components.join("^"))
+    }
 }
 
 /// Application error type with specific error variants.

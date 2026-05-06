@@ -26,6 +26,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(handle),
             api_key: None,
+            cors_allowed_origins: Default::default(),
         })
     }
 

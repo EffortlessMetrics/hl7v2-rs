@@ -53,6 +53,7 @@ impl ServerWorld {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: self.api_key.clone(),
+            cors_allowed_origins: Default::default(),
         });
         hl7v2_server::routes::build_router(state)
     }
@@ -273,7 +274,7 @@ async fn main() {
     // parser, so skip this custom harness when a focused Rust test filter does
     // not target the BDD scenarios.
     if let Some(filter) = std::env::args().skip(1).find(|arg| !arg.starts_with('-'))
-        && !["bdd", "cucumber", "http", "server"]
+        && !["bdd", "cucumber"]
             .iter()
             .any(|allowed| filter.contains(allowed))
     {
