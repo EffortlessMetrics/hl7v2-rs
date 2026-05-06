@@ -178,7 +178,7 @@ message ValidateRequest {
   // HL7 message bytes
   bytes message = 1;
 
-  // Profile name or URL
+  // Inline HL7v2 profile YAML content
   string profile = 2;
 
   // Whether message is MLLP-framed
