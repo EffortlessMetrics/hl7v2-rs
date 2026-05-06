@@ -1371,8 +1371,8 @@ mod tests {
             return Err(anyhow!("xtask should not be publishable"));
         }
 
-        assert_dependency_precedes(&ordered, "hl7v2-datatype", "hl7v2-core")?;
         assert_dependency_precedes(&ordered, "hl7v2-core", "hl7v2")?;
+        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-datatype")?;
         assert_dependency_precedes(&ordered, "hl7v2-template-values", "hl7v2-template")?;
         Ok(())
     }
