@@ -63,34 +63,7 @@ impl Hl7Service for Hl7ServiceImpl {
 
         match parse_result {
             Ok(msg) => {
-                let metadata = MessageMetadata {
-                    message_type: msg
-                        .segments
-                        .iter()
-                        .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(7))
-                        .and_then(|f: &RustField| f.first_text())
-                        .unwrap_or("UNKNOWN")
-                        .to_string(),
-                    version: msg
-                        .segments
-                        .iter()
-                        .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(10))
-                        .and_then(|f: &RustField| f.first_text())
-                        .unwrap_or("UNKNOWN")
-                        .to_string(),
-                    control_id: msg
-                        .segments
-                        .iter()
-                        .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(8))
-                        .and_then(|f: &RustField| f.first_text())
-                        .unwrap_or("UNKNOWN")
-                        .to_string(),
-                    sending_facility: String::new(),
-                    receiving_facility: String::new(),
-                };
+                let metadata = extract_grpc_metadata(&msg);
 
                 let proto_msg = proto::Message::from(msg);
 
@@ -262,6 +235,35 @@ impl Hl7Service for Hl7ServiceImpl {
 // ============================================================================
 // Conversions
 // ============================================================================
+
+fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
+    MessageMetadata {
+        message_type: joined_components(msg, "MSH.9").unwrap_or_else(|| "UNKNOWN".to_string()),
+        version: hl7v2_core::get(msg, "MSH.12")
+            .unwrap_or("UNKNOWN")
+            .to_string(),
+        control_id: hl7v2_core::get(msg, "MSH.10")
+            .unwrap_or("UNKNOWN")
+            .to_string(),
+        sending_facility: hl7v2_core::get(msg, "MSH.4").unwrap_or("").to_string(),
+        receiving_facility: hl7v2_core::get(msg, "MSH.6").unwrap_or("").to_string(),
+    }
+}
+
+fn joined_components(msg: &RustMessage, field_path: &str) -> Option<String> {
+    let mut components = Vec::new();
+
+    for component in 1.. {
+        let path = format!("{field_path}.{component}");
+        match hl7v2_core::get(msg, &path) {
+            Some(value) if !value.is_empty() => components.push(value.to_string()),
+            _ if component == 1 => return None,
+            _ => break,
+        }
+    }
+
+    Some(components.join("^"))
+}
 
 impl From<RustMessage> for proto::Message {
     fn from(msg: RustMessage) -> Self {

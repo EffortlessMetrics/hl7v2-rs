@@ -269,5 +269,16 @@ fn then_content_type(_world: &mut ServerWorld, _expected: String) {
 // Run the tests
 #[tokio::main]
 async fn main() {
+    // Cargo passes test filters to every test binary. Cucumber owns its own CLI
+    // parser, so skip this custom harness when a focused Rust test filter does
+    // not target the BDD scenarios.
+    if let Some(filter) = std::env::args().skip(1).find(|arg| !arg.starts_with('-'))
+        && !["bdd", "cucumber", "http", "server"]
+            .iter()
+            .any(|allowed| filter.contains(allowed))
+    {
+        return;
+    }
+
     ServerWorld::cucumber().run_and_exit("./features").await;
 }
