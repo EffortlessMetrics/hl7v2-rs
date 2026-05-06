@@ -179,11 +179,7 @@ pub mod synthetic {
 }
 
 #[cfg(feature = "redact")]
-pub mod redact {
-    //! PHI redaction helpers.
-
-    pub use hl7v2_redact::*;
-}
+pub mod redact;
 
 #[cfg(feature = "lifecycle")]
 pub mod lifecycle {
