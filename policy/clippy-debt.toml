@@ -1,0 +1,10 @@
+schema = 1
+
+# Temporary lint exceptions live here as expiring, owned debt receipts.
+#
+# [[debt]]
+# lint = "clippy::indexing_slicing"
+# path = "crates/hl7v2-parser/src/table.rs"
+# owner = "parser"
+# reason = "Generated table access; replace with checked table abstraction."
+# expires = "2026-07-01"

@@ -1,0 +1,6 @@
+schema_version = "0.3"
+
+# Panic-family exceptions are intentionally empty for the strict workspace
+# baseline. If an exception is temporarily unavoidable, add an owned,
+# expiring `[[allow]]` entry whose identity is path + family + selector, with
+# `last_seen` used only as an advisory locator.

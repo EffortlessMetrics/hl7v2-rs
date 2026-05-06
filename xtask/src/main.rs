@@ -6,6 +6,7 @@ use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
@@ -79,6 +80,8 @@ enum Commands {
     HookPreCommit,
     /// Git pre-push hook: run full gate checks
     HookPrePush,
+    /// Verify workspace lint policy, ledgers, and debt receipts
+    CheckLintPolicy,
 }
 
 fn main() -> Result<()> {
@@ -105,6 +108,7 @@ fn main() -> Result<()> {
         Commands::Docs { no_open } => docs(no_open)?,
         Commands::HookPreCommit => hook_pre_commit()?,
         Commands::HookPrePush => hook_pre_push()?,
+        Commands::CheckLintPolicy => check_lint_policy()?,
     }
 
     Ok(())
@@ -132,6 +136,11 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
     let run_fmt = only.as_deref().is_none_or(|s| s == "fmt");
     let run_clippy = only.as_deref().is_none_or(|s| s == "clippy");
     let run_test = only.as_deref().is_none_or(|s| s == "test");
+
+    if !changed_only {
+        println!("Checking lint policy...");
+        check_lint_policy()?;
+    }
 
     if run_fmt {
         if check {
@@ -199,7 +208,7 @@ fn lint_fix() -> Result<()> {
     println!("Applying clippy fixes (best-effort)...");
     // Best-effort fix pass: do NOT use -D warnings here
     // Also: allow failure; we still do a strict verify after.
-    let _ = Command::new("cargo")
+    match Command::new("cargo")
         .args([
             "clippy",
             "--workspace",
@@ -211,7 +220,12 @@ fn lint_fix() -> Result<()> {
         ])
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .status();
+        .status()
+    {
+        Ok(status) if status.success() => {}
+        Ok(status) => println!("Best-effort clippy fix exited with status: {status}"),
+        Err(error) => println!("Best-effort clippy fix could not run: {error}"),
+    }
 
     println!("Verifying clippy (strict)...");
     run_command(
@@ -259,10 +273,7 @@ fn setup() -> Result<()> {
     let tools = ["cargo-deny", "cargo-audit", "cargo-nextest", "just"];
     for tool in tools {
         if !command_exists(tool) {
-            println!(
-                "Note: '{}' not found. Consider installing it for full DevEx.",
-                tool
-            );
+            println!("Note: '{tool}' not found. Consider installing it for full DevEx.");
         }
     }
 
@@ -307,13 +318,16 @@ fn publish_plan(from: Option<String>) -> Result<()> {
 
     println!("📋 crates.io publish order");
     for (index, crate_name) in crates.iter().enumerate() {
-        println!("{:>2}. {}", index + 1, crate_name);
+        let display_index = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("publish-plan index overflow"))?;
+        println!("{display_index:>2}. {crate_name}");
     }
 
     println!();
     println!("Execute with:");
     if let Some(start) = crates.first() {
-        println!("  cargo run -p xtask -- publish --yes --from {}", start);
+        println!("  cargo run -p xtask -- publish --yes --from {start}");
     } else {
         println!("  cargo run -p xtask -- publish --yes");
     }
@@ -343,10 +357,12 @@ fn publish(
     println!("🚢 Publishing {} crates to crates.io...", crates.len());
     for (index, crate_name) in crates.iter().enumerate() {
         publish_crate(crate_name, retry_attempts, retry_delay_secs)?;
-        if index + 1 < crates.len() && retry_delay_secs > 0 {
+        let has_next = index
+            .checked_add(1)
+            .is_some_and(|next_index| next_index < crates.len());
+        if has_next && retry_delay_secs > 0 {
             println!(
-                "Waiting {}s for crates.io index propagation before continuing...",
-                retry_delay_secs
+                "Waiting {retry_delay_secs}s for crates.io index propagation before continuing..."
             );
             sleep(Duration::from_secs(retry_delay_secs));
         }
@@ -359,10 +375,7 @@ fn publish(
 fn publish_crate(crate_name: &str, retry_attempts: u32, retry_delay_secs: u64) -> Result<()> {
     let max_attempts = retry_attempts.max(1);
     for attempt in 1..=max_attempts {
-        println!(
-            "Publishing {} (attempt {}/{})...",
-            crate_name, attempt, max_attempts
-        );
+        println!("Publishing {crate_name} (attempt {attempt}/{max_attempts})...");
 
         let output = Command::new("cargo")
             .args(["publish", "-p", crate_name, "--locked"])
@@ -384,10 +397,7 @@ fn publish_crate(crate_name: &str, retry_attempts: u32, retry_delay_secs: u64) -
 
         let combined = format!("{stdout}\n{stderr}");
         if combined.contains("is already uploaded") || combined.contains("already exists") {
-            println!(
-                "Skipping {} because this version is already present on crates.io.",
-                crate_name
-            );
+            println!("Skipping {crate_name} because this version is already present on crates.io.");
             return Ok(());
         }
 
@@ -400,44 +410,43 @@ fn publish_crate(crate_name: &str, retry_attempts: u32, retry_delay_secs: u64) -
 
         if retryable && attempt < max_attempts {
             println!(
-                "Retryable publish failure for {}. Waiting {}s before retry...",
-                crate_name, retry_delay_secs
+                "Retryable publish failure for {crate_name}. Waiting {retry_delay_secs}s before retry..."
             );
             sleep(Duration::from_secs(retry_delay_secs));
             continue;
         }
 
         return Err(anyhow!(
-            "Failed to publish {} after {} attempt(s).",
-            crate_name,
-            attempt
+            "Failed to publish {crate_name} after {attempt} attempt(s)."
         ));
     }
 
-    unreachable!("publish loop always returns or errors")
+    Err(anyhow!(
+        "publish loop ended without returning a status for {crate_name}"
+    ))
 }
 
 fn scaffold(name: &str, description: Option<String>) -> Result<()> {
     let crate_name = if name.starts_with("hl7v2-") {
         name.to_string()
     } else {
-        format!("hl7v2-{}", name)
+        format!("hl7v2-{name}")
     };
 
-    println!("🏗️  Scaffolding new microcrate: {}...", crate_name);
+    println!("🏗️  Scaffolding new microcrate: {crate_name}...");
 
     let root = env::current_dir()?;
     let crate_path = root.join("crates").join(&crate_name);
 
     if crate_path.exists() {
-        return Err(anyhow!("Crate {} already exists", crate_name));
+        return Err(anyhow!("Crate {crate_name} already exists"));
     }
 
     fs::create_dir_all(crate_path.join("src"))?;
     fs::create_dir_all(crate_path.join("tests"))?;
 
     // Cargo.toml
-    let description = description.unwrap_or_else(|| format!("HL7 v2 {} functionality", name));
+    let description = description.unwrap_or_else(|| format!("HL7 v2 {name} functionality"));
     let cargo_toml = format!(
         r#"[package]
 name = "{crate_name}"
@@ -513,7 +522,7 @@ mod tests {
 "#,
     )?;
 
-    println!("✅ Crate {} scaffolded successfully!", crate_name);
+    println!("✅ Crate {crate_name} scaffolded successfully!");
     println!("Don't forget to run 'cargo build' to update the workspace.");
 
     Ok(())
@@ -573,8 +582,11 @@ fn publish_order(from: Option<&str>) -> Result<Vec<String>> {
             let index = ordered
                 .iter()
                 .position(|crate_name| crate_name == start)
-                .ok_or_else(|| anyhow!("Unknown publishable crate '{}'", start))?;
-            Ok(ordered[index..].to_vec())
+                .ok_or_else(|| anyhow!("Unknown publishable crate '{start}'"))?;
+            let resumed = ordered
+                .get(index..)
+                .ok_or_else(|| anyhow!("resume index for {start} is outside publish order"))?;
+            Ok(resumed.to_vec())
         }
         None => Ok(ordered),
     }
@@ -616,9 +628,12 @@ fn topological_publish_order(packages: &HashMap<String, Package>) -> Result<Vec<
                 .entry(dependency)
                 .or_default()
                 .insert(package.name.to_string());
-            *indegree
+            let package_indegree = indegree
                 .get_mut(package.name.as_str())
-                .expect("publishable package should have indegree entry") += 1;
+                .ok_or_else(|| anyhow!("publishable package should have indegree entry"))?;
+            *package_indegree = package_indegree
+                .checked_add(1)
+                .ok_or_else(|| anyhow!("publish indegree overflow"))?;
         }
     }
 
@@ -635,8 +650,10 @@ fn topological_publish_order(packages: &HashMap<String, Package>) -> Result<Vec<
             for child in children {
                 let degree = indegree
                     .get_mut(child)
-                    .expect("child package should have indegree entry");
-                *degree -= 1;
+                    .ok_or_else(|| anyhow!("child package should have indegree entry"))?;
+                *degree = degree
+                    .checked_sub(1)
+                    .ok_or_else(|| anyhow!("publish indegree underflow"))?;
                 if *degree == 0 {
                     ready.insert(child.clone());
                 }
@@ -668,6 +685,296 @@ fn internal_publish_dependencies(
         .filter(|dep| dep.kind != DependencyKind::Development)
         .filter_map(|dep| packages.contains_key(&dep.name).then_some(dep.name.clone()))
         .collect()
+}
+
+fn check_lint_policy() -> Result<()> {
+    println!("🔎 Checking lint policy...");
+
+    let root = env::current_dir()?;
+    let cargo_toml = root.join("Cargo.toml");
+    let policy_lints = root.join("policy/clippy-lints.toml");
+    let policy_debt = root.join("policy/clippy-debt.toml");
+    let clippy_toml = root.join("clippy.toml");
+
+    let cargo_text = fs::read_to_string(&cargo_toml)?;
+    let policy_text = fs::read_to_string(&policy_lints)?;
+
+    let workspace_msrv = quoted_value_after(&cargo_text, "[workspace.package]", "rust-version")
+        .ok_or_else(|| anyhow!("Cargo.toml is missing workspace.package.rust-version"))?;
+    let policy_msrv = top_level_quoted_value(&policy_text, "msrv")
+        .ok_or_else(|| anyhow!("policy/clippy-lints.toml is missing msrv"))?;
+    if workspace_msrv != policy_msrv {
+        return Err(anyhow!(
+            "workspace.package.rust-version ({workspace_msrv}) must match policy/clippy-lints.toml msrv ({policy_msrv})"
+        ));
+    }
+
+    let active_lints = parse_policy_lints(&policy_text, "active")?;
+    let planned_lints = parse_policy_lints(&policy_text, "planned")?;
+    let manifest_lints = parse_workspace_lints(&cargo_text);
+
+    for (name, level) in &active_lints {
+        match manifest_lints.get(name) {
+            Some(actual) if actual == level => {}
+            Some(actual) => {
+                return Err(anyhow!(
+                    "active lint {name} is {actual} in Cargo.toml but {level} in policy/clippy-lints.toml"
+                ));
+            }
+            None => {
+                return Err(anyhow!(
+                    "active lint {name} is present in policy/clippy-lints.toml but missing from Cargo.toml"
+                ));
+            }
+        }
+    }
+
+    for name in manifest_lints.keys() {
+        if !active_lints.contains_key(name) {
+            return Err(anyhow!(
+                "workspace lint {name} is present in Cargo.toml but missing as an active lint in policy/clippy-lints.toml"
+            ));
+        }
+    }
+
+    for planned in planned_lints.keys() {
+        if manifest_lints.contains_key(planned) {
+            return Err(anyhow!(
+                "planned lint {planned} must not be active in Cargo.toml before its activate_when_msrv gate"
+            ));
+        }
+    }
+
+    ensure_policy_flags(&policy_text)?;
+    ensure_no_test_carveouts(&clippy_toml)?;
+    ensure_workspace_lint_inheritance(&root)?;
+    ensure_debt_receipts(&policy_debt)?;
+
+    println!("✅ Lint policy checks passed!");
+    Ok(())
+}
+
+fn ensure_policy_flags(policy_text: &str) -> Result<()> {
+    for (key, expected) in [
+        ("panic_free_tests", "true"),
+        ("allow_test_carveouts", "false"),
+        ("suppression_style", "expect-with-reason"),
+        ("blanket_categories", "false"),
+    ] {
+        let actual = value_after(policy_text, "[policy]", key)
+            .ok_or_else(|| anyhow!("policy/clippy-lints.toml is missing policy.{key}"))?;
+        let actual = actual.trim().trim_matches('"');
+        if actual != expected {
+            return Err(anyhow!(
+                "policy/clippy-lints.toml policy.{key} must be {expected}, found {actual}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_no_test_carveouts(clippy_toml: &Path) -> Result<()> {
+    let text = fs::read_to_string(clippy_toml)?;
+    let banned = [
+        "allow-unwrap-in-tests",
+        "allow-expect-in-tests",
+        "allow-panic-in-tests",
+        "allow-indexing-slicing-in-tests",
+        "allow-dbg-in-tests",
+    ];
+    for line in text.lines().map(str::trim) {
+        if line.starts_with('#') {
+            continue;
+        }
+        for key in banned {
+            if line.starts_with(key) {
+                return Err(anyhow!(
+                    "clippy.toml must not configure test carveout `{key}`; tests inherit the workspace panic-free policy"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn ensure_workspace_lint_inheritance(root: &Path) -> Result<()> {
+    let metadata = MetadataCommand::new().current_dir(root).exec()?;
+    let workspace_members: HashSet<_> = metadata.workspace_members.iter().cloned().collect();
+    let mut inherited_count = 0usize;
+
+    for package in metadata
+        .packages
+        .iter()
+        .filter(|pkg| workspace_members.contains(&pkg.id))
+    {
+        let manifest_path = PathBuf::from(package.manifest_path.as_str());
+        let text = fs::read_to_string(&manifest_path)?;
+        if !text.lines().any(|line| line.trim() == "[lints]") {
+            continue;
+        }
+
+        let inherits = value_after(&text, "[lints]", "workspace")
+            .map(|value| value.trim() == "true")
+            .unwrap_or(false);
+        if !inherits {
+            return Err(anyhow!(
+                "{} has a [lints] table but does not inherit workspace lints with `workspace = true`",
+                manifest_path.display()
+            ));
+        }
+        inherited_count = inherited_count
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("lint inheritance count overflow"))?;
+    }
+
+    if inherited_count == 0 {
+        return Err(anyhow!(
+            "at least one workspace package must opt in with [lints] workspace = true before policy checks can run"
+        ));
+    }
+
+    println!("lint policy: {inherited_count} workspace package(s) currently inherit the baseline");
+    Ok(())
+}
+
+fn ensure_debt_receipts(policy_debt: &Path) -> Result<()> {
+    let text = fs::read_to_string(policy_debt)?;
+    for (index, entry) in table_array_entries(&text, "[[debt]]").iter().enumerate() {
+        let entry_number = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("debt entry index overflow"))?;
+        for key in ["lint", "path", "owner", "reason", "expires"] {
+            if top_level_quoted_value(entry, key).is_none() {
+                return Err(anyhow!(
+                    "policy/clippy-debt.toml debt entry {entry_number} is missing required field `{key}`"
+                ));
+            }
+        }
+
+        let expires = top_level_quoted_value(entry, "expires").ok_or_else(|| {
+            anyhow!("policy/clippy-debt.toml debt entry {entry_number} is missing expires")
+        })?;
+        if expires.as_str() < "2026-05-06" {
+            return Err(anyhow!(
+                "policy/clippy-debt.toml debt entry {entry_number} expired on {expires}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn parse_workspace_lints(cargo_text: &str) -> BTreeMap<String, String> {
+    let mut lints = BTreeMap::new();
+    for (section, prefix) in [
+        ("[workspace.lints.rust]", ""),
+        ("[workspace.lints.clippy]", "clippy::"),
+    ] {
+        for line in section_body(cargo_text, section) {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            if let Some((name, level)) = trimmed.split_once('=') {
+                lints.insert(
+                    format!("{prefix}{}", name.trim()),
+                    level.trim().trim_matches('"').to_string(),
+                );
+            }
+        }
+    }
+    lints
+}
+
+fn parse_policy_lints(policy_text: &str, status: &str) -> Result<BTreeMap<String, String>> {
+    let mut lints = BTreeMap::new();
+    for entry in table_array_entries(policy_text, "[[lint]]") {
+        let entry_status = top_level_quoted_value(&entry, "status")
+            .ok_or_else(|| anyhow!("policy lint entry is missing status"))?;
+        if entry_status != status {
+            continue;
+        }
+        let name = top_level_quoted_value(&entry, "name")
+            .ok_or_else(|| anyhow!("policy lint entry is missing name"))?;
+        let level = top_level_quoted_value(&entry, "level")
+            .ok_or_else(|| anyhow!("policy lint entry {name} is missing level"))?;
+        if status == "planned" && top_level_quoted_value(&entry, "activate_when_msrv").is_none() {
+            return Err(anyhow!("planned lint {name} is missing activate_when_msrv"));
+        }
+        for required in ["class", "reason"] {
+            if top_level_quoted_value(&entry, required).is_none() {
+                return Err(anyhow!("policy lint entry {name} is missing {required}"));
+            }
+        }
+        lints.insert(name, level);
+    }
+    Ok(lints)
+}
+
+fn quoted_value_after(text: &str, section: &str, key: &str) -> Option<String> {
+    value_after(text, section, key).map(|value| value.trim().trim_matches('"').to_string())
+}
+
+fn value_after(text: &str, section: &str, key: &str) -> Option<String> {
+    section_body(text, section).find_map(|line| {
+        let trimmed = line.trim();
+        if trimmed.starts_with('#') {
+            return None;
+        }
+        let (name, value) = trimmed.split_once('=')?;
+        (name.trim() == key).then(|| value.trim().to_string())
+    })
+}
+
+fn top_level_quoted_value(text: &str, key: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let trimmed = line.trim();
+        if trimmed.starts_with('#') {
+            return None;
+        }
+        let (name, value) = trimmed.split_once('=')?;
+        (name.trim() == key).then(|| value.trim().trim_matches('"').to_string())
+    })
+}
+
+fn section_body<'a>(text: &'a str, section: &str) -> impl Iterator<Item = &'a str> {
+    let mut in_section = false;
+    text.lines().filter(move |line| {
+        let trimmed = line.trim();
+        if trimmed == section {
+            in_section = true;
+            return false;
+        }
+        if in_section && trimmed.starts_with('[') {
+            in_section = false;
+        }
+        in_section
+    })
+}
+
+fn table_array_entries(text: &str, marker: &str) -> Vec<String> {
+    let mut entries = Vec::new();
+    let mut current = Vec::new();
+    let mut in_entry = false;
+
+    for line in text.lines() {
+        if line.trim() == marker {
+            if in_entry {
+                entries.push(current.join("\n"));
+                current.clear();
+            }
+            in_entry = true;
+            continue;
+        }
+        if in_entry {
+            current.push(line.to_string());
+        }
+    }
+
+    if in_entry {
+        entries.push(current.join("\n"));
+    }
+
+    entries
 }
 
 fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
@@ -764,8 +1071,8 @@ fn get_changed_scope() -> Result<ChangedScope> {
         }
         if line.starts_with("crates/") {
             let parts: Vec<&str> = line.split('/').collect();
-            if parts.len() > 1 {
-                changed_crates.insert(parts[1].to_string());
+            if let Some(crate_name) = parts.get(1) {
+                changed_crates.insert((*crate_name).to_string());
             }
         } else {
             has_non_crate_files = true;
@@ -788,45 +1095,67 @@ mod tests {
     use super::*;
 
     #[test]
-    fn publish_order_uses_workspace_dependency_order() {
-        let ordered = publish_order(None).expect("workspace publish order should resolve");
+    fn publish_order_uses_workspace_dependency_order() -> Result<()> {
+        let ordered = publish_order(None)?;
 
-        assert!(ordered.contains(&"hl7v2-core".to_string()));
-        assert!(ordered.contains(&"hl7v2".to_string()));
-        assert!(ordered.contains(&"hl7v2-template-values".to_string()));
-        assert!(!ordered.contains(&"xtask".to_string()));
+        ensure_contains(&ordered, "hl7v2-core")?;
+        ensure_contains(&ordered, "hl7v2")?;
+        ensure_contains(&ordered, "hl7v2-template-values")?;
+        if ordered.iter().any(|crate_name| crate_name == "xtask") {
+            return Err(anyhow!("xtask should not be publishable"));
+        }
 
-        assert_dependency_precedes(&ordered, "hl7v2-datatype", "hl7v2-core");
-        assert_dependency_precedes(&ordered, "hl7v2-core", "hl7v2");
-        assert_dependency_precedes(&ordered, "hl7v2-template-values", "hl7v2-template");
+        assert_dependency_precedes(&ordered, "hl7v2-datatype", "hl7v2-core")?;
+        assert_dependency_precedes(&ordered, "hl7v2-core", "hl7v2")?;
+        assert_dependency_precedes(&ordered, "hl7v2-template-values", "hl7v2-template")?;
+        Ok(())
     }
 
     #[test]
-    fn publish_order_can_resume_from_a_named_crate() {
-        let ordered = publish_order(None).expect("workspace publish order should resolve");
-        let resumed =
-            publish_order(Some("hl7v2-core")).expect("resume point should exist in workspace");
+    fn publish_order_can_resume_from_a_named_crate() -> Result<()> {
+        let ordered = publish_order(None)?;
+        let resumed = publish_order(Some("hl7v2-core"))?;
         let start = ordered
             .iter()
             .position(|crate_name| crate_name == "hl7v2-core")
-            .expect("hl7v2-core should be publishable");
+            .ok_or_else(|| anyhow!("hl7v2-core should be publishable"))?;
+        let expected = ordered
+            .get(start..)
+            .ok_or_else(|| anyhow!("resume start is outside publish order"))?
+            .to_vec();
 
-        assert_eq!(resumed, ordered[start..].to_vec());
+        if resumed != expected {
+            return Err(anyhow!(
+                "resumed publish order did not match expected suffix"
+            ));
+        }
+        Ok(())
     }
 
-    fn assert_dependency_precedes(ordered: &[String], dependency: &str, dependent: &str) {
+    fn assert_dependency_precedes(
+        ordered: &[String],
+        dependency: &str,
+        dependent: &str,
+    ) -> Result<()> {
         let dependency_index = ordered
             .iter()
             .position(|crate_name| crate_name == dependency)
-            .unwrap_or_else(|| panic!("{dependency} should be present in publish order"));
+            .ok_or_else(|| anyhow!("{dependency} should be present in publish order"))?;
         let dependent_index = ordered
             .iter()
             .position(|crate_name| crate_name == dependent)
-            .unwrap_or_else(|| panic!("{dependent} should be present in publish order"));
+            .ok_or_else(|| anyhow!("{dependent} should be present in publish order"))?;
 
-        assert!(
-            dependency_index < dependent_index,
-            "{dependency} should appear before {dependent}"
-        );
+        if dependency_index >= dependent_index {
+            return Err(anyhow!("{dependency} should appear before {dependent}"));
+        }
+        Ok(())
+    }
+
+    fn ensure_contains(ordered: &[String], crate_name: &str) -> Result<()> {
+        if ordered.iter().any(|name| name == crate_name) {
+            return Ok(());
+        }
+        Err(anyhow!("{crate_name} should be present in publish order"))
     }
 }
