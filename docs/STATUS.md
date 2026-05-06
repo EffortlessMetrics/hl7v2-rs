@@ -3,7 +3,7 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-06
-> **Project Status**: v1.2.0 current release; current `main` is tested, but full publish readiness is not yet proven.
+> **Project Status**: v1.2.0 current release; current `main` is tested and package-verified, but the real crates.io publish sequence has not been executed.
 
 ## Core Components
 
@@ -45,11 +45,11 @@ This document provides a transparent view of which features are fully implemente
 
 - ✅ **Main workflows**: CI, Coverage, Security, and API Contracts were green on merge commit `6de37e0`.
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves 30 publishable crates.
-- 🟡 **Dry-run publish**: Direct `cargo publish --dry-run --locked` is proven through `hl7v2-core`; it stops at `hl7v2` because `hl7v2-core` is not yet present on crates.io. See `docs/audits/publish-dry-run-2026-05-06.md`.
+- ✅ **Dry-run publish**: Direct `cargo publish --dry-run --locked` is proven through `hl7v2-core`; workspace-patched dry-run verification proves crates 17-30 while the dependency chain is still unpublished. See `docs/audits/publish-dry-run-2026-05-06.md`.
 
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.
 
 ---
 
-**Release v1.2.0 is tagged. Current main is tested; full crates.io publish readiness still needs the publish sequence or a local-registry simulation for higher-level crates.**
+**Release v1.2.0 is tagged. Current main is tested and package-verified; the remaining release operation is the actual crates.io publish sequence.**
