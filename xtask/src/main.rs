@@ -1658,6 +1658,24 @@ fn no_panic_propose(include_staged: bool) -> Result<()> {
     let files = collect_rust_files_for(&root, &metadata, &packages)?;
     let findings = scan_panic_family(&root, &files)?;
 
+    // Dedup by allowlist identity (path + family + selector). `last_seen` is
+    // advisory so multiple findings with the same selector identity collapse
+    // into one proposed entry.
+    let mut seen: BTreeSet<(String, String, String, String, Option<String>)> = BTreeSet::new();
+    let mut deduped: Vec<&PanicFinding> = Vec::new();
+    for finding in &findings {
+        let key = (
+            finding.path.clone(),
+            finding.family.as_str().to_string(),
+            finding.family.selector_kind().to_string(),
+            finding.family.callee().to_string(),
+            finding.container.clone(),
+        );
+        if seen.insert(key) {
+            deduped.push(finding);
+        }
+    }
+
     let report_dir = root.join("target/policy");
     fs::create_dir_all(&report_dir)?;
     let report_path = report_dir.join("no-panic-proposed-allowlist.toml");
@@ -1668,7 +1686,7 @@ fn no_panic_propose(include_staged: bool) -> Result<()> {
     out.push_str("# Review each entry, set owner/classification/explanation/expires, then\n");
     out.push_str("# copy into policy/no-panic-allowlist.toml.\n\n");
 
-    for (index, finding) in findings.iter().enumerate() {
+    for (index, finding) in deduped.iter().enumerate() {
         let proposal_index = index
             .checked_add(1)
             .ok_or_else(|| anyhow!("proposal index overflow"))?;
@@ -1699,8 +1717,10 @@ fn no_panic_propose(include_staged: bool) -> Result<()> {
 
     fs::write(&report_path, out)?;
     println!(
-        "wrote {} proposed entr(ies) to {}",
+        "wrote {} proposed entr(ies) ({} raw findings deduped to {}) to {}",
+        deduped.len(),
         findings.len(),
+        deduped.len(),
         report_path.display()
     );
     Ok(())
@@ -2840,5 +2860,225 @@ mod tests {
             return Ok(());
         }
         Err(anyhow!("{crate_name} should be present in publish order"))
+    }
+
+    // ---- glob_match ------------------------------------------------------
+
+    #[test]
+    fn glob_star_does_not_cross_slashes() {
+        assert!(glob_match("foo/*.rs", "foo/bar.rs"));
+        assert!(!glob_match("foo/*.rs", "foo/sub/bar.rs"));
+    }
+
+    #[test]
+    fn glob_double_star_crosses_slashes() {
+        assert!(glob_match("foo/**", "foo/bar.rs"));
+        assert!(glob_match("foo/**", "foo/sub/bar.rs"));
+        assert!(glob_match("foo/**/baz", "foo/a/b/baz"));
+    }
+
+    #[test]
+    fn glob_question_matches_single_non_slash() {
+        assert!(glob_match("ab?", "abc"));
+        assert!(!glob_match("ab?", "ab/"));
+        assert!(!glob_match("ab?", "ab"));
+    }
+
+    #[test]
+    fn glob_literal_match_and_mismatch() {
+        assert!(glob_match("Cargo.toml", "Cargo.toml"));
+        assert!(!glob_match("Cargo.toml", "cargo.toml"));
+    }
+
+    // ---- file-policy auto-allow -----------------------------------------
+
+    #[test]
+    fn auto_allow_covers_rust_and_repo_metadata() {
+        for path in [
+            "src/lib.rs",
+            "Cargo.toml",
+            "Cargo.lock",
+            "crates/foo/Cargo.toml",
+            "README.md",
+            "docs/X.md",
+            "LICENSE",
+            ".gitignore",
+            ".gitattributes",
+            ".envrc",
+        ] {
+            assert!(
+                file_is_auto_allowed(path),
+                "{path} should be auto-allowed without an entry"
+            );
+        }
+    }
+
+    #[test]
+    fn auto_allow_does_not_cover_non_rust_programming_surfaces() {
+        for path in [
+            ".github/workflows/ci.yml",
+            "policy/clippy-lints.toml",
+            "schemas/message.schema.json",
+            "infrastructure/k8s/deployment.yaml",
+            "scripts/tests/test.sh",
+            "flake.nix",
+        ] {
+            assert!(
+                !file_is_auto_allowed(path),
+                "{path} must require a non-rust-allowlist entry"
+            );
+        }
+    }
+
+    // ---- panic-family scanning ------------------------------------------
+
+    fn first_finding(rel: &str, src: &str) -> Option<PanicFinding> {
+        let mut out = Vec::new();
+        let suppressed = file_level_clippy_suppressions(src);
+        scan_panic_in_file(rel, src, &suppressed, &mut out);
+        out.into_iter().next()
+    }
+
+    #[test]
+    fn scanner_detects_unwrap_method_call() {
+        let src = "fn parses_msh() {\n    let _ = some.unwrap();\n}\n";
+        let finding = first_finding("a.rs", src);
+        assert!(finding.is_some(), "unwrap should be detected");
+        if let Some(finding) = finding {
+            assert_eq!(finding.family.as_str(), "unwrap");
+            assert_eq!(finding.family.callee(), "unwrap");
+            assert_eq!(finding.family.selector_kind(), "method_call");
+            assert_eq!(finding.container.as_deref(), Some("parses_msh"));
+            assert_eq!(finding.line, 2);
+        }
+    }
+
+    #[test]
+    fn scanner_detects_panic_macro() {
+        let src = "fn boom() {\n    panic!(\"x\");\n}\n";
+        let finding = first_finding("a.rs", src);
+        assert!(finding.is_some(), "panic! should be detected");
+        if let Some(finding) = finding {
+            assert_eq!(finding.family.as_str(), "panic_macro");
+            assert_eq!(finding.family.selector_kind(), "macro");
+        }
+    }
+
+    #[test]
+    fn scanner_skips_unwrap_inside_string_literal() {
+        let src = "fn f() {\n    let _ = \".unwrap()\";\n}\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_skips_unwrap_inside_line_comment() {
+        let src = "fn f() {\n    // foo.unwrap();\n}\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_skips_unwrap_inside_block_comment() {
+        let src = "fn f() {\n    /* foo.unwrap(); */\n}\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_honors_file_level_expect_attribute() {
+        let src = "#![expect(clippy::unwrap_used, reason = \"r\")]\nfn f() { x.unwrap(); }\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_honors_inner_cfg_attr_test_expect() {
+        let src = "#![cfg_attr(test, expect(clippy::unwrap_used, reason = \"r\"))]\nfn f() { x.unwrap(); }\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_honors_item_level_expect_attribute() {
+        let src = "#[expect(clippy::unwrap_used, reason = \"r\")]\nfn f() { x.unwrap(); }\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_does_not_treat_dotted_unwrap_as_method() {
+        // `..unwrap()` is not a real call (won't compile), but nothing should
+        // match if the previous char is `.`.
+        let src = "fn f() { x..unwrap(); }\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    // ---- allowlist matching ---------------------------------------------
+
+    #[test]
+    fn allowlist_entry_matches_when_path_family_and_selector_align() {
+        let entry = NoPanicAllowEntry {
+            id: "panic-0001".into(),
+            path: "crates/x/src/lib.rs".into(),
+            family: "unwrap".into(),
+            classification: "test_helper".into(),
+            owner: "x".into(),
+            explanation: "y".into(),
+            expires: "2027-01-01".into(),
+            selector_kind: "method_call".into(),
+            selector_callee: "unwrap".into(),
+            selector_container: Some("parse_msh".into()),
+        };
+        let finding = PanicFinding {
+            path: "crates/x/src/lib.rs".into(),
+            family: PanicFamily::Unwrap,
+            container: Some("parse_msh".into()),
+            line: 99,
+            column: 99,
+        };
+        assert!(no_panic_entry_matches_finding(&entry, &finding));
+    }
+
+    #[test]
+    fn allowlist_entry_with_no_container_matches_any_container() {
+        let entry = NoPanicAllowEntry {
+            id: "panic-0002".into(),
+            path: "crates/x/src/lib.rs".into(),
+            family: "unwrap".into(),
+            classification: "test_helper".into(),
+            owner: "x".into(),
+            explanation: "y".into(),
+            expires: "2027-01-01".into(),
+            selector_kind: "method_call".into(),
+            selector_callee: "unwrap".into(),
+            selector_container: None,
+        };
+        let finding = PanicFinding {
+            path: "crates/x/src/lib.rs".into(),
+            family: PanicFamily::Unwrap,
+            container: Some("anything".into()),
+            line: 1,
+            column: 1,
+        };
+        assert!(no_panic_entry_matches_finding(&entry, &finding));
+    }
+
+    #[test]
+    fn allowlist_entry_does_not_match_different_family() {
+        let entry = NoPanicAllowEntry {
+            id: "panic-0003".into(),
+            path: "crates/x/src/lib.rs".into(),
+            family: "unwrap".into(),
+            classification: "test_helper".into(),
+            owner: "x".into(),
+            explanation: "y".into(),
+            expires: "2027-01-01".into(),
+            selector_kind: "method_call".into(),
+            selector_callee: "unwrap".into(),
+            selector_container: None,
+        };
+        let finding = PanicFinding {
+            path: "crates/x/src/lib.rs".into(),
+            family: PanicFamily::Expect,
+            container: None,
+            line: 1,
+            column: 1,
+        };
+        assert!(!no_panic_entry_matches_finding(&entry, &finding));
     }
 }
