@@ -77,26 +77,10 @@ pub async fn validate_handler(
     // Extract metadata
     let metadata = extract_metadata(&message)?;
 
-    // Load the profile and validate
-    // Note: The profile format in the request must match the Profile struct format.
-    // Test profiles using legacy formats (msh_constraints, field_constraints, etc.)
-    // will fail to parse.
-    let profile = match hl7v2_prof::load_profile_checked(&request.profile) {
-        Ok(p) => p,
-        Err(e) => {
-            // For backward compatibility with tests using legacy profile formats,
-            // we log the error but return a placeholder response.
-            // In production, this should return an error.
-            tracing::warn!("Profile load error: {}", e);
-            let response = ValidateResponse {
-                valid: true,
-                errors: Vec::new(),
-                warnings: Vec::new(),
-                metadata,
-            };
-            return Ok((StatusCode::OK, Json(response)));
-        }
-    };
+    // Load the profile before validation. Profile load failures are client
+    // errors, not successful validation results.
+    let profile = hl7v2_prof::load_profile_checked(&request.profile)
+        .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
 
     // Perform validation using the profile
     let issues = hl7v2_prof::validate(&message, &profile);

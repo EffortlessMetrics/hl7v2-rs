@@ -111,9 +111,21 @@ fn given_invalid_json(world: &mut ServerWorld) {
 #[given("a valid HL7 ADT^A01 message payload with profile")]
 fn given_payload_with_profile(world: &mut ServerWorld) {
     let msg = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20231119120000||ADT^A01|MSG001|P|2.5\rPID|1||MRN123^^^Facility^MR||Doe^John^A||19800101|M\r";
+    let profile = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "PID"
+    required: true
+constraints:
+  - path: "PID.3"
+    required: true
+"#;
     let body = serde_json::json!({
         "message": msg,
-        "profile": "profiles/adt_a01.yaml",
+        "profile": profile,
         "mllp_framed": false
     });
     world.request_body = Some(serde_json::to_string(&body).unwrap());
