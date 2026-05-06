@@ -3,12 +3,9 @@
 //! These tests validate the complete flow:
 //! Parse HL7 message → Validate → Generate ACK → Write response
 
-use hl7v2_ack::{AckCode, ack};
-use hl7v2_core::get;
-use hl7v2_parser::parse;
+use hl7v2::conformance::validation::Validator;
+use hl7v2::{AckCode, Issue, Message, Severity, ack, get, parse, write};
 use hl7v2_test_utils::{SampleMessages, assert_hl7_roundtrips};
-use hl7v2_validation::{Issue, Severity, Validator};
-use hl7v2_writer::write;
 
 use super::common::init_tracing;
 
@@ -16,7 +13,7 @@ use super::common::init_tracing;
 struct SimpleValidator;
 
 impl Validator for SimpleValidator {
-    fn validate(&self, _msg: &hl7v2_core::Message) -> Vec<Issue> {
+    fn validate(&self, _msg: &Message) -> Vec<Issue> {
         // Basic validation - no issues for valid messages
         Vec::new()
     }

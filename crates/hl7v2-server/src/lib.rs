@@ -75,7 +75,7 @@ pub enum Error {
 
     /// Failed to parse the incoming HL7 message.
     #[error("Parse error: {0}")]
-    Parse(#[from] hl7v2_core::Error),
+    Parse(#[from] hl7v2::Error),
 
     /// Validation failed for message contents.
     #[error("Validation error: {0}")]

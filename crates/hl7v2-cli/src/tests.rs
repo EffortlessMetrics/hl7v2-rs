@@ -82,7 +82,7 @@ mod cli_unit_tests {
 
     mod parse_command {
         use super::*;
-        use hl7v2_core::{parse, to_json};
+        use hl7v2::{parse, to_json};
 
         #[test]
         fn test_parse_valid_hl7_message() {
@@ -119,7 +119,7 @@ mod cli_unit_tests {
             mllp_bytes.push(0x1C); // EB
             mllp_bytes.push(0x0D); // CR
 
-            let result = hl7v2_core::parse_mllp(&mllp_bytes);
+            let result = hl7v2::parse_mllp(&mllp_bytes);
             assert!(result.is_ok());
 
             let message = result.unwrap();
@@ -159,7 +159,7 @@ mod cli_unit_tests {
 
     mod norm_command {
         use super::*;
-        use hl7v2_core::{parse, write};
+        use hl7v2::{parse, write};
 
         #[test]
         fn test_normalize_roundtrip() {
@@ -183,7 +183,7 @@ mod cli_unit_tests {
             let normalized = write(&message);
 
             // Wrap in MLLP
-            let mllp_bytes = hl7v2_core::wrap_mllp(&normalized);
+            let mllp_bytes = hl7v2::wrap_mllp(&normalized);
 
             // Verify MLLP framing
             assert_eq!(mllp_bytes[0], 0x0B); // SB
@@ -201,7 +201,7 @@ mod cli_unit_tests {
 
         #[test]
         fn test_validate_with_valid_profile() {
-            // Profile format must match hl7v2_prof::Profile struct
+            // Profile format must match hl7v2::Profile struct
             let profile_yaml = r#"
 message_structure: ADT_A01
 version: "2.5.1"
@@ -213,13 +213,13 @@ constraints:
   - path: MSH.2
     required: true
 "#;
-            let result = hl7v2_prof::load_profile(profile_yaml);
+            let result = hl7v2::load_profile(profile_yaml);
             assert!(result.is_ok(), "Failed to load profile: {:?}", result.err());
         }
 
         #[test]
         fn test_validate_detects_missing_required_segment() {
-            // Profile format must match hl7v2_prof::Profile struct
+            // Profile format must match hl7v2::Profile struct
             let profile_yaml = r#"
 message_structure: ADT_A01
 version: "2.5.1"
@@ -238,11 +238,11 @@ constraints:
   - path: ZZ1
     required: true
 "#;
-            let profile = hl7v2_prof::load_profile(profile_yaml).expect("Profile should load");
-            let message = hl7v2_core::parse(SampleMessages::adt_a01().as_bytes())
-                .expect("Parse should succeed");
+            let profile = hl7v2::load_profile(profile_yaml).expect("Profile should load");
+            let message =
+                hl7v2::parse(SampleMessages::adt_a01().as_bytes()).expect("Parse should succeed");
 
-            let results = hl7v2_prof::validate(&message, &profile);
+            let results = hl7v2::validate(&message, &profile);
 
             // Should have validation issues because ZZ1 is not in the sample message
             assert!(
@@ -258,12 +258,12 @@ constraints:
 
     mod ack_command {
         use super::*;
-        use hl7v2_gen::{AckCode, ack};
+        use hl7v2::{AckCode, ack};
 
         #[test]
         fn test_generate_ack_aa() {
             let content = SampleMessages::adt_a01();
-            let message = hl7v2_core::parse(content.as_bytes()).expect("Parse should succeed");
+            let message = hl7v2::parse(content.as_bytes()).expect("Parse should succeed");
 
             let ack_result = ack(&message, AckCode::AA);
             assert!(ack_result.is_ok());
@@ -276,7 +276,7 @@ constraints:
         #[test]
         fn test_generate_ack_ae() {
             let content = SampleMessages::adt_a01();
-            let message = hl7v2_core::parse(content.as_bytes()).expect("Parse should succeed");
+            let message = hl7v2::parse(content.as_bytes()).expect("Parse should succeed");
 
             let ack_result = ack(&message, AckCode::AE);
             assert!(ack_result.is_ok());
@@ -285,7 +285,7 @@ constraints:
         #[test]
         fn test_generate_ack_ar() {
             let content = SampleMessages::adt_a01();
-            let message = hl7v2_core::parse(content.as_bytes()).expect("Parse should succeed");
+            let message = hl7v2::parse(content.as_bytes()).expect("Parse should succeed");
 
             let ack_result = ack(&message, AckCode::AR);
             assert!(ack_result.is_ok());
@@ -294,7 +294,7 @@ constraints:
         #[test]
         fn test_ack_contains_original_message_control_id() {
             let content = SampleMessages::adt_a01();
-            let message = hl7v2_core::parse(content.as_bytes()).expect("Parse should succeed");
+            let message = hl7v2::parse(content.as_bytes()).expect("Parse should succeed");
 
             let ack_message = ack(&message, AckCode::AA).expect("ACK should generate");
 
@@ -312,7 +312,7 @@ constraints:
 
         #[test]
         fn test_parse_template_yaml() {
-            // Template format matches hl7v2_template::Template struct
+            // Template format matches hl7v2::synthetic::template::Template struct
             let template_yaml = r#"
 name: ADT_A01
 delims: "^~\\&"
@@ -321,7 +321,8 @@ segments:
   - "PID|1||123456^^^HOSP^MR||Doe^John"
 values: {}
 "#;
-            let result: Result<hl7v2_gen::Template, _> = serde_yaml::from_str(template_yaml);
+            let result: Result<hl7v2::synthetic::generate::Template, _> =
+                serde_yaml::from_str(template_yaml);
             assert!(
                 result.is_ok(),
                 "Failed to parse template YAML: {:?}",
@@ -339,21 +340,21 @@ values: {}
 
         #[test]
         fn test_parse_empty_input_returns_error() {
-            let result = hl7v2_core::parse(b"");
+            let result = hl7v2::parse(b"");
             assert!(result.is_err());
         }
 
         #[test]
         fn test_parse_invalid_input_returns_error() {
             // Not a valid HL7 message
-            let result = hl7v2_core::parse(b"This is not HL7");
+            let result = hl7v2::parse(b"This is not HL7");
             assert!(result.is_err());
         }
 
         #[test]
         fn test_parse_truncated_message_returns_error() {
             // Truncated message (just MSH with no proper structure)
-            let result = hl7v2_core::parse(b"MSH");
+            let result = hl7v2::parse(b"MSH");
             assert!(result.is_err());
         }
 
@@ -367,7 +368,7 @@ values: {}
         #[test]
         fn test_invalid_profile_yaml_returns_error() {
             let invalid_yaml = "this is not: valid: yaml:::";
-            let _result = hl7v2_prof::load_profile(invalid_yaml);
+            let _result = hl7v2::load_profile(invalid_yaml);
             // Should handle gracefully (either error or empty profile)
             // Behavior depends on implementation
         }
@@ -383,7 +384,7 @@ values: {}
         #[test]
         fn test_mllp_wrap() {
             let data = b"MSH|^~\\&|Test\r";
-            let wrapped = hl7v2_core::wrap_mllp(data);
+            let wrapped = hl7v2::wrap_mllp(data);
 
             assert_eq!(wrapped[0], 0x0B); // SB
             assert!(wrapped[..].ends_with(&[0x1C, 0x0D])); // EB CR
@@ -397,16 +398,16 @@ values: {}
             mllp_bytes.push(0x1C);
             mllp_bytes.push(0x0D);
 
-            let message = hl7v2_core::parse_mllp(&mllp_bytes).expect("Should parse MLLP");
+            let message = hl7v2::parse_mllp(&mllp_bytes).expect("Should parse MLLP");
             assert!(!message.segments.is_empty());
         }
 
         #[test]
         fn test_mllp_write() {
             let content = SampleMessages::adt_a01();
-            let message = hl7v2_core::parse(content.as_bytes()).expect("Parse should succeed");
+            let message = hl7v2::parse(content.as_bytes()).expect("Parse should succeed");
 
-            let mllp_bytes = hl7v2_core::write_mllp(&message);
+            let mllp_bytes = hl7v2::write_mllp(&message);
 
             assert_eq!(mllp_bytes[0], 0x0B);
             assert!(mllp_bytes[..].ends_with(&[0x1C, 0x0D]));
@@ -454,8 +455,8 @@ values: {}
         #[test]
         fn test_json_pretty_format() {
             let content = SampleMessages::adt_a01();
-            let message = hl7v2_core::parse(content.as_bytes()).expect("Parse should succeed");
-            let json_value = hl7v2_core::to_json(&message);
+            let message = hl7v2::parse(content.as_bytes()).expect("Parse should succeed");
+            let json_value = hl7v2::to_json(&message);
 
             let pretty = serde_json::to_string_pretty(&json_value).expect("Should serialize");
             assert!(pretty.contains('\n')); // Pretty format has newlines
@@ -464,8 +465,8 @@ values: {}
         #[test]
         fn test_json_compact_format() {
             let content = SampleMessages::adt_a01();
-            let message = hl7v2_core::parse(content.as_bytes()).expect("Parse should succeed");
-            let json_value = hl7v2_core::to_json(&message);
+            let message = hl7v2::parse(content.as_bytes()).expect("Parse should succeed");
+            let json_value = hl7v2::to_json(&message);
 
             let compact = serde_json::to_string(&json_value).expect("Should serialize");
             // Compact format should be smaller than pretty
@@ -479,7 +480,7 @@ values: {}
 
     mod new_flags {
         use super::*;
-        use hl7v2_core::{normalize, parse, write};
+        use hl7v2::{normalize, parse, write};
 
         // -------------------------------------------------------------------------
         // --canonical-delims flag tests
@@ -525,7 +526,7 @@ values: {}
             let message = parse(content.as_bytes()).expect("Parse should succeed");
 
             let output_bytes = write(&message);
-            let mllp_bytes = hl7v2_core::wrap_mllp(&output_bytes);
+            let mllp_bytes = hl7v2::wrap_mllp(&output_bytes);
 
             // Verify MLLP framing
             assert_eq!(mllp_bytes[0], 0x0B); // SB
@@ -540,7 +541,7 @@ values: {}
             // Normalize and wrap
             let original_bytes = write(&message);
             let normalized = normalize(&original_bytes, true).expect("Normalize should succeed");
-            let mllp_bytes = hl7v2_core::wrap_mllp(&normalized);
+            let mllp_bytes = hl7v2::wrap_mllp(&normalized);
 
             // Verify MLLP framing
             assert_eq!(mllp_bytes[0], 0x0B); // SB
@@ -566,11 +567,11 @@ constraints:
   - path: MSH.1
     required: true
 "#;
-            let profile = hl7v2_prof::load_profile(profile_yaml).expect("Profile should load");
+            let profile = hl7v2::load_profile(profile_yaml).expect("Profile should load");
             let message =
                 parse(SampleMessages::adt_a01().as_bytes()).expect("Parse should succeed");
 
-            let results = hl7v2_prof::validate(&message, &profile);
+            let results = hl7v2::validate(&message, &profile);
 
             // Create a validation report
             let report = crate::ValidationReport {
@@ -600,11 +601,11 @@ constraints:
   - path: MSH.1
     required: true
 "#;
-            let profile = hl7v2_prof::load_profile(profile_yaml).expect("Profile should load");
+            let profile = hl7v2::load_profile(profile_yaml).expect("Profile should load");
             let message =
                 parse(SampleMessages::adt_a01().as_bytes()).expect("Parse should succeed");
 
-            let results = hl7v2_prof::validate(&message, &profile);
+            let results = hl7v2::validate(&message, &profile);
 
             // Create a validation report
             let report = crate::ValidationReport {
@@ -629,7 +630,7 @@ constraints:
 
         #[test]
         fn test_collect_stats_basic() {
-            use hl7v2_core::parse;
+            use hl7v2::parse;
             let content = SampleMessages::adt_a01();
             let message = parse(content.as_bytes()).expect("Parse should succeed");
 
@@ -643,7 +644,7 @@ constraints:
 
         #[test]
         fn test_collect_stats_with_distributions() {
-            use hl7v2_core::parse;
+            use hl7v2::parse;
             let content = SampleMessages::adt_a01();
             let message = parse(content.as_bytes()).expect("Parse should succeed");
 
@@ -717,6 +718,60 @@ constraints:
             // Execute stats command
             let result = stats_command(&file_path, false, true, &ReportFormat::Text);
             assert!(result.is_ok());
+        }
+
+        #[test]
+        fn test_command_paths_accept_mllp_inputs_through_facade() {
+            let dir = TempDir::new().expect("Failed to create temp dir");
+            let framed = hl7v2::wrap_mllp(SampleMessages::adt_a01().as_bytes());
+            let mllp_path = create_temp_file(&dir, "message.mllp", &framed);
+            let output_path = dir.path().join("normalized.hl7");
+            let profile_path = create_temp_file(
+                &dir,
+                "profile.yaml",
+                br#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+constraints:
+  - path: MSH.9
+    required: true
+"#,
+            );
+
+            assert!(
+                crate::parse_command(&mllp_path, false, true, true, true, false, false).is_ok()
+            );
+            assert!(
+                crate::norm_command(&mllp_path, true, &Some(output_path), true, true, false)
+                    .is_ok()
+            );
+            assert!(
+                crate::val_command(
+                    &mllp_path,
+                    &profile_path,
+                    true,
+                    false,
+                    &crate::ReportFormat::Text,
+                    false,
+                )
+                .is_ok()
+            );
+            assert!(
+                crate::stats_command(&mllp_path, true, false, &crate::ReportFormat::Text).is_ok()
+            );
+            assert!(
+                crate::ack_command(
+                    &mllp_path,
+                    &crate::AckMode::Original,
+                    &crate::AckCode::AA,
+                    true,
+                    true,
+                    false,
+                )
+                .is_ok()
+            );
         }
 
         // -------------------------------------------------------------------------

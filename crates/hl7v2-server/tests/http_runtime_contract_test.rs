@@ -145,11 +145,8 @@ async fn test_http_normalize_optional_mllp_framing() {
 
     assert_eq!(status, StatusCode::OK);
     let framed = body["normalized_message"].as_str().unwrap().as_bytes();
-    assert_eq!(framed[0], hl7v2_mllp::MLLP_START);
-    assert_eq!(
-        hl7v2_mllp::unwrap_mllp(framed).unwrap(),
-        SAMPLE_MSG.as_bytes()
-    );
+    assert_eq!(framed[0], hl7v2::MLLP_START);
+    assert_eq!(hl7v2::unwrap_mllp(framed).unwrap(), SAMPLE_MSG.as_bytes());
 }
 
 #[tokio::test]

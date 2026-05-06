@@ -35,7 +35,7 @@ pub async fn parse_handler(
 
     // Optionally convert to JSON
     let message_json = if request.options.include_json {
-        Some(hl7v2_core::to_json(&message))
+        Some(hl7v2::to_json(&message))
     } else {
         None
     };
@@ -61,11 +61,11 @@ pub async fn validate_handler(
 
     // Load the profile before validation. Profile load failures are client
     // errors, not successful validation results.
-    let profile = hl7v2_prof::load_profile_checked(&request.profile)
+    let profile = hl7v2::load_profile_checked(&request.profile)
         .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
 
     // Perform validation using the profile
-    let issues = hl7v2_prof::validate(&message, &profile);
+    let issues = hl7v2::validate(&message, &profile);
 
     // Convert validation issues to response format
     let mut errors = Vec::new();
@@ -73,8 +73,8 @@ pub async fn validate_handler(
 
     for issue in issues {
         let severity = match issue.severity {
-            hl7v2_prof::Severity::Error => ErrorSeverity::Error,
-            hl7v2_prof::Severity::Warning => ErrorSeverity::Warning,
+            hl7v2::Severity::Error => ErrorSeverity::Error,
+            hl7v2::Severity::Warning => ErrorSeverity::Warning,
         };
 
         let validation_item = ValidationError {
@@ -85,8 +85,8 @@ pub async fn validate_handler(
         };
 
         match issue.severity {
-            hl7v2_prof::Severity::Error => errors.push(validation_item),
-            hl7v2_prof::Severity::Warning => {
+            hl7v2::Severity::Error => errors.push(validation_item),
+            hl7v2::Severity::Warning => {
                 warnings.push(ValidationWarning {
                     code: validation_item.code,
                     message: validation_item.message,
@@ -117,16 +117,16 @@ pub async fn ack_handler(
     let ack_code = map_ack_code(request.code);
 
     let ack_message = if let Some(error_message) = request.error_message.as_deref() {
-        hl7v2_gen::ack_with_error(&message, ack_code, Some(error_message))
+        hl7v2::ack_with_error(&message, ack_code, Some(error_message))
     } else {
-        hl7v2_gen::ack(&message, ack_code)
+        hl7v2::ack(&message, ack_code)
     }
     .map_err(|e| AppError::Internal(format!("Failed to generate ACK: {}", e)))?;
 
     let metadata = extract_metadata(&ack_message)?;
-    let ack_bytes = hl7v2_writer::write(&ack_message);
+    let ack_bytes = hl7v2::write(&ack_message);
     let ack_bytes = if request.mllp_frame {
-        hl7v2_mllp::wrap_mllp(&ack_bytes)
+        hl7v2::wrap_mllp(&ack_bytes)
     } else {
         ack_bytes
     };
@@ -148,20 +148,20 @@ pub async fn normalize_handler(
 ) -> Result<impl IntoResponse, AppError> {
     let message_bytes = request.message.as_bytes();
     let input = if request.mllp_framed {
-        hl7v2_mllp::unwrap_mllp(message_bytes)
+        hl7v2::unwrap_mllp(message_bytes)
             .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
     } else {
         message_bytes
     };
 
-    let normalized_bytes = hl7v2_normalize::normalize(input, request.options.canonical_delimiters)
+    let normalized_bytes = hl7v2::normalize(input, request.options.canonical_delimiters)
         .map_err(|e| AppError::Parse(format!("Normalize error: {}", e)))?;
-    let normalized_message = hl7v2_core::parse(&normalized_bytes)
+    let normalized_message = hl7v2::parse(&normalized_bytes)
         .map_err(|e| AppError::Parse(format!("Normalized message parse error: {}", e)))?;
     let metadata = extract_metadata(&normalized_message)?;
 
     let response_bytes = if request.options.mllp_frame {
-        hl7v2_mllp::wrap_mllp(&normalized_bytes)
+        hl7v2::wrap_mllp(&normalized_bytes)
     } else {
         normalized_bytes
     };
@@ -178,28 +178,28 @@ pub async fn normalize_handler(
 fn parse_request_message(
     message_bytes: &[u8],
     mllp_framed: bool,
-) -> Result<hl7v2_core::Message, AppError> {
+) -> Result<hl7v2::Message, AppError> {
     if mllp_framed {
-        hl7v2_core::parse_mllp(message_bytes)
+        hl7v2::parse_mllp(message_bytes)
             .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))
     } else {
-        hl7v2_core::parse(message_bytes).map_err(|e| AppError::Parse(format!("Parse error: {}", e)))
+        hl7v2::parse(message_bytes).map_err(|e| AppError::Parse(format!("Parse error: {}", e)))
     }
 }
 
-fn map_ack_code(code: AckRequestCode) -> hl7v2_gen::AckCode {
+fn map_ack_code(code: AckRequestCode) -> hl7v2::AckCode {
     match code {
-        AckRequestCode::Aa => hl7v2_gen::AckCode::AA,
-        AckRequestCode::Ae => hl7v2_gen::AckCode::AE,
-        AckRequestCode::Ar => hl7v2_gen::AckCode::AR,
-        AckRequestCode::Ca => hl7v2_gen::AckCode::CA,
-        AckRequestCode::Ce => hl7v2_gen::AckCode::CE,
-        AckRequestCode::Cr => hl7v2_gen::AckCode::CR,
+        AckRequestCode::Aa => hl7v2::AckCode::AA,
+        AckRequestCode::Ae => hl7v2::AckCode::AE,
+        AckRequestCode::Ar => hl7v2::AckCode::AR,
+        AckRequestCode::Ca => hl7v2::AckCode::CA,
+        AckRequestCode::Ce => hl7v2::AckCode::CE,
+        AckRequestCode::Cr => hl7v2::AckCode::CR,
     }
 }
 
 /// Extract message metadata from parsed message
-fn extract_metadata(message: &hl7v2_core::Message) -> Result<MessageMetadata, AppError> {
+fn extract_metadata(message: &hl7v2::Message) -> Result<MessageMetadata, AppError> {
     // Find MSH segment
     let msh = message
         .segments
@@ -213,15 +213,13 @@ fn extract_metadata(message: &hl7v2_core::Message) -> Result<MessageMetadata, Ap
     // Extract MSH fields
     let message_type = joined_components(message, "MSH.9").unwrap_or_else(|| "UNKNOWN".to_string());
 
-    let version = hl7v2_core::get(message, "MSH.12")
-        .unwrap_or("2.5")
-        .to_string();
+    let version = hl7v2::get(message, "MSH.12").unwrap_or("2.5").to_string();
 
-    let sending_application = hl7v2_core::get(message, "MSH.3").unwrap_or("").to_string();
+    let sending_application = hl7v2::get(message, "MSH.3").unwrap_or("").to_string();
 
-    let sending_facility = hl7v2_core::get(message, "MSH.4").unwrap_or("").to_string();
+    let sending_facility = hl7v2::get(message, "MSH.4").unwrap_or("").to_string();
 
-    let message_control_id = hl7v2_core::get(message, "MSH.10").unwrap_or("").to_string();
+    let message_control_id = hl7v2::get(message, "MSH.10").unwrap_or("").to_string();
 
     Ok(MessageMetadata {
         message_type,
@@ -234,12 +232,12 @@ fn extract_metadata(message: &hl7v2_core::Message) -> Result<MessageMetadata, Ap
     })
 }
 
-fn joined_components(message: &hl7v2_core::Message, path: &str) -> Option<String> {
+fn joined_components(message: &hl7v2::Message, path: &str) -> Option<String> {
     let mut components = Vec::new();
 
     for index in 1.. {
         let component_path = format!("{}.{}", path, index);
-        match hl7v2_core::get(message, &component_path) {
+        match hl7v2::get(message, &component_path) {
             Some(value) if !value.is_empty() => components.push(value.to_string()),
             Some(_) => {}
             None => break,
@@ -247,7 +245,7 @@ fn joined_components(message: &hl7v2_core::Message, path: &str) -> Option<String
     }
 
     if components.is_empty() {
-        hl7v2_core::get(message, path).map(str::to_string)
+        hl7v2::get(message, path).map(str::to_string)
     } else {
         Some(components.join("^"))
     }
@@ -298,14 +296,14 @@ impl std::fmt::Display for AppError {
     }
 }
 
-impl From<hl7v2_core::Error> for AppError {
-    fn from(err: hl7v2_core::Error) -> Self {
+impl From<hl7v2::Error> for AppError {
+    fn from(err: hl7v2::Error) -> Self {
         AppError::Parse(err.to_string())
     }
 }
 
-impl From<hl7v2_prof::ProfileLoadError> for AppError {
-    fn from(err: hl7v2_prof::ProfileLoadError) -> Self {
+impl From<hl7v2::conformance::profile::ProfileLoadError> for AppError {
+    fn from(err: hl7v2::conformance::profile::ProfileLoadError) -> Self {
         AppError::ProfileLoad(err.to_string())
     }
 }
@@ -314,11 +312,66 @@ impl From<hl7v2_prof::ProfileLoadError> for AppError {
 mod tests {
     use super::*;
 
+    const SAMPLE_MESSAGE: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+
     #[test]
     fn test_error_response_creation() {
         let err = ErrorResponse::new("TEST_ERROR", "Test error message");
         assert_eq!(err.code, "TEST_ERROR");
         assert_eq!(err.message, "Test error message");
         assert!(err.details.is_none());
+    }
+
+    #[test]
+    fn parse_request_message_accepts_plain_and_mllp_facade_paths() {
+        let plain = parse_request_message(SAMPLE_MESSAGE.as_bytes(), false)
+            .expect("plain message should parse");
+        assert_eq!(plain.segments[0].id_str(), "MSH");
+
+        let framed = hl7v2::wrap_mllp(SAMPLE_MESSAGE.as_bytes());
+        let mllp = parse_request_message(&framed, true).expect("MLLP message should parse");
+        assert_eq!(mllp.segments[0].id_str(), "MSH");
+    }
+
+    #[test]
+    fn map_ack_code_uses_facade_ack_codes() {
+        assert_eq!(map_ack_code(AckRequestCode::Aa), hl7v2::AckCode::AA);
+        assert_eq!(map_ack_code(AckRequestCode::Ae), hl7v2::AckCode::AE);
+        assert_eq!(map_ack_code(AckRequestCode::Ar), hl7v2::AckCode::AR);
+        assert_eq!(map_ack_code(AckRequestCode::Ca), hl7v2::AckCode::CA);
+        assert_eq!(map_ack_code(AckRequestCode::Ce), hl7v2::AckCode::CE);
+        assert_eq!(map_ack_code(AckRequestCode::Cr), hl7v2::AckCode::CR);
+    }
+
+    #[test]
+    fn metadata_helpers_use_facade_queries() {
+        let message =
+            parse_request_message(SAMPLE_MESSAGE.as_bytes(), false).expect("message should parse");
+
+        let metadata = extract_metadata(&message).expect("metadata should extract");
+        assert_eq!(metadata.message_type, "ADT^A01");
+        assert_eq!(metadata.version, "2.5");
+        assert_eq!(metadata.sending_application, "SENDAPP");
+        assert_eq!(metadata.sending_facility, "SENDFAC");
+        assert_eq!(metadata.message_control_id, "CTRL123");
+
+        assert_eq!(
+            joined_components(&message, "MSH.9").as_deref(),
+            Some("ADT^A01")
+        );
+        assert_eq!(
+            joined_components(&message, "MSH.3").as_deref(),
+            Some("SENDAPP")
+        );
+    }
+
+    #[test]
+    fn app_error_from_facade_errors_preserves_variant() {
+        let parse_error: AppError = hl7v2::Error::InvalidSegmentId.into();
+        assert!(matches!(parse_error, AppError::Parse(_)));
+
+        let profile_error: AppError =
+            hl7v2::conformance::profile::ProfileLoadError::YamlParse("bad yaml".to_string()).into();
+        assert!(matches!(profile_error, AppError::ProfileLoad(_)));
     }
 }

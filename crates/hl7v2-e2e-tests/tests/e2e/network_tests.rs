@@ -7,9 +7,8 @@
 //! - Message exchange patterns
 
 use bytes::BytesMut;
-use hl7v2_ack::{AckCode, ack};
-use hl7v2_network::{MllpClientBuilder, MllpCodec, MllpServer, MllpServerConfig};
-use hl7v2_parser::parse;
+use hl7v2::transport::network::{MllpClientBuilder, MllpCodec, MllpServer, MllpServerConfig};
+use hl7v2::{AckCode, ack, parse};
 use hl7v2_test_utils::{MockMllpServer, SampleMessages};
 use tokio_util::codec::{Decoder, Encoder};
 
@@ -283,7 +282,7 @@ mod client_server_tests {
         assert!(client_result.is_ok(), "Client should complete");
 
         let ack = client_result.unwrap();
-        let msg_type = hl7v2_core::get(&ack, "MSH.9");
+        let msg_type = hl7v2::get(&ack, "MSH.9");
         assert!(msg_type.is_some());
     }
 }

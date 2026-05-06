@@ -16,5 +16,10 @@ name = "hl7v2"
 crate-type = ["cdylib"]
 
 [dependencies]
-hl7v2-core = { workspace = true }
+hl7v2 = { version = "1.2.0", path = "../hl7v2", features = [
+    "profile",
+    "ack",
+    "normalize",
+    "json",
+] }
 pyo3 = { version = "0.24.1", features = ["extension-module"] }
