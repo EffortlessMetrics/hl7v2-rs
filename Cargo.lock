@@ -1538,7 +1538,6 @@ dependencies = [
  "hl7v2-ack",
  "hl7v2-batch",
  "hl7v2-corpus",
- "hl7v2-datatype",
  "hl7v2-datetime",
  "hl7v2-escape",
  "hl7v2-faker",
@@ -1556,6 +1555,7 @@ dependencies = [
  "hl7v2-template-values",
  "hl7v2-validation",
  "hl7v2-writer",
+ "regex",
  "serde",
  "serde_json",
  "sha2",
@@ -1675,10 +1675,8 @@ version = "1.2.0"
 dependencies = [
  "chrono",
  "cucumber",
- "hl7v2-datetime",
+ "hl7v2",
  "proptest",
- "regex",
- "thiserror 2.0.18",
  "tokio",
 ]
 
