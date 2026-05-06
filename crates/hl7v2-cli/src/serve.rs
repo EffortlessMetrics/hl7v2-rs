@@ -136,6 +136,10 @@ fn setup_shutdown_signal() -> impl std::future::Future<Output = ()> {
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "legacy serve tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
 mod tests {
     use super::*;
 
@@ -149,7 +153,7 @@ mod tests {
     fn test_bind_address_format() {
         let host = "127.0.0.1";
         let port = 8080;
-        let bind_address = format!("{}:{}", host, port);
+        let bind_address = format!("{host}:{port}");
         assert_eq!(bind_address, "127.0.0.1:8080");
     }
 

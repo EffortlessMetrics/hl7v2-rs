@@ -10,15 +10,16 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 
 | Layer | Status | Evidence |
 | --- | --- | --- |
-| **Parser / Core** | Stable | Verified in PR #364 (Audit) + 120+ tests |
-| **Writer / Normalize** | Stable | Verified contract tests land |
-| **MLLP / Network** | Stable | E2E tests (OS-assigned ports) land |
-| **REST Server** | Stable | Integration tests land |
-| **gRPC Service** | Beta | Contract tests landing in PR #365 |
-| **Lifecycle** | Beta | Domain tests landing in PR #366 |
-| **Guard / Anomaly** | Experimental | Statistical baseline proven in PR #367 |
+| **Parser / Core** | Stable | Main CI, workspace tests, and contract checks green on `6de37e0` |
+| **Writer / Normalize** | Stable | Writer tests plus HTTP/gRPC normalization contract coverage |
+| **MLLP / Network** | Stable | MLLP parse/framing tests and CI matrix coverage |
+| **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, ACK, and normalize routes |
+| **gRPC Service** | Beta | Contract tests cover Parse, Validate, GenerateAck, Normalize, and HealthCheck; ParseStream is explicitly unsupported |
+| **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
+| **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
-| **Python Bindings** | Beta | Smoke tests landing land |
+| **Python Bindings** | Experimental | Not included in the local Python 3.14/PyO3 validation proof |
+| **Publish Readiness** | Package-verified | Direct registry-state dry-run is proven through `hl7v2-core`; workspace-patched dry-run verifies crates 17-30 |
 
 ## Features
 
@@ -113,7 +114,7 @@ curl -X POST http://localhost:8080/hl7/validate \
   -H "Content-Type: application/json" \
   -d '{
     "message": "MSH|^~\\&|...",
-    "profile_yaml": "..."  # YAML profile content
+    "profile": "..."
   }'
 ```
 
@@ -124,7 +125,7 @@ curl http://localhost:8080/ready
 curl http://localhost:8080/metrics  # Prometheus metrics
 ```
 
-See the [OpenAPI specification](schemas/openapi/hl7v2-api.yaml) for complete API documentation.
+See the [OpenAPI specification](api/openapi/hl7v2-api-v1.yaml) for complete API documentation.
 
 ### CLI Tools
 
@@ -220,13 +221,13 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 
 ### HTTP/REST API Server (hl7v2-server)
 
-- **RESTful API**: Parse and validate HL7 messages over HTTP
+- **RESTful API**: Parse, validate, acknowledge, and normalize HL7 messages over HTTP
 - **Health & Readiness**: Production-ready health checks
 - **Prometheus metrics**: Request counts, latencies, error rates
 - **Concurrency limiting**: Built-in backpressure (100 concurrent requests default)
-- **CORS support**: Cross-origin requests enabled
+- **CORS support**: Configurable allowed origins, with permissive local default
 - **Compression**: Gzip compression for responses
-- **OpenAPI 3.0 spec**: Complete API documentation at `schemas/openapi/hl7v2-api.yaml`
+- **OpenAPI 3.1 spec**: Complete API documentation at `api/openapi/hl7v2-api-v1.yaml`
 - **Docker ready**: Containerized deployment with Nix-built images
 - **Kubernetes ready**: Helm charts and manifests in `infrastructure/k8s/`
 

@@ -1534,7 +1534,31 @@ dependencies = [
 name = "hl7v2"
 version = "1.2.0"
 dependencies = [
- "hl7v2-core",
+ "hl7v2-ack",
+ "hl7v2-batch",
+ "hl7v2-corpus",
+ "hl7v2-datatype",
+ "hl7v2-datetime",
+ "hl7v2-escape",
+ "hl7v2-faker",
+ "hl7v2-gen",
+ "hl7v2-guard",
+ "hl7v2-json",
+ "hl7v2-lifecycle",
+ "hl7v2-mllp",
+ "hl7v2-model",
+ "hl7v2-network",
+ "hl7v2-normalize",
+ "hl7v2-parser",
+ "hl7v2-path",
+ "hl7v2-prof",
+ "hl7v2-query",
+ "hl7v2-redact",
+ "hl7v2-stream",
+ "hl7v2-template",
+ "hl7v2-template-values",
+ "hl7v2-validation",
+ "hl7v2-writer",
 ]
 
 [[package]]
@@ -1794,7 +1818,6 @@ dependencies = [
  "chrono",
  "hl7v2-core",
  "hl7v2-model",
- "hl7v2-test-utils",
  "serde",
  "serde_json",
  "sha2",
@@ -1909,7 +1932,6 @@ name = "hl7v2-python"
 version = "1.2.0"
 dependencies = [
  "hl7v2-core",
- "hl7v2-test-utils",
  "pyo3",
 ]
 
@@ -1930,7 +1952,6 @@ version = "1.2.0"
 dependencies = [
  "hl7v2-core",
  "hl7v2-model",
- "hl7v2-test-utils",
  "serde",
 ]
 
@@ -1956,6 +1977,7 @@ dependencies = [
  "metrics",
  "metrics-exporter-prometheus",
  "prost",
+ "prost-build",
  "prost-types",
  "protoc-bin-vendored",
  "serde",

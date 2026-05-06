@@ -19,5 +19,4 @@ chrono = { workspace = true, features = ["serde"] }
 sha2 = { workspace = true }
 
 [dev-dependencies]
-hl7v2-test-utils = { workspace = true }
 serde_json = { workspace = true }

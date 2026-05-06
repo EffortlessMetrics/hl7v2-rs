@@ -44,6 +44,11 @@ static METRICS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 /// # Note
 /// This function can be safely called multiple times. The first call will initialize
 /// the metrics recorder, and subsequent calls will return a clone of the same handle.
+#[expect(
+    clippy::expect_used,
+    clippy::missing_panics_doc,
+    reason = "metrics recorder installation is process-global and startup-fatal if invalid"
+)]
 pub fn init_metrics_recorder() -> PrometheusHandle {
     METRICS_HANDLE
         .get_or_init(|| {
@@ -102,7 +107,8 @@ pub fn increment_parse_errors() {
 
 /// Record message size in bytes
 pub fn record_message_size(size_bytes: usize) {
-    metrics::histogram!("hl7v2_message_size_bytes").record(size_bytes as f64);
+    let bounded_size = u32::try_from(size_bytes).unwrap_or(u32::MAX);
+    metrics::histogram!("hl7v2_message_size_bytes").record(f64::from(bounded_size));
 }
 
 /// Axum handler for GET /metrics
@@ -115,11 +121,18 @@ pub async fn metrics_handler(
     State(state): State<Arc<crate::server::AppState>>,
 ) -> impl IntoResponse {
     let metrics = state.metrics_handle.render();
-    Response::builder()
+    match Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-        .body(metrics)
-        .expect("Failed to build metrics response")
+        .body(axum::body::Body::from(metrics))
+    {
+        Ok(response) => response,
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("failed to build metrics response: {error}"),
+        )
+            .into_response(),
+    }
 }
 
 /// Middleware to record HTTP request metrics

@@ -5,6 +5,7 @@
 //! - Parsing HL7 messages
 //! - Validating messages against profiles
 //! - Generating ACK messages
+//! - Normalizing HL7 messages
 //! - Health checks
 //!
 //! # Features
@@ -39,10 +40,14 @@ pub mod routes;
 pub mod server;
 
 pub use routes::build_router;
-pub use server::{AppState, Server, ServerBuilder, ServerConfig};
+pub use server::{AppState, CorsAllowedOrigins, Server, ServerBuilder, ServerConfig};
 
 /// Server error types
 #[derive(Debug, thiserror::Error)]
+#[expect(
+    clippy::error_impl_error,
+    reason = "public server API intentionally exposes Error as the crate result error type"
+)]
 pub enum Error {
     /// Failed to bind the underlying server transport.
     #[error("Bind error: {0}")]

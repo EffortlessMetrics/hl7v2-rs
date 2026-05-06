@@ -8,3 +8,66 @@ schema = 1
 # owner = "parser"
 # reason = "Generated table access; replace with checked table abstraction."
 # expires = "2026-07-01"
+
+[[debt]]
+lint = "workspace-lints-inheritance"
+path = "crates/hl7v2-python/Cargo.toml"
+owner = "EffortlessMetrics"
+reason = "Python binding crate is staged for workspace lint inheritance after PyO3 packaging remains isolated from this policy infrastructure PR."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::unwrap_used"
+path = "crates/hl7v2-server/tests"
+owner = "EffortlessMetrics"
+reason = "Pre-existing integration tests use static fixture unwraps; keep server lint inheritance moving while endpoint test cleanup is split out."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::expect_used"
+path = "crates/hl7v2-server/tests"
+owner = "EffortlessMetrics"
+reason = "Pre-existing gRPC and BDD tests use static fixture expects; keep server lint inheritance moving while endpoint test cleanup is split out."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::indexing_slicing"
+path = "crates/hl7v2-server/tests"
+owner = "EffortlessMetrics"
+reason = "Pre-existing contract tests index known response fixtures; replace with checked helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::string_slice"
+path = "crates/hl7v2-server/tests"
+owner = "EffortlessMetrics"
+reason = "Pre-existing tests slice known ASCII fixtures; replace with byte-safe helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::unwrap_used"
+path = "crates/hl7v2-cli"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI commands and tests use static fixture unwraps; cleanup is split from policy infrastructure."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::expect_used"
+path = "crates/hl7v2-cli"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI tests use static fixture expects; cleanup is split from policy infrastructure."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::indexing_slicing"
+path = "crates/hl7v2-cli"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI table and test code indexes known fixture rows; replace with checked helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::arithmetic_side_effects"
+path = "crates/hl7v2-cli/src/main.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI timing and table-rendering arithmetic needs checked helper cleanup after policy lands."
+expires = "2026-06-30"

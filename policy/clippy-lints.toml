@@ -7,6 +7,41 @@ allow_test_carveouts = false
 suppression_style = "expect-with-reason"
 blanket_categories = false
 
+[rollout]
+required_inheriting_packages = ["hl7v2", "hl7v2-server", "hl7v2-cli", "xtask"]
+staged_inheriting_packages = [
+    "hl7v2-python",
+    "hl7v2-core",
+    "hl7v2-model",
+    "hl7v2-escape",
+    "hl7v2-mllp",
+    "hl7v2-path",
+    "hl7v2-query",
+    "hl7v2-parser",
+    "hl7v2-writer",
+    "hl7v2-json",
+    "hl7v2-normalize",
+    "hl7v2-ack",
+    "hl7v2-prof",
+    "hl7v2-validation",
+    "hl7v2-datatype",
+    "hl7v2-datetime",
+    "hl7v2-batch",
+    "hl7v2-stream",
+    "hl7v2-network",
+    "hl7v2-redact",
+    "hl7v2-lifecycle",
+    "hl7v2-guard",
+    "hl7v2-template",
+    "hl7v2-template-values",
+    "hl7v2-faker",
+    "hl7v2-corpus",
+    "hl7v2-gen",
+    "hl7v2-e2e-tests",
+    "hl7v2-test-utils",
+    "hl7v2-bench",
+]
+
 [[lint]]
 name = "unsafe_code"
 level = "forbid"

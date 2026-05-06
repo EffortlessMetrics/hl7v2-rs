@@ -263,4 +263,3 @@ path = "examples/template_generation.rs"
 [[example]]
 name = "ack_generation"
 path = "examples/ack_generation.rs"
-

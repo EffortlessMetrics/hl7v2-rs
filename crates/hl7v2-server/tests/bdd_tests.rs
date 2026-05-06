@@ -2,6 +2,13 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::string_slice,
+    reason = "legacy BDD tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     Router,
     body::Body,
@@ -53,6 +60,7 @@ impl ServerWorld {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: self.api_key.clone(),
+            cors_allowed_origins: Default::default(),
         });
         hl7v2_server::routes::build_router(state)
     }
@@ -269,5 +277,16 @@ fn then_content_type(_world: &mut ServerWorld, _expected: String) {
 // Run the tests
 #[tokio::main]
 async fn main() {
+    // Cargo passes test filters to every test binary. Cucumber owns its own CLI
+    // parser, so skip this custom harness when a focused Rust test filter does
+    // not target the BDD scenarios.
+    if let Some(filter) = std::env::args().skip(1).find(|arg| !arg.starts_with('-'))
+        && !["bdd", "cucumber"]
+            .iter()
+            .any(|allowed| filter.contains(allowed))
+    {
+        return;
+    }
+
     ServerWorld::cucumber().run_and_exit("./features").await;
 }

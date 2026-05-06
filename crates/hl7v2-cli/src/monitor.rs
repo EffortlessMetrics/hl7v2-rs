@@ -31,7 +31,10 @@ impl PerformanceMonitor {
     }
 
     /// Get a specific metric
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "metric lookup is retained for CLI reporting expansion"
+    )]
     pub fn get_metric(&self, name: &str) -> Option<std::time::Duration> {
         self.metrics.get(name).copied()
     }
@@ -65,7 +68,9 @@ pub fn get_memory_info() -> MemoryInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    if let Some(process) = sys.process(sysinfo::get_current_pid().unwrap()) {
+    if let Ok(pid) = sysinfo::get_current_pid()
+        && let Some(process) = sys.process(pid)
+    {
         MemoryInfo {
             resident_set_size: Some(process.memory()),
             virtual_memory_size: Some(process.virtual_memory()),
@@ -89,8 +94,9 @@ pub fn get_cpu_info() -> CpuInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let cpu_usage: f64 = sys.cpus().iter().map(sysinfo::Cpu::cpu_usage).sum::<f32>() as f64
-        / sys.cpus().len() as f64;
+    let cpu_count = u32::try_from(sys.cpus().len()).unwrap_or(u32::MAX).max(1);
+    let cpu_usage = f64::from(sys.cpus().iter().map(sysinfo::Cpu::cpu_usage).sum::<f32>())
+        / f64::from(cpu_count);
 
     CpuInfo {
         cpu_usage_percent: Some(cpu_usage),

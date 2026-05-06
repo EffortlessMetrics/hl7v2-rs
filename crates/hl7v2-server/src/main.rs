@@ -1,6 +1,6 @@
 //! HL7v2 HTTP/REST API server binary.
 
-use hl7v2_server::Server;
+use hl7v2_server::{CorsAllowedOrigins, Server};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -28,10 +28,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::warn!("API key authentication disabled (public access enabled)");
     }
 
+    let cors_allowed_origins = std::env::var("HL7V2_CORS_ALLOWED_ORIGINS")
+        .map(|value| CorsAllowedOrigins::from_csv(&value))
+        .unwrap_or_default();
+    tracing::info!("CORS allowed origins: {:?}", cors_allowed_origins);
+
     // Create and run server
     let server = Server::builder()
         .bind(bind_address)
         .api_key(api_key)
+        .cors_allowed_origins(cors_allowed_origins)
         .build();
 
     server.serve().await?;

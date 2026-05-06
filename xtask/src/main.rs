@@ -62,6 +62,18 @@ enum Commands {
         #[arg(long, default_value_t = 30)]
         retry_delay_secs: u64,
     },
+    /// Dry-run publish workspace crates in dependency order
+    PublishDryRun {
+        /// Resume from this crate name
+        #[arg(long)]
+        from: Option<String>,
+        /// Patch internal workspace crates to local paths during verification
+        #[arg(long)]
+        workspace_patches: bool,
+        /// Include uncommitted working tree changes in the dry-run package
+        #[arg(long)]
+        allow_dirty: bool,
+    },
     /// Scaffold a new microcrate
     Scaffold {
         /// Name of the crate (without hl7v2- prefix)
@@ -82,6 +94,8 @@ enum Commands {
     HookPrePush,
     /// Verify workspace lint policy, ledgers, and debt receipts
     CheckLintPolicy,
+    /// Print the governed lint policy rollout and debt summary
+    PolicyReport,
 }
 
 fn main() -> Result<()> {
@@ -104,11 +118,17 @@ fn main() -> Result<()> {
             retry_attempts,
             retry_delay_secs,
         } => publish(from, yes, retry_attempts, retry_delay_secs)?,
+        Commands::PublishDryRun {
+            from,
+            workspace_patches,
+            allow_dirty,
+        } => publish_dry_run(from, workspace_patches, allow_dirty)?,
         Commands::Scaffold { name, description } => scaffold(&name, description)?,
         Commands::Docs { no_open } => docs(no_open)?,
         Commands::HookPreCommit => hook_pre_commit()?,
         Commands::HookPrePush => hook_pre_push()?,
         Commands::CheckLintPolicy => check_lint_policy()?,
+        Commands::PolicyReport => policy_report()?,
     }
 
     Ok(())
@@ -372,6 +392,99 @@ fn publish(
     Ok(())
 }
 
+fn publish_dry_run(from: Option<String>, workspace_patches: bool, allow_dirty: bool) -> Result<()> {
+    let metadata = MetadataCommand::new().exec()?;
+    let packages = publishable_workspace_packages(&metadata);
+    let ordered = topological_publish_order(&packages)?;
+    let crates = resume_publish_order(&ordered, from.as_deref())?;
+
+    println!("🧪 Dry-running crates.io publish verification");
+    if workspace_patches {
+        println!("Using local workspace patches for unpublished internal crates.");
+    }
+
+    for crate_name in crates {
+        let config_path = if workspace_patches {
+            workspace_patch_config(&crate_name, &packages)?
+        } else {
+            None
+        };
+        publish_dry_run_crate(&crate_name, config_path.as_deref(), allow_dirty)?;
+    }
+
+    println!("✅ Publish dry-run checks passed!");
+    Ok(())
+}
+
+fn publish_dry_run_crate(
+    crate_name: &str,
+    config_path: Option<&Path>,
+    allow_dirty: bool,
+) -> Result<()> {
+    println!("Dry-running {crate_name}...");
+
+    let mut command = Command::new("cargo");
+    command.args(["publish", "--dry-run", "-p", crate_name, "--locked"]);
+    if allow_dirty {
+        command.arg("--allow-dirty");
+    }
+    if let Some(config_path) = config_path {
+        command.arg("--config").arg(config_path);
+    }
+
+    let status = command
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "Dry-run publish failed for {} with exit code: {:?}",
+            crate_name,
+            status.code()
+        ));
+    }
+
+    Ok(())
+}
+
+fn workspace_patch_config(
+    crate_name: &str,
+    packages: &HashMap<String, Package>,
+) -> Result<Option<PathBuf>> {
+    let dependencies = internal_workspace_dependency_closure(crate_name, packages)?;
+    if dependencies.is_empty() {
+        return Ok(None);
+    }
+
+    let config_dir = env::current_dir()?
+        .join("target")
+        .join("hl7v2-publish-dry-run")
+        .join("workspace-patches");
+    fs::create_dir_all(&config_dir)?;
+
+    let config_path = config_dir.join(format!("{crate_name}.toml"));
+    let mut config = String::from("[patch.crates-io]\n");
+    for dependency in dependencies {
+        let package = packages
+            .get(&dependency)
+            .ok_or_else(|| anyhow!("dependency closure includes unknown package {dependency}"))?;
+        let manifest_dir = package
+            .manifest_path
+            .parent()
+            .ok_or_else(|| anyhow!("Package {dependency} has no manifest parent"))?;
+        let path = manifest_dir.as_str().replace('\\', "/");
+        config.push('"');
+        config.push_str(&escape_toml_basic_string(&dependency));
+        config.push_str("\" = { path = \"");
+        config.push_str(&escape_toml_basic_string(&path));
+        config.push_str("\" }\n");
+    }
+
+    fs::write(&config_path, config)?;
+    Ok(Some(config_path))
+}
+
 fn publish_crate(crate_name: &str, retry_attempts: u32, retry_delay_secs: u64) -> Result<()> {
     let max_attempts = retry_attempts.max(1);
     for attempt in 1..=max_attempts {
@@ -577,6 +690,10 @@ fn publish_order(from: Option<&str>) -> Result<Vec<String>> {
     let packages = publishable_workspace_packages(&metadata);
     let ordered = topological_publish_order(&packages)?;
 
+    resume_publish_order(&ordered, from)
+}
+
+fn resume_publish_order(ordered: &[String], from: Option<&str>) -> Result<Vec<String>> {
     match from {
         Some(start) => {
             let index = ordered
@@ -588,7 +705,7 @@ fn publish_order(from: Option<&str>) -> Result<Vec<String>> {
                 .ok_or_else(|| anyhow!("resume index for {start} is outside publish order"))?;
             Ok(resumed.to_vec())
         }
-        None => Ok(ordered),
+        None => Ok(ordered.to_vec()),
     }
 }
 
@@ -679,10 +796,43 @@ fn internal_publish_dependencies(
     package: &Package,
     packages: &HashMap<String, Package>,
 ) -> BTreeSet<String> {
+    internal_workspace_dependencies(package, packages, false)
+}
+
+fn internal_workspace_dependency_closure(
+    crate_name: &str,
+    packages: &HashMap<String, Package>,
+) -> Result<BTreeSet<String>> {
+    let package = packages
+        .get(crate_name)
+        .ok_or_else(|| anyhow!("Unknown publishable crate '{crate_name}'"))?;
+    let mut dependencies = BTreeSet::new();
+    let mut stack: Vec<_> = internal_workspace_dependencies(package, packages, true)
+        .into_iter()
+        .collect();
+
+    while let Some(dependency) = stack.pop() {
+        if dependency == crate_name || !dependencies.insert(dependency.clone()) {
+            continue;
+        }
+
+        if let Some(package) = packages.get(&dependency) {
+            stack.extend(internal_workspace_dependencies(package, packages, true));
+        }
+    }
+
+    Ok(dependencies)
+}
+
+fn internal_workspace_dependencies(
+    package: &Package,
+    packages: &HashMap<String, Package>,
+    include_dev: bool,
+) -> BTreeSet<String> {
     package
         .dependencies
         .iter()
-        .filter(|dep| dep.kind != DependencyKind::Development)
+        .filter(|dep| include_dev || dep.kind != DependencyKind::Development)
         .filter_map(|dep| packages.contains_key(&dep.name).then_some(dep.name.clone()))
         .collect()
 }
@@ -747,10 +897,46 @@ fn check_lint_policy() -> Result<()> {
 
     ensure_policy_flags(&policy_text)?;
     ensure_no_test_carveouts(&clippy_toml)?;
-    ensure_workspace_lint_inheritance(&root)?;
+    ensure_workspace_lint_inheritance(&root, &policy_text)?;
     ensure_debt_receipts(&policy_debt)?;
 
     println!("✅ Lint policy checks passed!");
+    Ok(())
+}
+
+fn policy_report() -> Result<()> {
+    let root = env::current_dir()?;
+    let cargo_text = fs::read_to_string(root.join("Cargo.toml"))?;
+    let policy_text = fs::read_to_string(root.join("policy/clippy-lints.toml"))?;
+    let debt_text = fs::read_to_string(root.join("policy/clippy-debt.toml"))?;
+
+    let workspace_msrv = quoted_value_after(&cargo_text, "[workspace.package]", "rust-version")
+        .ok_or_else(|| anyhow!("Cargo.toml is missing workspace.package.rust-version"))?;
+    let policy_msrv = top_level_quoted_value(&policy_text, "msrv")
+        .ok_or_else(|| anyhow!("policy/clippy-lints.toml is missing msrv"))?;
+    let active_lints = parse_policy_lints(&policy_text, "active")?;
+    let planned_lints = parse_policy_lints(&policy_text, "planned")?;
+    let required_packages =
+        string_array_after(&policy_text, "[rollout]", "required_inheriting_packages").ok_or_else(
+            || anyhow!("policy/clippy-lints.toml is missing rollout.required_inheriting_packages"),
+        )?;
+    let staged_packages =
+        string_array_after(&policy_text, "[rollout]", "staged_inheriting_packages").ok_or_else(
+            || anyhow!("policy/clippy-lints.toml is missing rollout.staged_inheriting_packages"),
+        )?;
+    let debt_count = table_array_entries(&debt_text, "[[debt]]").len();
+
+    println!("Lint policy report");
+    println!("  Workspace MSRV: {workspace_msrv}");
+    println!("  Policy MSRV: {policy_msrv}");
+    println!("  Active lint entries: {}", active_lints.len());
+    println!("  Planned lint entries: {}", planned_lints.len());
+    println!(
+        "  Required inherited packages: {}",
+        required_packages.join(", ")
+    );
+    println!("  Staged packages: {}", staged_packages.join(", "));
+    println!("  Debt receipts: {debt_count}");
     Ok(())
 }
 
@@ -797,10 +983,11 @@ fn ensure_no_test_carveouts(clippy_toml: &Path) -> Result<()> {
     Ok(())
 }
 
-fn ensure_workspace_lint_inheritance(root: &Path) -> Result<()> {
+fn ensure_workspace_lint_inheritance(root: &Path, policy_text: &str) -> Result<()> {
     let metadata = MetadataCommand::new().current_dir(root).exec()?;
     let workspace_members: HashSet<_> = metadata.workspace_members.iter().cloned().collect();
     let mut inherited_count = 0usize;
+    let mut inherited_packages = BTreeSet::new();
 
     for package in metadata
         .packages
@@ -825,15 +1012,44 @@ fn ensure_workspace_lint_inheritance(root: &Path) -> Result<()> {
         inherited_count = inherited_count
             .checked_add(1)
             .ok_or_else(|| anyhow!("lint inheritance count overflow"))?;
+        inherited_packages.insert(package.name.to_string());
     }
 
-    if inherited_count == 0 {
+    let required_packages =
+        string_array_after(policy_text, "[rollout]", "required_inheriting_packages").ok_or_else(
+            || anyhow!("policy/clippy-lints.toml is missing rollout.required_inheriting_packages"),
+        )?;
+    if required_packages.is_empty() {
         return Err(anyhow!(
-            "at least one workspace package must opt in with [lints] workspace = true before policy checks can run"
+            "policy/clippy-lints.toml rollout.required_inheriting_packages must not be empty"
         ));
     }
 
-    println!("lint policy: {inherited_count} workspace package(s) currently inherit the baseline");
+    for required in &required_packages {
+        if !inherited_packages.contains(required) {
+            return Err(anyhow!(
+                "{required} must inherit workspace lints with [lints] workspace = true"
+            ));
+        }
+    }
+
+    let staged_packages =
+        string_array_after(policy_text, "[rollout]", "staged_inheriting_packages").ok_or_else(
+            || anyhow!("policy/clippy-lints.toml is missing rollout.staged_inheriting_packages"),
+        )?;
+
+    for staged in &staged_packages {
+        if required_packages.iter().any(|required| required == staged) {
+            return Err(anyhow!(
+                "{staged} cannot be both required and staged for workspace lint inheritance"
+            ));
+        }
+    }
+
+    println!(
+        "lint policy: {inherited_count} workspace package(s) inherit the baseline; {} package(s) are staged",
+        staged_packages.len()
+    );
     Ok(())
 }
 
@@ -936,6 +1152,41 @@ fn top_level_quoted_value(text: &str, key: &str) -> Option<String> {
     })
 }
 
+fn string_array_after(text: &str, section: &str, key: &str) -> Option<Vec<String>> {
+    let mut value = value_after(text, section, key)?;
+    if value.trim_start().starts_with('[') && !value.trim_end().ends_with(']') {
+        let mut found_key = false;
+        for line in section_body(text, section) {
+            let trimmed = line.trim();
+            if found_key {
+                value.push(' ');
+                value.push_str(trimmed);
+                if trimmed.ends_with(']') {
+                    break;
+                }
+                continue;
+            }
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            let (name, _) = trimmed.split_once('=')?;
+            if name.trim() == key {
+                found_key = true;
+            }
+        }
+    }
+    let trimmed = value.trim();
+    let inner = trimmed.strip_prefix('[')?.strip_suffix(']')?;
+    Some(
+        inner
+            .split(',')
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .map(|item| item.trim_matches('"').to_string())
+            .collect(),
+    )
+}
+
 fn section_body<'a>(text: &'a str, section: &str) -> impl Iterator<Item = &'a str> {
     let mut in_section = false;
     text.lines().filter(move |line| {
@@ -975,6 +1226,21 @@ fn table_array_entries(text: &str, marker: &str) -> Vec<String> {
     }
 
     entries
+}
+
+fn escape_toml_basic_string(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
@@ -1127,6 +1393,27 @@ mod tests {
         if resumed != expected {
             return Err(anyhow!(
                 "resumed publish order did not match expected suffix"
+            ));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn workspace_patch_dependencies_include_publishable_dev_dependencies() -> Result<()> {
+        let metadata = MetadataCommand::new().exec()?;
+        let packages = publishable_workspace_packages(&metadata);
+        let dependencies = internal_workspace_dependency_closure("hl7v2-ack", &packages)?;
+
+        for dependency in ["hl7v2-core", "hl7v2-writer"] {
+            if !dependencies.contains(dependency) {
+                return Err(anyhow!(
+                    "workspace patch dependency closure should include {dependency}"
+                ));
+            }
+        }
+        if dependencies.contains("hl7v2-test-utils") {
+            return Err(anyhow!(
+                "workspace patch dependency closure should exclude non-publishable test utils"
             ));
         }
         Ok(())

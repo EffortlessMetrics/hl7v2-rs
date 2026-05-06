@@ -4,6 +4,16 @@
 //!
 //! This test file implements the step definitions for the CLI feature file.
 
+#![expect(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::uninlined_format_args,
+    clippy::unnecessary_debug_formatting,
+    clippy::unwrap_used,
+    reason = "legacy CLI BDD tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use cucumber::{World, given, then, when};
 use hl7v2_test_utils::fixtures::SampleMessages;
 use std::path::PathBuf;
@@ -31,7 +41,10 @@ pub struct CliWorld {
     /// Current command arguments
     command_args: Vec<String>,
     /// File content for testing
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "BDD world keeps file fixture content for step reuse"
+    )]
     file_content: Option<String>,
 }
 

@@ -1,5 +1,10 @@
 //! Integration tests for server middleware stack and request handling.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "legacy middleware tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     body::Body,
     extract::connect_info::ConnectInfo,
@@ -33,6 +38,7 @@ fn build_test_router(
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        cors_allowed_origins: Default::default(),
     });
 
     // Rate limit configuration

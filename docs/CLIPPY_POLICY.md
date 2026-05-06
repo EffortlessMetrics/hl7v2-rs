@@ -1,9 +1,8 @@
 # Clippy Policy
 
 `hl7v2-rs` uses the Effortless Metrics strict Rust lint policy as a governed
-engineering surface. The policy is intentionally workspace-wide: production
-code, examples, benches, integration tests, and unit tests inherit the same
-panic-free and parser-safe defaults.
+engineering surface. The policy is defined at the workspace root and rolls out
+through explicit package inheritance so lint debt is visible instead of hidden.
 
 ## Goals
 
@@ -29,8 +28,36 @@ workspace = true
 The baseline forbids unsafe code, denies panic-family lints, denies unchecked
 string/indexing hazards, denies silent-failure lints, and warns on selected
 reviewability and numeric-correctness lints that are useful but may need staged
-cleanup. This first policy PR opts in `xtask`; subsequent stacked PRs can add
-`[lints] workspace = true` to product crates as their lint debt is retired.
+cleanup.
+
+Initial blocking inheritance is intentionally narrow:
+
+```text
+hl7v2
+hl7v2-server
+hl7v2-cli
+xtask
+```
+
+The Python binding crate and soon-to-be-collapsed implementation crates are
+staged in `policy/clippy-lints.toml`; the Python binding has an explicit debt
+receipt in `policy/clippy-debt.toml` while its PyO3 packaging lane stays
+isolated:
+
+```text
+hl7v2-python
+current microcrates
+internal test and benchmark crates
+```
+
+`hl7v2-server` and `hl7v2-cli` inherit the baseline now. Any pre-existing
+server or CLI lint debt that was not appropriate to clean up in this policy PR
+must be represented by a reasoned `#[expect(...)]` and an expiring
+`policy/clippy-debt.toml` receipt.
+
+Soon-to-be-collapsed implementation microcrates are not required to opt in
+individually during demicrocrating. When their code moves under `hl7v2`, the
+canonical library crate's inherited lint baseline applies.
 
 ## No test carveouts
 
@@ -97,7 +124,14 @@ Run the policy gate with:
 cargo run -p xtask -- check-lint-policy
 ```
 
-The gate checks that the workspace MSRV matches the policy ledger, packages
-inherit workspace lints, active lints match the root manifest, planned 1.94/1.95
-lints are still planned until the MSRV bump, Clippy test carveouts are absent,
-and debt entries are complete and unexpired.
+Print the current rollout and debt summary with:
+
+```bash
+cargo run -p xtask -- policy-report
+```
+
+The gate checks that the workspace MSRV matches the policy ledger, required
+packages inherit workspace lints, staged package rollout is declared, active
+lints match the root manifest, planned 1.94/1.95 lints are still planned until
+the MSRV bump, Clippy test carveouts are absent, and debt entries are complete
+and unexpired.

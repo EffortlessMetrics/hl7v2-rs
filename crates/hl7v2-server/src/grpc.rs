@@ -11,8 +11,14 @@ use tonic::{Request, Response, Status};
 
 // Include the generated gRPC code
 /// Generated gRPC protocol code (protobuf messages and service traits).
-#[allow(missing_docs)]
 pub mod proto {
+    #![expect(
+        clippy::allow_attributes,
+        clippy::allow_attributes_without_reason,
+        clippy::missing_errors_doc,
+        reason = "tonic/prost generated code includes upstream attributes and client Result APIs"
+    )]
+
     tonic::include_proto!("hl7v2.v1");
 }
 
@@ -21,7 +27,10 @@ use proto::*;
 
 /// Implementation of the HL7Service gRPC trait
 pub struct Hl7ServiceImpl {
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "service state is retained for runtime parity and future streaming support"
+    )]
     state: Arc<AppState>,
 }
 
@@ -49,7 +58,7 @@ impl Hl7Service for Hl7ServiceImpl {
                         message: None,
                         errors: vec![Error {
                             code: "MLLP_ERROR".to_string(),
-                            message: format!("Failed to unwrap MLLP: {}", e),
+                            message: format!("Failed to unwrap MLLP: {e}"),
                             details: std::collections::HashMap::new(),
                             trace_id: String::new(),
                         }],
@@ -63,34 +72,7 @@ impl Hl7Service for Hl7ServiceImpl {
 
         match parse_result {
             Ok(msg) => {
-                let metadata = MessageMetadata {
-                    message_type: msg
-                        .segments
-                        .iter()
-                        .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(7))
-                        .and_then(|f: &RustField| f.first_text())
-                        .unwrap_or("UNKNOWN")
-                        .to_string(),
-                    version: msg
-                        .segments
-                        .iter()
-                        .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(10))
-                        .and_then(|f: &RustField| f.first_text())
-                        .unwrap_or("UNKNOWN")
-                        .to_string(),
-                    control_id: msg
-                        .segments
-                        .iter()
-                        .find(|s| &s.id == b"MSH")
-                        .and_then(|s: &RustSegment| s.fields.get(8))
-                        .and_then(|f: &RustField| f.first_text())
-                        .unwrap_or("UNKNOWN")
-                        .to_string(),
-                    sending_facility: String::new(),
-                    receiving_facility: String::new(),
-                };
+                let metadata = extract_grpc_metadata(&msg);
 
                 let proto_msg = proto::Message::from(msg);
 
@@ -106,7 +88,7 @@ impl Hl7Service for Hl7ServiceImpl {
                 message: None,
                 errors: vec![Error {
                     code: "PARSE_ERROR".to_string(),
-                    message: format!("Failed to parse HL7: {}", e),
+                    message: format!("Failed to parse HL7: {e}"),
                     details: std::collections::HashMap::new(),
                     trace_id: String::new(),
                 }],
@@ -132,10 +114,10 @@ impl Hl7Service for Hl7ServiceImpl {
         let req = request.into_inner();
 
         let message = rust_parse(&req.message)
-            .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
+            .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {e}")))?;
 
         let profile = hl7v2_prof::load_profile(&req.profile)
-            .map_err(|e| Status::invalid_argument(format!("Failed to load profile: {}", e)))?;
+            .map_err(|e| Status::invalid_argument(format!("Failed to load profile: {e}")))?;
 
         let issues = hl7v2_prof::validate(&message, &profile);
         let valid = issues
@@ -149,14 +131,14 @@ impl Hl7Service for Hl7ServiceImpl {
             let location = issue.path.map(|p| {
                 let mut loc = Location::default();
                 let parts: Vec<&str> = p.split('.').collect();
-                if !parts.is_empty() {
-                    loc.segment = parts[0].to_string();
+                if let Some(segment) = parts.first() {
+                    loc.segment = (*segment).to_string();
                 }
-                if parts.len() > 1 {
-                    loc.field = parts[1].parse().unwrap_or(0);
+                if let Some(field) = parts.get(1) {
+                    loc.field = field.parse().unwrap_or(0);
                 }
-                if parts.len() > 2 {
-                    loc.component = parts[2].parse().unwrap_or(0);
+                if let Some(component) = parts.get(2) {
+                    loc.component = component.parse().unwrap_or(0);
                 }
                 loc
             });
@@ -180,8 +162,8 @@ impl Hl7Service for Hl7ServiceImpl {
         }
 
         let summary = Some(ValidationSummary {
-            error_count: errors.len() as i32,
-            warning_count: warnings.len() as i32,
+            error_count: count_as_i32(errors.len()),
+            warning_count: count_as_i32(warnings.len()),
             info_count: 0,
         });
 
@@ -200,7 +182,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let req = request.into_inner();
 
         let message = rust_parse(&req.message)
-            .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
+            .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {e}")))?;
 
         let ack_code = match req.code() {
             generate_ack_request::AckCode::Aa => hl7v2_gen::AckCode::AA,
@@ -210,7 +192,7 @@ impl Hl7Service for Hl7ServiceImpl {
         };
 
         let ack_msg = hl7v2_gen::ack(&message, ack_code)
-            .map_err(|e| Status::internal(format!("Failed to generate ACK: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to generate ACK: {e}")))?;
         let ack_bytes = hl7v2_writer::write(&ack_msg);
         let proto_ack = proto::Message::from(ack_msg);
 
@@ -232,7 +214,7 @@ impl Hl7Service for Hl7ServiceImpl {
             .unwrap_or(true);
 
         let normalized_bytes = hl7v2_normalize::normalize(&req.message, canonical)
-            .map_err(|e| Status::invalid_argument(format!("Failed to normalize HL7: {}", e)))?;
+            .map_err(|e| Status::invalid_argument(format!("Failed to normalize HL7: {e}")))?;
 
         let mut final_bytes = normalized_bytes;
         if let Some(options) = req.options
@@ -262,6 +244,39 @@ impl Hl7Service for Hl7ServiceImpl {
 // ============================================================================
 // Conversions
 // ============================================================================
+
+fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
+    MessageMetadata {
+        message_type: joined_components(msg, "MSH.9").unwrap_or_else(|| "UNKNOWN".to_string()),
+        version: hl7v2_core::get(msg, "MSH.12")
+            .unwrap_or("UNKNOWN")
+            .to_string(),
+        control_id: hl7v2_core::get(msg, "MSH.10")
+            .unwrap_or("UNKNOWN")
+            .to_string(),
+        sending_facility: hl7v2_core::get(msg, "MSH.4").unwrap_or("").to_string(),
+        receiving_facility: hl7v2_core::get(msg, "MSH.6").unwrap_or("").to_string(),
+    }
+}
+
+fn joined_components(msg: &RustMessage, field_path: &str) -> Option<String> {
+    let mut components = Vec::new();
+
+    for component in 1.. {
+        let path = format!("{field_path}.{component}");
+        match hl7v2_core::get(msg, &path) {
+            Some(value) if !value.is_empty() => components.push(value.to_string()),
+            _ if component == 1 => return None,
+            _ => break,
+        }
+    }
+
+    Some(components.join("^"))
+}
+
+fn count_as_i32(count: usize) -> i32 {
+    i32::try_from(count).unwrap_or(i32::MAX)
+}
 
 impl From<RustMessage> for proto::Message {
     fn from(msg: RustMessage) -> Self {

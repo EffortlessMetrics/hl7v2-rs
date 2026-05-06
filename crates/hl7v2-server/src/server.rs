@@ -19,6 +19,50 @@ pub struct AppState {
     pub metrics_handle: Arc<PrometheusHandle>,
     /// Optional API key for authentication
     pub api_key: Option<String>,
+    /// CORS origin policy for browser clients
+    pub cors_allowed_origins: CorsAllowedOrigins,
+}
+
+/// CORS origin policy.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum CorsAllowedOrigins {
+    /// Allow any origin.
+    #[default]
+    Any,
+    /// Allow only the listed origins.
+    List(Vec<String>),
+}
+
+impl CorsAllowedOrigins {
+    /// Build an allow-any origin policy.
+    pub fn any() -> Self {
+        Self::Any
+    }
+
+    /// Build a list-based origin policy.
+    pub fn list<I, S>(origins: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        let origins = origins
+            .into_iter()
+            .map(Into::into)
+            .map(|origin: String| origin.trim().to_string())
+            .filter(|origin| !origin.is_empty())
+            .collect::<Vec<_>>();
+
+        if origins.is_empty() || origins.iter().any(|origin| origin == "*") {
+            Self::Any
+        } else {
+            Self::List(origins)
+        }
+    }
+
+    /// Parse a comma-separated origin list. Empty values and `*` mean any origin.
+    pub fn from_csv(value: &str) -> Self {
+        Self::list(value.split(','))
+    }
 }
 
 /// HTTP server configuration
@@ -30,6 +74,8 @@ pub struct ServerConfig {
     pub max_body_size: usize,
     /// Optional API key for authentication
     pub api_key: Option<String>,
+    /// CORS origin policy
+    pub cors_allowed_origins: CorsAllowedOrigins,
 }
 
 impl Default for ServerConfig {
@@ -38,6 +84,7 @@ impl Default for ServerConfig {
             bind_address: "0.0.0.0:8080".to_string(),
             max_body_size: 10 * 1024 * 1024, // 10MB
             api_key: None,
+            cors_allowed_origins: CorsAllowedOrigins::default(),
         }
     }
 }
@@ -58,6 +105,7 @@ impl Server {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: config.api_key.clone(),
+            cors_allowed_origins: config.cors_allowed_origins.clone(),
         });
 
         Self { config, state }
@@ -68,14 +116,19 @@ impl Server {
         ServerBuilder::new()
     }
 
-    /// Run the server
+    /// Run the server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the bind address is invalid, the TCP listener cannot
+    /// be created, or the Axum server exits with an error.
     pub async fn serve(self) -> Result<()> {
         // Parse bind address
         let addr: SocketAddr = self
             .config
             .bind_address
             .parse()
-            .map_err(|e| crate::Error::Config(format!("Invalid bind address: {}", e)))?;
+            .map_err(|e| crate::Error::Config(format!("Invalid bind address: {e}")))?;
 
         // Create TCP listener
         let listener = TcpListener::bind(&addr).await?;
@@ -126,6 +179,12 @@ impl ServerBuilder {
         self
     }
 
+    /// Set the CORS allowed origins.
+    pub fn cors_allowed_origins(mut self, origins: CorsAllowedOrigins) -> Self {
+        self.config.cors_allowed_origins = origins;
+        self
+    }
+
     /// Build the server
     pub fn build(self) -> Server {
         Server::new(self.config)
@@ -158,5 +217,19 @@ mod tests {
         let config = ServerConfig::default();
         assert_eq!(config.bind_address, "0.0.0.0:8080");
         assert_eq!(config.max_body_size, 10 * 1024 * 1024);
+        assert_eq!(config.cors_allowed_origins, CorsAllowedOrigins::Any);
+    }
+
+    #[test]
+    fn test_cors_allowed_origins_from_csv() {
+        assert_eq!(CorsAllowedOrigins::from_csv("*"), CorsAllowedOrigins::Any);
+        assert_eq!(CorsAllowedOrigins::from_csv(""), CorsAllowedOrigins::Any);
+        assert_eq!(
+            CorsAllowedOrigins::from_csv("https://app.example, https://ops.example"),
+            CorsAllowedOrigins::List(vec![
+                "https://app.example".to_string(),
+                "https://ops.example".to_string()
+            ])
+        );
     }
 }

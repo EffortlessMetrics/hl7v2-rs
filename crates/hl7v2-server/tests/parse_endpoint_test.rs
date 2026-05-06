@@ -1,5 +1,10 @@
 //! Integration tests for the /hl7/parse endpoint.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "legacy parse endpoint tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},

@@ -41,24 +41,35 @@ Corpus generation reproducibility tracking:
 
 ### Config (`config/hl7v2-config-v1.schema.json`)
 CLI and server configuration (hl7v2.toml):
-- Server modes (HTTP, gRPC, MLLP)
-- Profile loading and caching
-- Validation settings
-- Logging and telemetry
+- Server host, port, and optional API key
+- CLI defaults
+- Logging defaults
 
 ## Usage
 
 ### Validate YAML Against Schema
 
 ```bash
-# Install ajv-cli for validation
-npm install -g ajv-cli
+# Install ajv-cli and ajv-formats for validation
+npm install -g ajv-cli ajv-formats
 
 # Validate a profile
-ajv validate -s schemas/profile/profile-v1.schema.json -d profiles/adt_a01.yaml
+ajv validate -c ajv-formats -s schemas/profile/profile-v1.schema.json -d profiles/adt_a01.yaml --spec=draft7
 
 # Validate all profiles
-ajv validate -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml'
+ajv validate -c ajv-formats -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml' --spec=draft7
+
+# Validate the checked-in TOML config fixture
+python3 - <<'PY'
+import json
+import tomllib
+from pathlib import Path
+
+data = tomllib.loads(Path("config.example.toml").read_text(encoding="utf-8"))
+Path("target/contracts/config").mkdir(parents=True, exist_ok=True)
+Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
+PY
+ajv validate -c ajv-formats -s schemas/config/hl7v2-config-v1.schema.json -d target/contracts/config/config.example.json --spec=draft7
 ```
 
 ### In Rust Code
@@ -86,15 +97,25 @@ fn main() {
 
 ### CI Integration
 
-The CI pipeline validates all YAML files against their schemas:
+The API Contracts workflow validates profiles, converted config fixtures, and
+schema syntax:
 
 ```yaml
-# .github/workflows/ci.yml
+# .github/workflows/contracts.yml
 - name: Validate Schemas
   run: |
-    npm install -g ajv-cli
-    ajv validate -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml'
-    ajv validate -s schemas/config/hl7v2-config-v1.schema.json -d 'config/*.toml'
+    npm install -g ajv-cli ajv-formats
+    ajv validate -c ajv-formats -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml' --spec=draft7
+    python3 - <<'PY'
+    import json
+    import tomllib
+    from pathlib import Path
+
+    data = tomllib.loads(Path("config.example.toml").read_text(encoding="utf-8"))
+    Path("target/contracts/config").mkdir(parents=True, exist_ok=True)
+    Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
+    PY
+    ajv validate -c ajv-formats -s schemas/config/hl7v2-config-v1.schema.json -d 'target/contracts/config/*.json' --spec=draft7
 ```
 
 ## Schema Versioning

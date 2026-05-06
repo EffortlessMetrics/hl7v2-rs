@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 
 /// Root configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct Config {
     /// Server settings
     #[serde(default)]
@@ -26,7 +25,6 @@ pub struct Config {
 
 /// Server configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct ServerConfig {
     /// Bind address
     pub host: String,
@@ -48,7 +46,6 @@ impl Default for ServerConfig {
 
 /// CLI configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct CliConfig {
     /// Default HL7 version
     pub default_version: String,
@@ -67,7 +64,6 @@ impl Default for CliConfig {
 
 /// Logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct LogConfig {
     /// Log level (error, warn, info, debug, trace)
     pub level: String,
@@ -88,7 +84,13 @@ impl Default for LogConfig {
 }
 
 /// Load configuration from a file
-#[allow(dead_code)]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "configuration loader is staged for CLI config integration"
+    )
+)]
 pub fn load_config(path: impl AsRef<Path>) -> Result<Config, Box<dyn std::error::Error>> {
     let path_ref = path.as_ref();
     let content = fs::read_to_string(path_ref)?;
@@ -102,7 +104,10 @@ pub fn load_config(path: impl AsRef<Path>) -> Result<Config, Box<dyn std::error:
 }
 
 /// Apply environment variable overrides to configuration
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "configuration loader is staged for CLI config integration"
+)]
 pub fn apply_env_overrides(config: &mut Config) {
     if let Ok(host) = std::env::var("HL7_HOST") {
         config.server.host = host;
@@ -117,5 +122,59 @@ pub fn apply_env_overrides(config: &mut Config) {
     }
     if let Ok(log_level) = std::env::var("HL7_LOG_LEVEL") {
         config.logging.level = log_level;
+    }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::expect_used,
+    reason = "legacy config tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+mod tests {
+    use super::{Config, load_config};
+    use std::fs;
+
+    #[test]
+    fn config_example_matches_loader_shape() {
+        let config: Config = toml::from_str(include_str!("../../../config.example.toml"))
+            .expect("config.example.toml should match Config");
+
+        assert_example_config(config);
+    }
+
+    #[test]
+    fn load_config_reads_toml_file() {
+        let dir = tempfile::tempdir().expect("tempdir should be created");
+        let path = dir.path().join("hl7v2.toml");
+        fs::write(&path, include_str!("../../../config.example.toml"))
+            .expect("config fixture should be written");
+
+        let config = load_config(&path).expect("TOML config should load");
+
+        assert_example_config(config);
+    }
+
+    #[test]
+    fn load_config_reads_yaml_file() {
+        let dir = tempfile::tempdir().expect("tempdir should be created");
+        let path = dir.path().join("hl7v2.yaml");
+        fs::write(
+            &path,
+            "server:\n  host: 0.0.0.0\n  port: 8080\ncli:\n  default_version: 2.5.1\n  output_format: text\nlogging:\n  level: info\n  log_to_file: false\n",
+        )
+        .expect("config fixture should be written");
+
+        let config = load_config(&path).expect("YAML config should load");
+
+        assert_example_config(config);
+    }
+
+    fn assert_example_config(config: Config) {
+        assert_eq!(config.server.host, "0.0.0.0");
+        assert_eq!(config.server.port, 8080);
+        assert_eq!(config.cli.default_version, "2.5.1");
+        assert_eq!(config.cli.output_format, "text");
+        assert_eq!(config.logging.level, "info");
+        assert!(!config.logging.log_to_file);
     }
 }

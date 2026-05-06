@@ -1,5 +1,11 @@
 //! Integration tests for the /hl7/validate endpoint.
 
+#![expect(
+    clippy::unwrap_used,
+    clippy::indexing_slicing,
+    reason = "legacy validate endpoint tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},

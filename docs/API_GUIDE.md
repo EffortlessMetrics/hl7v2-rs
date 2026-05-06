@@ -55,7 +55,7 @@ Validates an HL7 v2 message against a provided conformance profile.
 ```json
 {
   "message": "MSH|^~\\&|...",
-  "profile_yaml": "...",
+  "profile": "...",
   "mllp_framed": false
 }
 ```
@@ -71,14 +71,50 @@ curl -X POST http://localhost:8080/hl7/validate \
   --data-binary @- <<EOF
 {
   "message": "$MESSAGE",
-  "profile_yaml": "$(echo "$PROFILE_CONTENT" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' ORS='')"
+  "profile": "$(echo "$PROFILE_CONTENT" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' ORS='')"
 }
 EOF
 ```
 
 ---
 
-### 3. Health & Metrics
+### 3. Generate ACK
+**POST** `/hl7/ack`
+
+Generates an HL7 ACK response from an inbound message.
+
+**Request Body:**
+```json
+{
+  "message": "MSH|^~\\&|...",
+  "code": "AA",
+  "mllp_framed": false,
+  "mllp_frame": false
+}
+```
+
+---
+
+### 4. Normalize HL7 Message
+**POST** `/hl7/normalize`
+
+Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
+
+**Request Body:**
+```json
+{
+  "message": "MSH|^~\\&|...",
+  "mllp_framed": false,
+  "options": {
+    "canonical_delimiters": true,
+    "mllp_frame": false
+  }
+}
+```
+
+---
+
+### 5. Health & Metrics
 
 **Health Check:**
 ```bash
@@ -100,19 +136,16 @@ The API uses standard HTTP status codes and returns a JSON error body:
 
 ```json
 {
-  "error": "Validation failed",
-  "details": [
-    "PID.5.1 (Family Name) is required but missing",
-    "MSH.9.2 (Trigger Event) must be 'A01' for this profile"
-  ]
+  "code": "PROFILE_LOAD_ERROR",
+  "message": "Failed to load profile: missing required field `version`",
+  "details": null
 }
 ```
 
 ### Common Status Codes:
 - `200 OK`: Success.
-- `400 Bad Request`: Invalid JSON or missing required fields.
+- `400 Bad Request`: Invalid JSON, malformed HL7, or profile load error.
 - `401 Unauthorized`: Missing or invalid `X-API-Key`.
-- `422 Unprocessable Entity`: HL7 parsing or validation failed.
 - `429 Too Many Requests`: Rate limit exceeded.
 - `500 Internal Server Error`: Server configuration error.
 
@@ -123,4 +156,4 @@ The API uses standard HTTP status codes and returns a JSON error body:
 1. **Use MLLP Framing**: If you are sending messages from a system that already supports MLLP, set `"mllp_framed": true` to have the server handle the `\x0b` and `\x1c\x0d` bytes automatically.
 2. **Batching**: For high-volume processing, consider using a persistent connection or sending multiple messages in a single batch if supported by your workflow.
 3. **API Key Rotation**: Periodically rotate your `HL7V2_API_KEY` environment variable.
-4. **Client-side Validation**: Use the OpenAPI spec (`/api/docs`) to generate type-safe clients in your preferred language.
+4. **Client-side Validation**: Use `api/openapi/hl7v2-api-v1.yaml` or the server's documentation endpoint to generate type-safe clients in your preferred language.

@@ -4,6 +4,7 @@ HL7 v2 message parser and processor for Rust.
 
 This is the canonical entry point for the
 [`hl7v2-rs`](https://github.com/EffortlessMetrics/hl7v2-rs) workspace.
+Use this crate for normal Rust library integration.
 
 ## Quick start
 
@@ -18,21 +19,29 @@ assert_eq!(get(&msg, "PID.5.1"), Some("Doe"));
 
 | Feature | Description |
 |---------|-------------|
+| `json` | JSON serialization helpers |
+| `profile` | Profile loading and conformance validation |
+| `ack` | ACK message generation |
+| `normalize` | Message normalization |
+| `batch` | Batch parsing and writing helpers |
 | `stream` | Streaming/event-based parser |
 | `network` | Async MLLP client/server (TCP/TLS) |
+| `synthetic` | Template, faker, corpus, and generation APIs |
+| `redact` | Redaction helpers |
+| `lifecycle` | Lifecycle and archive metadata helpers |
+| `experimental-guard` | Experimental guard/anomaly detection APIs |
 
-## Microcrates
+## API layout
 
-For finer-grained dependencies, use the individual crates directly:
+Common operations are available at the crate root:
 
-| Crate | Purpose |
-|-------|---------|
-| `hl7v2-model` | Core data types |
-| `hl7v2-parser` | Message parsing |
-| `hl7v2-writer` | Message serialization |
-| `hl7v2-escape` | Escape sequence handling |
-| `hl7v2-mllp` | MLLP framing |
-| `hl7v2-normalize` | Message normalization |
+```rust
+use hl7v2::{ack, get, normalize, parse, validate, write};
+```
+
+Implementer APIs are grouped under modules such as `hl7v2::model`,
+`hl7v2::parser`, `hl7v2::writer`, `hl7v2::query`, `hl7v2::transport`,
+`hl7v2::conformance`, and `hl7v2::synthetic`.
 
 ## License
 

@@ -3,6 +3,14 @@
 //! Tests argument parsing, command execution, and error handling.
 
 #[cfg(test)]
+#[expect(
+    clippy::assertions_on_result_states,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::uninlined_format_args,
+    clippy::unwrap_used,
+    reason = "legacy CLI unit tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
 mod cli_unit_tests {
     use hl7v2_test_utils::fixtures::SampleMessages;
     use std::fs;
@@ -10,7 +18,6 @@ mod cli_unit_tests {
     use tempfile::TempDir;
 
     // Helper to create a temp file with content
-    #[allow(dead_code)]
     fn create_temp_file(dir: &TempDir, filename: &str, content: &[u8]) -> PathBuf {
         let path = dir.path().join(filename);
         fs::write(&path, content).expect("Failed to write temp file");
@@ -18,7 +25,6 @@ mod cli_unit_tests {
     }
 
     // Helper to create a temp HL7 file
-    #[allow(dead_code)]
     fn create_temp_hl7_file(dir: &TempDir, filename: &str) -> PathBuf {
         create_temp_file(dir, filename, SampleMessages::adt_a01().as_bytes())
     }

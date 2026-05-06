@@ -45,6 +45,11 @@ pub async fn trace_request(request: Request, next: Next) -> Response {
 /// - OAuth 2.0 / OIDC
 /// - mTLS
 /// - More sophisticated key management (HashiCorp Vault, AWS Secrets Manager)
+///
+/// # Errors
+///
+/// Returns `401 Unauthorized` when the configured API key is missing or does
+/// not match the `X-API-Key` header.
 pub async fn auth_middleware(
     State(state): State<Arc<AppState>>,
     request: Request,
@@ -54,9 +59,8 @@ pub async fn auth_middleware(
 
     // If no API key is configured, allow all requests (this branch should not
     // be hit if the middleware is applied correctly via build_router)
-    let expected_key = match &state.api_key {
-        Some(key) => key,
-        None => return Ok(next.run(request).await),
+    let Some(expected_key) = &state.api_key else {
+        return Ok(next.run(request).await);
     };
 
     // Get provided API key from request
