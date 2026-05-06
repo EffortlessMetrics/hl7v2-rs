@@ -78,11 +78,22 @@ const DEFAULT_MAX_MESSAGE_SIZE: usize = 1024 * 1024;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     /// Start of a new message with discovered delimiters
-    StartMessage { delims: Delims },
+    StartMessage {
+        /// Delimiters inferred for the message.
+        delims: Delims,
+    },
     /// A segment with its ID
-    Segment { id: Vec<u8> },
+    Segment {
+        /// Raw three-byte segment identifier.
+        id: Vec<u8>,
+    },
     /// A field with its number (1-based) and raw content
-    Field { num: u16, raw: Vec<u8> },
+    Field {
+        /// 1-based field index.
+        num: u16,
+        /// Raw field bytes (without trailing delimiters).
+        raw: Vec<u8>,
+    },
     /// End of message
     EndMessage,
 }
@@ -507,20 +518,27 @@ impl<D: BufRead> StreamParser<D> {
         Ok(())
     }
 
+    /// Current message size in bytes accumulated so far.
     pub fn current_message_size(&self) -> usize {
         self.current_message_size
     }
+
+    /// Maximum allowed message size in bytes.
     pub fn max_message_size(&self) -> usize {
         self.max_message_size
     }
+
+    /// Returns `true` while a message is currently being parsed.
     pub fn is_in_message(&self) -> bool {
         self.in_message
     }
 
+    /// Push raw input bytes into the internal buffer.
     pub fn resume_with_data(&mut self, data: &[u8]) {
         self.buffer.extend_from_slice(data);
     }
 
+    /// Reset parser buffers and internal positions.
     pub fn clear_buffer(&mut self) {
         self.buffer.clear();
         self.read_pos = 0;
@@ -528,11 +546,13 @@ impl<D: BufRead> StreamParser<D> {
     }
 }
 
+/// Async wrapper around a bounded parser event stream.
 pub struct AsyncStreamParser {
     receiver: Receiver<Result<Event, StreamError>>,
 }
 
 impl AsyncStreamParser {
+    /// Receive the next parsed event, if available.
     pub async fn next(&mut self) -> Option<Result<Event, StreamError>> {
         self.receiver.recv().await
     }

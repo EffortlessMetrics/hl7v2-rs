@@ -44,18 +44,23 @@ pub use server::{AppState, Server, ServerBuilder, ServerConfig};
 /// Server error types
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    /// Failed to bind the underlying server transport.
     #[error("Bind error: {0}")]
     Bind(#[from] std::io::Error),
 
+    /// Configuration failed validation.
     #[error("Configuration error: {0}")]
     Config(String),
 
+    /// Failed to parse the incoming HL7 message.
     #[error("Parse error: {0}")]
     Parse(#[from] hl7v2_core::Error),
 
+    /// Validation failed for message contents.
     #[error("Validation error: {0}")]
     Validation(String),
 
+    /// Internal server processing error.
     #[error("Internal server error: {0}")]
     Internal(String),
 }

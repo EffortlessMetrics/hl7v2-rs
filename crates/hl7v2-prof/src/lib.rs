@@ -131,31 +131,46 @@ impl From<hl7v2_core::Error> for ProfileLoadError {
 /// A conformance profile
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Profile {
+    /// HL7 message structure name (for example, `ADT_A01`).
     pub message_structure: String,
+    /// HL7 version string (for example, `2.5.1`).
     pub version: String,
+    /// Optional message type override.
     #[serde(default)]
     pub message_type: Option<String>,
+    /// Reference to parent profile by name for profile inheritance.
     #[serde(default)]
-    pub parent: Option<String>, // Reference to parent profile by name
+    pub parent: Option<String>,
+    /// Segment specifications for this profile.
     pub segments: Vec<SegmentSpec>,
+    /// Field and primitive constraints.
     #[serde(default)]
     pub constraints: Vec<Constraint>,
+    /// Field length constraints.
     #[serde(default)]
     pub lengths: Vec<LengthConstraint>,
+    /// HL7 value sets referenced by the profile.
     #[serde(default)]
     pub valuesets: Vec<ValueSet>,
+    /// Simple datatype constraints.
     #[serde(default)]
     pub datatypes: Vec<DataTypeConstraint>,
+    /// Advanced datatype constraints for richer checks.
     #[serde(default)]
-    pub advanced_datatypes: Vec<AdvancedDataTypeConstraint>, // New field for advanced data type validation
+    pub advanced_datatypes: Vec<AdvancedDataTypeConstraint>,
+    /// Cross-field validation rules.
     #[serde(default)]
     pub cross_field_rules: Vec<CrossFieldRule>,
+    /// Temporal validation rules for date/time comparisons.
     #[serde(default)]
-    pub temporal_rules: Vec<TemporalRule>, // New field for temporal validation
+    pub temporal_rules: Vec<TemporalRule>,
+    /// Contextual validation rules based on message context.
     #[serde(default)]
-    pub contextual_rules: Vec<ContextualRule>, // New field for contextual validation
+    pub contextual_rules: Vec<ContextualRule>,
+    /// Custom extension validation rules.
     #[serde(default)]
     pub custom_rules: Vec<CustomRule>,
+    /// HL7 table definitions used by value-set checks.
     #[serde(default)]
     pub hl7_tables: Vec<HL7Table>,
     /// Table precedence order - defines the order in which tables should be checked
@@ -170,21 +185,28 @@ pub struct Profile {
 /// Specification for a segment in a profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SegmentSpec {
+    /// Segment identifier (for example, `MSH`).
     pub id: String,
 }
 
 /// Constraint on a field path
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Constraint {
+    /// Path of the constrained field.
     pub path: String,
+    /// Whether the field is mandatory.
     #[serde(default)]
     pub required: bool,
+    /// Optional component-level constraint.
     #[serde(default)]
     pub components: Option<ComponentConstraint>,
+    /// Allowed literal values.
     #[serde(default)]
     pub r#in: Option<Vec<String>>,
+    /// Condition under which this constraint is active.
     #[serde(default)]
     pub when: Option<Condition>,
+    /// Regex pattern that the field value must match.
     #[serde(default)]
     pub pattern: Option<String>,
 }
@@ -192,15 +214,19 @@ pub struct Constraint {
 /// Component constraint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComponentConstraint {
+    /// Minimum number of values/components.
     pub min: Option<usize>,
+    /// Maximum number of values/components.
     pub max: Option<usize>,
 }
 
 /// Conditional constraint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Condition {
+    /// Match exactly one of these values.
     #[serde(default)]
     pub eq: Option<Vec<String>>,
+    /// Match when any nested condition is satisfied.
     #[serde(default)]
     pub any: Option<Vec<Condition>>,
 }
@@ -208,15 +234,20 @@ pub struct Condition {
 /// Length constraint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LengthConstraint {
+    /// Path to the constrained field.
     pub path: String,
+    /// Optional maximum length.
     pub max: Option<usize>,
-    pub policy: Option<String>, // "no-truncate" or "may-truncate"
+    /// Truncation policy (`no-truncate` or `may-truncate`).
+    pub policy: Option<String>,
 }
 
 /// Value set constraint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValueSet {
+    /// Field path where this value set applies.
     pub path: String,
+    /// Name of the value set.
     pub name: String,
     /// Codes can be defined inline OR reference an HL7 table by name
     #[serde(default)]
@@ -226,82 +257,115 @@ pub struct ValueSet {
 /// Data type constraint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataTypeConstraint {
+    /// Field path constrained by datatype.
     pub path: String,
-    pub r#type: String, // HL7 data type like "ST", "ID", "DT", etc.
+    /// HL7 datatype identifier (for example, `ST`, `ID`, `DT`).
+    pub r#type: String,
 }
 
 /// Advanced data type constraint with complex validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvancedDataTypeConstraint {
+    /// Field path constrained by advanced datatype rules.
     pub path: String,
-    pub r#type: String, // HL7 data type like "ST", "ID", "DT", etc.
+    /// HL7 datatype identifier (for example, `ST`, `ID`, `DT`).
+    pub r#type: String,
+    /// Optional regex pattern to validate the field.
     #[serde(default)]
-    pub pattern: Option<String>, // Regex pattern for additional validation
+    pub pattern: Option<String>,
+    /// Minimum length constraint.
     #[serde(default)]
-    pub min_length: Option<usize>, // Minimum length constraint
+    pub min_length: Option<usize>,
+    /// Maximum length constraint.
     #[serde(default)]
-    pub max_length: Option<usize>, // Maximum length constraint
+    pub max_length: Option<usize>,
+    /// Optional format hint (for example, `YYYY-MM-DD`).
     #[serde(default)]
-    pub format: Option<String>, // Format specification (e.g., "YYYY-MM-DD" for dates)
+    pub format: Option<String>,
+    /// Optional checksum algorithm name.
     #[serde(default)]
-    pub checksum: Option<String>, // Checksum algorithm (e.g., "luhn" for credit cards)
+    pub checksum: Option<String>,
 }
 
 /// Temporal validation rule for date/time relationships
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemporalRule {
+    /// Rule identifier.
     pub id: String,
+    /// Human-readable description.
     pub description: String,
-    pub before: String, // Path to field that should be before another
-    pub after: String,  // Path to field that should be after another
+    /// Path expected to be earlier than `after`.
+    pub before: String,
+    /// Path expected to be later than `before`.
+    pub after: String,
+    /// Whether equal timestamps are allowed.
     #[serde(default)]
-    pub allow_equal: bool, // Whether equal times are allowed
+    pub allow_equal: bool,
+    /// Optional tolerance for comparison.
     #[serde(default)]
-    pub tolerance: Option<String>, // Tolerance for comparison (e.g., "1d" for 1 day)
+    pub tolerance: Option<String>,
 }
 
 /// Contextual validation rule based on message context
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextualRule {
+    /// Rule identifier.
     pub id: String,
+    /// Human-readable description.
     pub description: String,
-    pub context_field: String,   // Field that determines the context
-    pub context_value: String,   // Value that triggers this rule
-    pub target_field: String,    // Field to validate
-    pub validation_type: String, // Type of validation to apply
+    /// Field used to determine applicability.
+    pub context_field: String,
+    /// Required field value to activate this rule.
+    pub context_value: String,
+    /// Field validated when the context matches.
+    pub target_field: String,
+    /// Validation type to execute.
+    pub validation_type: String,
+    /// Parameters passed to the validator.
     #[serde(default)]
-    pub parameters: std::collections::HashMap<String, String>, // Additional parameters
+    pub parameters: std::collections::HashMap<String, String>,
 }
 
 /// HL7 Table definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HL7Table {
-    pub id: String,      // Table ID like "HL70001"
-    pub name: String,    // Table name like "Administrative Sex"
-    pub version: String, // HL7 version like "2.5.1"
+    /// HL7 table identifier (for example, `HL70001`).
+    pub id: String,
+    /// Table display name.
+    pub name: String,
+    /// Table version.
+    pub version: String,
+    /// Table values.
     pub codes: Vec<HL7TableEntry>,
 }
 
 /// Entry in an HL7 table
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HL7TableEntry {
-    pub value: String,       // The code value
-    pub description: String, // Description of the code
+    /// Code value.
+    pub value: String,
+    /// Code description.
+    pub description: String,
+    /// Entry status (`A` active, `D` deprecated, `R` restricted).
     #[serde(default)]
-    pub status: String, // "A" (active), "D" (deprecated), "R" (restricted)
+    pub status: String,
 }
 
 /// Cross-field validation rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrossFieldRule {
+    /// Rule identifier.
     pub id: String,
+    /// Human-readable description.
     pub description: String,
     /// Validation mode: "conditional" (default) or "assert"
     /// - "conditional": If conditions are met, execute actions
     /// - "assert": Conditions must be true, fail otherwise
     #[serde(default = "default_validation_mode")]
     pub validation_mode: String,
+    /// Conditions that gate this rule.
     pub conditions: Vec<hl7v2_validation::RuleCondition>,
+    /// Actions produced when conditions pass.
     pub actions: Vec<hl7v2_validation::RuleAction>,
 }
 
@@ -312,9 +376,12 @@ fn default_validation_mode() -> String {
 /// Custom validation rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomRule {
+    /// Rule identifier.
     pub id: String,
+    /// Human-readable description.
     pub description: String,
-    pub script: String, // Could be a simple expression or reference to external logic
+    /// Rule script or reference to external logic.
+    pub script: String,
 }
 
 /// Expression guardrails - rules that limit how expressions can be used in profiles

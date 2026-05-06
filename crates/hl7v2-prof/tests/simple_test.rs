@@ -1,3 +1,5 @@
+//! Integration test for loading and validating simple profiles.
+
 use hl7v2_prof::load_profile;
 
 #[test]

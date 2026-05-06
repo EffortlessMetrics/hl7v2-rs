@@ -14,79 +14,128 @@ use serde::{Deserialize, Serialize};
 /// Error type for HL7 v2 operations
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum Error {
+    /// Encountered an invalid segment ID during parsing.
     #[error("Invalid segment ID")]
     InvalidSegmentId,
 
+    /// The delimiter sequence had an invalid length.
     #[error("Bad delimiter length")]
     BadDelimLength,
 
+    /// Two or more delimiter characters are the same.
     #[error("Duplicate delimiters")]
     DuplicateDelims,
 
+    /// Escape sequence markers were unbalanced.
     #[error("Unbalanced escape")]
     UnbalancedEscape,
 
+    /// An escape token could not be parsed.
     #[error("Invalid escape token")]
     InvalidEscapeToken,
 
+    /// The MSH segment format does not match the HL7 requirement.
     #[error("MSH field malformed")]
     MshFieldMalformed,
 
+    /// The MSH-10 control ID field is missing.
     #[error("MSH-10 missing")]
     Msh10Missing,
 
+    /// The message processing ID is invalid.
     #[error("Invalid processing ID")]
     InvalidProcessingId,
 
+    /// The message version was not recognized.
     #[error("Unrecognized version")]
     UnrecognizedVersion,
 
+    /// Message charset is unsupported or invalid.
     #[error("Invalid charset")]
     InvalidCharset,
 
+    /// A framing error occurred while reading or writing the message.
     #[error("Framing error: {0}")]
     Framing(String),
 
+    /// The write operation failed for the underlying transport or writer.
     #[error("Write failed")]
     WriteFailed,
 
+    /// Parsing failed for the specified segment and field.
     #[error("Parse error at segment {segment_id} field {field_index}: {source}")]
     ParseError {
+        /// Segment where the parse failed.
         segment_id: String,
+        /// Index of the field in the segment.
         field_index: usize,
         #[source]
+        /// Underlying error that caused the parse failure.
         source: Box<Error>,
     },
 
+    /// Field text does not satisfy the configured field format.
     #[error("Invalid field format: {details}")]
-    InvalidFieldFormat { details: String },
+    InvalidFieldFormat {
+        /// Human-readable details for the parse error.
+        details: String,
+    },
 
+    /// Repetition text does not satisfy the configured repetition format.
     #[error("Invalid repetition format: {details}")]
-    InvalidRepFormat { details: String },
+    InvalidRepFormat {
+        /// Human-readable details for the parse error.
+        details: String,
+    },
 
+    /// Component text does not satisfy the configured component format.
     #[error("Invalid component format: {details}")]
-    InvalidCompFormat { details: String },
+    InvalidCompFormat {
+        /// Human-readable details for the parse error.
+        details: String,
+    },
 
+    /// Subcomponent text does not satisfy the configured subcomponent format.
     #[error("Invalid subcomponent format: {details}")]
-    InvalidSubcompFormat { details: String },
+    InvalidSubcompFormat {
+        /// Human-readable details for the parse error.
+        details: String,
+    },
 
+    /// The batch parsing operation failed.
     #[error("Batch parsing error: {details}")]
-    BatchParseError { details: String },
+    BatchParseError {
+        /// Human-readable details for the batch parsing failure.
+        details: String,
+    },
 
+    /// The batch header could not be read or interpreted.
     #[error("Invalid batch header: {details}")]
-    InvalidBatchHeader { details: String },
+    InvalidBatchHeader {
+        /// Human-readable details for the batch header failure.
+        details: String,
+    },
 
+    /// The batch trailer could not be read or interpreted.
     #[error("Invalid batch trailer: {details}")]
-    InvalidBatchTrailer { details: String },
+    InvalidBatchTrailer {
+        /// Human-readable details for the batch trailer failure.
+        details: String,
+    },
 }
 
 /// Delimiters used in HL7 v2 messages
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Delims {
+    /// Field separator (`MSH-1` and list separators).
     pub field: char,
+    /// Component separator (`MSH-2` first character).
     pub comp: char,
+    /// Repetition separator (`MSH-2` second character).
     pub rep: char,
+    /// Escape character (`MSH-2` third character).
     pub esc: char,
+    /// Subcomponent separator (`MSH-2` fourth character).
     pub sub: char,
 }
 
@@ -143,7 +192,9 @@ impl Delims {
 /// Main message structure
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Message {
+    /// Delimiters used for parsing and rendering message fields.
     pub delims: Delims,
+    /// Segment list in message order.
     pub segments: Vec<Segment>,
     /// Character sets used in the message (from MSH-18)
     #[serde(default)]
@@ -179,23 +230,31 @@ impl Default for Message {
 /// A batch of HL7 messages
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Batch {
+    /// Optional BHS header segment for the batch.
     pub header: Option<Segment>, // BHS segment
+    /// HL7 messages contained in this batch.
     pub messages: Vec<Message>,
+    /// Optional BTS trailer segment for the batch.
     pub trailer: Option<Segment>, // BTS segment
 }
 
 /// A file containing batches of HL7 messages
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct FileBatch {
+    /// Optional FHS header segment for the file batch.
     pub header: Option<Segment>, // FHS segment
+    /// Batches nested under this file batch.
     pub batches: Vec<Batch>,
+    /// Optional FTS trailer segment for the file batch.
     pub trailer: Option<Segment>, // FTS segment
 }
 
 /// A segment in an HL7 message
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Segment {
+    /// Three-character segment ID (for example `MSH`, `PID`).
     pub id: [u8; 3],
+    /// Fields contained in the segment.
     pub fields: Vec<Field>,
 }
 
@@ -222,6 +281,7 @@ impl Segment {
 /// A field in a segment
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Field {
+    /// Repetitions contained in this field.
     pub reps: Vec<Rep>,
 }
 
@@ -267,6 +327,7 @@ impl Default for Field {
 /// A repetition of a field
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rep {
+    /// Components contained in this repetition.
     pub comps: Vec<Comp>,
 }
 
@@ -303,6 +364,7 @@ impl Default for Rep {
 /// A component of a field
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Comp {
+    /// Subcomponents that make up this component.
     pub subs: Vec<Atom>,
 }
 
@@ -339,7 +401,9 @@ impl Default for Comp {
 /// An atomic value in the message
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Atom {
+    /// Plain text value.
     Text(String),
+    /// Explicit NULL marker.
     Null,
 }
 

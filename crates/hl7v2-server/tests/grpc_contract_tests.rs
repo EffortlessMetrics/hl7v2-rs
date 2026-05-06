@@ -1,3 +1,5 @@
+//! Contract tests for the gRPC service implementation.
+
 #[cfg(test)]
 mod tests {
     use hl7v2_server::grpc::Hl7ServiceImpl;

@@ -27,18 +27,23 @@ use thiserror::Error;
 /// Error type for path parsing
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum PathError {
+    /// Input does not match the expected path format.
     #[error("Invalid path format: {0}")]
     InvalidFormat(String),
 
+    /// Segment identifier is not valid for HL7 v2 paths.
     #[error("Invalid segment ID: {0}")]
     InvalidSegmentId(String),
 
+    /// Field number is missing or outside the valid HL7 range.
     #[error("Invalid field number: {0}")]
     InvalidFieldNumber(String),
 
+    /// Component number is missing or outside the valid HL7 range.
     #[error("Invalid component number: {0}")]
     InvalidComponentNumber(String),
 
+    /// Repetition index is missing or outside the valid HL7 range.
     #[error("Invalid repetition index: {0}")]
     InvalidRepetitionIndex(String),
 }

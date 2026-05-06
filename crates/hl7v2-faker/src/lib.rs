@@ -460,13 +460,24 @@ pub enum FakerValue {
     /// Select from a list of options
     From(Vec<String>),
     /// Numeric string with specified digits
-    Numeric { digits: usize },
+    Numeric {
+        /// Number of digits to emit.
+        digits: usize,
+    },
     /// Date within a range (YYYYMMDD format)
-    Date { start: String, end: String },
+    Date {
+        /// Start date (inclusive), `YYYYMMDD`.
+        start: String,
+        /// End date (inclusive), `YYYYMMDD`.
+        end: String,
+    },
     /// Gaussian distributed numeric value
     Gaussian {
+        /// Mean value.
         mean: f64,
+        /// Standard deviation.
         sd: f64,
+        /// Number of decimal places in output.
         precision: usize,
     },
     /// Select from a key-value map
@@ -476,7 +487,10 @@ pub enum FakerValue {
     /// Current UTC timestamp
     DtmNowUtc,
     /// Realistic name with optional gender
-    RealisticName { gender: Option<String> },
+    RealisticName {
+        /// Optional gender hint passed to the name generator.
+        gender: Option<String>,
+    },
     /// Realistic address
     RealisticAddress,
     /// Realistic phone number

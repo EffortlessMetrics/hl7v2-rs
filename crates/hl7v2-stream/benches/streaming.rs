@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Benchmarks for the hl7v2-stream crate.
 //!
 //! These benchmarks measure:

@@ -1,3 +1,5 @@
+//! Workspace task runner for repository automation and release checks.
+
 use anyhow::{Result, anyhow};
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package};
 use clap::{Parser, Subcommand};

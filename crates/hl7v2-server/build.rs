@@ -1,3 +1,5 @@
+//! Build helper for generating gRPC bindings during compilation.
+
 extern crate tonic_build;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
