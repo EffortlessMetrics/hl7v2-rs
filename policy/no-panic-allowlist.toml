@@ -1,6 +1,48 @@
 schema_version = "0.3"
 
-# Panic-family exceptions are intentionally empty for the strict workspace
-# baseline. If an exception is temporarily unavoidable, add an owned,
-# expiring `[[allow]]` entry whose identity is path + family + selector, with
-# `last_seen` used only as an advisory locator.
+# Authoritative ledger of panic-family exceptions.
+#
+# Identity for matching is `path + family + selector` (see
+# docs/NO_PANIC_POLICY.md). `last_seen.line` and `last_seen.column` are
+# advisory locators only and are never part of the match key — code can move
+# within a file without invalidating the receipt.
+#
+# Required fields per [[allow]] entry:
+#
+#   id, path, family, classification, owner, explanation, expires
+#   [allow.selector] kind, callee   (container is optional but recommended)
+#
+# Allowed families:
+#   unwrap, expect, get_unwrap, panic_macro, todo, unimplemented,
+#   unreachable, indexing, string_slice
+#
+# Allowed classifications:
+#   production, test_helper, generated, fixture, external_api
+#
+# Allowed selector kinds:
+#   method_call, macro, indexing
+#
+# Example:
+#
+#   [[allow]]
+#   id = "panic-0001"
+#   path = "crates/hl7v2-parser/src/fixtures.rs"
+#   family = "unwrap"
+#   classification = "test_helper"
+#   owner = "parser"
+#   explanation = "Fixture builder; migrate to fallible helper."
+#   expires = "2026-07-01"
+#
+#   [allow.selector]
+#   kind = "method_call"
+#   container = "parses_msh_boundary"
+#   callee = "unwrap"
+#
+#   [allow.last_seen]
+#   line = 42
+#   column = 17
+#
+# Panic-family exceptions are intentionally empty for the strict baseline.
+# Inheriting crates already enforce panic-family lints via the workspace
+# clippy baseline; the semantic checker is scoped to those crates plus xtask
+# and stays in lockstep with policy/clippy-lints.toml rollout.

@@ -64,6 +64,15 @@ jobs:
       - name: Run clippy lints (xtask)
         run: cargo run -p xtask -- gate --check --only clippy
 
+      - name: Check lint policy
+        run: cargo run -p xtask -- check-lint-policy
+
+      - name: Check no-panic-family policy
+        run: cargo run -p xtask -- check-no-panic-family
+
+      - name: Check non-Rust file policy
+        run: cargo run -p xtask -- check-file-policy
+
       - name: Run unit tests
         run: cargo test --lib --workspace --all-features
         timeout-minutes: 3
