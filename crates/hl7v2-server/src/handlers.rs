@@ -24,11 +24,6 @@ pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResp
 }
 
 /// Handler for POST /hl7/parse
-///
-/// # Errors
-///
-/// Returns an application error when the request message cannot be parsed or
-/// its required metadata cannot be extracted.
 pub async fn parse_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<ParseRequest>,
@@ -55,11 +50,6 @@ pub async fn parse_handler(
 }
 
 /// Handler for POST /hl7/validate
-///
-/// # Errors
-///
-/// Returns an application error when the request message cannot be parsed, the
-/// profile cannot be loaded, or required message metadata is missing.
 pub async fn validate_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<ValidateRequest>,
@@ -119,11 +109,6 @@ pub async fn validate_handler(
 }
 
 /// Handler for POST /hl7/ack
-///
-/// # Errors
-///
-/// Returns an application error when the request message cannot be parsed, ACK
-/// generation fails, or the generated ACK cannot be encoded as UTF-8.
 pub async fn ack_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<AckRequest>,
@@ -136,7 +121,7 @@ pub async fn ack_handler(
     } else {
         hl7v2_gen::ack(&message, ack_code)
     }
-    .map_err(|e| AppError::Internal(format!("Failed to generate ACK: {e}")))?;
+    .map_err(|e| AppError::Internal(format!("Failed to generate ACK: {}", e)))?;
 
     let metadata = extract_metadata(&ack_message)?;
     let ack_bytes = hl7v2_writer::write(&ack_message);
@@ -148,7 +133,7 @@ pub async fn ack_handler(
 
     let response = AckResponse {
         ack_message: String::from_utf8(ack_bytes)
-            .map_err(|e| AppError::Internal(format!("ACK was not UTF-8: {e}")))?,
+            .map_err(|e| AppError::Internal(format!("ACK was not UTF-8: {}", e)))?,
         ack_code: request.code.as_str().to_string(),
         metadata,
     };
@@ -157,11 +142,6 @@ pub async fn ack_handler(
 }
 
 /// Handler for POST /hl7/normalize
-///
-/// # Errors
-///
-/// Returns an application error when MLLP framing is invalid, normalization
-/// fails, normalized output cannot be parsed, or output is not UTF-8.
 pub async fn normalize_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<NormalizeRequest>,
@@ -169,15 +149,15 @@ pub async fn normalize_handler(
     let message_bytes = request.message.as_bytes();
     let input = if request.mllp_framed {
         hl7v2_mllp::unwrap_mllp(message_bytes)
-            .map_err(|e| AppError::Parse(format!("MLLP parse error: {e}")))?
+            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
     } else {
         message_bytes
     };
 
     let normalized_bytes = hl7v2_normalize::normalize(input, request.options.canonical_delimiters)
-        .map_err(|e| AppError::Parse(format!("Normalize error: {e}")))?;
+        .map_err(|e| AppError::Parse(format!("Normalize error: {}", e)))?;
     let normalized_message = hl7v2_core::parse(&normalized_bytes)
-        .map_err(|e| AppError::Parse(format!("Normalized message parse error: {e}")))?;
+        .map_err(|e| AppError::Parse(format!("Normalized message parse error: {}", e)))?;
     let metadata = extract_metadata(&normalized_message)?;
 
     let response_bytes = if request.options.mllp_frame {
@@ -188,7 +168,7 @@ pub async fn normalize_handler(
 
     let response = NormalizeResponse {
         normalized_message: String::from_utf8(response_bytes)
-            .map_err(|e| AppError::Internal(format!("Normalized message was not UTF-8: {e}")))?,
+            .map_err(|e| AppError::Internal(format!("Normalized message was not UTF-8: {}", e)))?,
         metadata,
     };
 
@@ -201,9 +181,9 @@ fn parse_request_message(
 ) -> Result<hl7v2_core::Message, AppError> {
     if mllp_framed {
         hl7v2_core::parse_mllp(message_bytes)
-            .map_err(|e| AppError::Parse(format!("MLLP parse error: {e}")))
+            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))
     } else {
-        hl7v2_core::parse(message_bytes).map_err(|e| AppError::Parse(format!("Parse error: {e}")))
+        hl7v2_core::parse(message_bytes).map_err(|e| AppError::Parse(format!("Parse error: {}", e)))
     }
 }
 
@@ -258,7 +238,7 @@ fn joined_components(message: &hl7v2_core::Message, path: &str) -> Option<String
     let mut components = Vec::new();
 
     for index in 1.. {
-        let component_path = format!("{path}.{index}");
+        let component_path = format!("{}.{}", path, index);
         match hl7v2_core::get(message, &component_path) {
             Some(value) if !value.is_empty() => components.push(value.to_string()),
             Some(_) => {}
@@ -310,10 +290,10 @@ impl IntoResponse for AppError {
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AppError::Parse(msg) => write!(f, "Parse error: {msg}"),
-            AppError::ProfileLoad(msg) => write!(f, "Profile load error: {msg}"),
-            AppError::Validation(msg) => write!(f, "Validation error: {msg}"),
-            AppError::Internal(msg) => write!(f, "Internal error: {msg}"),
+            AppError::Parse(msg) => write!(f, "Parse error: {}", msg),
+            AppError::ProfileLoad(msg) => write!(f, "Profile load error: {}", msg),
+            AppError::Validation(msg) => write!(f, "Validation error: {}", msg),
+            AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }
 }

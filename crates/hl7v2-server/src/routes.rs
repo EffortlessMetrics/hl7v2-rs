@@ -26,11 +26,6 @@ use crate::server::{AppState, CorsAllowedOrigins};
 const OPENAPI_YAML: &str = include_str!(env!("HL7V2_OPENAPI_YAML"));
 
 /// Build the application router
-#[expect(
-    clippy::unwrap_used,
-    clippy::missing_panics_doc,
-    reason = "static governor configuration is validated at startup and cannot recover inside router construction"
-)]
 pub fn build_router(state: Arc<AppState>) -> Router {
     // Rate limit configuration: 100 requests per minute per IP
     let governor_conf = Arc::new(
@@ -104,10 +99,6 @@ fn build_cors_layer(origins: &CorsAllowedOrigins) -> CorsLayer {
             let origins = origins
                 .iter()
                 .map(|origin| {
-                    #[expect(
-                        clippy::expect_used,
-                        reason = "configured CORS origins are validated before router construction"
-                    )]
                     HeaderValue::from_str(origin)
                         .expect("CORS allowed origin must be a valid header value")
                 })
@@ -129,17 +120,6 @@ mod tests {
     use http_body_util::BodyExt;
     use std::time::Instant;
     use tower::ServiceExt; // For `oneshot`
-
-    #[expect(
-        clippy::panic,
-        reason = "test helper converts fallible static fixture setup into test failures"
-    )]
-    fn must<T, E: std::fmt::Display>(result: Result<T, E>, context: &str) -> T {
-        match result {
-            Ok(value) => value,
-            Err(error) => panic!("{context}: {error}"),
-        }
-    }
 
     fn build_test_router_with_api_key(seed: &str) -> (Router, String) {
         let metrics_handle = crate::metrics::init_metrics_recorder();
@@ -163,43 +143,30 @@ mod tests {
             }
         });
 
-        must(
-            serde_json::to_string(&request_body),
-            "parse request payload should serialize",
-        )
+        serde_json::to_string(&request_body).unwrap()
     }
 
     async fn request_parse(app: Router, api_key: Option<&str>) -> (StatusCode, Vec<u8>) {
-        let mut request = must(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(parse_request_payload())),
-            "parse request should build",
-        );
+        let mut request = Request::builder()
+            .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                8080,
+            ))))
+            .uri("/hl7/parse")
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(Body::from(parse_request_payload()))
+            .unwrap();
 
         if let Some(key) = api_key {
-            request.headers_mut().insert(
-                "X-API-Key",
-                must(
-                    axum::http::HeaderValue::from_str(key),
-                    "deterministic API key should be a valid header",
-                ),
-            );
+            request
+                .headers_mut()
+                .insert("X-API-Key", axum::http::HeaderValue::from_str(key).unwrap());
         }
 
-        let response = must(app.oneshot(request).await, "parse request should complete");
+        let response = app.oneshot(request).await.unwrap();
         let status = response.status();
-        let body = must(
-            response.into_body().collect().await,
-            "parse response body should collect",
-        )
-        .to_bytes();
+        let body = response.into_body().collect().await.unwrap().to_bytes();
         (status, body.to_vec())
     }
 
@@ -215,32 +182,24 @@ mod tests {
 
         let app = build_router(state);
 
-        let response = must(
-            app.oneshot(must(
+        let response = app
+            .oneshot(
                 Request::builder()
                     .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
                         [127, 0, 0, 1],
                         8080,
                     ))))
                     .uri("/health")
-                    .body(Body::empty()),
-                "health request should build",
-            ))
-            .await,
-            "health request should complete",
-        );
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = must(
-            response.into_body().collect().await,
-            "health response body should collect",
-        )
-        .to_bytes();
-        let body_str = must(
-            String::from_utf8(body.to_vec()),
-            "health response should be UTF-8",
-        );
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
         assert!(body_str.contains("\"status\":\"healthy\""));
     }
 
@@ -268,8 +227,8 @@ mod tests {
             }
         });
 
-        let response = must(
-            app.oneshot(must(
+        let response = app
+            .oneshot(
                 Request::builder()
                     .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
                         [127, 0, 0, 1],
@@ -278,27 +237,17 @@ mod tests {
                     .uri("/hl7/parse")
                     .method("POST")
                     .header("Content-Type", "application/json")
-                    .body(Body::from(must(
-                        serde_json::to_string(&request_body),
-                        "parse request body should serialize",
-                    ))),
-                "parse endpoint request should build",
-            ))
-            .await,
-            "parse endpoint request should complete",
-        );
+                    .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body_bytes = must(
-            response.into_body().collect().await,
-            "parse endpoint response body should collect",
-        )
-        .to_bytes();
-        let response_data: crate::models::ParseResponse = must(
-            serde_json::from_slice(&body_bytes),
-            "parse endpoint response should decode",
-        );
+        let body_bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let response_data: crate::models::ParseResponse =
+            serde_json::from_slice(&body_bytes).unwrap();
 
         assert_eq!(response_data.metadata.message_type, "ADT^A01");
         assert_eq!(response_data.metadata.version, "2.5");
@@ -322,10 +271,8 @@ mod tests {
         let (status, body_bytes) = request_parse(app, Some(&key)).await;
 
         assert_eq!(status, StatusCode::OK);
-        let response_data: crate::models::ParseResponse = must(
-            serde_json::from_slice(&body_bytes),
-            "authenticated parse response should decode",
-        );
+        let response_data: crate::models::ParseResponse =
+            serde_json::from_slice(&body_bytes).unwrap();
 
         assert_eq!(response_data.metadata.message_type, "ADT^A01");
         assert_eq!(response_data.metadata.version, "2.5");

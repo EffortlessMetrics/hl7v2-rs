@@ -116,19 +116,14 @@ impl Server {
         ServerBuilder::new()
     }
 
-    /// Run the server.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the bind address is invalid, the TCP listener cannot
-    /// be created, or the Axum server exits with an error.
+    /// Run the server
     pub async fn serve(self) -> Result<()> {
         // Parse bind address
         let addr: SocketAddr = self
             .config
             .bind_address
             .parse()
-            .map_err(|e| crate::Error::Config(format!("Invalid bind address: {e}")))?;
+            .map_err(|e| crate::Error::Config(format!("Invalid bind address: {}", e)))?;
 
         // Create TCP listener
         let listener = TcpListener::bind(&addr).await?;
