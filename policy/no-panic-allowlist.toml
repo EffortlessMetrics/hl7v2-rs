@@ -1,0 +1,5 @@
+schema_version = "0.3"
+
+# Panic-family exceptions use semantic identity: path + family + selector.
+# last_seen is advisory only; owner, classification, and explanation are required.
+# No exceptions are currently approved for this workspace.

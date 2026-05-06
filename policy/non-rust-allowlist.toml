@@ -1,0 +1,136 @@
+schema_version = "1.0"
+
+[[allow]]
+glob = ".github/workflows/*.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+reason = "GitHub Actions workflow definitions are platform-required YAML."
+surface = "ci"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "api/**/*.yaml"
+kind = "api_contract"
+owner = "api"
+reason = "OpenAPI and Buf contracts are external interface definitions."
+surface = "api"
+classification = "production"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "*.toml"
+kind = "rust_config"
+owner = "workspace"
+reason = "Cargo and Rust tool configuration are required workspace policy files."
+surface = "build"
+classification = "config"
+covered_by = ["cargo xtask check-lint-policy"]
+
+[[allow]]
+glob = "*.yml"
+kind = "repo_config"
+owner = "workspace"
+reason = "Repository service configuration uses provider-required YAML."
+surface = "config"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "*.yaml"
+kind = "repo_config"
+owner = "workspace"
+reason = "Repository service configuration uses provider-required YAML."
+surface = "config"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = ".*.yml"
+kind = "repo_config"
+owner = "workspace"
+reason = "Dotfile service configuration uses provider-required YAML."
+surface = "config"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "**/*.yaml"
+kind = "declarative_data"
+owner = "workspace"
+reason = "Profiles, fixtures, and infrastructure declarations are data/config surfaces consumed by Rust tooling or platform providers."
+surface = "config"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "**/*.yml"
+kind = "declarative_data"
+owner = "workspace"
+reason = "Profiles, fixtures, and infrastructure declarations are data/config surfaces consumed by Rust tooling or platform providers."
+surface = "config"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "api/**/*.proto"
+kind = "api_contract"
+owner = "api"
+reason = "Protocol Buffer definitions are external gRPC contract sources."
+surface = "api"
+classification = "production"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "scripts/**/*.sh"
+kind = "test_script"
+owner = "release/ci"
+reason = "Shell is limited to repository test harness glue."
+surface = "tooling"
+classification = "test"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+path = "default.nix"
+kind = "dev_environment"
+owner = "workspace"
+reason = "Nix expression documents the reproducible development shell."
+surface = "tooling"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "**/*.rego"
+kind = "policy_source"
+owner = "security/policy"
+reason = "OPA policy rules are authored in Rego for policy-engine compatibility."
+surface = "security"
+classification = "production"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "**/*.toml"
+kind = "rust_config"
+owner = "workspace"
+reason = "Cargo, fuzz, and Rust tool configuration are required workspace policy files."
+surface = "build"
+classification = "config"
+covered_by = ["cargo xtask check-lint-policy"]
+
+[[allow]]
+glob = "**/*.json"
+kind = "structured_data"
+owner = "workspace"
+reason = "JSON files are structured fixture, configuration, or generated metadata consumed by repository checks."
+surface = "config"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "**/*.nix"
+kind = "dev_environment"
+owner = "workspace"
+reason = "Nix expressions document reproducible development and CI environments."
+surface = "tooling"
+classification = "config"
+covered_by = ["cargo xtask check-file-policy"]

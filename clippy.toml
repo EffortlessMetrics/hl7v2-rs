@@ -1,0 +1,5 @@
+# Clippy configuration for the HL7 v2 workspace.
+# Test carveouts are intentionally absent: panic-free and indexing-safe policy
+# applies to production code, examples, benches, and tests alike.
+# Repo-specific disallowed methods/types/macros should be added here with
+# matching entries in policy/clippy-debt.toml when staged remediation is needed.

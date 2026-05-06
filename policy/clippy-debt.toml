@@ -1,0 +1,5 @@
+schema = 1
+
+# Strict Clippy debt belongs here as reviewed, expiring receipts.
+# Add entries only when a lint cannot be enabled immediately without unrelated
+# cleanup. Empty debt means the current policy has no repo-wide weakening.

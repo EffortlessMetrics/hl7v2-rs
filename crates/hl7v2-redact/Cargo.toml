@@ -11,6 +11,9 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 hl7v2-core = { workspace = true }
 hl7v2-model = { workspace = true }

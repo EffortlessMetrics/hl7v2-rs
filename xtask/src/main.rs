@@ -79,6 +79,14 @@ enum Commands {
     HookPreCommit,
     /// Git pre-push hook: run full gate checks
     HookPrePush,
+    /// Verify workspace Clippy lint policy and debt ledgers
+    CheckLintPolicy,
+    /// Verify panic-family policy allowlist shape
+    CheckNoPanicFamily,
+    /// Verify non-Rust file policy allowlist shape
+    CheckFilePolicy,
+    /// Print a concise policy summary
+    PolicyReport,
 }
 
 fn main() -> Result<()> {
@@ -105,6 +113,10 @@ fn main() -> Result<()> {
         Commands::Docs { no_open } => docs(no_open)?,
         Commands::HookPreCommit => hook_pre_commit()?,
         Commands::HookPrePush => hook_pre_push()?,
+        Commands::CheckLintPolicy => check_lint_policy()?,
+        Commands::CheckNoPanicFamily => check_no_panic_family()?,
+        Commands::CheckFilePolicy => check_file_policy()?,
+        Commands::PolicyReport => policy_report()?,
     }
 
     Ok(())
@@ -112,6 +124,7 @@ fn main() -> Result<()> {
 
 fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
     println!("🚀 Running gate checks...");
+    check_lint_policy()?;
 
     let (changed_only, crates) = if changed_only {
         match get_changed_scope()? {
@@ -668,6 +681,385 @@ fn internal_publish_dependencies(
         .filter(|dep| dep.kind != DependencyKind::Development)
         .filter_map(|dep| packages.contains_key(&dep.name).then_some(dep.name.clone()))
         .collect()
+}
+
+fn check_lint_policy() -> Result<()> {
+    println!("🔎 Checking lint policy...");
+    let cargo = fs::read_to_string("Cargo.toml")?;
+    let ledger = fs::read_to_string("policy/clippy-lints.toml")?;
+    let clippy = fs::read_to_string("clippy.toml")?;
+
+    require_contains(
+        &cargo,
+        "rust-version = \"1.93\"",
+        "workspace MSRV must be 1.93",
+    )?;
+    require_contains(&ledger, "msrv = \"1.93\"", "lint ledger MSRV must be 1.93")?;
+    require_contains(
+        &cargo,
+        "[workspace.lints.rust]",
+        "root Cargo.toml must define workspace Rust lints",
+    )?;
+    require_contains(
+        &cargo,
+        "[workspace.lints.clippy]",
+        "root Cargo.toml must define workspace Clippy lints",
+    )?;
+
+    for lint in required_active_lints() {
+        require_contains(
+            &cargo,
+            lint,
+            &format!("root Cargo.toml missing active lint `{lint}`"),
+        )?;
+        require_contains(
+            &ledger,
+            lint,
+            &format!("policy/clippy-lints.toml missing `{lint}`"),
+        )?;
+    }
+    for planned in required_planned_lints() {
+        require_contains(
+            &ledger,
+            planned,
+            &format!("policy/clippy-lints.toml missing planned lint `{planned}`"),
+        )?;
+    }
+
+    for carveout in [
+        "allow-unwrap-in-tests",
+        "allow-expect-in-tests",
+        "allow-panic-in-tests",
+        "allow-indexing-slicing-in-tests",
+        "allow-dbg-in-tests",
+    ] {
+        if clippy.contains(carveout) {
+            return Err(anyhow!(
+                "clippy.toml must not contain test carveout `{carveout}`"
+            ));
+        }
+    }
+
+    let manifests = workspace_manifest_paths()?;
+    for manifest in manifests {
+        let text = fs::read_to_string(&manifest)?;
+        require_contains(
+            &text,
+            "[lints]",
+            &format!("{} must inherit workspace lints", manifest.display()),
+        )?;
+        require_contains(
+            &text,
+            "workspace = true",
+            &format!("{} must set [lints].workspace = true", manifest.display()),
+        )?;
+    }
+
+    check_debt_file("policy/clippy-debt.toml")?;
+    println!("✅ Lint policy passed");
+    Ok(())
+}
+
+fn check_no_panic_family() -> Result<()> {
+    println!("🔎 Checking no-panic allowlist...");
+    let text = fs::read_to_string("policy/no-panic-allowlist.toml")?;
+    require_contains(
+        &text,
+        "schema_version = \"0.3\"",
+        "no-panic allowlist schema must be 0.3",
+    )?;
+    for entry in toml_entry_blocks(&text, "[[allow]]") {
+        require_field(entry, "path")?;
+        require_field(entry, "family")?;
+        require_field(entry, "classification")?;
+        require_field(entry, "owner")?;
+        require_field(entry, "explanation")?;
+        require_contains(
+            entry,
+            "[allow.selector]",
+            "panic allow entry must include [allow.selector]",
+        )?;
+        require_field(entry, "kind")?;
+        fail_if_expired(entry)?;
+    }
+    println!("✅ No-panic policy passed");
+    Ok(())
+}
+
+fn check_file_policy() -> Result<()> {
+    println!("🔎 Checking non-Rust file policy...");
+    let text = fs::read_to_string("policy/non-rust-allowlist.toml")?;
+    require_contains(
+        &text,
+        "schema_version = \"1.0\"",
+        "non-Rust allowlist schema must be 1.0",
+    )?;
+    let entries = toml_entry_blocks(&text, "[[allow]]");
+    if entries.is_empty() {
+        return Err(anyhow!(
+            "policy/non-rust-allowlist.toml must contain at least one [[allow]] entry"
+        ));
+    }
+    let mut allow_patterns = Vec::new();
+    for entry in entries {
+        if !entry.contains("path =") && !entry.contains("glob =") {
+            return Err(anyhow!("non-Rust allow entry must include path or glob"));
+        }
+        for field in ["kind", "owner", "reason", "surface", "classification"] {
+            require_field(entry, field)?;
+        }
+        require_contains(
+            entry,
+            "covered_by =",
+            "non-Rust allow entry must include covered_by",
+        )?;
+        fail_if_expired(entry)?;
+        if let Some(path) = quoted_field(entry, "path") {
+            allow_patterns.push(AllowPattern::Path(path));
+        }
+        if let Some(glob) = quoted_field(entry, "glob") {
+            allow_patterns.push(AllowPattern::Glob(glob));
+        }
+    }
+
+    for file in governed_non_rust_files()? {
+        if !allow_patterns.iter().any(|pattern| pattern.matches(&file)) {
+            return Err(anyhow!(
+                "non-Rust governed file `{file}` is missing a policy/non-rust-allowlist.toml entry"
+            ));
+        }
+    }
+    println!("✅ Non-Rust file policy passed");
+    Ok(())
+}
+
+fn policy_report() -> Result<()> {
+    check_lint_policy()?;
+    check_no_panic_family()?;
+    check_file_policy()?;
+    let lint_count =
+        toml_entry_blocks(&fs::read_to_string("policy/clippy-lints.toml")?, "[[lint]]").len();
+    let debt_count =
+        toml_entry_blocks(&fs::read_to_string("policy/clippy-debt.toml")?, "[[debt]]").len();
+    let panic_count = toml_entry_blocks(
+        &fs::read_to_string("policy/no-panic-allowlist.toml")?,
+        "[[allow]]",
+    )
+    .len();
+    let file_count = toml_entry_blocks(
+        &fs::read_to_string("policy/non-rust-allowlist.toml")?,
+        "[[allow]]",
+    )
+    .len();
+    println!("policy report:");
+    println!("  lint entries: {lint_count}");
+    println!("  debt entries: {debt_count}");
+    println!("  panic allow entries: {panic_count}");
+    println!("  non-Rust allow entries: {file_count}");
+    Ok(())
+}
+
+fn require_contains(haystack: &str, needle: &str, message: &str) -> Result<()> {
+    if haystack.contains(needle) {
+        Ok(())
+    } else {
+        Err(anyhow!(message.to_string()))
+    }
+}
+
+fn require_field(entry: &str, field: &str) -> Result<()> {
+    let prefix = format!("{field} =");
+    require_contains(entry, &prefix, &format!("policy entry missing `{field}`"))
+}
+
+fn required_active_lints() -> &'static [&'static str] {
+    &[
+        "unsafe_code",
+        "unused_must_use",
+        "dbg_macro",
+        "todo",
+        "unimplemented",
+        "panic",
+        "unwrap_used",
+        "expect_used",
+        "string_slice",
+        "indexing_slicing",
+        "char_indices_as_byte_indices",
+        "let_underscore_future",
+        "unused_result_ok",
+        "map_err_ignore",
+        "await_holding_lock",
+        "mem_forget",
+        "cast_sign_loss",
+        "suspicious_open_options",
+        "exit",
+        "format_in_format_args",
+        "missing_panics_doc",
+        "allow_attributes_without_reason",
+    ]
+}
+
+fn required_planned_lints() -> &'static [&'static str] {
+    &[
+        "clippy::same_length_and_capacity",
+        "clippy::manual_ilog2",
+        "clippy::decimal_bitwise_operands",
+        "clippy::needless_type_cast",
+        "clippy::disallowed_fields",
+        "clippy::manual_checked_ops",
+        "clippy::manual_take",
+        "clippy::manual_pop_if",
+        "clippy::duration_suboptimal_units",
+        "clippy::unnecessary_trailing_comma",
+    ]
+}
+
+fn workspace_manifest_paths() -> Result<Vec<std::path::PathBuf>> {
+    let mut manifests = Vec::new();
+    collect_manifest_paths(std::path::Path::new("crates"), &mut manifests)?;
+    manifests.push(std::path::PathBuf::from("xtask/Cargo.toml"));
+    manifests.push(std::path::PathBuf::from("Cargo.toml"));
+    manifests.sort();
+    Ok(manifests)
+}
+
+fn collect_manifest_paths(
+    dir: &std::path::Path,
+    manifests: &mut Vec<std::path::PathBuf>,
+) -> Result<()> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_manifest_paths(&path, manifests)?;
+        } else if path.file_name().is_some_and(|name| name == "Cargo.toml") {
+            manifests.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn toml_entry_blocks<'a>(text: &'a str, marker: &str) -> Vec<&'a str> {
+    let mut blocks = Vec::new();
+    let mut start = None;
+    for (index, line) in text.match_indices(marker) {
+        if let Some(previous) = start.replace(index) {
+            blocks.push(&text[previous..index]);
+        }
+        if line != marker {
+            continue;
+        }
+    }
+    if let Some(previous) = start {
+        blocks.push(&text[previous..]);
+    }
+    blocks
+}
+
+enum AllowPattern {
+    Path(String),
+    Glob(String),
+}
+
+impl AllowPattern {
+    fn matches(&self, path: &str) -> bool {
+        match self {
+            Self::Path(exact) => exact == path,
+            Self::Glob(pattern) => glob_matches(pattern, path),
+        }
+    }
+}
+
+fn governed_non_rust_files() -> Result<Vec<String>> {
+    let mut files = Vec::new();
+    collect_governed_non_rust_files(std::path::Path::new("."), &mut files)?;
+    files.sort();
+    Ok(files)
+}
+
+fn collect_governed_non_rust_files(dir: &std::path::Path, files: &mut Vec<String>) -> Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let path_text = path.to_string_lossy();
+        if path_text.starts_with("./.git") || path_text.starts_with("./target") {
+            continue;
+        }
+        if path.is_dir() {
+            collect_governed_non_rust_files(&path, files)?;
+        } else if is_governed_non_rust(&path) {
+            files.push(normalize_policy_path(&path));
+        }
+    }
+    Ok(())
+}
+
+fn is_governed_non_rust(path: &std::path::Path) -> bool {
+    matches!(
+        path.extension().and_then(|extension| extension.to_str()),
+        Some("json" | "nix" | "proto" | "rego" | "sh" | "toml" | "yaml" | "yml")
+    )
+}
+
+fn normalize_policy_path(path: &std::path::Path) -> String {
+    path.strip_prefix(".")
+        .unwrap_or(path)
+        .to_string_lossy()
+        .trim_start_matches('/')
+        .to_string()
+}
+
+fn glob_matches(pattern: &str, path: &str) -> bool {
+    if pattern == path || pattern == "**/*" {
+        return true;
+    }
+    if let Some(suffix) = pattern.strip_prefix("**/*") {
+        return path.ends_with(suffix);
+    }
+    if let Some((prefix, suffix)) = pattern.split_once("/**/*") {
+        return path.starts_with(prefix) && path.ends_with(suffix);
+    }
+    if let Some((prefix, suffix)) = pattern.split_once('*') {
+        return path.starts_with(prefix)
+            && path.ends_with(suffix)
+            && !path[prefix.len()..].contains('/');
+    }
+    false
+}
+
+fn check_debt_file(path: &str) -> Result<()> {
+    let text = fs::read_to_string(path)?;
+    require_contains(&text, "schema = 1", "clippy debt schema must be 1")?;
+    for entry in toml_entry_blocks(&text, "[[debt]]") {
+        for field in ["lint", "path", "owner", "reason", "expires"] {
+            require_field(entry, field)?;
+        }
+        fail_if_expired(entry)?;
+    }
+    Ok(())
+}
+
+fn fail_if_expired(entry: &str) -> Result<()> {
+    let Some(expires) = quoted_field(entry, "expires") else {
+        return Ok(());
+    };
+    let today = env::var("XTASK_POLICY_TODAY").unwrap_or_else(|_| "2026-05-06".to_string());
+    if expires.as_str() < today.as_str() {
+        Err(anyhow!("policy entry expired on {expires}"))
+    } else {
+        Ok(())
+    }
+}
+
+fn quoted_field(entry: &str, field: &str) -> Option<String> {
+    let prefix = format!("{field} = \"");
+    let start = entry.find(&prefix)? + prefix.len();
+    let rest = &entry[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
 }
 
 fn run_command(cmd: &str, args: &[&str]) -> Result<()> {

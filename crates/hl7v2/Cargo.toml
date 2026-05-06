@@ -13,6 +13,9 @@ documentation = "https://docs.rs/hl7v2"
 description = "HL7 v2 message parser and processor for Rust"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [features]
 default = []
 network = ["hl7v2-core/network"]

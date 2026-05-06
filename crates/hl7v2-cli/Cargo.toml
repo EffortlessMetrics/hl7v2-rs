@@ -12,6 +12,9 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }

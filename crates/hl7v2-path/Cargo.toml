@@ -12,6 +12,9 @@ homepage.workspace = true
 keywords = ["hl7", "healthcare", "path", "field", "access"]
 categories = ["parser-implementations"]
 
+[lints]
+workspace = true
+
 [dependencies]
 thiserror = { workspace = true }
 
