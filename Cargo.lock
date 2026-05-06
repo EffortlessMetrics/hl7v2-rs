@@ -1534,6 +1534,7 @@ dependencies = [
 name = "hl7v2"
 version = "1.2.0"
 dependencies = [
+ "chrono",
  "hl7v2-ack",
  "hl7v2-batch",
  "hl7v2-corpus",
@@ -1543,7 +1544,6 @@ dependencies = [
  "hl7v2-faker",
  "hl7v2-gen",
  "hl7v2-json",
- "hl7v2-lifecycle",
  "hl7v2-mllp",
  "hl7v2-model",
  "hl7v2-network",
@@ -1557,6 +1557,8 @@ dependencies = [
  "hl7v2-validation",
  "hl7v2-writer",
  "serde",
+ "serde_json",
+ "sha2",
  "thiserror 2.0.18",
 ]
 
@@ -1797,12 +1799,7 @@ dependencies = [
 name = "hl7v2-lifecycle"
 version = "1.2.0"
 dependencies = [
- "chrono",
- "hl7v2-core",
- "hl7v2-model",
- "serde",
- "serde_json",
- "sha2",
+ "hl7v2",
 ]
 
 [[package]]

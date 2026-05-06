@@ -53,7 +53,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2-template-values` | `hl7v2::synthetic::values` | Feature-gated module | Value distributions/sources behind `synthetic`. |
 | `hl7v2-gen` | `hl7v2::synthetic::generate` | Feature-gated module | Generation facade behind `synthetic`; ACK remains in `hl7v2::ack`. |
 | `hl7v2-redact` | `hl7v2::redact` | Feature-gated module | Collapsed as a leaf feature module; `hl7v2-redact` is a compatibility shim. |
-| `hl7v2-lifecycle` | `hl7v2::lifecycle` | Feature-gated module | Retention/archive lifecycle behind `lifecycle`. |
+| `hl7v2-lifecycle` | `hl7v2::lifecycle` | Collapsed as leaf feature module | `hl7v2-lifecycle` remains a compatibility shim. |
 | `hl7v2-guard` | `hl7v2::experimental::guard` | Collapsed as leaf experimental feature module | `hl7v2-guard` remains a compatibility shim; do not present guard as stable until semantics are proven. |
 | `hl7v2-server` | `crates/hl7v2-server` | Public crate | Keep external. |
 | `hl7v2-cli` | `crates/hl7v2-cli` | Public crate | Keep external. |
@@ -79,7 +79,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `network` | `stream`, `tokio`, `tokio-util`, `futures`, `bytes` | Async MLLP networking. |
 | `synthetic` | `serde`, `chrono`, generation dependencies added as modules move | Faker, corpus, templates, values, generation. |
 | `redact` | none | Redaction rules/policies. |
-| `lifecycle` | `chrono`, `sha2`, `hex` | Retention/archive lifecycle. |
+| `lifecycle` | `chrono`, `serde`, `sha2` | Retention/archive lifecycle. |
 | `experimental-guard` | `serde` | Experimental guard/anomaly detection. |
 
 ## Dependency-Order Migration
@@ -110,8 +110,9 @@ depend on those crates would force compatibility shims to depend back on
 Leaf feature crates with no remaining implementation-crate dependents can also
 collapse before the foundation block is fully resolved. Those PRs must be
 narrow, keep compatibility shims, and state why they do not introduce cycles.
-`hl7v2-redact` and `hl7v2-guard` used that path: their implementations now live
-under `hl7v2`, and the old crates are compatibility shims.
+`hl7v2-redact`, `hl7v2-guard`, and `hl7v2-lifecycle` used that path: their
+implementations now live under `hl7v2`, and the old crates are compatibility
+shims.
 
 ## Import Conversion Rules
 
