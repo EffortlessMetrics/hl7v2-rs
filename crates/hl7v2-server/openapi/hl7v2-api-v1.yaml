@@ -1,0 +1,446 @@
+openapi: 3.1.0
+info:
+  title: HL7v2-rs HTTP API
+  version: 1.2.0
+  description: |
+    RESTful API for HL7 v2 message parsing, validation, and processing.
+
+    This API provides endpoints for:
+    - Parsing HL7 v2 messages
+    - Validating messages against conformance profiles
+    - Generating ACK messages
+    - Normalizing HL7 v2 messages
+
+    ## Authentication
+
+    HL7 processing endpoints under `/hl7/*` require API Key authentication via
+    the `X-API-Key` header when the server is configured with an API key:
+    ```
+    X-API-Key: <your-api-key>
+    ```
+
+    Health, readiness, metrics, and API documentation endpoints are public by
+    design so load balancers, scrapers, and local operators can inspect service
+    state without application credentials.
+
+    ## Rate Limiting
+
+    - 120 requests per minute per IP
+    - Exceeded limits return 429 Too Many Requests
+
+    ## Tracing
+
+    The system uses internal tracing spans. Correlation IDs may be added in future versions.
+  contact:
+    name: HL7v2-rs Team
+    url: https://github.com/EffortlessMetrics/hl7v2-rs
+  license:
+    name: AGPL-3.0-or-later
+    url: https://github.com/EffortlessMetrics/hl7v2-rs/blob/main/LICENSE
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: health
+    description: Health and readiness checks
+  - name: hl7
+    description: HL7 v2 message operations
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns service status and uptime
+      tags: [health]
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      summary: Readiness check
+      description: Returns JSON ready status
+      tags: [health]
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Returns metrics in Prometheus text format
+      tags: [health]
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /hl7/parse:
+    post:
+      summary: Parse HL7 message
+      description: |
+        Parse an HL7 v2 message and return metadata and optional JSON.
+      tags: [hl7]
+      operationId: parseMessage
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseRequest'
+      responses:
+        '200':
+          description: Message parsed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseResponse'
+        '400':
+          description: Invalid message format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+  /hl7/validate:
+    post:
+      summary: Validate HL7 message
+      description: |
+        Validate an HL7 message against a conformance profile.
+      tags: [hl7]
+      operationId: validateMessage
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: Validation complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '400':
+          description: Invalid request or profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
+  /hl7/ack:
+    post:
+      summary: Generate HL7 ACK
+      description: |
+        Generate an HL7 v2 ACK message for a parsed inbound message.
+      tags: [hl7]
+      operationId: generateAck
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckRequest'
+      responses:
+        '200':
+          description: ACK generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckResponse'
+        '400':
+          description: Invalid message format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+  /hl7/normalize:
+    post:
+      summary: Normalize HL7 message
+      description: |
+        Parse and rewrite an HL7 v2 message with stable delimiters and optional MLLP output framing.
+      tags: [hl7]
+      operationId: normalizeMessage
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NormalizeRequest'
+      responses:
+        '200':
+          description: Message normalized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NormalizeResponse'
+        '400':
+          description: Invalid message format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API Key authentication via header
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, version, uptime_seconds]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+        uptime_seconds:
+          type: integer
+
+    ParseRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        mllp_framed:
+          type: boolean
+          default: false
+        options:
+          $ref: '#/components/schemas/ParseOptions'
+
+    ParseOptions:
+      type: object
+      properties:
+        include_json:
+          type: boolean
+          default: true
+        validate_structure:
+          type: boolean
+          default: true
+
+    ParseResponse:
+      type: object
+      required: [metadata]
+      properties:
+        message:
+          type: object
+          description: Parsed message in JSON format
+        metadata:
+          $ref: '#/components/schemas/MessageMetadata'
+        warnings:
+          type: array
+          items:
+            type: string
+
+    MessageMetadata:
+      type: object
+      required: [message_type, version, sending_application, sending_facility, message_control_id, segment_count, charsets]
+      properties:
+        message_type:
+          type: string
+        version:
+          type: string
+        sending_application:
+          type: string
+        sending_facility:
+          type: string
+        message_control_id:
+          type: string
+        segment_count:
+          type: integer
+        charsets:
+          type: array
+          items:
+            type: string
+
+    ValidateRequest:
+      type: object
+      required: [message, profile]
+      properties:
+        message:
+          type: string
+        profile:
+          type: string
+          description: Profile content (YAML)
+        mllp_framed:
+          type: boolean
+          default: false
+
+    ValidateResponse:
+      type: object
+      required: [valid, metadata]
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationWarning'
+        metadata:
+          $ref: '#/components/schemas/MessageMetadata'
+
+    AckRequest:
+      type: object
+      required: [message, code]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        code:
+          type: string
+          enum: [AA, AE, AR, CA, CE, CR]
+          description: ACK code to generate
+        error_message:
+          type: string
+          nullable: true
+          description: Optional error text for ERR segment generation
+        mllp_framed:
+          type: boolean
+          default: false
+          description: Whether the input message is MLLP framed
+        mllp_frame:
+          type: boolean
+          default: false
+          description: Whether to MLLP frame the ACK response
+
+    AckResponse:
+      type: object
+      required: [ack_message, ack_code, metadata]
+      properties:
+        ack_message:
+          type: string
+          description: Generated ACK message
+        ack_code:
+          type: string
+          enum: [AA, AE, AR, CA, CE, CR]
+        metadata:
+          $ref: '#/components/schemas/MessageMetadata'
+
+    NormalizeRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        mllp_framed:
+          type: boolean
+          default: false
+          description: Whether the input message is MLLP framed
+        options:
+          $ref: '#/components/schemas/NormalizeOptions'
+
+    NormalizeOptions:
+      type: object
+      properties:
+        canonical_delimiters:
+          type: boolean
+          default: true
+          description: Rewrite delimiters to canonical HL7 delimiters
+        mllp_frame:
+          type: boolean
+          default: false
+          description: Whether to MLLP frame the normalized response
+
+    NormalizeResponse:
+      type: object
+      required: [normalized_message, metadata]
+      properties:
+        normalized_message:
+          type: string
+          description: Normalized HL7 message
+        metadata:
+          $ref: '#/components/schemas/MessageMetadata'
+
+    ValidationError:
+      type: object
+      required: [code, message, severity]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        location:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [error, warning, info]
+
+    ValidationWarning:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        location:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          nullable: true

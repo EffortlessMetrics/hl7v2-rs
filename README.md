@@ -19,7 +19,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Not included in the local Python 3.14/PyO3 validation proof |
-| **Publish Readiness** | Partial | Publish order is known; dry-run is proven through `hl7v2-core` and stops at `hl7v2` until `hl7v2-core` is on crates.io |
+| **Publish Readiness** | Package-verified | Direct registry-state dry-run is proven through `hl7v2-core`; workspace-patched dry-run verifies crates 17-30 |
 
 ## Features
 

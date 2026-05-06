@@ -19,14 +19,14 @@ This document is not a v1.3.0 release approval. It separates green CI, behavior-
 
 ## Publish Readiness
 - **Publish Order**: `cargo run -p xtask -- publish-plan` resolves 30 publishable crates.
-- **Dry-run Proof**: Direct `cargo publish --dry-run --locked` passed for crates 1-16 in publish order, ending with `hl7v2-core`.
+- **Dry-run Proof**: Direct `cargo publish --dry-run --locked` passed for crates 1-16 in publish order, ending with `hl7v2-core`; workspace-patched dry-run verification passed for crates 17-30.
 - **Current Stop Condition**: Direct dry-run stopped at crate 17, `hl7v2`, because `hl7v2-core` is not yet present in the crates.io index. This is a registry-state boundary, not a source compilation failure.
-- **Higher-level Crates**: Not yet direct-dry-run proven from the current registry state. They need either the real dependency publish sequence or a local-registry simulation before the repo can claim full crates.io publish readiness.
+- **Higher-level Crates**: Package verification is proven by `cargo run -p xtask -- publish-dry-run --from hl7v2 --workspace-patches`; direct public-registry dry-run still requires the real dependency publish sequence.
 
 ## Documentation Accuracy
 - **README / STATUS / API Guide**: Distinguish tested runtime surfaces from partial publish readiness.
 - **OpenAPI**: Current HTTP contract lives at `api/openapi/hl7v2-api-v1.yaml`.
-- **Release Claims**: "Green" means current workflows passed. "Tested" means contract/runtime tests exist for the named surface. "Publish-ready" remains partial until higher-level crate dry-runs are proven.
+- **Release Claims**: "Green" means current workflows passed. "Tested" means contract/runtime tests exist for the named surface. "Package-verified" means every publishable crate has a dry-run verification path. "Published" remains false until crates.io upload actually runs.
 
 ## Conclusion
-The repository has a green and behavior-tested main branch, but full crates.io publish readiness is not yet proven. The next release-readiness step is to continue from the publish dry-run stop condition documented in `docs/audits/publish-dry-run-2026-05-06.md`.
+The repository has a green, behavior-tested, and package-verified main branch. The next release-readiness step is the actual dependency-ordered crates.io publish sequence documented by `cargo run -p xtask -- publish-plan`.

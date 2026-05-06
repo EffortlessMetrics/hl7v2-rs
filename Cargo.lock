@@ -1794,7 +1794,6 @@ dependencies = [
  "chrono",
  "hl7v2-core",
  "hl7v2-model",
- "hl7v2-test-utils",
  "serde",
  "serde_json",
  "sha2",
@@ -1909,7 +1908,6 @@ name = "hl7v2-python"
 version = "1.2.0"
 dependencies = [
  "hl7v2-core",
- "hl7v2-test-utils",
  "pyo3",
 ]
 
@@ -1930,7 +1928,6 @@ version = "1.2.0"
 dependencies = [
  "hl7v2-core",
  "hl7v2-model",
- "hl7v2-test-utils",
  "serde",
 ]
 

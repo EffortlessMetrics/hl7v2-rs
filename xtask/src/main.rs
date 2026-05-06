@@ -6,6 +6,7 @@ use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
@@ -61,6 +62,18 @@ enum Commands {
         #[arg(long, default_value_t = 30)]
         retry_delay_secs: u64,
     },
+    /// Dry-run publish workspace crates in dependency order
+    PublishDryRun {
+        /// Resume from this crate name
+        #[arg(long)]
+        from: Option<String>,
+        /// Patch internal workspace crates to local paths during verification
+        #[arg(long)]
+        workspace_patches: bool,
+        /// Include uncommitted working tree changes in the dry-run package
+        #[arg(long)]
+        allow_dirty: bool,
+    },
     /// Scaffold a new microcrate
     Scaffold {
         /// Name of the crate (without hl7v2- prefix)
@@ -101,6 +114,11 @@ fn main() -> Result<()> {
             retry_attempts,
             retry_delay_secs,
         } => publish(from, yes, retry_attempts, retry_delay_secs)?,
+        Commands::PublishDryRun {
+            from,
+            workspace_patches,
+            allow_dirty,
+        } => publish_dry_run(from, workspace_patches, allow_dirty)?,
         Commands::Scaffold { name, description } => scaffold(&name, description)?,
         Commands::Docs { no_open } => docs(no_open)?,
         Commands::HookPreCommit => hook_pre_commit()?,
@@ -356,6 +374,99 @@ fn publish(
     Ok(())
 }
 
+fn publish_dry_run(from: Option<String>, workspace_patches: bool, allow_dirty: bool) -> Result<()> {
+    let metadata = MetadataCommand::new().exec()?;
+    let packages = publishable_workspace_packages(&metadata);
+    let ordered = topological_publish_order(&packages)?;
+    let crates = resume_publish_order(&ordered, from.as_deref())?;
+
+    println!("🧪 Dry-running crates.io publish verification");
+    if workspace_patches {
+        println!("Using local workspace patches for unpublished internal crates.");
+    }
+
+    for crate_name in crates {
+        let config_path = if workspace_patches {
+            workspace_patch_config(&crate_name, &packages)?
+        } else {
+            None
+        };
+        publish_dry_run_crate(&crate_name, config_path.as_deref(), allow_dirty)?;
+    }
+
+    println!("✅ Publish dry-run checks passed!");
+    Ok(())
+}
+
+fn publish_dry_run_crate(
+    crate_name: &str,
+    config_path: Option<&Path>,
+    allow_dirty: bool,
+) -> Result<()> {
+    println!("Dry-running {}...", crate_name);
+
+    let mut command = Command::new("cargo");
+    command.args(["publish", "--dry-run", "-p", crate_name, "--locked"]);
+    if allow_dirty {
+        command.arg("--allow-dirty");
+    }
+    if let Some(config_path) = config_path {
+        command.arg("--config").arg(config_path);
+    }
+
+    let status = command
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "Dry-run publish failed for {} with exit code: {:?}",
+            crate_name,
+            status.code()
+        ));
+    }
+
+    Ok(())
+}
+
+fn workspace_patch_config(
+    crate_name: &str,
+    packages: &HashMap<String, Package>,
+) -> Result<Option<PathBuf>> {
+    let dependencies = internal_workspace_dependency_closure(crate_name, packages)?;
+    if dependencies.is_empty() {
+        return Ok(None);
+    }
+
+    let config_dir = env::current_dir()?
+        .join("target")
+        .join("hl7v2-publish-dry-run")
+        .join("workspace-patches");
+    fs::create_dir_all(&config_dir)?;
+
+    let config_path = config_dir.join(format!("{crate_name}.toml"));
+    let mut config = String::from("[patch.crates-io]\n");
+    for dependency in dependencies {
+        let package = packages
+            .get(&dependency)
+            .expect("dependency closure only includes known packages");
+        let manifest_dir = package
+            .manifest_path
+            .parent()
+            .ok_or_else(|| anyhow!("Package {} has no manifest parent", dependency))?;
+        let path = manifest_dir.as_str().replace('\\', "/");
+        config.push('"');
+        config.push_str(&escape_toml_basic_string(&dependency));
+        config.push_str("\" = { path = \"");
+        config.push_str(&escape_toml_basic_string(&path));
+        config.push_str("\" }\n");
+    }
+
+    fs::write(&config_path, config)?;
+    Ok(Some(config_path))
+}
+
 fn publish_crate(crate_name: &str, retry_attempts: u32, retry_delay_secs: u64) -> Result<()> {
     let max_attempts = retry_attempts.max(1);
     for attempt in 1..=max_attempts {
@@ -568,6 +679,10 @@ fn publish_order(from: Option<&str>) -> Result<Vec<String>> {
     let packages = publishable_workspace_packages(&metadata);
     let ordered = topological_publish_order(&packages)?;
 
+    resume_publish_order(&ordered, from)
+}
+
+fn resume_publish_order(ordered: &[String], from: Option<&str>) -> Result<Vec<String>> {
     match from {
         Some(start) => {
             let index = ordered
@@ -576,7 +691,7 @@ fn publish_order(from: Option<&str>) -> Result<Vec<String>> {
                 .ok_or_else(|| anyhow!("Unknown publishable crate '{}'", start))?;
             Ok(ordered[index..].to_vec())
         }
-        None => Ok(ordered),
+        None => Ok(ordered.to_vec()),
     }
 }
 
@@ -662,12 +777,60 @@ fn internal_publish_dependencies(
     package: &Package,
     packages: &HashMap<String, Package>,
 ) -> BTreeSet<String> {
+    internal_workspace_dependencies(package, packages, false)
+}
+
+fn internal_workspace_dependency_closure(
+    crate_name: &str,
+    packages: &HashMap<String, Package>,
+) -> Result<BTreeSet<String>> {
+    let package = packages
+        .get(crate_name)
+        .ok_or_else(|| anyhow!("Unknown publishable crate '{}'", crate_name))?;
+    let mut dependencies = BTreeSet::new();
+    let mut stack: Vec<_> = internal_workspace_dependencies(package, packages, true)
+        .into_iter()
+        .collect();
+
+    while let Some(dependency) = stack.pop() {
+        if dependency == crate_name || !dependencies.insert(dependency.clone()) {
+            continue;
+        }
+
+        if let Some(package) = packages.get(&dependency) {
+            stack.extend(internal_workspace_dependencies(package, packages, true));
+        }
+    }
+
+    Ok(dependencies)
+}
+
+fn internal_workspace_dependencies(
+    package: &Package,
+    packages: &HashMap<String, Package>,
+    include_dev: bool,
+) -> BTreeSet<String> {
     package
         .dependencies
         .iter()
-        .filter(|dep| dep.kind != DependencyKind::Development)
+        .filter(|dep| include_dev || dep.kind != DependencyKind::Development)
         .filter_map(|dep| packages.contains_key(&dep.name).then_some(dep.name.clone()))
         .collect()
+}
+
+fn escape_toml_basic_string(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
@@ -812,6 +975,20 @@ mod tests {
             .expect("hl7v2-core should be publishable");
 
         assert_eq!(resumed, ordered[start..].to_vec());
+    }
+
+    #[test]
+    fn workspace_patch_dependencies_include_publishable_dev_dependencies() {
+        let metadata = MetadataCommand::new()
+            .exec()
+            .expect("workspace metadata should resolve");
+        let packages = publishable_workspace_packages(&metadata);
+        let dependencies = internal_workspace_dependency_closure("hl7v2-ack", &packages)
+            .expect("dependency closure should resolve");
+
+        assert!(dependencies.contains("hl7v2-core"));
+        assert!(dependencies.contains("hl7v2-writer"));
+        assert!(!dependencies.contains("hl7v2-test-utils"));
     }
 
     fn assert_dependency_precedes(ordered: &[String], dependency: &str, dependent: &str) {

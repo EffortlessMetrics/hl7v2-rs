@@ -23,7 +23,7 @@ use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
 use crate::server::{AppState, CorsAllowedOrigins};
 
 /// OpenAPI specification content
-const OPENAPI_YAML: &str = include_str!("../../../api/openapi/hl7v2-api-v1.yaml");
+const OPENAPI_YAML: &str = include_str!(env!("HL7V2_OPENAPI_YAML"));
 
 /// Build the application router
 pub fn build_router(state: Arc<AppState>) -> Router {
