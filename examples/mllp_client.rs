@@ -10,8 +10,8 @@
 //!
 //! Run with: cargo run --example mllp_client
 
-use hl7v2_core::{Message, get, parse, write};
-use hl7v2_network::MllpClientBuilder;
+use hl7v2::transport::network::MllpClientBuilder;
+use hl7v2::{Message, get, parse, write};
 use std::time::Duration;
 
 /// Default MLLP server address

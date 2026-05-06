@@ -7,7 +7,7 @@
 //!
 //! Run with: cargo run --example parsing_basics
 
-use hl7v2_core::{Error, Message, get, parse};
+use hl7v2::{Error, Message, get, parse};
 
 /// A simple HL7 v2 ADT^A01 (Admit) message
 const SAMPLE_MESSAGE: &[u8] = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John^Middle||19700101|M|||123 Main St^^Anytown^CA^12345||5551234567\r";
