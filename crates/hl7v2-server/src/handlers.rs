@@ -312,11 +312,66 @@ impl From<hl7v2::conformance::profile::ProfileLoadError> for AppError {
 mod tests {
     use super::*;
 
+    const SAMPLE_MESSAGE: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+
     #[test]
     fn test_error_response_creation() {
         let err = ErrorResponse::new("TEST_ERROR", "Test error message");
         assert_eq!(err.code, "TEST_ERROR");
         assert_eq!(err.message, "Test error message");
         assert!(err.details.is_none());
+    }
+
+    #[test]
+    fn parse_request_message_accepts_plain_and_mllp_facade_paths() {
+        let plain = parse_request_message(SAMPLE_MESSAGE.as_bytes(), false)
+            .expect("plain message should parse");
+        assert_eq!(plain.segments[0].id_str(), "MSH");
+
+        let framed = hl7v2::wrap_mllp(SAMPLE_MESSAGE.as_bytes());
+        let mllp = parse_request_message(&framed, true).expect("MLLP message should parse");
+        assert_eq!(mllp.segments[0].id_str(), "MSH");
+    }
+
+    #[test]
+    fn map_ack_code_uses_facade_ack_codes() {
+        assert_eq!(map_ack_code(AckRequestCode::Aa), hl7v2::AckCode::AA);
+        assert_eq!(map_ack_code(AckRequestCode::Ae), hl7v2::AckCode::AE);
+        assert_eq!(map_ack_code(AckRequestCode::Ar), hl7v2::AckCode::AR);
+        assert_eq!(map_ack_code(AckRequestCode::Ca), hl7v2::AckCode::CA);
+        assert_eq!(map_ack_code(AckRequestCode::Ce), hl7v2::AckCode::CE);
+        assert_eq!(map_ack_code(AckRequestCode::Cr), hl7v2::AckCode::CR);
+    }
+
+    #[test]
+    fn metadata_helpers_use_facade_queries() {
+        let message =
+            parse_request_message(SAMPLE_MESSAGE.as_bytes(), false).expect("message should parse");
+
+        let metadata = extract_metadata(&message).expect("metadata should extract");
+        assert_eq!(metadata.message_type, "ADT^A01");
+        assert_eq!(metadata.version, "2.5");
+        assert_eq!(metadata.sending_application, "SENDAPP");
+        assert_eq!(metadata.sending_facility, "SENDFAC");
+        assert_eq!(metadata.message_control_id, "CTRL123");
+
+        assert_eq!(
+            joined_components(&message, "MSH.9").as_deref(),
+            Some("ADT^A01")
+        );
+        assert_eq!(
+            joined_components(&message, "MSH.3").as_deref(),
+            Some("SENDAPP")
+        );
+    }
+
+    #[test]
+    fn app_error_from_facade_errors_preserves_variant() {
+        let parse_error: AppError = hl7v2::Error::InvalidSegmentId.into();
+        assert!(matches!(parse_error, AppError::Parse(_)));
+
+        let profile_error: AppError =
+            hl7v2::conformance::profile::ProfileLoadError::YamlParse("bad yaml".to_string()).into();
+        assert!(matches!(profile_error, AppError::ProfileLoad(_)));
     }
 }

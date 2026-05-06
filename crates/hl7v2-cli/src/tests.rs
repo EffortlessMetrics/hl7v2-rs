@@ -720,6 +720,60 @@ constraints:
             assert!(result.is_ok());
         }
 
+        #[test]
+        fn test_command_paths_accept_mllp_inputs_through_facade() {
+            let dir = TempDir::new().expect("Failed to create temp dir");
+            let framed = hl7v2::wrap_mllp(SampleMessages::adt_a01().as_bytes());
+            let mllp_path = create_temp_file(&dir, "message.mllp", &framed);
+            let output_path = dir.path().join("normalized.hl7");
+            let profile_path = create_temp_file(
+                &dir,
+                "profile.yaml",
+                br#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+constraints:
+  - path: MSH.9
+    required: true
+"#,
+            );
+
+            assert!(
+                crate::parse_command(&mllp_path, false, true, true, true, false, false).is_ok()
+            );
+            assert!(
+                crate::norm_command(&mllp_path, true, &Some(output_path), true, true, false)
+                    .is_ok()
+            );
+            assert!(
+                crate::val_command(
+                    &mllp_path,
+                    &profile_path,
+                    true,
+                    false,
+                    &crate::ReportFormat::Text,
+                    false,
+                )
+                .is_ok()
+            );
+            assert!(
+                crate::stats_command(&mllp_path, true, false, &crate::ReportFormat::Text).is_ok()
+            );
+            assert!(
+                crate::ack_command(
+                    &mllp_path,
+                    &crate::AckMode::Original,
+                    &crate::AckCode::AA,
+                    true,
+                    true,
+                    false,
+                )
+                .is_ok()
+            );
+        }
+
         // -------------------------------------------------------------------------
         // --streaming flag tests
         // -------------------------------------------------------------------------
