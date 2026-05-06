@@ -41,10 +41,9 @@ Corpus generation reproducibility tracking:
 
 ### Config (`config/hl7v2-config-v1.schema.json`)
 CLI and server configuration (hl7v2.toml):
-- Server modes (HTTP, gRPC, MLLP)
-- Profile loading and caching
-- Validation settings
-- Logging and telemetry
+- Server host, port, and optional API key
+- CLI defaults
+- Logging defaults
 
 ## Usage
 
@@ -59,6 +58,18 @@ ajv validate -s schemas/profile/profile-v1.schema.json -d profiles/adt_a01.yaml
 
 # Validate all profiles
 ajv validate -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml'
+
+# Validate the checked-in TOML config fixture
+python3 - <<'PY'
+import json
+import tomllib
+from pathlib import Path
+
+data = tomllib.loads(Path("config.example.toml").read_text(encoding="utf-8"))
+Path("target/contracts/config").mkdir(parents=True, exist_ok=True)
+Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
+PY
+ajv validate -s schemas/config/hl7v2-config-v1.schema.json -d target/contracts/config/config.example.json
 ```
 
 ### In Rust Code
@@ -86,15 +97,25 @@ fn main() {
 
 ### CI Integration
 
-The CI pipeline validates all YAML files against their schemas:
+The API Contracts workflow validates profiles, converted config fixtures, and
+schema syntax:
 
 ```yaml
-# .github/workflows/ci.yml
+# .github/workflows/contracts.yml
 - name: Validate Schemas
   run: |
     npm install -g ajv-cli
     ajv validate -s schemas/profile/profile-v1.schema.json -d 'profiles/*.yaml'
-    ajv validate -s schemas/config/hl7v2-config-v1.schema.json -d 'config/*.toml'
+    python3 - <<'PY'
+    import json
+    import tomllib
+    from pathlib import Path
+
+    data = tomllib.loads(Path("config.example.toml").read_text(encoding="utf-8"))
+    Path("target/contracts/config").mkdir(parents=True, exist_ok=True)
+    Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
+    PY
+    ajv validate -s schemas/config/hl7v2-config-v1.schema.json -d 'target/contracts/config/*.json'
 ```
 
 ## Schema Versioning
