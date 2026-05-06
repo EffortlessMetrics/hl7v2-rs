@@ -50,14 +50,25 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Install protoc-gen-doc
+        run: go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
+
       - name: Lint Protos
         run: buf lint api/proto
 
       - name: Check Breaking Changes
         if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           buf breaking api/proto \
-            --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }},subdir=api/proto"
+            --against "https://github.com/${REPOSITORY}.git#branch=${BASE_REF},subdir=api/proto"
 
       - name: Generate Proto Docs
         run: |
@@ -79,15 +90,17 @@ jobs:
 
       - name: Validate Profile Schemas
         run: |
-          ajv validate -c ajv-formats -s
- schemas/profile/profile-v1.schema.json \
-            -d 'profiles/*.yaml' --spec=draft7
+          ajv validate -c ajv-formats \
+            -s schemas/profile/profile-v1.schema.json \
+            -d 'profiles/*.yaml' \
+            --spec=draft7
 
       - name: Validate Config Schema
         run: |
-          ajv validate -c ajv-formats -s
- schemas/config/hl7v2-config-v1.schema.json \
-            -d 'config/*.toml' --spec=draft7 || true
+          ajv validate -c ajv-formats \
+            -s schemas/config/hl7v2-config-v1.schema.json \
+            -d 'config/*.toml' \
+            --spec=draft7
 
       - name: Validate Test Data
         run: |
