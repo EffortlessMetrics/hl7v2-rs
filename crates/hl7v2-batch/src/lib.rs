@@ -37,20 +37,30 @@ use thiserror::Error;
 /// Error type for batch operations
 #[derive(Debug, Error, Clone)]
 pub enum BatchError {
+    /// The batch structure does not match the expected HL7 format.
     #[error("Invalid batch structure: {0}")]
     InvalidStructure(String),
 
+    /// A required segment is missing.
     #[error("Missing required segment: {0}")]
     MissingSegment(String),
 
+    /// Found start and end batch markers that do not align.
     #[error("Mismatched batch headers/trailers")]
     MismatchedHeaders,
 
+    /// General parsing error while reading batch input.
     #[error("Parse error: {0}")]
     ParseError(String),
 
+    /// The batch trailer count does not match observed messages.
     #[error("Count mismatch: expected {expected}, got {actual}")]
-    CountMismatch { expected: usize, actual: usize },
+    CountMismatch {
+        /// Expected message count from batch trailer.
+        expected: usize,
+        /// Actual number of messages parsed.
+        actual: usize,
+    },
 }
 
 impl From<ModelError> for BatchError {

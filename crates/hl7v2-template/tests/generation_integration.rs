@@ -1,3 +1,5 @@
+//! Integration test fixture for template value source generation.
+
 use hl7v2_template::{Template, ValueSource, generate};
 use std::collections::HashMap;
 

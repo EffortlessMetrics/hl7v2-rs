@@ -45,21 +45,50 @@ use regex::Regex;
 /// Error type for data type validation
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum DataTypeError {
+    /// The provided datatype name is unknown.
     #[error("Invalid data type '{datatype}': {reason}")]
-    InvalidDataType { datatype: String, reason: String },
+    InvalidDataType {
+        /// The requested datatype code.
+        datatype: String,
+        /// Human-readable reason for rejection.
+        reason: String,
+    },
 
+    /// Value length is shorter than the configured minimum.
     #[error("Value too short: {length} < {min}")]
-    TooShort { length: usize, min: usize },
+    TooShort {
+        /// Actual value length.
+        length: usize,
+        /// Minimum allowed length.
+        min: usize,
+    },
 
+    /// Value length exceeds the configured maximum.
     #[error("Value too long: {length} > {max}")]
-    TooLong { length: usize, max: usize },
+    TooLong {
+        /// Actual value length.
+        length: usize,
+        /// Maximum allowed length.
+        max: usize,
+    },
 
+    /// Value does not match the configured pattern.
     #[error("Pattern mismatch: value '{value}' does not match pattern '{pattern}'")]
-    PatternMismatch { value: String, pattern: String },
+    PatternMismatch {
+        /// Input value provided for validation.
+        value: String,
+        /// Regex pattern that was not matched.
+        pattern: String,
+    },
 
+    /// Value is not present in the allowed set.
     #[error("Value not in allowed set: {value}")]
-    NotInAllowedSet { value: String },
+    NotInAllowedSet {
+        /// Input value provided for validation.
+        value: String,
+    },
 
+    /// Checksum validation failed.
     #[error("Checksum validation failed")]
     ChecksumFailed,
 }

@@ -1,3 +1,5 @@
+//! Integration tests for server middleware stack and request handling.
+
 use axum::{
     body::Body,
     extract::connect_info::ConnectInfo,

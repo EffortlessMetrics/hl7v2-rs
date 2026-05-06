@@ -10,6 +10,8 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
 // Include the generated gRPC code
+/// Generated gRPC protocol code (protobuf messages and service traits).
+#[allow(missing_docs)]
 pub mod proto {
     tonic::include_proto!("hl7v2.v1");
 }

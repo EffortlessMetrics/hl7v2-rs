@@ -36,18 +36,23 @@ use chrono::{Datelike, NaiveDate, NaiveDateTime, Timelike};
 /// Error type for date/time parsing
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum DateTimeError {
+    /// Date text is not a valid `YYYYMMDD` value.
     #[error("Invalid date format: {0}")]
     InvalidDateFormat(String),
 
+    /// Time text is not a valid HL7 `TM` value.
     #[error("Invalid time format: {0}")]
     InvalidTimeFormat(String),
 
+    /// Timestamp text is not a valid HL7 `TS` value.
     #[error("Invalid timestamp format: {0}")]
     InvalidTimestampFormat(String),
 
+    /// Parsed date/time is outside the supported range.
     #[error("Date out of range: {0}")]
     DateOutOfRange(String),
 
+    /// Parsed time component is outside the supported range.
     #[error("Time out of range: {0}")]
     TimeOutOfRange(String),
 }

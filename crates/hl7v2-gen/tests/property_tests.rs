@@ -1,3 +1,5 @@
+//! Property and generation tests for hl7v2 template rendering helpers.
+
 use hl7v2_gen::{Template, generate};
 use std::collections::HashMap;
 
