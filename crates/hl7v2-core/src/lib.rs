@@ -1,6 +1,11 @@
-//! Core parsing and data model for HL7 v2 messages.
+//! Deprecated compatibility facade for HL7 v2 parsing and data model APIs.
 //!
-//! This crate provides a unified facade for the HL7 v2 microcrates:
+//! Use the `hl7v2` crate for new Rust code. `hl7v2-core` is retained
+//! temporarily while the old implementation microcrates are collapsed into
+//! modules under `hl7v2`.
+//!
+//! This crate currently re-exports selected HL7 v2 microcrates for
+//! compatibility:
 //! - `hl7v2-model`: Core data types (Message, Segment, Field, etc.)
 //! - `hl7v2-escape`: Escape sequence handling
 //! - `hl7v2-mllp`: MLLP framing protocol
@@ -10,8 +15,8 @@
 //! - `hl7v2-stream`: Streaming/event-based parsing (optional, enable with `stream` feature)
 //! - `hl7v2-network`: Network client/server (optional, enable with `network` feature)
 //!
-//! For backward compatibility, all types and functions are re-exported here.
-//! For new code, consider using the microcrates directly for finer-grained dependencies.
+//! For backward compatibility, the existing types and functions are
+//! re-exported here. Do not add new public API to this crate.
 //!
 //! # Memory Efficiency
 //!
