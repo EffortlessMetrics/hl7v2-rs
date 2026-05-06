@@ -1542,7 +1542,6 @@ dependencies = [
  "hl7v2-escape",
  "hl7v2-faker",
  "hl7v2-gen",
- "hl7v2-guard",
  "hl7v2-json",
  "hl7v2-lifecycle",
  "hl7v2-mllp",
@@ -1557,6 +1556,7 @@ dependencies = [
  "hl7v2-template-values",
  "hl7v2-validation",
  "hl7v2-writer",
+ "serde",
  "thiserror 2.0.18",
 ]
 
@@ -1779,8 +1779,7 @@ dependencies = [
 name = "hl7v2-guard"
 version = "1.2.0"
 dependencies = [
- "hl7v2-core",
- "serde",
+ "hl7v2",
 ]
 
 [[package]]

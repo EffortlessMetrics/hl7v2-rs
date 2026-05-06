@@ -189,15 +189,7 @@ pub mod lifecycle {
 }
 
 #[cfg(feature = "experimental-guard")]
-pub mod experimental {
-    //! Experimental APIs.
-
-    pub mod guard {
-        //! Experimental anomaly guard APIs.
-
-        pub use hl7v2_guard::*;
-    }
-}
+pub mod experimental;
 
 // Top-level convenience surface.
 pub use hl7v2_escape::{escape_text, needs_escaping, needs_unescaping, unescape_text};
