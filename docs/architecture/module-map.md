@@ -52,7 +52,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2-template` | `hl7v2::synthetic::template` | Feature-gated module | Template model/rendering behind `synthetic`. |
 | `hl7v2-template-values` | `hl7v2::synthetic::values` | Feature-gated module | Value distributions/sources behind `synthetic`. |
 | `hl7v2-gen` | `hl7v2::synthetic::generate` | Feature-gated module | Generation facade behind `synthetic`; ACK remains in `hl7v2::ack`. |
-| `hl7v2-redact` | `hl7v2::redact` | Feature-gated module | PHI redaction behind `redact`, unless a later proof moves it under `experimental`. |
+| `hl7v2-redact` | `hl7v2::redact` | Feature-gated module | Collapsed as a leaf feature module; `hl7v2-redact` is a compatibility shim. |
 | `hl7v2-lifecycle` | `hl7v2::lifecycle` | Feature-gated module | Retention/archive lifecycle behind `lifecycle`. |
 | `hl7v2-guard` | `hl7v2::experimental::guard` | Experimental feature-gated module | Do not present as stable until semantics are proven. |
 | `hl7v2-server` | `crates/hl7v2-server` | Public crate | Keep external. |
@@ -78,7 +78,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `stream` | `tokio` if async stream support remains in the same feature | Streaming parser APIs. |
 | `network` | `stream`, `tokio`, `tokio-util`, `futures`, `bytes` | Async MLLP networking. |
 | `synthetic` | `serde`, `chrono`, generation dependencies added as modules move | Faker, corpus, templates, values, generation. |
-| `redact` | `regex` | Redaction rules/policies. |
+| `redact` | none | Redaction rules/policies. |
 | `lifecycle` | `chrono`, `sha2`, `hex` | Retention/archive lifecycle. |
 | `experimental-guard` | none unless later proven needed | Experimental guard/anomaly detection. |
 
@@ -106,6 +106,10 @@ Move from the dependency floor upward:
 dependencies. Moving `model`, `escape`, or MLLP while parser/writer/query still
 depend on those crates would force compatibility shims to depend back on
 `hl7v2` and create Cargo cycles.
+
+Leaf feature crates with no remaining implementation-crate dependents can also
+collapse before the foundation block is fully resolved. Those PRs must be
+narrow, keep compatibility shims, and state why they do not introduce cycles.
 
 ## Import Conversion Rules
 
