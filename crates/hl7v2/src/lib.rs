@@ -182,11 +182,7 @@ pub mod synthetic {
 pub mod redact;
 
 #[cfg(feature = "lifecycle")]
-pub mod lifecycle {
-    //! Message lifecycle and archive metadata helpers.
-
-    pub use hl7v2_lifecycle::*;
-}
+pub mod lifecycle;
 
 #[cfg(feature = "experimental-guard")]
 pub mod experimental;
