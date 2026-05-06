@@ -81,11 +81,7 @@ pub mod writer {
 pub mod query {
     //! Message query helpers.
 
-    pub mod path {
-        //! HL7 path parsing.
-
-        pub use hl7v2_path::*;
-    }
+    pub mod path;
 
     pub use hl7v2_query::*;
 }
@@ -217,11 +213,11 @@ pub use hl7v2_model::{
     Atom, Batch, Comp, Delims, Error, Field, FileBatch, Message, Presence, Rep, Segment,
 };
 pub use hl7v2_parser::{get, get_presence, parse, parse_batch, parse_file_batch, parse_mllp};
-pub use hl7v2_path::{Path, parse_path};
 pub use hl7v2_writer::{
     to_json, to_json_string, to_json_string_pretty, write, write_batch, write_file_batch,
     write_mllp,
 };
+pub use query::path::{Path, parse_path};
 
 #[cfg(feature = "normalize")]
 pub use hl7v2_normalize::normalize;

@@ -86,20 +86,26 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 
 Move from the dependency floor upward:
 
-1. `model`
-2. `escape` and MLLP framing
-3. `path` and `query`
-4. `parser`
-5. `writer`, `json`, and `normalize`
-6. `validation`, `datatype`, and `datetime`
-7. `profile`
-8. `ack`
-9. `synthetic`
-10. `batch`, `stream`, and `network`
-11. `redact`, `lifecycle`, and `experimental::guard`
-12. server, CLI, Python, examples, e2e tests, and test-utils imports
-13. workspace member removal
-14. compatibility shim removal or freeze
+1. `path`
+2. `model`
+3. `escape` and MLLP framing
+4. `query`
+5. `parser`
+6. `writer`, `json`, and `normalize`
+7. `validation`, `datatype`, and `datetime`
+8. `profile`
+9. `ack`
+10. `synthetic`
+11. `batch`, `stream`, and `network`
+12. `redact`, `lifecycle`, and `experimental::guard`
+13. server, CLI, Python, examples, e2e tests, and test-utils imports
+14. workspace member removal
+15. compatibility shim removal or freeze
+
+`path` is intentionally split out first because it has no implementation-crate
+dependencies. Moving `model`, `escape`, or MLLP while parser/writer/query still
+depend on those crates would force compatibility shims to depend back on
+`hl7v2` and create Cargo cycles.
 
 ## Import Conversion Rules
 
@@ -129,15 +135,17 @@ use hl7v2::conformance::datatype::parse_hl7_ts;
 | --- | --- | --- |
 | 1 | `docs/crate-surface-collapse-adr` | ADR and module map only. |
 | 2 | `refactor/hl7v2-canonical-facade` | Make `hl7v2` re-export the stable API directly from current crates; no file moves. |
-| 3 | `refactor/collapse-foundation-modules` | Move `model`, `escape`, MLLP framing, `path`, and `query`. |
-| 4 | `refactor/collapse-parse-write-modules` | Move parser, writer, JSON, and normalize. |
-| 5 | `refactor/collapse-conformance-modules` | Move validation, datatype, datetime, and profile. |
-| 6 | `refactor/collapse-ack-synthetic-modules` | Move ACK and synthetic modules. |
-| 7 | `refactor/collapse-transport-processing-modules` | Move batch, stream, and network. |
-| 8 | `refactor/collapse-operational-modules` | Move redact, lifecycle, and experimental guard. |
-| 9 | `refactor/update-app-crates-to-hl7v2` | Make server, CLI, Python, examples, e2e tests, and test-utils import through `hl7v2`. |
-| 10 | `refactor/remove-microcrate-workspace-members` | Shrink `[workspace].members`. |
-| 11 | `refactor/remove-compat-shims` | Remove or freeze compatibility shims. |
+| 3 | `refactor/collapse-path-module` | Move `hl7v2-path` into `hl7v2::query::path`; keep a temporary shim. |
+| 4 | `refactor/collapse-foundation-modules` | Move `model`, `escape`, and MLLP framing once their downstream users can be handled without cycles. |
+| 5 | `refactor/collapse-query-modules` | Move query access/presence after path is already internal. |
+| 6 | `refactor/collapse-parse-write-modules` | Move parser, writer, JSON, and normalize. |
+| 7 | `refactor/collapse-conformance-modules` | Move validation, datatype, datetime, and profile. |
+| 8 | `refactor/collapse-ack-synthetic-modules` | Move ACK and synthetic modules. |
+| 9 | `refactor/collapse-transport-processing-modules` | Move batch, stream, and network. |
+| 10 | `refactor/collapse-operational-modules` | Move redact, lifecycle, and experimental guard. |
+| 11 | `refactor/update-app-crates-to-hl7v2` | Make server, CLI, Python, examples, e2e tests, and test-utils import through `hl7v2`. |
+| 12 | `refactor/remove-microcrate-workspace-members` | Shrink `[workspace].members`. |
+| 13 | `refactor/remove-compat-shims` | Remove or freeze compatibility shims. |
 
 ## Per-PR Rules
 

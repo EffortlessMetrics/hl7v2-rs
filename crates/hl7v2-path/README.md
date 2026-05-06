@@ -1,6 +1,22 @@
 # hl7v2-path
 
-HL7 v2 path query implementation (e.g., PID-3.1).
+Deprecated compatibility crate for HL7 v2 path parsing.
+
+New Rust code should depend on `hl7v2` and use either:
+
+```rust
+use hl7v2::{Path, parse_path};
+```
+
+or:
+
+```rust
+use hl7v2::query::path::{Path, parse_path};
+```
+
+This crate is retained temporarily while the old implementation microcrates
+collapse into modules under `hl7v2`. It re-exports the `hl7v2::query::path`
+API and should not gain new behavior.
 
 ## Usage
 
