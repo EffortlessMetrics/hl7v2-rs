@@ -33,6 +33,7 @@ fn build_test_router(
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        cors_allowed_origins: Default::default(),
     });
 
     // Rate limit configuration

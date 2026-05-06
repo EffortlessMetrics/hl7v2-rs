@@ -34,6 +34,7 @@ fn create_test_router() -> axum::Router {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        cors_allowed_origins: Default::default(),
     });
     build_router(state)
 }
@@ -888,6 +889,7 @@ mod server_integration {
             bind_address: addr.to_string(),
             max_body_size: 10 * 1024 * 1024,
             api_key: None,
+            cors_allowed_origins: Default::default(),
         };
 
         // Build server

@@ -1,22 +1,26 @@
 //! HTTP route definitions.
 
 use axum::{
-    Router, middleware,
+    Router,
+    http::HeaderValue,
+    middleware,
     routing::{get, post},
 };
 use std::sync::Arc;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{
     compression::CompressionLayer,
-    cors::{Any, CorsLayer},
+    cors::{AllowOrigin, Any, CorsLayer},
     trace::TraceLayer,
 };
 use utoipa_swagger_ui::SwaggerUi;
 
-use crate::handlers::{health_handler, parse_handler, validate_handler};
+use crate::handlers::{
+    ack_handler, health_handler, normalize_handler, parse_handler, validate_handler,
+};
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
 use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
-use crate::server::AppState;
+use crate::server::{AppState, CorsAllowedOrigins};
 
 /// OpenAPI specification content
 const OPENAPI_YAML: &str = include_str!("../../../api/openapi/hl7v2-api-v1.yaml");
@@ -35,7 +39,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // Create API routes
     let mut api_routes = Router::new()
         .route("/parse", post(parse_handler))
-        .route("/validate", post(validate_handler));
+        .route("/validate", post(validate_handler))
+        .route("/ack", post(ack_handler))
+        .route("/normalize", post(normalize_handler));
 
     // Apply authentication if API key is configured in state
     if state.api_key.is_some() {
@@ -44,6 +50,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             auth_middleware,
         ));
     }
+
+    let cors_layer = build_cors_layer(&state.cors_allowed_origins);
 
     // Main router
     Router::new()
@@ -68,7 +76,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // Middleware layers (bottom to top execution order)
         .layer(middleware::from_fn(metrics_middleware))
         .layer(CompressionLayer::new())
-        .layer(build_cors_layer())
+        .layer(cors_layer)
         .layer(TraceLayer::new_for_http())
         .layer(GovernorLayer::new(governor_conf))
         .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
@@ -82,11 +90,22 @@ async fn ready_handler() -> &'static str {
 }
 
 /// Build CORS layer
-fn build_cors_layer() -> CorsLayer {
-    CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any)
+fn build_cors_layer(origins: &CorsAllowedOrigins) -> CorsLayer {
+    let layer = CorsLayer::new().allow_methods(Any).allow_headers(Any);
+
+    match origins {
+        CorsAllowedOrigins::Any => layer.allow_origin(Any),
+        CorsAllowedOrigins::List(origins) => {
+            let origins = origins
+                .iter()
+                .map(|origin| {
+                    HeaderValue::from_str(origin)
+                        .expect("CORS allowed origin must be a valid header value")
+                })
+                .collect::<Vec<_>>();
+            layer.allow_origin(AllowOrigin::list(origins))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -109,6 +128,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: Some(api_key.clone()),
+            cors_allowed_origins: CorsAllowedOrigins::default(),
         });
         (build_router(state), api_key)
     }
@@ -157,6 +177,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
+            cors_allowed_origins: CorsAllowedOrigins::default(),
         });
 
         let app = build_router(state);
@@ -189,6 +210,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
+            cors_allowed_origins: CorsAllowedOrigins::default(),
         });
 
         let app = build_router(state);
@@ -227,7 +249,7 @@ mod tests {
         let response_data: crate::models::ParseResponse =
             serde_json::from_slice(&body_bytes).unwrap();
 
-        assert_eq!(response_data.metadata.message_type, "ADT");
+        assert_eq!(response_data.metadata.message_type, "ADT^A01");
         assert_eq!(response_data.metadata.version, "2.5");
         assert_eq!(response_data.metadata.sending_application, "SendingApp");
         assert!(response_data.message.is_some());
@@ -252,7 +274,7 @@ mod tests {
         let response_data: crate::models::ParseResponse =
             serde_json::from_slice(&body_bytes).unwrap();
 
-        assert_eq!(response_data.metadata.message_type, "ADT");
+        assert_eq!(response_data.metadata.message_type, "ADT^A01");
         assert_eq!(response_data.metadata.version, "2.5");
         assert_eq!(response_data.metadata.sending_application, "SendingApp");
         assert!(response_data.message.is_some());

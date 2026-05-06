@@ -8,13 +8,20 @@ info:
     This API provides endpoints for:
     - Parsing HL7 v2 messages
     - Validating messages against conformance profiles
+    - Generating ACK messages
+    - Normalizing HL7 v2 messages
 
     ## Authentication
 
-    All endpoints require API Key authentication via the `X-API-Key` header:
+    HL7 processing endpoints under `/hl7/*` require API Key authentication via
+    the `X-API-Key` header when the server is configured with an API key:
     ```
     X-API-Key: <your-api-key>
     ```
+
+    Health, readiness, metrics, and API documentation endpoints are public by
+    design so load balancers, scrapers, and local operators can inspect service
+    state without application credentials.
 
     ## Rate Limiting
 
@@ -151,6 +158,72 @@ paths:
         '401':
           description: Unauthorized
 
+  /hl7/ack:
+    post:
+      summary: Generate HL7 ACK
+      description: |
+        Generate an HL7 v2 ACK message for a parsed inbound message.
+      tags: [hl7]
+      operationId: generateAck
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckRequest'
+      responses:
+        '200':
+          description: ACK generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckResponse'
+        '400':
+          description: Invalid message format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+  /hl7/normalize:
+    post:
+      summary: Normalize HL7 message
+      description: |
+        Parse and rewrite an HL7 v2 message with stable delimiters and optional MLLP output framing.
+      tags: [hl7]
+      operationId: normalizeMessage
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NormalizeRequest'
+      responses:
+        '200':
+          description: Message normalized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NormalizeResponse'
+        '400':
+          description: Invalid message format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -257,6 +330,79 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ValidationWarning'
+        metadata:
+          $ref: '#/components/schemas/MessageMetadata'
+
+    AckRequest:
+      type: object
+      required: [message, code]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        code:
+          type: string
+          enum: [AA, AE, AR, CA, CE, CR]
+          description: ACK code to generate
+        error_message:
+          type: string
+          nullable: true
+          description: Optional error text for ERR segment generation
+        mllp_framed:
+          type: boolean
+          default: false
+          description: Whether the input message is MLLP framed
+        mllp_frame:
+          type: boolean
+          default: false
+          description: Whether to MLLP frame the ACK response
+
+    AckResponse:
+      type: object
+      required: [ack_message, ack_code, metadata]
+      properties:
+        ack_message:
+          type: string
+          description: Generated ACK message
+        ack_code:
+          type: string
+          enum: [AA, AE, AR, CA, CE, CR]
+        metadata:
+          $ref: '#/components/schemas/MessageMetadata'
+
+    NormalizeRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        mllp_framed:
+          type: boolean
+          default: false
+          description: Whether the input message is MLLP framed
+        options:
+          $ref: '#/components/schemas/NormalizeOptions'
+
+    NormalizeOptions:
+      type: object
+      properties:
+        canonical_delimiters:
+          type: boolean
+          default: true
+          description: Rewrite delimiters to canonical HL7 delimiters
+        mllp_frame:
+          type: boolean
+          default: false
+          description: Whether to MLLP frame the normalized response
+
+    NormalizeResponse:
+      type: object
+      required: [normalized_message, metadata]
+      properties:
+        normalized_message:
+          type: string
+          description: Normalized HL7 message
         metadata:
           $ref: '#/components/schemas/MessageMetadata'
 

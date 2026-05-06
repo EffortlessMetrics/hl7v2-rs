@@ -18,6 +18,7 @@ async fn test_auth_missing_api_key_fails() {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: Some("secret-key".to_string()),
+        cors_allowed_origins: Default::default(),
     });
     let app = build_router(state);
 
@@ -47,6 +48,7 @@ async fn test_auth_valid_api_key_succeeds() {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: Some("secret-key".to_string()),
+        cors_allowed_origins: Default::default(),
     });
     let app = build_router(state);
 
@@ -82,6 +84,7 @@ async fn test_auth_invalid_api_key_fails() {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: Some("secret-key".to_string()),
+        cors_allowed_origins: Default::default(),
     });
     let app = build_router(state);
 
@@ -112,6 +115,7 @@ async fn test_health_metrics_public() {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: Some("secret-key".to_string()),
+        cors_allowed_origins: Default::default(),
     });
     let app = build_router(state);
 

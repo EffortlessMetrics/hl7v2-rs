@@ -13,6 +13,7 @@ pub fn create_test_server() -> Server {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
         max_body_size: 1024 * 1024,              // 1MB
         api_key: None,
+        cors_allowed_origins: Default::default(),
     };
     Server::new(config)
 }
@@ -24,6 +25,7 @@ pub fn create_test_router() -> Router {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        cors_allowed_origins: Default::default(),
     });
     hl7v2_server::routes::build_router(state)
 }
