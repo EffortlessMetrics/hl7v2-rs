@@ -34,6 +34,7 @@ We use the format popularized by Michael Nygard:
 | [0012](0012-rate-limiting-and-backpressure.md) | Rate Limiting and Backpressure | Accepted | 2025-11-19 |
 | [0013](0013-authentication-strategy.md) | Authentication Strategy | Accepted | 2026-03-04 |
 | [0014](0014-observability-architecture.md) | Observability Architecture | Accepted | 2026-03-04 |
+| [0015](0015-collapse-public-crate-surface.md) | Collapse Public Crate Surface | Accepted | 2026-05-06 |
 
 ## Creating a New ADR
 
