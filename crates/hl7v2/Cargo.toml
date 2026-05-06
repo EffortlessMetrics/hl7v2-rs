@@ -14,9 +14,60 @@ description = "HL7 v2 message parser and processor for Rust"
 readme = "README.md"
 
 [features]
-default = []
-network = ["hl7v2-core/network"]
-stream = ["hl7v2-core/stream"]
+default = [
+    "json",
+    "profile",
+    "ack",
+    "normalize",
+]
+
+json = ["dep:hl7v2-json"]
+profile = [
+    "dep:hl7v2-prof",
+    "dep:hl7v2-validation",
+    "dep:hl7v2-datatype",
+    "dep:hl7v2-datetime",
+]
+ack = ["dep:hl7v2-ack"]
+normalize = ["dep:hl7v2-normalize"]
+batch = ["dep:hl7v2-batch"]
+stream = ["dep:hl7v2-stream"]
+network = ["dep:hl7v2-network"]
+synthetic = [
+    "dep:hl7v2-template",
+    "dep:hl7v2-template-values",
+    "dep:hl7v2-faker",
+    "dep:hl7v2-corpus",
+    "dep:hl7v2-gen",
+]
+redact = ["dep:hl7v2-redact"]
+lifecycle = ["dep:hl7v2-lifecycle"]
+experimental-guard = ["dep:hl7v2-guard"]
 
 [dependencies]
-hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
+hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
+hl7v2-escape = { version = "1.2.0", path = "../hl7v2-escape" }
+hl7v2-mllp = { version = "1.2.0", path = "../hl7v2-mllp" }
+hl7v2-path = { version = "1.2.0", path = "../hl7v2-path" }
+hl7v2-query = { version = "1.2.0", path = "../hl7v2-query" }
+hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
+hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
+
+hl7v2-json = { version = "1.2.0", path = "../hl7v2-json", optional = true }
+hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize", optional = true }
+hl7v2-ack = { version = "1.2.0", path = "../hl7v2-ack", optional = true }
+hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof", optional = true }
+hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation", optional = true }
+hl7v2-datatype = { version = "1.2.0", path = "../hl7v2-datatype", optional = true }
+hl7v2-datetime = { version = "1.2.0", path = "../hl7v2-datetime", optional = true }
+hl7v2-batch = { version = "1.2.0", path = "../hl7v2-batch", optional = true }
+hl7v2-stream = { version = "1.2.0", path = "../hl7v2-stream", optional = true }
+hl7v2-network = { version = "1.2.0", path = "../hl7v2-network", optional = true }
+hl7v2-template = { version = "1.2.0", path = "../hl7v2-template", optional = true }
+hl7v2-template-values = { version = "1.2.0", path = "../hl7v2-template-values", optional = true }
+hl7v2-faker = { version = "1.2.0", path = "../hl7v2-faker", optional = true }
+hl7v2-corpus = { version = "1.2.0", path = "../hl7v2-corpus", optional = true }
+hl7v2-gen = { version = "1.2.0", path = "../hl7v2-gen", optional = true }
+hl7v2-redact = { version = "1.2.0", path = "../hl7v2-redact", optional = true }
+hl7v2-lifecycle = { version = "1.2.0", path = "../hl7v2-lifecycle", optional = true }
+hl7v2-guard = { version = "1.2.0", path = "../hl7v2-guard", optional = true }
