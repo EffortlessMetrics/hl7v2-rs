@@ -1,0 +1,11 @@
+ignore:
+  - "**/*.md"
+  - ".github/**"
+  - ".spectral.yml"
+  - "api/**"
+  - "buf.gen.yaml"
+  - "codecov.yml"
+  - "config.example.toml"
+  - "docs/**"
+  - "profiles/**"
+  - "schemas/**"

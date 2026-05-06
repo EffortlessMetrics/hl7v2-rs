@@ -4,10 +4,23 @@ on:
   push:
     paths:
       - 'api/**'
+      - 'schemas/**'
+      - 'profiles/**'
+      - 'config.example.toml'
+      - 'config/**'
+      - '.spectral.yml'
+      - 'buf.gen.yaml'
       - '.github/workflows/contracts.yml'
   pull_request:
     paths:
       - 'api/**'
+      - 'schemas/**'
+      - 'profiles/**'
+      - 'config.example.toml'
+      - 'config/**'
+      - '.spectral.yml'
+      - 'buf.gen.yaml'
+      - '.github/workflows/contracts.yml'
 
 jobs:
   validate-openapi:
@@ -95,16 +108,48 @@ jobs:
             -d 'profiles/*.yaml' \
             --spec=draft7
 
+      - name: Convert Config TOML Fixtures
+        run: |
+          python3 - <<'PY'
+          import json
+          import tomllib
+          from pathlib import Path
+
+          inputs = [Path("config.example.toml")]
+          config_dir = Path("config")
+          if config_dir.exists():
+              inputs.extend(sorted(config_dir.glob("*.toml")))
+
+          out_dir = Path("target/contracts/config")
+          out_dir.mkdir(parents=True, exist_ok=True)
+
+          for path in inputs:
+              data = tomllib.loads(path.read_text(encoding="utf-8"))
+              output = out_dir / f"{path.stem}.json"
+              output.write_text(
+                  json.dumps(data, indent=2, sort_keys=True),
+                  encoding="utf-8",
+              )
+              print(f"{path} -> {output}")
+          PY
+
       - name: Validate Config Schema
         run: |
           ajv validate -c ajv-formats \
             -s schemas/config/hl7v2-config-v1.schema.json \
-            -d 'config/*.toml' \
+            -d 'target/contracts/config/*.json' \
             --spec=draft7
 
       - name: Validate Test Data
         run: |
-          for schema in schemas/**/*.schema.json; do
+          find schemas -name '*.schema.json' -print0 | while IFS= read -r -d '' schema; do
             echo "Validating $schema"
-            ajv compile -c ajv-formats -s "$schema"
+            if [ "$schema" = "schemas/segment_field.schema.json" ]; then
+              ajv compile -c ajv-formats -s "$schema" --spec=draft7
+            else
+              ajv compile -c ajv-formats \
+                -s "$schema" \
+                -r schemas/segment_field.schema.json \
+                --spec=draft7
+            fi
           done

@@ -1,6 +1,6 @@
 {
   "$id": "https://example.org/schemas/hl7v2/message.schema.json",
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "required": ["meta", "segments"],
   "properties": {
