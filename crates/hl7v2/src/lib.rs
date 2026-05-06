@@ -102,17 +102,7 @@ pub mod conformance {
         pub use hl7v2_validation::*;
     }
 
-    pub mod datatype {
-        //! HL7 datatype validation.
-
-        pub mod datetime {
-            //! HL7 datetime parsing and validation.
-
-            pub use hl7v2_datetime::*;
-        }
-
-        pub use hl7v2_datatype::*;
-    }
+    pub mod datatype;
 }
 
 #[cfg(feature = "ack")]

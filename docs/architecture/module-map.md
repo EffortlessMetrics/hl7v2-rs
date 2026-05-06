@@ -44,7 +44,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2-stream` | `hl7v2::stream` | Feature-gated module | Event parser behind `stream`. |
 | `hl7v2-prof` | `hl7v2::conformance::profile` | Module | Profile loading, inheritance, cache, and profile-backed validation. |
 | `hl7v2-validation` | `hl7v2::conformance::validation` | Module | Issues, severity, validators, and validation engine helpers. |
-| `hl7v2-datatype` | `hl7v2::conformance::datatype` | Module | Primitive/composite data type validation. |
+| `hl7v2-datatype` | `hl7v2::conformance::datatype` | Collapsed as leaf conformance module | Primitive/composite data type validation; `hl7v2-datatype` remains a compatibility shim. |
 | `hl7v2-datetime` | `hl7v2::conformance::datatype::datetime` | Module | Datetime parsing is part of datatype validation. |
 | `hl7v2-ack` | `hl7v2::ack` | Module | First-class runtime HL7 behavior, not synthetic-only. |
 | `hl7v2-faker` | `hl7v2::synthetic::faker` | Feature-gated module | Test/synthetic data generation behind `synthetic`. |
@@ -110,9 +110,11 @@ depend on those crates would force compatibility shims to depend back on
 Leaf feature crates with no remaining implementation-crate dependents can also
 collapse before the foundation block is fully resolved. Those PRs must be
 narrow, keep compatibility shims, and state why they do not introduce cycles.
-`hl7v2-redact`, `hl7v2-guard`, and `hl7v2-lifecycle` used that path: their
-implementations now live under `hl7v2`, and the old crates are compatibility
-shims.
+`hl7v2-redact`, `hl7v2-guard`, `hl7v2-lifecycle`, and `hl7v2-datatype` used
+that path: their implementations now live under `hl7v2`, and the old crates
+are compatibility shims. `hl7v2-datatype` intentionally keeps `hl7v2-datetime`
+external until the rest of conformance can be collapsed without creating
+cycles.
 
 ## Import Conversion Rules
 
