@@ -22,10 +22,11 @@
 )]
 
 use clap::{Parser, Subcommand};
-use hl7v2_core::{parse, to_json, write};
-use hl7v2_gen::{AckCode as GenAckCode, Template, ack, generate};
-use hl7v2_prof::{load_profile, validate};
-use hl7v2_stream::{Event, StreamParser};
+use hl7v2::synthetic::generate::{Template, generate};
+use hl7v2::{
+    AckCode as GenAckCode, Event, Message, StreamParser, ack, load_profile, normalize, parse,
+    parse_mllp, to_json, validate, wrap_mllp, write, write_mllp,
+};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -460,7 +461,7 @@ fn parse_command(
 
     // Parse the HL7 message
     let message = if mllp {
-        hl7v2_core::parse_mllp(&contents)?
+        parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
@@ -476,11 +477,11 @@ fn parse_command(
         // Output with canonical delimiters (|^~\&)
         // Normalize the raw bytes with canonical delimiters
         let original_bytes = write(&message);
-        let output_bytes = hl7v2_core::normalize(&original_bytes, true)?;
+        let output_bytes = normalize(&original_bytes, true)?;
 
         if envelope {
             // Wrap in MLLP envelope
-            let mllp_bytes = hl7v2_core::wrap_mllp(&output_bytes);
+            let mllp_bytes = wrap_mllp(&output_bytes);
             std::io::stdout().write_all(&mllp_bytes)?;
         } else {
             std::io::stdout().write_all(&output_bytes)?;
@@ -488,7 +489,7 @@ fn parse_command(
     } else if envelope {
         // Output with original delimiters but wrapped in MLLP envelope
         let output_bytes = write(&message);
-        let mllp_bytes = hl7v2_core::wrap_mllp(&output_bytes);
+        let mllp_bytes = wrap_mllp(&output_bytes);
         std::io::stdout().write_all(&mllp_bytes)?;
     } else {
         // Default JSON output
@@ -550,7 +551,7 @@ fn norm_command(
 
     // Parse the HL7 message
     let message = if mllp_in {
-        hl7v2_core::parse_mllp(&contents)?
+        parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
@@ -565,7 +566,7 @@ fn norm_command(
     let original_bytes = write(&message);
     let normalized_bytes = if canonical_delims {
         // Use core normalization for canonical delimiters
-        hl7v2_core::normalize(&original_bytes, true)?
+        normalize(&original_bytes, true)?
     } else {
         original_bytes
     };
@@ -575,7 +576,7 @@ fn norm_command(
 
     // Add MLLP framing if requested
     let output_bytes = if mllp_out {
-        hl7v2_core::wrap_mllp(&normalized_bytes)
+        wrap_mllp(&normalized_bytes)
     } else {
         normalized_bytes
     };
@@ -644,7 +645,7 @@ fn val_command(
 
     // Parse the HL7 message
     let message = if mllp {
-        hl7v2_core::parse_mllp(&contents)?
+        parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
@@ -763,7 +764,7 @@ struct FieldDistribution {
 }
 
 /// Collect statistics from an HL7 message
-fn collect_stats(message: &hl7v2_core::Message, distributions: bool) -> StatsReport {
+fn collect_stats(message: &Message, distributions: bool) -> StatsReport {
     // Collect segment statistics
     let mut segment_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
@@ -889,7 +890,7 @@ fn stats_command(
 
     // Parse the HL7 message
     let message = if mllp {
-        hl7v2_core::parse_mllp(&contents)?
+        parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
@@ -931,7 +932,7 @@ fn ack_command(
 
     // Parse the HL7 message
     let message = if mllp_in {
-        hl7v2_core::parse_mllp(&contents)?
+        parse_mllp(&contents)?
     } else {
         parse(&contents)?
     };
@@ -957,7 +958,7 @@ fn ack_command(
 
     // Write ACK message
     let ack_bytes = if mllp_out {
-        hl7v2_core::write_mllp(&ack_message)
+        write_mllp(&ack_message)
     } else {
         write(&ack_message)
     };

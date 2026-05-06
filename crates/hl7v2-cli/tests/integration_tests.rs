@@ -318,9 +318,8 @@ mod norm_command {
         let original_content = read_file(&hl7_file);
         let normalized_content = read_file(&output_file);
 
-        let original_msg = hl7v2_core::parse(&original_content).expect("Original should parse");
-        let normalized_msg =
-            hl7v2_core::parse(&normalized_content).expect("Normalized should parse");
+        let original_msg = hl7v2::parse(&original_content).expect("Original should parse");
+        let normalized_msg = hl7v2::parse(&normalized_content).expect("Normalized should parse");
 
         assert_eq!(original_msg.segments.len(), normalized_msg.segments.len());
     }
@@ -863,7 +862,7 @@ mod file_io {
         .success();
 
         let content = read_file(&output_file);
-        let parse_result = hl7v2_core::parse(&content);
+        let parse_result = hl7v2::parse(&content);
         assert!(parse_result.is_ok());
     }
 }

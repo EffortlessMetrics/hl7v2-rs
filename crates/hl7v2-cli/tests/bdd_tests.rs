@@ -233,7 +233,7 @@ fn given_output_path(world: &mut CliWorld) {
 fn given_minimal_profile(world: &mut CliWorld) {
     let dir = world.ensure_temp_dir();
     let path = dir.path().join("profile.yaml");
-    // Profile format expected by hl7v2_prof::Profile struct:
+    // Profile format expected by hl7v2::Profile struct:
     // - message_structure: message type
     // - version: HL7 version
     // - segments: list of segment specs with id
@@ -264,7 +264,7 @@ segments:
 fn given_template_file(world: &mut CliWorld) {
     let dir = world.ensure_temp_dir();
     let path = dir.path().join("template.yaml");
-    // Template format expected by hl7v2_template::Template struct:
+    // Template format expected by hl7v2::synthetic::template::Template struct:
     // - name: template name
     // - delims: 4-character string for component, repetition, escape, subcomponent delimiters
     // - segments: list of segment template strings
@@ -649,7 +649,7 @@ fn then_output_valid_hl7(world: &mut CliWorld) {
         .as_ref()
         .expect("Output file should be set");
     let content = std::fs::read(output).expect("Should read output file");
-    let result = hl7v2_core::parse(&content);
+    let result = hl7v2::parse(&content);
     assert!(result.is_ok(), "Output file should be valid HL7");
 }
 
@@ -669,7 +669,7 @@ fn then_mllp_start_block(world: &mut CliWorld) {
 #[then("the output should be a valid HL7 ACK message")]
 fn then_valid_ack(world: &mut CliWorld) {
     let stdout = world.stdout();
-    let result = hl7v2_core::parse(stdout.as_bytes());
+    let result = hl7v2::parse(stdout.as_bytes());
     assert!(result.is_ok(), "ACK output should be valid HL7");
     let msg = result.unwrap();
     assert!(
