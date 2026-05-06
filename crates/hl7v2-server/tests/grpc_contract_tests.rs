@@ -1,5 +1,13 @@
 //! Contract tests for the gRPC service implementation.
 
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::uninlined_format_args,
+    reason = "legacy gRPC contract tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 #[cfg(test)]
 mod tests {
     use hl7v2_server::grpc::Hl7ServiceImpl;

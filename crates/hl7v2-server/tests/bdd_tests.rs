@@ -2,6 +2,13 @@
 //!
 //! Run with: cargo test --test bdd_tests
 
+#![expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::string_slice,
+    reason = "legacy BDD tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     Router,
     body::Body,

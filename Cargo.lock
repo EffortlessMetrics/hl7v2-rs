@@ -1977,6 +1977,7 @@ dependencies = [
  "metrics",
  "metrics-exporter-prometheus",
  "prost",
+ "prost-build",
  "prost-types",
  "protoc-bin-vendored",
  "serde",

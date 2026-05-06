@@ -3,6 +3,13 @@
 //! This module provides helper functions and utilities for testing the CLI
 //! binary using assert_cmd and tempfile.
 
+#![expect(
+    clippy::assertions_on_result_states,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "legacy CLI test helpers use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use assert_cmd::Command;
 use hl7v2_test_utils::fixtures::SampleMessages;
 use std::fs;
@@ -10,7 +17,6 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 /// Helper to create a new CLI command
-#[allow(deprecated)]
 pub fn cli_command() -> Command {
     Command::cargo_bin("hl7v2-cli").expect("Failed to find hl7v2-cli binary")
 }

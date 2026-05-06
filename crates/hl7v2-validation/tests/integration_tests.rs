@@ -580,7 +580,7 @@ fn test_issue_severity_warning() {
 
 #[test]
 fn test_mixed_severity_issues() {
-    let issues = vec![
+    let issues = [
         Issue::error(
             "MISSING_REQUIRED_FIELD",
             Some("PID.3".to_string()),

@@ -1,5 +1,10 @@
 //! Integration tests for server middleware stack and request handling.
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "legacy middleware tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     body::Body,
     extract::connect_info::ConnectInfo,

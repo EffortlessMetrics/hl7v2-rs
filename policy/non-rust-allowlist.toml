@@ -1,0 +1,5 @@
+schema_version = "1.0"
+
+# Non-Rust programming-file policy exceptions are intentionally empty for this
+# first policy ratchet. Future exceptions should use `path` or `glob` plus
+# kind, owner, reason, surface, classification, covered_by, and optional expiry.

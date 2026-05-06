@@ -1,6 +1,9 @@
 //! Common test utilities and fixtures for integration tests.
 
-#![allow(dead_code)]
+#![expect(
+    dead_code,
+    reason = "shared integration-test support is consumed by different test binaries"
+)]
 
 use axum::Router;
 use hl7v2_server::server::{AppState, Server, ServerConfig};

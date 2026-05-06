@@ -1,5 +1,12 @@
 //! HTTP runtime/API contract tests.
 
+#![expect(
+    clippy::unwrap_used,
+    clippy::indexing_slicing,
+    clippy::uninlined_format_args,
+    reason = "legacy runtime contract tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},

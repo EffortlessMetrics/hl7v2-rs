@@ -2,6 +2,15 @@
 //!
 //! Tests the CLI binary using assert_cmd for subprocess testing.
 
+#![expect(
+    clippy::assertions_on_result_states,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::uninlined_format_args,
+    clippy::unwrap_used,
+    reason = "legacy CLI integration tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 mod common;
 
 use predicates::prelude::*;

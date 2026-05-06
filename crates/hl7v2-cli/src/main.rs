@@ -1,5 +1,26 @@
 //! Command-line interface for HL7 v2 processing.
 
+#![expect(
+    clippy::arithmetic_side_effects,
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    clippy::cast_precision_loss,
+    clippy::exit,
+    clippy::indexing_slicing,
+    clippy::unchecked_time_subtraction,
+    clippy::uninlined_format_args,
+    clippy::unnecessary_debug_formatting,
+    clippy::unwrap_used,
+    reason = "pre-existing CLI reporting and table-rendering debt is tracked in policy/clippy-debt.toml"
+)]
+#![cfg_attr(
+    test,
+    expect(
+        clippy::expect_used,
+        reason = "pre-existing CLI config tests use static fixture expects; cleanup is tracked in policy/clippy-debt.toml"
+    )
+)]
+
 use clap::{Parser, Subcommand};
 use hl7v2_core::{parse, to_json, write};
 use hl7v2_gen::{AckCode as GenAckCode, Template, ack, generate};

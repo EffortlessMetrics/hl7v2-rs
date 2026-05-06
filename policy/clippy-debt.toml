@@ -1,0 +1,234 @@
+schema = 1
+
+# Temporary lint exceptions live here as expiring, owned debt receipts.
+#
+# [[debt]]
+# lint = "clippy::indexing_slicing"
+# path = "crates/hl7v2-parser/src/table.rs"
+# owner = "parser"
+# reason = "Generated table access; replace with checked table abstraction."
+# expires = "2026-07-01"
+
+[[debt]]
+lint = "workspace-lints-inheritance"
+path = "crates/hl7v2-python/Cargo.toml"
+owner = "EffortlessMetrics"
+reason = "Python binding crate is staged for workspace lint inheritance after PyO3 packaging remains isolated from this policy infrastructure PR."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::unwrap_used"
+path = "crates/hl7v2-server/tests"
+owner = "EffortlessMetrics"
+reason = "Pre-existing integration tests use static fixture unwraps; keep server lint inheritance moving while endpoint test cleanup is split out."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::expect_used"
+path = "crates/hl7v2-server/tests"
+owner = "EffortlessMetrics"
+reason = "Pre-existing gRPC and BDD tests use static fixture expects; keep server lint inheritance moving while endpoint test cleanup is split out."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::indexing_slicing"
+path = "crates/hl7v2-server/tests"
+owner = "EffortlessMetrics"
+reason = "Pre-existing contract tests index known response fixtures; replace with checked helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::string_slice"
+path = "crates/hl7v2-server/tests"
+owner = "EffortlessMetrics"
+reason = "Pre-existing tests slice known ASCII fixtures; replace with byte-safe helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::unwrap_used"
+path = "crates/hl7v2-cli"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI commands and tests use static fixture unwraps; cleanup is split from policy infrastructure."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::expect_used"
+path = "crates/hl7v2-cli"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI tests use static fixture expects; cleanup is split from policy infrastructure."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::indexing_slicing"
+path = "crates/hl7v2-cli"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI table and test code indexes known fixture rows; replace with checked helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::arithmetic_side_effects"
+path = "crates/hl7v2-cli/src/main.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI timing and table-rendering arithmetic needs checked helper cleanup after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::allow_attributes"
+path = "crates/hl7v2-cli/src/config.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI config module uses legacy allow attributes for staged config wiring; replace with narrower expectations after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::allow_attributes_without_reason"
+path = "crates/hl7v2-cli/src/config.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI config module uses legacy allow attributes for staged config wiring; replace with narrower expectations after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::allow_attributes"
+path = "crates/hl7v2-cli/src/monitor.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI monitor module uses a legacy allow attribute for a staged reporting helper; replace with a narrower expectation after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::allow_attributes_without_reason"
+path = "crates/hl7v2-cli/src/monitor.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI monitor module uses a legacy allow attribute for a staged reporting helper; replace with a narrower expectation after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::cast_precision_loss"
+path = "crates/hl7v2-cli/src/monitor.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI monitor CPU averaging casts should be replaced with checked conversion helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::exit"
+path = "crates/hl7v2-cli/src/main.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI command error exits should be routed through typed command results after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::unchecked_time_subtraction"
+path = "crates/hl7v2-cli/src/main.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI report timing math needs saturating or checked duration helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::uninlined_format_args"
+path = "crates/hl7v2-cli"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI formatting should be modernized after policy infrastructure lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::unnecessary_debug_formatting"
+path = "crates/hl7v2-cli/src/main.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing CLI report formatting should be tightened after policy infrastructure lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "dead_code"
+path = "crates/hl7v2-cli/src/config.rs"
+owner = "EffortlessMetrics"
+reason = "Configuration loading exists ahead of full CLI config wiring; integration cleanup is split from policy infrastructure."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "dead_code"
+path = "crates/hl7v2-cli/src/monitor.rs"
+owner = "EffortlessMetrics"
+reason = "Metric lookup helper is retained for CLI reporting expansion but is not wired yet."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "dead_code"
+path = "crates/hl7v2-server/src/grpc.rs"
+owner = "EffortlessMetrics"
+reason = "gRPC service state is retained for runtime parity and future streaming support."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "missing_docs"
+path = "crates/hl7v2-server/src/grpc.rs"
+owner = "EffortlessMetrics"
+reason = "Protobuf module bindings are generated by tonic/prost; generated API documentation cleanup is split from policy infrastructure."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::allow_attributes"
+path = "crates/hl7v2-server/src/grpc.rs"
+owner = "EffortlessMetrics"
+reason = "Generated tonic/prost code contains upstream lint attributes; generated-code policy needs a dedicated follow-up."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::allow_attributes_without_reason"
+path = "crates/hl7v2-server/src/grpc.rs"
+owner = "EffortlessMetrics"
+reason = "Generated tonic/prost code contains upstream lint attributes; generated-code policy needs a dedicated follow-up."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::cast_possible_truncation"
+path = "crates/hl7v2-server/src/grpc.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing gRPC summary and enum conversions need bounded conversion helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::cast_possible_wrap"
+path = "crates/hl7v2-server/src/grpc.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing gRPC summary and enum conversions need bounded conversion helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::cast_precision_loss"
+path = "crates/hl7v2-server/src/metrics.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing metrics size recording casts should use bounded conversion helpers after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::manual_let_else"
+path = "crates/hl7v2-server/src/middleware.rs"
+owner = "EffortlessMetrics"
+reason = "Pre-existing auth middleware style cleanup is split from policy infrastructure."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::missing_errors_doc"
+path = "crates/hl7v2-server/src"
+owner = "EffortlessMetrics"
+reason = "Pre-existing public server Result docs should be filled in after policy infrastructure lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::missing_panics_doc"
+path = "crates/hl7v2-server/src"
+owner = "EffortlessMetrics"
+reason = "Pre-existing server startup invariants and route construction panics need explicit docs or fallible APIs after policy lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::uninlined_format_args"
+path = "crates/hl7v2-server/src"
+owner = "EffortlessMetrics"
+reason = "Pre-existing server formatting should be modernized after policy infrastructure lands."
+expires = "2026-06-30"
+
+[[debt]]
+lint = "clippy::error_impl_error"
+path = "crates/hl7v2-server/src/lib.rs"
+owner = "EffortlessMetrics"
+reason = "Public server API intentionally exposes Error as the crate result error type; revisit naming before publication."
+expires = "2026-06-30"

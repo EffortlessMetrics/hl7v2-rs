@@ -1,5 +1,11 @@
 //! Integration tests for health and readiness endpoints.
 
+#![expect(
+    clippy::unwrap_used,
+    clippy::string_slice,
+    reason = "legacy endpoint tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},

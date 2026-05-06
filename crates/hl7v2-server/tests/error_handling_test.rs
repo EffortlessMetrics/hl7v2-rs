@@ -1,5 +1,11 @@
 //! Integration tests for error handling across all endpoints.
 
+#![expect(
+    clippy::unwrap_used,
+    clippy::uninlined_format_args,
+    reason = "legacy endpoint tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
+)]
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},

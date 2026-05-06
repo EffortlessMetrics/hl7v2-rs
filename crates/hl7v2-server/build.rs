@@ -7,12 +7,6 @@ use std::path::PathBuf;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let protoc = protoc_bin_vendored::protoc_bin_path()?;
 
-    // SAFETY: build.rs runs before compiling this crate. We set PROTOC once
-    // for prost/tonic codegen and do not spawn concurrent Rust threads here.
-    unsafe {
-        std::env::set_var("PROTOC", protoc);
-    }
-
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
     let workspace_proto_dir = manifest_dir.join("../../api/proto");
     let workspace_proto = workspace_proto_dir.join("hl7v2/v1/hl7v2.proto");
@@ -32,10 +26,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         packaged_openapi
     };
 
+    let mut prost_config = prost_build::Config::new();
+    prost_config.protoc_executable(protoc);
+
     tonic_build::configure()
         .build_server(true)
         .build_client(true)
-        .compile_protos(&[proto_file.as_path()], &[proto_dir.as_path()])?;
+        .compile_protos_with_config(
+            prost_config,
+            &[proto_file.as_path()],
+            &[proto_dir.as_path()],
+        )?;
 
     println!(
         "cargo:rustc-env=HL7V2_OPENAPI_YAML={}",

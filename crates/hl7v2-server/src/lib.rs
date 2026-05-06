@@ -31,6 +31,22 @@
 //! }
 //! ```
 
+#![expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::manual_let_else,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::allow_attributes,
+    clippy::allow_attributes_without_reason,
+    clippy::uninlined_format_args,
+    clippy::unwrap_used,
+    reason = "pre-existing server runtime lint debt is tracked in policy/clippy-debt.toml"
+)]
+
 pub mod grpc;
 pub mod handlers;
 pub mod metrics;
@@ -44,6 +60,10 @@ pub use server::{AppState, CorsAllowedOrigins, Server, ServerBuilder, ServerConf
 
 /// Server error types
 #[derive(Debug, thiserror::Error)]
+#[expect(
+    clippy::error_impl_error,
+    reason = "public server API intentionally exposes Error as the crate result error type"
+)]
 pub enum Error {
     /// Failed to bind the underlying server transport.
     #[error("Bind error: {0}")]

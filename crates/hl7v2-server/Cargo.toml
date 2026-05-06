@@ -66,6 +66,9 @@ name = "hl7v2-server"
 path = "src/main.rs"
 
 [build-dependencies]
+prost-build = "0.13.5"
 tonic-build = { workspace = true }
 protoc-bin-vendored = { workspace = true }
 
+[lints]
+workspace = true
