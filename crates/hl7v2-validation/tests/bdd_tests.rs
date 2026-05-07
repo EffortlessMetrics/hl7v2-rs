@@ -18,7 +18,7 @@ pub struct ValidationWorld {
     /// The current message being tested
     message_content: Option<String>,
     /// The parsed message
-    parsed_message: Option<hl7v2_core::Message>,
+    parsed_message: Option<hl7v2_model::Message>,
     /// Validation issues found
     issues: Vec<Issue>,
     /// Whether validation passed
@@ -1401,7 +1401,7 @@ fn when_validate_segment_order(world: &mut ValidationWorld) {
         let segment_names: Vec<&str> = msg
             .segments
             .iter()
-            .map(hl7v2_core::Segment::id_str)
+            .map(hl7v2_model::Segment::id_str)
             .collect();
 
         let evn_idx = segment_names.iter().position(|&s| s == "EVN");

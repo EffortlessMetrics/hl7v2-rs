@@ -5,7 +5,7 @@
 
 #![allow(dead_code)]
 
-use hl7v2_core::parse;
+use hl7v2_parser::parse;
 use hl7v2_prof::{Profile, load_profile, validate};
 
 // ============================================================================

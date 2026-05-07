@@ -47,7 +47,7 @@ pub use hl7v2_validation::{
     validate_luhn_checksum, validate_mathematical_relationship, validate_mod10_checksum,
 };
 
-use hl7v2_core::Message;
+use hl7v2_model::Message;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -122,8 +122,8 @@ impl From<std::io::Error> for ProfileLoadError {
     }
 }
 
-impl From<hl7v2_core::Error> for ProfileLoadError {
-    fn from(err: hl7v2_core::Error) -> Self {
+impl From<hl7v2_model::Error> for ProfileLoadError {
+    fn from(err: hl7v2_model::Error) -> Self {
         ProfileLoadError::Core(err.to_string())
     }
 }
@@ -807,8 +807,8 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
 
 /// Validate that a required field is present
 fn validate_field_required(msg: &Message, path: &str, issues: &mut Vec<Issue>) {
-    // Use the get function from hl7v2-core to retrieve the value
-    if let Some(value) = hl7v2_core::get(msg, path) {
+    // Use the get function from hl7v2-query to retrieve the value
+    if let Some(value) = hl7v2_query::get(msg, path) {
         // If we get a value, check if it's empty
         if value.is_empty() {
             issues.push(Issue::error(
@@ -847,7 +847,7 @@ fn check_condition(msg: &Message, condition: &Condition) -> bool {
             let field_path = &eq_conditions[0];
             let expected_value = &eq_conditions[1];
 
-            if let Some(actual_value) = hl7v2_core::get(msg, field_path) {
+            if let Some(actual_value) = hl7v2_query::get(msg, field_path) {
                 return actual_value == expected_value;
             }
             return false;
@@ -871,8 +871,8 @@ fn check_condition(msg: &Message, condition: &Condition) -> bool {
 /// Validate that a required MSH field is present
 fn validate_msh_field_required(msg: &Message, path: &str, issues: &mut Vec<Issue>) {
     let full_path = format!("MSH.{}", path);
-    // Use the get function from hl7v2-core to retrieve the value
-    if hl7v2_core::get(msg, &full_path).is_none() {
+    // Use the get function from hl7v2-query to retrieve the value
+    if hl7v2_query::get(msg, &full_path).is_none() {
         issues.push(Issue::error(
             "MISSING_REQUIRED_FIELD",
             Some(full_path),
@@ -888,7 +888,7 @@ fn validate_field_in_constraint(
     allowed_values: &[String],
     issues: &mut Vec<Issue>,
 ) {
-    if let Some(value) = hl7v2_core::get(msg, path) {
+    if let Some(value) = hl7v2_query::get(msg, path) {
         if !allowed_values.contains(&value.to_string()) {
             issues.push(Issue::error(
                 "VALUE_NOT_IN_CONSTRAINT",
@@ -910,7 +910,7 @@ fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue
         return;
     }
 
-    if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
+    if let Some(value) = hl7v2_query::get(msg, &valueset.path) {
         if !valueset.codes.contains(&value.to_string()) {
             issues.push(Issue::error(
                 "VALUE_NOT_IN_SET",
@@ -932,7 +932,7 @@ fn validate_data_type_constraint(
     datatype: &DataTypeConstraint,
     issues: &mut Vec<Issue>,
 ) {
-    if let Some(value) = hl7v2_core::get(msg, &datatype.path) {
+    if let Some(value) = hl7v2_query::get(msg, &datatype.path) {
         if !validate_data_type(value, &datatype.r#type) {
             issues.push(Issue::error(
                 "INVALID_DATA_TYPE",
@@ -954,7 +954,7 @@ fn validate_advanced_data_type(
     datatype: &AdvancedDataTypeConstraint,
     issues: &mut Vec<Issue>,
 ) {
-    if let Some(value) = hl7v2_core::get(msg, &datatype.path) {
+    if let Some(value) = hl7v2_query::get(msg, &datatype.path) {
         // First check basic data type
         if !validate_data_type(value, &datatype.r#type) {
             issues.push(Issue::error(
@@ -1050,7 +1050,7 @@ fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues:
     // Validate value sets with table precedence
     for valueset in &profile.valuesets {
         if let Some(table_id) = table_map.get(valueset.name.as_str()) {
-            if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
+            if let Some(value) = hl7v2_query::get(msg, &valueset.path) {
                 // Only validate if the field is not empty
                 if !value.is_empty() {
                     // Check if the value exists in the table
@@ -1079,7 +1079,7 @@ fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues:
 
 /// Validate that a field value does not exceed the maximum length
 fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: &mut Vec<Issue>) {
-    if let Some(value) = hl7v2_core::get(msg, &length.path) {
+    if let Some(value) = hl7v2_query::get(msg, &length.path) {
         if let Some(max_length) = length.max {
             if value.len() > max_length {
                 issues.push(Issue::error(
@@ -1107,7 +1107,7 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
     // Check value sets that reference this table by name
     for valueset in &profile.valuesets {
         if valueset.name == table.id {
-            if let Some(value) = hl7v2_core::get(msg, &valueset.path) {
+            if let Some(value) = hl7v2_query::get(msg, &valueset.path) {
                 // Only validate if the field is not empty
                 if !value.is_empty() {
                     // Check if the value exists in the table
@@ -1137,8 +1137,8 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
 /// Validate temporal rule (date/time relationships)
 fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<Issue>) {
     if let (Some(before_value), Some(after_value)) = (
-        hl7v2_core::get(msg, &rule.before),
-        hl7v2_core::get(msg, &rule.after),
+        hl7v2_query::get(msg, &rule.before),
+        hl7v2_query::get(msg, &rule.after),
     ) {
         // Parse the date/time values
         if let (Some(before_time), Some(after_time)) =
@@ -1203,7 +1203,7 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let required_length: usize = captures[2].parse().map_err(|_| ())?;
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if value.len() <= required_length {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1232,7 +1232,7 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let values_str = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 // Parse the allowed values
                 let allowed_values: Vec<&str> = values_str
                     .split(',')
@@ -1266,7 +1266,7 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let pattern = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 let regex = Regex::new(pattern).map_err(|_| ())?;
                 if !regex.is_match(value) {
                     issues.push(Issue::error(
@@ -1294,7 +1294,7 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let prefix = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !value.starts_with(prefix) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1321,7 +1321,7 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let suffix = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !value.ends_with(suffix) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1347,7 +1347,7 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !value.chars().all(|c| c.is_ascii_digit()) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1372,7 +1372,7 @@ fn evaluate_custom_rule_script(
             let path2 = &captures[2];
 
             if let (Some(value1), Some(value2)) =
-                (hl7v2_core::get(msg, path1), hl7v2_core::get(msg, path2))
+                (hl7v2_query::get(msg, path1), hl7v2_query::get(msg, path2))
             {
                 if value1 != value2 {
                     issues.push(Issue::error(
@@ -1399,7 +1399,7 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_phone_number(value) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1425,7 +1425,7 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_email(value) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1451,7 +1451,7 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_ssn(value) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1474,7 +1474,7 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_valid_birth_date(value) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1500,7 +1500,7 @@ fn evaluate_custom_rule_script(
             let path2 = &captures[2];
 
             if let (Some(value1), Some(value2)) =
-                (hl7v2_core::get(msg, path1), hl7v2_core::get(msg, path2))
+                (hl7v2_query::get(msg, path1), hl7v2_query::get(msg, path2))
             {
                 if !is_valid_age_range(value1, value2) {
                     issues.push(Issue::error(
@@ -1527,7 +1527,7 @@ fn evaluate_custom_rule_script(
             let min_val = &captures[2];
             let max_val = &captures[3];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_within_range(value, min_val, max_val) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -1567,7 +1567,7 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
         // Pattern: "field(PATH).length() > N"
         if let Some(path_end) = rule.script.find(").length() > ") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 let length_str = &rule.script[path_end + 13..];
                 if let Ok(required_length) = length_str.parse::<usize>() {
                     if value.len() <= required_length {
@@ -1593,7 +1593,7 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
         // Pattern: "field(PATH) in ['A', 'B', 'C']"
         if let Some(path_end) = rule.script.find(") in [") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 // Extract the allowed values
                 let values_part = &rule.script[path_end + 7..];
                 if let Some(values_str) = values_part.strip_suffix("]") {
@@ -1625,7 +1625,7 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
         // Pattern: "field(PATH).matches_regex('PATTERN')"
         if let Some(path_end) = rule.script.find(").matches_regex(") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 // Extract the regex pattern
                 let pattern_part = &rule.script[path_end + 15..];
                 if pattern_part.starts_with('\'') && pattern_part.ends_with("')") {
@@ -1703,7 +1703,7 @@ fn execute_rule_action(
     match action.action.as_str() {
         "require" => {
             // Check if the required field exists and is not empty
-            if let Some(value) = hl7v2_core::get(msg, &action.field) {
+            if let Some(value) = hl7v2_query::get(msg, &action.field) {
                 if value.is_empty() {
                     issues.push(Issue::error(
                         "CROSS_FIELD_VALIDATION_ERROR",
@@ -1731,7 +1731,7 @@ fn execute_rule_action(
         }
         "prohibit" => {
             // Check if the prohibited field exists and is not empty
-            if let Some(value) = hl7v2_core::get(msg, &action.field) {
+            if let Some(value) = hl7v2_query::get(msg, &action.field) {
                 if !value.is_empty() {
                     issues.push(Issue::error(
                         "CROSS_FIELD_VALIDATION_ERROR",
@@ -1749,7 +1749,7 @@ fn execute_rule_action(
         }
         "validate" => {
             // Apply additional validation based on action parameters
-            if let Some(value) = hl7v2_core::get(msg, &action.field) {
+            if let Some(value) = hl7v2_query::get(msg, &action.field) {
                 // Only validate if the field is not empty
                 if !value.is_empty() {
                     // Validate data type if specified
@@ -1797,13 +1797,13 @@ fn validate_contextual_rule(
     issues: &mut Vec<Issue>,
 ) {
     // Check if the context field has the expected value
-    if let Some(context_value) = hl7v2_core::get(msg, &rule.context_field) {
+    if let Some(context_value) = hl7v2_query::get(msg, &rule.context_field) {
         if context_value == rule.context_value {
             // Apply the validation based on validation_type
             match rule.validation_type.as_str() {
                 "require" => {
                     // Check if the target field exists and is not empty
-                    if let Some(value) = hl7v2_core::get(msg, &rule.target_field) {
+                    if let Some(value) = hl7v2_query::get(msg, &rule.target_field) {
                         if value.is_empty() {
                             issues.push(Issue::error(
                                 "CONTEXTUAL_VALIDATION_ERROR",
@@ -1835,7 +1835,7 @@ fn validate_contextual_rule(
                 }
                 "prohibit" => {
                     // Check if the target field exists and is not empty
-                    if let Some(value) = hl7v2_core::get(msg, &rule.target_field) {
+                    if let Some(value) = hl7v2_query::get(msg, &rule.target_field) {
                         if !value.is_empty() {
                             issues.push(Issue::error(
                                 "CONTEXTUAL_VALIDATION_ERROR",
@@ -1856,7 +1856,7 @@ fn validate_contextual_rule(
                 "validate_datatype" => {
                     // Validate target field against specified data type
                     if let Some(datatype) = rule.parameters.get("datatype") {
-                        if let Some(value) = hl7v2_core::get(msg, &rule.target_field) {
+                        if let Some(value) = hl7v2_query::get(msg, &rule.target_field) {
                             if !validate_data_type(value, datatype) {
                                 issues.push(Issue::error(
                                     "CONTEXTUAL_VALIDATION_ERROR",
@@ -1875,7 +1875,7 @@ fn validate_contextual_rule(
                 "validate_valueset" => {
                     // Validate target field against specified value set
                     if let Some(valueset_name) = rule.parameters.get("valueset") {
-                        if let Some(value) = hl7v2_core::get(msg, &rule.target_field) {
+                        if let Some(value) = hl7v2_query::get(msg, &rule.target_field) {
                             // Find the value set in the profile
                             if let Some(valueset) = find_valueset_by_name(profile, valueset_name) {
                                 if !valueset.codes.contains(&value.to_string()) {
