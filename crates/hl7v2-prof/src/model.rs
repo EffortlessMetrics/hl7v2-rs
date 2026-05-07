@@ -72,8 +72,8 @@ impl From<std::io::Error> for ProfileLoadError {
     }
 }
 
-impl From<hl7v2_core::Error> for ProfileLoadError {
-    fn from(err: hl7v2_core::Error) -> Self {
+impl From<hl7v2_model::Error> for ProfileLoadError {
+    fn from(err: hl7v2_model::Error) -> Self {
         ProfileLoadError::Core(err.to_string())
     }
 }

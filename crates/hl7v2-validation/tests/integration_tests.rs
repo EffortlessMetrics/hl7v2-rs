@@ -12,7 +12,7 @@ use hl7v2_validation::{Issue, RuleCondition, Severity, check_rule_condition, is_
 // ============================================================================
 
 /// Parse a message and return the result
-fn parse_message(content: &str) -> hl7v2_core::Message {
+fn parse_message(content: &str) -> hl7v2_model::Message {
     parse(content.as_bytes()).expect("Failed to parse message")
 }
 
@@ -510,7 +510,7 @@ fn test_segment_order_adt_a01() {
     let segment_names: Vec<&str> = msg
         .segments
         .iter()
-        .map(hl7v2_core::Segment::id_str)
+        .map(hl7v2_model::Segment::id_str)
         .collect();
 
     assert!(segment_names.contains(&"MSH"), "Should have MSH");

@@ -1,5 +1,5 @@
 use regex::Regex;
-use hl7v2_core::Message;
+use hl7v2_model::Message;
 use hl7v2_validation::{
     Issue, is_email, is_phone_number, is_ssn, is_valid_age_range, is_valid_birth_date, is_within_range,
 };
@@ -24,7 +24,7 @@ pub fn evaluate_custom_rule_script(
             let path = &captures[1];
             let required_length: usize = captures[2].parse().map_err(|_| ())?;
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if value.len() <= required_length {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -53,7 +53,7 @@ pub fn evaluate_custom_rule_script(
             let path = &captures[1];
             let values_str = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 // Parse the allowed values
                 let allowed_values: Vec<&str> = values_str
                     .split(',')
@@ -87,7 +87,7 @@ pub fn evaluate_custom_rule_script(
             let path = &captures[1];
             let pattern = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 let regex = Regex::new(pattern).map_err(|_| ())?;
                 if !regex.is_match(value) {
                     issues.push(Issue::error(
@@ -115,7 +115,7 @@ pub fn evaluate_custom_rule_script(
             let path = &captures[1];
             let prefix = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !value.starts_with(prefix) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -142,7 +142,7 @@ pub fn evaluate_custom_rule_script(
             let path = &captures[1];
             let suffix = &captures[2];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !value.ends_with(suffix) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -168,7 +168,7 @@ pub fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !value.chars().all(|c| c.is_ascii_digit()) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -193,7 +193,7 @@ pub fn evaluate_custom_rule_script(
             let path2 = &captures[2];
 
             if let (Some(value1), Some(value2)) =
-                (hl7v2_core::get(msg, path1), hl7v2_core::get(msg, path2))
+                (hl7v2_query::get(msg, path1), hl7v2_query::get(msg, path2))
             {
                 if value1 != value2 {
                     issues.push(Issue::error(
@@ -220,7 +220,7 @@ pub fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_phone_number(value) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -246,7 +246,7 @@ pub fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_email(value) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -272,7 +272,7 @@ pub fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_ssn(value) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -295,7 +295,7 @@ pub fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_valid_birth_date(value) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -321,7 +321,7 @@ pub fn evaluate_custom_rule_script(
             let path2 = &captures[2];
 
             if let (Some(value1), Some(value2)) =
-                (hl7v2_core::get(msg, path1), hl7v2_core::get(msg, path2))
+                (hl7v2_query::get(msg, path1), hl7v2_query::get(msg, path2))
             {
                 if !is_valid_age_range(value1, value2) {
                     issues.push(Issue::error(
@@ -348,7 +348,7 @@ pub fn evaluate_custom_rule_script(
             let min_val = &captures[2];
             let max_val = &captures[3];
 
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 if !is_within_range(value, min_val, max_val) {
                     issues.push(Issue::error(
                         "CUSTOM_RULE_VIOLATION",
@@ -388,7 +388,7 @@ pub fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mu
         // Pattern: "field(PATH).length() > N"
         if let Some(path_end) = rule.script.find(").length() > ") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 let length_str = &rule.script[path_end + 13..];
                 if let Ok(required_length) = length_str.parse::<usize>() {
                     if value.len() <= required_length {
@@ -414,7 +414,7 @@ pub fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mu
         // Pattern: "field(PATH) in ['A', 'B', 'C']"
         if let Some(path_end) = rule.script.find(") in [") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 // Extract the allowed values
                 let values_part = &rule.script[path_end + 7..];
                 if let Some(values_str) = values_part.strip_suffix("]") {
@@ -446,7 +446,7 @@ pub fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mu
         // Pattern: "field(PATH).matches_regex('PATTERN')"
         if let Some(path_end) = rule.script.find(").matches_regex(") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = hl7v2_core::get(msg, path) {
+            if let Some(value) = hl7v2_query::get(msg, path) {
                 // Extract the regex pattern
                 let pattern_part = &rule.script[path_end + 15..];
                 if pattern_part.starts_with("'") && pattern_part.ends_with("')") {

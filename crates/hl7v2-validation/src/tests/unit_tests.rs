@@ -17,7 +17,7 @@ use crate::{
     parse_hl7_ts_with_precision, truncate_to_precision, validate_checksum, validate_data_type,
     validate_luhn_checksum, validate_mathematical_relationship,
 };
-use hl7v2_core::Message;
+use hl7v2_model::Message;
 use hl7v2_parser::parse;
 
 // ============================================================================

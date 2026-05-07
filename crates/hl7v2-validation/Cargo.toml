@@ -13,9 +13,9 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-# Core HL7 v2 parsing and model
-hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
+# HL7 v2 message model and path queries
 hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
+hl7v2-query = { version = "1.2.0", path = "../hl7v2-query" }
 
 # Serialization
 serde = { workspace = true, features = ["derive"] }
@@ -45,7 +45,6 @@ cucumber = { version = "0.22", default-features = false, features = ["macros"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 pretty_assertions = "1.4"
 assert_matches = "1.5"
-hl7v2-query = { version = "1.2.0", path = "../hl7v2-query" }
 
 [[test]]
 name = "integration_tests"
@@ -59,4 +58,3 @@ path = "tests/snapshot_tests.rs"
 name = "bdd_tests"
 path = "tests/bdd_tests.rs"
 harness = false
-

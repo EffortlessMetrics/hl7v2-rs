@@ -25,7 +25,7 @@
 //! ```
 
 use chrono::{NaiveDate, NaiveDateTime};
-use hl7v2_core::Message;
+use hl7v2_model::Message;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -717,7 +717,7 @@ pub fn parse_datetime(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
 /// Return HL7 value only if non-empty after trim.
 #[inline]
 pub fn get_nonempty<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
-    hl7v2_core::get(msg, path).and_then(|s| {
+    hl7v2_query::get(msg, path).and_then(|s| {
         let t = s.trim();
         if t.is_empty() { None } else { Some(t) }
     })

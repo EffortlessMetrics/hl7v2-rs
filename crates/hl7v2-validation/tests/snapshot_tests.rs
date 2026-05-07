@@ -13,7 +13,7 @@ use insta::{assert_debug_snapshot, assert_json_snapshot, assert_yaml_snapshot};
 // ============================================================================
 
 /// Parse a message and return the result
-fn parse_message(content: &str) -> hl7v2_core::Message {
+fn parse_message(content: &str) -> hl7v2_model::Message {
     parse(content.as_bytes()).expect("Failed to parse message")
 }
 
