@@ -104,7 +104,7 @@ constraints:
     #[tokio::test]
     async fn test_grpc_parse_mllp_success() {
         let service = service();
-        let mllp_msg = hl7v2_mllp::wrap_mllp(SAMPLE_MSG);
+        let mllp_msg = hl7v2::wrap_mllp(SAMPLE_MSG);
 
         let request = Request::new(ParseRequest {
             message: mllp_msg,
@@ -194,10 +194,7 @@ constraints:
 
         assert!(framed.starts_with(&[0x0b]));
         assert!(framed.ends_with(&[0x1c, 0x0d]));
-        assert_eq!(
-            hl7v2_mllp::unwrap_mllp(&framed).unwrap(),
-            unframed.as_slice()
-        );
+        assert_eq!(hl7v2::unwrap_mllp(&framed).unwrap(), unframed.as_slice());
     }
 
     #[tokio::test]

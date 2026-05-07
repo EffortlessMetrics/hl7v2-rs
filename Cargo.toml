@@ -221,13 +221,15 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-hl7v2-core = { workspace = true }
-hl7v2-ack = { version = "1.2.0", path = "crates/hl7v2-ack" }
-hl7v2-batch = { version = "1.2.0", path = "crates/hl7v2-batch" }
-hl7v2-prof = { version = "1.2.0", path = "crates/hl7v2-prof" }
-hl7v2-template = { version = "1.2.0", path = "crates/hl7v2-template" }
-hl7v2-stream = { version = "1.2.0", path = "crates/hl7v2-stream" }
-hl7v2-network = { version = "1.2.0", path = "crates/hl7v2-network" }
+hl7v2 = { version = "1.2.0", path = "crates/hl7v2", features = [
+    "profile",
+    "ack",
+    "normalize",
+    "batch",
+    "stream",
+    "network",
+    "synthetic",
+] }
 tokio = { workspace = true }
 chrono = { workspace = true }
 serde_json = { workspace = true }

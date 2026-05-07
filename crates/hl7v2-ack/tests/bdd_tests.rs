@@ -3,8 +3,8 @@
 //! Run with: cargo test --test bdd_tests
 
 use cucumber::{World, given, then, when};
+use hl7v2::{Message, get, parse};
 use hl7v2_ack::{AckCode, ack};
-use hl7v2_core::{Message, parse};
 
 /// Test world for ACK BDD tests
 #[derive(Debug, World)]
@@ -137,7 +137,7 @@ fn then_msh_component(world: &mut AckWorld, field: usize, component: usize, valu
         .as_ref()
         .expect("No ACK message generated");
     let path = format!("MSH.{}.{}", field, component);
-    assert_eq!(hl7v2_core::get(ack, &path), Some(value.as_str()));
+    assert_eq!(get(ack, &path), Some(value.as_str()));
 }
 
 #[then(regex = r#"MSA\.(\d+) should be "([^"]+)""#)]
@@ -147,7 +147,7 @@ fn then_msa_field(world: &mut AckWorld, field: usize, value: String) {
         .as_ref()
         .expect("No ACK message generated");
     let path = format!("MSA.{}", field);
-    assert_eq!(hl7v2_core::get(ack, &path), Some(value.as_str()));
+    assert_eq!(get(ack, &path), Some(value.as_str()));
 }
 
 #[then("the ACK should use the same delimiters")]
@@ -192,7 +192,7 @@ fn then_msh3_receiving_app(world: &mut AckWorld) {
         .ack_message
         .as_ref()
         .expect("No ACK message generated");
-    assert_eq!(hl7v2_core::get(ack, "MSH.3"), Some("ReceivingApp"));
+    assert_eq!(get(ack, "MSH.3"), Some("ReceivingApp"));
 }
 
 #[then("MSH.5 should be \"SendingApp\"")]
@@ -201,7 +201,7 @@ fn then_msh5_sending_app(world: &mut AckWorld) {
         .ack_message
         .as_ref()
         .expect("No ACK message generated");
-    assert_eq!(hl7v2_core::get(ack, "MSH.5"), Some("SendingApp"));
+    assert_eq!(get(ack, "MSH.5"), Some("SendingApp"));
 }
 
 #[then("MSH.4 should be \"ReceivingFac\"")]
@@ -210,7 +210,7 @@ fn then_msh4_receiving_fac(world: &mut AckWorld) {
         .ack_message
         .as_ref()
         .expect("No ACK message generated");
-    assert_eq!(hl7v2_core::get(ack, "MSH.4"), Some("ReceivingFac"));
+    assert_eq!(get(ack, "MSH.4"), Some("ReceivingFac"));
 }
 
 #[then("MSH.6 should be \"SendingFac\"")]
@@ -219,7 +219,7 @@ fn then_msh6_sending_fac(world: &mut AckWorld) {
         .ack_message
         .as_ref()
         .expect("No ACK message generated");
-    assert_eq!(hl7v2_core::get(ack, "MSH.6"), Some("SendingFac"));
+    assert_eq!(get(ack, "MSH.6"), Some("SendingFac"));
 }
 
 #[then("MSA.2 should be \"MSG009\"")]

@@ -7,7 +7,7 @@
 //!
 //! Run with: cargo run --example streaming_parser
 
-use hl7v2_stream::{Event, StreamParser};
+use hl7v2::{Event, StreamParser};
 use std::io::{BufReader, Cursor};
 
 /// A moderately sized HL7 message for demonstration
@@ -258,7 +258,7 @@ fn demonstrate_async_pattern() {
 
     println!("Async streaming with backpressure:");
     println!("```rust");
-    println!("use hl7v2_stream::{{StreamParserBuilder, AsyncStreamParser, Event}};");
+    println!("use hl7v2::{{AsyncStreamParser, Event, StreamParserBuilder}};");
     println!("use tokio::sync::mpsc;");
     println!();
     println!("#[tokio::main]");

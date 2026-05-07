@@ -40,21 +40,21 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2-parser` | `hl7v2::parser` | Module | Also exposes top-level `parse`, `parse_mllp`, `parse_batch`, `parse_file_batch`. |
 | `hl7v2-writer` | `hl7v2::writer` | Module | Also exposes top-level `write`, `write_mllp`, and JSON helpers. |
 | `hl7v2-normalize` | `hl7v2::normalize` | Module | Top-level `normalize` remains stable. |
-| `hl7v2-batch` | `hl7v2::batch` | Feature-gated module | Batch file parsing/writing. |
+| `hl7v2-batch` | `hl7v2::batch` | Collapsed as leaf feature module | Batch file parsing/writing; `hl7v2-batch` remains a compatibility shim. |
 | `hl7v2-stream` | `hl7v2::stream` | Feature-gated module | Event parser behind `stream`. |
 | `hl7v2-prof` | `hl7v2::conformance::profile` | Module | Profile loading, inheritance, cache, and profile-backed validation. |
 | `hl7v2-validation` | `hl7v2::conformance::validation` | Module | Issues, severity, validators, and validation engine helpers. |
-| `hl7v2-datatype` | `hl7v2::conformance::datatype` | Module | Primitive/composite data type validation. |
-| `hl7v2-datetime` | `hl7v2::conformance::datatype::datetime` | Module | Datetime parsing is part of datatype validation. |
-| `hl7v2-ack` | `hl7v2::ack` | Module | First-class runtime HL7 behavior, not synthetic-only. |
-| `hl7v2-faker` | `hl7v2::synthetic::faker` | Feature-gated module | Test/synthetic data generation behind `synthetic`. |
-| `hl7v2-corpus` | `hl7v2::synthetic::corpus` | Feature-gated module | Corpus manifest and lock behavior behind `synthetic`. |
-| `hl7v2-template` | `hl7v2::synthetic::template` | Feature-gated module | Template model/rendering behind `synthetic`. |
-| `hl7v2-template-values` | `hl7v2::synthetic::values` | Feature-gated module | Value distributions/sources behind `synthetic`. |
-| `hl7v2-gen` | `hl7v2::synthetic::generate` | Feature-gated module | Generation facade behind `synthetic`; ACK remains in `hl7v2::ack`. |
-| `hl7v2-redact` | `hl7v2::redact` | Feature-gated module | PHI redaction behind `redact`, unless a later proof moves it under `experimental`. |
-| `hl7v2-lifecycle` | `hl7v2::lifecycle` | Feature-gated module | Retention/archive lifecycle behind `lifecycle`. |
-| `hl7v2-guard` | `hl7v2::experimental::guard` | Experimental feature-gated module | Do not present as stable until semantics are proven. |
+| `hl7v2-datatype` | `hl7v2::conformance::datatype` | Collapsed as leaf conformance module | Primitive/composite data type validation; `hl7v2-datatype` remains a compatibility shim. |
+| `hl7v2-datetime` | `hl7v2::conformance::datatype::datetime` | Collapsed as leaf conformance module | Datetime parsing is part of datatype validation; `hl7v2-datetime` remains a compatibility shim. |
+| `hl7v2-ack` | `hl7v2::ack` | Collapsed as ACK feature module | First-class runtime HL7 behavior; `hl7v2-ack` remains a compatibility shim. |
+| `hl7v2-faker` | `hl7v2::synthetic::faker` | Collapsed as synthetic feature module | Test/synthetic data generation behind `synthetic`; `hl7v2-faker` remains a compatibility shim. |
+| `hl7v2-corpus` | `hl7v2::synthetic::corpus` | Collapsed as synthetic feature module | Corpus manifest and lock behavior behind `synthetic`; `hl7v2-corpus` remains a compatibility shim. |
+| `hl7v2-template` | `hl7v2::synthetic::template` | Collapsed as synthetic feature module | Template model/rendering behind `synthetic`; `hl7v2-template` remains a compatibility shim. |
+| `hl7v2-template-values` | `hl7v2::synthetic::values` | Collapsed as synthetic feature module | Value distributions/sources behind `synthetic`; `hl7v2-template-values` remains a compatibility shim. |
+| `hl7v2-gen` | `hl7v2::synthetic::generate` | Collapsed as synthetic feature module | Generation facade behind `synthetic`; ACK remains in `hl7v2::ack`; `hl7v2-gen` remains a compatibility shim. |
+| `hl7v2-redact` | `hl7v2::redact` | Feature-gated module | Collapsed as a leaf feature module; `hl7v2-redact` is a compatibility shim. |
+| `hl7v2-lifecycle` | `hl7v2::lifecycle` | Collapsed as leaf feature module | `hl7v2-lifecycle` remains a compatibility shim. |
+| `hl7v2-guard` | `hl7v2::experimental::guard` | Collapsed as leaf experimental feature module | `hl7v2-guard` remains a compatibility shim; do not present guard as stable until semantics are proven. |
 | `hl7v2-server` | `crates/hl7v2-server` | Public crate | Keep external. |
 | `hl7v2-cli` | `crates/hl7v2-cli` | Public crate | Keep external. |
 | `hl7v2-python` | `crates/hl7v2-python` | Public crate | Keep external. |
@@ -77,29 +77,49 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `batch` | none unless later proven needed | Batch parsing/writing. |
 | `stream` | `tokio` if async stream support remains in the same feature | Streaming parser APIs. |
 | `network` | `stream`, `tokio`, `tokio-util`, `futures`, `bytes` | Async MLLP networking. |
-| `synthetic` | `serde`, `chrono`, generation dependencies added as modules move | Faker, corpus, templates, values, generation. |
-| `redact` | `regex` | Redaction rules/policies. |
-| `lifecycle` | `chrono`, `sha2`, `hex` | Retention/archive lifecycle. |
-| `experimental-guard` | none unless later proven needed | Experimental guard/anomaly detection. |
+| `synthetic` | `ack`, `serde`, `chrono`, `rand`, `rand_distr`, `serde_json`, `serde_yaml`, `sha2`, `uuid` | Faker, corpus, templates, values, generation. |
+| `redact` | none | Redaction rules/policies. |
+| `lifecycle` | `chrono`, `serde`, `sha2` | Retention/archive lifecycle. |
+| `experimental-guard` | `serde` | Experimental guard/anomaly detection. |
 
 ## Dependency-Order Migration
 
 Move from the dependency floor upward:
 
-1. `model`
-2. `escape` and MLLP framing
-3. `path` and `query`
-4. `parser`
-5. `writer`, `json`, and `normalize`
-6. `validation`, `datatype`, and `datetime`
-7. `profile`
-8. `ack`
-9. `synthetic`
-10. `batch`, `stream`, and `network`
-11. `redact`, `lifecycle`, and `experimental::guard`
-12. server, CLI, Python, examples, e2e tests, and test-utils imports
-13. workspace member removal
-14. compatibility shim removal or freeze
+1. `path`
+2. `model`
+3. `escape` and MLLP framing
+4. `query`
+5. `parser`
+6. `writer`, `json`, and `normalize`
+7. `validation`, `datatype`, and `datetime`
+8. `profile`
+9. `ack`
+10. `synthetic`
+11. `batch`, `stream`, and `network`
+12. `redact`, `lifecycle`, and `experimental::guard`
+13. server, CLI, Python, examples, e2e tests, and test-utils imports
+14. workspace member removal
+15. compatibility shim removal or freeze
+
+`path` is intentionally split out first because it has no implementation-crate
+dependencies. Moving `model`, `escape`, or MLLP while parser/writer/query still
+depend on those crates would force compatibility shims to depend back on
+`hl7v2` and create Cargo cycles.
+
+Leaf feature crates with no remaining implementation-crate dependents can also
+collapse before the foundation block is fully resolved. Those PRs must be
+narrow, keep compatibility shims, and state why they do not introduce cycles.
+`hl7v2-redact`, `hl7v2-guard`, `hl7v2-lifecycle`, `hl7v2-datatype`,
+`hl7v2-datetime`, and `hl7v2-batch` used that path: their implementations now
+live under `hl7v2`, and the old crates are compatibility shims.
+
+The synthetic crates collapsed as one cluster instead of one crate per PR.
+`hl7v2-faker`, `hl7v2-corpus`, `hl7v2-template-values`, `hl7v2-template`, and
+`hl7v2-gen` depend on each other enough that collapsing only one would make its
+shim depend back on `hl7v2` while another synthetic implementation crate still
+depended on the shim. Moving the cluster together preserves behavior without
+introducing Cargo cycles.
 
 ## Import Conversion Rules
 
@@ -129,15 +149,17 @@ use hl7v2::conformance::datatype::parse_hl7_ts;
 | --- | --- | --- |
 | 1 | `docs/crate-surface-collapse-adr` | ADR and module map only. |
 | 2 | `refactor/hl7v2-canonical-facade` | Make `hl7v2` re-export the stable API directly from current crates; no file moves. |
-| 3 | `refactor/collapse-foundation-modules` | Move `model`, `escape`, MLLP framing, `path`, and `query`. |
-| 4 | `refactor/collapse-parse-write-modules` | Move parser, writer, JSON, and normalize. |
-| 5 | `refactor/collapse-conformance-modules` | Move validation, datatype, datetime, and profile. |
-| 6 | `refactor/collapse-ack-synthetic-modules` | Move ACK and synthetic modules. |
-| 7 | `refactor/collapse-transport-processing-modules` | Move batch, stream, and network. |
-| 8 | `refactor/collapse-operational-modules` | Move redact, lifecycle, and experimental guard. |
-| 9 | `refactor/update-app-crates-to-hl7v2` | Make server, CLI, Python, examples, e2e tests, and test-utils import through `hl7v2`. |
-| 10 | `refactor/remove-microcrate-workspace-members` | Shrink `[workspace].members`. |
-| 11 | `refactor/remove-compat-shims` | Remove or freeze compatibility shims. |
+| 3 | `refactor/collapse-path-module` | Move `hl7v2-path` into `hl7v2::query::path`; keep a temporary shim. |
+| 4 | `refactor/collapse-foundation-modules` | Move `model`, `escape`, and MLLP framing once their downstream users can be handled without cycles. |
+| 5 | `refactor/collapse-query-modules` | Move query access/presence after path is already internal. |
+| 6 | `refactor/collapse-parse-write-modules` | Move parser, writer, JSON, and normalize. |
+| 7 | `refactor/collapse-conformance-modules` | Move validation, datatype, datetime, and profile. |
+| 8 | `refactor/collapse-ack-synthetic-modules` | Move ACK and synthetic modules. |
+| 9 | `refactor/collapse-transport-processing-modules` | Move batch, stream, and network. |
+| 10 | `refactor/collapse-operational-modules` | Move redact, lifecycle, and experimental guard. |
+| 11 | `refactor/update-app-crates-to-hl7v2` | Make server, CLI, Python, examples, e2e tests, and test-utils import through `hl7v2`. |
+| 12 | `refactor/remove-microcrate-workspace-members` | Shrink `[workspace].members`. |
+| 13 | `refactor/remove-compat-shims` | Remove or freeze compatibility shims. |
 
 ## Per-PR Rules
 

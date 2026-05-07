@@ -2782,14 +2782,22 @@ mod tests {
 
         ensure_contains(&ordered, "hl7v2-core")?;
         ensure_contains(&ordered, "hl7v2")?;
-        ensure_contains(&ordered, "hl7v2-template-values")?;
+        for synthetic_shim in [
+            "hl7v2-corpus",
+            "hl7v2-faker",
+            "hl7v2-gen",
+            "hl7v2-template",
+            "hl7v2-template-values",
+        ] {
+            ensure_contains(&ordered, synthetic_shim)?;
+            assert_dependency_precedes(&ordered, "hl7v2", synthetic_shim)?;
+        }
         if ordered.iter().any(|crate_name| crate_name == "xtask") {
             return Err(anyhow!("xtask should not be publishable"));
         }
 
-        assert_dependency_precedes(&ordered, "hl7v2-datatype", "hl7v2-core")?;
         assert_dependency_precedes(&ordered, "hl7v2-core", "hl7v2")?;
-        assert_dependency_precedes(&ordered, "hl7v2-template-values", "hl7v2-template")?;
+        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-datatype")?;
         Ok(())
     }
 

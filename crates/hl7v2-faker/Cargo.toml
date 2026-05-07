@@ -13,12 +13,12 @@ keywords = ["hl7", "healthcare", "faker", "test-data", "mock"]
 categories = ["development-tools::testing", "parser-implementations"]
 
 [dependencies]
-rand = "0.10.0"
-rand_distr = "0.6.0"
-chrono = { version = "0.4.44", features = ["serde", "std", "clock"], default-features = false }
-uuid = { workspace = true, features = ["v4"] }
+hl7v2 = { version = "1.2.0", path = "../hl7v2", default-features = false, features = [
+    "synthetic",
+] }
 
 [dev-dependencies]
+rand = "0.10.0"
 proptest = "1.6"
 cucumber = "0.22.1"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

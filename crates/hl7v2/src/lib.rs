@@ -81,11 +81,7 @@ pub mod writer {
 pub mod query {
     //! Message query helpers.
 
-    pub mod path {
-        //! HL7 path parsing.
-
-        pub use hl7v2_path::*;
-    }
+    pub mod path;
 
     pub use hl7v2_query::*;
 }
@@ -106,25 +102,11 @@ pub mod conformance {
         pub use hl7v2_validation::*;
     }
 
-    pub mod datatype {
-        //! HL7 datatype validation.
-
-        pub mod datetime {
-            //! HL7 datetime parsing and validation.
-
-            pub use hl7v2_datetime::*;
-        }
-
-        pub use hl7v2_datatype::*;
-    }
+    pub mod datatype;
 }
 
 #[cfg(feature = "ack")]
-pub mod ack {
-    //! ACK message generation.
-
-    pub use hl7v2_ack::*;
-}
+pub mod ack;
 
 #[cfg(feature = "normalize")]
 pub mod normalize {
@@ -134,11 +116,7 @@ pub mod normalize {
 }
 
 #[cfg(feature = "batch")]
-pub mod batch {
-    //! Batch processing APIs.
-
-    pub use hl7v2_batch::*;
-}
+pub mod batch;
 
 #[cfg(feature = "stream")]
 pub mod stream {
@@ -148,64 +126,16 @@ pub mod stream {
 }
 
 #[cfg(feature = "synthetic")]
-pub mod synthetic {
-    //! Synthetic message generation APIs.
-
-    pub mod template {
-        //! Template-based message generation.
-
-        pub use hl7v2_template::*;
-    }
-
-    pub mod values {
-        //! Template value sources.
-
-        pub use hl7v2_template_values::*;
-    }
-
-    pub mod faker {
-        //! Faker-backed synthetic value generation.
-
-        pub use hl7v2_faker::*;
-    }
-
-    pub mod corpus {
-        //! Corpus metadata and hashing helpers.
-
-        pub use hl7v2_corpus::*;
-    }
-
-    pub mod generate {
-        //! Generation convenience facade.
-
-        pub use hl7v2_gen::*;
-    }
-}
+pub mod synthetic;
 
 #[cfg(feature = "redact")]
-pub mod redact {
-    //! PHI redaction helpers.
-
-    pub use hl7v2_redact::*;
-}
+pub mod redact;
 
 #[cfg(feature = "lifecycle")]
-pub mod lifecycle {
-    //! Message lifecycle and archive metadata helpers.
-
-    pub use hl7v2_lifecycle::*;
-}
+pub mod lifecycle;
 
 #[cfg(feature = "experimental-guard")]
-pub mod experimental {
-    //! Experimental APIs.
-
-    pub mod guard {
-        //! Experimental anomaly guard APIs.
-
-        pub use hl7v2_guard::*;
-    }
-}
+pub mod experimental;
 
 // Top-level convenience surface.
 pub use hl7v2_escape::{escape_text, needs_escaping, needs_unescaping, unescape_text};
@@ -217,17 +147,17 @@ pub use hl7v2_model::{
     Atom, Batch, Comp, Delims, Error, Field, FileBatch, Message, Presence, Rep, Segment,
 };
 pub use hl7v2_parser::{get, get_presence, parse, parse_batch, parse_file_batch, parse_mllp};
-pub use hl7v2_path::{Path, parse_path};
 pub use hl7v2_writer::{
     to_json, to_json_string, to_json_string_pretty, write, write_batch, write_file_batch,
     write_mllp,
 };
+pub use query::path::{Path, parse_path};
 
 #[cfg(feature = "normalize")]
 pub use hl7v2_normalize::normalize;
 
 #[cfg(feature = "ack")]
-pub use hl7v2_ack::{AckCode, ack, ack_with_error};
+pub use ack::{AckCode, ack, ack_with_error};
 
 #[cfg(feature = "profile")]
 pub use hl7v2_prof::{Profile, load_profile, load_profile_checked, validate};

@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
-description = "High-level API and core functionality for hl7v2-rs."
+description = "Deprecated compatibility facade for hl7v2-rs. Use the hl7v2 crate."
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
@@ -45,4 +45,3 @@ proptest = "1.6"
 [[test]]
 name = "bdd_tests"
 harness = false
-

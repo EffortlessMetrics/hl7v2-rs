@@ -7,8 +7,7 @@
 //!
 //! Run with: cargo run --example ack_generation
 
-use hl7v2_ack::{AckCode, ack, ack_with_error};
-use hl7v2_core::{Message, get, parse, write};
+use hl7v2::{AckCode, Error, Message, ack, ack_with_error, get, parse, write};
 
 /// A valid ADT^A01 message
 const VALID_ADT_MESSAGE: &[u8] = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|MSG12345|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
@@ -330,7 +329,7 @@ fn process_message_with_ack(hl7_bytes: &[u8]) -> Result<Vec<u8>, String> {
 #[derive(Debug)]
 #[allow(dead_code)]
 enum ProcessError {
-    Parse(hl7v2_core::Error),
+    Parse(Error),
     Validation(Vec<String>),
     Processing(String),
 }

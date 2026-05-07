@@ -12,15 +12,14 @@ repository.workspace = true
 
 [dependencies]
 # Local crates - full system integration
-hl7v2-core = { version = "1.2.0", path = "../hl7v2-core", features = ["network"] }
-hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
-hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
-hl7v2-ack = { version = "1.2.0", path = "../hl7v2-ack" }
-hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation" }
-hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof" }
+hl7v2 = { version = "1.2.0", path = "../hl7v2", features = [
+    "profile",
+    "ack",
+    "normalize",
+    "stream",
+    "network",
+] }
 hl7v2-test-utils = { version = "1.2.0", path = "../hl7v2-test-utils" }
-hl7v2-mllp = { version = "1.2.0", path = "../hl7v2-mllp" }
-hl7v2-network = { version = "1.2.0", path = "../hl7v2-network" }
 hl7v2-server = { version = "1.2.0", path = "../hl7v2-server" }
 
 # Async runtime
@@ -63,4 +62,3 @@ tokio-util = { version = "0.7", features = ["codec"] }
 [[test]]
 name = "e2e"
 path = "tests/e2e/mod.rs"
-

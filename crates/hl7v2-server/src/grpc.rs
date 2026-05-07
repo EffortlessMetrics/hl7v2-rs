@@ -1,11 +1,10 @@
 //! gRPC service implementation for HL7v2.
 
 use crate::server::AppState;
-use hl7v2_model::{
+use hl7v2::{
     Comp as RustComp, Field as RustField, Message as RustMessage, Rep as RustRep,
-    Segment as RustSegment,
+    Segment as RustSegment, parse as rust_parse,
 };
-use hl7v2_parser::parse as rust_parse;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -47,7 +46,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let req = request.into_inner();
 
         let parse_result = if req.mllp_framed {
-            match hl7v2_mllp::unwrap_mllp(&req.message) {
+            match hl7v2::unwrap_mllp(&req.message) {
                 Ok(hl7) => rust_parse(hl7),
                 Err(e) => {
                     return Ok(Response::new(ParseResponse {
@@ -113,13 +112,11 @@ impl Hl7Service for Hl7ServiceImpl {
         let message = rust_parse(&req.message)
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
 
-        let profile = hl7v2_prof::load_profile(&req.profile)
+        let profile = hl7v2::load_profile(&req.profile)
             .map_err(|e| Status::invalid_argument(format!("Failed to load profile: {}", e)))?;
 
-        let issues = hl7v2_prof::validate(&message, &profile);
-        let valid = issues
-            .iter()
-            .all(|i| i.severity != hl7v2_prof::Severity::Error);
+        let issues = hl7v2::validate(&message, &profile);
+        let valid = issues.iter().all(|i| i.severity != hl7v2::Severity::Error);
 
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
@@ -144,14 +141,14 @@ impl Hl7Service for Hl7ServiceImpl {
                 code: issue.code,
                 message: issue.detail,
                 severity: match issue.severity {
-                    hl7v2_prof::Severity::Error => validation_issue::Severity::Error as i32,
-                    hl7v2_prof::Severity::Warning => validation_issue::Severity::Warning as i32,
+                    hl7v2::Severity::Error => validation_issue::Severity::Error as i32,
+                    hl7v2::Severity::Warning => validation_issue::Severity::Warning as i32,
                 },
                 location,
                 advice: String::new(),
             };
 
-            if issue.severity == hl7v2_prof::Severity::Error {
+            if issue.severity == hl7v2::Severity::Error {
                 errors.push(proto_issue);
             } else {
                 warnings.push(proto_issue);
@@ -182,15 +179,15 @@ impl Hl7Service for Hl7ServiceImpl {
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
 
         let ack_code = match req.code() {
-            generate_ack_request::AckCode::Aa => hl7v2_gen::AckCode::AA,
-            generate_ack_request::AckCode::Ae => hl7v2_gen::AckCode::AE,
-            generate_ack_request::AckCode::Ar => hl7v2_gen::AckCode::AR,
-            _ => hl7v2_gen::AckCode::AA,
+            generate_ack_request::AckCode::Aa => hl7v2::AckCode::AA,
+            generate_ack_request::AckCode::Ae => hl7v2::AckCode::AE,
+            generate_ack_request::AckCode::Ar => hl7v2::AckCode::AR,
+            _ => hl7v2::AckCode::AA,
         };
 
-        let ack_msg = hl7v2_gen::ack(&message, ack_code)
+        let ack_msg = hl7v2::ack(&message, ack_code)
             .map_err(|e| Status::internal(format!("Failed to generate ACK: {}", e)))?;
-        let ack_bytes = hl7v2_writer::write(&ack_msg);
+        let ack_bytes = hl7v2::write(&ack_msg);
         let proto_ack = proto::Message::from(ack_msg);
 
         Ok(Response::new(GenerateAckResponse {
@@ -210,14 +207,14 @@ impl Hl7Service for Hl7ServiceImpl {
             .map(|o| o.canonical_delimiters)
             .unwrap_or(true);
 
-        let normalized_bytes = hl7v2_normalize::normalize(&req.message, canonical)
+        let normalized_bytes = hl7v2::normalize(&req.message, canonical)
             .map_err(|e| Status::invalid_argument(format!("Failed to normalize HL7: {}", e)))?;
 
         let mut final_bytes = normalized_bytes;
         if let Some(options) = req.options
             && options.mllp_frame
         {
-            final_bytes = hl7v2_mllp::wrap_mllp(&final_bytes);
+            final_bytes = hl7v2::wrap_mllp(&final_bytes);
         }
 
         Ok(Response::new(NormalizeResponse {
@@ -245,14 +242,10 @@ impl Hl7Service for Hl7ServiceImpl {
 fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
     MessageMetadata {
         message_type: joined_components(msg, "MSH.9").unwrap_or_else(|| "UNKNOWN".to_string()),
-        version: hl7v2_core::get(msg, "MSH.12")
-            .unwrap_or("UNKNOWN")
-            .to_string(),
-        control_id: hl7v2_core::get(msg, "MSH.10")
-            .unwrap_or("UNKNOWN")
-            .to_string(),
-        sending_facility: hl7v2_core::get(msg, "MSH.4").unwrap_or("").to_string(),
-        receiving_facility: hl7v2_core::get(msg, "MSH.6").unwrap_or("").to_string(),
+        version: hl7v2::get(msg, "MSH.12").unwrap_or("UNKNOWN").to_string(),
+        control_id: hl7v2::get(msg, "MSH.10").unwrap_or("UNKNOWN").to_string(),
+        sending_facility: hl7v2::get(msg, "MSH.4").unwrap_or("").to_string(),
+        receiving_facility: hl7v2::get(msg, "MSH.6").unwrap_or("").to_string(),
     }
 }
 
@@ -261,7 +254,7 @@ fn joined_components(msg: &RustMessage, field_path: &str) -> Option<String> {
 
     for component in 1.. {
         let path = format!("{field_path}.{component}");
-        match hl7v2_core::get(msg, &path) {
+        match hl7v2::get(msg, &path) {
             Some(value) if !value.is_empty() => components.push(value.to_string()),
             _ if component == 1 => return None,
             _ => break,
@@ -329,7 +322,7 @@ impl From<RustComp> for proto::Component {
                 .subs
                 .into_iter()
                 .filter_map(|a| match a {
-                    hl7v2_model::Atom::Text(t) => Some(t),
+                    hl7v2::Atom::Text(t) => Some(t),
                     _ => None,
                 })
                 .collect(),

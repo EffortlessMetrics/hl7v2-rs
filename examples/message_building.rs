@@ -8,7 +8,7 @@
 //!
 //! Run with: cargo run --example message_building
 
-use hl7v2_core::{
+use hl7v2::{
     Atom,
     Comp,
     Delims,

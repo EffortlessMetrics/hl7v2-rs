@@ -7,8 +7,8 @@
 //!
 //! Run with: cargo run --example template_generation
 
-use hl7v2_core::{get, write};
-use hl7v2_template::{Template, ValueSource, generate};
+use hl7v2::synthetic::template::{Template, ValueSource, generate};
+use hl7v2::{get, write};
 use std::collections::HashMap;
 
 fn main() {
