@@ -3,9 +3,8 @@
 //! These tests verify ACK generation works correctly with real-world
 //! HL7 message scenarios and integration with other crates.
 
+use hl7v2::{parse, write};
 use hl7v2_ack::{AckCode, ack, ack_with_error};
-use hl7v2_core::parse;
-use hl7v2_writer::write;
 
 // ============================================================================
 // Real-World Message Tests
@@ -342,10 +341,7 @@ fn test_ack_for_message_with_special_characters() {
 // ============================================================================
 
 /// Helper function to extract field value from a segment
-fn get_field_value_from_segment(
-    segment: &hl7v2_core::Segment,
-    field_index: usize,
-) -> Option<String> {
+fn get_field_value_from_segment(segment: &hl7v2::Segment, field_index: usize) -> Option<String> {
     if field_index > segment.fields.len() {
         return None;
     }
@@ -366,7 +362,7 @@ fn get_field_value_from_segment(
     }
 
     match &comp.subs[0] {
-        hl7v2_core::Atom::Text(text) => Some(text.clone()),
-        hl7v2_core::Atom::Null => None,
+        hl7v2::Atom::Text(text) => Some(text.clone()),
+        hl7v2::Atom::Null => None,
     }
 }

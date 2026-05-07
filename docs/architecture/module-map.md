@@ -46,7 +46,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2-validation` | `hl7v2::conformance::validation` | Module | Issues, severity, validators, and validation engine helpers. |
 | `hl7v2-datatype` | `hl7v2::conformance::datatype` | Collapsed as leaf conformance module | Primitive/composite data type validation; `hl7v2-datatype` remains a compatibility shim. |
 | `hl7v2-datetime` | `hl7v2::conformance::datatype::datetime` | Collapsed as leaf conformance module | Datetime parsing is part of datatype validation; `hl7v2-datetime` remains a compatibility shim. |
-| `hl7v2-ack` | `hl7v2::ack` | Module | First-class runtime HL7 behavior, not synthetic-only. |
+| `hl7v2-ack` | `hl7v2::ack` | Collapsed as ACK feature module | First-class runtime HL7 behavior; `hl7v2-ack` remains a compatibility shim. |
 | `hl7v2-faker` | `hl7v2::synthetic::faker` | Collapsed as synthetic feature module | Test/synthetic data generation behind `synthetic`; `hl7v2-faker` remains a compatibility shim. |
 | `hl7v2-corpus` | `hl7v2::synthetic::corpus` | Collapsed as synthetic feature module | Corpus manifest and lock behavior behind `synthetic`; `hl7v2-corpus` remains a compatibility shim. |
 | `hl7v2-template` | `hl7v2::synthetic::template` | Collapsed as synthetic feature module | Template model/rendering behind `synthetic`; `hl7v2-template` remains a compatibility shim. |

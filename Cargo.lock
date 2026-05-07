@@ -1535,7 +1535,6 @@ name = "hl7v2"
 version = "1.2.0"
 dependencies = [
  "chrono",
- "hl7v2-ack",
  "hl7v2-escape",
  "hl7v2-json",
  "hl7v2-mllp",
@@ -1563,11 +1562,9 @@ dependencies = [
 name = "hl7v2-ack"
 version = "1.2.0"
 dependencies = [
- "chrono",
  "cucumber",
- "hl7v2-core",
+ "hl7v2",
  "hl7v2-test-utils",
- "hl7v2-writer",
  "proptest",
  "tokio",
 ]

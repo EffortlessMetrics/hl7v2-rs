@@ -3,8 +3,8 @@
 //! These tests verify that ACK generation properties hold for
 //! arbitrary input messages.
 
+use hl7v2::parse;
 use hl7v2_ack::{AckCode, ack, ack_with_error};
-use hl7v2_core::parse;
 use proptest::prelude::*;
 
 /// Generate a valid application name (alphanumeric with underscores)
@@ -263,7 +263,7 @@ proptest! {
 }
 
 /// Helper function to extract field value from a segment
-fn get_field_value(segment: &hl7v2_core::Segment, field_index: usize) -> Option<String> {
+fn get_field_value(segment: &hl7v2::Segment, field_index: usize) -> Option<String> {
     if field_index > segment.fields.len() {
         return None;
     }
@@ -284,7 +284,7 @@ fn get_field_value(segment: &hl7v2_core::Segment, field_index: usize) -> Option<
     }
 
     match &comp.subs[0] {
-        hl7v2_core::Atom::Text(text) => Some(text.clone()),
-        hl7v2_core::Atom::Null => None,
+        hl7v2::Atom::Text(text) => Some(text.clone()),
+        hl7v2::Atom::Null => None,
     }
 }
