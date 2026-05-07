@@ -1741,7 +1741,7 @@ name = "hl7v2-json"
 version = "1.2.0"
 dependencies = [
  "cucumber",
- "hl7v2-model",
+ "hl7v2",
  "proptest",
  "serde_json",
  "tokio",
