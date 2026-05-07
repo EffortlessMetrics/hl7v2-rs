@@ -13,7 +13,7 @@
 //! # ACK Generation
 //!
 //! ACK (acknowledgment) generation functionality is available through
-//! [`crate::ack`] and re-exported here for convenience.
+//! [`mod@crate::ack`] and re-exported here for convenience.
 //!
 //! # Faker Data Generation
 //!

@@ -99,11 +99,12 @@ proptest! {
     fn test_splits_cover_all_messages(
         seed: u64,
         num_messages in 10usize..100,
-        train_ratio in 0.1f64..0.8,
-        val_ratio in 0.1f64..0.3
+        train_parts in 50u8..70,
+        val_parts in 10u8..30
     ) {
-        let test_ratio = 1.0 - train_ratio - val_ratio;
-        prop_assume!(test_ratio > 0.0 && test_ratio < 0.5);
+        let train_ratio = f64::from(train_parts) / 100.0;
+        let val_ratio = f64::from(val_parts) / 100.0;
+        let test_ratio = f64::from(100u8 - train_parts - val_parts) / 100.0;
 
         let mut manifest = CorpusManifest::new(seed);
 
