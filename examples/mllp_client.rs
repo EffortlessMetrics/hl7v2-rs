@@ -1,7 +1,7 @@
 //! HL7 v2 MLLP Client Example
 //!
 //! This example demonstrates how to:
-//! - Connect to an MLLP server using the hl7v2-network crate
+//! - Connect to an MLLP server using `hl7v2::transport::network`
 //! - Send an HL7 message and receive an ACK response
 //! - Handle timeouts and connection errors
 //!

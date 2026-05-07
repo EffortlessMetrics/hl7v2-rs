@@ -1,4 +1,4 @@
-//! Property-based tests for hl7v2-validation crate using proptest.
+//! Property-based tests for `hl7v2::conformance::validation` using proptest.
 //!
 //! These tests verify that:
 //! - Valid messages pass validation
@@ -10,7 +10,7 @@
     clippy::arithmetic_side_effects,
     clippy::string_slice,
     clippy::uninlined_format_args,
-    reason = "Pre-existing validation property test debt moved from hl7v2-validation; cleanup is separate from this behavior-preserving module collapse."
+    reason = "Pre-existing validation property test debt moved during module collapse; cleanup is separate from this behavior-preserving change."
 )]
 
 use super::super::{

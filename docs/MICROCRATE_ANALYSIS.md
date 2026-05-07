@@ -1,5 +1,10 @@
 # HL7v2 Rust Project - SRP Microcrate Analysis
 
+> Historical note: this analysis records the earlier SRP microcrate extraction
+> phase. The current architecture has collapsed implementation crates back into
+> modules under the canonical `hl7v2` crate; see
+> [the module map](architecture/module-map.md) for the current public surface.
+
 ## Executive Summary
 
 This analysis identifies opportunities to extract microcrates from the existing HL7v2 Rust project to better adhere to the Single Responsibility Principle (SRP). The project already has a good foundation with 14 crates, but several crates contain multiple responsibilities that could be further decomposed.

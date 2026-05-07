@@ -1,8 +1,8 @@
 //! Profile validation for HL7 v2 messages.
 //!
-//! This crate provides functionality for loading and applying
-//! conformance profiles to HL7 v2 messages. It builds on the
-//! `hl7v2-validation` crate for core validation logic.
+//! This module provides functionality for loading and applying
+//! conformance profiles to HL7 v2 messages. It builds on
+//! `hl7v2::conformance::validation` for core validation logic.
 
 #![expect(
     clippy::collapsible_if,
@@ -44,7 +44,7 @@
 //! let issues = validate(&message, &profile);
 //! ```
 
-// Re-export validation types for backward compatibility
+// Re-export validation types for compatibility with the old profile facade.
 pub use super::validation::{
     Issue, ParsedTimestamp, RuleAction, RuleCondition, Severity, TimestampPrecision,
     ValidationResult, Validator, check_rule_condition, compare_timestamps_for_before, get_nonempty,

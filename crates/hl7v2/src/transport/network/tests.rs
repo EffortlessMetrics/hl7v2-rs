@@ -1,4 +1,4 @@
-//! Comprehensive unit tests for hl7v2-network crate.
+//! Comprehensive unit tests for `hl7v2::transport::network`.
 //!
 //! This module contains unit tests for:
 //! - MLLP codec encoding/decoding
