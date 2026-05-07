@@ -109,11 +109,7 @@ pub mod conformance {
 pub mod ack;
 
 #[cfg(feature = "normalize")]
-pub mod normalize {
-    //! Message normalization.
-
-    pub use hl7v2_normalize::*;
-}
+pub mod normalize;
 
 #[cfg(feature = "batch")]
 pub mod batch;
@@ -154,7 +150,7 @@ pub use hl7v2_writer::{
 pub use query::path::{Path, parse_path};
 
 #[cfg(feature = "normalize")]
-pub use hl7v2_normalize::normalize;
+pub use normalize::normalize;
 
 #[cfg(feature = "ack")]
 pub use ack::{AckCode, ack, ack_with_error};
