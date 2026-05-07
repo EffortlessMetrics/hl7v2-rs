@@ -115,11 +115,7 @@ pub mod normalize;
 pub mod batch;
 
 #[cfg(feature = "stream")]
-pub mod stream {
-    //! Streaming/event-based parsing APIs.
-
-    pub use hl7v2_stream::*;
-}
+pub mod stream;
 
 #[cfg(feature = "synthetic")]
 pub mod synthetic;
@@ -162,4 +158,4 @@ pub use hl7v2_prof::{Profile, load_profile, load_profile_checked, validate};
 pub use hl7v2_validation::{Issue, Severity};
 
 #[cfg(feature = "stream")]
-pub use hl7v2_stream::{AsyncStreamParser, Event, StreamParser, StreamParserBuilder};
+pub use stream::{AsyncStreamParser, Event, StreamParser, StreamParserBuilder};
