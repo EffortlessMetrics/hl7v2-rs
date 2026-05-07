@@ -61,9 +61,9 @@ fn hl7_message() -> impl Strategy<Value = String> {
         })
 }
 
-/// Strategy for generating multiple messages
-fn multiple_messages() -> impl Strategy<Value = String> {
-    prop::collection::vec(hl7_message(), 1..5).prop_map(|msgs| msgs.join(""))
+/// Strategy for generating multiple messages with their source count.
+fn multiple_messages() -> impl Strategy<Value = (usize, String)> {
+    prop::collection::vec(hl7_message(), 1..5).prop_map(|msgs| (msgs.len(), msgs.join("")))
 }
 
 /// Helper to collect all events from a parser
@@ -124,16 +124,12 @@ proptest! {
 
 proptest! {
     #[test]
-    fn prop_multiple_messages_multiple_events(msgs in multiple_messages()) {
+    fn prop_multiple_messages_multiple_events((expected_count, msgs) in multiple_messages()) {
         let cursor = Cursor::new(msgs.as_bytes());
         let buf_reader = BufReader::new(cursor);
         let mut parser = StreamParser::new(buf_reader);
 
         let events = collect_events(&mut parser);
-
-        // Count messages by counting MSH-triggered StartMessage events
-        // Note: We need to count actual messages in input
-        let expected_count = msgs.matches("MSH|").count();
 
         let start_count = events.iter()
             .filter(|e| matches!(e, Event::StartMessage { .. }))
