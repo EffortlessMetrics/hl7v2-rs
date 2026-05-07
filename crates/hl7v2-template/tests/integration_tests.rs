@@ -82,8 +82,8 @@ fn integration_different_seeds_different_results() {
 
     // With different seeds and UUID generation, results should differ
     // (Note: this could theoretically fail if UUIDs collide, but extremely unlikely)
-    let msg1_str = hl7v2_core::write(&messages1[0]);
-    let msg2_str = hl7v2_core::write(&messages2[0]);
+    let msg1_str = hl7v2::write(&messages1[0]);
+    let msg2_str = hl7v2::write(&messages2[0]);
 
     // The UUID fields should be different
     assert_ne!(msg1_str, msg2_str);
@@ -317,7 +317,7 @@ fn integration_message_serialization() {
     let messages = generate(&template, 42, 1).unwrap();
 
     // Serialize to bytes
-    let bytes = hl7v2_core::write(&messages[0]);
+    let bytes = hl7v2::write(&messages[0]);
 
     // Should be valid UTF-8
     let s = String::from_utf8(bytes).unwrap();

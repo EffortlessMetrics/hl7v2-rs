@@ -91,7 +91,7 @@ fn test_generation_with_uuid() {
     let messages = generate(&template, 42, 10).unwrap();
 
     // Each message should have a unique control ID
-    let mut control_ids: Vec<Vec<u8>> = messages.iter().map(hl7v2_core::write).collect();
+    let mut control_ids: Vec<Vec<u8>> = messages.iter().map(hl7v2::write).collect();
 
     // Check uniqueness
     control_ids.sort();
@@ -105,7 +105,7 @@ fn test_generation_with_uuid() {
 
 #[test]
 fn test_ack_commit_accept() {
-    let original = hl7v2_core::parse(
+    let original = hl7v2::parse(
         b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r"
     ).unwrap();
 
@@ -114,14 +114,14 @@ fn test_ack_commit_accept() {
     assert_eq!(ack_msg.segments.len(), 2);
 
     // Verify MSA segment has AA
-    let ack_bytes = hl7v2_core::write(&ack_msg);
+    let ack_bytes = hl7v2::write(&ack_msg);
     let ack_str = String::from_utf8(ack_bytes).unwrap();
     assert!(ack_str.contains("MSA|AA"));
 }
 
 #[test]
 fn test_ack_error() {
-    let original = hl7v2_core::parse(
+    let original = hl7v2::parse(
         b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r"
     ).unwrap();
 
@@ -129,7 +129,7 @@ fn test_ack_error() {
 
     assert_eq!(ack_msg.segments.len(), 3); // MSH + MSA + ERR
 
-    let ack_bytes = hl7v2_core::write(&ack_msg);
+    let ack_bytes = hl7v2::write(&ack_msg);
     let ack_str = String::from_utf8(ack_bytes).unwrap();
     assert!(ack_str.contains("MSA|AE"));
     assert!(ack_str.contains("ERR"));
@@ -137,13 +137,13 @@ fn test_ack_error() {
 
 #[test]
 fn test_ack_reject() {
-    let original = hl7v2_core::parse(
+    let original = hl7v2::parse(
         b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\r"
     ).unwrap();
 
     let ack_msg = ack(&original, AckCode::AR).unwrap();
 
-    let ack_bytes = hl7v2_core::write(&ack_msg);
+    let ack_bytes = hl7v2::write(&ack_msg);
     let ack_str = String::from_utf8(ack_bytes).unwrap();
     assert!(ack_str.contains("MSA|AR"));
 }
@@ -218,10 +218,10 @@ fn test_generate_parse_query() {
     let message = &messages[0];
 
     // Write to bytes
-    let bytes = hl7v2_core::write(message);
+    let bytes = hl7v2::write(message);
 
     // Parse again
-    let reparsed = hl7v2_core::parse(&bytes).unwrap();
+    let reparsed = hl7v2::parse(&bytes).unwrap();
     assert_eq!(reparsed.segments.len(), 2);
 
     // Query using hl7v2-query
@@ -245,7 +245,7 @@ fn test_generate_normalize() {
     let message = &messages[0];
 
     // Write to bytes
-    let bytes = hl7v2_core::write(message);
+    let bytes = hl7v2::write(message);
 
     // Normalize
     let normalized = hl7v2_normalize::normalize(&bytes, true).unwrap();
@@ -321,7 +321,7 @@ fn test_adt_a04_generation() {
     let messages = generate(&template, 42, 1).unwrap();
     assert_eq!(messages.len(), 1);
 
-    let bytes = hl7v2_core::write(&messages[0]);
+    let bytes = hl7v2::write(&messages[0]);
     let str = String::from_utf8(bytes).unwrap();
     assert!(str.contains("ADT^A04"));
 }
@@ -365,8 +365,8 @@ fn test_same_seed_same_output() {
     let messages2 = generate(&template, 12345, 10).unwrap();
 
     for i in 0..10 {
-        let bytes1 = hl7v2_core::write(&messages1[i]);
-        let bytes2 = hl7v2_core::write(&messages2[i]);
+        let bytes1 = hl7v2::write(&messages1[i]);
+        let bytes2 = hl7v2::write(&messages2[i]);
         assert_eq!(bytes1, bytes2);
     }
 }
@@ -392,8 +392,8 @@ fn test_different_seed_different_output() {
     let messages1 = generate(&template, 111, 1).unwrap();
     let messages2 = generate(&template, 222, 1).unwrap();
 
-    let bytes1 = hl7v2_core::write(&messages1[0]);
-    let bytes2 = hl7v2_core::write(&messages2[0]);
+    let bytes1 = hl7v2::write(&messages1[0]);
+    let bytes2 = hl7v2::write(&messages2[0]);
 
     // Different seeds should produce different output (with high probability)
     assert_ne!(bytes1, bytes2);
