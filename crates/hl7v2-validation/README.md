@@ -1,6 +1,10 @@
 # hl7v2-validation
 
-Comprehensive HL7 v2 message, segment, and field validation.
+Deprecated compatibility crate for HL7 v2 validation primitives.
+Use `hl7v2::conformance::validation` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

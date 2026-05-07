@@ -1,6 +1,10 @@
 # hl7v2-ack
 
-HL7 v2 ACK (Acknowledgment) message generation and processing.
+Deprecated compatibility crate for HL7 v2 ACK generation.
+Use `hl7v2::ack` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

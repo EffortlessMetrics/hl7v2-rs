@@ -1,6 +1,10 @@
 # hl7v2-query
 
-HL7 v2 message querying and data extraction API.
+Deprecated compatibility crate for HL7 v2 message querying.
+Use `hl7v2::query` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

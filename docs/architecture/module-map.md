@@ -2,6 +2,21 @@
 
 This document is the working map for collapsing implementation microcrates into modules under the canonical `hl7v2` Rust library crate. It implements the policy from [ADR-015](../adr/0015-collapse-public-crate-surface.md).
 
+## Current State
+
+As of 2026-05-07, the implementation modules have been collapsed into
+`hl7v2`, and `cargo run -p xtask -- publish-plan` resolves the final public
+package graph:
+
+- `hl7v2`
+- `hl7v2-python`
+- `hl7v2-server`
+- `hl7v2-cli`
+
+The old implementation package names remain in the workspace as private
+deprecated compatibility shims and test harnesses. They are retained only to
+prove old import paths while the compatibility policy is still active.
+
 ## Boundary Rule
 
 Crates are product and distribution surfaces. SRP implementation units are modules unless they require a separate release, package, binary, runtime service, or foreign-language binding boundary.

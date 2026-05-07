@@ -1,6 +1,10 @@
 # hl7v2-gen
 
-Code generation utilities for creating Rust models from HL7 v2 profiles.
+Deprecated compatibility crate for HL7 v2 synthetic generation helpers.
+Use `hl7v2::synthetic::generate` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

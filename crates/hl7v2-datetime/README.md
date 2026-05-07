@@ -1,6 +1,10 @@
 # hl7v2-datetime
 
-Specialized HL7 v2 date, time, and timestamp parsing.
+Deprecated compatibility crate for HL7 v2 date, time, and timestamp parsing.
+Use `hl7v2::conformance::datatype::datetime` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

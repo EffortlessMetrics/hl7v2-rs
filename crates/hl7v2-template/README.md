@@ -1,6 +1,10 @@
 # hl7v2-template
 
-Template-based HL7 v2 message generation.
+Deprecated compatibility crate for HL7 v2 synthetic templates.
+Use `hl7v2::synthetic::template` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

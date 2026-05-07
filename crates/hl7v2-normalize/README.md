@@ -1,6 +1,10 @@
 # hl7v2-normalize
 
-Utilities for normalizing HL7 v2 messages to a canonical form.
+Deprecated compatibility crate for HL7 v2 normalization helpers.
+Use `hl7v2::normalize` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

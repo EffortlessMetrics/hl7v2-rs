@@ -1,6 +1,10 @@
 # hl7v2-model
 
-Core data structures representing HL7 v2 messages, segments, and fields.
+Deprecated compatibility crate for HL7 v2 model types.
+Use `hl7v2::model` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

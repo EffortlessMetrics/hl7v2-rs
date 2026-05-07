@@ -1,6 +1,10 @@
 # hl7v2-batch
 
-HL7 v2 Batch (FHS/BHS) file processing and iteration.
+Deprecated compatibility crate for HL7 v2 batch file processing.
+Use `hl7v2::batch` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

@@ -36,9 +36,9 @@ This document provides a transparent view of which features are fully implemente
 
 ## Release and Publish Readiness
 
-- ✅ **Main workflows**: CI, Coverage, Security, Extended, and Benchmarks are green on current `main`; API Contracts are unchanged unless contract files are touched.
+- ✅ **Main workflows**: CI, Coverage, Security, Extended, and Benchmarks are green on current `main` at `3482fd4`; API Contracts are unchanged unless contract files are touched.
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final public package graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`.
-- ✅ **Dry-run publish**: Workspace-patched dry-run verification proves the current public package graph while the dependency chain is still unpublished. See `docs/audits/publish-dry-run-2026-05-06.md` for the older pre-freeze proof.
+- ✅ **Dry-run publish**: Workspace-patched dry-run verification proves the current public package graph while the dependency chain is still unpublished. See `docs/audits/publish-dry-run-2026-05-07.md`.
 
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.

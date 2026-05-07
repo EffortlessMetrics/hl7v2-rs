@@ -1,6 +1,10 @@
 # hl7v2-faker
 
-Generator for realistic, anonymized HL7 v2 test data.
+Deprecated compatibility crate for synthetic HL7 v2 faker helpers.
+Use `hl7v2::synthetic::faker` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 
