@@ -59,32 +59,11 @@ pub mod transport {
     }
 }
 
-pub mod parser {
-    //! HL7 v2 parser APIs.
+pub mod parser;
 
-    pub use hl7v2_parser::*;
-}
+pub mod writer;
 
-pub mod writer {
-    //! HL7 v2 writer and serialization APIs.
-
-    pub use hl7v2_writer::*;
-
-    #[cfg(feature = "json")]
-    pub mod json {
-        //! JSON serialization helpers.
-
-        pub use hl7v2_json::*;
-    }
-}
-
-pub mod query {
-    //! Message query helpers.
-
-    pub mod path;
-
-    pub use hl7v2_query::*;
-}
+pub mod query;
 
 #[cfg(feature = "profile")]
 pub mod conformance {
@@ -138,12 +117,13 @@ pub use hl7v2_mllp::{
 pub use hl7v2_model::{
     Atom, Batch, Comp, Delims, Error, Field, FileBatch, Message, Presence, Rep, Segment,
 };
-pub use hl7v2_parser::{get, get_presence, parse, parse_batch, parse_file_batch, parse_mllp};
-pub use hl7v2_writer::{
+pub use parser::{parse, parse_batch, parse_file_batch, parse_mllp};
+pub use query::path::{Path, parse_path};
+pub use query::{get, get_presence};
+pub use writer::{
     to_json, to_json_string, to_json_string_pretty, write, write_batch, write_file_batch,
     write_mllp,
 };
-pub use query::path::{Path, parse_path};
 
 #[cfg(feature = "normalize")]
 pub use normalize::normalize;
