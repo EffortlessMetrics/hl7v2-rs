@@ -1982,8 +1982,7 @@ name = "hl7v2-writer"
 version = "1.2.0"
 dependencies = [
  "cucumber",
- "hl7v2-escape",
- "hl7v2-json",
+ "hl7v2",
  "hl7v2-mllp",
  "hl7v2-model",
  "hl7v2-parser",
