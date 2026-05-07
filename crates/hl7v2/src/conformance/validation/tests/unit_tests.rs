@@ -1,4 +1,4 @@
-//! Comprehensive unit tests for hl7v2-validation crate.
+//! Comprehensive unit tests for `hl7v2::conformance::validation`.
 //!
 //! Tests cover:
 //! - Data type validation (ST, ID, DT, TM, TS, NM, etc.)
@@ -11,7 +11,7 @@
 #![expect(
     clippy::expect_used,
     clippy::unwrap_used,
-    reason = "Pre-existing validation unit test panic-family debt moved from hl7v2-validation; cleanup is separate from this behavior-preserving module collapse."
+    reason = "Pre-existing validation unit test panic-family debt moved during module collapse; cleanup is separate from this behavior-preserving change."
 )]
 
 use super::super::{

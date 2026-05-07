@@ -1,6 +1,6 @@
 # HL7v2 Conformance Profile Examples
 
-This directory contains reference conformance profiles demonstrating the capabilities of the hl7v2-prof validation engine.
+This directory contains reference conformance profiles demonstrating the capabilities of the `hl7v2` conformance validation APIs.
 
 ## Quick Start
 
@@ -23,8 +23,7 @@ curl -X POST http://localhost:8080/hl7/validate \
 ### Using in Rust Code
 
 ```rust
-use hl7v2_prof::{load_profile, validate};
-use hl7v2_core::parse;
+use hl7v2::{load_profile, parse, validate};
 
 // Load profile
 let profile_yaml = std::fs::read_to_string("examples/profiles/ADT_A01.yaml")?;

@@ -2,7 +2,12 @@
 
 **Version:** 1.0  
 **Created:** 2026-02-24  
-**Status:** Design Document
+**Status:** Historical Design Document
+
+> Historical note: this document predates the crate-surface collapse and still
+> discusses the former microcrate topology. Current Rust examples should import
+> through the canonical `hl7v2` crate and module paths; see
+> [the module map](architecture/module-map.md) for the current public surface.
 
 ## Table of Contents
 

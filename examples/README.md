@@ -23,7 +23,7 @@ cargo run --example parsing_basics
 - Access segments and fields using path-based queries
 - Handle parsing errors properly
 
-**Dependencies:** `hl7v2-parser`, `hl7v2-core`
+**Dependencies:** `hl7v2`
 
 ```bash
 cargo run --example parsing_basics
@@ -37,7 +37,7 @@ cargo run --example parsing_basics
 - Set custom delimiters
 - Serialize the message to bytes
 
-**Dependencies:** `hl7v2-core`
+**Dependencies:** `hl7v2`
 
 ```bash
 cargo run --example message_building
@@ -51,7 +51,7 @@ cargo run --example message_building
 - Handle timeouts and errors
 - Configure connection parameters
 
-**Dependencies:** `hl7v2-mllp`, `hl7v2-network`, `hl7v2-parser`
+**Dependencies:** `hl7v2` with the `network` feature
 
 ```bash
 # Note: Requires a running MLLP server
@@ -70,7 +70,7 @@ cargo run --example mllp_client
 - Handle validation errors
 - Work with validation results
 
-**Dependencies:** `hl7v2-validation`, `hl7v2-prof`
+**Dependencies:** `hl7v2` with the `profile` feature
 
 ```bash
 cargo run --example validation_basics
@@ -84,7 +84,7 @@ cargo run --example validation_basics
 - Write results
 - Handle batch headers/trailers (FHS/BHS/FTS/BTS)
 
-**Dependencies:** `hl7v2-batch`, `hl7v2-parser`
+**Dependencies:** `hl7v2` with the `batch` feature
 
 ```bash
 cargo run --example batch_processing
@@ -98,7 +98,7 @@ cargo run --example batch_processing
 - Process messages as they're parsed
 - Memory-efficient processing
 
-**Dependencies:** `hl7v2-stream`, `hl7v2-parser`
+**Dependencies:** `hl7v2` with the `stream` feature
 
 ```bash
 cargo run --example streaming_parser
@@ -112,7 +112,7 @@ cargo run --example streaming_parser
 - Use various value sources (fixed, random, UUID, etc.)
 - Batch generation with deterministic seeds
 
-**Dependencies:** `hl7v2-template`, `hl7v2-template-values`
+**Dependencies:** `hl7v2` with the `synthetic` feature
 
 ```bash
 cargo run --example template_generation
@@ -126,7 +126,7 @@ cargo run --example template_generation
 - Include error details in rejection ACKs
 - All ACK code types (AA, AE, AR, CA, CE, CR)
 
-**Dependencies:** `hl7v2-ack`, `hl7v2-parser`
+**Dependencies:** `hl7v2` with the `ack` feature
 
 ```bash
 cargo run --example ack_generation
@@ -159,7 +159,7 @@ cargo run --example ack_generation
 All examples follow proper error handling practices. The recommended pattern is:
 
 ```rust
-use hl7v2_core::{parse, Error};
+use hl7v2::{parse, Error};
 
 fn process_message(bytes: &[u8]) -> Result<String, Error> {
     let message = parse(bytes)?;
@@ -173,7 +173,7 @@ fn process_message(bytes: &[u8]) -> Result<String, Error> {
 ### Path-Based Field Access
 
 ```rust
-use hl7v2_core::{parse, get};
+use hl7v2::{get, parse};
 
 let message = parse(hl7_bytes)?;
 let patient_name = get(&message, "PID.5.1");  // Family name
@@ -183,8 +183,7 @@ let mrn = get(&message, "PID.3.1");           // Patient ID
 ### ACK Generation
 
 ```rust
-use hl7v2_core::parse;
-use hl7v2_ack::{ack, AckCode};
+use hl7v2::{ack, parse, AckCode};
 
 let original = parse(hl7_bytes)?;
 let ack_message = ack(&original, AckCode::AA)?;
@@ -214,7 +213,7 @@ Some examples require specific features to be enabled:
 ```toml
 # Cargo.toml
 [dependencies]
-hl7v2-core = { version = "1.2.0", features = ["network", "stream"] }
+hl7v2 = { version = "1.2.0", features = ["network", "stream"] }
 ```
 
 - `network` - Enables MLLP client/server functionality
@@ -244,7 +243,7 @@ cargo run --package hl7v2-cli -- serve --port 2575
 Enable required features in your `Cargo.toml`:
 
 ```toml
-hl7v2-core = { version = "1.2.0", features = ["network"] }
+hl7v2 = { version = "1.2.0", features = ["network"] }
 ```
 
 ## Contributing

@@ -29,7 +29,7 @@
     clippy::indexing_slicing,
     clippy::string_slice,
     clippy::uninlined_format_args,
-    reason = "Pre-existing validation implementation debt moved from hl7v2-validation; cleanup is separate from this behavior-preserving module collapse."
+    reason = "Pre-existing validation implementation debt moved during module collapse; cleanup is separate from this behavior-preserving change."
 )]
 
 use crate::model::Message;

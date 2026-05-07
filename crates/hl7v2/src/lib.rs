@@ -3,9 +3,8 @@
 //! Canonical Rust API for HL7 v2 parsing, writing, validation, transport,
 //! acknowledgement, normalization, and generation.
 //!
-//! The implementation still lives in focused workspace crates during the
-//! crate-surface migration, but public Rust consumers should depend on this
-//! crate and import through `hl7v2`.
+//! The implementation lives in this crate as focused modules. Public Rust
+//! consumers should depend on this crate and import through `hl7v2`.
 //!
 //! ## Quick start
 //!
