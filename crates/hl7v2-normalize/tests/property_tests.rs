@@ -1,5 +1,6 @@
 //! Property-based tests for hl7v2-normalize using proptest
 
+use hl7v2::parse;
 use hl7v2_normalize::normalize;
 use proptest::prelude::*;
 
@@ -229,7 +230,7 @@ proptest! {
         let normalized = normalize(hl7.as_bytes(), false).unwrap();
 
         // Should be parseable
-        let parsed = hl7v2_parser::parse(&normalized);
+        let parsed = parse(&normalized);
         prop_assert!(parsed.is_ok());
 
         let message = parsed.unwrap();
@@ -281,7 +282,7 @@ proptest! {
         let normalized = normalize(hl7.as_bytes(), false).unwrap();
 
         // Parse to verify field separator
-        let message = hl7v2_parser::parse(&normalized).unwrap();
+        let message = parse(&normalized).unwrap();
         prop_assert_eq!(message.delims.field, '|');
     }
 }

@@ -1,6 +1,7 @@
 //! Unit tests for hl7v2-normalize
 
 use super::*;
+use hl7v2::Error;
 
 // =============================================================================
 // Basic Normalization Tests
@@ -100,7 +101,7 @@ fn normalize_roundtrips_valid_message() {
     let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
 
     let normalized = normalize(hl7, false).unwrap();
-    let reparsed = hl7v2_parser::parse(&normalized).unwrap();
+    let reparsed = hl7v2::parse(&normalized).unwrap();
 
     assert_eq!(reparsed.segments.len(), 2);
     assert_eq!(&reparsed.segments[0].id, b"MSH");
@@ -112,7 +113,7 @@ fn normalize_roundtrips_with_canonical() {
     let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
 
     let normalized = normalize(hl7, true).unwrap();
-    let reparsed = hl7v2_parser::parse(&normalized).unwrap();
+    let reparsed = hl7v2::parse(&normalized).unwrap();
 
     // Should still be valid
     assert_eq!(reparsed.segments.len(), 2);
