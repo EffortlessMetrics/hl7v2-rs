@@ -32,7 +32,7 @@ ack = ["dep:chrono"]
 normalize = []
 batch = []
 stream = ["dep:tokio"]
-network = ["dep:hl7v2-network"]
+network = ["stream", "dep:tokio-util", "dep:futures", "dep:bytes"]
 synthetic = [
     "ack",
     "dep:serde",
@@ -61,11 +61,20 @@ rand_distr = { version = "0.6.0", optional = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4"], optional = true }
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true, features = [
+    "net",
+    "io-util",
+    "time",
+    "macros",
+    "rt",
+    "sync",
+], optional = true }
+tokio-util = { workspace = true, features = ["codec"], optional = true }
+futures = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
 
 hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof", optional = true }
 hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation", optional = true }
-hl7v2-network = { version = "1.2.0", path = "../hl7v2-network", optional = true }
 
 [dev-dependencies]
 proptest = "1.6"

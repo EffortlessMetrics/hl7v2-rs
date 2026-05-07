@@ -1534,11 +1534,12 @@ dependencies = [
 name = "hl7v2"
 version = "1.2.0"
 dependencies = [
+ "bytes",
  "chrono",
+ "futures",
  "hl7v2-escape",
  "hl7v2-mllp",
  "hl7v2-model",
- "hl7v2-network",
  "hl7v2-prof",
  "hl7v2-validation",
  "proptest",
@@ -1551,6 +1552,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-util",
  "uuid",
 ]
 

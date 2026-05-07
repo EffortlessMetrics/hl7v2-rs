@@ -52,11 +52,7 @@ pub mod transport {
     }
 
     #[cfg(feature = "network")]
-    pub mod network {
-        //! Async MLLP network client/server APIs.
-
-        pub use hl7v2_network::*;
-    }
+    pub mod network;
 }
 
 pub mod parser;
