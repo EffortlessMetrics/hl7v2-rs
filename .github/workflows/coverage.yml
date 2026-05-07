@@ -91,10 +91,13 @@ jobs:
           set -euo pipefail
           cargo llvm-cov clean --workspace
 
+          # Cucumber BDD binaries use a custom harness and do not support
+          # nextest's libtest discovery protocol. Standard CI runs them.
           cargo llvm-cov nextest \
             --workspace \
             --locked \
             --all-features \
+            -E 'not binary(bdd_tests)' \
             --no-report
 
           cargo llvm-cov report --json --output-path coverage.json
