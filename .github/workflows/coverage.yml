@@ -100,9 +100,18 @@ jobs:
             -E 'not binary(bdd_tests)' \
             --no-report
 
-          cargo llvm-cov report --json --output-path coverage.json
-          cargo llvm-cov report --lcov --output-path lcov.info
-          cargo llvm-cov report --summary-only | tee coverage.txt
+          mapfile -t coverage_packages < <(
+            cargo metadata --no-deps --format-version 1 |
+              python3 -c 'import json, sys; print("\n".join(package["name"] for package in json.load(sys.stdin)["packages"]))'
+          )
+          coverage_args=()
+          for package in "${coverage_packages[@]}"; do
+            coverage_args+=("-p" "$package")
+          done
+
+          cargo llvm-cov "${coverage_args[@]}" --all-features report --json --output-path coverage.json
+          cargo llvm-cov "${coverage_args[@]}" --all-features report --lcov --output-path lcov.info
+          cargo llvm-cov "${coverage_args[@]}" --all-features report --summary-only | tee coverage.txt
 
       - name: Validate coverage output
         run: |
