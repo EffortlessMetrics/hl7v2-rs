@@ -2,6 +2,7 @@
 readme = "README.md"
 name = "hl7v2-datatype"
 version.workspace = true
+publish = false
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
