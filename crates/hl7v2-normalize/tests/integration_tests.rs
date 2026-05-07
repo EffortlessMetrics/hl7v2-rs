@@ -1,5 +1,6 @@
 //! Integration tests for hl7v2-normalize
 
+use hl7v2::{parse, write};
 use hl7v2_normalize::normalize;
 
 // =============================================================================
@@ -51,7 +52,7 @@ fn normalize_and_reparse() {
     let normalized = normalize(hl7, false).unwrap();
 
     // Parse the normalized message
-    let parsed = hl7v2_parser::parse(&normalized).unwrap();
+    let parsed = parse(&normalized).unwrap();
 
     assert_eq!(parsed.segments.len(), 2);
     assert_eq!(&parsed.segments[0].id, b"MSH");
@@ -65,8 +66,8 @@ fn normalize_and_write() {
     let normalized = normalize(hl7, false).unwrap();
 
     // Parse and write again
-    let parsed = hl7v2_parser::parse(&normalized).unwrap();
-    let rewritten = hl7v2_writer::write(&parsed);
+    let parsed = parse(&normalized).unwrap();
+    let rewritten = write(&parsed);
 
     // Should be equivalent
     assert_eq!(normalized, rewritten);

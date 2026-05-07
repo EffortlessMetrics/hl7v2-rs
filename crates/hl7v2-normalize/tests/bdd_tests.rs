@@ -3,7 +3,7 @@
 //! Run with: cargo test --test bdd_tests
 
 use cucumber::{World, given, then, when};
-use hl7v2_model::Error;
+use hl7v2::Error;
 use hl7v2_normalize::normalize;
 
 /// Test world for Normalize BDD tests

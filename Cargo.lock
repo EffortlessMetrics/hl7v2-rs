@@ -1823,9 +1823,7 @@ name = "hl7v2-normalize"
 version = "1.2.0"
 dependencies = [
  "cucumber",
- "hl7v2-model",
- "hl7v2-parser",
- "hl7v2-writer",
+ "hl7v2",
  "proptest",
  "tokio",
 ]
