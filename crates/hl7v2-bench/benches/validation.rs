@@ -6,8 +6,8 @@
 //! - Data type validation performance
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use hl7v2_parser::parse;
-use hl7v2_validation::{Issue, Validator, validate_data_type};
+use hl7v2::conformance::validation::{Validator, validate_data_type};
+use hl7v2::{Issue, Message, parse};
 use std::hint::black_box;
 
 /// Create a sample HL7 message for benchmarking
@@ -29,7 +29,7 @@ fn create_message_with_issues() -> String {
 struct BasicValidator;
 
 impl Validator for BasicValidator {
-    fn validate(&self, msg: &hl7v2_core::Message) -> Vec<Issue> {
+    fn validate(&self, msg: &Message) -> Vec<Issue> {
         let mut issues = Vec::new();
 
         // Check MSH segment
@@ -105,7 +105,7 @@ impl Validator for BasicValidator {
 struct StrictValidator;
 
 impl Validator for StrictValidator {
-    fn validate(&self, msg: &hl7v2_core::Message) -> Vec<Issue> {
+    fn validate(&self, msg: &Message) -> Vec<Issue> {
         let mut issues = Vec::new();
 
         for segment in &msg.segments {
@@ -318,7 +318,7 @@ impl Validator for StrictValidator {
 struct LenientValidator;
 
 impl Validator for LenientValidator {
-    fn validate(&self, msg: &hl7v2_core::Message) -> Vec<Issue> {
+    fn validate(&self, msg: &Message) -> Vec<Issue> {
         let mut issues = Vec::new();
 
         // Only check for critical errors
