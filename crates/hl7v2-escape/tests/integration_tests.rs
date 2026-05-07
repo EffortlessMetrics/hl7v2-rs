@@ -3,8 +3,8 @@
 //! These tests verify escape/unescape works correctly with real-world
 //! HL7 message scenarios.
 
+use hl7v2::Delims;
 use hl7v2_escape::{escape_text, needs_escaping, needs_unescaping, unescape_text};
-use hl7v2_model::Delims;
 
 // ============================================================================
 // Real-World HL7 Field Value Tests

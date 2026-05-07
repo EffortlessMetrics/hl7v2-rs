@@ -17,8 +17,8 @@
     reason = "pre-existing parser property test debt moved into hl7v2; cleanup is split from topology collapse"
 )]
 
+use crate::model::*;
 use crate::{get, get_presence, parse, parse_batch};
-use hl7v2_model::*;
 use proptest::prelude::*;
 
 // =============================================================================

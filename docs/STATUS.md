@@ -9,13 +9,10 @@ This document provides a transparent view of which features are fully implemente
 
 | Crate | Status | Coverage | Notes |
 |-------|--------|----------|-------|
-| `hl7v2` | ✅ 100% | 92% | Canonical Rust library facade for parsing, writing, validation, transport, ACK, normalization, and generation. |
-| `hl7v2-model` | ✅ 100% | 100% | Temporary publishable implementation carrier for core AST and domain models until the foundation module collapse lands. |
-| `hl7v2-escape` | ✅ 100% | 90% | Temporary publishable implementation carrier for escape handling until the foundation module collapse lands. |
-| `hl7v2-mllp` | ✅ 100% | 90% | Temporary publishable implementation carrier for MLLP framing until the foundation module collapse lands. |
+| `hl7v2` | ✅ 100% | 92% | Canonical Rust library crate for parsing, writing, validation, transport framing, ACK, normalization, and generation. Foundation model, escape, and MLLP implementations now live here. |
 | `hl7v2-server` | ✅ 100% | 80% | HTTP REST API with metrics, auth, ACK, and normalization routes. |
 | `hl7v2-cli` | ✅ 100% | 75% | Full-featured CLI with streaming support. |
-| compatibility shims | ✅ Package-frozen | N/A | Old microcrate package names are private deprecated shims unless explicitly retained for compatibility. |
+| compatibility shims | ✅ Package-frozen | N/A | Old microcrate package names, including `hl7v2-model`, `hl7v2-escape`, and `hl7v2-mllp`, are private deprecated shims unless explicitly retained for compatibility. |
 
 ## Feature Set (v1.2.0)
 
@@ -40,12 +37,12 @@ This document provides a transparent view of which features are fully implemente
 ## Release and Publish Readiness
 
 - ✅ **Main workflows**: CI, Coverage, Security, Extended, and Benchmarks are green on current `main`; API Contracts are unchanged unless contract files are touched.
-- ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves 7 publishable crates: `hl7v2-model`, `hl7v2-escape`, `hl7v2-mllp`, `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`.
-- ✅ **Dry-run publish**: Workspace-patched dry-run verification proves the current 7-crate publish graph while the dependency chain is still unpublished. See `docs/audits/publish-dry-run-2026-05-06.md` for the older pre-freeze proof.
+- ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final public package graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`.
+- ✅ **Dry-run publish**: Workspace-patched dry-run verification proves the current public package graph while the dependency chain is still unpublished. See `docs/audits/publish-dry-run-2026-05-06.md` for the older pre-freeze proof.
 
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.
 
 ---
 
-**Release v1.2.0 is tagged. Current main is tested and package-verified; do not publish until the remaining foundation implementation carriers are collapsed or intentionally retained.**
+**Release v1.2.0 is tagged. Current code is tested and package-verified; do not publish until post-merge CI/Coverage/Security/API Contracts and final crate dry-runs are green.**

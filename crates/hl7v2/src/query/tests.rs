@@ -7,7 +7,7 @@
 )]
 
 use super::*;
-use hl7v2_model::{Comp, Delims, Field, Rep};
+use crate::model::{Comp, Delims, Field, Rep};
 
 /// Helper to create a simple segment for testing
 fn create_test_segment(id: &str, fields: Vec<Field>) -> Segment {

@@ -30,30 +30,11 @@
 //! - `lifecycle` - lifecycle and archive metadata helpers.
 //! - `experimental-guard` - experimental guard/anomaly detection APIs.
 
-pub mod model {
-    //! Core HL7 v2 data structures.
+pub mod model;
 
-    pub use hl7v2_model::*;
-}
+pub mod escape;
 
-pub mod escape {
-    //! HL7 escape sequence handling.
-
-    pub use hl7v2_escape::*;
-}
-
-pub mod transport {
-    //! HL7 v2 transport helpers.
-
-    pub mod mllp {
-        //! Minimal Lower Layer Protocol framing helpers.
-
-        pub use hl7v2_mllp::*;
-    }
-
-    #[cfg(feature = "network")]
-    pub mod network;
-}
+pub mod transport;
 
 pub mod parser;
 
@@ -95,17 +76,17 @@ pub mod lifecycle;
 pub mod experimental;
 
 // Top-level convenience surface.
-pub use hl7v2_escape::{escape_text, needs_escaping, needs_unescaping, unescape_text};
-pub use hl7v2_mllp::{
-    MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
-    is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
-};
-pub use hl7v2_model::{
+pub use escape::{escape_text, needs_escaping, needs_unescaping, unescape_text};
+pub use model::{
     Atom, Batch, Comp, Delims, Error, Field, FileBatch, Message, Presence, Rep, Segment,
 };
 pub use parser::{parse, parse_batch, parse_file_batch, parse_mllp};
 pub use query::path::{Path, parse_path};
 pub use query::{get, get_presence};
+pub use transport::mllp::{
+    MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
+    is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
+};
 pub use writer::{
     to_json, to_json_string, to_json_string_pretty, write, write_batch, write_file_batch,
     write_mllp,

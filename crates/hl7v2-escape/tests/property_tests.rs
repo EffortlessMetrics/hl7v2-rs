@@ -2,8 +2,8 @@
 //!
 //! These tests verify escape/unescape properties hold for arbitrary inputs.
 
+use hl7v2::Delims;
 use hl7v2_escape::{escape_text, needs_escaping, needs_unescaping, unescape_text};
-use hl7v2_model::Delims;
 use proptest::prelude::*;
 
 /// Generate arbitrary text that may contain delimiters

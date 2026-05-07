@@ -30,8 +30,8 @@
 //! assert!(bytes.starts_with(b"MSH|"));
 //! ```
 
-use hl7v2_escape::escape_text;
-use hl7v2_model::*;
+use crate::escape::escape_text;
+use crate::model::*;
 
 pub mod json;
 
@@ -122,7 +122,7 @@ pub fn write(msg: &Message) -> Vec<u8> {
 /// ```
 pub fn write_mllp(msg: &Message) -> Vec<u8> {
     let hl7_bytes = write(msg);
-    hl7v2_mllp::wrap_mllp(&hl7_bytes)
+    crate::transport::mllp::wrap_mllp(&hl7_bytes)
 }
 
 /// Write batch to bytes.
@@ -385,9 +385,9 @@ mod integration_tests {
 
         let framed = write_mllp(&message);
 
-        assert_eq!(framed[0], hl7v2_mllp::MLLP_START);
-        assert_eq!(framed[framed.len() - 2], hl7v2_mllp::MLLP_END_1);
-        assert_eq!(framed[framed.len() - 1], hl7v2_mllp::MLLP_END_2);
+        assert_eq!(framed[0], crate::transport::mllp::MLLP_START);
+        assert_eq!(framed[framed.len() - 2], crate::transport::mllp::MLLP_END_1);
+        assert_eq!(framed[framed.len() - 1], crate::transport::mllp::MLLP_END_2);
     }
 
     #[test]

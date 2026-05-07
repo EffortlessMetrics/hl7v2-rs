@@ -17,8 +17,8 @@
     reason = "pre-existing parser unit test debt moved into hl7v2; cleanup is split from topology collapse"
 )]
 
+use crate::model::*;
 use crate::{get, get_presence, parse, parse_batch, parse_file_batch, parse_mllp};
-use hl7v2_model::*;
 
 // =============================================================================
 // Basic Message Parsing Tests
@@ -213,7 +213,7 @@ fn test_escape_special_chars() {
 #[test]
 fn test_parse_mllp() {
     let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\r";
-    let framed = hl7v2_mllp::wrap_mllp(hl7);
+    let framed = crate::transport::mllp::wrap_mllp(hl7);
     let message = parse_mllp(&framed).unwrap();
 
     assert_eq!(message.segments.len(), 1);

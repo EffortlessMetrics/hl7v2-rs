@@ -32,7 +32,7 @@
     reason = "pre-existing JSON writer implementation debt moved from staged microcrate into hl7v2; cleanup is split from topology collapse"
 )]
 
-use hl7v2_model::*;
+use crate::model::*;
 use serde_json::json;
 
 /// Convert message to canonical JSON.

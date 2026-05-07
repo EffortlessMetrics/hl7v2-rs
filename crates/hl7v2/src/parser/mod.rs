@@ -41,8 +41,8 @@
     reason = "pre-existing parser implementation debt moved from staged microcrate into hl7v2; cleanup is split from topology collapse"
 )]
 
-use hl7v2_escape::unescape_text;
-use hl7v2_model::*;
+use crate::escape::unescape_text;
+use crate::model::*;
 
 // Re-export query functionality for backward compatibility.
 pub use crate::query::{get, get_presence};
@@ -132,7 +132,7 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
 ///
 /// ```
 /// use hl7v2::parser::parse_mllp;
-/// use hl7v2_mllp::wrap_mllp;
+/// use hl7v2::wrap_mllp;
 ///
 /// let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\r";
 /// let framed = wrap_mllp(hl7);
@@ -140,7 +140,8 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
 /// assert_eq!(message.segments.len(), 1);
 /// ```
 pub fn parse_mllp(bytes: &[u8]) -> Result<Message, Error> {
-    let hl7_content = hl7v2_mllp::unwrap_mllp(bytes).map_err(|e| Error::Framing(e.to_string()))?;
+    let hl7_content =
+        crate::transport::mllp::unwrap_mllp(bytes).map_err(|e| Error::Framing(e.to_string()))?;
     parse(hl7_content)
 }
 
@@ -650,7 +651,7 @@ mod tests {
     #[test]
     fn test_parse_mllp() {
         let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\r";
-        let framed = hl7v2_mllp::wrap_mllp(hl7);
+        let framed = crate::transport::mllp::wrap_mllp(hl7);
         let message = parse_mllp(&framed).unwrap();
 
         assert_eq!(message.segments.len(), 1);

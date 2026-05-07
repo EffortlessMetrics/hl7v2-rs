@@ -3,8 +3,8 @@
 //! Run with: cargo test --test bdd_tests -p hl7v2-escape
 
 use cucumber::{World, given, then, when};
+use hl7v2::Delims;
 use hl7v2_escape::{escape_text, needs_escaping, needs_unescaping, unescape_text};
-use hl7v2_model::Delims;
 
 /// Test world for escape BDD tests
 #[derive(Debug, World)]
