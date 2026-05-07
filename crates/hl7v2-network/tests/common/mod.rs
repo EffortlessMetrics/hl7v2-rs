@@ -5,7 +5,7 @@
 
 #![allow(dead_code)]
 
-use hl7v2_model::{Atom, Comp, Delims, Field, Message, Rep, Segment};
+use hl7v2::{Atom, Comp, Delims, Error, Field, Message, Rep, Segment};
 use hl7v2_network::{MessageHandler, MllpClient, MllpClientBuilder, MllpServer, MllpServerConfig};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -164,10 +164,7 @@ impl EchoHandler {
 }
 
 impl MessageHandler for EchoHandler {
-    async fn handle_message(
-        &self,
-        message: Message,
-    ) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, message: Message) -> Result<Option<Message>, Error> {
         self.notify.notify_one();
         Ok(Some(message))
     }
@@ -185,10 +182,7 @@ impl AckHandler {
 }
 
 impl MessageHandler for AckHandler {
-    async fn handle_message(
-        &self,
-        _message: Message,
-    ) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
         self.notify.notify_one();
         // Create a simple ACK
         Ok(Some(create_test_message()))
@@ -209,10 +203,7 @@ impl DelayedHandler {
 }
 
 impl MessageHandler for DelayedHandler {
-    async fn handle_message(
-        &self,
-        message: Message,
-    ) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, message: Message) -> Result<Option<Message>, Error> {
         tokio::time::sleep(self.delay).await;
         self.notify.notify_one();
         Ok(Some(message))
@@ -231,10 +222,7 @@ impl CountingHandler {
 }
 
 impl MessageHandler for CountingHandler {
-    async fn handle_message(
-        &self,
-        _message: Message,
-    ) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
         self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(Some(create_test_message()))
     }
@@ -244,11 +232,8 @@ impl MessageHandler for CountingHandler {
 pub struct ErrorHandler;
 
 impl MessageHandler for ErrorHandler {
-    async fn handle_message(
-        &self,
-        _message: Message,
-    ) -> Result<Option<Message>, hl7v2_model::Error> {
-        Err(hl7v2_model::Error::InvalidFieldFormat {
+    async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
+        Err(Error::InvalidFieldFormat {
             details: "Test error".to_string(),
         })
     }
@@ -258,10 +243,7 @@ impl MessageHandler for ErrorHandler {
 pub struct SilentHandler;
 
 impl MessageHandler for SilentHandler {
-    async fn handle_message(
-        &self,
-        _message: Message,
-    ) -> Result<Option<Message>, hl7v2_model::Error> {
+    async fn handle_message(&self, _message: Message) -> Result<Option<Message>, Error> {
         Ok(None)
     }
 }
