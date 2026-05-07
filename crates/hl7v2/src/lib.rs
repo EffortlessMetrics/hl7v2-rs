@@ -61,23 +61,13 @@ pub mod writer;
 
 pub mod query;
 
-#[cfg(feature = "profile")]
+#[cfg(any(feature = "profile", feature = "profile-core"))]
 pub mod conformance {
     //! Profile, datatype, and validation APIs.
 
-    pub mod profile {
-        //! Profile loading and conformance validation.
-
-        pub use hl7v2_prof::*;
-    }
-
-    pub mod validation {
-        //! Reusable validation issue and rule primitives.
-
-        pub use hl7v2_validation::*;
-    }
-
     pub mod datatype;
+    pub mod profile;
+    pub mod validation;
 }
 
 #[cfg(feature = "ack")]
@@ -128,10 +118,10 @@ pub use normalize::normalize;
 pub use ack::{AckCode, ack, ack_with_error};
 
 #[cfg(feature = "profile")]
-pub use hl7v2_prof::{Profile, load_profile, load_profile_checked, validate};
+pub use conformance::profile::{Profile, load_profile, load_profile_checked, validate};
 
 #[cfg(feature = "profile")]
-pub use hl7v2_validation::{Issue, Severity};
+pub use conformance::validation::{Issue, Severity};
 
 #[cfg(feature = "stream")]
 pub use stream::{AsyncStreamParser, Event, StreamParser, StreamParserBuilder};

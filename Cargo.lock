@@ -1534,26 +1534,31 @@ dependencies = [
 name = "hl7v2"
 version = "1.2.0"
 dependencies = [
+ "async-lock",
  "bytes",
  "chrono",
  "futures",
+ "hex",
  "hl7v2-escape",
  "hl7v2-mllp",
  "hl7v2-model",
- "hl7v2-prof",
- "hl7v2-validation",
+ "lru",
  "proptest",
  "rand 0.10.1",
  "rand_distr",
  "regex",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_yaml_ng",
  "sha2",
+ "sqlx",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-util",
  "uuid",
+ "wiremock",
 ]
 
 [[package]]
@@ -1827,23 +1832,11 @@ dependencies = [
 name = "hl7v2-prof"
 version = "1.2.0"
 dependencies = [
- "async-lock",
- "chrono",
- "hex",
- "hl7v2-model",
+ "hl7v2",
  "hl7v2-parser",
- "hl7v2-query",
- "hl7v2-validation",
- "lru",
  "proptest",
- "regex",
- "reqwest",
- "serde",
  "serde_yaml_ng",
- "sha2",
- "sqlx",
  "tempfile",
- "thiserror 2.0.18",
  "tokio",
  "wiremock",
 ]
@@ -1962,14 +1955,13 @@ name = "hl7v2-validation"
 version = "1.2.0"
 dependencies = [
  "assert_matches",
- "chrono",
  "cucumber",
+ "hl7v2",
  "hl7v2-model",
  "hl7v2-parser",
  "hl7v2-query",
  "hl7v2-test-utils",
  "insta",
- "once_cell",
  "pretty_assertions",
  "proptest",
  "regex",
