@@ -40,11 +40,9 @@
 //! ```
 
 /// HL7 datetime parsing and validation helpers.
-pub mod datetime {
-    pub use hl7v2_datetime::*;
-}
+pub mod datetime;
 
-pub use hl7v2_datetime;
+pub use datetime as hl7v2_datetime;
 use regex::Regex;
 
 /// Error type for data type validation

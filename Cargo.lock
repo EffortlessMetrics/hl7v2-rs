@@ -1538,7 +1538,6 @@ dependencies = [
  "hl7v2-ack",
  "hl7v2-batch",
  "hl7v2-corpus",
- "hl7v2-datetime",
  "hl7v2-escape",
  "hl7v2-faker",
  "hl7v2-gen",
@@ -1686,8 +1685,8 @@ version = "1.2.0"
 dependencies = [
  "chrono",
  "cucumber",
+ "hl7v2",
  "proptest",
- "thiserror 2.0.18",
  "tokio",
 ]
 
