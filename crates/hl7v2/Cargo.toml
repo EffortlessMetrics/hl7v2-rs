@@ -29,7 +29,7 @@ profile = [
     "dep:regex",
 ]
 ack = ["dep:chrono"]
-normalize = ["dep:hl7v2-normalize"]
+normalize = []
 batch = []
 stream = ["dep:hl7v2-stream"]
 network = ["dep:hl7v2-network"]
@@ -67,7 +67,6 @@ serde_yaml = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4"], optional = true }
 
 hl7v2-json = { version = "1.2.0", path = "../hl7v2-json", optional = true }
-hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize", optional = true }
 hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof", optional = true }
 hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation", optional = true }
 hl7v2-stream = { version = "1.2.0", path = "../hl7v2-stream", optional = true }
