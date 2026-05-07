@@ -40,7 +40,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2-parser` | `hl7v2::parser` | Module | Also exposes top-level `parse`, `parse_mllp`, `parse_batch`, `parse_file_batch`. |
 | `hl7v2-writer` | `hl7v2::writer` | Module | Also exposes top-level `write`, `write_mllp`, and JSON helpers. |
 | `hl7v2-normalize` | `hl7v2::normalize` | Module | Top-level `normalize` remains stable. |
-| `hl7v2-batch` | `hl7v2::batch` | Feature-gated module | Batch file parsing/writing. |
+| `hl7v2-batch` | `hl7v2::batch` | Collapsed as leaf feature module | Batch file parsing/writing; `hl7v2-batch` remains a compatibility shim. |
 | `hl7v2-stream` | `hl7v2::stream` | Feature-gated module | Event parser behind `stream`. |
 | `hl7v2-prof` | `hl7v2::conformance::profile` | Module | Profile loading, inheritance, cache, and profile-backed validation. |
 | `hl7v2-validation` | `hl7v2::conformance::validation` | Module | Issues, severity, validators, and validation engine helpers. |
@@ -110,9 +110,9 @@ depend on those crates would force compatibility shims to depend back on
 Leaf feature crates with no remaining implementation-crate dependents can also
 collapse before the foundation block is fully resolved. Those PRs must be
 narrow, keep compatibility shims, and state why they do not introduce cycles.
-`hl7v2-redact`, `hl7v2-guard`, `hl7v2-lifecycle`, `hl7v2-datatype`, and
-`hl7v2-datetime` used that path: their implementations now live under
-`hl7v2`, and the old crates are compatibility shims.
+`hl7v2-redact`, `hl7v2-guard`, `hl7v2-lifecycle`, `hl7v2-datatype`,
+`hl7v2-datetime`, and `hl7v2-batch` used that path: their implementations now
+live under `hl7v2`, and the old crates are compatibility shims.
 
 ## Import Conversion Rules
 

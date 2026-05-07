@@ -30,7 +30,7 @@ profile = [
 ]
 ack = ["dep:hl7v2-ack"]
 normalize = ["dep:hl7v2-normalize"]
-batch = ["dep:hl7v2-batch"]
+batch = []
 stream = ["dep:hl7v2-stream"]
 network = ["dep:hl7v2-network"]
 synthetic = [
@@ -62,7 +62,6 @@ hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize", optional = t
 hl7v2-ack = { version = "1.2.0", path = "../hl7v2-ack", optional = true }
 hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof", optional = true }
 hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation", optional = true }
-hl7v2-batch = { version = "1.2.0", path = "../hl7v2-batch", optional = true }
 hl7v2-stream = { version = "1.2.0", path = "../hl7v2-stream", optional = true }
 hl7v2-network = { version = "1.2.0", path = "../hl7v2-network", optional = true }
 hl7v2-template = { version = "1.2.0", path = "../hl7v2-template", optional = true }
