@@ -1,5 +1,10 @@
 # hl7v2-rs
 
+[![CI](https://github.com/EffortlessMetrics/hl7v2-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/EffortlessMetrics/hl7v2-rs/actions/workflows/ci.yml)
+[![Codecov](https://codecov.io/gh/EffortlessMetrics/hl7v2-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/EffortlessMetrics/hl7v2-rs)
+[![MSRV](https://img.shields.io/badge/MSRV-1.93-blue.svg)](https://doc.rust-lang.org/cargo/reference/manifest.html#the-rust-version-field)
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
+
 Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.

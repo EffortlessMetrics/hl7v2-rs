@@ -1,20 +1,30 @@
+coverage:
+  precision: 2
+  round: down
+  range: "50...85"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5%
+        informational: true
+        flags:
+          - rust-core
+
+    patch:
+      default:
+        target: 70%
+        threshold: 20%
+        informational: true
+        flags:
+          - rust-core
+
+comment: false
+
+github_checks:
+  annotations: false
+
 ignore:
-  - "**/*.md"
-  - "**/Cargo.toml"
-  - "**/build.rs"
-  - "**/src/tests.rs"
-  - "**/tests/**"
-  - ".github/**"
-  - ".spectral.yml"
-  - "api/**"
-  - "buf.gen.yaml"
-  - "Cargo.lock"
-  - "Cargo.toml"
-  - "clippy.toml"
-  - "codecov.yml"
-  - "config.example.toml"
-  - "docs/**"
-  - "policy/**"
-  - "profiles/**"
-  - "schemas/**"
-  - "xtask/**"
+  - "target/**"
+  - "crates/hl7v2-bench/**"

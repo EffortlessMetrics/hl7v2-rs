@@ -35,12 +35,21 @@ covered_by = ["just setup", "cargo run -p xtask -- hook-pre-commit"]
 
 [[allow]]
 path = "codecov.yml"
+kind = "ci_coverage_policy"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "Codecov status and reporting configuration for cargo-llvm-cov coverage uploads."
+covered_by = ["cargo run -p xtask -- check-file-policy"]
+
+[[allow]]
+path = ".github/workflows/coverage.yml"
 kind = "ci_declarative"
 owner = "release/ci"
 surface = "ci"
 classification = "config"
-reason = "Codecov configuration declares coverage policy and ignored paths."
-covered_by = [".github/workflows/coverage.yml"]
+reason = "GitHub Actions coverage workflow for cargo-llvm-cov and Codecov uploads."
+covered_by = ["cargo run -p xtask -- check-file-policy"]
 
 [[allow]]
 path = ".spectral.yml"
