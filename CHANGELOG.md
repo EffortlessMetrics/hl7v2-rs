@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shims and pointed new Rust users to `hl7v2` module paths.
 - Added the 2026-05-07 workspace-patched publish dry-run receipt for the final
   four-crate package graph.
+- Recorded the direct crates.io dry-run result: `hl7v2` passes before publish,
+  while dependent crates correctly wait on `hl7v2` being present in the
+  crates.io index.
 
 ---
 

@@ -36,13 +36,13 @@ This document provides a transparent view of which features are fully implemente
 
 ## Release and Publish Readiness
 
-- ✅ **Main workflows**: CI, Coverage, Security, Extended, and Benchmarks are green on current `main` at `3482fd4`; API Contracts are unchanged unless contract files are touched.
+- ✅ **Main workflows**: CI, Coverage, Security, Extended, and Benchmarks are green on current `main` at `aafa0b0`; API Contracts are unchanged unless contract files are touched.
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final public package graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`.
-- ✅ **Dry-run publish**: Workspace-patched dry-run verification proves the current public package graph while the dependency chain is still unpublished. See `docs/audits/publish-dry-run-2026-05-07.md`.
+- ✅ **Dry-run publish**: Workspace-patched dry-run verification proves the current public package graph while the dependency chain is still unpublished. Direct crates.io dry-run passes for `hl7v2`; dependent crates must be dry-run again after `hl7v2` is published and available in the crates.io index. See `docs/audits/publish-dry-run-2026-05-07.md`.
 
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.
 
 ---
 
-**Release v1.2.0 is tagged. Current code is tested and package-verified; do not publish until post-merge CI/Coverage/Security/API Contracts and final crate dry-runs are green.**
+**Release v1.2.0 is tagged. Current code is tested and package-verified; publish must still run dependency-ordered final dry-runs and wait for each published dependency to appear in the crates.io index before publishing dependents.**
