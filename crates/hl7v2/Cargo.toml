@@ -25,7 +25,6 @@ json = ["dep:hl7v2-json"]
 profile = [
     "dep:hl7v2-prof",
     "dep:hl7v2-validation",
-    "dep:hl7v2-datetime",
     "dep:chrono",
     "dep:regex",
 ]
@@ -63,7 +62,6 @@ hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize", optional = t
 hl7v2-ack = { version = "1.2.0", path = "../hl7v2-ack", optional = true }
 hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof", optional = true }
 hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation", optional = true }
-hl7v2-datetime = { version = "1.2.0", path = "../hl7v2-datetime", optional = true }
 hl7v2-batch = { version = "1.2.0", path = "../hl7v2-batch", optional = true }
 hl7v2-stream = { version = "1.2.0", path = "../hl7v2-stream", optional = true }
 hl7v2-network = { version = "1.2.0", path = "../hl7v2-network", optional = true }
