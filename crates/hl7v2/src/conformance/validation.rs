@@ -32,8 +32,8 @@
     reason = "Pre-existing validation implementation debt moved from hl7v2-validation; cleanup is separate from this behavior-preserving module collapse."
 )]
 
+use crate::model::Message;
 use chrono::{NaiveDate, NaiveDateTime};
-use hl7v2_model::Message;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 

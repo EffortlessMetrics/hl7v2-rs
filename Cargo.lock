@@ -1539,9 +1539,6 @@ dependencies = [
  "chrono",
  "futures",
  "hex",
- "hl7v2-escape",
- "hl7v2-mllp",
- "hl7v2-model",
  "lru",
  "proptest",
  "rand 0.10.1",
@@ -1692,7 +1689,7 @@ name = "hl7v2-escape"
 version = "1.2.0"
 dependencies = [
  "cucumber",
- "hl7v2-model",
+ "hl7v2",
  "hl7v2-test-utils",
  "proptest",
  "tokio",
@@ -1764,10 +1761,9 @@ name = "hl7v2-mllp"
 version = "1.2.0"
 dependencies = [
  "cucumber",
- "hl7v2-model",
+ "hl7v2",
  "hl7v2-test-utils",
  "proptest",
- "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -1775,9 +1771,8 @@ dependencies = [
 name = "hl7v2-model"
 version = "1.2.0"
 dependencies = [
- "serde",
+ "hl7v2",
  "serde_json",
- "thiserror 2.0.18",
 ]
 
 [[package]]

@@ -23,7 +23,7 @@ use tokio_util::codec::{Decoder, Encoder};
 use super::client::{MllpClient, MllpClientBuilder, MllpClientConfig};
 use super::codec::MllpCodec;
 use super::server::{AckTimingPolicy, MessageHandler, MllpServer, MllpServerConfig};
-use hl7v2_model::{Atom, Comp, Delims, Error, Field, Message, Rep, Segment};
+use crate::model::{Atom, Comp, Delims, Error, Field, Message, Rep, Segment};
 
 /// MLLP frame start byte (vertical tab)
 const MLLP_START: u8 = 0x0B;

@@ -2790,11 +2790,14 @@ mod tests {
             "hl7v2-corpus",
             "hl7v2-datatype",
             "hl7v2-datetime",
+            "hl7v2-escape",
             "hl7v2-faker",
             "hl7v2-gen",
             "hl7v2-guard",
             "hl7v2-json",
             "hl7v2-lifecycle",
+            "hl7v2-mllp",
+            "hl7v2-model",
             "hl7v2-network",
             "hl7v2-normalize",
             "hl7v2-parser",
@@ -2814,9 +2817,6 @@ mod tests {
             return Err(anyhow!("xtask should not be publishable"));
         }
 
-        assert_dependency_precedes(&ordered, "hl7v2-model", "hl7v2")?;
-        assert_dependency_precedes(&ordered, "hl7v2-escape", "hl7v2")?;
-        assert_dependency_precedes(&ordered, "hl7v2-mllp", "hl7v2")?;
         assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-server")?;
         assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-cli")?;
         assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-python")?;
@@ -2850,14 +2850,14 @@ mod tests {
         let packages = publishable_workspace_packages(&metadata);
         let dependencies = internal_workspace_dependency_closure("hl7v2", &packages)?;
 
-        for dependency in ["hl7v2-model", "hl7v2-escape", "hl7v2-mllp"] {
-            if !dependencies.contains(dependency) {
-                return Err(anyhow!(
-                    "workspace patch dependency closure should include {dependency}"
-                ));
-            }
-        }
-        for excluded in ["hl7v2-parser", "hl7v2-query", "hl7v2-test-utils"] {
+        for excluded in [
+            "hl7v2-model",
+            "hl7v2-escape",
+            "hl7v2-mllp",
+            "hl7v2-parser",
+            "hl7v2-query",
+            "hl7v2-test-utils",
+        ] {
             if dependencies.contains(excluded) {
                 return Err(anyhow!(
                     "workspace patch dependency closure should exclude non-publishable crate {excluded}"

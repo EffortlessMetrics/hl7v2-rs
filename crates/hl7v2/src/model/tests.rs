@@ -1,10 +1,16 @@
-//! Unit tests for hl7v2-model crate
+//! Unit tests for the `hl7v2::model` module.
 //!
 //! Tests cover:
 //! - Message model structures
 //! - Segment model structures
 //! - Field model structures
 //! - Error types
+
+#![expect(
+    clippy::assertions_on_result_states,
+    clippy::unwrap_used,
+    reason = "pre-existing model unit test debt moved into hl7v2; cleanup is split from topology collapse"
+)]
 
 use super::*;
 

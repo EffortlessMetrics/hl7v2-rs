@@ -23,8 +23,8 @@ use super::super::{
     parse_hl7_ts_with_precision, truncate_to_precision, validate_checksum, validate_data_type,
     validate_luhn_checksum, validate_mathematical_relationship,
 };
+use crate::model::Message;
 use crate::parse;
-use hl7v2_model::Message;
 
 // ============================================================================
 // Severity and Issue Tests

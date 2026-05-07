@@ -5,8 +5,13 @@
 //! - Escape sequence decoding
 //! - Edge cases and special handling
 
+#![expect(
+    clippy::unwrap_used,
+    reason = "pre-existing escape unit test debt moved into hl7v2; cleanup is split from topology collapse"
+)]
+
 use super::*;
-use hl7v2_model::Delims;
+use crate::model::Delims;
 
 // ============================================================================
 // Basic Escape Tests

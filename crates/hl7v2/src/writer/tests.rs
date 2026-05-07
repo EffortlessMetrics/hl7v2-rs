@@ -15,7 +15,7 @@
 )]
 
 use super::*;
-use hl7v2_model::{Atom, Batch, Comp, Delims, Field, FileBatch, Message, Rep, Segment};
+use crate::model::{Atom, Batch, Comp, Delims, Field, FileBatch, Message, Rep, Segment};
 
 // ============================================================================
 // Basic write() function tests
@@ -533,9 +533,9 @@ fn test_write_mllp_basic() {
     let framed = write_mllp(&message);
 
     // Check MLLP framing
-    assert_eq!(framed[0], hl7v2_mllp::MLLP_START);
-    assert_eq!(framed[framed.len() - 2], hl7v2_mllp::MLLP_END_1);
-    assert_eq!(framed[framed.len() - 1], hl7v2_mllp::MLLP_END_2);
+    assert_eq!(framed[0], crate::transport::mllp::MLLP_START);
+    assert_eq!(framed[framed.len() - 2], crate::transport::mllp::MLLP_END_1);
+    assert_eq!(framed[framed.len() - 1], crate::transport::mllp::MLLP_END_2);
 }
 
 #[test]
@@ -562,9 +562,9 @@ fn test_write_mllp_empty_message() {
     let framed = write_mllp(&message);
 
     // Even empty message should have MLLP framing
-    assert_eq!(framed[0], hl7v2_mllp::MLLP_START);
-    assert_eq!(framed[framed.len() - 2], hl7v2_mllp::MLLP_END_1);
-    assert_eq!(framed[framed.len() - 1], hl7v2_mllp::MLLP_END_2);
+    assert_eq!(framed[0], crate::transport::mllp::MLLP_START);
+    assert_eq!(framed[framed.len() - 2], crate::transport::mllp::MLLP_END_1);
+    assert_eq!(framed[framed.len() - 1], crate::transport::mllp::MLLP_END_2);
 }
 
 // ============================================================================

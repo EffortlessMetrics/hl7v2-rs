@@ -2,6 +2,7 @@
 readme = "README.md"
 name = "hl7v2-model"
 version.workspace = true
+publish = false
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -13,8 +14,7 @@ keywords = ["hl7", "healthcare", "data-model"]
 categories = ["data-structures", "encoding"]
 
 [dependencies]
-thiserror = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
+hl7v2 = { version = "1.2.0", path = "../hl7v2", default-features = false }
 
 [dev-dependencies]
 serde_json = { workspace = true }

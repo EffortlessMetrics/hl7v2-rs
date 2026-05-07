@@ -2,6 +2,7 @@
 readme = "README.md"
 name = "hl7v2-mllp"
 version.workspace = true
+publish = false
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
@@ -13,8 +14,7 @@ keywords = ["hl7", "healthcare", "mllp", "protocol", "framing"]
 categories = ["network-programming", "encoding"]
 
 [dependencies]
-hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
-thiserror = { workspace = true }
+hl7v2 = { version = "1.2.0", path = "../hl7v2", default-features = false }
 
 [dev-dependencies]
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }

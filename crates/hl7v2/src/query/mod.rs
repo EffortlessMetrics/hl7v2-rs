@@ -36,7 +36,7 @@
 
 pub mod path;
 
-use hl7v2_model::{Atom, Message, Presence, Segment};
+use crate::model::{Atom, Message, Presence, Segment};
 
 /// Get value at path (e.g., `PID.5[1].1`)
 ///

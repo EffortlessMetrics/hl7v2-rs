@@ -56,7 +56,7 @@ pub use super::validation::{
     validate_luhn_checksum, validate_mathematical_relationship, validate_mod10_checksum,
 };
 
-use hl7v2_model::Message;
+use crate::model::{Error, Message};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -131,8 +131,8 @@ impl From<std::io::Error> for ProfileLoadError {
     }
 }
 
-impl From<hl7v2_model::Error> for ProfileLoadError {
-    fn from(err: hl7v2_model::Error) -> Self {
+impl From<Error> for ProfileLoadError {
+    fn from(err: Error) -> Self {
         ProfileLoadError::Core(err.to_string())
     }
 }
