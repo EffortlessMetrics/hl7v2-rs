@@ -1,6 +1,10 @@
 # hl7v2-escape
 
-HL7 v2 escape sequence encoding and decoding.
+Deprecated compatibility crate for HL7 v2 escape sequence handling.
+Use `hl7v2::escape` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

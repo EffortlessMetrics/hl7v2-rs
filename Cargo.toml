@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    # Top-level name-claim crate
+    # Public library crate
     "crates/hl7v2",
-    # Microcrates (SRP-focused)
+    # Private deprecated compatibility shims for collapsed implementation modules
     "crates/hl7v2-model",
     "crates/hl7v2-escape",
     "crates/hl7v2-mllp",
@@ -20,20 +20,22 @@ members = [
     "crates/hl7v2-path",
     "crates/hl7v2-faker",
     "crates/hl7v2-corpus",
-    # Higher-level crates
+    # Private compatibility shims and feature-module test harnesses
     "crates/hl7v2-core",
     "crates/hl7v2-bench",
     "crates/hl7v2-prof",
     "crates/hl7v2-redact",
     "crates/hl7v2-lifecycle",
     "crates/hl7v2-guard",
-    "crates/hl7v2-python",
     "crates/hl7v2-template",
     "crates/hl7v2-template-values",
     "crates/hl7v2-gen",
     "crates/hl7v2-ack",
+    # Public wrapper and binding crates
+    "crates/hl7v2-python",
     "crates/hl7v2-cli",
     "crates/hl7v2-server",
+    # Internal test crates
     "crates/hl7v2-e2e-tests",
     # Testing utilities
     "crates/hl7v2-test-utils",
@@ -209,9 +211,6 @@ tonic = "0.12.3"
 prost = "0.13.5"
 tonic-build = "0.12.3"
 protoc-bin-vendored = "3"
-hl7v2-core = { version = "1.2.0", path = "crates/hl7v2-core" }
-hl7v2-model = { version = "1.2.0", path = "crates/hl7v2-model" }
-hl7v2-test-utils = { version = "1.2.0", path = "crates/hl7v2-test-utils" }
 
 # Example dependencies (workspace examples)
 [package]

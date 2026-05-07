@@ -1,6 +1,10 @@
 # hl7v2-datatype
 
-HL7 v2 primitive and composite data type definitions.
+Deprecated compatibility crate for HL7 v2 datatype validation.
+Use `hl7v2::conformance::datatype` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

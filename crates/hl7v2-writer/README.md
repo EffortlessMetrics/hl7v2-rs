@@ -1,6 +1,10 @@
 # hl7v2-writer
 
-HL7 v2 message serializer and writer.
+Deprecated compatibility crate for HL7 v2 message writing.
+Use `hl7v2::writer` or the top-level `hl7v2::write` helpers for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

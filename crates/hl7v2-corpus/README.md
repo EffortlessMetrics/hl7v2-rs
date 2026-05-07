@@ -1,6 +1,10 @@
 # hl7v2-corpus
 
-Management and storage of HL7 v2 message collections.
+Deprecated compatibility crate for synthetic HL7 v2 corpus helpers.
+Use `hl7v2::synthetic::corpus` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

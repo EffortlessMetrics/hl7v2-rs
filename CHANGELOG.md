@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Documentation
+
+- Clarified the post-collapse public package surface: `hl7v2`, `hl7v2-python`,
+  `hl7v2-server`, and `hl7v2-cli`.
+- Marked old implementation crate READMEs as private deprecated compatibility
+  shims and pointed new Rust users to `hl7v2` module paths.
+- Added the 2026-05-07 workspace-patched publish dry-run receipt for the final
+  four-crate package graph.
+
+---
+
 ## [1.3.0] - 2026-05-03
 
 ### Added

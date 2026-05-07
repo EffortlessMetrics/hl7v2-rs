@@ -1,6 +1,10 @@
 # hl7v2-parser
 
-Fast and robust HL7 v2 message parser.
+Deprecated compatibility crate for HL7 v2 message parsing.
+Use `hl7v2::parser` or the top-level `hl7v2::parse` helpers for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 

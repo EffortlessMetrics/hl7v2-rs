@@ -9,13 +9,13 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.2.0 (Stable / Rust 2024). For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.2.0 (Rust 2024). Current `main` is tested and package-verified, but the crates.io publish sequence has not been executed. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
 | Layer | Status | Evidence |
 | --- | --- | --- |
-| **Parser / Core** | Stable | Main CI, workspace tests, and contract checks green on `6de37e0` |
+| **Parser / Core** | Stable | Main CI, workspace tests, and contract checks green after the `hl7v2` facade and foundation-module collapse |
 | **Writer / Normalize** | Stable | Writer tests plus HTTP/gRPC normalization contract coverage |
 | **MLLP / Network** | Stable | MLLP parse/framing tests and CI matrix coverage |
 | **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, ACK, and normalize routes |
@@ -24,7 +24,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Not included in the local Python 3.14/PyO3 validation proof |
-| **Publish Readiness** | Package-verified | Direct registry-state dry-run is proven through `hl7v2-core`; workspace-patched dry-run verifies crates 17-30 |
+| **Publish Readiness** | Package-verified | Workspace-patched dry-run verifies the final public package graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli` |
 
 ## Features
 
@@ -37,40 +37,23 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 
 ## Crates
 
-The project is organized into focused microcrates following the Single Responsibility Principle:
+The public Rust package surface is intentionally small:
 
-### Foundation Layer
-- `hl7v2-model`: Core data types and message structure
-- `hl7v2-escape`: HL7 escape sequence handling
-- `hl7v2-mllp`: MLLP frame parsing and generation
-- `hl7v2-path`: Field path parsing and access
-- `hl7v2-datetime`: Date/time handling for HL7
+| Crate | Role |
+| --- | --- |
+| `hl7v2` | Canonical Rust library crate. Normal Rust users should depend on this crate. |
+| `hl7v2-server` | HTTP/gRPC runtime service with Axum, Tonic, metrics, auth, and deployment behavior. |
+| `hl7v2-cli` | Command-line binary distribution. |
+| `hl7v2-python` | PyO3/Python binding package. |
 
-### Parsing Layer
-- `hl7v2-parser`: Message parsing
-- `hl7v2-writer`: Message serialization
-- `hl7v2-stream`: Event-based streaming parser
-- `hl7v2-batch`: Batch file handling (BHS/BTS)
-- `hl7v2-datatype`: Data type validation
+Implementation boundaries live as modules under `hl7v2`, including
+`hl7v2::model`, `hl7v2::parser`, `hl7v2::writer`, `hl7v2::query`,
+`hl7v2::transport`, `hl7v2::conformance`, `hl7v2::synthetic`,
+`hl7v2::lifecycle`, and `hl7v2::experimental`.
 
-### Network Layer
-- `hl7v2-network`: MLLP client/server/codec for TCP connections
-
-### Validation Layer
-- `hl7v2-prof`: Profile loading and management
-- `hl7v2-validation`: Validation logic and types
-
-### Generation Layer
-- `hl7v2-gen`: Template-based message generation
-- `hl7v2-ack`: ACK message generation
-- `hl7v2-faker`: Realistic test data generation
-
-### Application Layer
-- `hl7v2-cli`: Command-line interface
-- `hl7v2-server`: HTTP/REST API server
-
-### Facade
-- `hl7v2-core`: Convenience crate that re-exports common functionality
+Old implementation microcrate names are retained only as private deprecated
+compatibility shims unless a future compatibility release deliberately changes
+that policy. They are not the product surface for new code.
 
 ## Installation
 
@@ -184,7 +167,7 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 
 ## Key Features
 
-### Core Parsing (hl7v2-core)
+### Core Parsing (`hl7v2`)
 
 - **Fast, safe parsing**: Written in Rust with zero unsafe code in public APIs
 - **Event-based streaming parser**: Process HL7 messages as a sequence of events
@@ -194,7 +177,7 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 - **JSON serialization**: Convert messages to canonical JSON format
 - **Field path access**: Query message fields with path notation (e.g., "PID.5[1].1")
 
-### Profile Validation (hl7v2-prof)
+### Profile Validation (`hl7v2::conformance`)
 
 - **Profile inheritance**: Load and compose profiles with parent resolution and merging
 - **Comprehensive validation rules**:
@@ -208,7 +191,7 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 - **Local profile loading**: Load YAML-based profiles from files
 - **Flexible rule composition**: Merge profiles with child precedence
 
-### Synthetic Message Generation (hl7v2-gen)
+### Synthetic Message Generation (`hl7v2::synthetic`)
 
 - **Template-based generation**: Define message templates with variable value sources
 - **Realistic data generators**: Names (gender-aware), addresses, phone numbers, SSNs, MRNs, ICD-10, LOINC codes
@@ -217,14 +200,14 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 - **Error injection**: Generate invalid messages with segmentation/format errors for testing
 - **Corpus tools**: Generate collections with golden hash verification for test data reproducibility
 
-### CLI Interface (hl7v2-cli)
+### CLI Interface (`hl7v2-cli`)
 
 - **Unified command interface**: parse, normalize, validate, acknowledge, generate
 - **Input/output formats**: Raw HL7, JSON, MLLP framing
 - **Interactive mode**: Command-line REPL for exploratory use
 - **File I/O**: Read from files or stdin, write to files or stdout
 
-### HTTP/REST API Server (hl7v2-server)
+### HTTP/REST API Server (`hl7v2-server`)
 
 - **RESTful API**: Parse, validate, acknowledge, and normalize HL7 messages over HTTP
 - **Health & Readiness**: Production-ready health checks
@@ -240,55 +223,27 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment guide.
 
 ## Architecture
 
-The project uses a modular crate-based architecture organized into layers:
+The project uses one canonical Rust library crate with SRP modules inside it,
+plus separate runtime and binding wrappers:
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    Application Layer                          │
-│  ┌─────────────────┐  ┌─────────────────┐                   │
-│  │   hl7v2-cli     │  │  hl7v2-server   │                   │
-│  └─────────────────┘  └─────────────────┘                   │
-├──────────────────────────────────────────────────────────────┤
-│                    Generation Layer                           │
-│  ┌───────────┐ ┌────────────┐ ┌──────────────┐              │
-│  │ hl7v2-gen │ │ hl7v2-ack  │ │ hl7v2-faker  │              │
-│  └───────────┘ └────────────┘ └──────────────┘              │
-├──────────────────────────────────────────────────────────────┤
-│                   Validation Layer                            │
-│  ┌────────────┐ ┌─────────────────┐                         │
-│  │ hl7v2-prof │ │ hl7v2-validation│                         │
-│  └────────────┘ └─────────────────┘                         │
-├──────────────────────────────────────────────────────────────┤
-│                    Network Layer                              │
-│  ┌────────────────┐                                          │
-│  │ hl7v2-network  │  MLLP client/server/codec                │
-│  └────────────────┘                                          │
-├──────────────────────────────────────────────────────────────┤
-│                    Parsing Layer                              │
-│  ┌──────────────┐ ┌──────────────┐ ┌─────────────┐          │
-│  │ hl7v2-parser │ │ hl7v2-writer │ │ hl7v2-stream│          │
-│  └──────────────┘ └──────────────┘ └─────────────┘          │
-│  ┌──────────────┐ ┌───────────────┐                         │
-│  │ hl7v2-batch  │ │ hl7v2-datatype│                         │
-│  └──────────────┘ └───────────────┘                         │
-├──────────────────────────────────────────────────────────────┤
-│                   Foundation Layer                            │
-│  ┌────────────┐ ┌──────────────┐ ┌───────────┐ ┌──────────┐ │
-│  │hl7v2-model │ │ hl7v2-escape │ │hl7v2-mllp │ │hl7v2-path│ │
-│  └────────────┘ └──────────────┘ └───────────┘ └──────────┘ │
-│  ┌──────────────┐                                            │
-│  │ hl7v2-datetime│                                            │
-│  └──────────────┘                                            │
-├──────────────────────────────────────────────────────────────┤
-│                       Facade                                  │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │                    hl7v2-core                          │  │
-│  │        Re-exports common functionality for convenience │  │
-│  └────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
+```text
+hl7v2
+  model, parser, writer, query, transport, conformance, synthetic,
+  batch, stream, ack, normalize, redact, lifecycle, experimental
+
+hl7v2-server
+  HTTP/gRPC service, metrics, auth, CORS, deployment/runtime config
+
+hl7v2-cli
+  command-line binary
+
+hl7v2-python
+  PyO3 binding package
 ```
 
-Each crate is independently usable as a library, enabling integration into other Rust projects. Use specific microcrates for minimal dependency footprints, or use `hl7v2-core` as a convenience facade.
+The deprecated compatibility crates re-export `hl7v2` modules and should not
+gain new behavior. See [ADR-015](docs/adr/0015-collapse-public-crate-surface.md)
+and [the module map](docs/architecture/module-map.md) for the migration policy.
 
 ## Performance Characteristics
 
@@ -305,12 +260,12 @@ For exact benchmark numbers and hardware, see [docs/STATUS.md](docs/STATUS.md).
 The parser uses a "zero-allocation where possible" approach rather than true zero-copy:
 
 - **Small messages**: Parsed in-place with minimal allocations
-- **Large messages**: Use the streaming parser ([`hl7v2-stream`](crates/hl7v2-stream)) for bounded memory usage
+- **Large messages**: Use `hl7v2::stream` for bounded memory usage
 - **Trade-off**: Safety and ergonomics are prioritized over raw performance
 
 ### Why not true zero-copy?
 
-The standard parser (`hl7v2-parser`) uses `Vec<u8>` internally for owned data, which provides:
+The standard parser (`hl7v2::parser`) uses `Vec<u8>` internally for owned data, which provides:
 - Safe lifetime management without complex borrow checker patterns
 - Ergonomic API that doesn't require managing input lifetimes
 - Ability to modify and re-serialize messages
@@ -318,13 +273,14 @@ The standard parser (`hl7v2-parser`) uses `Vec<u8>` internally for owned data, w
 For production use with large HL7 messages or memory-constrained environments, use the streaming parser with configured memory bounds:
 
 ```rust
-use hl7v2_stream::{StreamParser, ParserConfig};
+use std::io::{BufReader, Cursor};
+use hl7v2::stream::StreamParserBuilder;
 
-let config = ParserConfig {
-    max_message_size: 1024 * 1024,  // 1 MB limit
-    ..Default::default()
-};
-let parser = StreamParser::with_config(config);
+let hl7_bytes = b"MSH|^~\\&|App||Fac||20250128||ADT^A01|123|P|2.5.1\r";
+let reader = BufReader::new(Cursor::new(hl7_bytes));
+let parser = StreamParserBuilder::new()
+    .max_message_size(1024 * 1024)
+    .build(reader);
 ```
 
 ## HL7 Standards Compliance

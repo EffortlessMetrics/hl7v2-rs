@@ -1,6 +1,10 @@
 # hl7v2-template-values
 
-Value generators and providers for HL7 v2 templates.
+Deprecated compatibility crate for HL7 v2 synthetic template values.
+Use `hl7v2::synthetic::values` for new Rust code.
+
+This crate is private (`publish = false`) and re-exports the canonical
+`hl7v2` API. It should not gain new behavior.
 
 ## Usage
 
