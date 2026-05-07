@@ -1,6 +1,7 @@
 name: API Contracts
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'api/**'
