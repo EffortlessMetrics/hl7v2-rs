@@ -1,6 +1,7 @@
 # hl7v2-stream
 
-Streaming parser and processor for large HL7 v2 message streams.
+Deprecated compatibility crate for large HL7 v2 message streams.
+Use `hl7v2::stream` for new Rust code.
 
 ## Usage
 
