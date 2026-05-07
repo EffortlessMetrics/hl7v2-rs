@@ -96,6 +96,29 @@ enum Commands {
     CheckLintPolicy,
     /// Print the governed lint policy rollout and debt summary
     PolicyReport,
+    /// Verify the panic-family allowlist against current source findings
+    CheckNoPanicFamily {
+        /// Treat staged crates as report-only (default).
+        #[arg(long)]
+        include_staged: bool,
+    },
+    /// Generate proposed no-panic allowlist entries from current findings
+    NoPanic {
+        #[command(subcommand)]
+        action: NoPanicAction,
+    },
+    /// Verify the non-Rust file allowlist against tracked files
+    CheckFilePolicy,
+}
+
+#[derive(Subcommand)]
+enum NoPanicAction {
+    /// Emit proposed allowlist entries for current findings
+    Propose {
+        /// Include staged (non-required) crates as well
+        #[arg(long)]
+        include_staged: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -129,6 +152,13 @@ fn main() -> Result<()> {
         Commands::HookPrePush => hook_pre_push()?,
         Commands::CheckLintPolicy => check_lint_policy()?,
         Commands::PolicyReport => policy_report()?,
+        Commands::CheckNoPanicFamily { include_staged } => {
+            check_no_panic_family(include_staged)?;
+        }
+        Commands::NoPanic { action } => match action {
+            NoPanicAction::Propose { include_staged } => no_panic_propose(include_staged)?,
+        },
+        Commands::CheckFilePolicy => check_file_policy()?,
     }
 
     Ok(())
@@ -160,6 +190,10 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
     if !changed_only {
         println!("Checking lint policy...");
         check_lint_policy()?;
+        println!("Checking no-panic-family policy...");
+        check_no_panic_family(false)?;
+        println!("Checking non-Rust file policy...");
+        check_file_policy()?;
     }
 
     if run_fmt {
@@ -926,6 +960,17 @@ fn policy_report() -> Result<()> {
         )?;
     let debt_count = table_array_entries(&debt_text, "[[debt]]").len();
 
+    let no_panic_text = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
+    let no_panic_entries = parse_no_panic_allowlist(&no_panic_text)?;
+    let file_policy_text = fs::read_to_string(root.join("policy/non-rust-allowlist.toml"))?;
+    let file_policy_entries = parse_file_policy_allowlist(&file_policy_text)?;
+
+    let metadata = MetadataCommand::new().current_dir(&root).exec()?;
+    let strict_units = collect_rust_files_for(&root, &metadata, &required_packages)?;
+    let advisory_units = collect_rust_files_for(&root, &metadata, &staged_packages)?;
+    let strict_findings = scan_panic_family(&root, &strict_units)?;
+    let advisory_findings = scan_panic_family(&root, &advisory_units)?;
+
     println!("Lint policy report");
     println!("  Workspace MSRV: {workspace_msrv}");
     println!("  Policy MSRV: {policy_msrv}");
@@ -937,6 +982,23 @@ fn policy_report() -> Result<()> {
     );
     println!("  Staged packages: {}", staged_packages.join(", "));
     println!("  Debt receipts: {debt_count}");
+    println!();
+    println!("No-panic policy");
+    println!("  Allowlist entries: {}", no_panic_entries.len());
+    println!(
+        "  Strict findings (required-inheriting crates): {}",
+        strict_findings.len()
+    );
+    println!(
+        "  Advisory findings (staged crates):           {}",
+        advisory_findings.len()
+    );
+    println!();
+    println!("File policy");
+    println!(
+        "  Non-Rust allowlist entries: {}",
+        file_policy_entries.len()
+    );
     Ok(())
 }
 
@@ -1356,6 +1418,1360 @@ fn get_changed_scope() -> Result<ChangedScope> {
     Ok(ChangedScope::Crates(changed_crates.into_iter().collect()))
 }
 
+// ---------------------------------------------------------------------------
+// Semantic no-panic checker
+// ---------------------------------------------------------------------------
+//
+// Scans Rust source under crates that inherit the workspace clippy panic
+// baseline (plus xtask) and matches findings against
+// `policy/no-panic-allowlist.toml`. Identity is `path + family + selector`
+// (kind + callee, plus optional container). `last_seen.{line,column}` is
+// advisory.
+//
+// The scanner is intentionally lexical and skips:
+//   * line comments (`//`, `///`, `//!`)
+//   * block comments (`/* ... */`, with simple state)
+//   * string and byte-string literals
+//   * raw string literals (`r"..."`, `r#"..."#`)
+//   * findings inside files that have a file-level `#![expect(...)]`
+//     covering the relevant clippy lint — those are governed by Clippy and
+//     `policy/clippy-debt.toml`.
+//
+// Doc comments and `cfg(test)` attributes are not given special treatment.
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum PanicFamily {
+    Unwrap,
+    Expect,
+    GetUnwrap,
+    PanicMacro,
+    Todo,
+    Unimplemented,
+    Unreachable,
+}
+
+impl PanicFamily {
+    fn as_str(self) -> &'static str {
+        match self {
+            PanicFamily::Unwrap => "unwrap",
+            PanicFamily::Expect => "expect",
+            PanicFamily::GetUnwrap => "get_unwrap",
+            PanicFamily::PanicMacro => "panic_macro",
+            PanicFamily::Todo => "todo",
+            PanicFamily::Unimplemented => "unimplemented",
+            PanicFamily::Unreachable => "unreachable",
+        }
+    }
+
+    fn callee(self) -> &'static str {
+        match self {
+            PanicFamily::Unwrap => "unwrap",
+            PanicFamily::Expect => "expect",
+            PanicFamily::GetUnwrap => "get_unwrap",
+            PanicFamily::PanicMacro => "panic",
+            PanicFamily::Todo => "todo",
+            PanicFamily::Unimplemented => "unimplemented",
+            PanicFamily::Unreachable => "unreachable",
+        }
+    }
+
+    fn selector_kind(self) -> &'static str {
+        match self {
+            PanicFamily::Unwrap | PanicFamily::Expect | PanicFamily::GetUnwrap => "method_call",
+            PanicFamily::PanicMacro
+            | PanicFamily::Todo
+            | PanicFamily::Unimplemented
+            | PanicFamily::Unreachable => "macro",
+        }
+    }
+
+    /// Clippy lint name (without the `clippy::` prefix) that, when wholesale
+    /// suppressed at file or module level, masks findings of this family.
+    fn clippy_lint(self) -> &'static str {
+        match self {
+            PanicFamily::Unwrap => "unwrap_used",
+            PanicFamily::Expect => "expect_used",
+            PanicFamily::GetUnwrap => "get_unwrap",
+            PanicFamily::PanicMacro => "panic",
+            PanicFamily::Todo => "todo",
+            PanicFamily::Unimplemented => "unimplemented",
+            PanicFamily::Unreachable => "unreachable",
+        }
+    }
+
+    fn all() -> &'static [PanicFamily] {
+        &[
+            PanicFamily::Unwrap,
+            PanicFamily::Expect,
+            PanicFamily::GetUnwrap,
+            PanicFamily::PanicMacro,
+            PanicFamily::Todo,
+            PanicFamily::Unimplemented,
+            PanicFamily::Unreachable,
+        ]
+    }
+
+    fn from_str(s: &str) -> Option<PanicFamily> {
+        match s {
+            "unwrap" => Some(PanicFamily::Unwrap),
+            "expect" => Some(PanicFamily::Expect),
+            "get_unwrap" => Some(PanicFamily::GetUnwrap),
+            "panic_macro" => Some(PanicFamily::PanicMacro),
+            "todo" => Some(PanicFamily::Todo),
+            "unimplemented" => Some(PanicFamily::Unimplemented),
+            "unreachable" => Some(PanicFamily::Unreachable),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct PanicFinding {
+    path: String,
+    family: PanicFamily,
+    container: Option<String>,
+    line: usize,
+    column: usize,
+}
+
+#[derive(Clone, Debug)]
+#[expect(
+    dead_code,
+    reason = "owner/classification/explanation are validated at parse time and surfaced in error messages; future report subcommands will read them"
+)]
+struct NoPanicAllowEntry {
+    id: String,
+    path: String,
+    family: String,
+    classification: String,
+    owner: String,
+    explanation: String,
+    expires: String,
+    selector_kind: String,
+    selector_callee: String,
+    selector_container: Option<String>,
+}
+
+const NO_PANIC_CLASSIFICATIONS: &[&str] = &[
+    "production",
+    "test_helper",
+    "generated",
+    "fixture",
+    "external_api",
+];
+
+const NO_PANIC_SELECTOR_KINDS: &[&str] = &["method_call", "macro", "indexing"];
+
+fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
+    println!("🔎 Checking no-panic-family policy...");
+    let root = env::current_dir()?;
+    let policy_text = fs::read_to_string(root.join("policy/clippy-lints.toml"))?;
+    let allowlist_text = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
+
+    let entries = parse_no_panic_allowlist(&allowlist_text)?;
+    enforce_no_panic_expirations(&entries)?;
+
+    let required = string_array_after(&policy_text, "[rollout]", "required_inheriting_packages")
+        .ok_or_else(|| {
+            anyhow!("policy/clippy-lints.toml is missing rollout.required_inheriting_packages")
+        })?;
+    let staged = string_array_after(&policy_text, "[rollout]", "staged_inheriting_packages")
+        .ok_or_else(|| {
+            anyhow!("policy/clippy-lints.toml is missing rollout.staged_inheriting_packages")
+        })?;
+
+    let metadata = MetadataCommand::new().current_dir(&root).exec()?;
+    let strict_files = collect_rust_files_for(&root, &metadata, &required)?;
+    let advisory_files = if include_staged_in_strict {
+        Vec::new()
+    } else {
+        collect_rust_files_for(&root, &metadata, &staged)?
+    };
+
+    let strict_findings = scan_panic_family(&root, &strict_files)?;
+    let advisory_findings = scan_panic_family(&root, &advisory_files)?;
+
+    let unmatched = match_findings_against_allowlist(&strict_findings, &entries);
+    if !unmatched.is_empty() {
+        for f in unmatched.iter().take(20) {
+            eprintln!(
+                "no-panic: {}:{}:{}: unallowlisted {} ({} {})",
+                f.path,
+                f.line,
+                f.column,
+                f.family.as_str(),
+                f.family.selector_kind(),
+                f.family.callee(),
+            );
+        }
+        if unmatched.len() > 20 {
+            eprintln!(
+                "no-panic: ... and {} more findings",
+                unmatched.len().saturating_sub(20)
+            );
+        }
+        return Err(anyhow!(
+            "{} unallowlisted panic-family finding(s) in inheriting crates; \
+             receipt them via policy/no-panic-allowlist.toml or remove the call",
+            unmatched.len()
+        ));
+    }
+
+    let stale = stale_no_panic_entries(&entries, &strict_findings);
+    if !stale.is_empty() {
+        for entry in &stale {
+            eprintln!(
+                "no-panic: stale entry id={} path={} family={} (no matching finding)",
+                entry.id, entry.path, entry.family
+            );
+        }
+        return Err(anyhow!(
+            "{} stale no-panic-allowlist entr(ies); remove or update them",
+            stale.len()
+        ));
+    }
+
+    println!(
+        "✅ no-panic policy: {} required-inheriting source file(s) scanned, \
+         {} allowlist entr(ies), {} advisory finding(s) in staged crates",
+        total_files(&strict_files),
+        entries.len(),
+        advisory_findings.len(),
+    );
+    Ok(())
+}
+
+fn no_panic_propose(include_staged: bool) -> Result<()> {
+    let root = env::current_dir()?;
+    let policy_text = fs::read_to_string(root.join("policy/clippy-lints.toml"))?;
+    let metadata = MetadataCommand::new().current_dir(&root).exec()?;
+
+    let mut packages =
+        string_array_after(&policy_text, "[rollout]", "required_inheriting_packages")
+            .ok_or_else(|| anyhow!("policy is missing required_inheriting_packages"))?;
+    if include_staged {
+        let staged = string_array_after(&policy_text, "[rollout]", "staged_inheriting_packages")
+            .ok_or_else(|| anyhow!("policy is missing staged_inheriting_packages"))?;
+        packages.extend(staged);
+    }
+
+    let files = collect_rust_files_for(&root, &metadata, &packages)?;
+    let findings = scan_panic_family(&root, &files)?;
+
+    // Dedup by allowlist identity (path + family + selector). `last_seen` is
+    // advisory so multiple findings with the same selector identity collapse
+    // into one proposed entry.
+    let mut seen: BTreeSet<(String, String, String, String, Option<String>)> = BTreeSet::new();
+    let mut deduped: Vec<&PanicFinding> = Vec::new();
+    for finding in &findings {
+        let key = (
+            finding.path.clone(),
+            finding.family.as_str().to_string(),
+            finding.family.selector_kind().to_string(),
+            finding.family.callee().to_string(),
+            finding.container.clone(),
+        );
+        if seen.insert(key) {
+            deduped.push(finding);
+        }
+    }
+
+    let report_dir = root.join("target/policy");
+    fs::create_dir_all(&report_dir)?;
+    let report_path = report_dir.join("no-panic-proposed-allowlist.toml");
+
+    let mut out = String::new();
+    out.push_str("schema_version = \"0.3\"\n\n");
+    out.push_str("# Proposed allowlist entries generated by `xtask no-panic propose`.\n");
+    out.push_str("# Review each entry, set owner/classification/explanation/expires, then\n");
+    out.push_str("# copy into policy/no-panic-allowlist.toml.\n\n");
+
+    for (index, finding) in deduped.iter().enumerate() {
+        let proposal_index = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("proposal index overflow"))?;
+        out.push_str("[[allow]]\n");
+        out.push_str(&format!("id = \"panic-proposal-{proposal_index:04}\"\n"));
+        out.push_str(&format!(
+            "path = \"{}\"\n",
+            escape_toml_basic_string(&finding.path),
+        ));
+        out.push_str(&format!("family = \"{}\"\n", finding.family.as_str()));
+        out.push_str("classification = \"FILL_ME_IN\"\n");
+        out.push_str("owner = \"FILL_ME_IN\"\n");
+        out.push_str("explanation = \"FILL_ME_IN\"\n");
+        out.push_str("expires = \"FILL_ME_IN\"\n");
+        out.push_str("\n[allow.selector]\n");
+        out.push_str(&format!("kind = \"{}\"\n", finding.family.selector_kind(),));
+        out.push_str(&format!("callee = \"{}\"\n", finding.family.callee(),));
+        if let Some(container) = &finding.container {
+            out.push_str(&format!(
+                "container = \"{}\"\n",
+                escape_toml_basic_string(container),
+            ));
+        }
+        out.push_str("\n[allow.last_seen]\n");
+        out.push_str(&format!("line = {}\n", finding.line));
+        out.push_str(&format!("column = {}\n\n", finding.column));
+    }
+
+    fs::write(&report_path, out)?;
+    println!(
+        "wrote {} proposed entr(ies) ({} raw findings deduped to {}) to {}",
+        deduped.len(),
+        findings.len(),
+        deduped.len(),
+        report_path.display()
+    );
+    Ok(())
+}
+
+/// A scanning unit: one crate, with the set of files to scan and the union of
+/// crate-root clippy suppressions that apply to all of those files.
+struct ScanUnit {
+    files: Vec<PathBuf>,
+    root_suppressions: HashSet<String>,
+}
+
+fn collect_rust_files_for(
+    root: &Path,
+    metadata: &Metadata,
+    package_names: &[String],
+) -> Result<Vec<ScanUnit>> {
+    let mut units = Vec::new();
+    let workspace_members: HashSet<_> = metadata.workspace_members.iter().cloned().collect();
+    let by_name: HashMap<&str, &Package> = metadata
+        .packages
+        .iter()
+        .filter(|pkg| workspace_members.contains(&pkg.id))
+        .map(|pkg| (pkg.name.as_str(), pkg))
+        .collect();
+
+    for name in package_names {
+        let Some(pkg) = by_name.get(name.as_str()) else {
+            continue;
+        };
+        let manifest = PathBuf::from(pkg.manifest_path.as_str());
+        let crate_root = manifest
+            .parent()
+            .ok_or_else(|| anyhow!("crate {name} manifest has no parent directory"))?
+            .to_path_buf();
+
+        let mut files = Vec::new();
+        for sub in ["src", "tests", "benches", "examples"] {
+            let dir = crate_root.join(sub);
+            if dir.exists() {
+                walk_rust_sources(&dir, &mut files)?;
+            }
+        }
+        let build_script = crate_root.join("build.rs");
+        if build_script.exists() {
+            files.push(build_script);
+        }
+        files.sort();
+        files.dedup();
+
+        // Union of crate-root suppressions: any `#![...]` in src/main.rs,
+        // src/lib.rs, or src/bin/*.rs cascades to every module of the crate.
+        let mut root_suppressions = HashSet::new();
+        for candidate in [
+            crate_root.join("src/main.rs"),
+            crate_root.join("src/lib.rs"),
+        ] {
+            if candidate.exists()
+                && let Ok(text) = fs::read_to_string(&candidate)
+            {
+                root_suppressions.extend(file_level_clippy_suppressions(&text));
+            }
+        }
+        let bin_dir = crate_root.join("src/bin");
+        if bin_dir.exists() {
+            for entry in fs::read_dir(&bin_dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("rs")
+                    && let Ok(text) = fs::read_to_string(&path)
+                {
+                    root_suppressions.extend(file_level_clippy_suppressions(&text));
+                }
+            }
+        }
+
+        units.push(ScanUnit {
+            files,
+            root_suppressions,
+        });
+    }
+
+    let _ = root;
+    Ok(units)
+}
+
+fn walk_rust_sources(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            walk_rust_sources(&path, out)?;
+        } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn scan_panic_family(root: &Path, units: &[ScanUnit]) -> Result<Vec<PanicFinding>> {
+    let mut findings = Vec::new();
+    for unit in units {
+        for path in &unit.files {
+            let text = fs::read_to_string(path)?;
+            let mut suppressed = file_level_clippy_suppressions(&text);
+            suppressed.extend(unit.root_suppressions.iter().cloned());
+            let rel = path
+                .strip_prefix(root)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            scan_panic_in_file(&rel, &text, &suppressed, &mut findings);
+        }
+    }
+    findings.sort_by(|a, b| {
+        a.path
+            .cmp(&b.path)
+            .then(a.line.cmp(&b.line))
+            .then(a.column.cmp(&b.column))
+    });
+    Ok(findings)
+}
+
+fn total_files(units: &[ScanUnit]) -> usize {
+    units.iter().map(|u| u.files.len()).sum()
+}
+
+/// Returns the set of clippy lint names that are suppressed somewhere in
+/// this file via any of:
+/// `#[allow(clippy::X)]`, `#![allow(clippy::X)]`,
+/// `#[expect(clippy::X, ...)]`, `#![expect(clippy::X, ...)]`,
+/// `#[cfg_attr(<cond>, expect(clippy::X, ...))]`, etc.
+///
+/// This is intentionally a file-wide approximation: if any item in the file
+/// suppresses a panic-family lint with a Clippy attribute, that file's
+/// findings for that family are considered governed by Rail A (Clippy +
+/// `policy/clippy-debt.toml`). The semantic checker stays in lockstep with
+/// Clippy and does not double-flag receipts that already exist there.
+#[expect(
+    clippy::indexing_slicing,
+    reason = "Manual byte-level walk over a stripped buffer where indices are explicitly bounds-checked against bytes.len()."
+)]
+fn file_level_clippy_suppressions(text: &str) -> HashSet<String> {
+    let mut suppressed = HashSet::new();
+    let stripped = strip_strings_and_comments(text);
+    let bytes = stripped.as_bytes();
+
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] != b'#' {
+            i = i.saturating_add(1);
+            continue;
+        }
+        let after_hash = i.saturating_add(1);
+        let after_bang = if bytes.get(after_hash) == Some(&b'!') {
+            after_hash.saturating_add(1)
+        } else {
+            after_hash
+        };
+        if bytes.get(after_bang) != Some(&b'[') {
+            i = i.saturating_add(1);
+            continue;
+        }
+        // Found an attribute: walk forward to its matching ']'.
+        let mut j = after_bang;
+        let mut depth = 0i32;
+        while j < bytes.len() {
+            match bytes[j] {
+                b'[' => depth = depth.saturating_add(1),
+                b']' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        j = j.saturating_add(1);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+            j = j.saturating_add(1);
+        }
+        let span = stripped.get(after_bang..j).unwrap_or("");
+        // Only treat this as a suppression scope if the attribute is one of
+        // allow/expect/cfg_attr; otherwise (e.g. `#[derive(...)]`) skip.
+        let span_trim = span.trim_start_matches('[');
+        let is_relevant = span_trim.trim_start().starts_with("allow")
+            || span_trim.trim_start().starts_with("expect")
+            || span_trim.trim_start().starts_with("cfg_attr");
+        if is_relevant {
+            for token in span.split([',', ' ', '(', ')', '[', ']', '!', '#']) {
+                let t = token.trim();
+                if let Some(rest) = t.strip_prefix("clippy::") {
+                    let name = rest.trim_end_matches(',').trim();
+                    if !name.is_empty() {
+                        suppressed.insert(name.to_string());
+                    }
+                }
+            }
+        }
+        i = j.max(i.saturating_add(1));
+    }
+    suppressed
+}
+
+#[expect(
+    clippy::string_slice,
+    reason = "`line` is a single ASCII line from the stripped buffer; indices come from substring matches and saturating_add."
+)]
+fn scan_panic_in_file(
+    rel_path: &str,
+    text: &str,
+    suppressed: &HashSet<String>,
+    out: &mut Vec<PanicFinding>,
+) {
+    let stripped = strip_strings_and_comments(text);
+    let mut current_fn: Option<(String, usize)> = None;
+
+    for (line_idx, line) in stripped.lines().enumerate() {
+        let line_no = line_idx.saturating_add(1);
+
+        if let Some(name) = extract_fn_name(line) {
+            current_fn = Some((name, line_no));
+        }
+
+        for family in PanicFamily::all() {
+            if suppressed.contains(family.clippy_lint()) {
+                continue;
+            }
+            let mut start = 0usize;
+            while let Some(rel) = find_family_match(&line[start..], *family) {
+                let abs = start.saturating_add(rel);
+                let column = abs.saturating_add(1);
+                out.push(PanicFinding {
+                    path: rel_path.to_string(),
+                    family: *family,
+                    container: current_fn.as_ref().map(|(n, _)| n.clone()),
+                    line: line_no,
+                    column,
+                });
+                start = abs.saturating_add(1);
+            }
+        }
+    }
+}
+
+fn extract_fn_name(line: &str) -> Option<String> {
+    let trimmed = line.trim_start();
+    let rest = trimmed
+        .strip_prefix("pub fn ")
+        .or_else(|| trimmed.strip_prefix("fn "))
+        .or_else(|| trimmed.strip_prefix("async fn "))
+        .or_else(|| trimmed.strip_prefix("pub async fn "))
+        .or_else(|| trimmed.strip_prefix("const fn "))
+        .or_else(|| trimmed.strip_prefix("pub const fn "))
+        .or_else(|| trimmed.strip_prefix("unsafe fn "))
+        .or_else(|| trimmed.strip_prefix("pub unsafe fn "))?;
+    let mut name = String::new();
+    for ch in rest.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            name.push(ch);
+        } else {
+            break;
+        }
+    }
+    if name.is_empty() { None } else { Some(name) }
+}
+
+fn find_family_match(haystack: &str, family: PanicFamily) -> Option<usize> {
+    match family {
+        PanicFamily::Unwrap => find_method_call(haystack, "unwrap"),
+        PanicFamily::Expect => find_method_call(haystack, "expect"),
+        PanicFamily::GetUnwrap => find_method_call(haystack, "get_unwrap"),
+        PanicFamily::PanicMacro => find_macro_invocation(haystack, "panic"),
+        PanicFamily::Todo => find_macro_invocation(haystack, "todo"),
+        PanicFamily::Unimplemented => find_macro_invocation(haystack, "unimplemented"),
+        PanicFamily::Unreachable => find_macro_invocation(haystack, "unreachable"),
+    }
+}
+
+#[expect(
+    clippy::string_slice,
+    reason = "`haystack[search_from..]` slices on a byte offset returned by `str::find`, which is guaranteed to be a UTF-8 boundary."
+)]
+fn find_method_call(haystack: &str, name: &str) -> Option<usize> {
+    let needle_dot = format!(".{name}(");
+    let needle_turbofish = format!(".{name}::");
+    let mut search_from = 0usize;
+    loop {
+        let dot_hit = haystack[search_from..]
+            .find(&needle_dot)
+            .and_then(|i| i.checked_add(search_from).map(|x| (x, needle_dot.len())));
+        let turbofish_hit = haystack[search_from..]
+            .find(&needle_turbofish)
+            .and_then(|i| {
+                i.checked_add(search_from)
+                    .map(|x| (x, needle_turbofish.len()))
+            });
+        let next = match (dot_hit, turbofish_hit) {
+            (Some(a), Some(b)) => Some(if a.0 <= b.0 { a } else { b }),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
+        let (idx, span) = next?;
+        if !is_method_boundary(haystack, idx) {
+            search_from = idx.saturating_add(span);
+            continue;
+        }
+        return Some(idx);
+    }
+}
+
+fn is_method_boundary(haystack: &str, idx: usize) -> bool {
+    if idx == 0 {
+        return false;
+    }
+    let prev = haystack
+        .as_bytes()
+        .get(idx.saturating_sub(1))
+        .copied()
+        .unwrap_or(0);
+    !matches!(prev, b'.')
+}
+
+#[expect(
+    clippy::string_slice,
+    reason = "`haystack[search_from..]` slices on a byte offset returned by `str::find`, which is guaranteed to be a UTF-8 boundary."
+)]
+fn find_macro_invocation(haystack: &str, name: &str) -> Option<usize> {
+    let needle = format!("{name}!");
+    let mut search_from = 0usize;
+    loop {
+        let next = haystack[search_from..].find(&needle)?;
+        let idx = search_from.checked_add(next)?;
+        let after = idx.checked_add(needle.len())?;
+        if !is_macro_invocation_boundary(haystack, idx, after) {
+            search_from = idx.saturating_add(needle.len());
+            continue;
+        }
+        return Some(idx);
+    }
+}
+
+fn is_macro_invocation_boundary(haystack: &str, start: usize, after: usize) -> bool {
+    if start > 0 {
+        let prev = haystack
+            .as_bytes()
+            .get(start.saturating_sub(1))
+            .copied()
+            .unwrap_or(0);
+        if prev.is_ascii_alphanumeric() || prev == b'_' || prev == b':' {
+            return false;
+        }
+    }
+    matches!(haystack.as_bytes().get(after), Some(b'(' | b'[' | b'{'))
+}
+
+/// Replace the contents of strings and comments with spaces so byte offsets
+/// and line numbers remain stable while substring matches do not fire on
+/// content inside literals or comments.
+#[expect(
+    clippy::indexing_slicing,
+    reason = "Manual byte-level lexer over a freshly-allocated buffer with explicit `i < bytes.len()` bounds checks."
+)]
+fn strip_strings_and_comments(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = vec![b' '; bytes.len()];
+
+    let mut i = 0usize;
+    let mut in_block_comment = 0usize;
+
+    while i < bytes.len() {
+        if bytes[i] == b'\n' {
+            out[i] = b'\n';
+            i = i.saturating_add(1);
+            continue;
+        }
+
+        if in_block_comment > 0 {
+            if bytes[i] == b'/' && i > 0 && bytes[i.saturating_sub(1)] == b'*' {
+                in_block_comment = in_block_comment.saturating_sub(1);
+            } else if i.saturating_add(1) < bytes.len()
+                && bytes[i] == b'/'
+                && bytes[i.saturating_add(1)] == b'*'
+            {
+                in_block_comment = in_block_comment.saturating_add(1);
+                i = i.saturating_add(2);
+                continue;
+            }
+            i = i.saturating_add(1);
+            continue;
+        }
+
+        // Line comment
+        if i.saturating_add(1) < bytes.len()
+            && bytes[i] == b'/'
+            && bytes[i.saturating_add(1)] == b'/'
+        {
+            while i < bytes.len() && bytes[i] != b'\n' {
+                i = i.saturating_add(1);
+            }
+            continue;
+        }
+
+        // Block comment start
+        if i.saturating_add(1) < bytes.len()
+            && bytes[i] == b'/'
+            && bytes[i.saturating_add(1)] == b'*'
+        {
+            in_block_comment = 1;
+            i = i.saturating_add(2);
+            continue;
+        }
+
+        // Raw string literal: r"..." or r#"..."# (with N hashes)
+        if bytes[i] == b'r' || (bytes[i] == b'b' && bytes.get(i.saturating_add(1)) == Some(&b'r')) {
+            let mut probe = i;
+            if bytes[probe] == b'b' {
+                probe = probe.saturating_add(1);
+            }
+            if bytes.get(probe) == Some(&b'r') {
+                let mut hashes = 0usize;
+                let mut p = probe.saturating_add(1);
+                while bytes.get(p) == Some(&b'#') {
+                    hashes = hashes.saturating_add(1);
+                    p = p.saturating_add(1);
+                }
+                if bytes.get(p) == Some(&b'"') {
+                    // start of raw string; find closing "###...
+                    let start = i;
+                    let mut q = p.saturating_add(1);
+                    let close_marker_len = hashes.saturating_add(1);
+                    while q < bytes.len() {
+                        if bytes[q] == b'"' {
+                            let mut ok = true;
+                            for h in 1..=hashes {
+                                if bytes.get(q.saturating_add(h)) != Some(&b'#') {
+                                    ok = false;
+                                    break;
+                                }
+                            }
+                            if ok {
+                                q = q.saturating_add(close_marker_len);
+                                break;
+                            }
+                        }
+                        if bytes[q] == b'\n' {
+                            out[q] = b'\n';
+                        }
+                        q = q.saturating_add(1);
+                    }
+                    let _ = start;
+                    i = q;
+                    continue;
+                }
+            }
+        }
+
+        // Char or string literal
+        if bytes[i] == b'"' || (bytes[i] == b'b' && bytes.get(i.saturating_add(1)) == Some(&b'"')) {
+            let mut q = if bytes[i] == b'b' {
+                i.saturating_add(2)
+            } else {
+                i.saturating_add(1)
+            };
+            while q < bytes.len() {
+                match bytes[q] {
+                    b'\\' => {
+                        q = q.saturating_add(2);
+                        continue;
+                    }
+                    b'"' => {
+                        q = q.saturating_add(1);
+                        break;
+                    }
+                    b'\n' => {
+                        out[q] = b'\n';
+                    }
+                    _ => {}
+                }
+                q = q.saturating_add(1);
+            }
+            i = q;
+            continue;
+        }
+
+        if bytes[i] == b'\'' {
+            // char literal: rough — find next unescaped single quote on same line
+            let mut q = i.saturating_add(1);
+            let mut closed = false;
+            while q < bytes.len() && bytes[q] != b'\n' {
+                if bytes[q] == b'\\' {
+                    q = q.saturating_add(2);
+                    continue;
+                }
+                if bytes[q] == b'\'' {
+                    closed = true;
+                    q = q.saturating_add(1);
+                    break;
+                }
+                q = q.saturating_add(1);
+            }
+            if closed {
+                i = q;
+                continue;
+            }
+            // Lifetime — copy through
+            out[i] = bytes[i];
+            i = i.saturating_add(1);
+            continue;
+        }
+
+        out[i] = bytes[i];
+        i = i.saturating_add(1);
+    }
+
+    String::from_utf8(out).unwrap_or_else(|_| text.to_string())
+}
+
+fn parse_no_panic_allowlist(text: &str) -> Result<Vec<NoPanicAllowEntry>> {
+    let entries = table_array_entries(text, "[[allow]]");
+    let mut parsed = Vec::with_capacity(entries.len());
+    for (index, entry) in entries.iter().enumerate() {
+        let entry_no = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("allowlist index overflow"))?;
+
+        let id = top_level_quoted_value(entry, "id").ok_or_else(|| {
+            anyhow!("policy/no-panic-allowlist.toml entry {entry_no} is missing `id`")
+        })?;
+        let path = top_level_quoted_value(entry, "path").ok_or_else(|| {
+            anyhow!("policy/no-panic-allowlist.toml entry {id} is missing `path`")
+        })?;
+        let family = top_level_quoted_value(entry, "family").ok_or_else(|| {
+            anyhow!("policy/no-panic-allowlist.toml entry {id} is missing `family`")
+        })?;
+        if PanicFamily::from_str(&family).is_none() {
+            return Err(anyhow!(
+                "policy/no-panic-allowlist.toml entry {id} has unknown family `{family}`"
+            ));
+        }
+        let classification = top_level_quoted_value(entry, "classification").ok_or_else(|| {
+            anyhow!("policy/no-panic-allowlist.toml entry {id} is missing `classification`")
+        })?;
+        if !NO_PANIC_CLASSIFICATIONS.contains(&classification.as_str()) {
+            return Err(anyhow!(
+                "policy/no-panic-allowlist.toml entry {id} has unknown classification `{classification}`"
+            ));
+        }
+        let owner = top_level_quoted_value(entry, "owner").ok_or_else(|| {
+            anyhow!("policy/no-panic-allowlist.toml entry {id} is missing `owner`")
+        })?;
+        let explanation = top_level_quoted_value(entry, "explanation").ok_or_else(|| {
+            anyhow!("policy/no-panic-allowlist.toml entry {id} is missing `explanation`")
+        })?;
+        let expires = top_level_quoted_value(entry, "expires").ok_or_else(|| {
+            anyhow!("policy/no-panic-allowlist.toml entry {id} is missing `expires`")
+        })?;
+
+        let selector_kind =
+            sub_table_value(entry, "[allow.selector]", "kind").ok_or_else(|| {
+                anyhow!(
+                    "policy/no-panic-allowlist.toml entry {id} is missing `[allow.selector] kind`"
+                )
+            })?;
+        if !NO_PANIC_SELECTOR_KINDS.contains(&selector_kind.as_str()) {
+            return Err(anyhow!(
+                "policy/no-panic-allowlist.toml entry {id} has unknown selector kind `{selector_kind}`"
+            ));
+        }
+        let selector_callee =
+            sub_table_value(entry, "[allow.selector]", "callee").ok_or_else(|| {
+                anyhow!(
+                    "policy/no-panic-allowlist.toml entry {id} is missing `[allow.selector] callee`"
+                )
+            })?;
+        let selector_container = sub_table_value(entry, "[allow.selector]", "container");
+
+        parsed.push(NoPanicAllowEntry {
+            id,
+            path,
+            family,
+            classification,
+            owner,
+            explanation,
+            expires,
+            selector_kind,
+            selector_callee,
+            selector_container,
+        });
+    }
+    Ok(parsed)
+}
+
+fn enforce_no_panic_expirations(entries: &[NoPanicAllowEntry]) -> Result<()> {
+    let today = "2026-05-06"; // CLAUDE.md fixes `today` for the policy ratchet.
+    for entry in entries {
+        if entry.expires.as_str() < today {
+            return Err(anyhow!(
+                "policy/no-panic-allowlist.toml entry {} expired on {}",
+                entry.id,
+                entry.expires
+            ));
+        }
+    }
+    let _ = NO_PANIC_CLASSIFICATIONS; // silence unused if all entries are empty
+    Ok(())
+}
+
+fn match_findings_against_allowlist(
+    findings: &[PanicFinding],
+    entries: &[NoPanicAllowEntry],
+) -> Vec<PanicFinding> {
+    findings
+        .iter()
+        .filter(|f| !entries.iter().any(|e| no_panic_entry_matches_finding(e, f)))
+        .cloned()
+        .collect()
+}
+
+fn no_panic_entry_matches_finding(entry: &NoPanicAllowEntry, finding: &PanicFinding) -> bool {
+    if entry.path != finding.path {
+        return false;
+    }
+    if entry.family != finding.family.as_str() {
+        return false;
+    }
+    if entry.selector_kind != finding.family.selector_kind() {
+        return false;
+    }
+    if entry.selector_callee != finding.family.callee() {
+        return false;
+    }
+    match (&entry.selector_container, &finding.container) {
+        (Some(want), Some(got)) => want == got,
+        (Some(_), None) => false,
+        (None, _) => true,
+    }
+}
+
+fn stale_no_panic_entries<'a>(
+    entries: &'a [NoPanicAllowEntry],
+    findings: &[PanicFinding],
+) -> Vec<&'a NoPanicAllowEntry> {
+    entries
+        .iter()
+        .filter(|entry| {
+            !findings
+                .iter()
+                .any(|f| no_panic_entry_matches_finding(entry, f))
+        })
+        .collect()
+}
+
+fn sub_table_value(entry_text: &str, marker: &str, key: &str) -> Option<String> {
+    let mut in_section = false;
+    for line in entry_text.lines() {
+        let trimmed = line.trim();
+        if trimmed == marker {
+            in_section = true;
+            continue;
+        }
+        if in_section {
+            if trimmed.starts_with('[') {
+                return None;
+            }
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            if let Some((name, value)) = trimmed.split_once('=')
+                && name.trim() == key
+            {
+                return Some(value.trim().trim_matches('"').to_string());
+            }
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
+// File-policy checker
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+#[expect(
+    dead_code,
+    reason = "kind/owner/surface/reason are validated at parse time; future policy-report subcommand will summarize them"
+)]
+struct FilePolicyEntry {
+    pattern: String,
+    is_glob: bool,
+    kind: String,
+    owner: String,
+    surface: String,
+    classification: String,
+    reason: String,
+    covered_by: Vec<String>,
+    expires: Option<String>,
+    retired: bool,
+}
+
+const FILE_POLICY_CLASSIFICATIONS: &[&str] = &[
+    "production",
+    "test",
+    "tooling",
+    "config",
+    "generated",
+    "docs",
+];
+
+fn check_file_policy() -> Result<()> {
+    println!("🔎 Checking non-Rust file policy...");
+    let root = env::current_dir()?;
+    let allowlist_text = fs::read_to_string(root.join("policy/non-rust-allowlist.toml"))?;
+    let entries = parse_file_policy_allowlist(&allowlist_text)?;
+    enforce_file_policy_expirations(&entries)?;
+
+    let tracked = git_output(&["ls-files"])?;
+    let files: Vec<String> = tracked
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let mut unmatched: Vec<String> = Vec::new();
+    let mut entry_hits: Vec<usize> = vec![0; entries.len()];
+
+    for file in &files {
+        if file_is_auto_allowed(file) {
+            continue;
+        }
+        let mut matched = false;
+        for (idx, entry) in entries.iter().enumerate() {
+            if file_matches_entry(file, entry) {
+                if let Some(slot) = entry_hits.get_mut(idx) {
+                    *slot = slot.checked_add(1).unwrap_or(*slot);
+                }
+                matched = true;
+            }
+        }
+        if !matched {
+            unmatched.push(file.clone());
+        }
+    }
+
+    if !unmatched.is_empty() {
+        for f in unmatched.iter().take(40) {
+            eprintln!("file-policy: unallowlisted non-Rust file: {f}");
+        }
+        if unmatched.len() > 40 {
+            eprintln!(
+                "file-policy: ... and {} more file(s)",
+                unmatched.len().saturating_sub(40)
+            );
+        }
+        return Err(anyhow!(
+            "{} non-Rust file(s) lack a policy/non-rust-allowlist.toml entry",
+            unmatched.len()
+        ));
+    }
+
+    let mut stale: Vec<&FilePolicyEntry> = Vec::new();
+    for (idx, entry) in entries.iter().enumerate() {
+        if entry.retired {
+            continue;
+        }
+        if entry_hits.get(idx).copied().unwrap_or(0) == 0 {
+            stale.push(entry);
+        }
+    }
+    if !stale.is_empty() {
+        for entry in &stale {
+            eprintln!(
+                "file-policy: stale entry pattern={} (no tracked file matched)",
+                entry.pattern
+            );
+        }
+        return Err(anyhow!(
+            "{} stale non-Rust allowlist entr(ies); remove or set retired = true",
+            stale.len()
+        ));
+    }
+
+    println!(
+        "✅ file policy: {} tracked file(s) checked, {} allowlist entr(ies)",
+        files.len(),
+        entries.len()
+    );
+    Ok(())
+}
+
+fn file_is_auto_allowed(path: &str) -> bool {
+    if path.ends_with(".rs") {
+        return true;
+    }
+    if path == "Cargo.toml" || path == "Cargo.lock" {
+        return true;
+    }
+    if path.ends_with("/Cargo.toml") {
+        return true;
+    }
+    if path == ".gitignore" || path == ".gitattributes" {
+        return true;
+    }
+    if path == "LICENSE" || path == "NOTICE" {
+        return true;
+    }
+    if path.ends_with(".md") {
+        return true;
+    }
+    if path == ".envrc" {
+        return true;
+    }
+    false
+}
+
+fn parse_file_policy_allowlist(text: &str) -> Result<Vec<FilePolicyEntry>> {
+    let entries = table_array_entries(text, "[[allow]]");
+    let mut parsed = Vec::with_capacity(entries.len());
+    for (index, raw) in entries.iter().enumerate() {
+        let entry_no = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("file-policy entry index overflow"))?;
+        let glob = top_level_quoted_value(raw, "glob");
+        let path = top_level_quoted_value(raw, "path");
+        let (pattern, is_glob) = match (glob, path) {
+            (Some(g), None) => (g, true),
+            (None, Some(p)) => (p, false),
+            (Some(_), Some(_)) => {
+                return Err(anyhow!(
+                    "policy/non-rust-allowlist.toml entry {entry_no} cannot set both `glob` and `path`"
+                ));
+            }
+            (None, None) => {
+                return Err(anyhow!(
+                    "policy/non-rust-allowlist.toml entry {entry_no} must set either `glob` or `path`"
+                ));
+            }
+        };
+
+        let kind = top_level_quoted_value(raw, "kind").ok_or_else(|| {
+            anyhow!("policy/non-rust-allowlist.toml entry {entry_no} ({pattern}) is missing `kind`")
+        })?;
+        let owner = top_level_quoted_value(raw, "owner").ok_or_else(|| {
+            anyhow!(
+                "policy/non-rust-allowlist.toml entry {entry_no} ({pattern}) is missing `owner`"
+            )
+        })?;
+        let surface = top_level_quoted_value(raw, "surface").ok_or_else(|| {
+            anyhow!(
+                "policy/non-rust-allowlist.toml entry {entry_no} ({pattern}) is missing `surface`"
+            )
+        })?;
+        let classification = top_level_quoted_value(raw, "classification").ok_or_else(|| {
+            anyhow!(
+                "policy/non-rust-allowlist.toml entry {entry_no} ({pattern}) is missing `classification`"
+            )
+        })?;
+        if !FILE_POLICY_CLASSIFICATIONS.contains(&classification.as_str()) {
+            return Err(anyhow!(
+                "policy/non-rust-allowlist.toml entry {entry_no} ({pattern}) has unknown classification `{classification}`"
+            ));
+        }
+        let reason = top_level_quoted_value(raw, "reason").ok_or_else(|| {
+            anyhow!(
+                "policy/non-rust-allowlist.toml entry {entry_no} ({pattern}) is missing `reason`"
+            )
+        })?;
+        let covered_by = string_array_after_root(raw, "covered_by").unwrap_or_default();
+        if matches!(classification.as_str(), "production" | "test" | "tooling")
+            && covered_by.is_empty()
+        {
+            return Err(anyhow!(
+                "policy/non-rust-allowlist.toml entry {entry_no} ({pattern}) classification `{classification}` requires `covered_by`"
+            ));
+        }
+        let expires = top_level_quoted_value(raw, "expires");
+        let retired = top_level_quoted_value(raw, "retired")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+
+        parsed.push(FilePolicyEntry {
+            pattern,
+            is_glob,
+            kind,
+            owner,
+            surface,
+            classification,
+            reason,
+            covered_by,
+            expires,
+            retired,
+        });
+    }
+    Ok(parsed)
+}
+
+fn enforce_file_policy_expirations(entries: &[FilePolicyEntry]) -> Result<()> {
+    let today = "2026-05-06";
+    for entry in entries {
+        if let Some(expires) = &entry.expires
+            && expires.as_str() < today
+        {
+            return Err(anyhow!(
+                "policy/non-rust-allowlist.toml entry `{}` expired on {}",
+                entry.pattern,
+                expires
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn file_matches_entry(file: &str, entry: &FilePolicyEntry) -> bool {
+    if entry.is_glob {
+        glob_match(&entry.pattern, file)
+    } else {
+        entry.pattern == file
+    }
+}
+
+/// Minimal git-style glob matcher supporting `*`, `?`, and `**`.
+/// `*` does not cross `/`. `**` does. `?` matches a single non-`/` char.
+fn glob_match(pattern: &str, text: &str) -> bool {
+    glob_match_inner(pattern.as_bytes(), 0, text.as_bytes(), 0)
+}
+
+#[expect(
+    clippy::indexing_slicing,
+    reason = "Recursive glob matcher with explicit `pi < pat.len()` and `ti < text.len()` bounds checks before each indexing operation."
+)]
+fn glob_match_inner(pat: &[u8], pi: usize, text: &[u8], ti: usize) -> bool {
+    let mut pi = pi;
+    let mut ti = ti;
+    loop {
+        if pi >= pat.len() {
+            return ti >= text.len();
+        }
+        let ch = pat[pi];
+        if ch == b'*' {
+            // Detect "**"
+            if pat.get(pi.saturating_add(1)) == Some(&b'*') {
+                let after = pi.saturating_add(2);
+                // Allow optional `/` after `**/`
+                let next_pi = if pat.get(after) == Some(&b'/') {
+                    after.saturating_add(1)
+                } else {
+                    after
+                };
+                if next_pi >= pat.len() {
+                    return true;
+                }
+                let mut k = ti;
+                loop {
+                    if glob_match_inner(pat, next_pi, text, k) {
+                        return true;
+                    }
+                    if k >= text.len() {
+                        return false;
+                    }
+                    k = k.saturating_add(1);
+                }
+            }
+            // Single '*' — match any chars except '/'
+            let next_pi = pi.saturating_add(1);
+            if next_pi >= pat.len() {
+                return !text[ti..].contains(&b'/');
+            }
+            let mut k = ti;
+            loop {
+                if glob_match_inner(pat, next_pi, text, k) {
+                    return true;
+                }
+                if k >= text.len() || text[k] == b'/' {
+                    return false;
+                }
+                k = k.saturating_add(1);
+            }
+        }
+        if ch == b'?' {
+            if ti >= text.len() || text[ti] == b'/' {
+                return false;
+            }
+            pi = pi.saturating_add(1);
+            ti = ti.saturating_add(1);
+            continue;
+        }
+        if ti >= text.len() || text[ti] != ch {
+            return false;
+        }
+        pi = pi.saturating_add(1);
+        ti = ti.saturating_add(1);
+    }
+}
+
+fn string_array_after_root(text: &str, key: &str) -> Option<Vec<String>> {
+    let mut buffer = String::new();
+    let mut found_key = false;
+    let mut depth = 0i32;
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !found_key {
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if let Some((name, value)) = trimmed.split_once('=')
+                && name.trim() == key
+            {
+                let v = value.trim();
+                buffer.push_str(v);
+                found_key = true;
+                if v.starts_with('[') {
+                    depth = depth.saturating_add(1);
+                }
+                if v.ends_with(']') {
+                    depth = depth.saturating_sub(1);
+                }
+                if depth <= 0 {
+                    break;
+                }
+            }
+        } else {
+            buffer.push(' ');
+            buffer.push_str(trimmed);
+            for c in trimmed.chars() {
+                if c == '[' {
+                    depth = depth.saturating_add(1);
+                }
+                if c == ']' {
+                    depth = depth.saturating_sub(1);
+                }
+            }
+            if depth <= 0 {
+                break;
+            }
+        }
+    }
+    if !found_key {
+        return None;
+    }
+    let trimmed = buffer.trim();
+    let inner = trimmed.strip_prefix('[')?.strip_suffix(']')?;
+    Some(
+        inner
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim_matches('"').to_string())
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1452,5 +2868,225 @@ mod tests {
             return Ok(());
         }
         Err(anyhow!("{crate_name} should be present in publish order"))
+    }
+
+    // ---- glob_match ------------------------------------------------------
+
+    #[test]
+    fn glob_star_does_not_cross_slashes() {
+        assert!(glob_match("foo/*.rs", "foo/bar.rs"));
+        assert!(!glob_match("foo/*.rs", "foo/sub/bar.rs"));
+    }
+
+    #[test]
+    fn glob_double_star_crosses_slashes() {
+        assert!(glob_match("foo/**", "foo/bar.rs"));
+        assert!(glob_match("foo/**", "foo/sub/bar.rs"));
+        assert!(glob_match("foo/**/baz", "foo/a/b/baz"));
+    }
+
+    #[test]
+    fn glob_question_matches_single_non_slash() {
+        assert!(glob_match("ab?", "abc"));
+        assert!(!glob_match("ab?", "ab/"));
+        assert!(!glob_match("ab?", "ab"));
+    }
+
+    #[test]
+    fn glob_literal_match_and_mismatch() {
+        assert!(glob_match("Cargo.toml", "Cargo.toml"));
+        assert!(!glob_match("Cargo.toml", "cargo.toml"));
+    }
+
+    // ---- file-policy auto-allow -----------------------------------------
+
+    #[test]
+    fn auto_allow_covers_rust_and_repo_metadata() {
+        for path in [
+            "src/lib.rs",
+            "Cargo.toml",
+            "Cargo.lock",
+            "crates/foo/Cargo.toml",
+            "README.md",
+            "docs/X.md",
+            "LICENSE",
+            ".gitignore",
+            ".gitattributes",
+            ".envrc",
+        ] {
+            assert!(
+                file_is_auto_allowed(path),
+                "{path} should be auto-allowed without an entry"
+            );
+        }
+    }
+
+    #[test]
+    fn auto_allow_does_not_cover_non_rust_programming_surfaces() {
+        for path in [
+            ".github/workflows/ci.yml",
+            "policy/clippy-lints.toml",
+            "schemas/message.schema.json",
+            "infrastructure/k8s/deployment.yaml",
+            "scripts/tests/test.sh",
+            "flake.nix",
+        ] {
+            assert!(
+                !file_is_auto_allowed(path),
+                "{path} must require a non-rust-allowlist entry"
+            );
+        }
+    }
+
+    // ---- panic-family scanning ------------------------------------------
+
+    fn first_finding(rel: &str, src: &str) -> Option<PanicFinding> {
+        let mut out = Vec::new();
+        let suppressed = file_level_clippy_suppressions(src);
+        scan_panic_in_file(rel, src, &suppressed, &mut out);
+        out.into_iter().next()
+    }
+
+    #[test]
+    fn scanner_detects_unwrap_method_call() {
+        let src = "fn parses_msh() {\n    let _ = some.unwrap();\n}\n";
+        let finding = first_finding("a.rs", src);
+        assert!(finding.is_some(), "unwrap should be detected");
+        if let Some(finding) = finding {
+            assert_eq!(finding.family.as_str(), "unwrap");
+            assert_eq!(finding.family.callee(), "unwrap");
+            assert_eq!(finding.family.selector_kind(), "method_call");
+            assert_eq!(finding.container.as_deref(), Some("parses_msh"));
+            assert_eq!(finding.line, 2);
+        }
+    }
+
+    #[test]
+    fn scanner_detects_panic_macro() {
+        let src = "fn boom() {\n    panic!(\"x\");\n}\n";
+        let finding = first_finding("a.rs", src);
+        assert!(finding.is_some(), "panic! should be detected");
+        if let Some(finding) = finding {
+            assert_eq!(finding.family.as_str(), "panic_macro");
+            assert_eq!(finding.family.selector_kind(), "macro");
+        }
+    }
+
+    #[test]
+    fn scanner_skips_unwrap_inside_string_literal() {
+        let src = "fn f() {\n    let _ = \".unwrap()\";\n}\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_skips_unwrap_inside_line_comment() {
+        let src = "fn f() {\n    // foo.unwrap();\n}\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_skips_unwrap_inside_block_comment() {
+        let src = "fn f() {\n    /* foo.unwrap(); */\n}\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_honors_file_level_expect_attribute() {
+        let src = "#![expect(clippy::unwrap_used, reason = \"r\")]\nfn f() { x.unwrap(); }\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_honors_inner_cfg_attr_test_expect() {
+        let src = "#![cfg_attr(test, expect(clippy::unwrap_used, reason = \"r\"))]\nfn f() { x.unwrap(); }\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_honors_item_level_expect_attribute() {
+        let src = "#[expect(clippy::unwrap_used, reason = \"r\")]\nfn f() { x.unwrap(); }\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    #[test]
+    fn scanner_does_not_treat_dotted_unwrap_as_method() {
+        // `..unwrap()` is not a real call (won't compile), but nothing should
+        // match if the previous char is `.`.
+        let src = "fn f() { x..unwrap(); }\n";
+        assert!(first_finding("a.rs", src).is_none());
+    }
+
+    // ---- allowlist matching ---------------------------------------------
+
+    #[test]
+    fn allowlist_entry_matches_when_path_family_and_selector_align() {
+        let entry = NoPanicAllowEntry {
+            id: "panic-0001".into(),
+            path: "crates/x/src/lib.rs".into(),
+            family: "unwrap".into(),
+            classification: "test_helper".into(),
+            owner: "x".into(),
+            explanation: "y".into(),
+            expires: "2027-01-01".into(),
+            selector_kind: "method_call".into(),
+            selector_callee: "unwrap".into(),
+            selector_container: Some("parse_msh".into()),
+        };
+        let finding = PanicFinding {
+            path: "crates/x/src/lib.rs".into(),
+            family: PanicFamily::Unwrap,
+            container: Some("parse_msh".into()),
+            line: 99,
+            column: 99,
+        };
+        assert!(no_panic_entry_matches_finding(&entry, &finding));
+    }
+
+    #[test]
+    fn allowlist_entry_with_no_container_matches_any_container() {
+        let entry = NoPanicAllowEntry {
+            id: "panic-0002".into(),
+            path: "crates/x/src/lib.rs".into(),
+            family: "unwrap".into(),
+            classification: "test_helper".into(),
+            owner: "x".into(),
+            explanation: "y".into(),
+            expires: "2027-01-01".into(),
+            selector_kind: "method_call".into(),
+            selector_callee: "unwrap".into(),
+            selector_container: None,
+        };
+        let finding = PanicFinding {
+            path: "crates/x/src/lib.rs".into(),
+            family: PanicFamily::Unwrap,
+            container: Some("anything".into()),
+            line: 1,
+            column: 1,
+        };
+        assert!(no_panic_entry_matches_finding(&entry, &finding));
+    }
+
+    #[test]
+    fn allowlist_entry_does_not_match_different_family() {
+        let entry = NoPanicAllowEntry {
+            id: "panic-0003".into(),
+            path: "crates/x/src/lib.rs".into(),
+            family: "unwrap".into(),
+            classification: "test_helper".into(),
+            owner: "x".into(),
+            explanation: "y".into(),
+            expires: "2027-01-01".into(),
+            selector_kind: "method_call".into(),
+            selector_callee: "unwrap".into(),
+            selector_container: None,
+        };
+        let finding = PanicFinding {
+            path: "crates/x/src/lib.rs".into(),
+            family: PanicFamily::Expect,
+            container: None,
+            line: 1,
+            column: 1,
+        };
+        assert!(!no_panic_entry_matches_finding(&entry, &finding));
     }
 }

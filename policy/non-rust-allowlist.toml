@@ -1,5 +1,366 @@
 schema_version = "1.0"
 
-# Non-Rust programming-file policy exceptions are intentionally empty for this
-# first policy ratchet. Future exceptions should use `path` or `glob` plus
-# kind, owner, reason, surface, classification, covered_by, and optional expiry.
+# Authoritative ledger of non-Rust files allowed in the working tree.
+#
+# Auto-allowed without an entry: *.rs, Cargo.toml, Cargo.lock, *.md, LICENSE,
+# NOTICE, .gitignore, .gitattributes, .envrc. Everything else under version
+# control needs an explicit entry here. See docs/FILE_POLICY.md.
+#
+# Required fields per [[allow]]:
+#   glob OR path, kind, owner, surface, classification, reason
+#   covered_by is required for production / test / tooling.
+#   expires is optional; retired = true keeps an entry around for audit.
+
+# ---------------------------------------------------------------------------
+# CI / repo automation
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = ".github/workflows/*.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "GitHub Actions workflows are platform-required YAML and own the CI pipeline definition."
+covered_by = ["cargo run -p xtask -- gate --check"]
+
+[[allow]]
+glob = ".githooks/*"
+kind = "git_hook"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+classification = "tooling"
+reason = "Repository git hooks delegate to xtask and enforce the policy stack on commit and push."
+covered_by = ["just setup", "cargo run -p xtask -- hook-pre-commit"]
+
+[[allow]]
+path = "codecov.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "Codecov configuration declares coverage policy and ignored paths."
+covered_by = [".github/workflows/coverage.yml"]
+
+[[allow]]
+path = ".spectral.yml"
+kind = "repo_config"
+owner = "api"
+surface = "ci"
+classification = "config"
+reason = "Spectral linting rules for the OpenAPI definition."
+covered_by = [".github/workflows/contracts.yml"]
+
+[[allow]]
+path = ".tokeignore"
+kind = "repo_config"
+owner = "EffortlessMetrics"
+surface = "tooling"
+classification = "config"
+reason = "Tokei (line-counter) ignore list keeps generated and fixture surfaces out of LOC reports."
+
+[[allow]]
+path = "deny.toml"
+kind = "repo_config"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "cargo-deny advisory and license policy."
+covered_by = ["cargo run -p xtask -- audit"]
+
+[[allow]]
+path = "clippy.toml"
+kind = "repo_config"
+owner = "EffortlessMetrics"
+surface = "ci"
+classification = "config"
+reason = "Repo-local Clippy configuration paired with policy/clippy-lints.toml."
+covered_by = ["cargo run -p xtask -- check-lint-policy"]
+
+[[allow]]
+path = "tokmd.toml"
+kind = "repo_config"
+owner = "EffortlessMetrics"
+surface = "tooling"
+classification = "config"
+reason = "Configuration for the tokmd project-snapshot tool used during reviews."
+
+[[allow]]
+path = "config.example.toml"
+kind = "repo_config"
+owner = "hl7v2-cli"
+surface = "production"
+classification = "docs"
+reason = "Documented example configuration consumed by hl7v2-cli config tests."
+
+[[allow]]
+path = "Makefile.toml"
+kind = "build_config"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+classification = "tooling"
+reason = "cargo-make task definitions for local DevEx."
+covered_by = ["cargo make"]
+
+[[allow]]
+path = "justfile"
+kind = "build_config"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+classification = "tooling"
+reason = "Just task runner: thin wrapper around xtask commands."
+covered_by = ["just setup"]
+
+[[allow]]
+path = "flake.nix"
+kind = "build_config"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+classification = "tooling"
+reason = "Reproducible development shell via Nix flakes."
+covered_by = ["docs/NIX_USAGE.md"]
+
+[[allow]]
+path = "metadata.json"
+kind = "generated_metadata"
+owner = "EffortlessMetrics"
+surface = "tooling"
+classification = "generated"
+reason = "Snapshot of cargo metadata used by review tooling."
+generated_by = "cargo metadata --format-version=1 --all-features"
+
+# ---------------------------------------------------------------------------
+# Policy data
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "policy/*.toml"
+kind = "policy_data"
+owner = "EffortlessMetrics"
+surface = "ci"
+classification = "config"
+reason = "Lint policy, debt receipts, panic-family and file-policy allowlists."
+covered_by = [
+  "cargo run -p xtask -- check-lint-policy",
+  "cargo run -p xtask -- check-no-panic-family",
+  "cargo run -p xtask -- check-file-policy",
+]
+
+# ---------------------------------------------------------------------------
+# API contracts and IDLs
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "api/openapi/**/*.yaml"
+kind = "openapi_spec"
+owner = "api"
+surface = "production"
+classification = "production"
+reason = "OpenAPI definition shipped with the HTTP server."
+covered_by = [".github/workflows/contracts.yml"]
+
+[[allow]]
+glob = "api/proto/**"
+kind = "proto_idl"
+owner = "api"
+surface = "production"
+classification = "production"
+reason = "Protobuf IDL and buf configuration for the gRPC surface."
+covered_by = [".github/workflows/contracts.yml"]
+
+[[allow]]
+path = "buf.gen.yaml"
+kind = "proto_idl"
+owner = "api"
+surface = "production"
+classification = "production"
+reason = "buf code generation configuration for the proto IDL."
+covered_by = [".github/workflows/contracts.yml"]
+
+[[allow]]
+glob = "crates/hl7v2-server/openapi/**"
+kind = "openapi_spec"
+owner = "api"
+surface = "production"
+classification = "production"
+reason = "Server-local OpenAPI snapshot used for runtime contract checks."
+covered_by = ["cargo test -p hl7v2-server --all-features"]
+
+[[allow]]
+glob = "crates/hl7v2-server/proto/**"
+kind = "proto_idl"
+owner = "api"
+surface = "production"
+classification = "production"
+reason = "Server-local proto IDL used by tonic codegen at build time."
+covered_by = ["cargo build -p hl7v2-server"]
+
+# ---------------------------------------------------------------------------
+# BDD features and proptest regressions
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "crates/*/features/**/*.feature"
+kind = "bdd_feature"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Cucumber/Gherkin scenarios drive crate-level BDD test harnesses."
+covered_by = ["cargo test --workspace --all-features"]
+
+[[allow]]
+glob = "crates/*/tests/features/**/*.feature"
+kind = "bdd_feature"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Cucumber/Gherkin scenarios under tests/ for crates that scope BDD per-test."
+covered_by = ["cargo test --workspace --all-features"]
+
+[[allow]]
+glob = "crates/*/tests/*.proptest-regressions"
+kind = "proptest_regression"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Persisted proptest regression seeds; checked in to keep CI deterministic."
+covered_by = ["cargo test --workspace --all-features"]
+
+[[allow]]
+glob = "crates/*/proptest-regressions/**"
+kind = "proptest_regression"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Persisted proptest regression seeds under per-crate proptest-regressions/."
+covered_by = ["cargo test --workspace --all-features"]
+
+# ---------------------------------------------------------------------------
+# Snapshot tests, fixtures, sample messages
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "crates/*/tests/snapshots/**/*.snap"
+kind = "snapshot_fixture"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Insta snapshot fixtures committed for parser and writer regression coverage."
+covered_by = ["cargo test --workspace --all-features"]
+
+[[allow]]
+glob = "crates/hl7v2-test-utils/fixtures/**"
+kind = "fixture_input"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Shared HL7 fixture corpus consumed by every crate's test harness."
+covered_by = ["cargo test --workspace --all-features"]
+
+[[allow]]
+glob = "crates/hl7v2-e2e-tests/fixtures/**"
+kind = "fixture_input"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "End-to-end pipeline fixtures including HL7 messages and a profile."
+covered_by = ["cargo test -p hl7v2-e2e-tests --all-features"]
+
+[[allow]]
+glob = "test_data/**"
+kind = "fixture_input"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Repository-wide HL7, MLLP, and template fixtures used by CLI and integration tests."
+covered_by = ["cargo test --workspace --all-features"]
+
+[[allow]]
+glob = "crates/hl7v2-core/test_*.hl7"
+kind = "fixture_input"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Legacy test inputs colocated with the canonical facade crate."
+covered_by = ["cargo test -p hl7v2-core --all-features"]
+
+[[allow]]
+glob = "crates/hl7v2-core/test_*.txt"
+kind = "fixture_input"
+owner = "testing"
+surface = "tests"
+classification = "test"
+reason = "Legacy text outputs colocated with the canonical facade crate; retained for review parity."
+covered_by = ["cargo test -p hl7v2-core --all-features"]
+
+# ---------------------------------------------------------------------------
+# Profiles (HL7 message profile YAML)
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "profiles/**"
+kind = "profile_data"
+owner = "hl7v2-prof"
+surface = "production"
+classification = "production"
+reason = "Bundled HL7 v2 message profiles consumed by hl7v2-prof at runtime."
+covered_by = ["cargo test -p hl7v2-prof --all-features"]
+
+[[allow]]
+glob = "examples/profiles/**"
+kind = "profile_data"
+owner = "hl7v2-prof"
+surface = "production"
+classification = "docs"
+reason = "Example profiles referenced by examples/ and docs/."
+
+# ---------------------------------------------------------------------------
+# JSON schemas
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "schemas/**"
+kind = "json_schema"
+owner = "api"
+surface = "production"
+classification = "production"
+reason = "Public JSON schemas for messages, profiles, configuration, and errors."
+covered_by = [".github/workflows/contracts.yml"]
+
+# ---------------------------------------------------------------------------
+# Infrastructure (deployment-only; not built by cargo)
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "infrastructure/**"
+kind = "deployment_config"
+owner = "platform"
+surface = "deployment"
+classification = "tooling"
+reason = "Reference deployment manifests, dashboards, and policy bundles for hl7v2-server."
+covered_by = ["docs/CI_PIPELINE.md"]
+
+# ---------------------------------------------------------------------------
+# Scripts and developer tooling
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "scripts/**"
+kind = "developer_script"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+classification = "tooling"
+reason = "Auxiliary developer scripts (gitignore tests, etc.)."
+covered_by = ["scripts/tests/test_gitignore_nodejs.sh"]
+
+# ---------------------------------------------------------------------------
+# Governance receipts (docs/ subtree)
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "docs/governance/**"
+kind = "governance_receipt"
+owner = "EffortlessMetrics"
+surface = "docs"
+classification = "docs"
+reason = "Audit receipts and governance evidence committed alongside the policy artifacts they document."

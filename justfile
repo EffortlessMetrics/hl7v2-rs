@@ -61,6 +61,22 @@ outdated:
 publish-plan:
     cargo run -p xtask -- publish-plan
 
+# --- Policy stack ---
+
+# Verify lint, no-panic-family, and non-Rust file policies (CI parity)
+policy-check:
+    cargo run -p xtask -- check-lint-policy
+    cargo run -p xtask -- check-no-panic-family
+    cargo run -p xtask -- check-file-policy
+
+# Print policy rollout, debt, no-panic, and file-policy summary
+policy-report:
+    cargo run -p xtask -- policy-report
+
+# Generate proposed no-panic allowlist entries from current findings
+no-panic-propose:
+    cargo run -p xtask -- no-panic propose
+
 # Run tests with nextest (faster)
 test:
     @if command -v cargo-nextest > /dev/null; then \

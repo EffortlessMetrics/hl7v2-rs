@@ -47,7 +47,19 @@ cargo run -p xtask -- gate --check                  # strict local gate (CI pari
 cargo run -p xtask -- lint-fix                      # auto-fix lints and format
 cargo fmt --all                                     # manual format
 cargo clippy --workspace --all-features --all-targets  # manual lint
+
+# Policy stack
+cargo run -p xtask -- check-lint-policy             # lint policy + debt receipts
+cargo run -p xtask -- check-no-panic-family         # semantic panic-family ledger
+cargo run -p xtask -- check-file-policy             # non-Rust file allowlist
+cargo run -p xtask -- no-panic propose              # propose new allowlist entries
+cargo run -p xtask -- policy-report                 # rollout + debt + findings summary
 ```
+
+The policy stack is documented in:
+- `docs/CLIPPY_POLICY.md`
+- `docs/NO_PANIC_POLICY.md`
+- `docs/FILE_POLICY.md`
 
 ## Architecture
 
