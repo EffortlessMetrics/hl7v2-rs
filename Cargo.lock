@@ -1639,7 +1639,6 @@ name = "hl7v2-corpus"
 version = "1.2.0"
 dependencies = [
  "hl7v2",
- "hl7v2-core",
  "proptest",
  "serde_json",
 ]
@@ -1732,7 +1731,6 @@ version = "1.2.0"
 dependencies = [
  "cucumber",
  "hl7v2",
- "hl7v2-core",
  "hl7v2-normalize",
  "hl7v2-parser",
  "hl7v2-query",
@@ -1949,7 +1947,6 @@ name = "hl7v2-template"
 version = "1.2.0"
 dependencies = [
  "hl7v2",
- "hl7v2-core",
  "proptest",
 ]
 

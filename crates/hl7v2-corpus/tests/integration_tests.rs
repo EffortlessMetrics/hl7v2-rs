@@ -1,6 +1,6 @@
 //! Integration tests for hl7v2-corpus
 
-use hl7v2_core::{Atom, Comp, Delims, Field, Message, Rep, Segment};
+use hl7v2::{Atom, Comp, Delims, Field, Message, Rep, Segment};
 use hl7v2_corpus::*;
 
 /// Helper to create a test message
@@ -466,10 +466,10 @@ fn test_large_corpus_performance() {
 
 #[test]
 fn test_corpus_with_parsed_message() {
-    // Parse a real HL7 message using hl7v2-core
+    // Parse a real HL7 message using hl7v2
     let hl7_bytes = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r";
 
-    let message = hl7v2_core::parse(hl7_bytes).unwrap();
+    let message = hl7v2::parse(hl7_bytes).unwrap();
 
     // Extract message type
     let msg_type = extract_message_type(&message);

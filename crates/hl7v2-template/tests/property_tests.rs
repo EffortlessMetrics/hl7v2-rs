@@ -113,8 +113,8 @@ proptest! {
         let messages1 = generate(&template, seed1, 1).unwrap();
         let messages2 = generate(&template, seed2, 1).unwrap();
 
-        let msg1 = hl7v2_core::write(&messages1[0]);
-        let msg2 = hl7v2_core::write(&messages2[0]);
+        let msg1 = hl7v2::write(&messages1[0]);
+        let msg2 = hl7v2::write(&messages2[0]);
 
         // With UUID generation, different seeds should produce different results
         prop_assert_ne!(msg1, msg2);
@@ -226,7 +226,7 @@ proptest! {
         let messages = generate(&template, seed, count).unwrap();
 
         for msg in &messages {
-            let bytes = hl7v2_core::write(msg);
+            let bytes = hl7v2::write(msg);
             prop_assert!(String::from_utf8(bytes).is_ok());
         }
     }

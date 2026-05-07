@@ -18,5 +18,4 @@ hl7v2 = { version = "1.2.0", path = "../hl7v2", default-features = false, featur
 ] }
 
 [dev-dependencies]
-hl7v2-core = { version = "1.2.0", path = "../hl7v2-core" }
 proptest = "1.6"

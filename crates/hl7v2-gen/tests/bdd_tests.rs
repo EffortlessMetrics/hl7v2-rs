@@ -184,7 +184,7 @@ fn given_template_gaussian(world: &mut GenWorld) {
 
 #[given("a valid HL7 message to acknowledge")]
 fn given_valid_message_for_ack(world: &mut GenWorld) {
-    let msg = hl7v2_core::parse(
+    let msg = hl7v2::parse(
         b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||Doe^John\r",
     )
     .unwrap();
@@ -291,15 +291,15 @@ fn when_faker_name(world: &mut GenWorld, gender: String) {
 fn then_identical(world: &mut GenWorld) {
     assert!(!world.messages_a.is_empty());
     assert!(!world.messages_b.is_empty());
-    let a = hl7v2_core::write(&world.messages_a[0]);
-    let b = hl7v2_core::write(&world.messages_b[0]);
+    let a = hl7v2::write(&world.messages_a[0]);
+    let b = hl7v2::write(&world.messages_b[0]);
     assert_eq!(a, b, "Messages with same seed should be identical");
 }
 
 #[then("the messages should differ")]
 fn then_differ(world: &mut GenWorld) {
-    let a = hl7v2_core::write(&world.messages_a[0]);
-    let b = hl7v2_core::write(&world.messages_b[0]);
+    let a = hl7v2::write(&world.messages_a[0]);
+    let b = hl7v2::write(&world.messages_b[0]);
     assert_ne!(a, b, "Messages with different seeds should differ");
 }
 
@@ -311,8 +311,8 @@ fn then_receive_n(world: &mut GenWorld, count: usize) {
 #[then("all messages should be valid HL7")]
 fn then_all_valid(world: &mut GenWorld) {
     for msg in &world.messages_a {
-        let bytes = hl7v2_core::write(msg);
-        let parsed = hl7v2_core::parse(&bytes);
+        let bytes = hl7v2::write(msg);
+        let parsed = hl7v2::parse(&bytes);
         assert!(parsed.is_ok(), "Message should be valid HL7");
     }
 }
@@ -320,8 +320,8 @@ fn then_all_valid(world: &mut GenWorld) {
 #[then("the generated message should be valid HL7")]
 fn then_generated_valid(world: &mut GenWorld) {
     let msg = &world.messages_a[0];
-    let bytes = hl7v2_core::write(msg);
-    let parsed = hl7v2_core::parse(&bytes);
+    let bytes = hl7v2::write(msg);
+    let parsed = hl7v2::parse(&bytes);
     assert!(parsed.is_ok(), "Generated message should be valid HL7");
 }
 
@@ -329,7 +329,7 @@ fn then_generated_valid(world: &mut GenWorld) {
 fn then_values_from_list(world: &mut GenWorld, list: String) {
     let allowed: Vec<&str> = list.split(',').collect();
     for msg in &world.messages_a {
-        if let Some(val) = hl7v2_core::get(msg, "PID.8") {
+        if let Some(val) = hl7v2::get(msg, "PID.8") {
             assert!(
                 allowed.contains(&val),
                 "PID.8 value '{}' not in allowed list {:?}",
@@ -360,7 +360,7 @@ fn then_ack_msh_msa_err(world: &mut GenWorld) {
 #[then(regex = r#"MSA\.1 should be "([^"]+)""#)]
 fn then_msa1(world: &mut GenWorld, expected: String) {
     let ack = world.ack_message.as_ref().expect("No ACK generated");
-    let val = hl7v2_core::get(ack, "MSA.1").expect("MSA.1 not found");
+    let val = hl7v2::get(ack, "MSA.1").expect("MSA.1 not found");
     assert_eq!(val, expected);
 }
 
@@ -378,8 +378,8 @@ fn then_contains_segment(world: &mut GenWorld, segment_id: String) {
 fn then_corpora_identical(world: &mut GenWorld) {
     assert_eq!(world.messages_a.len(), world.messages_b.len());
     for (a, b) in world.messages_a.iter().zip(world.messages_b.iter()) {
-        let wa = hl7v2_core::write(a);
-        let wb = hl7v2_core::write(b);
+        let wa = hl7v2::write(a);
+        let wb = hl7v2::write(b);
         assert_eq!(wa, wb, "Corpus messages with same seed should be identical");
     }
 }
