@@ -1,10 +1,7 @@
 //! Memory usage benchmarks for HL7 v2 parsing
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use hl7v2_mllp::wrap_mllp;
-use hl7v2_normalize::normalize;
-use hl7v2_parser::{parse, parse_mllp};
-use hl7v2_writer::{write, write_mllp};
+use hl7v2::{normalize, parse, parse_mllp, wrap_mllp, write, write_mllp};
 use std::hint::black_box;
 
 /// Create a sample HL7 message for benchmarking

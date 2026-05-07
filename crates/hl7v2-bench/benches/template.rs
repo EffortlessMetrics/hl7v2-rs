@@ -6,8 +6,8 @@
 //! - Value source resolution
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use hl7v2_template::{Template, ValueSource, generate, generate_corpus};
-use hl7v2_template_values::generate_value;
+use hl7v2::synthetic::template::{Template, ValueSource, generate, generate_corpus};
+use hl7v2::synthetic::values::generate_value;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use std::collections::HashMap;

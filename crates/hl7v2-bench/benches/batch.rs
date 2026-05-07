@@ -6,8 +6,8 @@
 //! - Batch with different message counts (10, 100, 1000)
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use hl7v2_batch::parse_batch;
-use hl7v2_parser::parse;
+use hl7v2::batch::parse_batch;
+use hl7v2::parse;
 use std::hint::black_box;
 
 /// Create a sample HL7 message for batch construction

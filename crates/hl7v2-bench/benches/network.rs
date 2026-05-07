@@ -9,9 +9,7 @@
 //! longer sample times for accurate results.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use hl7v2_mllp::wrap_mllp;
-use hl7v2_parser::parse;
-use hl7v2_writer::write_mllp;
+use hl7v2::{parse, wrap_mllp, write_mllp};
 use std::hint::black_box;
 use tokio::runtime::Runtime;
 

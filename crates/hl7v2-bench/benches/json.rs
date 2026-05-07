@@ -6,9 +6,7 @@
 //! - Comparison with other serialization formats
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use hl7v2_json::{to_json, to_json_string, to_json_string_pretty};
-use hl7v2_parser::parse;
-use hl7v2_writer::write;
+use hl7v2::{parse, to_json, to_json_string, to_json_string_pretty, write};
 use serde_json::Value;
 use std::hint::black_box;
 
