@@ -1915,12 +1915,8 @@ name = "hl7v2-stream"
 version = "1.2.0"
 dependencies = [
  "criterion 0.5.1",
- "hl7v2-model",
- "hl7v2-parser",
+ "hl7v2",
  "hl7v2-test-utils",
- "proptest",
- "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
