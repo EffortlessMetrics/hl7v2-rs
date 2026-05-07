@@ -22,12 +22,18 @@ default = [
 ]
 
 json = []
-profile = [
-    "dep:hl7v2-prof",
-    "dep:hl7v2-validation",
+profile = ["profile-core", "persistent-cache"]
+profile-core = [
     "dep:chrono",
+    "dep:serde",
+    "dep:serde_yaml",
     "dep:regex",
+    "dep:tokio",
+    "dep:reqwest",
+    "dep:lru",
+    "dep:async-lock",
 ]
+persistent-cache = ["profile-core", "dep:sqlx", "dep:sha2", "dep:hex"]
 ack = ["dep:chrono"]
 normalize = []
 batch = []
@@ -62,6 +68,7 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4"], optional = true }
 tokio = { workspace = true, features = [
+    "fs",
     "net",
     "io-util",
     "time",
@@ -72,12 +79,24 @@ tokio = { workspace = true, features = [
 tokio-util = { workspace = true, features = ["codec"], optional = true }
 futures = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
-
-hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof", optional = true }
-hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation", optional = true }
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-webpki-roots",
+    "http2",
+], optional = true }
+lru = { version = "0.16", optional = true }
+async-lock = { version = "3.4", optional = true }
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio",
+    "postgres",
+    "chrono",
+    "migrate",
+], optional = true }
+hex = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest = "1.6"
+tempfile = "3.26.0"
+wiremock = "0.6"
 
 [lints]
 workspace = true

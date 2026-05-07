@@ -2796,9 +2796,12 @@ mod tests {
             return Err(anyhow!("xtask should not be publishable"));
         }
 
-        assert_dependency_precedes(&ordered, "hl7v2-query", "hl7v2-validation")?;
-        assert_dependency_precedes(&ordered, "hl7v2-validation", "hl7v2-prof")?;
-        assert_dependency_precedes(&ordered, "hl7v2-prof", "hl7v2")?;
+        assert_dependency_precedes(&ordered, "hl7v2-model", "hl7v2")?;
+        assert_dependency_precedes(&ordered, "hl7v2-escape", "hl7v2")?;
+        assert_dependency_precedes(&ordered, "hl7v2-mllp", "hl7v2")?;
+        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-core")?;
+        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-prof")?;
+        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-validation")?;
         assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-ack")?;
         assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-datatype")?;
         Ok(())
@@ -2829,9 +2832,9 @@ mod tests {
     fn workspace_patch_dependencies_include_publishable_dev_dependencies() -> Result<()> {
         let metadata = MetadataCommand::new().exec()?;
         let packages = publishable_workspace_packages(&metadata);
-        let dependencies = internal_workspace_dependency_closure("hl7v2-ack", &packages)?;
+        let dependencies = internal_workspace_dependency_closure("hl7v2-parser", &packages)?;
 
-        for dependency in ["hl7v2", "hl7v2-writer"] {
+        for dependency in ["hl7v2-query", "hl7v2-writer"] {
             if !dependencies.contains(dependency) {
                 return Err(anyhow!(
                     "workspace patch dependency closure should include {dependency}"
