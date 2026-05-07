@@ -796,9 +796,9 @@ datatypes:
         path in field_path_strategy(),
         datatype in prop_oneof![Just("ST"), Just("ID")],
         min_length in 0usize..100,
-        max_length in 1usize..200
+        length_delta in 1usize..100
     ) {
-        prop_assume!(min_length < max_length);
+        let max_length = min_length + length_delta;
 
         let yaml = format!(
             r#"
@@ -1144,9 +1144,9 @@ proptest! {
     fn prop_profile_segment_cardinality(
         msg_struct in message_structure_strategy(),
         min_occurs in 0usize..5,
-        max_occurs in 1usize..10
+        occurs_delta in 0usize..5
     ) {
-        prop_assume!(min_occurs <= max_occurs);
+        let max_occurs = min_occurs + occurs_delta;
 
         let yaml = format!(
             r#"

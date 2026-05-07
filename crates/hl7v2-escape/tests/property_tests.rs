@@ -17,23 +17,38 @@ fn text_without_delimiters() -> impl Strategy<Value = String> {
     "[A-Za-z0-9 ]{0,100}"
 }
 
-/// Generate custom delimiters
-#[allow(dead_code)]
-fn custom_delims() -> impl Strategy<Value = Delims> {
-    (
-        any::<char>(),
-        any::<char>(),
-        any::<char>(),
-        any::<char>(),
-        any::<char>(),
-    )
-        .prop_map(|(field, comp, rep, esc, sub)| Delims {
-            field,
-            comp,
-            rep,
-            esc,
-            sub,
-        })
+/// Generate custom delimiters that cannot appear in `text_without_delimiters`.
+fn custom_delims_outside_text_alphabet() -> impl Strategy<Value = Delims> {
+    prop::sample::select(vec![
+        Delims {
+            field: '|',
+            comp: '^',
+            rep: '~',
+            esc: '\\',
+            sub: '&',
+        },
+        Delims {
+            field: '!',
+            comp: '#',
+            rep: '$',
+            esc: '%',
+            sub: '@',
+        },
+        Delims {
+            field: ';',
+            comp: ':',
+            rep: '?',
+            esc: '/',
+            sub: '*',
+        },
+        Delims {
+            field: '(',
+            comp: ')',
+            rep: '[',
+            esc: ']',
+            sub: '{',
+        },
+    ])
 }
 
 proptest! {
@@ -138,20 +153,8 @@ proptest! {
     #[test]
     fn prop_custom_delimiters_roundtrip(
         text in "[A-Za-z0-9 ]{0,50}",
-        field in any::<char>(),
-        comp in any::<char>(),
-        rep in any::<char>(),
-        esc in any::<char>(),
-        sub in any::<char>()
+        delims in custom_delims_outside_text_alphabet()
     ) {
-        // Skip if delimiters conflict with text characters
-        prop_assume!(!text.contains(field));
-        prop_assume!(!text.contains(comp));
-        prop_assume!(!text.contains(rep));
-        prop_assume!(!text.contains(esc));
-        prop_assume!(!text.contains(sub));
-
-        let delims = Delims { field, comp, rep, esc, sub };
         let escaped = escape_text(&text, &delims);
         let unescaped = unescape_text(&escaped, &delims).unwrap();
         prop_assert_eq!(unescaped, text);
