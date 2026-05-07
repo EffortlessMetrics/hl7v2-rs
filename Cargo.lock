@@ -1536,10 +1536,7 @@ version = "1.2.0"
 dependencies = [
  "chrono",
  "hl7v2-ack",
- "hl7v2-corpus",
  "hl7v2-escape",
- "hl7v2-faker",
- "hl7v2-gen",
  "hl7v2-json",
  "hl7v2-mllp",
  "hl7v2-model",
@@ -1549,15 +1546,17 @@ dependencies = [
  "hl7v2-prof",
  "hl7v2-query",
  "hl7v2-stream",
- "hl7v2-template",
- "hl7v2-template-values",
  "hl7v2-validation",
  "hl7v2-writer",
+ "rand 0.10.1",
+ "rand_distr",
  "regex",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "sha2",
  "thiserror 2.0.18",
+ "uuid",
 ]
 
 [[package]]
@@ -1655,14 +1654,10 @@ dependencies = [
 name = "hl7v2-corpus"
 version = "1.2.0"
 dependencies = [
- "chrono",
+ "hl7v2",
  "hl7v2-core",
  "proptest",
- "rand 0.10.1",
- "serde",
  "serde_json",
- "sha2",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1740,13 +1735,11 @@ dependencies = [
 name = "hl7v2-faker"
 version = "1.2.0"
 dependencies = [
- "chrono",
  "cucumber",
+ "hl7v2",
  "proptest",
  "rand 0.10.1",
- "rand_distr",
  "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -1754,19 +1747,13 @@ name = "hl7v2-gen"
 version = "1.2.0"
 dependencies = [
  "cucumber",
- "hl7v2-ack",
+ "hl7v2",
  "hl7v2-core",
- "hl7v2-faker",
- "hl7v2-model",
  "hl7v2-normalize",
  "hl7v2-parser",
  "hl7v2-query",
- "hl7v2-template",
- "hl7v2-writer",
  "proptest",
  "rand 0.10.1",
- "serde",
- "serde_yaml_ng",
  "tokio",
  "toml 0.8.23",
 ]
@@ -1979,28 +1966,19 @@ dependencies = [
 name = "hl7v2-template"
 version = "1.2.0"
 dependencies = [
+ "hl7v2",
  "hl7v2-core",
- "hl7v2-corpus",
- "hl7v2-model",
- "hl7v2-template-values",
  "proptest",
- "rand 0.10.1",
- "serde",
- "serde_json",
- "sha2",
 ]
 
 [[package]]
 name = "hl7v2-template-values"
 version = "1.2.0"
 dependencies = [
- "chrono",
  "cucumber",
- "hl7v2-core",
- "hl7v2-faker",
+ "hl7v2",
  "proptest",
  "rand 0.10.1",
- "serde",
  "serde_json",
  "tokio",
 ]

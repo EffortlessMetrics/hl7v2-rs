@@ -130,39 +130,7 @@ pub mod stream {
 }
 
 #[cfg(feature = "synthetic")]
-pub mod synthetic {
-    //! Synthetic message generation APIs.
-
-    pub mod template {
-        //! Template-based message generation.
-
-        pub use hl7v2_template::*;
-    }
-
-    pub mod values {
-        //! Template value sources.
-
-        pub use hl7v2_template_values::*;
-    }
-
-    pub mod faker {
-        //! Faker-backed synthetic value generation.
-
-        pub use hl7v2_faker::*;
-    }
-
-    pub mod corpus {
-        //! Corpus metadata and hashing helpers.
-
-        pub use hl7v2_corpus::*;
-    }
-
-    pub mod generate {
-        //! Generation convenience facade.
-
-        pub use hl7v2_gen::*;
-    }
-}
+pub mod synthetic;
 
 #[cfg(feature = "redact")]
 pub mod redact;
