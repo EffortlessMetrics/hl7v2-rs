@@ -106,11 +106,7 @@ pub mod conformance {
 }
 
 #[cfg(feature = "ack")]
-pub mod ack {
-    //! ACK message generation.
-
-    pub use hl7v2_ack::*;
-}
+pub mod ack;
 
 #[cfg(feature = "normalize")]
 pub mod normalize {
@@ -161,7 +157,7 @@ pub use query::path::{Path, parse_path};
 pub use hl7v2_normalize::normalize;
 
 #[cfg(feature = "ack")]
-pub use hl7v2_ack::{AckCode, ack, ack_with_error};
+pub use ack::{AckCode, ack, ack_with_error};
 
 #[cfg(feature = "profile")]
 pub use hl7v2_prof::{Profile, load_profile, load_profile_checked, validate};
