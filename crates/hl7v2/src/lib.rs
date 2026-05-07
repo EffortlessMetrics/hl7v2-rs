@@ -120,11 +120,7 @@ pub mod normalize {
 }
 
 #[cfg(feature = "batch")]
-pub mod batch {
-    //! Batch processing APIs.
-
-    pub use hl7v2_batch::*;
-}
+pub mod batch;
 
 #[cfg(feature = "stream")]
 pub mod stream {

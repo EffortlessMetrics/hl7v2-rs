@@ -2,8 +2,8 @@
 //!
 //! These tests verify batch parsing properties hold for arbitrary inputs.
 
+use hl7v2::parse;
 use hl7v2_batch::{Batch, BatchType, parse_batch};
-use hl7v2_parser::parse;
 use proptest::prelude::*;
 
 /// Generate a valid application name

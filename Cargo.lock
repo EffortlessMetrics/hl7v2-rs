@@ -1536,7 +1536,6 @@ version = "1.2.0"
 dependencies = [
  "chrono",
  "hl7v2-ack",
- "hl7v2-batch",
  "hl7v2-corpus",
  "hl7v2-escape",
  "hl7v2-faker",
@@ -1579,11 +1578,9 @@ name = "hl7v2-batch"
 version = "1.2.0"
 dependencies = [
  "cucumber",
- "hl7v2-model",
- "hl7v2-parser",
+ "hl7v2",
  "hl7v2-test-utils",
  "proptest",
- "thiserror 2.0.18",
  "tokio",
 ]
 
