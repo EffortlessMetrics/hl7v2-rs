@@ -153,7 +153,7 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
 // Internal helper functions
 // ============================================================================
 
-/// Parse field and repetition indices from a string like "5" or "5[1]"
+/// Parse field and repetition indices from a string like `5` or `5[1]`.
 fn parse_field_and_rep(field_str: &str) -> Option<(usize, usize)> {
     if let Some(bracket_pos) = field_str.find('[') {
         // Has repetition index
