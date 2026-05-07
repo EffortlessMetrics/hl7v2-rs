@@ -2,8 +2,8 @@
 //!
 //! Tests cover real-world HL7 to JSON conversion scenarios
 
-use hl7v2_json::*;
-use hl7v2_model::*;
+use hl7v2::{Atom, Comp, Delims, Field, Message, Rep, Segment};
+use hl7v2_json::{to_json, to_json_string, to_json_string_pretty};
 
 // ============================================================================
 // Real-World HL7 Message Tests

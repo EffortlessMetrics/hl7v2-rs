@@ -2,8 +2,8 @@
 //!
 //! These tests verify JSON serialization properties hold for arbitrary inputs.
 
+use hl7v2::{Atom, Comp, Delims, Field, Message, Rep, Segment};
 use hl7v2_json::{to_json, to_json_string, to_json_string_pretty};
-use hl7v2_model::{Atom, Comp, Delims, Field, Message, Rep, Segment};
 use proptest::prelude::*;
 
 // ============================================================================

@@ -1,6 +1,7 @@
 # hl7v2-json
 
-HL7 v2 to JSON serialization and deserialization.
+Deprecated compatibility crate for HL7 v2 JSON serialization.
+Use `hl7v2::writer::json` for new Rust code.
 
 ## Usage
 
