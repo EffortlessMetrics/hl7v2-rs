@@ -9,9 +9,13 @@ Use the `hl7v2` crate for new Rust code:
 hl7v2 = "1.2.0"
 ```
 
-`hl7v2-core` is retained temporarily while the old implementation microcrates
-are collapsed into modules under `hl7v2`. It should not be treated as a second
-public facade or a stable product surface.
+`hl7v2-core` is retained temporarily as a deprecated compatibility shim over
+`hl7v2`. It should not be treated as a second public facade or a stable product
+surface.
+
+The crate re-exports `hl7v2::*`. The old `hl7v2_core::network` path is retained
+as an alias for `hl7v2::transport::network` when the `network` feature is
+enabled.
 
 ## Usage
 
