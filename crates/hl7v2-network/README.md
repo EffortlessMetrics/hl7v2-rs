@@ -1,6 +1,7 @@
 # hl7v2-network
 
-TCP and MLLP based network communication for HL7 v2.
+Deprecated compatibility crate for TCP and MLLP based network communication.
+Use `hl7v2::transport::network` for new Rust code.
 
 ## Usage
 

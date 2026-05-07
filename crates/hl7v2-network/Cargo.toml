@@ -13,28 +13,15 @@ keywords.workspace = true
 categories = ["network-programming", "asynchronous"]
 
 [dependencies]
-# Core HL7v2 dependencies
-hl7v2-model = { version = "1.2.0", path = "../hl7v2-model" }
-hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
-hl7v2-writer = { version = "1.2.0", path = "../hl7v2-writer" }
-
-# Async runtime and networking
-tokio = { workspace = true, features = ["net", "io-util", "time", "macros", "rt", "sync"] }
-tokio-util = { version = "0.7.18", features = ["codec"] }
-bytes = "1.11.1"
-futures = "0.3.32"
-
-# Optional TLS support
-rustls = { version = "0.23.37", optional = true, default-features = false, features = ["ring"] }
-tokio-rustls = { version = "0.26.4", optional = true, default-features = false, features = ["ring"] }
+hl7v2 = { version = "1.2.0", path = "../hl7v2", default-features = false, features = [
+    "network",
+] }
 
 [features]
 default = []
-tls = ["rustls", "tokio-rustls"]
+tls = []
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time", "net", "io-util"] }
-hl7v2-test-utils = { path = "../hl7v2-test-utils" }
-proptest = "1.6"
-tokio-test = "0.4"
-
+tokio-util = { workspace = true, features = ["codec"] }
+bytes = { workspace = true }
