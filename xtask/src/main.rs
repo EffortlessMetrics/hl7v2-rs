@@ -2780,17 +2780,35 @@ mod tests {
     fn publish_order_uses_workspace_dependency_order() -> Result<()> {
         let ordered = publish_order(None)?;
 
-        ensure_contains(&ordered, "hl7v2-core")?;
-        ensure_contains(&ordered, "hl7v2")?;
-        for synthetic_shim in [
+        for public_surface in ["hl7v2", "hl7v2-server", "hl7v2-cli", "hl7v2-python"] {
+            ensure_contains(&ordered, public_surface)?;
+        }
+        for frozen_shim in [
+            "hl7v2-ack",
+            "hl7v2-batch",
+            "hl7v2-core",
             "hl7v2-corpus",
+            "hl7v2-datatype",
+            "hl7v2-datetime",
             "hl7v2-faker",
             "hl7v2-gen",
+            "hl7v2-guard",
+            "hl7v2-json",
+            "hl7v2-lifecycle",
+            "hl7v2-network",
+            "hl7v2-normalize",
+            "hl7v2-parser",
+            "hl7v2-path",
+            "hl7v2-prof",
+            "hl7v2-query",
+            "hl7v2-redact",
+            "hl7v2-stream",
             "hl7v2-template",
             "hl7v2-template-values",
+            "hl7v2-validation",
+            "hl7v2-writer",
         ] {
-            ensure_contains(&ordered, synthetic_shim)?;
-            assert_dependency_precedes(&ordered, "hl7v2", synthetic_shim)?;
+            ensure_not_contains(&ordered, frozen_shim)?;
         }
         if ordered.iter().any(|crate_name| crate_name == "xtask") {
             return Err(anyhow!("xtask should not be publishable"));
@@ -2799,22 +2817,20 @@ mod tests {
         assert_dependency_precedes(&ordered, "hl7v2-model", "hl7v2")?;
         assert_dependency_precedes(&ordered, "hl7v2-escape", "hl7v2")?;
         assert_dependency_precedes(&ordered, "hl7v2-mllp", "hl7v2")?;
-        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-core")?;
-        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-prof")?;
-        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-validation")?;
-        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-ack")?;
-        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-datatype")?;
+        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-server")?;
+        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-cli")?;
+        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-python")?;
         Ok(())
     }
 
     #[test]
     fn publish_order_can_resume_from_a_named_crate() -> Result<()> {
         let ordered = publish_order(None)?;
-        let resumed = publish_order(Some("hl7v2-core"))?;
+        let resumed = publish_order(Some("hl7v2"))?;
         let start = ordered
             .iter()
-            .position(|crate_name| crate_name == "hl7v2-core")
-            .ok_or_else(|| anyhow!("hl7v2-core should be publishable"))?;
+            .position(|crate_name| crate_name == "hl7v2")
+            .ok_or_else(|| anyhow!("hl7v2 should be publishable"))?;
         let expected = ordered
             .get(start..)
             .ok_or_else(|| anyhow!("resume start is outside publish order"))?
@@ -2829,21 +2845,32 @@ mod tests {
     }
 
     #[test]
-    fn workspace_patch_dependencies_include_publishable_dev_dependencies() -> Result<()> {
+    fn workspace_patch_dependencies_exclude_private_shims() -> Result<()> {
         let metadata = MetadataCommand::new().exec()?;
         let packages = publishable_workspace_packages(&metadata);
-        let dependencies = internal_workspace_dependency_closure("hl7v2-parser", &packages)?;
+        let dependencies = internal_workspace_dependency_closure("hl7v2", &packages)?;
 
-        for dependency in ["hl7v2-query", "hl7v2-writer"] {
+        for dependency in ["hl7v2-model", "hl7v2-escape", "hl7v2-mllp"] {
             if !dependencies.contains(dependency) {
                 return Err(anyhow!(
                     "workspace patch dependency closure should include {dependency}"
                 ));
             }
         }
-        if dependencies.contains("hl7v2-test-utils") {
+        for excluded in ["hl7v2-parser", "hl7v2-query", "hl7v2-test-utils"] {
+            if dependencies.contains(excluded) {
+                return Err(anyhow!(
+                    "workspace patch dependency closure should exclude non-publishable crate {excluded}"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn ensure_not_contains(ordered: &[String], crate_name: &str) -> Result<()> {
+        if ordered.iter().any(|name| name == crate_name) {
             return Err(anyhow!(
-                "workspace patch dependency closure should exclude non-publishable test utils"
+                "{crate_name} should not be present in publish order"
             ));
         }
         Ok(())
