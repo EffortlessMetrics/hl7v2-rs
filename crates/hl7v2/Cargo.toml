@@ -34,11 +34,15 @@ batch = []
 stream = ["dep:hl7v2-stream"]
 network = ["dep:hl7v2-network"]
 synthetic = [
-    "dep:hl7v2-template",
-    "dep:hl7v2-template-values",
-    "dep:hl7v2-faker",
-    "dep:hl7v2-corpus",
-    "dep:hl7v2-gen",
+    "ack",
+    "dep:serde",
+    "dep:chrono",
+    "dep:rand",
+    "dep:rand_distr",
+    "dep:serde_json",
+    "dep:serde_yaml",
+    "dep:sha2",
+    "dep:uuid",
 ]
 redact = []
 lifecycle = ["dep:chrono", "dep:serde", "dep:sha2"]
@@ -56,6 +60,11 @@ serde = { workspace = true, features = ["derive"], optional = true }
 chrono = { workspace = true, features = ["serde"], optional = true }
 sha2 = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
+rand = { version = "0.10.0", optional = true }
+rand_distr = { version = "0.6.0", optional = true }
+serde_json = { workspace = true, optional = true }
+serde_yaml = { workspace = true, optional = true }
+uuid = { workspace = true, features = ["v4"], optional = true }
 
 hl7v2-json = { version = "1.2.0", path = "../hl7v2-json", optional = true }
 hl7v2-normalize = { version = "1.2.0", path = "../hl7v2-normalize", optional = true }
@@ -64,14 +73,6 @@ hl7v2-prof = { version = "1.2.0", path = "../hl7v2-prof", optional = true }
 hl7v2-validation = { version = "1.2.0", path = "../hl7v2-validation", optional = true }
 hl7v2-stream = { version = "1.2.0", path = "../hl7v2-stream", optional = true }
 hl7v2-network = { version = "1.2.0", path = "../hl7v2-network", optional = true }
-hl7v2-template = { version = "1.2.0", path = "../hl7v2-template", optional = true }
-hl7v2-template-values = { version = "1.2.0", path = "../hl7v2-template-values", optional = true }
-hl7v2-faker = { version = "1.2.0", path = "../hl7v2-faker", optional = true }
-hl7v2-corpus = { version = "1.2.0", path = "../hl7v2-corpus", optional = true }
-hl7v2-gen = { version = "1.2.0", path = "../hl7v2-gen", optional = true }
 
 [lints]
 workspace = true
-
-[dev-dependencies]
-serde_json = { workspace = true }

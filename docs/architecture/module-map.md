@@ -47,11 +47,11 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2-datatype` | `hl7v2::conformance::datatype` | Collapsed as leaf conformance module | Primitive/composite data type validation; `hl7v2-datatype` remains a compatibility shim. |
 | `hl7v2-datetime` | `hl7v2::conformance::datatype::datetime` | Collapsed as leaf conformance module | Datetime parsing is part of datatype validation; `hl7v2-datetime` remains a compatibility shim. |
 | `hl7v2-ack` | `hl7v2::ack` | Module | First-class runtime HL7 behavior, not synthetic-only. |
-| `hl7v2-faker` | `hl7v2::synthetic::faker` | Feature-gated module | Test/synthetic data generation behind `synthetic`. |
-| `hl7v2-corpus` | `hl7v2::synthetic::corpus` | Feature-gated module | Corpus manifest and lock behavior behind `synthetic`. |
-| `hl7v2-template` | `hl7v2::synthetic::template` | Feature-gated module | Template model/rendering behind `synthetic`. |
-| `hl7v2-template-values` | `hl7v2::synthetic::values` | Feature-gated module | Value distributions/sources behind `synthetic`. |
-| `hl7v2-gen` | `hl7v2::synthetic::generate` | Feature-gated module | Generation facade behind `synthetic`; ACK remains in `hl7v2::ack`. |
+| `hl7v2-faker` | `hl7v2::synthetic::faker` | Collapsed as synthetic feature module | Test/synthetic data generation behind `synthetic`; `hl7v2-faker` remains a compatibility shim. |
+| `hl7v2-corpus` | `hl7v2::synthetic::corpus` | Collapsed as synthetic feature module | Corpus manifest and lock behavior behind `synthetic`; `hl7v2-corpus` remains a compatibility shim. |
+| `hl7v2-template` | `hl7v2::synthetic::template` | Collapsed as synthetic feature module | Template model/rendering behind `synthetic`; `hl7v2-template` remains a compatibility shim. |
+| `hl7v2-template-values` | `hl7v2::synthetic::values` | Collapsed as synthetic feature module | Value distributions/sources behind `synthetic`; `hl7v2-template-values` remains a compatibility shim. |
+| `hl7v2-gen` | `hl7v2::synthetic::generate` | Collapsed as synthetic feature module | Generation facade behind `synthetic`; ACK remains in `hl7v2::ack`; `hl7v2-gen` remains a compatibility shim. |
 | `hl7v2-redact` | `hl7v2::redact` | Feature-gated module | Collapsed as a leaf feature module; `hl7v2-redact` is a compatibility shim. |
 | `hl7v2-lifecycle` | `hl7v2::lifecycle` | Collapsed as leaf feature module | `hl7v2-lifecycle` remains a compatibility shim. |
 | `hl7v2-guard` | `hl7v2::experimental::guard` | Collapsed as leaf experimental feature module | `hl7v2-guard` remains a compatibility shim; do not present guard as stable until semantics are proven. |
@@ -77,7 +77,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `batch` | none unless later proven needed | Batch parsing/writing. |
 | `stream` | `tokio` if async stream support remains in the same feature | Streaming parser APIs. |
 | `network` | `stream`, `tokio`, `tokio-util`, `futures`, `bytes` | Async MLLP networking. |
-| `synthetic` | `serde`, `chrono`, generation dependencies added as modules move | Faker, corpus, templates, values, generation. |
+| `synthetic` | `ack`, `serde`, `chrono`, `rand`, `rand_distr`, `serde_json`, `serde_yaml`, `sha2`, `uuid` | Faker, corpus, templates, values, generation. |
 | `redact` | none | Redaction rules/policies. |
 | `lifecycle` | `chrono`, `serde`, `sha2` | Retention/archive lifecycle. |
 | `experimental-guard` | `serde` | Experimental guard/anomaly detection. |
@@ -113,6 +113,13 @@ narrow, keep compatibility shims, and state why they do not introduce cycles.
 `hl7v2-redact`, `hl7v2-guard`, `hl7v2-lifecycle`, `hl7v2-datatype`,
 `hl7v2-datetime`, and `hl7v2-batch` used that path: their implementations now
 live under `hl7v2`, and the old crates are compatibility shims.
+
+The synthetic crates collapsed as one cluster instead of one crate per PR.
+`hl7v2-faker`, `hl7v2-corpus`, `hl7v2-template-values`, `hl7v2-template`, and
+`hl7v2-gen` depend on each other enough that collapsing only one would make its
+shim depend back on `hl7v2` while another synthetic implementation crate still
+depended on the shim. Moving the cluster together preserves behavior without
+introducing Cargo cycles.
 
 ## Import Conversion Rules
 
