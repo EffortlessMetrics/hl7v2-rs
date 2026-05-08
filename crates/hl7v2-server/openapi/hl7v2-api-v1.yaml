@@ -34,6 +34,7 @@ info:
   contact:
     name: HL7v2-rs Team
     url: https://github.com/EffortlessMetrics/hl7v2-rs
+    email: team@effortlessmetrics.com
   license:
     name: AGPL-3.0-or-later
     url: https://github.com/EffortlessMetrics/hl7v2-rs/blob/main/LICENSE
