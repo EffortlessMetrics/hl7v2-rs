@@ -55,6 +55,22 @@ mod cli_unit_tests {
         }
 
         #[test]
+        fn test_profile_command_has_lint_subcommand() {
+            use crate::Cli;
+            let schema = Cli::command();
+            let profile = schema
+                .get_subcommands()
+                .find(|command| command.get_name() == "profile")
+                .expect("profile command should exist");
+
+            assert!(
+                profile
+                    .get_subcommands()
+                    .any(|command| command.get_name() == "lint")
+            );
+        }
+
+        #[test]
         fn test_ack_command_mode_options() {
             // Verify ACK mode options exist
             let modes = vec!["original", "enhanced"];
