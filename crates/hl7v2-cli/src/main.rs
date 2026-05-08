@@ -24,9 +24,9 @@
 use clap::{Parser, Subcommand};
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
-    AckCode as GenAckCode, Event, Message, StreamParser, ack, get, is_mllp_framed, load_profile,
-    load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp, write,
-    write_mllp,
+    AckCode as GenAckCode, Event, Message, StreamParser, ValidationReport, ack, get,
+    is_mllp_framed, load_profile, load_profile_checked, normalize, parse, parse_mllp, to_json,
+    validate, wrap_mllp, write, write_mllp,
 };
 use std::fs;
 use std::io::{Read, Write};
@@ -1133,15 +1133,11 @@ fn val_command(
     monitor.record_metric("Message validation", validation_time);
 
     // Build validation report
-    let validation_report = ValidationReport {
-        input_file: input.to_string_lossy().to_string(),
-        profile_file: profile.to_string_lossy().to_string(),
-        file_size,
-        segment_count: message.segments.len(),
-        is_valid: results.is_empty(),
-        issue_count: results.len(),
-        issues: results.iter().map(|r| format!("{:?}", r)).collect(),
-    };
+    let validation_report = ValidationReport::from_issues(
+        &message,
+        Some(profile.to_string_lossy().to_string()),
+        results,
+    );
 
     // Output based on report format
     match report {
@@ -1155,15 +1151,25 @@ fn val_command(
         }
         ReportFormat::Text => {
             // Print validation results in text format
-            if results.is_empty() {
+            if validation_report.valid {
                 println!("Validation passed: No issues found");
             } else if detailed {
                 println!("Validation issues found:");
-                for result in &results {
-                    println!("  - {:?}", result);
+                for issue in &validation_report.issues {
+                    let path = issue.path.as_deref().unwrap_or("message");
+                    println!(
+                        "  - {} {} {}: {}",
+                        issue.severity.as_str(),
+                        issue.code,
+                        path,
+                        issue.message
+                    );
                 }
             } else {
-                println!("Validation failed: {} issues found", results.len());
+                println!(
+                    "Validation failed: {} issues found",
+                    validation_report.issue_count
+                );
             }
         }
     }
@@ -1175,29 +1181,17 @@ fn val_command(
         println!("  Input file: {:?}", input);
         println!("  Profile file: {:?}", profile);
         println!("  File size: {} bytes", file_size);
-        println!("  Segments: {}", message.segments.len());
-        println!("  Issues found: {}", results.len());
+        println!("  Segments: {}", validation_report.segment_count);
+        println!("  Issues found: {}", validation_report.issue_count);
         display_performance_stats(&monitor);
     }
 
     // Exit with error code if validation failed
-    if !results.is_empty() {
+    if !validation_report.valid {
         std::process::exit(1);
     }
 
     Ok(())
-}
-
-/// Validation report structure for JSON/YAML output
-#[derive(serde::Serialize)]
-struct ValidationReport {
-    input_file: String,
-    profile_file: String,
-    file_size: usize,
-    segment_count: usize,
-    is_valid: bool,
-    issue_count: usize,
-    issues: Vec<String>,
 }
 
 /// Statistics report structure for JSON/YAML output

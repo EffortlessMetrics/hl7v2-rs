@@ -133,9 +133,8 @@ hl7v2 parse <input.mllp> --mllp --json > output.json
 # Validate against a profile (supports profile inheritance)
 hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml
 
-# (Planned) Emit a JSON validation report
-# hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report validation_errors.json
-# See docs/STATUS.md for current CLI flag support.
+# Emit a machine-readable validation report
+hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report json
 ```
 
 ### Normalize Messages

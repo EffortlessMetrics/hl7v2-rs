@@ -500,6 +500,61 @@ mod validate_command {
     }
 
     #[test]
+    fn test_validate_json_report_uses_stable_issue_contract() {
+        let dir = create_temp_dir();
+        let hl7_file = create_temp_hl7_with_content(
+            &dir,
+            "missing_pid3.hl7",
+            "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1\r",
+        );
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let assert = cmd
+            .args([
+                "val",
+                hl7_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .assert()
+            .failure();
+        let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+        let report: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+        assert_eq!(report["valid"], false);
+        assert_eq!(report["message_type"], "ADT^A01");
+        assert!(
+            report["profile"]
+                .as_str()
+                .unwrap()
+                .ends_with("profile.yaml")
+        );
+        assert_eq!(report["issue_count"], 1);
+        assert_eq!(report["issues"][0]["code"], "missing_required_field");
+        assert_eq!(report["issues"][0]["severity"], "error");
+        assert_eq!(report["issues"][0]["path"], "PID.3");
+        assert_eq!(report["issues"][0]["rule_id"], "missing_required_field");
+        assert_eq!(report["issues"][0]["segment_index"], 1);
+        assert_eq!(report["issues"][0]["field_index"], 3);
+    }
+
+    #[test]
     fn test_validate_missing_hl7_file() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());

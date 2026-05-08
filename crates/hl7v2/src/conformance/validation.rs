@@ -82,6 +82,125 @@ impl Issue {
     }
 }
 
+/// Stable severity values used by machine-readable validation reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ValidationReportSeverity {
+    /// Error-level issue.
+    Error,
+    /// Warning-level issue.
+    Warning,
+}
+
+impl ValidationReportSeverity {
+    /// Return the stable lowercase string representation.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warning => "warning",
+        }
+    }
+}
+
+impl From<&Severity> for ValidationReportSeverity {
+    fn from(value: &Severity) -> Self {
+        match value {
+            Severity::Error => Self::Error,
+            Severity::Warning => Self::Warning,
+        }
+    }
+}
+
+/// Machine-readable validation report shared by CLI and service surfaces.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationReport {
+    /// Whether the message passed validation without error-level issues.
+    pub valid: bool,
+    /// HL7 trigger event from `MSH.9`, such as `ADT^A01`.
+    pub message_type: String,
+    /// Profile identifier, usually a path or configured profile name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    /// Number of parsed message segments.
+    pub segment_count: usize,
+    /// Number of reported validation issues.
+    pub issue_count: usize,
+    /// Stable validation issue records.
+    pub issues: Vec<ValidationReportIssue>,
+}
+
+impl ValidationReport {
+    /// Build a report from the message, optional profile label, and validation issues.
+    pub fn from_issues(message: &Message, profile: Option<String>, issues: Vec<Issue>) -> Self {
+        let report_issues: Vec<ValidationReportIssue> = issues
+            .into_iter()
+            .map(|issue| ValidationReportIssue::from_issue(message, issue))
+            .collect();
+        let valid = report_issues
+            .iter()
+            .all(|issue| issue.severity != ValidationReportSeverity::Error);
+
+        Self {
+            valid,
+            message_type: message_type(message),
+            profile,
+            segment_count: message.segments.len(),
+            issue_count: report_issues.len(),
+            issues: report_issues,
+        }
+    }
+}
+
+/// Stable validation issue record used in machine-readable reports.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationReportIssue {
+    /// Stable snake_case issue code.
+    pub code: String,
+    /// Error or warning severity.
+    pub severity: ValidationReportSeverity,
+    /// HL7 path associated with the issue, such as `PID.3`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// Stable rule identifier. Today this mirrors `code` for profile-generated issues.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule_id: Option<String>,
+    /// Human-readable issue message.
+    pub message: String,
+    /// Zero-based segment index when it can be inferred from the issue path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub segment_index: Option<usize>,
+    /// One-based HL7 field index when it can be inferred from the issue path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field_index: Option<usize>,
+}
+
+impl ValidationReportIssue {
+    /// Convert an internal validation issue into a stable report issue.
+    pub fn from_issue(message: &Message, issue: Issue) -> Self {
+        let code = stable_issue_code(&issue.code);
+        let (segment_index, field_index) = issue.path.as_deref().map_or((None, None), |path| {
+            (
+                segment_index_for_path(message, path),
+                field_index_for_path(path),
+            )
+        });
+
+        Self {
+            rule_id: if code.is_empty() {
+                None
+            } else {
+                Some(code.clone())
+            },
+            code,
+            severity: ValidationReportSeverity::from(&issue.severity),
+            path: issue.path,
+            message: issue.detail,
+            segment_index,
+            field_index,
+        }
+    }
+}
+
 /// Validation result type
 pub type ValidationResult = Vec<Issue>;
 
@@ -89,6 +208,53 @@ pub type ValidationResult = Vec<Issue>;
 pub trait Validator {
     /// Validate a message and return any issues found
     fn validate(&self, msg: &Message) -> ValidationResult;
+}
+
+fn stable_issue_code(code: &str) -> String {
+    let mut output = String::new();
+    let mut previous_was_separator = false;
+
+    for character in code.chars() {
+        if character.is_ascii_alphanumeric() {
+            output.push(character.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !previous_was_separator && !output.is_empty() {
+            output.push('_');
+            previous_was_separator = true;
+        }
+    }
+
+    if output.ends_with('_') {
+        output.pop();
+    }
+
+    output
+}
+
+fn message_type(message: &Message) -> String {
+    let message_code = crate::query::get(message, "MSH.9.1")
+        .or_else(|| crate::query::get(message, "MSH.9"))
+        .unwrap_or("UNKNOWN");
+    let trigger_event = crate::query::get(message, "MSH.9.2");
+
+    trigger_event.map_or_else(
+        || message_code.to_string(),
+        |event| format!("{}^{}", message_code, event),
+    )
+}
+
+fn segment_index_for_path(message: &Message, path: &str) -> Option<usize> {
+    let segment_id = path.split('.').next()?;
+    message
+        .segments
+        .iter()
+        .position(|segment| segment.id_str() == segment_id)
+}
+
+fn field_index_for_path(path: &str) -> Option<usize> {
+    let field_part = path.split('.').nth(1)?;
+    let field_index = field_part.split('[').next()?;
+    field_index.parse().ok()
 }
 
 // ============================================================================
@@ -991,5 +1157,44 @@ mod legacy_tests {
         assert_eq!(issue.code, "TEST_CODE");
         assert_eq!(issue.severity, Severity::Error);
         assert_eq!(issue.path, Some("PID.5".to_string()));
+    }
+
+    #[test]
+    fn validation_report_normalizes_issue_contract() {
+        let message = crate::parser::parse(
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||\r",
+        )
+        .unwrap_or_default();
+        let report = ValidationReport::from_issues(
+            &message,
+            Some("adt_a01.yaml".to_string()),
+            vec![Issue::error(
+                "MISSING_REQUIRED_FIELD",
+                Some("PID.3".to_string()),
+                "PID.3 is required".to_string(),
+            )],
+        );
+
+        assert!(!report.valid);
+        assert_eq!(report.message_type, "ADT^A01");
+        assert_eq!(report.profile.as_deref(), Some("adt_a01.yaml"));
+        assert_eq!(report.issue_count, 1);
+        assert_eq!(report.issues[0].code, "missing_required_field");
+        assert_eq!(
+            report.issues[0].rule_id.as_deref(),
+            Some("missing_required_field")
+        );
+        assert_eq!(report.issues[0].severity, ValidationReportSeverity::Error);
+        assert_eq!(report.issues[0].path.as_deref(), Some("PID.3"));
+        assert_eq!(report.issues[0].segment_index, Some(1));
+        assert_eq!(report.issues[0].field_index, Some(3));
+    }
+
+    #[test]
+    fn validation_report_severity_serializes_lowercase() {
+        let serialized =
+            serde_json::to_string(&ValidationReportSeverity::Warning).unwrap_or_default();
+
+        assert_eq!(serialized, "\"warning\"");
     }
 }

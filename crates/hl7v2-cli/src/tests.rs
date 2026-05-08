@@ -7,7 +7,6 @@
     clippy::assertions_on_result_states,
     clippy::expect_used,
     clippy::indexing_slicing,
-    clippy::uninlined_format_args,
     clippy::unwrap_used,
     reason = "legacy CLI unit tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
 )]
@@ -574,20 +573,16 @@ constraints:
             let results = hl7v2::validate(&message, &profile);
 
             // Create a validation report
-            let report = crate::ValidationReport {
-                input_file: "test.hl7".to_string(),
-                profile_file: "profile.yaml".to_string(),
-                file_size: 100,
-                segment_count: message.segments.len(),
-                is_valid: results.is_empty(),
-                issue_count: results.len(),
-                issues: results.iter().map(|r| format!("{:?}", r)).collect(),
-            };
+            let report = hl7v2::ValidationReport::from_issues(
+                &message,
+                Some("profile.yaml".to_string()),
+                results,
+            );
 
             // Verify JSON serialization works
             let json = serde_json::to_string_pretty(&report).expect("Should serialize to JSON");
-            assert!(json.contains("input_file"));
-            assert!(json.contains("is_valid"));
+            assert!(json.contains("message_type"));
+            assert!(json.contains("valid"));
         }
 
         #[test]
@@ -608,20 +603,16 @@ constraints:
             let results = hl7v2::validate(&message, &profile);
 
             // Create a validation report
-            let report = crate::ValidationReport {
-                input_file: "test.hl7".to_string(),
-                profile_file: "profile.yaml".to_string(),
-                file_size: 100,
-                segment_count: message.segments.len(),
-                is_valid: results.is_empty(),
-                issue_count: results.len(),
-                issues: results.iter().map(|r| format!("{:?}", r)).collect(),
-            };
+            let report = hl7v2::ValidationReport::from_issues(
+                &message,
+                Some("profile.yaml".to_string()),
+                results,
+            );
 
             // Verify YAML serialization works
             let yaml = serde_yaml::to_string(&report).expect("Should serialize to YAML");
-            assert!(yaml.contains("input_file"));
-            assert!(yaml.contains("is_valid"));
+            assert!(yaml.contains("message_type"));
+            assert!(yaml.contains("valid"));
         }
 
         // -------------------------------------------------------------------------
