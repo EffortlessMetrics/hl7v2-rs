@@ -165,6 +165,9 @@ hl7v2 redact <input.hl7> --policy safe-analysis.toml --format json
 ```bash
 # Create a PHI-safe evidence packet for support or replay
 hl7v2 bundle failing.hl7 --profile profiles/oru_r01.yaml --redact-policy safe-analysis.toml --out issue-bundle/
+
+# Re-run the redacted bundle and verify the stored validation report reproduces
+hl7v2 replay issue-bundle/ --format json
 ```
 
 ### Generate Messages
