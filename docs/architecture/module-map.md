@@ -5,13 +5,16 @@ This document is the working map for collapsing implementation microcrates into 
 ## Current State
 
 As of 2026-05-07, the implementation modules have been collapsed into
-`hl7v2`, and `cargo run -p xtask -- publish-plan` resolves the final public
+`hl7v2`, and `cargo run -p xtask -- publish-plan` resolves the final Rust
 package graph:
 
 - `hl7v2`
-- `hl7v2-python`
 - `hl7v2-server`
 - `hl7v2-cli`
+
+`hl7v2-python` remains an external binding package in the workspace, but it is
+not part of the crates.io Rust publish graph. It is released through the
+separate Python packaging lane.
 
 The old implementation package names remain in the workspace as private
 deprecated compatibility shims and test harnesses. They are retained only to
@@ -31,7 +34,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2` | Canonical Rust library crate | Owns the core HL7 API and implementation modules. |
 | `hl7v2-server` | HTTP/gRPC runtime service | Depends on `hl7v2` with runtime features; keeps Axum, Tonic, metrics, auth, CORS, and deployment config. |
 | `hl7v2-cli` | Binary distribution | Depends on `hl7v2` with CLI-needed features. |
-| `hl7v2-python` | Python binding package | Depends on `hl7v2`; keeps PyO3 isolated. |
+| `hl7v2-python` | Python binding package | Depends on `hl7v2`; keeps PyO3 isolated and uses `publish = false` for the crates.io Rust publish graph. |
 
 ## Target Internal Crates
 
@@ -75,7 +78,7 @@ Crates are product and distribution surfaces. SRP implementation units are modul
 | `hl7v2-guard` | `hl7v2::experimental::guard` | Collapsed as leaf experimental feature module | `hl7v2-guard` remains a compatibility shim; do not present guard as stable until semantics are proven. |
 | `hl7v2-server` | `crates/hl7v2-server` | Public crate | Keep external. |
 | `hl7v2-cli` | `crates/hl7v2-cli` | Public crate | Keep external. |
-| `hl7v2-python` | `crates/hl7v2-python` | Public crate | Keep external. |
+| `hl7v2-python` | `crates/hl7v2-python` | Separate binding lane | Keep external; release with Python packaging tooling, not crates.io by default. |
 | `hl7v2-bench` | root `benches/` or private crate | Internal | Prefer root benches; keep private crate only if needed. |
 | `hl7v2-e2e-tests` | `crates/hl7v2-e2e-tests` | Internal | Keep or later move to workspace tests. |
 | `hl7v2-test-utils` | `crates/hl7v2-test-utils` or `tests/support` | Internal | Keep until shared helpers can move safely. |

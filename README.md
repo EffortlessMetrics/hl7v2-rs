@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.2.0 package line (Rust 2024). Current `main` is tested and package-verified, but the final four-package crates.io publish sequence has not been executed. Some historical implementation microcrate artifacts already exist on crates.io; they are not the product surface for new code. The existing `v1.2.0` git tag predates the current release head, so tag/version alignment still belongs in the final publish procedure. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.2.0 package line (Rust 2024). Current `main` is tested and package-verified, but the final Rust crates.io publish sequence has not been executed. Some historical implementation microcrate artifacts already exist on crates.io; they are not the product surface for new code. The existing `v1.2.0` git tag predates the current release head, so tag/version alignment still belongs in the final publish procedure. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -24,7 +24,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Not included in the local Python 3.14/PyO3 validation proof |
-| **Publish Readiness** | Package-verified | Workspace-patched dry-run verifies the final public package graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli` |
+| **Publish Readiness** | Package-verified | Workspace-patched dry-run verifies the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`; Python remains a separate binding lane |
 
 ## Features
 
@@ -44,7 +44,7 @@ The public Rust package surface is intentionally small:
 | `hl7v2` | Canonical Rust library crate. Normal Rust users should depend on this crate. |
 | `hl7v2-server` | HTTP/gRPC runtime service with Axum, Tonic, metrics, auth, and deployment behavior. |
 | `hl7v2-cli` | Command-line binary distribution. |
-| `hl7v2-python` | PyO3/Python binding package. |
+| `hl7v2-python` | PyO3/Python binding package; held out of the crates.io Rust publish graph for the Python packaging lane. |
 
 Implementation boundaries live as modules under `hl7v2`, including
 `hl7v2::model`, `hl7v2::parser`, `hl7v2::writer`, `hl7v2::query`,
@@ -240,7 +240,7 @@ hl7v2-cli
   command-line binary
 
 hl7v2-python
-  PyO3 binding package
+  PyO3 binding package; released through the Python packaging lane
 ```
 
 The deprecated compatibility crates re-export `hl7v2` modules and should not
