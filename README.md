@@ -165,6 +165,12 @@ hl7v2 corpus summarize corpus/
 
 # Emit a machine-readable corpus summary
 hl7v2 corpus summarize corpus/ --format json
+
+# Create a deterministic feed fingerprint
+hl7v2 corpus fingerprint corpus/ --format json
+
+# Include validation issue-code counts in the fingerprint
+hl7v2 corpus fingerprint corpus/ --profile profiles/oru_r01.yaml --format json
 ```
 
 ### Acknowledgment Generation

@@ -764,6 +764,77 @@ constraints:
         }
 
         #[test]
+        fn test_format_corpus_fingerprint_report_text() {
+            let report = hl7v2::synthetic::corpus::CorpusFingerprint {
+                fingerprint_version: "1".to_string(),
+                tool_version: "1.2.1".to_string(),
+                root: "corpus".to_string(),
+                profile: Some(hl7v2::synthetic::corpus::CorpusFingerprintProfile {
+                    path: "profile.yaml".to_string(),
+                    sha256: "abc123".to_string(),
+                    version: "2.5.1".to_string(),
+                    message_structure: "ADT_A01".to_string(),
+                }),
+                file_count: 2,
+                message_count: 1,
+                parse_error_count: 1,
+                message_type_counts: vec![hl7v2::synthetic::corpus::CorpusCount {
+                    value: "ADT^A01".to_string(),
+                    count: 1,
+                }],
+                segment_counts: vec![hl7v2::synthetic::corpus::CorpusCount {
+                    value: "PID".to_string(),
+                    count: 1,
+                }],
+                field_presence: vec![hl7v2::synthetic::corpus::CorpusFieldPresence {
+                    path: "PID.3".to_string(),
+                    message_count: 1,
+                    occurrence_count: 1,
+                }],
+                field_cardinality: vec![hl7v2::synthetic::corpus::CorpusFieldCardinality {
+                    path: "PID.3".to_string(),
+                    min_per_message: 0,
+                    max_per_message: 1,
+                    total_occurrences: 1,
+                    message_count: 1,
+                }],
+                value_shape_stats: vec![hl7v2::synthetic::corpus::CorpusValueShapeStats {
+                    path: "PID.3".to_string(),
+                    coded_count: 1,
+                    timestamp_count: 0,
+                    numeric_count: 0,
+                    null_count: 0,
+                    text_count: 0,
+                }],
+                validation_issue_code_counts: vec![hl7v2::synthetic::corpus::CorpusCount {
+                    value: "missing_required_field".to_string(),
+                    count: 1,
+                }],
+            };
+
+            let output = crate::format_corpus_fingerprint(&report, &crate::ReportFormat::Text)
+                .expect("Should format as text");
+
+            assert!(output.contains("Corpus Fingerprint:"));
+            assert!(output.contains("Profile:"));
+            assert!(output.contains("ADT^A01: 1"));
+            assert!(output.contains("PID.3: 1 message(s), 1 occurrence(s), min 0, max 1"));
+            assert!(output.contains("missing_required_field: 1"));
+        }
+
+        #[test]
+        fn test_corpus_fingerprint_command_execution() {
+            use crate::ReportFormat;
+            use crate::corpus_fingerprint_command;
+            let dir = TempDir::new().expect("Failed to create temp dir");
+            create_temp_hl7_file(&dir, "test.hl7");
+
+            let result =
+                corpus_fingerprint_command(&dir.path().to_path_buf(), None, &ReportFormat::Json);
+            assert!(result.is_ok());
+        }
+
+        #[test]
         fn test_stats_command_execution() {
             use crate::ReportFormat;
             use crate::stats_command;
@@ -941,6 +1012,24 @@ constraints:
                 corpus_cmd
                     .get_subcommands()
                     .any(|c| c.get_name() == "summarize")
+            );
+        }
+
+        #[test]
+        fn test_corpus_command_has_fingerprint_subcommand() {
+            use crate::Cli;
+            use clap::CommandFactory;
+
+            let schema = Cli::command();
+            let corpus_cmd = schema
+                .get_subcommands()
+                .find(|c| c.get_name() == "corpus")
+                .expect("corpus command should exist");
+
+            assert!(
+                corpus_cmd
+                    .get_subcommands()
+                    .any(|c| c.get_name() == "fingerprint")
             );
         }
 
