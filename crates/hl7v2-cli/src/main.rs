@@ -22,6 +22,7 @@
 )]
 
 use clap::{Parser, Subcommand};
+use hl7v2::synthetic::corpus::{CorpusSummary, summarize_corpus_path};
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
     AckCode as GenAckCode, Event, Message, ProfileLintReport, StreamParser, ValidationReport, ack,
@@ -179,6 +180,12 @@ enum Commands {
         command: ProfileCommands,
     },
 
+    /// Inspect message corpora
+    Corpus {
+        #[command(subcommand)]
+        command: CorpusCommands,
+    },
+
     /// Generate ACK for HL7 v2 message
     Ack {
         /// Input HL7 file
@@ -261,6 +268,19 @@ enum ProfileCommands {
         /// Output lint report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum CorpusCommands {
+    /// Summarize a directory or file corpus of HL7 messages
+    Summarize {
+        /// Corpus directory or single HL7 file
+        path: PathBuf,
+
+        /// Output summary format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        format: ReportFormat,
     },
 }
 
@@ -402,6 +422,9 @@ async fn main() {
         ),
         Commands::Profile { command } => match command {
             ProfileCommands::Lint { profile, report } => profile_lint_command(profile, report),
+        },
+        Commands::Corpus { command } => match command {
+            CorpusCommands::Summarize { path, format } => corpus_summarize_command(path, format),
         },
         Commands::Ack {
             input,
@@ -1447,6 +1470,77 @@ fn stats_command(
     monitor.record_metric("Output", output_time);
 
     Ok(())
+}
+
+fn corpus_summarize_command(
+    path: &PathBuf,
+    format: &ReportFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let summary = summarize_corpus_path(path)?;
+    let output = format_corpus_summary(&summary, format)?;
+    println!("{}", output);
+    Ok(())
+}
+
+fn format_corpus_summary(
+    summary: &CorpusSummary,
+    format: &ReportFormat,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match format {
+        ReportFormat::Json => Ok(serde_json::to_string_pretty(summary)?),
+        ReportFormat::Yaml => Ok(serde_yaml::to_string(summary)?),
+        ReportFormat::Text => {
+            let mut output = String::new();
+            output.push_str("Corpus Summary:\n");
+            output.push_str(&format!("  Path: {}\n", summary.root));
+            output.push_str(&format!("  Files scanned: {}\n", summary.file_count));
+            output.push_str(&format!("  Parsed messages: {}\n", summary.message_count));
+            output.push_str(&format!("  Parse errors: {}\n", summary.parse_error_count));
+            output.push_str(&format!("  Total bytes: {}\n", summary.total_bytes));
+
+            output.push('\n');
+            output.push_str("Message types:\n");
+            append_counts(&mut output, &summary.message_types);
+
+            output.push('\n');
+            output.push_str("Segments:\n");
+            append_counts(&mut output, &summary.segments);
+
+            output.push('\n');
+            output.push_str("Field presence:\n");
+            if summary.field_presence.is_empty() {
+                output.push_str("  <none>\n");
+            } else {
+                for field in &summary.field_presence {
+                    output.push_str(&format!(
+                        "  {}: {} message(s), {} occurrence(s)\n",
+                        field.path, field.message_count, field.occurrence_count
+                    ));
+                }
+            }
+
+            if !summary.parse_errors.is_empty() {
+                output.push('\n');
+                output.push_str("Parse errors:\n");
+                for error in &summary.parse_errors {
+                    output.push_str(&format!("  {}: {}\n", error.path, error.error));
+                }
+            }
+
+            Ok(output)
+        }
+    }
+}
+
+fn append_counts(output: &mut String, counts: &[hl7v2::synthetic::corpus::CorpusCount]) {
+    if counts.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for count in counts {
+        output.push_str(&format!("  {}: {}\n", count.value, count.count));
+    }
 }
 
 fn ack_command(

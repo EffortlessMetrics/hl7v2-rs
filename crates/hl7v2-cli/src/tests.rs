@@ -716,6 +716,54 @@ constraints:
         }
 
         #[test]
+        fn test_format_corpus_summary_report_text() {
+            let report = hl7v2::synthetic::corpus::CorpusSummary {
+                root: "corpus".to_string(),
+                file_count: 2,
+                message_count: 1,
+                parse_error_count: 1,
+                total_bytes: 128,
+                message_types: vec![hl7v2::synthetic::corpus::CorpusCount {
+                    value: "ADT^A01".to_string(),
+                    count: 1,
+                }],
+                segments: vec![hl7v2::synthetic::corpus::CorpusCount {
+                    value: "PID".to_string(),
+                    count: 1,
+                }],
+                field_presence: vec![hl7v2::synthetic::corpus::CorpusFieldPresence {
+                    path: "PID.3".to_string(),
+                    message_count: 1,
+                    occurrence_count: 1,
+                }],
+                parse_errors: vec![hl7v2::synthetic::corpus::CorpusParseFailure {
+                    path: "bad.hl7".to_string(),
+                    error: "Invalid segment ID".to_string(),
+                }],
+            };
+
+            let output = crate::format_corpus_summary(&report, &crate::ReportFormat::Text)
+                .expect("Should format as text");
+
+            assert!(output.contains("Corpus Summary:"));
+            assert!(output.contains("Files scanned: 2"));
+            assert!(output.contains("ADT^A01: 1"));
+            assert!(output.contains("PID.3: 1 message(s), 1 occurrence(s)"));
+            assert!(output.contains("bad.hl7: Invalid segment ID"));
+        }
+
+        #[test]
+        fn test_corpus_summarize_command_execution() {
+            use crate::ReportFormat;
+            use crate::corpus_summarize_command;
+            let dir = TempDir::new().expect("Failed to create temp dir");
+            create_temp_hl7_file(&dir, "test.hl7");
+
+            let result = corpus_summarize_command(&dir.path().to_path_buf(), &ReportFormat::Json);
+            assert!(result.is_ok());
+        }
+
+        #[test]
         fn test_stats_command_execution() {
             use crate::ReportFormat;
             use crate::stats_command;
@@ -876,6 +924,24 @@ constraints:
             let schema = Cli::command();
             let stats_cmd = schema.get_subcommands().find(|c| c.get_name() == "stats");
             assert!(stats_cmd.is_some());
+        }
+
+        #[test]
+        fn test_corpus_command_has_summarize_subcommand() {
+            use crate::Cli;
+            use clap::CommandFactory;
+
+            let schema = Cli::command();
+            let corpus_cmd = schema
+                .get_subcommands()
+                .find(|c| c.get_name() == "corpus")
+                .expect("corpus command should exist");
+
+            assert!(
+                corpus_cmd
+                    .get_subcommands()
+                    .any(|c| c.get_name() == "summarize")
+            );
         }
 
         #[test]

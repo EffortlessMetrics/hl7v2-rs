@@ -32,13 +32,18 @@
 //! assert_eq!(parsed.seed, 42);
 //! ```
 
-use crate::model::{Atom, Message};
+use crate::model::{Atom, Field, Message};
+use crate::parser::{parse, parse_mllp};
+use crate::transport::mllp::is_mllp_framed;
 use crate::writer::write;
 use chrono::{DateTime, Utc};
 use rand::{RngExt, SeedableRng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Configuration for corpus generation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,6 +104,58 @@ pub struct MessageInfo {
     pub message_type: String,
     /// Template index used to generate this message
     pub template_index: usize,
+}
+
+/// Count for a corpus-level string dimension.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusCount {
+    /// Dimension value, such as a message type or segment ID.
+    pub value: String,
+    /// Number of times the value was observed.
+    pub count: usize,
+}
+
+/// Field-presence count across a corpus.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFieldPresence {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Number of parsed messages where this field path was present.
+    pub message_count: usize,
+    /// Number of field occurrences across all parsed messages.
+    pub occurrence_count: usize,
+}
+
+/// Parse failure captured while summarizing a corpus.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusParseFailure {
+    /// File path relative to the summarized root when possible.
+    pub path: String,
+    /// Parser error string for this file.
+    pub error: String,
+}
+
+/// Summary of a directory or file corpus of HL7 v2 messages.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusSummary {
+    /// Root path that was summarized.
+    pub root: String,
+    /// Number of regular files scanned.
+    pub file_count: usize,
+    /// Number of messages parsed successfully.
+    pub message_count: usize,
+    /// Number of files that could not be parsed as HL7 v2.
+    pub parse_error_count: usize,
+    /// Total input bytes across scanned files.
+    pub total_bytes: usize,
+    /// Message type counts from parsed MSH-9 values.
+    pub message_types: Vec<CorpusCount>,
+    /// Segment ID counts across parsed messages.
+    pub segments: Vec<CorpusCount>,
+    /// Field presence counts across parsed messages.
+    pub field_presence: Vec<CorpusFieldPresence>,
+    /// Per-file parse failures.
+    pub parse_errors: Vec<CorpusParseFailure>,
 }
 
 /// Train/validation/test split information
@@ -328,6 +385,193 @@ pub enum CorpusError {
     InvalidSplitRatios,
 }
 
+/// Summarize a file or directory of HL7 v2 messages.
+///
+/// Directories are scanned recursively. Each regular file is read and parsed as
+/// plain HL7 unless it is MLLP framed. Files that fail to parse are recorded in
+/// the returned summary rather than failing the whole operation.
+///
+/// # Errors
+///
+/// Returns [`CorpusError::InvalidConfig`] if the path is neither a regular file
+/// nor a directory. Returns [`CorpusError::IoError`] if directory traversal or
+/// file reading fails.
+pub fn summarize_corpus_path(path: impl AsRef<Path>) -> Result<CorpusSummary, CorpusError> {
+    let root = path.as_ref();
+    let mut files = Vec::new();
+    collect_corpus_files(root, &mut files)?;
+    files.sort();
+
+    let mut message_type_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut segment_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut field_message_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut field_occurrence_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut parse_errors = Vec::new();
+    let mut total_bytes = 0usize;
+    let mut message_count = 0usize;
+
+    for file in &files {
+        let relative_path = relative_corpus_path(root, file);
+        let bytes =
+            fs::read(file).map_err(|e| CorpusError::IoError(format!("{relative_path}: {e}")))?;
+        total_bytes = total_bytes.saturating_add(bytes.len());
+
+        let parsed = if is_mllp_framed(&bytes) {
+            parse_mllp(&bytes)
+        } else {
+            parse(&bytes)
+        };
+
+        match parsed {
+            Ok(message) => {
+                message_count = message_count.saturating_add(1);
+                increment_count(&mut message_type_counts, extract_message_type(&message));
+                record_message_shape(
+                    &message,
+                    &mut segment_counts,
+                    &mut field_message_counts,
+                    &mut field_occurrence_counts,
+                );
+            }
+            Err(error) => parse_errors.push(CorpusParseFailure {
+                path: relative_path,
+                error: error.to_string(),
+            }),
+        }
+    }
+
+    let mut field_presence: Vec<CorpusFieldPresence> = field_occurrence_counts
+        .into_iter()
+        .map(|(path, occurrence_count)| CorpusFieldPresence {
+            message_count: field_message_counts.get(&path).copied().unwrap_or_default(),
+            path,
+            occurrence_count,
+        })
+        .collect();
+    field_presence.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+
+    Ok(CorpusSummary {
+        root: root.to_string_lossy().to_string(),
+        file_count: files.len(),
+        message_count,
+        parse_error_count: parse_errors.len(),
+        total_bytes,
+        message_types: counts_to_vec(message_type_counts),
+        segments: counts_to_vec(segment_counts),
+        field_presence,
+        parse_errors,
+    })
+}
+
+fn collect_corpus_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), CorpusError> {
+    if path.is_file() {
+        files.push(path.to_path_buf());
+        return Ok(());
+    }
+
+    if !path.is_dir() {
+        return Err(CorpusError::InvalidConfig(format!(
+            "{} is not a file or directory",
+            path.display()
+        )));
+    }
+
+    for entry in fs::read_dir(path).map_err(|e| CorpusError::IoError(e.to_string()))? {
+        let entry = entry.map_err(|e| CorpusError::IoError(e.to_string()))?;
+        let child = entry.path();
+        if child.is_dir() {
+            collect_corpus_files(&child, files)?;
+        } else if child.is_file() {
+            files.push(child);
+        }
+    }
+
+    Ok(())
+}
+
+fn relative_corpus_path(root: &Path, file: &Path) -> String {
+    let relative = if root.is_dir() {
+        file.strip_prefix(root).unwrap_or(file)
+    } else {
+        file.file_name().map(Path::new).unwrap_or(file)
+    };
+    relative.to_string_lossy().replace('\\', "/")
+}
+
+fn record_message_shape(
+    message: &Message,
+    segment_counts: &mut BTreeMap<String, usize>,
+    field_message_counts: &mut BTreeMap<String, usize>,
+    field_occurrence_counts: &mut BTreeMap<String, usize>,
+) {
+    let mut message_field_paths = BTreeSet::new();
+
+    for segment in &message.segments {
+        let segment_id = segment.id_str().to_string();
+        increment_count(segment_counts, segment_id.clone());
+
+        for (field_index, field) in segment.fields.iter().enumerate() {
+            if !field_is_present(field) {
+                continue;
+            }
+
+            let display_index = if segment_id == "MSH" {
+                field_index.saturating_add(2)
+            } else {
+                field_index.saturating_add(1)
+            };
+            let path = format!("{segment_id}.{display_index}");
+            increment_count(field_occurrence_counts, path.clone());
+            message_field_paths.insert(path);
+        }
+    }
+
+    for path in message_field_paths {
+        increment_count(field_message_counts, path);
+    }
+}
+
+fn field_is_present(field: &Field) -> bool {
+    field.reps.iter().any(|rep| {
+        rep.comps.iter().any(|comp| {
+            comp.subs.iter().any(|atom| match atom {
+                Atom::Text(text) => !text.is_empty(),
+                Atom::Null => true,
+            })
+        })
+    })
+}
+
+fn compare_field_paths(left: &str, right: &str) -> Ordering {
+    let (left_segment, left_index) = split_field_path(left);
+    let (right_segment, right_index) = split_field_path(right);
+
+    left_segment
+        .cmp(right_segment)
+        .then(left_index.cmp(&right_index))
+        .then(left.cmp(right))
+}
+
+fn split_field_path(path: &str) -> (&str, usize) {
+    let Some((segment, field)) = path.split_once('.') else {
+        return (path, usize::MAX);
+    };
+    let index = field.parse::<usize>().unwrap_or(usize::MAX);
+    (segment, index)
+}
+
+fn increment_count(counts: &mut BTreeMap<String, usize>, value: String) {
+    let count = counts.entry(value).or_insert(0);
+    *count = count.saturating_add(1);
+}
+
+fn counts_to_vec(counts: BTreeMap<String, usize>) -> Vec<CorpusCount> {
+    counts
+        .into_iter()
+        .map(|(value, count)| CorpusCount { value, count })
+        .collect()
+}
+
 /// Extract message type from a message's MSH.9 field
 pub fn extract_message_type(message: &Message) -> String {
     // Find MSH segment
@@ -352,4 +596,87 @@ pub fn extract_message_type(message: &Message) -> String {
         }
     }
     "UNKNOWN".to_string()
+}
+
+#[cfg(test)]
+mod summary_tests {
+    #![expect(
+        clippy::panic,
+        reason = "Corpus summary tests fail explicitly on test setup errors."
+    )]
+
+    use super::*;
+
+    const ADT_A01: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M";
+    const ORU_R01: &str = "MSH|^~\\&|LAB|LAB|EHR|HOSP|202605080101||ORU^R01|CTRL456|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\rOBR|1|ORD1|FILL1|CBC^Complete Blood Count\rOBX|1|NM|718-7^Hemoglobin||13.2|g/dL";
+
+    fn write_message(path: &Path, contents: &str) {
+        let result = fs::write(path, contents);
+        assert!(result.is_ok(), "test message should be written: {result:?}");
+    }
+
+    #[test]
+    fn summarize_corpus_path_counts_messages_segments_and_fields() {
+        let Ok(dir) = tempfile::tempdir() else {
+            panic!("test temp dir should be created");
+        };
+        write_message(&dir.path().join("adt.hl7"), ADT_A01);
+        write_message(&dir.path().join("oru.hl7"), ORU_R01);
+
+        let Ok(summary) = summarize_corpus_path(dir.path()) else {
+            panic!("corpus should summarize");
+        };
+
+        assert_eq!(summary.file_count, 2);
+        assert_eq!(summary.message_count, 2);
+        assert_eq!(summary.parse_error_count, 0);
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ADT^A01" && count.count == 1)
+        );
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ORU^R01" && count.count == 1)
+        );
+        assert!(
+            summary
+                .segments
+                .iter()
+                .any(|count| count.value == "PID" && count.count == 2)
+        );
+        assert!(
+            summary
+                .field_presence
+                .iter()
+                .any(|field| field.path == "PID.3" && field.message_count == 2)
+        );
+    }
+
+    #[test]
+    fn summarize_corpus_path_records_parse_failures() {
+        let Ok(dir) = tempfile::tempdir() else {
+            panic!("test temp dir should be created");
+        };
+        write_message(&dir.path().join("valid.hl7"), ADT_A01);
+        write_message(&dir.path().join("invalid.hl7"), "not an hl7 message");
+
+        let Ok(summary) = summarize_corpus_path(dir.path()) else {
+            panic!("corpus should summarize");
+        };
+
+        assert_eq!(summary.file_count, 2);
+        assert_eq!(summary.message_count, 1);
+        assert_eq!(summary.parse_error_count, 1);
+        assert_eq!(
+            summary
+                .parse_errors
+                .first()
+                .map(|failure| failure.path.as_str()),
+            Some("invalid.hl7")
+        );
+    }
 }
