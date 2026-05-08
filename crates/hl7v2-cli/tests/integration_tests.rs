@@ -106,6 +106,17 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_corpus_diff_help() {
+        let mut cmd = cli_command();
+        cmd.args(["corpus", "diff", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Diff two directory or file corpora",
+            ));
+    }
+
+    #[test]
     fn test_ack_help() {
         let mut cmd = cli_command();
         cmd.args(["ack", "--help"])
@@ -622,6 +633,76 @@ mod corpus_command {
                 .unwrap()
                 .iter()
                 .any(|entry| entry["value"] == "ORU^R01" && entry["count"] == 1)
+        );
+    }
+
+    #[test]
+    fn test_corpus_diff_text_reports_deltas() {
+        let before = create_temp_dir();
+        let after = create_temp_dir();
+        create_temp_hl7_file(&before, "adt.hl7");
+        create_temp_hl7_file(&after, "adt.hl7");
+        create_temp_file(
+            &after,
+            "oru.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::oru_r01().as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "corpus",
+            "diff",
+            before.path().to_str().unwrap(),
+            after.path().to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Corpus Diff:"))
+        .stdout(predicate::str::contains("Parsed messages: 1 -> 2 (+1)"))
+        .stdout(predicate::str::contains("ORU^R01: 0 -> 1 (+1)"));
+    }
+
+    #[test]
+    fn test_corpus_diff_json_is_machine_readable() {
+        let before = create_temp_dir();
+        let after = create_temp_dir();
+        create_temp_hl7_file(&before, "adt.hl7");
+        create_temp_hl7_file(&after, "adt.hl7");
+        create_temp_file(
+            &after,
+            "oru.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::oru_r01().as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "diff",
+                before.path().to_str().unwrap(),
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute corpus diff");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("diff output should be JSON");
+        assert_eq!(report["file_count"]["delta"], 1);
+        assert_eq!(report["message_count"]["delta"], 1);
+        assert!(
+            report["message_types"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["value"] == "ORU^R01"
+                    && entry["before"] == 0
+                    && entry["after"] == 1
+                    && entry["delta"] == 1)
         );
     }
 }

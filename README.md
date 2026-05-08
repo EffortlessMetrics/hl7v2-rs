@@ -165,6 +165,9 @@ hl7v2 corpus summarize corpus/
 
 # Emit a machine-readable corpus summary
 hl7v2 corpus summarize corpus/ --format json
+
+# Compare before/after corpora for feed drift
+hl7v2 corpus diff feeds/before feeds/after --format json
 ```
 
 ### Acknowledgment Generation

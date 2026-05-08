@@ -764,6 +764,80 @@ constraints:
         }
 
         #[test]
+        fn test_format_corpus_diff_report_text() {
+            let report = hl7v2::synthetic::corpus::CorpusDiffReport {
+                before_root: "before".to_string(),
+                after_root: "after".to_string(),
+                file_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                    before: 1,
+                    after: 2,
+                    delta: 1,
+                },
+                message_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                    before: 1,
+                    after: 2,
+                    delta: 1,
+                },
+                parse_error_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                    before: 0,
+                    after: 1,
+                    delta: 1,
+                },
+                total_bytes: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                    before: 100,
+                    after: 180,
+                    delta: 80,
+                },
+                message_types: vec![hl7v2::synthetic::corpus::CorpusCountDiff {
+                    value: "ORU^R01".to_string(),
+                    before: 0,
+                    after: 1,
+                    delta: 1,
+                }],
+                segments: vec![hl7v2::synthetic::corpus::CorpusCountDiff {
+                    value: "OBX".to_string(),
+                    before: 0,
+                    after: 1,
+                    delta: 1,
+                }],
+                field_presence: vec![hl7v2::synthetic::corpus::CorpusFieldPresenceDiff {
+                    path: "OBX.5".to_string(),
+                    before_message_count: 0,
+                    after_message_count: 1,
+                    message_count_delta: 1,
+                    before_occurrence_count: 0,
+                    after_occurrence_count: 1,
+                    occurrence_count_delta: 1,
+                }],
+            };
+
+            let output = crate::format_corpus_diff(&report, &crate::ReportFormat::Text)
+                .expect("Should format as text");
+
+            assert!(output.contains("Corpus Diff:"));
+            assert!(output.contains("Parsed messages: 1 -> 2 (+1)"));
+            assert!(output.contains("ORU^R01: 0 -> 1 (+1)"));
+            assert!(output.contains("OBX.5: messages 0 -> 1 (+1)"));
+        }
+
+        #[test]
+        fn test_corpus_diff_command_execution() {
+            use crate::ReportFormat;
+            use crate::corpus_diff_command;
+            let before = TempDir::new().expect("Failed to create before temp dir");
+            let after = TempDir::new().expect("Failed to create after temp dir");
+            create_temp_hl7_file(&before, "test.hl7");
+            create_temp_hl7_file(&after, "test.hl7");
+
+            let result = corpus_diff_command(
+                &before.path().to_path_buf(),
+                &after.path().to_path_buf(),
+                &ReportFormat::Json,
+            );
+            assert!(result.is_ok());
+        }
+
+        #[test]
         fn test_stats_command_execution() {
             use crate::ReportFormat;
             use crate::stats_command;
@@ -942,6 +1016,20 @@ constraints:
                     .get_subcommands()
                     .any(|c| c.get_name() == "summarize")
             );
+        }
+
+        #[test]
+        fn test_corpus_command_has_diff_subcommand() {
+            use crate::Cli;
+            use clap::CommandFactory;
+
+            let schema = Cli::command();
+            let corpus_cmd = schema
+                .get_subcommands()
+                .find(|c| c.get_name() == "corpus")
+                .expect("corpus command should exist");
+
+            assert!(corpus_cmd.get_subcommands().any(|c| c.get_name() == "diff"));
         }
 
         #[test]

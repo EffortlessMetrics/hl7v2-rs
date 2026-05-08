@@ -22,7 +22,10 @@
 )]
 
 use clap::{Parser, Subcommand};
-use hl7v2::synthetic::corpus::{CorpusSummary, summarize_corpus_path};
+use hl7v2::synthetic::corpus::{
+    CorpusCountDiff, CorpusDiffReport, CorpusFieldPresenceDiff, CorpusSummary, diff_corpus_paths,
+    summarize_corpus_path,
+};
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
     AckCode as GenAckCode, Event, Message, ProfileLintReport, StreamParser, ValidationReport, ack,
@@ -282,6 +285,19 @@ enum CorpusCommands {
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
     },
+
+    /// Diff two directory or file corpora of HL7 messages
+    Diff {
+        /// Before corpus directory or single HL7 file
+        before: PathBuf,
+
+        /// After corpus directory or single HL7 file
+        after: PathBuf,
+
+        /// Output diff format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        format: ReportFormat,
+    },
 }
 
 /// Server mode selection
@@ -425,6 +441,11 @@ async fn main() {
         },
         Commands::Corpus { command } => match command {
             CorpusCommands::Summarize { path, format } => corpus_summarize_command(path, format),
+            CorpusCommands::Diff {
+                before,
+                after,
+                format,
+            } => corpus_diff_command(before, after, format),
         },
         Commands::Ack {
             input,
@@ -1540,6 +1561,119 @@ fn append_counts(output: &mut String, counts: &[hl7v2::synthetic::corpus::Corpus
 
     for count in counts {
         output.push_str(&format!("  {}: {}\n", count.value, count.count));
+    }
+}
+
+fn corpus_diff_command(
+    before: &PathBuf,
+    after: &PathBuf,
+    format: &ReportFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let diff = diff_corpus_paths(before, after)?;
+    let output = format_corpus_diff(&diff, format)?;
+    println!("{}", output);
+    Ok(())
+}
+
+fn format_corpus_diff(
+    diff: &CorpusDiffReport,
+    format: &ReportFormat,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match format {
+        ReportFormat::Json => Ok(serde_json::to_string_pretty(diff)?),
+        ReportFormat::Yaml => Ok(serde_yaml::to_string(diff)?),
+        ReportFormat::Text => {
+            let mut output = String::new();
+            output.push_str("Corpus Diff:\n");
+            output.push_str(&format!("  Before: {}\n", diff.before_root));
+            output.push_str(&format!("  After: {}\n", diff.after_root));
+
+            output.push('\n');
+            output.push_str("Totals:\n");
+            output.push_str(&format!(
+                "  Files scanned: {} -> {} ({})\n",
+                diff.file_count.before,
+                diff.file_count.after,
+                format_signed_delta(diff.file_count.delta)
+            ));
+            output.push_str(&format!(
+                "  Parsed messages: {} -> {} ({})\n",
+                diff.message_count.before,
+                diff.message_count.after,
+                format_signed_delta(diff.message_count.delta)
+            ));
+            output.push_str(&format!(
+                "  Parse errors: {} -> {} ({})\n",
+                diff.parse_error_count.before,
+                diff.parse_error_count.after,
+                format_signed_delta(diff.parse_error_count.delta)
+            ));
+            output.push_str(&format!(
+                "  Total bytes: {} -> {} ({})\n",
+                diff.total_bytes.before,
+                diff.total_bytes.after,
+                format_signed_delta(diff.total_bytes.delta)
+            ));
+
+            output.push('\n');
+            output.push_str("Message types:\n");
+            append_count_diffs(&mut output, &diff.message_types);
+
+            output.push('\n');
+            output.push_str("Segments:\n");
+            append_count_diffs(&mut output, &diff.segments);
+
+            output.push('\n');
+            output.push_str("Field presence:\n");
+            append_field_presence_diffs(&mut output, &diff.field_presence);
+
+            Ok(output)
+        }
+    }
+}
+
+fn append_count_diffs(output: &mut String, counts: &[CorpusCountDiff]) {
+    if counts.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for count in counts {
+        output.push_str(&format!(
+            "  {}: {} -> {} ({})\n",
+            count.value,
+            count.before,
+            count.after,
+            format_signed_delta(count.delta)
+        ));
+    }
+}
+
+fn append_field_presence_diffs(output: &mut String, fields: &[CorpusFieldPresenceDiff]) {
+    if fields.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for field in fields {
+        output.push_str(&format!(
+            "  {}: messages {} -> {} ({}), occurrences {} -> {} ({})\n",
+            field.path,
+            field.before_message_count,
+            field.after_message_count,
+            format_signed_delta(field.message_count_delta),
+            field.before_occurrence_count,
+            field.after_occurrence_count,
+            format_signed_delta(field.occurrence_count_delta)
+        ));
+    }
+}
+
+fn format_signed_delta(delta: i128) -> String {
+    if delta > 0 {
+        format!("+{delta}")
+    } else {
+        delta.to_string()
     }
 }
 
