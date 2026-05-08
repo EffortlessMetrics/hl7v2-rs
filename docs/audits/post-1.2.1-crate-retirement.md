@@ -1,5 +1,9 @@
 # Post-1.2.1 Crate Retirement Audit
 
+> Completion note: PR #447 deleted the retired local shim crate directories
+> after workspace membership cleanup and facade coverage migration. This
+> document is retained as the dated retirement plan and evidence trail.
+
 ## Context
 
 `hl7v2-rs` v1.2.1 has been published to crates.io for the final Rust package

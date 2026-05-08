@@ -68,10 +68,15 @@ cargo run -p xtask -- publish-plan
 cargo run -p xtask -- publish --yes
 
 # Resume from a specific crate if crates.io index propagation interrupted the run
-cargo run -p xtask -- publish --yes --from hl7v2-template-values
+cargo run -p xtask -- publish --yes --from hl7v2-server
 ```
 
-The publish sequence excludes non-published workspace members such as `hl7v2-python`, `hl7v2-bench`, `hl7v2-test-utils`, `hl7v2-e2e-tests`, `xtask`, and the root `hl7v2-examples` package.
+The publish sequence is the Rust product graph: `hl7v2`, then `hl7v2-server`,
+then `hl7v2-cli`. It excludes non-published workspace members such as
+`hl7v2-python`, `hl7v2-bench`, `hl7v2-test-utils`, `hl7v2-e2e-tests`, `xtask`,
+and the root `hl7v2-examples` package. Historical old microcrate package names
+are not published again unless a deliberate deprecation-only compatibility
+release is approved.
 
 For GitHub Actions based releases, use the manual `Publish to crates.io` workflow. It prints the derived order first and only publishes when `execute=true` is selected and the `CARGO_REGISTRY_TOKEN` secret is configured.
 

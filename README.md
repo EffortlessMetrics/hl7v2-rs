@@ -51,11 +51,9 @@ Implementation boundaries live as modules under `hl7v2`, including
 `hl7v2::transport`, `hl7v2::conformance`, `hl7v2::synthetic`,
 `hl7v2::lifecycle`, and `hl7v2::experimental`.
 
-In this repository, old implementation microcrate names are retained only as
-private deprecated compatibility shims unless a future compatibility release
-deliberately changes that policy. Some historical `1.2.0` artifacts for old
-package names already exist on crates.io; those names are compatibility
-artifacts, not the product surface for new code.
+Old implementation microcrate package names may exist historically on
+crates.io, but their local shim folders have been retired from this repository.
+Those names are compatibility artifacts, not the product surface for new code.
 
 ## Installation
 
@@ -243,9 +241,9 @@ hl7v2-python
   PyO3 binding package; released through the Python packaging lane
 ```
 
-The deprecated compatibility crates re-export `hl7v2` modules and should not
-gain new behavior. See [ADR-015](docs/adr/0015-collapse-public-crate-surface.md)
-and [the module map](docs/architecture/module-map.md) for the migration policy.
+Retired compatibility crate names should not gain new behavior. See
+[ADR-015](docs/adr/0015-collapse-public-crate-surface.md) and
+[the module map](docs/architecture/module-map.md) for the migration policy.
 
 ## Performance Characteristics
 

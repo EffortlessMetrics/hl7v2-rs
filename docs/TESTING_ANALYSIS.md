@@ -3,6 +3,10 @@
 **Generated:** 2026-02-24  
 **Total Crates Analyzed:** 26
 
+> Historical note: this analysis predates the post-1.2.1 crate-surface collapse
+> and local shim-folder retirement. It is retained as a dated testing receipt;
+> current Rust consumers should use `hl7v2` and its module paths.
+
 ## Executive Summary
 
 This document provides a comprehensive analysis of the testing status across all 26 microcrates in the hl7v2-rs workspace. The analysis covers unit tests, integration tests, BDD tests, property-based tests, fuzz tests, snapshot tests, and benchmarks.
