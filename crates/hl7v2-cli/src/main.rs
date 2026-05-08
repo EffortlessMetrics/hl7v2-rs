@@ -30,8 +30,8 @@ use hl7v2::synthetic::corpus::{
 };
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
-    AckCode as GenAckCode, Event, Message, Profile, ProfileLintReport, StreamParser,
-    ValidationReport, ack, get, is_mllp_framed, lint_profile_yaml, load_profile,
+    AckCode as GenAckCode, Event, Message, Profile, ProfileLintIssue, ProfileLintReport,
+    StreamParser, ValidationReport, ack, get, is_mllp_framed, lint_profile_yaml, load_profile,
     load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp, write,
     write_mllp,
 };
@@ -278,6 +278,16 @@ enum ProfileCommands {
         report: ReportFormat,
     },
 
+    /// Explain the loaded profile contract
+    Explain {
+        /// Profile YAML file
+        profile: PathBuf,
+
+        /// Output explain report format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        format: ReportFormat,
+    },
+
     /// Test a profile against valid/invalid HL7 fixture directories
     Test {
         /// Profile YAML file
@@ -400,6 +410,133 @@ enum DoctorStatus {
     Ok,
     Warn,
     Error,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainReport {
+    profile: String,
+    profile_sha256: String,
+    message_structure: String,
+    version: String,
+    message_type: Option<String>,
+    parent: Option<String>,
+    summary: ProfileExplainSummary,
+    segments: Vec<ProfileExplainSegment>,
+    required_fields: Vec<ProfileExplainRequiredField>,
+    field_constraints: Vec<ProfileExplainConstraint>,
+    length_rules: Vec<ProfileExplainLengthRule>,
+    datatype_rules: Vec<ProfileExplainDatatypeRule>,
+    value_sets: Vec<ProfileExplainValueSet>,
+    rules: ProfileExplainRules,
+    hl7_tables: Vec<ProfileExplainTable>,
+    table_precedence: Vec<String>,
+    expression_guardrails: ProfileExplainExpressionGuardrails,
+    lint: ProfileExplainLintSummary,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainSummary {
+    segment_count: usize,
+    required_field_count: usize,
+    field_constraint_count: usize,
+    length_rule_count: usize,
+    datatype_rule_count: usize,
+    advanced_datatype_rule_count: usize,
+    value_set_count: usize,
+    cross_field_rule_count: usize,
+    temporal_rule_count: usize,
+    contextual_rule_count: usize,
+    custom_rule_count: usize,
+    hl7_table_count: usize,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainSegment {
+    id: String,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainRequiredField {
+    path: String,
+    conditional: bool,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainConstraint {
+    path: String,
+    required: bool,
+    conditional: bool,
+    component_min: Option<usize>,
+    component_max: Option<usize>,
+    allowed_value_count: usize,
+    allowed_values: Vec<String>,
+    pattern: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainLengthRule {
+    path: String,
+    max: Option<usize>,
+    policy: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainDatatypeRule {
+    path: String,
+    datatype: String,
+    kind: &'static str,
+    pattern: Option<String>,
+    min_length: Option<usize>,
+    max_length: Option<usize>,
+    format: Option<String>,
+    checksum: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainValueSet {
+    name: String,
+    path: String,
+    source: &'static str,
+    inline_code_count: usize,
+    table_code_count: usize,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainRules {
+    cross_field: Vec<ProfileExplainRule>,
+    temporal: Vec<ProfileExplainRule>,
+    contextual: Vec<ProfileExplainRule>,
+    custom: Vec<ProfileExplainRule>,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainRule {
+    id: String,
+    description: String,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainTable {
+    id: String,
+    name: String,
+    version: String,
+    code_count: usize,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainExpressionGuardrails {
+    max_depth: Option<usize>,
+    max_length: Option<usize>,
+    allow_custom_scripts: bool,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainLintSummary {
+    valid: bool,
+    error_count: usize,
+    warning_count: usize,
+    issue_count: usize,
+    ignored_or_unsupported: Vec<ProfileLintIssue>,
 }
 
 #[derive(serde::Serialize)]
@@ -527,6 +664,9 @@ async fn main() {
         ),
         Commands::Profile { command } => match command {
             ProfileCommands::Lint { profile, report } => profile_lint_command(profile, report),
+            ProfileCommands::Explain { profile, format } => {
+                profile_explain_command(profile, format)
+            }
             ProfileCommands::Test {
                 profile,
                 fixtures,
@@ -1376,6 +1516,228 @@ fn profile_lint_command(
     Ok(())
 }
 
+fn profile_explain_command(
+    profile: &Path,
+    format: &ReportFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let profile_yaml = fs::read_to_string(profile)?;
+    let loaded_profile = load_profile_checked(&profile_yaml)?;
+    let lint_report = lint_profile_yaml(&profile_yaml);
+    let explain_report =
+        build_profile_explain_report(profile, &profile_yaml, &loaded_profile, &lint_report);
+    let output = format_profile_explain_report(&explain_report, format)?;
+    println!("{}", output);
+    Ok(())
+}
+
+fn build_profile_explain_report(
+    profile_path: &Path,
+    profile_yaml: &str,
+    profile: &Profile,
+    lint_report: &ProfileLintReport,
+) -> ProfileExplainReport {
+    let required_fields: Vec<ProfileExplainRequiredField> = profile
+        .constraints
+        .iter()
+        .filter(|constraint| constraint.required)
+        .map(|constraint| ProfileExplainRequiredField {
+            path: constraint.path.clone(),
+            conditional: constraint.when.is_some(),
+        })
+        .collect();
+
+    let table_code_counts: BTreeMap<&str, usize> = profile
+        .hl7_tables
+        .iter()
+        .map(|table| (table.id.as_str(), table.codes.len()))
+        .collect();
+
+    let datatype_rules = profile
+        .datatypes
+        .iter()
+        .map(|datatype| ProfileExplainDatatypeRule {
+            path: datatype.path.clone(),
+            datatype: datatype.r#type.clone(),
+            kind: "simple",
+            pattern: None,
+            min_length: None,
+            max_length: None,
+            format: None,
+            checksum: None,
+        })
+        .chain(
+            profile
+                .advanced_datatypes
+                .iter()
+                .map(|datatype| ProfileExplainDatatypeRule {
+                    path: datatype.path.clone(),
+                    datatype: datatype.r#type.clone(),
+                    kind: "advanced",
+                    pattern: datatype.pattern.clone(),
+                    min_length: datatype.min_length,
+                    max_length: datatype.max_length,
+                    format: datatype.format.clone(),
+                    checksum: datatype.checksum.clone(),
+                }),
+        )
+        .collect();
+
+    ProfileExplainReport {
+        profile: profile_path.to_string_lossy().to_string(),
+        profile_sha256: compute_sha256(profile_yaml),
+        message_structure: profile.message_structure.clone(),
+        version: profile.version.clone(),
+        message_type: profile.message_type.clone(),
+        parent: profile.parent.clone(),
+        summary: ProfileExplainSummary {
+            segment_count: profile.segments.len(),
+            required_field_count: required_fields.len(),
+            field_constraint_count: profile.constraints.len(),
+            length_rule_count: profile.lengths.len(),
+            datatype_rule_count: profile.datatypes.len(),
+            advanced_datatype_rule_count: profile.advanced_datatypes.len(),
+            value_set_count: profile.valuesets.len(),
+            cross_field_rule_count: profile.cross_field_rules.len(),
+            temporal_rule_count: profile.temporal_rules.len(),
+            contextual_rule_count: profile.contextual_rules.len(),
+            custom_rule_count: profile.custom_rules.len(),
+            hl7_table_count: profile.hl7_tables.len(),
+        },
+        segments: profile
+            .segments
+            .iter()
+            .map(|segment| ProfileExplainSegment {
+                id: segment.id.clone(),
+            })
+            .collect(),
+        required_fields,
+        field_constraints: profile
+            .constraints
+            .iter()
+            .map(|constraint| {
+                let (component_min, component_max) = constraint
+                    .components
+                    .as_ref()
+                    .map(|components| (components.min, components.max))
+                    .unwrap_or((None, None));
+                let allowed_values = constraint.r#in.clone().unwrap_or_default();
+                ProfileExplainConstraint {
+                    path: constraint.path.clone(),
+                    required: constraint.required,
+                    conditional: constraint.when.is_some(),
+                    component_min,
+                    component_max,
+                    allowed_value_count: allowed_values.len(),
+                    allowed_values,
+                    pattern: constraint.pattern.clone(),
+                }
+            })
+            .collect(),
+        length_rules: profile
+            .lengths
+            .iter()
+            .map(|length| ProfileExplainLengthRule {
+                path: length.path.clone(),
+                max: length.max,
+                policy: length.policy.clone(),
+            })
+            .collect(),
+        datatype_rules,
+        value_sets: profile
+            .valuesets
+            .iter()
+            .map(|valueset| {
+                let table_code_count = table_code_counts
+                    .get(valueset.name.as_str())
+                    .copied()
+                    .unwrap_or(0);
+                let source = if !valueset.codes.is_empty() {
+                    "inline"
+                } else if table_code_count > 0 {
+                    "hl7_table"
+                } else {
+                    "empty"
+                };
+                ProfileExplainValueSet {
+                    name: valueset.name.clone(),
+                    path: valueset.path.clone(),
+                    source,
+                    inline_code_count: valueset.codes.len(),
+                    table_code_count,
+                }
+            })
+            .collect(),
+        rules: ProfileExplainRules {
+            cross_field: profile
+                .cross_field_rules
+                .iter()
+                .map(|rule| ProfileExplainRule {
+                    id: rule.id.clone(),
+                    description: rule.description.clone(),
+                })
+                .collect(),
+            temporal: profile
+                .temporal_rules
+                .iter()
+                .map(|rule| ProfileExplainRule {
+                    id: rule.id.clone(),
+                    description: rule.description.clone(),
+                })
+                .collect(),
+            contextual: profile
+                .contextual_rules
+                .iter()
+                .map(|rule| ProfileExplainRule {
+                    id: rule.id.clone(),
+                    description: rule.description.clone(),
+                })
+                .collect(),
+            custom: profile
+                .custom_rules
+                .iter()
+                .map(|rule| ProfileExplainRule {
+                    id: rule.id.clone(),
+                    description: rule.description.clone(),
+                })
+                .collect(),
+        },
+        hl7_tables: profile
+            .hl7_tables
+            .iter()
+            .map(|table| ProfileExplainTable {
+                id: table.id.clone(),
+                name: table.name.clone(),
+                version: table.version.clone(),
+                code_count: table.codes.len(),
+            })
+            .collect(),
+        table_precedence: profile.table_precedence.clone(),
+        expression_guardrails: ProfileExplainExpressionGuardrails {
+            max_depth: profile.expression_guardrails.max_depth,
+            max_length: profile.expression_guardrails.max_length,
+            allow_custom_scripts: profile.expression_guardrails.allow_custom_scripts,
+        },
+        lint: ProfileExplainLintSummary {
+            valid: lint_report.valid,
+            error_count: lint_report.error_count,
+            warning_count: lint_report.warning_count,
+            issue_count: lint_report.issue_count,
+            ignored_or_unsupported: lint_report
+                .issues
+                .iter()
+                .filter(|issue| profile_lint_issue_is_ignored_or_unsupported(issue))
+                .cloned()
+                .collect(),
+        },
+    }
+}
+
+fn profile_lint_issue_is_ignored_or_unsupported(issue: &ProfileLintIssue) -> bool {
+    issue.code.starts_with("unknown_")
+        || issue.code.contains("unsupported")
+        || issue.message.contains("ignored")
+}
+
 fn profile_test_command(
     profile: &Path,
     fixtures: &Path,
@@ -1829,6 +2191,108 @@ fn format_profile_test_report(
                     case.expectation.as_str(),
                     case.message
                 ));
+            }
+
+            Ok(lines.join("\n"))
+        }
+    }
+}
+
+fn format_profile_explain_report(
+    report: &ProfileExplainReport,
+    format: &ReportFormat,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match format {
+        ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
+        ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
+        ReportFormat::Text => {
+            let segment_ids = report
+                .segments
+                .iter()
+                .map(|segment| segment.id.clone())
+                .collect::<Vec<_>>();
+            let required_paths = report
+                .required_fields
+                .iter()
+                .map(|field| field.path.clone())
+                .collect::<Vec<_>>();
+            let mut lines = Vec::new();
+
+            lines.push(format!("Profile explain: {}", report.profile));
+            lines.push(format!("  Message structure: {}", report.message_structure));
+            lines.push(format!("  Version: {}", report.version));
+            if let Some(message_type) = &report.message_type {
+                lines.push(format!("  Message type: {message_type}"));
+            }
+            if let Some(parent) = &report.parent {
+                lines.push(format!("  Parent: {parent} (loaded profile only)"));
+            }
+            lines.push(format!("  Profile SHA-256: {}", report.profile_sha256));
+            lines.push(format!(
+                "  Segments: {} ({})",
+                report.summary.segment_count,
+                format_string_list(&segment_ids)
+            ));
+            lines.push(format!(
+                "  Required fields: {} ({})",
+                report.summary.required_field_count,
+                format_string_list(&required_paths)
+            ));
+            lines.push(format!(
+                "  Constraints: {} field, {} length, {} datatype, {} advanced datatype",
+                report.summary.field_constraint_count,
+                report.summary.length_rule_count,
+                report.summary.datatype_rule_count,
+                report.summary.advanced_datatype_rule_count
+            ));
+            lines.push(format!(
+                "  Value sets: {} set(s), {} inline code(s), {} table code(s)",
+                report.summary.value_set_count,
+                report
+                    .value_sets
+                    .iter()
+                    .map(|valueset| valueset.inline_code_count)
+                    .sum::<usize>(),
+                report
+                    .value_sets
+                    .iter()
+                    .map(|valueset| valueset.table_code_count)
+                    .sum::<usize>()
+            ));
+            lines.push(format!(
+                "  Rules: {} cross-field, {} temporal, {} contextual, {} custom",
+                report.summary.cross_field_rule_count,
+                report.summary.temporal_rule_count,
+                report.summary.contextual_rule_count,
+                report.summary.custom_rule_count
+            ));
+            lines.push(format!(
+                "  HL7 tables: {} table(s)",
+                report.summary.hl7_table_count
+            ));
+            lines.push(format!(
+                "  Lint: {} ({} error(s), {} warning(s))",
+                if report.lint.valid {
+                    "valid"
+                } else {
+                    "invalid"
+                },
+                report.lint.error_count,
+                report.lint.warning_count
+            ));
+
+            if !report.lint.ignored_or_unsupported.is_empty() {
+                lines.push("  Ignored or unsupported profile config:".to_string());
+                for issue in &report.lint.ignored_or_unsupported {
+                    let location = issue.path.as_deref().unwrap_or("profile");
+                    lines.push(format!(
+                        "    - {} {} {}: {}",
+                        issue.severity.as_str(),
+                        issue.code,
+                        location,
+                        issue.message
+                    ));
+                }
             }
 
             Ok(lines.join("\n"))
