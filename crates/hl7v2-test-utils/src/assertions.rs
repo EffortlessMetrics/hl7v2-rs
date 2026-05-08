@@ -28,9 +28,8 @@
 //! assert_field_equals(&parsed, "MSH.9.2", "A01");
 //! ```
 
-use hl7v2_model::Message;
-use hl7v2_parser::parse;
-use hl7v2_query::get;
+use hl7v2::model::{Atom, Comp, Delims, Field, Message, Rep, Segment};
+use hl7v2::{get, parse};
 
 /// Assert that a message is valid and parseable.
 ///
@@ -142,7 +141,7 @@ pub fn assert_segment_equals(message: &Message, segment_name: &str, expected: &s
                 message
                     .segments
                     .iter()
-                    .map(hl7v2_model::Segment::id_str)
+                    .map(Segment::id_str)
                     .collect::<Vec<_>>()
                     .join(", ")
             )
@@ -260,7 +259,7 @@ pub fn assert_field_exists(message: &Message, path: &str) {
             message
                 .segments
                 .iter()
-                .map(hl7v2_model::Segment::id_str)
+                .map(Segment::id_str)
                 .collect::<Vec<_>>()
                 .join(", ")
         );
@@ -323,7 +322,7 @@ pub fn assert_segment_exists(message: &Message, segment_name: &str) {
         message
             .segments
             .iter()
-            .map(hl7v2_model::Segment::id_str)
+            .map(Segment::id_str)
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -466,7 +465,7 @@ pub fn assert_segment_count(message: &Message, expected_count: usize) {
         message
             .segments
             .iter()
-            .map(hl7v2_model::Segment::id_str)
+            .map(Segment::id_str)
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -511,7 +510,7 @@ pub fn assert_segment_type_count(message: &Message, segment_name: &str, expected
 // Helper functions
 
 /// Write a segment to a string.
-fn write_segment_to_string(segment: &hl7v2_model::Segment, delims: &hl7v2_model::Delims) -> String {
+fn write_segment_to_string(segment: &Segment, delims: &Delims) -> String {
     let mut result = segment.id_str().to_string();
 
     for field in &segment.fields {
@@ -523,7 +522,7 @@ fn write_segment_to_string(segment: &hl7v2_model::Segment, delims: &hl7v2_model:
 }
 
 /// Write a field to a string.
-fn write_field_to_string(field: &hl7v2_model::Field, delims: &hl7v2_model::Delims) -> String {
+fn write_field_to_string(field: &Field, delims: &Delims) -> String {
     let reps: Vec<String> = field
         .reps
         .iter()
@@ -533,7 +532,7 @@ fn write_field_to_string(field: &hl7v2_model::Field, delims: &hl7v2_model::Delim
 }
 
 /// Write a repetition to a string.
-fn write_rep_to_string(rep: &hl7v2_model::Rep, delims: &hl7v2_model::Delims) -> String {
+fn write_rep_to_string(rep: &Rep, delims: &Delims) -> String {
     let comps: Vec<String> = rep
         .comps
         .iter()
@@ -543,16 +542,16 @@ fn write_rep_to_string(rep: &hl7v2_model::Rep, delims: &hl7v2_model::Delims) -> 
 }
 
 /// Write a component to a string.
-fn write_comp_to_string(comp: &hl7v2_model::Comp, delims: &hl7v2_model::Delims) -> String {
+fn write_comp_to_string(comp: &Comp, delims: &Delims) -> String {
     let subs: Vec<String> = comp.subs.iter().map(write_atom_to_string).collect();
     subs.join(&delims.sub.to_string())
 }
 
 /// Write an atom to a string.
-fn write_atom_to_string(atom: &hl7v2_model::Atom) -> String {
+fn write_atom_to_string(atom: &Atom) -> String {
     match atom {
-        hl7v2_model::Atom::Text(t) => t.clone(),
-        hl7v2_model::Atom::Null => String::new(),
+        Atom::Text(t) => t.clone(),
+        Atom::Null => String::new(),
     }
 }
 

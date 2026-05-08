@@ -34,7 +34,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use hl7v2_model::{Error, Message};
+use hl7v2::model::{Error, Message};
 use tokio::net::TcpListener;
 use tokio::sync::{RwLock, mpsc};
 use tokio::time::timeout;

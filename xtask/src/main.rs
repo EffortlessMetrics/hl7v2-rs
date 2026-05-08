@@ -580,7 +580,7 @@ fn scaffold(name: &str, description: Option<String>) -> Result<()> {
         format!("hl7v2-{name}")
     };
 
-    println!("🏗️  Scaffolding new microcrate: {crate_name}...");
+    println!("🏗️  Scaffolding new crate: {crate_name}...");
 
     let root = env::current_dir()?;
     let crate_path = root.join("crates").join(&crate_name);
@@ -609,7 +609,7 @@ keywords = ["hl7", "healthcare"]
 categories = ["parser-implementations"]
 
 [dependencies]
-hl7v2-model = {{ path = "../hl7v2-model" }}
+hl7v2 = {{ path = "../hl7v2", default-features = false }}
 thiserror = {{ workspace = true }}
 
 [dev-dependencies]

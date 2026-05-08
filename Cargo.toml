@@ -2,35 +2,8 @@
 members = [
     # Public library crate
     "crates/hl7v2",
-    # Private deprecated compatibility shims for collapsed implementation modules
-    "crates/hl7v2-model",
-    "crates/hl7v2-escape",
-    "crates/hl7v2-mllp",
-    "crates/hl7v2-query",
-    "crates/hl7v2-json",
-    "crates/hl7v2-parser",
-    "crates/hl7v2-writer",
-    "crates/hl7v2-normalize",
-    "crates/hl7v2-network",
-    "crates/hl7v2-batch",
-    "crates/hl7v2-stream",
-    "crates/hl7v2-validation",
-    "crates/hl7v2-datatype",
-    "crates/hl7v2-datetime",
-    "crates/hl7v2-path",
-    "crates/hl7v2-faker",
-    "crates/hl7v2-corpus",
-    # Private compatibility shims and feature-module test harnesses
-    "crates/hl7v2-core",
+    # Internal benchmark harness
     "crates/hl7v2-bench",
-    "crates/hl7v2-prof",
-    "crates/hl7v2-redact",
-    "crates/hl7v2-lifecycle",
-    "crates/hl7v2-guard",
-    "crates/hl7v2-template",
-    "crates/hl7v2-template-values",
-    "crates/hl7v2-gen",
-    "crates/hl7v2-ack",
     # Public wrapper and binding crates
     "crates/hl7v2-python",
     "crates/hl7v2-cli",
