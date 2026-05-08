@@ -1,0 +1,40 @@
+{
+  "replay_version": "1",
+  "bundle_version": "1",
+  "tool_name": "hl7v2",
+  "tool_version": "1.2.1",
+  "message_type": "ADT^A01",
+  "reproduced": true,
+  "validation_valid": false,
+  "validation_issue_count": 1,
+  "checks": [
+    {
+      "name": "required_artifacts",
+      "status": "pass",
+      "message": "All required bundle artifacts are present."
+    },
+    {
+      "name": "validation_report",
+      "status": "pass",
+      "message": "Regenerated validation report matches the bundle report."
+    }
+  ],
+  "validation_report": {
+    "valid": false,
+    "message_type": "ADT^A01",
+    "profile": "profiles/adt_a01.yaml",
+    "segment_count": 3,
+    "issue_count": 1,
+    "issues": [
+      {
+        "code": "required_field_missing",
+        "severity": "error",
+        "path": "PID.3",
+        "rule_id": "patient_identifier_required",
+        "message": "PID.3 is required by profile ADT_A01.",
+        "segment_index": 1,
+        "field_index": 3
+      }
+    ]
+  }
+}

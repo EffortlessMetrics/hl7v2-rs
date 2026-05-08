@@ -45,6 +45,13 @@ CLI and server configuration (hl7v2.toml):
 - CLI defaults
 - Logging defaults
 
+### Evidence (`evidence/*-v1.schema.json`)
+Machine-readable evidence artifacts emitted by the CLI, library, server, and
+Python lanes:
+- Validation reports and profile lint/test/explain reports
+- Corpus summary, fingerprint, and diff reports
+- Redaction receipts and evidence bundle/replay summaries
+
 ## Usage
 
 ### Validate YAML Against Schema
@@ -70,6 +77,12 @@ Path("target/contracts/config").mkdir(parents=True, exist_ok=True)
 Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
 PY
 ajv validate -c ajv-formats -s schemas/config/hl7v2-config-v1.schema.json -d target/contracts/config/config.example.json --spec=draft7
+
+# Validate a representative evidence artifact fixture
+ajv validate -c ajv-formats \
+  -s schemas/evidence/validation-report-v1.schema.json \
+  -d fixtures/evidence/validation-report.json \
+  --spec=draft7
 ```
 
 ### In Rust Code
@@ -98,7 +111,7 @@ fn main() {
 ### CI Integration
 
 The API Contracts workflow validates profiles, converted config fixtures, and
-schema syntax:
+evidence fixtures, then compiles every schema:
 
 ```yaml
 # .github/workflows/contracts.yml
@@ -116,6 +129,11 @@ schema syntax:
     Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
     PY
     ajv validate -c ajv-formats -s schemas/config/hl7v2-config-v1.schema.json -d 'target/contracts/config/*.json' --spec=draft7
+    for schema in schemas/evidence/*-v1.schema.json; do
+      name="$(basename "$schema")"
+      name="${name%-v1.schema.json}"
+      ajv validate -c ajv-formats -s "$schema" -d "fixtures/evidence/${name}.json" --spec=draft7
+    done
 ```
 
 ## Schema Versioning

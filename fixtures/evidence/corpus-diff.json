@@ -1,0 +1,67 @@
+{
+  "diff_version": "1",
+  "tool_version": "1.2.1",
+  "before_root": "fixtures/corpus/before",
+  "after_root": "fixtures/corpus/after",
+  "profile": {
+    "path": "profiles/adt_a01.yaml",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "version": "2.5.1",
+    "message_structure": "ADT_A01"
+  },
+  "file_count": {"before": 2, "after": 3, "delta": 1},
+  "message_count": {"before": 2, "after": 3, "delta": 1},
+  "parse_error_count": {"before": 0, "after": 1, "delta": 1},
+  "new_message_types": ["ORM^O01"],
+  "removed_message_types": [],
+  "new_segments": ["ORC"],
+  "removed_segments": [],
+  "message_type_counts": [
+    {"value": "ADT^A01", "before": 1, "after": 1, "delta": 0},
+    {"value": "ORM^O01", "before": 0, "after": 1, "delta": 1}
+  ],
+  "segment_counts": [
+    {"value": "PID", "before": 2, "after": 3, "delta": 1}
+  ],
+  "field_presence": [
+    {
+      "path": "PID.3",
+      "before_message_count": 2,
+      "after_message_count": 3,
+      "message_count_delta": 1,
+      "before_occurrence_count": 2,
+      "after_occurrence_count": 3,
+      "occurrence_count_delta": 1
+    }
+  ],
+  "field_cardinality": [
+    {
+      "path": "PID.3",
+      "before_min_per_message": 1,
+      "after_min_per_message": 1,
+      "min_per_message_delta": 0,
+      "before_max_per_message": 1,
+      "after_max_per_message": 2,
+      "max_per_message_delta": 1,
+      "before_total_occurrences": 2,
+      "after_total_occurrences": 4,
+      "total_occurrences_delta": 2,
+      "before_message_count": 2,
+      "after_message_count": 3,
+      "message_count_delta": 1
+    }
+  ],
+  "value_shape_stats": [
+    {
+      "path": "OBX.5",
+      "coded_count": {"before": 0, "after": 1, "delta": 1},
+      "timestamp_count": {"before": 0, "after": 0, "delta": 0},
+      "numeric_count": {"before": 1, "after": 2, "delta": 1},
+      "null_count": {"before": 0, "after": 0, "delta": 0},
+      "text_count": {"before": 0, "after": 1, "delta": 1}
+    }
+  ],
+  "validation_issue_code_counts": [
+    {"value": "required_field_missing", "before": 0, "after": 1, "delta": 1}
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/corpus-fingerprint/v1",
+  "title": "HL7v2 Corpus Fingerprint",
+  "description": "Deterministic compact signature for a file or directory corpus.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fingerprint_version",
+    "tool_version",
+    "root",
+    "profile",
+    "file_count",
+    "message_count",
+    "parse_error_count",
+    "message_type_counts",
+    "segment_counts",
+    "field_presence",
+    "field_cardinality",
+    "value_shape_stats",
+    "validation_issue_code_counts"
+  ],
+  "properties": {
+    "fingerprint_version": {"type": "string"},
+    "tool_version": {"type": "string"},
+    "root": {"type": "string"},
+    "profile": {"anyOf": [{"$ref": "#/definitions/profile"}, {"type": "null"}]},
+    "file_count": {"type": "integer", "minimum": 0},
+    "message_count": {"type": "integer", "minimum": 0},
+    "parse_error_count": {"type": "integer", "minimum": 0},
+    "message_type_counts": {"type": "array", "items": {"$ref": "#/definitions/count"}},
+    "segment_counts": {"type": "array", "items": {"$ref": "#/definitions/count"}},
+    "field_presence": {"type": "array", "items": {"$ref": "#/definitions/field_presence"}},
+    "field_cardinality": {"type": "array", "items": {"$ref": "#/definitions/field_cardinality"}},
+    "value_shape_stats": {"type": "array", "items": {"$ref": "#/definitions/value_shape_stats"}},
+    "validation_issue_code_counts": {"type": "array", "items": {"$ref": "#/definitions/count"}}
+  },
+  "definitions": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "version", "message_structure"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "version": {"type": "string"},
+        "message_structure": {"type": "string"}
+      }
+    },
+    "count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "count"],
+      "properties": {
+        "value": {"type": "string"},
+        "count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "field_presence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "message_count", "occurrence_count"],
+      "properties": {
+        "path": {"type": "string"},
+        "message_count": {"type": "integer", "minimum": 0},
+        "occurrence_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "field_cardinality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "min_per_message", "max_per_message", "total_occurrences", "message_count"],
+      "properties": {
+        "path": {"type": "string"},
+        "min_per_message": {"type": "integer", "minimum": 0},
+        "max_per_message": {"type": "integer", "minimum": 0},
+        "total_occurrences": {"type": "integer", "minimum": 0},
+        "message_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "value_shape_stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "coded_count", "timestamp_count", "numeric_count", "null_count", "text_count"],
+      "properties": {
+        "path": {"type": "string"},
+        "coded_count": {"type": "integer", "minimum": 0},
+        "timestamp_count": {"type": "integer", "minimum": 0},
+        "numeric_count": {"type": "integer", "minimum": 0},
+        "null_count": {"type": "integer", "minimum": 0},
+        "text_count": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

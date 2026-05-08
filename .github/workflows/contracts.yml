@@ -7,6 +7,7 @@ on:
       - 'api/**'
       - 'schemas/**'
       - 'profiles/**'
+      - 'fixtures/evidence/**'
       - 'config.example.toml'
       - 'config/**'
       - '.spectral.yml'
@@ -17,6 +18,7 @@ on:
       - 'api/**'
       - 'schemas/**'
       - 'profiles/**'
+      - 'fixtures/evidence/**'
       - 'config.example.toml'
       - 'config/**'
       - '.spectral.yml'
@@ -140,6 +142,19 @@ jobs:
             -s schemas/config/hl7v2-config-v1.schema.json \
             -d 'target/contracts/config/*.json' \
             --spec=draft7
+
+      - name: Validate Evidence Fixtures
+        run: |
+          for schema in schemas/evidence/*-v1.schema.json; do
+            name="$(basename "$schema")"
+            name="${name%-v1.schema.json}"
+            data="fixtures/evidence/${name}.json"
+            echo "Validating $data against $schema"
+            ajv validate -c ajv-formats \
+              -s "$schema" \
+              -d "$data" \
+              --spec=draft7
+          done
 
       - name: Validate Test Data
         run: |

@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/redaction-receipt/v1",
+  "title": "HL7v2 Redaction Receipt",
+  "description": "Machine-readable receipt describing safe-analysis redaction actions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["phi_removed", "hash_algorithm", "actions"],
+  "properties": {
+    "phi_removed": {
+      "type": "boolean",
+      "description": "Whether any configured PHI-bearing path was removed or hashed."
+    },
+    "hash_algorithm": {
+      "type": "string",
+      "enum": ["sha256"],
+      "description": "Hash algorithm used by hash redaction actions."
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/redaction_action"
+      }
+    }
+  },
+  "definitions": {
+    "redaction_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "action", "reason", "matched_count", "optional", "status"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "HL7 path covered by this policy action."
+        },
+        "action": {
+          "type": "string",
+          "enum": ["hash", "drop", "retain"]
+        },
+        "reason": {
+          "type": "string",
+          "description": "Policy reason for the action."
+        },
+        "matched_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of matching values affected by the action."
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "Whether missing matches are acceptable for this policy rule."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["applied", "retained", "not_found"]
+        }
+      }
+    }
+  }
+}

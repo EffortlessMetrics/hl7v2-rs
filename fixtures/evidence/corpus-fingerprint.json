@@ -1,0 +1,49 @@
+{
+  "fingerprint_version": "1",
+  "tool_version": "1.2.1",
+  "root": "fixtures/corpus/site-a",
+  "profile": {
+    "path": "profiles/adt_a01.yaml",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "version": "2.5.1",
+    "message_structure": "ADT_A01"
+  },
+  "file_count": 2,
+  "message_count": 2,
+  "parse_error_count": 0,
+  "message_type_counts": [
+    {"value": "ADT^A01", "count": 1},
+    {"value": "ORU^R01", "count": 1}
+  ],
+  "segment_counts": [
+    {"value": "MSH", "count": 2},
+    {"value": "PID", "count": 2},
+    {"value": "OBX", "count": 1}
+  ],
+  "field_presence": [
+    {"path": "PID.3", "message_count": 2, "occurrence_count": 2},
+    {"path": "OBX.3", "message_count": 1, "occurrence_count": 1}
+  ],
+  "field_cardinality": [
+    {
+      "path": "PID.3",
+      "min_per_message": 1,
+      "max_per_message": 1,
+      "total_occurrences": 2,
+      "message_count": 2
+    }
+  ],
+  "value_shape_stats": [
+    {
+      "path": "OBX.5",
+      "coded_count": 0,
+      "timestamp_count": 0,
+      "numeric_count": 1,
+      "null_count": 0,
+      "text_count": 0
+    }
+  ],
+  "validation_issue_code_counts": [
+    {"value": "required_field_missing", "count": 1}
+  ]
+}
