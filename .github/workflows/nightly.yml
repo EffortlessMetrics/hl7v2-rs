@@ -50,10 +50,12 @@ jobs:
           - escape
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install nightly Rust toolchain (required for fuzzing)
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: nightly
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
@@ -82,7 +84,7 @@ jobs:
 
       - name: Collect fuzz artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fuzz-crash-${{ matrix.target }}
           path: fuzz/artifacts/
@@ -99,10 +101,12 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
@@ -125,7 +129,7 @@ jobs:
         timeout-minutes: 60
 
       - name: Upload mutation report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-report
           path: mutants-out/
@@ -151,10 +155,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
@@ -180,10 +186,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
@@ -214,10 +222,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
@@ -231,7 +241,7 @@ jobs:
         timeout-minutes: 10
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-docs
           path: target/doc/

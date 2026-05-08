@@ -28,12 +28,12 @@ jobs:
     name: Validate OpenAPI Spec
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install Spectral
         run: npm install -g @stoplight/spectral-cli
@@ -48,7 +48,7 @@ jobs:
         run: redocly build-docs api/openapi/hl7v2-api-v1.yaml -o docs/api-reference.html
 
       - name: Upload API Docs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-docs
           path: docs/api-reference.html
@@ -57,15 +57,15 @@ jobs:
     name: Validate Protocol Buffers
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Setup Buf
-        uses: bufbuild/buf-setup-action@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          node-version: '24'
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: 'stable'
 
@@ -73,7 +73,7 @@ jobs:
         run: go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
 
       - name: Lint Protos
-        run: buf lint api/proto
+        run: npx -y @bufbuild/buf lint api/proto
 
       - name: Check Breaking Changes
         if: github.event_name == 'pull_request'
@@ -81,23 +81,23 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          buf breaking api/proto \
+          npx -y @bufbuild/buf breaking api/proto \
             --against "https://github.com/${REPOSITORY}.git#branch=${BASE_REF},subdir=api/proto"
 
       - name: Generate Proto Docs
         run: |
-          buf generate api/proto --template buf.gen.yaml
+          npx -y @bufbuild/buf generate api/proto --template buf.gen.yaml
 
   schema-validation:
     name: Validate Schemas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install ajv-cli
         run: npm install -g ajv-cli ajv-formats
