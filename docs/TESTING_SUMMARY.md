@@ -1,5 +1,9 @@
 # HL7v2-rs Testing Summary
 
+> Historical note: this summary predates the post-1.2.1 crate-surface collapse
+> and local shim-folder retirement. It is retained as a dated testing receipt;
+> current Rust consumers should use `hl7v2` and its module paths.
+
 ## Overview
 - **Total Crates:** 26
 - **Total Tests:** ~1,300+

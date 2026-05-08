@@ -63,49 +63,41 @@ The policy stack is documented in:
 
 ## Architecture
 
-This is a Cargo workspace with 28 crates in `crates/`, organized in three layers:
+This repository now uses `hl7v2` as the canonical Rust library and keeps SRP
+implementation boundaries as modules inside that crate.
 
-**Microcrates** (minimal dependencies, single-responsibility):
-- `hl7v2-model` — Core data types: Message, Segment, Field, Rep, Comp, Atom, Delims
-- `hl7v2-escape` — HL7v2 escape sequences (\F\, \S\, \R\, \E\, \T\)
-- `hl7v2-mllp` — MLLP framing (VT...FS CR)
-- `hl7v2-parser` — Message parsing from bytes, delimiter discovery from MSH
-- `hl7v2-writer` — Message serialization to HL7 wire format and JSON
-- `hl7v2-json` — JSON serialization/deserialization for HL7 messages
-- `hl7v2-normalize` — Message normalization and delimiter transformation
-- `hl7v2-datetime` — Date/time parsing and validation
-- `hl7v2-datatype` — Data type validation (CX, PN, TS, etc.)
-- `hl7v2-path` — Field path parsing/resolution (e.g., `PID.5[1].1`)
-- `hl7v2-query` — Fast path-based data extraction
-- `hl7v2-batch` — Batch message handling (FHS/BHS/BTS/FTS)
-- `hl7v2-network` — Async TCP/TLS MLLP client and server
-- `hl7v2-stream` — Event-based streaming parser for large messages
-- `hl7v2-validation` — Rule-based message validation engine
-- `hl7v2-ack` — Automatic ACK generation logic
-- `hl7v2-faker` — Realistic synthetic data generation
-- `hl7v2-template` — Template-based message generation
-- `hl7v2-template-values` — Values and generators for templates
-- `hl7v2-corpus` — Pre-defined HL7 sample messages
+**Public Rust product crates**:
+- `hl7v2` — library crate for model, parser, writer, query, transport,
+  conformance, ACK, normalization, synthetic data, lifecycle, and experimental
+  modules.
+- `hl7v2-server` — Axum/Tonic HTTP and gRPC runtime service with metrics,
+  health checks, auth, rate limiting, and deployment config.
+- `hl7v2-cli` — CLI binary (`hl7v2`) with parsing, validation, ACK,
+  normalization, streaming, and generation workflows.
 
-**Mid-level crates**:
-- `hl7v2-core` — Facade re-exporting all microcrates.
-- `hl7v2-prof` — Profile-based validation with inheritance (YAML profiles in `profiles/`)
-- `hl7v2-gen` — Synthetic message generation facade
-- `hl7v2-bench` — High-performance benchmarks for all layers
+**Separate packaging lane**:
+- `hl7v2-python` — PyO3 binding package. It is `publish = false` for crates.io
+  and should be validated with Python/maturin tooling before any PyPI release.
 
-**Application crates**:
-- `hl7v2-cli` — CLI binary (`hl7v2`) with streaming support
-- `hl7v2-server` — Axum HTTP API server with metrics, health checks, rate limiting
+**Internal crates and packages**:
+- `hl7v2-bench` — benchmark harness.
+- `hl7v2-test-utils` — shared testing utilities and fixtures.
+- `hl7v2-e2e-tests` — end-to-end tests for full message pipelines.
+- `xtask` — workspace automation.
+- root `hl7v2-examples` package — examples only; `publish = false`.
 
-**Testing crates**:
-- `hl7v2-test-utils` — Shared testing utilities and fixtures
-- `hl7v2-e2e-tests` — Integration tests for full message pipelines
+Former microcrate package names such as `hl7v2-core`, `hl7v2-model`,
+`hl7v2-parser`, and `hl7v2-prof` have been retired from the local workspace.
+Their implementation now lives under `hl7v2::...` module paths. Historical
+old-name crates.io artifacts may exist, but new code should depend on `hl7v2`.
 
-Dependency flow: microcrates → core → prof/gen → cli/server. All shared dependency versions are declared in the root `[workspace.dependencies]`.
+Dependency flow: `hl7v2` -> `hl7v2-server` / `hl7v2-cli` / wrappers and tests.
+All shared dependency versions are declared in the root `[workspace.dependencies]`.
 
 ## Conventions
 
-- **Rust edition 2024**, MSRV 1.92
-- **Error handling**: Each crate has its own error type using `thiserror`. Errors preserve context with `#[source]` chains.
+- **Rust edition 2024**, MSRV 1.93
+- **Error handling**: Public modules use typed errors with `thiserror` where
+  needed. Errors preserve context with `#[source]` chains.
 - **Tests**: Unit tests in `src/tests.rs` modules (`#[cfg(test)]`), integration tests in `tests/` directories.
-- **Commit messages**: `<type>(<scope>): <subject>` — types: feat, fix, docs, style, refactor, test, chore; scopes: core, prof, gen, cli, network, etc.
+- **Commit messages**: `<type>(<scope>): <subject>` — types: feat, fix, docs, style, refactor, test, chore; scopes should name the current crate or module, such as `hl7v2`, `parser`, `profile`, `cli`, or `server`.

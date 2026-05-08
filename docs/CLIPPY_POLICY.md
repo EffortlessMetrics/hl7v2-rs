@@ -39,14 +39,12 @@ hl7v2-cli
 xtask
 ```
 
-The Python binding crate and soon-to-be-collapsed implementation crates are
-staged in `policy/clippy-lints.toml`; the Python binding has an explicit debt
-receipt in `policy/clippy-debt.toml` while its PyO3 packaging lane stays
-isolated:
+The Python binding crate and private test/benchmark crates are staged in
+`policy/clippy-lints.toml`; the Python binding has an explicit debt receipt in
+`policy/clippy-debt.toml` while its PyO3 packaging lane stays isolated:
 
 ```text
 hl7v2-python
-current microcrates
 internal test and benchmark crates
 ```
 
@@ -55,9 +53,9 @@ server or CLI lint debt that was not appropriate to clean up in this policy PR
 must be represented by a reasoned `#[expect(...)]` and an expiring
 `policy/clippy-debt.toml` receipt.
 
-Soon-to-be-collapsed implementation microcrates are not required to opt in
-individually during demicrocrating. When their code moves under `hl7v2`, the
-canonical library crate's inherited lint baseline applies.
+Former implementation microcrates have been retired locally. Their code now
+lives under `hl7v2`, so the canonical library crate's inherited lint baseline
+is the enforcement point for that implementation surface.
 
 ## No test carveouts
 

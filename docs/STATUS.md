@@ -13,7 +13,7 @@ This document provides a transparent view of which features are fully implemente
 | `hl7v2-server` | ✅ 100% | 80% | HTTP REST API with metrics, auth, ACK, and normalization routes. |
 | `hl7v2-cli` | ✅ 100% | 75% | Full-featured CLI with streaming support. |
 | `hl7v2-python` | 🟡 Experimental | N/A | PyO3 binding package held out of the crates.io Rust publish graph; validate through the Python/maturin lane before release. |
-| compatibility shims | ✅ Package-frozen | N/A | In the current workspace, old microcrate package names, including `hl7v2-model`, `hl7v2-escape`, and `hl7v2-mllp`, are private deprecated shims unless explicitly retained for compatibility. Some historical old-name `1.2.0` artifacts already exist on crates.io and should not be treated as the current product surface. |
+| retired old package names | ✅ Retired locally | N/A | Old microcrate package names, including `hl7v2-model`, `hl7v2-escape`, and `hl7v2-mllp`, are no longer local workspace crates. Some historical old-name `1.2.0` artifacts already exist on crates.io and should not be treated as the current product surface. |
 
 ## Feature Set (v1.2.1)
 
