@@ -71,6 +71,22 @@ mod cli_unit_tests {
         }
 
         #[test]
+        fn test_profile_command_has_test_subcommand() {
+            use crate::Cli;
+            let schema = Cli::command();
+            let profile = schema
+                .get_subcommands()
+                .find(|command| command.get_name() == "profile")
+                .expect("profile command should exist");
+
+            assert!(
+                profile
+                    .get_subcommands()
+                    .any(|command| command.get_name() == "test")
+            );
+        }
+
+        #[test]
         fn test_ack_command_mode_options() {
             // Verify ACK mode options exist
             let modes = vec!["original", "enhanced"];
@@ -713,6 +729,136 @@ constraints:
 
             assert!(output.contains("input_file: test.hl7"));
             assert!(output.contains("segment_count: 1"));
+        }
+
+        #[test]
+        fn test_expected_report_array_matching_allows_issue_subset_out_of_order() {
+            let expected = serde_json::json!({
+                "issues": [
+                    {
+                        "code": "missing_required_field",
+                        "severity": "error",
+                        "path": "PID.3"
+                    }
+                ]
+            });
+            let actual = serde_json::json!({
+                "valid": false,
+                "issues": [
+                    {
+                        "code": "datatype_violation",
+                        "severity": "warning",
+                        "path": "PID.7"
+                    },
+                    {
+                        "code": "missing_required_field",
+                        "severity": "error",
+                        "path": "PID.3",
+                        "message": "PID.3 is required"
+                    }
+                ]
+            });
+
+            assert!(crate::json_subset_matches(&expected, &actual, "$").is_ok());
+        }
+
+        #[test]
+        fn test_expected_report_lookup_uses_mirrored_paths_for_duplicate_stems() {
+            let dir = TempDir::new().expect("Failed to create temp dir");
+            let fixture_root = dir.path().join("fixtures");
+            let expected_root = fixture_root.join("expected");
+            let valid_root = fixture_root.join("valid");
+            let invalid_root = fixture_root.join("invalid");
+            std::fs::create_dir_all(expected_root.join("valid")).unwrap();
+            std::fs::create_dir_all(expected_root.join("invalid")).unwrap();
+            std::fs::create_dir_all(&valid_root).unwrap();
+            std::fs::create_dir_all(&invalid_root).unwrap();
+
+            let valid_file = valid_root.join("same.hl7");
+            let invalid_file = invalid_root.join("same.hl7");
+            std::fs::write(&valid_file, b"valid").unwrap();
+            std::fs::write(&invalid_file, b"invalid").unwrap();
+            std::fs::write(expected_root.join("valid/same.report.json"), b"{}").unwrap();
+            std::fs::write(expected_root.join("invalid/same.report.json"), b"{}").unwrap();
+
+            let valid_files = vec![valid_file.clone()];
+            let invalid_files = vec![invalid_file.clone()];
+            let lookup = crate::build_expected_report_lookup(
+                &fixture_root,
+                &expected_root,
+                [&valid_files, &invalid_files],
+            );
+
+            let valid_expected = match lookup.get(&valid_file) {
+                Some(crate::ExpectedReportCandidate::File(path)) => Some(path),
+                _ => None,
+            };
+            let invalid_expected = match lookup.get(&invalid_file) {
+                Some(crate::ExpectedReportCandidate::File(path)) => Some(path),
+                _ => None,
+            };
+            assert_eq!(
+                valid_expected,
+                Some(&expected_root.join("valid/same.report.json"))
+            );
+            assert_eq!(
+                invalid_expected,
+                Some(&expected_root.join("invalid/same.report.json"))
+            );
+        }
+
+        #[test]
+        fn test_expected_report_lookup_flags_ambiguous_basename_fallback() {
+            let dir = TempDir::new().expect("Failed to create temp dir");
+            let fixture_root = dir.path().join("fixtures");
+            let expected_root = fixture_root.join("expected");
+            let valid_root = fixture_root.join("valid");
+            let invalid_root = fixture_root.join("invalid");
+            std::fs::create_dir_all(&expected_root).unwrap();
+            std::fs::create_dir_all(&valid_root).unwrap();
+            std::fs::create_dir_all(&invalid_root).unwrap();
+
+            let valid_file = valid_root.join("same.hl7");
+            let invalid_file = invalid_root.join("same.hl7");
+            std::fs::write(&valid_file, b"valid").unwrap();
+            std::fs::write(&invalid_file, b"invalid").unwrap();
+            std::fs::write(expected_root.join("same.report.json"), b"{}").unwrap();
+
+            let valid_files = vec![valid_file.clone()];
+            let invalid_files = vec![invalid_file.clone()];
+            let lookup = crate::build_expected_report_lookup(
+                &fixture_root,
+                &expected_root,
+                [&valid_files, &invalid_files],
+            );
+
+            let valid_ambiguous = match lookup.get(&valid_file) {
+                Some(crate::ExpectedReportCandidate::Ambiguous(path)) => Some(path),
+                _ => None,
+            };
+            let invalid_ambiguous = match lookup.get(&invalid_file) {
+                Some(crate::ExpectedReportCandidate::Ambiguous(path)) => Some(path),
+                _ => None,
+            };
+            assert_eq!(
+                valid_ambiguous,
+                Some(&expected_root.join("same.report.json"))
+            );
+            assert_eq!(
+                invalid_ambiguous,
+                Some(&expected_root.join("same.report.json"))
+            );
+        }
+
+        #[test]
+        fn test_fixture_file_order_uses_case_stable_tie_breaker() {
+            let upper = PathBuf::from("fixtures/CASE.hl7");
+            let lower = PathBuf::from("fixtures/case.hl7");
+
+            assert_eq!(
+                crate::compare_paths_case_stable(&upper, &lower),
+                std::cmp::Ordering::Less
+            );
         }
 
         #[test]

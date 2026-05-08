@@ -138,6 +138,9 @@ hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report json
 
 # Lint a profile before using it as an interface contract
 hl7v2 profile lint profiles/oru_r01.yaml --report json
+
+# Test profile fixtures as executable interface contracts
+hl7v2 profile test profiles/oru_r01.yaml fixtures/oru_r01/ --report json
 ```
 
 ### Normalize Messages

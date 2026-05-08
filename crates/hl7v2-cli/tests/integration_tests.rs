@@ -86,6 +86,17 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_profile_test_help() {
+        let mut cmd = cli_command();
+        cmd.args(["profile", "test", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Test a profile against valid/invalid",
+            ));
+    }
+
+    #[test]
     fn test_corpus_help() {
         let mut cmd = cli_command();
         cmd.args(["corpus", "--help"])
@@ -483,6 +494,19 @@ mod norm_command {
 mod profile_command {
     use super::*;
 
+    const PID3_REQUIRED_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#;
+
+    const MISSING_PID3_MESSAGE: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL124|P|2.5\rPID|1||||Doe^John||19700101|M\r";
+
     #[test]
     fn test_profile_lint_passes_minimal_profile() {
         let dir = create_temp_dir();
@@ -578,6 +602,145 @@ constraints:
                 .unwrap()
                 .iter()
                 .any(|issue| issue["code"] == "invalid_constraint_pattern")
+        );
+    }
+
+    #[test]
+    fn test_profile_test_passes_valid_and_invalid_fixtures() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+        let fixtures = dir.path().join("fixtures");
+        let valid_dir = fixtures.join("valid");
+        let invalid_dir = fixtures.join("invalid");
+        let expected_dir = fixtures.join("expected");
+        std::fs::create_dir_all(&valid_dir).unwrap();
+        std::fs::create_dir_all(&invalid_dir).unwrap();
+        std::fs::create_dir_all(&expected_dir).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/adt.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::adt_a01().as_bytes(),
+        );
+        create_temp_hl7_with_content(
+            &dir,
+            "fixtures/invalid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE,
+        );
+        create_temp_file(
+            &dir,
+            "fixtures/expected/missing_pid3.report.json",
+            br#"{
+  "valid": false,
+  "issues": [
+    {
+      "code": "missing_required_field",
+      "severity": "error",
+      "path": "PID.3"
+    }
+  ]
+}"#,
+        );
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "profile",
+            "test",
+            profile_file.to_str().unwrap(),
+            fixtures.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Profile test passed"))
+        .stdout(predicate::str::contains(
+            "PASS valid/adt.hl7 expected valid",
+        ))
+        .stdout(predicate::str::contains("expected report matched"));
+    }
+
+    #[test]
+    fn test_profile_test_json_reports_case_results() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/adt.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::adt_a01().as_bytes(),
+        );
+        create_temp_hl7_with_content(
+            &dir,
+            "fixtures/invalid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "test",
+                profile_file.to_str().unwrap(),
+                fixtures.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute profile test");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile test output should be JSON");
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["case_count"], 2);
+        assert_eq!(report["passed_count"], 2);
+        assert_eq!(report["failed_count"], 0);
+        assert!(
+            report["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|case| case["expectation"] == "invalid"
+                    && case["validation_report"]["issues"][0]["code"] == "missing_required_field")
+        );
+    }
+
+    #[test]
+    fn test_profile_test_fails_when_invalid_fixture_validates() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/invalid/actually_valid.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::adt_a01().as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let assert = cmd
+            .args([
+                "profile",
+                "test",
+                profile_file.to_str().unwrap(),
+                fixtures.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .assert()
+            .failure();
+        let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+        let report: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+        assert_eq!(report["valid"], false);
+        assert_eq!(report["failed_count"], 1);
+        assert_eq!(report["cases"][0]["passed"], false);
+        assert!(
+            report["cases"][0]["message"]
+                .as_str()
+                .unwrap()
+                .contains("expected invalid but report was valid")
         );
     }
 }
