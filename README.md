@@ -153,6 +153,13 @@ hl7v2 profile test profiles/oru_r01.yaml fixtures/oru_r01/ --report json
 hl7v2 norm <input.hl7> > output.hl7
 ```
 
+### Redact Messages
+
+```bash
+# Redact PHI while retaining deterministic analysis evidence
+hl7v2 redact <input.hl7> --policy safe-analysis.toml --format json
+```
+
 ### Generate Messages
 
 ```bash

@@ -121,6 +121,17 @@ mod cli_unit_tests {
                 assert!(!code.is_empty());
             }
         }
+
+        #[test]
+        fn test_redact_command_exists() {
+            use crate::Cli;
+            let schema = Cli::command();
+            assert!(
+                schema
+                    .get_subcommands()
+                    .any(|command| command.get_name() == "redact")
+            );
+        }
     }
 
     // =========================================================================

@@ -30,13 +30,13 @@ use hl7v2::synthetic::corpus::{
 };
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
-    AckCode as GenAckCode, Event, Message, Profile, ProfileLintIssue, ProfileLintReport,
-    StreamParser, ValidationReport, ack, get, is_mllp_framed, lint_profile_yaml, load_profile,
-    load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp, write,
-    write_mllp,
+    AckCode as GenAckCode, Atom, Event, Field, Message, Profile, ProfileLintIssue,
+    ProfileLintReport, StreamParser, ValidationReport, ack, get, is_mllp_framed, lint_profile_yaml,
+    load_profile, load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp,
+    write, write_mllp,
 };
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
@@ -192,6 +192,20 @@ enum Commands {
     Corpus {
         #[command(subcommand)]
         command: CorpusCommands,
+    },
+
+    /// Redact an HL7 v2 message using a safe-analysis policy
+    Redact {
+        /// Input HL7 file
+        input: PathBuf,
+
+        /// Safe-analysis policy TOML file
+        #[arg(long)]
+        policy: PathBuf,
+
+        /// Output format (json or hl7)
+        #[arg(long, value_enum, default_value = "json")]
+        format: RedactFormat,
     },
 
     /// Generate ACK for HL7 v2 message
@@ -379,6 +393,14 @@ enum ReportFormat {
     Text,
     Json,
     Yaml,
+}
+
+/// Redacted message output format.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Default)]
+enum RedactFormat {
+    #[default]
+    Json,
+    Hl7,
 }
 
 const DOCTOR_BUILTIN_SAMPLE: &[u8] = b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
@@ -592,6 +614,63 @@ enum ExpectedReportCandidate {
     Ambiguous(PathBuf),
 }
 
+#[derive(serde::Deserialize)]
+struct SafeAnalysisPolicy {
+    rules: Vec<SafeAnalysisPolicyRule>,
+}
+
+#[derive(serde::Deserialize)]
+struct SafeAnalysisPolicyRule {
+    path: String,
+    action: RedactionAction,
+    #[serde(default)]
+    reason: Option<String>,
+    #[serde(default)]
+    optional: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+enum RedactionAction {
+    Hash,
+    Drop,
+    Retain,
+}
+
+#[derive(serde::Serialize)]
+struct RedactionOutput {
+    input_sha256: String,
+    policy_sha256: String,
+    message_type: String,
+    redacted_hl7: String,
+    receipt: RedactionReceipt,
+}
+
+#[derive(serde::Serialize)]
+struct RedactionReceipt {
+    phi_removed: bool,
+    hash_algorithm: &'static str,
+    actions: Vec<RedactionActionReceipt>,
+}
+
+#[derive(serde::Serialize)]
+struct RedactionActionReceipt {
+    path: String,
+    action: RedactionAction,
+    reason: String,
+    matched_count: usize,
+    optional: bool,
+    status: RedactionActionStatus,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum RedactionActionStatus {
+    Applied,
+    Retained,
+    NotFound,
+}
+
 #[tokio::main]
 async fn main() {
     // Initialize tracing for server mode
@@ -687,6 +766,11 @@ async fn main() {
                 format,
             } => corpus_diff_command(before, after, profile.as_ref(), format),
         },
+        Commands::Redact {
+            input,
+            policy,
+            format,
+        } => redact_command(input, policy, format),
         Commands::Ack {
             input,
             mode,
@@ -1498,6 +1582,310 @@ fn val_command(
     }
 
     Ok(())
+}
+
+fn redact_command(
+    input: &Path,
+    policy: &Path,
+    format: &RedactFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let contents = fs::read(input)?;
+    let mut message = parse(&contents)?;
+    let policy_text = fs::read_to_string(policy)?;
+    let redaction_policy = load_safe_analysis_policy(&policy_text)?;
+    let receipt = apply_safe_analysis_policy(&mut message, &redaction_policy)?;
+    let redacted_hl7 = String::from_utf8(write(&message))?;
+
+    match format {
+        RedactFormat::Json => {
+            let output = RedactionOutput {
+                input_sha256: compute_sha256(&String::from_utf8_lossy(&contents)),
+                policy_sha256: compute_sha256(&policy_text),
+                message_type: message_field_text(&message, "MSH", 9)
+                    .unwrap_or_else(|| "unknown".to_string()),
+                redacted_hl7,
+                receipt,
+            };
+            println!("{}", serde_json::to_string_pretty(&output)?);
+        }
+        RedactFormat::Hl7 => {
+            eprintln!(
+                "Redaction receipt: {} action(s), PHI removed: {}",
+                receipt.actions.len(),
+                receipt.phi_removed
+            );
+            print!("{redacted_hl7}");
+        }
+    }
+
+    Ok(())
+}
+
+fn load_safe_analysis_policy(
+    policy_text: &str,
+) -> Result<SafeAnalysisPolicy, Box<dyn std::error::Error>> {
+    let policy: SafeAnalysisPolicy = toml::from_str(policy_text)?;
+    if policy.rules.is_empty() {
+        return Err(
+            std::io::Error::other("redaction policy must contain at least one rule").into(),
+        );
+    }
+
+    let mut seen_paths = BTreeSet::new();
+    for rule in &policy.rules {
+        parse_redaction_path(&rule.path).map_err(std::io::Error::other)?;
+        if !seen_paths.insert(rule.path.clone()) {
+            return Err(std::io::Error::other(format!(
+                "redaction policy contains duplicate rule for {}",
+                rule.path
+            ))
+            .into());
+        }
+        if rule.reason.as_deref().unwrap_or("").trim().is_empty() {
+            return Err(std::io::Error::other(format!(
+                "redaction rule {} must include a reason",
+                rule.path
+            ))
+            .into());
+        }
+        if safe_analysis_sensitive_paths().contains(rule.path.as_str())
+            && rule.action == RedactionAction::Retain
+        {
+            return Err(std::io::Error::other(format!(
+                "redaction rule {} cannot retain a built-in sensitive field",
+                rule.path
+            ))
+            .into());
+        }
+    }
+
+    Ok(policy)
+}
+
+fn apply_safe_analysis_policy(
+    message: &mut Message,
+    policy: &SafeAnalysisPolicy,
+) -> Result<RedactionReceipt, Box<dyn std::error::Error>> {
+    validate_safe_analysis_policy_covers_sensitive_fields(message, policy)?;
+
+    let mut actions = Vec::new();
+    let mut phi_removed = false;
+    let mut errors = Vec::new();
+
+    for rule in &policy.rules {
+        let parsed_path = parse_redaction_path(&rule.path).map_err(std::io::Error::other)?;
+        let mut matched_count = 0_usize;
+
+        for segment in &mut message.segments {
+            if segment.id_str() != parsed_path.segment_id {
+                continue;
+            }
+
+            let Some(field_index) =
+                modeled_field_index(&parsed_path.segment_id, parsed_path.field_index)
+            else {
+                continue;
+            };
+            let Some(field) = segment.fields.get_mut(field_index) else {
+                continue;
+            };
+
+            matched_count = matched_count.saturating_add(1);
+            match rule.action {
+                RedactionAction::Hash => {
+                    let value = field_to_text(field, &message.delims);
+                    *field = Field::from_text(format!("hash:sha256:{}", compute_sha256(&value)));
+                    phi_removed = true;
+                }
+                RedactionAction::Drop => {
+                    *field = Field::new();
+                    phi_removed = true;
+                }
+                RedactionAction::Retain => {}
+            }
+        }
+
+        let status = match (matched_count, rule.action) {
+            (0, _) => RedactionActionStatus::NotFound,
+            (_, RedactionAction::Retain) => RedactionActionStatus::Retained,
+            _ => RedactionActionStatus::Applied,
+        };
+
+        if matched_count == 0 && !rule.optional && rule.action != RedactionAction::Retain {
+            errors.push(format!(
+                "redaction rule {} matched no fields; mark optional=true if absence is expected",
+                rule.path
+            ));
+        }
+
+        actions.push(RedactionActionReceipt {
+            path: rule.path.clone(),
+            action: rule.action,
+            reason: rule.reason.clone().unwrap_or_default(),
+            matched_count,
+            optional: rule.optional,
+            status,
+        });
+    }
+
+    if !errors.is_empty() {
+        return Err(std::io::Error::other(errors.join("; ")).into());
+    }
+
+    Ok(RedactionReceipt {
+        phi_removed,
+        hash_algorithm: "sha256",
+        actions,
+    })
+}
+
+fn validate_safe_analysis_policy_covers_sensitive_fields(
+    message: &Message,
+    policy: &SafeAnalysisPolicy,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let protected_paths: BTreeSet<&str> = policy
+        .rules
+        .iter()
+        .filter(|rule| rule.action != RedactionAction::Retain)
+        .map(|rule| rule.path.as_str())
+        .collect();
+    let present_sensitive_paths = present_sensitive_paths(message);
+    let missing_paths: Vec<&str> = present_sensitive_paths
+        .iter()
+        .copied()
+        .filter(|path| !protected_paths.contains(path))
+        .collect();
+
+    if missing_paths.is_empty() {
+        return Ok(());
+    }
+
+    Err(std::io::Error::other(format!(
+        "redaction policy does not protect present sensitive field(s): {}",
+        missing_paths.join(", ")
+    ))
+    .into())
+}
+
+fn present_sensitive_paths(message: &Message) -> BTreeSet<&'static str> {
+    safe_analysis_sensitive_paths()
+        .iter()
+        .copied()
+        .filter(|path| {
+            parse_redaction_path(path).ok().is_some_and(|parsed| {
+                message_has_nonempty_field(message, &parsed.segment_id, parsed.field_index)
+            })
+        })
+        .collect()
+}
+
+fn safe_analysis_sensitive_paths() -> BTreeSet<&'static str> {
+    [
+        "PID.3", "PID.5", "PID.7", "PID.11", "PID.13", "PID.14", "PID.19", "NK1.2", "NK1.4",
+        "NK1.5",
+    ]
+    .into_iter()
+    .collect()
+}
+
+struct ParsedRedactionPath {
+    segment_id: String,
+    field_index: usize,
+}
+
+fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
+    let (segment_id, field_part) = path
+        .split_once('.')
+        .ok_or_else(|| format!("redaction path '{path}' must use SEG.field syntax"))?;
+    if segment_id.len() != 3
+        || !segment_id
+            .chars()
+            .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit())
+    {
+        return Err(format!(
+            "redaction path '{path}' must start with a three-character uppercase segment id"
+        ));
+    }
+    if field_part.contains('.') {
+        return Err(format!(
+            "redaction path '{path}' must target a field, not a component"
+        ));
+    }
+
+    let field_index = field_part.parse::<usize>().map_err(|_err| {
+        format!("redaction path '{path}' must use a positive numeric field index")
+    })?;
+    if field_index == 0 {
+        return Err(format!(
+            "redaction path '{path}' must use a one-based field index"
+        ));
+    }
+    if segment_id == "MSH" && field_index < 3 {
+        return Err(format!(
+            "redaction path '{path}' targets MSH.1/MSH.2, which are delimiter metadata and not redacted by this command"
+        ));
+    }
+
+    Ok(ParsedRedactionPath {
+        segment_id: segment_id.to_string(),
+        field_index,
+    })
+}
+
+fn message_field_text(message: &Message, segment_id: &str, field_index: usize) -> Option<String> {
+    let field_index = modeled_field_index(segment_id, field_index)?;
+    let field = message
+        .segments
+        .iter()
+        .find(|segment| segment.id_str() == segment_id)?
+        .fields
+        .get(field_index)?;
+    Some(field_to_text(field, &message.delims))
+}
+
+fn message_has_nonempty_field(message: &Message, segment_id: &str, field_index: usize) -> bool {
+    let Some(field_index) = modeled_field_index(segment_id, field_index) else {
+        return false;
+    };
+
+    message
+        .segments
+        .iter()
+        .filter(|segment| segment.id_str() == segment_id)
+        .filter_map(|segment| segment.fields.get(field_index))
+        .any(|field| !field_to_text(field, &message.delims).is_empty())
+}
+
+fn modeled_field_index(segment_id: &str, field_index: usize) -> Option<usize> {
+    if segment_id == "MSH" {
+        field_index.checked_sub(2)
+    } else {
+        field_index.checked_sub(1)
+    }
+}
+
+fn field_to_text(field: &Field, delims: &hl7v2::Delims) -> String {
+    field
+        .reps
+        .iter()
+        .map(|rep| {
+            rep.comps
+                .iter()
+                .map(|comp| {
+                    comp.subs
+                        .iter()
+                        .map(|atom| match atom {
+                            Atom::Text(text) => text.as_str(),
+                            Atom::Null => "\"\"",
+                        })
+                        .collect::<Vec<_>>()
+                        .join(&delims.sub.to_string())
+                })
+                .collect::<Vec<_>>()
+                .join(&delims.comp.to_string())
+        })
+        .collect::<Vec<_>>()
+        .join(&delims.rep.to_string())
 }
 
 fn profile_lint_command(
