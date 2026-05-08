@@ -24,13 +24,16 @@
 use clap::{Parser, Subcommand};
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
-    AckCode as GenAckCode, Event, Message, StreamParser, ack, load_profile, normalize, parse,
-    parse_mllp, to_json, validate, wrap_mllp, write, write_mllp,
+    AckCode as GenAckCode, Event, Message, StreamParser, ack, get, is_mllp_framed, load_profile,
+    load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp, write,
+    write_mllp,
 };
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
+use std::net::{TcpStream, ToSocketAddrs};
 use std::path::PathBuf;
 use std::process;
+use std::time::Duration;
 mod config;
 mod monitor;
 
@@ -151,6 +154,25 @@ enum Commands {
         format: ReportFormat,
     },
 
+    /// Run first-use diagnostics for the CLI and local HL7 inputs
+    Doctor {
+        /// Optional HL7 sample file to parse instead of the built-in ADT^A01 sample
+        #[arg(long)]
+        sample: Option<PathBuf>,
+
+        /// Optional profile YAML file to check for readability and load errors
+        #[arg(long)]
+        profile: Option<PathBuf>,
+
+        /// Optional HTTP server URL to check, for example http://127.0.0.1:8080/health
+        #[arg(long)]
+        server_url: Option<String>,
+
+        /// Output report format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        format: ReportFormat,
+    },
+
     /// Generate ACK for HL7 v2 message
     Ack {
         /// Input HL7 file
@@ -258,6 +280,37 @@ enum ReportFormat {
     Yaml,
 }
 
+const DOCTOR_BUILTIN_SAMPLE: &[u8] = b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
+
+#[derive(serde::Serialize)]
+struct DoctorReport {
+    version: String,
+    checks: Vec<DoctorCheck>,
+}
+
+impl DoctorReport {
+    fn has_errors(&self) -> bool {
+        self.checks
+            .iter()
+            .any(|check| check.status == DoctorStatus::Error)
+    }
+}
+
+#[derive(serde::Serialize)]
+struct DoctorCheck {
+    name: String,
+    status: DoctorStatus,
+    message: String,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+enum DoctorStatus {
+    Ok,
+    Warn,
+    Error,
+}
+
 #[tokio::main]
 async fn main() {
     // Initialize tracing for server mode
@@ -317,6 +370,17 @@ async fn main() {
             distributions,
             format,
         } => stats_command(input, *mllp, *distributions, format),
+        Commands::Doctor {
+            sample,
+            profile,
+            server_url,
+            format,
+        } => doctor_command(
+            sample.as_ref(),
+            profile.as_ref(),
+            server_url.as_deref(),
+            format,
+        ),
         Commands::Ack {
             input,
             mode,
@@ -374,6 +438,402 @@ fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
     }
     if let Some(vms) = system_info.memory.virtual_memory_size {
         println!("    Process memory (VMS): {} bytes", vms);
+    }
+}
+
+fn doctor_command(
+    sample: Option<&PathBuf>,
+    profile: Option<&PathBuf>,
+    server_url: Option<&str>,
+    format: &ReportFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut report = DoctorReport {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        checks: Vec::new(),
+    };
+
+    report.checks.push(DoctorCheck {
+        name: "cli-version".to_string(),
+        status: DoctorStatus::Ok,
+        message: format!("hl7v2-cli {}", env!("CARGO_PKG_VERSION")),
+    });
+
+    add_sample_checks(&mut report, sample);
+    add_profile_check(&mut report, profile);
+    add_server_check(&mut report, server_url);
+    add_python_check(&mut report);
+
+    let output = format_doctor_report(&report, format)?;
+    println!("{}", output);
+
+    if report.has_errors() {
+        return Err(std::io::Error::other("doctor reported failed checks").into());
+    }
+
+    Ok(())
+}
+
+fn add_sample_checks(report: &mut DoctorReport, sample: Option<&PathBuf>) {
+    let (source, bytes) = match sample {
+        Some(path) => match fs::read(path) {
+            Ok(contents) => (path.to_string_lossy().to_string(), contents),
+            Err(err) => {
+                report.checks.push(DoctorCheck {
+                    name: "sample-read".to_string(),
+                    status: DoctorStatus::Error,
+                    message: format!("failed to read sample file {}: {}", path.display(), err),
+                });
+                return;
+            }
+        },
+        None => (
+            "built-in ADT_A01 sample".to_string(),
+            DOCTOR_BUILTIN_SAMPLE.to_vec(),
+        ),
+    };
+
+    add_sample_byte_diagnostics(report, &source, &bytes);
+
+    let parse_result = if is_mllp_framed(&bytes) {
+        parse_mllp(&bytes)
+    } else {
+        parse(&bytes)
+    };
+
+    match parse_result {
+        Ok(message) => {
+            let message_type = get(&message, "MSH.9").unwrap_or("UNKNOWN");
+            report.checks.push(DoctorCheck {
+                name: "sample-parse".to_string(),
+                status: DoctorStatus::Ok,
+                message: format!(
+                    "{} parsed as {} with {} segment(s)",
+                    source,
+                    message_type,
+                    message.segments.len()
+                ),
+            });
+        }
+        Err(err) => report.checks.push(DoctorCheck {
+            name: "sample-parse".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("{} failed to parse: {}", source, err),
+        }),
+    }
+
+    let framed = wrap_mllp(DOCTOR_BUILTIN_SAMPLE);
+    match parse_mllp(&framed) {
+        Ok(message) => report.checks.push(DoctorCheck {
+            name: "mllp-roundtrip".to_string(),
+            status: DoctorStatus::Ok,
+            message: format!(
+                "built-in MLLP framing parsed with {} segment(s)",
+                message.segments.len()
+            ),
+        }),
+        Err(err) => report.checks.push(DoctorCheck {
+            name: "mllp-roundtrip".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("built-in MLLP framing failed: {}", err),
+        }),
+    }
+}
+
+fn add_sample_byte_diagnostics(report: &mut DoctorReport, source: &str, bytes: &[u8]) {
+    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        report.checks.push(DoctorCheck {
+            name: "sample-encoding".to_string(),
+            status: DoctorStatus::Warn,
+            message: format!(
+                "{} starts with a UTF-8 BOM; remove it before parsing feeds",
+                source
+            ),
+        });
+    }
+
+    if bytes.contains(&b'\n') && !bytes.contains(&b'\r') {
+        report.checks.push(DoctorCheck {
+            name: "sample-newlines".to_string(),
+            status: DoctorStatus::Warn,
+            message: format!(
+                "{} uses LF without CR; HL7 segment separators are normally CR",
+                source
+            ),
+        });
+    }
+
+    if bytes.first() == Some(&0x0B) && !is_mllp_framed(bytes) {
+        report.checks.push(DoctorCheck {
+            name: "sample-mllp-framing".to_string(),
+            status: DoctorStatus::Error,
+            message: format!(
+                "{} starts with an MLLP start byte but is missing a complete end frame",
+                source
+            ),
+        });
+    } else if is_mllp_framed(bytes) {
+        report.checks.push(DoctorCheck {
+            name: "sample-mllp-framing".to_string(),
+            status: DoctorStatus::Ok,
+            message: format!("{} is complete MLLP-framed input", source),
+        });
+    }
+}
+
+fn add_profile_check(report: &mut DoctorReport, profile: Option<&PathBuf>) {
+    let Some(path) = profile else {
+        report.checks.push(DoctorCheck {
+            name: "profile".to_string(),
+            status: DoctorStatus::Warn,
+            message: "no --profile provided; skipping profile load diagnostics".to_string(),
+        });
+        return;
+    };
+
+    match fs::read_to_string(path) {
+        Ok(yaml) => match load_profile_checked(&yaml) {
+            Ok(profile) => report.checks.push(DoctorCheck {
+                name: "profile".to_string(),
+                status: DoctorStatus::Ok,
+                message: format!(
+                    "{} loaded as {} {} with {} segment spec(s)",
+                    path.display(),
+                    profile.message_structure,
+                    profile.version,
+                    profile.segments.len()
+                ),
+            }),
+            Err(err) => report.checks.push(DoctorCheck {
+                name: "profile".to_string(),
+                status: DoctorStatus::Error,
+                message: format!("{} failed to load as a profile: {}", path.display(), err),
+            }),
+        },
+        Err(err) => report.checks.push(DoctorCheck {
+            name: "profile".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("{} is not readable: {}", path.display(), err),
+        }),
+    }
+}
+
+fn add_server_check(report: &mut DoctorReport, server_url: Option<&str>) {
+    let Some(url) = server_url else {
+        report.checks.push(DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Warn,
+            message: "no --server-url provided; skipping HTTP health reachability".to_string(),
+        });
+        return;
+    };
+
+    report.checks.push(check_http_health(url));
+}
+
+fn check_http_health(url: &str) -> DoctorCheck {
+    let Some(endpoint) = parse_http_endpoint(url) else {
+        return DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Error,
+            message: format!(
+                "{} is not a supported HTTP URL; use http://host:port[/health]",
+                url
+            ),
+        };
+    };
+
+    let mut addrs = match (endpoint.host.as_str(), endpoint.port).to_socket_addrs() {
+        Ok(addrs) => addrs,
+        Err(err) => {
+            return DoctorCheck {
+                name: "server".to_string(),
+                status: DoctorStatus::Error,
+                message: format!("{} could not resolve: {}", url, err),
+            };
+        }
+    };
+
+    let Some(addr) = addrs.next() else {
+        return DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("{} did not resolve to a socket address", url),
+        };
+    };
+
+    let timeout = Duration::from_secs(2);
+    let mut stream = match TcpStream::connect_timeout(&addr, timeout) {
+        Ok(stream) => stream,
+        Err(err) => {
+            return DoctorCheck {
+                name: "server".to_string(),
+                status: DoctorStatus::Error,
+                message: format!("{} is not reachable: {}", url, err),
+            };
+        }
+    };
+
+    if let Err(err) = stream.set_read_timeout(Some(timeout)) {
+        return DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("{} connected but read timeout setup failed: {}", url, err),
+        };
+    }
+    if let Err(err) = stream.set_write_timeout(Some(timeout)) {
+        return DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("{} connected but write timeout setup failed: {}", url, err),
+        };
+    }
+
+    let request = format!(
+        "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
+        endpoint.path, endpoint.host
+    );
+    if let Err(err) = stream.write_all(request.as_bytes()) {
+        return DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("{} accepted TCP but HTTP request failed: {}", url, err),
+        };
+    }
+
+    let mut response = String::new();
+    if let Err(err) = stream.read_to_string(&mut response) {
+        return DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("{} did not return a readable HTTP response: {}", url, err),
+        };
+    }
+
+    if response.starts_with("HTTP/1.1 2") || response.starts_with("HTTP/1.0 2") {
+        DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Ok,
+            message: format!("{} returned a 2xx health response", url),
+        }
+    } else {
+        let status_line = response.lines().next().unwrap_or("empty response");
+        DoctorCheck {
+            name: "server".to_string(),
+            status: DoctorStatus::Error,
+            message: format!("{} returned {}", url, status_line),
+        }
+    }
+}
+
+struct HttpEndpoint {
+    host: String,
+    port: u16,
+    path: String,
+}
+
+fn parse_http_endpoint(url: &str) -> Option<HttpEndpoint> {
+    let rest = url.strip_prefix("http://")?;
+    let (authority, path) = match rest.split_once('/') {
+        Some((authority, path)) => (authority, format!("/{}", path)),
+        None => (rest, "/health".to_string()),
+    };
+
+    if authority.is_empty() {
+        return None;
+    }
+
+    let (host, port) = match authority.rsplit_once(':') {
+        Some((host, port)) if !host.is_empty() => {
+            let parsed_port = port.parse::<u16>().ok()?;
+            (host.to_string(), parsed_port)
+        }
+        Some(_) => return None,
+        None => (authority.to_string(), 80),
+    };
+
+    Some(HttpEndpoint { host, port, path })
+}
+
+fn add_python_check(report: &mut DoctorReport) {
+    let output = std::process::Command::new("python")
+        .args(["-c", "import hl7v2; print(hl7v2.__version__)"])
+        .output();
+
+    match output {
+        Ok(output) if output.status.success() => {
+            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let message = if version.is_empty() {
+                "Python module hl7v2 imports successfully".to_string()
+            } else {
+                format!("Python module hl7v2 imports successfully as {}", version)
+            };
+            report.checks.push(DoctorCheck {
+                name: "python-binding".to_string(),
+                status: DoctorStatus::Ok,
+                message,
+            });
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let message = if stderr.is_empty() {
+                "Python module hl7v2 is not importable via python".to_string()
+            } else {
+                let summary = stderr
+                    .lines()
+                    .rev()
+                    .find(|line| !line.trim().is_empty())
+                    .unwrap_or(stderr.as_str());
+                format!(
+                    "Python module hl7v2 is not importable via python: {}",
+                    summary.trim()
+                )
+            };
+            report.checks.push(DoctorCheck {
+                name: "python-binding".to_string(),
+                status: DoctorStatus::Warn,
+                message,
+            });
+        }
+        Err(err) => report.checks.push(DoctorCheck {
+            name: "python-binding".to_string(),
+            status: DoctorStatus::Warn,
+            message: format!(
+                "python executable was not available for binding check: {}",
+                err
+            ),
+        }),
+    }
+}
+
+fn format_doctor_report(
+    report: &DoctorReport,
+    format: &ReportFormat,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match format {
+        ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
+        ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
+        ReportFormat::Text => {
+            let mut output = String::new();
+            output.push_str("HL7v2 Doctor\n");
+            output.push_str(&format!("  Version: {}\n\n", report.version));
+            for check in &report.checks {
+                output.push_str(&format!(
+                    "[{}] {}: {}\n",
+                    doctor_status_label(check.status),
+                    check.name,
+                    check.message
+                ));
+            }
+            Ok(output)
+        }
+    }
+}
+
+fn doctor_status_label(status: DoctorStatus) -> &'static str {
+    match status {
+        DoctorStatus::Ok => "ok",
+        DoctorStatus::Warn => "warn",
+        DoctorStatus::Error => "error",
     }
 }
 
