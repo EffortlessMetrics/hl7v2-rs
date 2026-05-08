@@ -157,6 +157,16 @@ hl7v2 gen --profile profiles/oru_r01.yaml --seed 1337 --count 100 --out corpus/
 hl7v2 gen --template templates/adt_a01.yaml --seed 42 --count 50 --out test_data/
 ```
 
+### Summarize Corpora
+
+```bash
+# Summarize a directory or single-file corpus of HL7 messages
+hl7v2 corpus summarize corpus/
+
+# Emit a machine-readable corpus summary
+hl7v2 corpus summarize corpus/ --format json
+```
+
 ### Acknowledgment Generation
 
 ```bash
@@ -205,7 +215,7 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 
 ### CLI Interface (`hl7v2-cli`)
 
-- **Unified command interface**: parse, normalize, validate, lint profiles, acknowledge, generate
+- **Unified command interface**: parse, normalize, validate, lint profiles, acknowledge, generate, summarize corpora
 - **Input/output formats**: Raw HL7, JSON, MLLP framing
 - **Interactive mode**: Command-line REPL for exploratory use
 - **File I/O**: Read from files or stdin, write to files or stdout

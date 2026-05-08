@@ -19,4 +19,11 @@ hl7v2 profile lint profiles/adt_a01.yaml
 hl7v2 profile lint profiles/adt_a01.yaml --report json
 ```
 
+Summarize a directory or file corpus:
+
+```bash
+hl7v2 corpus summarize corpus/
+hl7v2 corpus summarize corpus/ --format json
+```
+
 For usage examples, see the [examples/](https://github.com/EffortlessMetrics/hl7v2-rs/tree/main/examples) directory in the root of the repository.

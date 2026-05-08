@@ -86,6 +86,26 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_corpus_help() {
+        let mut cmd = cli_command();
+        cmd.args(["corpus", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Inspect message corpora"));
+    }
+
+    #[test]
+    fn test_corpus_summarize_help() {
+        let mut cmd = cli_command();
+        cmd.args(["corpus", "summarize", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Summarize a directory or file corpus",
+            ));
+    }
+
+    #[test]
     fn test_ack_help() {
         let mut cmd = cli_command();
         cmd.args(["ack", "--help"])
@@ -536,6 +556,72 @@ constraints:
                 .unwrap()
                 .iter()
                 .any(|issue| issue["code"] == "invalid_constraint_pattern")
+        );
+    }
+}
+
+// =========================================================================
+// Corpus Command Tests
+// =========================================================================
+
+mod corpus_command {
+    use super::*;
+
+    #[test]
+    fn test_corpus_summarize_text_counts_messages_and_errors() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+        create_temp_hl7_with_content(&dir, "bad.hl7", invalid_hl7_message());
+
+        let mut cmd = cli_command();
+        cmd.args(["corpus", "summarize", dir.path().to_str().unwrap()])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Corpus Summary:"))
+            .stdout(predicate::str::contains("Files scanned: 2"))
+            .stdout(predicate::str::contains("Parsed messages: 1"))
+            .stdout(predicate::str::contains("Parse errors: 1"))
+            .stdout(predicate::str::contains("ADT^A01^ADT_A01: 1"));
+    }
+
+    #[test]
+    fn test_corpus_summarize_json_is_machine_readable() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+        let nested = dir.path().join("nested");
+        std::fs::create_dir_all(&nested).expect("nested corpus dir should be created");
+        create_temp_file(
+            &dir,
+            "nested/oru.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::oru_r01().as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "summarize",
+                dir.path().to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute corpus summarize");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("summary output should be JSON");
+        assert_eq!(report["file_count"], 2);
+        assert_eq!(report["message_count"], 2);
+        assert_eq!(report["parse_error_count"], 0);
+        assert!(
+            report["message_types"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["value"] == "ORU^R01" && entry["count"] == 1)
         );
     }
 }
