@@ -74,14 +74,6 @@ enum Commands {
         #[arg(long)]
         allow_dirty: bool,
     },
-    /// Scaffold a new microcrate
-    Scaffold {
-        /// Name of the crate (without hl7v2- prefix)
-        name: String,
-        /// Description of the crate
-        #[arg(long)]
-        description: Option<String>,
-    },
     /// Generate and open documentation
     Docs {
         /// Don't open in browser
@@ -146,7 +138,6 @@ fn main() -> Result<()> {
             workspace_patches,
             allow_dirty,
         } => publish_dry_run(from, workspace_patches, allow_dirty)?,
-        Commands::Scaffold { name, description } => scaffold(&name, description)?,
         Commands::Docs { no_open } => docs(no_open)?,
         Commands::HookPreCommit => hook_pre_commit()?,
         Commands::HookPrePush => hook_pre_push()?,
@@ -571,108 +562,6 @@ fn publish_crate(crate_name: &str, retry_attempts: u32, retry_delay_secs: u64) -
     Err(anyhow!(
         "publish loop ended without returning a status for {crate_name}"
     ))
-}
-
-fn scaffold(name: &str, description: Option<String>) -> Result<()> {
-    let crate_name = if name.starts_with("hl7v2-") {
-        name.to_string()
-    } else {
-        format!("hl7v2-{name}")
-    };
-
-    println!("🏗️  Scaffolding new crate: {crate_name}...");
-
-    let root = env::current_dir()?;
-    let crate_path = root.join("crates").join(&crate_name);
-
-    if crate_path.exists() {
-        return Err(anyhow!("Crate {crate_name} already exists"));
-    }
-
-    fs::create_dir_all(crate_path.join("src"))?;
-    fs::create_dir_all(crate_path.join("tests"))?;
-
-    // Cargo.toml
-    let description = description.unwrap_or_else(|| format!("HL7 v2 {name} functionality"));
-    let cargo_toml = format!(
-        r#"[package]
-name = "{crate_name}"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-description = "{description}"
-license.workspace = true
-repository.workspace = true
-readme = "README.md"
-keywords = ["hl7", "healthcare"]
-categories = ["parser-implementations"]
-
-[dependencies]
-hl7v2 = {{ path = "../hl7v2", default-features = false }}
-thiserror = {{ workspace = true }}
-
-[dev-dependencies]
-hl7v2-test-utils = {{ path = "../hl7v2-test-utils" }}
-"#
-    );
-    fs::write(crate_path.join("Cargo.toml"), cargo_toml)?;
-
-    // README.md
-    let readme = format!(
-        r"# {crate_name}
-
-{description}
-
-## Usage
-
-```rust
-use {crate_name}::*;
-```
-"
-    );
-    fs::write(crate_path.join("README.md"), readme)?;
-
-    // CLAUDE.md
-    let claude = format!(
-        r"# {crate_name} Development
-
-## Build & Test
-
-```bash
-cargo build -p {crate_name}
-cargo test -p {crate_name}
-cargo clippy -p {crate_name} -- -D warnings
-```
-"
-    );
-    fs::write(crate_path.join("CLAUDE.md"), claude)?;
-
-    // src/lib.rs
-    fs::write(
-        crate_path.join("src").join("lib.rs"),
-        r#"//! Main library file
-    
-pub fn example() {
-    println!("Hello from {}!");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        assert!(true);
-    }
-}
-"#,
-    )?;
-
-    println!("✅ Crate {crate_name} scaffolded successfully!");
-    println!("Don't forget to run 'cargo build' to update the workspace.");
-
-    Ok(())
 }
 
 fn hook_pre_commit() -> Result<()> {

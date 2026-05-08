@@ -31,12 +31,6 @@ gate-check:
 gate-changed:
     cargo run -p xtask -- gate --changed
 
-# --- Scaffolding ---
-
-# Create a new microcrate: just scaffold my-new-feature "Description of feature"
-scaffold NAME DESC="":
-    cargo run -p xtask -- scaffold {{NAME}} --description "{{DESC}}"
-
 # --- Documentation ---
 
 # Generate and open documentation
