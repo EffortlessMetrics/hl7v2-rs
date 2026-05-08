@@ -208,6 +208,24 @@ enum Commands {
         format: RedactFormat,
     },
 
+    /// Create a redacted support/debug evidence bundle
+    Bundle {
+        /// Input HL7 file
+        input: PathBuf,
+
+        /// Profile YAML file
+        #[arg(long)]
+        profile: PathBuf,
+
+        /// Safe-analysis redaction policy TOML file
+        #[arg(long)]
+        redact_policy: PathBuf,
+
+        /// Output bundle directory, which must not already exist
+        #[arg(long)]
+        out: PathBuf,
+    },
+
     /// Generate ACK for HL7 v2 message
     Ack {
         /// Input HL7 file
@@ -671,6 +689,58 @@ enum RedactionActionStatus {
     NotFound,
 }
 
+#[derive(serde::Serialize)]
+struct EvidenceBundleSummary {
+    bundle_version: &'static str,
+    output_dir: String,
+    message_type: String,
+    validation_valid: bool,
+    validation_issue_count: usize,
+    redaction_phi_removed: bool,
+    artifacts: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+struct EvidenceBundleEnvironment {
+    bundle_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    message_type: String,
+    input_sha256: String,
+    profile_sha256: String,
+    redaction_policy_sha256: String,
+    validation_valid: bool,
+    validation_issue_count: usize,
+    replay_command: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct FieldPathTraceReport {
+    message_type: String,
+    field_count: usize,
+    fields: Vec<FieldPathTrace>,
+}
+
+#[derive(serde::Serialize)]
+struct FieldPathTrace {
+    path: String,
+    canonical_path: String,
+    segment_index: usize,
+    field_index: usize,
+    present: bool,
+    value_shape: FieldValueShape,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    redaction_action: Option<RedactionAction>,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum FieldValueShape {
+    Empty,
+    Present,
+    HashedSha256,
+}
+
 #[tokio::main]
 async fn main() {
     // Initialize tracing for server mode
@@ -771,6 +841,12 @@ async fn main() {
             policy,
             format,
         } => redact_command(input, policy, format),
+        Commands::Bundle {
+            input,
+            profile,
+            redact_policy,
+            out,
+        } => bundle_command(input, profile, redact_policy, out),
         Commands::Ack {
             input,
             mode,
@@ -1621,6 +1697,103 @@ fn redact_command(
     Ok(())
 }
 
+fn bundle_command(
+    input: &Path,
+    profile: &Path,
+    redact_policy: &Path,
+    out: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if out.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("bundle output directory already exists: {}", out.display()),
+        )
+        .into());
+    }
+
+    let contents = fs::read(input)?;
+    let message = parse(&contents)?;
+    let profile_yaml = fs::read_to_string(profile)?;
+    let loaded_profile = load_profile_checked(&profile_yaml)?;
+    let policy_text = fs::read_to_string(redact_policy)?;
+    let redaction_policy = load_safe_analysis_policy(&policy_text)?;
+
+    let mut redacted_message = message.clone();
+    let redaction_receipt = apply_safe_analysis_policy(&mut redacted_message, &redaction_policy)?;
+    let redacted_hl7 = String::from_utf8(write(&redacted_message))?;
+    let field_trace = build_field_path_trace(&redacted_message, &redaction_receipt);
+    let validation_report = ValidationReport::from_issues(
+        &redacted_message,
+        Some("profile.yaml".to_string()),
+        validate(&redacted_message, &loaded_profile),
+    );
+    let message_type = message_field_text(&message, "MSH", 9).unwrap_or_else(|| "unknown".into());
+    let environment = EvidenceBundleEnvironment {
+        bundle_version: "1",
+        tool_name: "hl7v2-cli",
+        tool_version: env!("CARGO_PKG_VERSION"),
+        message_type: message_type.clone(),
+        input_sha256: compute_sha256(&String::from_utf8_lossy(&contents)),
+        profile_sha256: compute_sha256(&profile_yaml),
+        redaction_policy_sha256: compute_sha256(&policy_text),
+        validation_valid: validation_report.valid,
+        validation_issue_count: validation_report.issue_count,
+        replay_command: "hl7v2 val message.redacted.hl7 --profile profile.yaml --report json",
+    };
+
+    fs::create_dir(out)?;
+    fs::write(out.join("message.redacted.hl7"), redacted_hl7)?;
+    fs::write(out.join("profile.yaml"), profile_yaml)?;
+    write_json_file(&out.join("validation-report.json"), &validation_report)?;
+    write_json_file(&out.join("redaction-receipt.json"), &redaction_receipt)?;
+    write_json_file(&out.join("field-paths.json"), &field_trace)?;
+    write_json_file(&out.join("environment.json"), &environment)?;
+    fs::write(out.join("replay.sh"), replay_shell_script())?;
+    fs::write(out.join("replay.ps1"), replay_powershell_script())?;
+
+    let artifacts = [
+        "message.redacted.hl7",
+        "validation-report.json",
+        "field-paths.json",
+        "profile.yaml",
+        "redaction-receipt.json",
+        "environment.json",
+        "replay.sh",
+        "replay.ps1",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    let summary = EvidenceBundleSummary {
+        bundle_version: "1",
+        output_dir: ".".to_string(),
+        message_type,
+        validation_valid: validation_report.valid,
+        validation_issue_count: validation_report.issue_count,
+        redaction_phi_removed: redaction_receipt.phi_removed,
+        artifacts,
+    };
+    println!("{}", serde_json::to_string_pretty(&summary)?);
+
+    Ok(())
+}
+
+fn write_json_file<T: serde::Serialize>(
+    path: &Path,
+    value: &T,
+) -> Result<(), Box<dyn std::error::Error>> {
+    fs::write(path, serde_json::to_vec_pretty(value)?)?;
+    Ok(())
+}
+
+fn replay_shell_script() -> &'static str {
+    "#!/usr/bin/env sh\nset -eu\ncd \"$(dirname \"$0\")\"\nhl7v2 val message.redacted.hl7 --profile profile.yaml --report json > validation-report.replayed.json\n"
+}
+
+fn replay_powershell_script() -> &'static str {
+    "$ErrorActionPreference = 'Stop'\nSet-Location $PSScriptRoot\nhl7v2 val .\\message.redacted.hl7 --profile .\\profile.yaml --report json > .\\validation-report.replayed.json\n"
+}
+
 fn load_safe_analysis_policy(
     policy_text: &str,
 ) -> Result<SafeAnalysisPolicy, Box<dyn std::error::Error>> {
@@ -1854,6 +2027,57 @@ fn message_has_nonempty_field(message: &Message, segment_id: &str, field_index: 
         .filter(|segment| segment.id_str() == segment_id)
         .filter_map(|segment| segment.fields.get(field_index))
         .any(|field| !field_to_text(field, &message.delims).is_empty())
+}
+
+fn build_field_path_trace(message: &Message, receipt: &RedactionReceipt) -> FieldPathTraceReport {
+    let redaction_actions: BTreeMap<&str, RedactionAction> = receipt
+        .actions
+        .iter()
+        .map(|action| (action.path.as_str(), action.action))
+        .collect();
+    let mut fields = Vec::new();
+
+    for (segment_position, segment) in message.segments.iter().enumerate() {
+        let segment_index = segment_position.saturating_add(1);
+        for (modeled_index, field) in segment.fields.iter().enumerate() {
+            let field_index = hl7_field_index(segment.id_str(), modeled_index);
+            let canonical_path = format!("{}.{}", segment.id_str(), field_index);
+            let field_text = field_to_text(field, &message.delims);
+            fields.push(FieldPathTrace {
+                path: format!("{}[{}].{}", segment.id_str(), segment_index, field_index),
+                canonical_path: canonical_path.clone(),
+                segment_index,
+                field_index,
+                present: !field_text.is_empty(),
+                value_shape: field_value_shape(&field_text),
+                redaction_action: redaction_actions.get(canonical_path.as_str()).copied(),
+            });
+        }
+    }
+
+    FieldPathTraceReport {
+        message_type: message_field_text(message, "MSH", 9).unwrap_or_else(|| "unknown".into()),
+        field_count: fields.len(),
+        fields,
+    }
+}
+
+fn hl7_field_index(segment_id: &str, modeled_index: usize) -> usize {
+    if segment_id == "MSH" {
+        modeled_index.saturating_add(2)
+    } else {
+        modeled_index.saturating_add(1)
+    }
+}
+
+fn field_value_shape(field_text: &str) -> FieldValueShape {
+    if field_text.is_empty() {
+        FieldValueShape::Empty
+    } else if field_text.starts_with("hash:sha256:") {
+        FieldValueShape::HashedSha256
+    } else {
+        FieldValueShape::Present
+    }
 }
 
 fn modeled_field_index(segment_id: &str, field_index: usize) -> Option<usize> {
