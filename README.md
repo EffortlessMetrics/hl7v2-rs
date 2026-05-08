@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.2.0 (Rust 2024). Current `main` is tested and package-verified, but the crates.io publish sequence has not been executed. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.2.0 package line (Rust 2024). Current `main` is tested and package-verified, but the final four-package crates.io publish sequence has not been executed. Some historical implementation microcrate artifacts already exist on crates.io; they are not the product surface for new code. The existing `v1.2.0` git tag predates the current release head, so tag/version alignment still belongs in the final publish procedure. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -51,9 +51,11 @@ Implementation boundaries live as modules under `hl7v2`, including
 `hl7v2::transport`, `hl7v2::conformance`, `hl7v2::synthetic`,
 `hl7v2::lifecycle`, and `hl7v2::experimental`.
 
-Old implementation microcrate names are retained only as private deprecated
-compatibility shims unless a future compatibility release deliberately changes
-that policy. They are not the product surface for new code.
+In this repository, old implementation microcrate names are retained only as
+private deprecated compatibility shims unless a future compatibility release
+deliberately changes that policy. Some historical `1.2.0` artifacts for old
+package names already exist on crates.io; those names are compatibility
+artifacts, not the product surface for new code.
 
 ## Installation
 

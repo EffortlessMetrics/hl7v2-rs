@@ -4,7 +4,8 @@
 
 This receipt records package verification after the foundation implementation
 carriers were collapsed into `hl7v2` at merge commit `3482fd4`, then refreshed
-after the release-readiness docs sync at `aafa0b0`.
+after the release-readiness docs sync at `aafa0b0` and the manual API Contracts
+release-dispatch gate at `e7ce6ca`.
 
 The old foundation package names are now private deprecated compatibility shims:
 
@@ -13,6 +14,41 @@ The old foundation package names are now private deprecated compatibility shims:
 - `hl7v2-mllp`
 
 They are not part of the crates.io publish plan.
+
+A live crates.io registry check on 2026-05-07 found that some old
+implementation package names already have historical `1.2.0` artifacts. Those
+artifacts predate the final four-package publish plan and cannot be described
+as private registry state. The current workspace keeps those names
+`publish = false` and treats them as compatibility artifacts, not product
+surfaces for new code.
+
+Historical old-name artifacts observed in the registry:
+
+```text
+hl7v2-batch
+hl7v2-datatype
+hl7v2-datetime
+hl7v2-escape
+hl7v2-faker
+hl7v2-json
+hl7v2-mllp
+hl7v2-model
+hl7v2-network
+hl7v2-normalize
+hl7v2-parser
+hl7v2-path
+hl7v2-query
+hl7v2-stream
+hl7v2-writer
+```
+
+The final product package names `hl7v2`, `hl7v2-server`, `hl7v2-cli`, and
+`hl7v2-python` were not present in the registry at the time of that check.
+
+The existing `v1.2.0` git tag points at older commit `1782d9a`, not the current
+release-readiness head `e7ce6ca`. The source tree remains on the `1.2.0`
+package line, but final publication still needs an explicit tag/version
+decision before upload.
 
 ## Commands
 
@@ -99,7 +135,8 @@ crates.io index.
 
 ## Interpretation
 
-Current status is **package-verified**, not published.
+Current status is **package-verified** for the final public package graph, not
+published for the final product package sequence.
 
 The workspace-patched dry run proves the package contents and verification build
 against the current unpublished workspace dependency chain. It is not a claim
@@ -108,4 +145,4 @@ the dependency-ordered direct `cargo publish --dry-run` checks during a real
 publish. The first direct dry-run now passes for `hl7v2`; direct dry-runs for
 dependent crates are gated on `hl7v2` being published first.
 
-The real publish sequence has not been executed.
+The final four-package publish sequence has not been executed.

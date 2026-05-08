@@ -15,7 +15,10 @@ package graph:
 
 The old implementation package names remain in the workspace as private
 deprecated compatibility shims and test harnesses. They are retained only to
-prove old import paths while the compatibility policy is still active.
+prove old import paths while the compatibility policy is still active. Some old
+package names already have historical `1.2.0` artifacts on crates.io; the
+current workspace keeps those names `publish = false` and does not treat them
+as product surfaces for new code.
 
 ## Boundary Rule
 
