@@ -19,7 +19,7 @@ network = ["hl7v2/network"]
 stream = ["hl7v2/stream"]
 
 [dependencies]
-hl7v2 = { version = "1.2.0", path = "../hl7v2" }
+hl7v2 = { version = "1.2.1", path = "../hl7v2" }
 
 [dev-dependencies]
 cucumber = "0.22.1"

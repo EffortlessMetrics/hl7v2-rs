@@ -1532,7 +1532,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "async-lock",
  "bytes",
@@ -1560,7 +1560,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-ack"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1571,7 +1571,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-batch"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1582,7 +1582,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-bench"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "criterion 0.8.2",
  "futures",
@@ -1594,7 +1594,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-cli"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1617,7 +1617,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-core"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1627,7 +1627,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-corpus"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2",
  "proptest",
@@ -1636,7 +1636,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-datatype"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "chrono",
  "cucumber",
@@ -1647,7 +1647,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-datetime"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "chrono",
  "cucumber",
@@ -1658,7 +1658,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-e2e-tests"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "assert_cmd",
  "axum 0.8.9",
@@ -1686,7 +1686,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-escape"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1697,7 +1697,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-examples"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "chrono",
  "hl7v2",
@@ -1707,7 +1707,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-faker"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1718,7 +1718,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-gen"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1733,14 +1733,14 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-guard"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2",
 ]
 
 [[package]]
 name = "hl7v2-json"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1751,14 +1751,14 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-lifecycle"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2",
 ]
 
 [[package]]
 name = "hl7v2-mllp"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1769,7 +1769,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-model"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2",
  "serde_json",
@@ -1777,7 +1777,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-network"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "bytes",
  "hl7v2",
@@ -1787,7 +1787,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-normalize"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1797,7 +1797,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-parser"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "assert_matches",
  "cucumber",
@@ -1816,7 +1816,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-path"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1826,7 +1826,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-prof"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2",
  "hl7v2-parser",
@@ -1839,7 +1839,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-python"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2",
  "pyo3",
@@ -1847,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-query"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1859,14 +1859,14 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-redact"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2",
 ]
 
 [[package]]
 name = "hl7v2-server"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "axum 0.8.9",
  "cucumber",
@@ -1902,7 +1902,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-stream"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "criterion 0.5.1",
  "hl7v2",
@@ -1911,7 +1911,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-template"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2",
  "proptest",
@@ -1919,7 +1919,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-template-values"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -1931,7 +1931,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-test-utils"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hl7v2-model",
  "hl7v2-parser",
@@ -1949,7 +1949,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-validation"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "assert_matches",
  "cucumber",
@@ -1968,7 +1968,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-writer"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "cucumber",
  "hl7v2",
@@ -6011,7 +6011,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xtask"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "cargo_metadata",

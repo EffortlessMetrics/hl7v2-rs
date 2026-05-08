@@ -4,7 +4,7 @@ metadata:
   name: hl7v2-server
   labels:
     app: hl7v2-server
-    version: v1.2.0
+    version: v1.2.1
 spec:
   replicas: 3
   selector:
@@ -19,7 +19,7 @@ spec:
     metadata:
       labels:
         app: hl7v2-server
-        version: v1.2.0
+        version: v1.2.1
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"

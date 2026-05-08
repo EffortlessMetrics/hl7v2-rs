@@ -14,7 +14,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-hl7v2 = { version = "1.2.0", path = "../hl7v2", default-features = false, features = [
+hl7v2 = { version = "1.2.1", path = "../hl7v2", default-features = false, features = [
     "profile-core",
 ] }
 
@@ -23,7 +23,7 @@ default = ["persistent-cache"]
 persistent-cache = ["hl7v2/persistent-cache"]
 
 [dev-dependencies]
-hl7v2-parser = { version = "1.2.0", path = "../hl7v2-parser" }
+hl7v2-parser = { version = "1.2.1", path = "../hl7v2-parser" }
 serde_yaml = { workspace = true }
 tempfile = "3.26.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "fs"] }

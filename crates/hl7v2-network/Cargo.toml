@@ -14,7 +14,7 @@ keywords.workspace = true
 categories = ["network-programming", "asynchronous"]
 
 [dependencies]
-hl7v2 = { version = "1.2.0", path = "../hl7v2", default-features = false, features = [
+hl7v2 = { version = "1.2.1", path = "../hl7v2", default-features = false, features = [
     "network",
 ] }
 
