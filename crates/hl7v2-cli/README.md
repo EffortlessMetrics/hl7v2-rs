@@ -37,6 +37,7 @@ Redact a message for safe analysis:
 hl7v2 redact message.hl7 --policy safe-analysis.toml --format json
 hl7v2 redact message.hl7 --policy safe-analysis.toml --format hl7 > message.redacted.hl7
 hl7v2 bundle message.hl7 --profile profiles/adt_a01.yaml --redact-policy safe-analysis.toml --out issue-bundle/
+hl7v2 replay issue-bundle/ --format json
 ```
 
 Policy files use explicit rules with required reasons:
@@ -72,5 +73,9 @@ fields must be protected when present and cannot be retained.
 - `redaction-receipt.json`
 - `environment.json`
 - `replay.sh` and `replay.ps1`
+
+`hl7v2 replay` reads the bundle directly, regenerates the validation report
+from `message.redacted.hl7` and `profile.yaml`, and fails if it no longer
+matches `validation-report.json`.
 
 For usage examples, see the [examples/](https://github.com/EffortlessMetrics/hl7v2-rs/tree/main/examples) directory in the root of the repository.

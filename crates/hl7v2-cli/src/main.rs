@@ -226,6 +226,16 @@ enum Commands {
         out: PathBuf,
     },
 
+    /// Replay a redacted evidence bundle and verify it reproduces
+    Replay {
+        /// Evidence bundle directory
+        bundle: PathBuf,
+
+        /// Output replay report format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        format: ReportFormat,
+    },
+
     /// Generate ACK for HL7 v2 message
     Ack {
         /// Input HL7 file
@@ -715,6 +725,35 @@ struct EvidenceBundleEnvironment {
 }
 
 #[derive(serde::Serialize)]
+struct EvidenceReplayReport {
+    replay_version: &'static str,
+    bundle_version: Option<String>,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    message_type: Option<String>,
+    reproduced: bool,
+    validation_valid: Option<bool>,
+    validation_issue_count: Option<usize>,
+    checks: Vec<EvidenceReplayCheck>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    validation_report: Option<ValidationReport>,
+}
+
+#[derive(serde::Serialize)]
+struct EvidenceReplayCheck {
+    name: &'static str,
+    status: EvidenceReplayCheckStatus,
+    message: String,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum EvidenceReplayCheckStatus {
+    Pass,
+    Fail,
+}
+
+#[derive(serde::Serialize)]
 struct FieldPathTraceReport {
     message_type: String,
     field_count: usize,
@@ -847,6 +886,7 @@ async fn main() {
             redact_policy,
             out,
         } => bundle_command(input, profile, redact_policy, out),
+        Commands::Replay { bundle, format } => replay_command(bundle, format),
         Commands::Ack {
             input,
             mode,
@@ -1776,6 +1816,342 @@ fn bundle_command(
     println!("{}", serde_json::to_string_pretty(&summary)?);
 
     Ok(())
+}
+
+fn replay_command(bundle: &Path, format: &ReportFormat) -> Result<(), Box<dyn std::error::Error>> {
+    let report = build_replay_report(bundle);
+    println!("{}", render_replay_report(&report, format)?);
+
+    if report.reproduced {
+        Ok(())
+    } else {
+        Err(std::io::Error::other("bundle replay did not reproduce stored evidence").into())
+    }
+}
+
+fn build_replay_report(bundle: &Path) -> EvidenceReplayReport {
+    let mut checks = Vec::new();
+    let required_artifacts = [
+        "message.redacted.hl7",
+        "validation-report.json",
+        "field-paths.json",
+        "profile.yaml",
+        "redaction-receipt.json",
+        "environment.json",
+        "replay.sh",
+        "replay.ps1",
+    ];
+
+    let missing_artifacts: Vec<&str> = required_artifacts
+        .iter()
+        .copied()
+        .filter(|artifact| !bundle.join(artifact).is_file())
+        .collect();
+    if missing_artifacts.is_empty() {
+        checks.push(replay_check(
+            "bundle-layout",
+            EvidenceReplayCheckStatus::Pass,
+            "all expected bundle artifacts are present",
+        ));
+    } else {
+        checks.push(replay_check(
+            "bundle-layout",
+            EvidenceReplayCheckStatus::Fail,
+            format!(
+                "missing expected bundle artifact(s): {}",
+                missing_artifacts.join(", ")
+            ),
+        ));
+    }
+
+    let environment = match read_bundle_json_value(bundle, "environment.json") {
+        Ok(environment) => {
+            checks.push(replay_check(
+                "environment",
+                EvidenceReplayCheckStatus::Pass,
+                "environment.json parsed",
+            ));
+            Some(environment)
+        }
+        Err(error) => {
+            checks.push(replay_check(
+                "environment",
+                EvidenceReplayCheckStatus::Fail,
+                error,
+            ));
+            None
+        }
+    };
+
+    let stored_report = match read_bundle_validation_report(bundle, "validation-report.json") {
+        Ok(report) => {
+            checks.push(replay_check(
+                "stored-validation-report",
+                EvidenceReplayCheckStatus::Pass,
+                "validation-report.json parsed",
+            ));
+            Some(report)
+        }
+        Err(error) => {
+            checks.push(replay_check(
+                "stored-validation-report",
+                EvidenceReplayCheckStatus::Fail,
+                error,
+            ));
+            None
+        }
+    };
+
+    let redacted_message = match read_bundle_artifact(bundle, "message.redacted.hl7") {
+        Ok(contents) => match parse(&contents) {
+            Ok(message) => {
+                checks.push(replay_check(
+                    "parse-redacted-message",
+                    EvidenceReplayCheckStatus::Pass,
+                    "message.redacted.hl7 parsed",
+                ));
+                Some(message)
+            }
+            Err(error) => {
+                checks.push(replay_check(
+                    "parse-redacted-message",
+                    EvidenceReplayCheckStatus::Fail,
+                    format!("message.redacted.hl7 did not parse: {error}"),
+                ));
+                None
+            }
+        },
+        Err(error) => {
+            checks.push(replay_check(
+                "parse-redacted-message",
+                EvidenceReplayCheckStatus::Fail,
+                error,
+            ));
+            None
+        }
+    };
+
+    let loaded_profile = match read_bundle_string(bundle, "profile.yaml") {
+        Ok(profile_yaml) => match load_profile_checked(&profile_yaml) {
+            Ok(profile) => {
+                checks.push(replay_check(
+                    "load-profile",
+                    EvidenceReplayCheckStatus::Pass,
+                    "profile.yaml loaded",
+                ));
+                Some(profile)
+            }
+            Err(error) => {
+                checks.push(replay_check(
+                    "load-profile",
+                    EvidenceReplayCheckStatus::Fail,
+                    format!("profile.yaml did not load: {error}"),
+                ));
+                None
+            }
+        },
+        Err(error) => {
+            checks.push(replay_check(
+                "load-profile",
+                EvidenceReplayCheckStatus::Fail,
+                error,
+            ));
+            None
+        }
+    };
+
+    let actual_report = match (redacted_message.as_ref(), loaded_profile.as_ref()) {
+        (Some(message), Some(profile)) => {
+            let report = ValidationReport::from_issues(
+                message,
+                Some("profile.yaml".to_string()),
+                validate(message, profile),
+            );
+            checks.push(replay_check(
+                "generate-validation-report",
+                EvidenceReplayCheckStatus::Pass,
+                "validation report regenerated from bundled message and profile",
+            ));
+            Some(report)
+        }
+        _ => {
+            checks.push(replay_check(
+                "generate-validation-report",
+                EvidenceReplayCheckStatus::Fail,
+                "validation report could not be regenerated",
+            ));
+            None
+        }
+    };
+
+    match (actual_report.as_ref(), stored_report.as_ref()) {
+        (Some(actual), Some(stored)) if actual == stored => checks.push(replay_check(
+            "report-match",
+            EvidenceReplayCheckStatus::Pass,
+            "regenerated validation report matches validation-report.json",
+        )),
+        (Some(_), Some(_)) => checks.push(replay_check(
+            "report-match",
+            EvidenceReplayCheckStatus::Fail,
+            "regenerated validation report differs from validation-report.json",
+        )),
+        _ => checks.push(replay_check(
+            "report-match",
+            EvidenceReplayCheckStatus::Fail,
+            "validation report comparison could not be completed",
+        )),
+    }
+
+    if let (Some(environment), Some(actual)) = (environment.as_ref(), actual_report.as_ref()) {
+        let mut mismatches = Vec::new();
+        if json_string(environment, "message_type").as_deref() != Some(actual.message_type.as_str())
+        {
+            mismatches.push("message_type");
+        }
+        if json_bool(environment, "validation_valid") != Some(actual.valid) {
+            mismatches.push("validation_valid");
+        }
+        if json_usize(environment, "validation_issue_count") != Some(actual.issue_count) {
+            mismatches.push("validation_issue_count");
+        }
+
+        if mismatches.is_empty() {
+            checks.push(replay_check(
+                "environment-match",
+                EvidenceReplayCheckStatus::Pass,
+                "environment metadata matches regenerated validation report",
+            ));
+        } else {
+            checks.push(replay_check(
+                "environment-match",
+                EvidenceReplayCheckStatus::Fail,
+                format!("environment metadata mismatch: {}", mismatches.join(", ")),
+            ));
+        }
+    } else {
+        checks.push(replay_check(
+            "environment-match",
+            EvidenceReplayCheckStatus::Fail,
+            "environment metadata comparison could not be completed",
+        ));
+    }
+
+    let reproduced = checks
+        .iter()
+        .all(|check| check.status == EvidenceReplayCheckStatus::Pass);
+    let bundle_version = environment
+        .as_ref()
+        .and_then(|value| json_string(value, "bundle_version"));
+    let message_type = actual_report
+        .as_ref()
+        .map(|report| report.message_type.clone())
+        .or_else(|| {
+            stored_report
+                .as_ref()
+                .map(|report| report.message_type.clone())
+        })
+        .or_else(|| {
+            environment
+                .as_ref()
+                .and_then(|value| json_string(value, "message_type"))
+        });
+    let validation_valid = actual_report.as_ref().map(|report| report.valid);
+    let validation_issue_count = actual_report.as_ref().map(|report| report.issue_count);
+
+    EvidenceReplayReport {
+        replay_version: "1",
+        bundle_version,
+        tool_name: "hl7v2-cli",
+        tool_version: env!("CARGO_PKG_VERSION"),
+        message_type,
+        reproduced,
+        validation_valid,
+        validation_issue_count,
+        checks,
+        validation_report: actual_report,
+    }
+}
+
+fn replay_check(
+    name: &'static str,
+    status: EvidenceReplayCheckStatus,
+    message: impl Into<String>,
+) -> EvidenceReplayCheck {
+    EvidenceReplayCheck {
+        name,
+        status,
+        message: message.into(),
+    }
+}
+
+fn read_bundle_artifact(bundle: &Path, artifact: &str) -> Result<Vec<u8>, String> {
+    fs::read(bundle.join(artifact)).map_err(|error| format!("could not read {artifact}: {error}"))
+}
+
+fn read_bundle_string(bundle: &Path, artifact: &str) -> Result<String, String> {
+    fs::read_to_string(bundle.join(artifact))
+        .map_err(|error| format!("could not read {artifact}: {error}"))
+}
+
+fn read_bundle_json_value(bundle: &Path, artifact: &str) -> Result<serde_json::Value, String> {
+    let contents = read_bundle_string(bundle, artifact)?;
+    serde_json::from_str(&contents).map_err(|error| format!("{artifact} is invalid JSON: {error}"))
+}
+
+fn read_bundle_validation_report(
+    bundle: &Path,
+    artifact: &str,
+) -> Result<ValidationReport, String> {
+    let contents = read_bundle_string(bundle, artifact)?;
+    serde_json::from_str(&contents).map_err(|error| format!("{artifact} is invalid JSON: {error}"))
+}
+
+fn json_string(value: &serde_json::Value, key: &str) -> Option<String> {
+    value.get(key)?.as_str().map(ToOwned::to_owned)
+}
+
+fn json_bool(value: &serde_json::Value, key: &str) -> Option<bool> {
+    value.get(key)?.as_bool()
+}
+
+fn json_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
+    value
+        .get(key)?
+        .as_u64()
+        .and_then(|count| usize::try_from(count).ok())
+}
+
+fn render_replay_report(
+    report: &EvidenceReplayReport,
+    format: &ReportFormat,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match format {
+        ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
+        ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
+        ReportFormat::Text => {
+            let mut output = String::new();
+            output.push_str("Evidence Replay\n");
+            output.push_str(&format!("  Reproduced: {}\n", report.reproduced));
+            if let Some(message_type) = &report.message_type {
+                output.push_str(&format!("  Message type: {message_type}\n"));
+            }
+            if let Some(valid) = report.validation_valid {
+                output.push_str(&format!("  Validation valid: {valid}\n"));
+            }
+            if let Some(issue_count) = report.validation_issue_count {
+                output.push_str(&format!("  Validation issues: {issue_count}\n"));
+            }
+            output.push_str("Checks:\n");
+            for check in &report.checks {
+                let status = match check.status {
+                    EvidenceReplayCheckStatus::Pass => "PASS",
+                    EvidenceReplayCheckStatus::Fail => "FAIL",
+                };
+                output.push_str(&format!("  {status} {} - {}\n", check.name, check.message));
+            }
+            Ok(output)
+        }
+    }
 }
 
 fn write_json_file<T: serde::Serialize>(

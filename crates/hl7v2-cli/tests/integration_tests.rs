@@ -170,6 +170,17 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_replay_help() {
+        let mut cmd = cli_command();
+        cmd.args(["replay", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Replay a redacted evidence bundle",
+            ));
+    }
+
+    #[test]
     fn test_ack_help() {
         let mut cmd = cli_command();
         cmd.args(["ack", "--help"])
@@ -2007,6 +2018,178 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         .stderr(predicate::str::contains(
             "bundle output directory already exists",
         ));
+    }
+}
+
+// =========================================================================
+// Evidence Replay Command Tests
+// =========================================================================
+
+mod replay_command {
+    use super::*;
+
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "PID.11"
+action = "drop"
+reason = "patient address"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "OBX.3"
+action = "retain"
+reason = "observation identifier is needed for analysis"
+
+[[rules]]
+path = "OBX.5"
+action = "retain"
+reason = "non-PHI synthetic observation value shape is needed for analysis"
+"#;
+
+    fn create_replayable_bundle(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        let message_file = create_temp_hl7_with_content(dir, "message.hl7", PHI_MESSAGE);
+        let profile_file = create_temp_profile(dir, "profile.yaml", minimal_profile());
+        let policy_file =
+            create_temp_file(dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+        let bundle_dir = dir.path().join("issue-bundle");
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "bundle",
+            message_file.to_str().unwrap(),
+            "--profile",
+            profile_file.to_str().unwrap(),
+            "--redact-policy",
+            policy_file.to_str().unwrap(),
+            "--out",
+            bundle_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+        bundle_dir
+    }
+
+    #[test]
+    fn test_replay_reproduces_bundle_report_without_raw_phi() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(!stdout.contains("Doe^John"));
+        assert!(!stdout.contains("123456^^^HOSP^MR"));
+        assert!(!stdout.contains("19700101"));
+        assert!(!stdout.contains("123 Main St"));
+
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay output should be JSON");
+        assert_eq!(report["replay_version"], "1");
+        assert_eq!(report["bundle_version"], "1");
+        assert_eq!(report["message_type"], "ADT^A01");
+        assert_eq!(report["reproduced"], true);
+        assert_eq!(report["validation_valid"], true);
+        assert_eq!(report["validation_issue_count"], 0);
+        assert_eq!(report["validation_report"]["profile"], "profile.yaml");
+        assert!(
+            report["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|check| check["status"] == "pass")
+        );
+    }
+
+    #[test]
+    fn test_replay_fails_when_stored_validation_report_drifts() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        let report_path = bundle_dir.join("validation-report.json");
+        let mut stored_report: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&report_path).unwrap()).unwrap();
+        stored_report["issue_count"] = serde_json::json!(42);
+        std::fs::write(
+            &report_path,
+            serde_json::to_vec_pretty(&stored_report).unwrap(),
+        )
+        .unwrap();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay failure output should be JSON");
+        assert_eq!(report["reproduced"], false);
+        assert!(
+            report["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|check| check["name"] == "report-match" && check["status"] == "fail")
+        );
+    }
+
+    #[test]
+    fn test_replay_fails_when_bundle_artifact_is_missing() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        std::fs::remove_file(bundle_dir.join("field-paths.json")).unwrap();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay failure output should be JSON");
+        assert_eq!(report["reproduced"], false);
+        assert!(report["checks"].as_array().unwrap().iter().any(|check| {
+            check["name"] == "bundle-layout"
+                && check["status"] == "fail"
+                && check["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("field-paths.json")
+        }));
     }
 }
 
