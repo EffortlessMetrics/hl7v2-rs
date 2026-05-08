@@ -35,6 +35,7 @@ impl PyMessage {
 /// HL7v2 module for Python
 #[pymodule]
 fn hl7v2(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_class::<PyMessage>()?;
     Ok(())
 }

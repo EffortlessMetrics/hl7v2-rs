@@ -1,0 +1,86 @@
+name: Python Wheels
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "pyproject.toml"
+      - "crates/hl7v2/**"
+      - "crates/hl7v2-python/**"
+      - "tests/python_smoke/**"
+      - ".github/workflows/python-wheels.yml"
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "pyproject.toml"
+      - "crates/hl7v2/**"
+      - "crates/hl7v2-python/**"
+      - "tests/python_smoke/**"
+      - ".github/workflows/python-wheels.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-wheels-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+
+jobs:
+  wheel-smoke:
+    name: Wheel smoke (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: python-wheels-${{ matrix.os }}-${{ matrix.python-version }}
+
+      - name: Install maturin
+        run: python -m pip install --upgrade pip "maturin==1.13.1"
+
+      - name: Build wheel
+        run: maturin build --release --out dist
+
+      - name: Install built wheel
+        run: |
+          python -c "import glob, subprocess, sys; wheels = glob.glob('dist/*.whl'); assert len(wheels) == 1, wheels; subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--force-reinstall', wheels[0]])"
+
+      - name: Run import smoke test
+        run: python tests/python_smoke/smoke.py
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-wheel-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: dist/*.whl
+          retention-days: 7
