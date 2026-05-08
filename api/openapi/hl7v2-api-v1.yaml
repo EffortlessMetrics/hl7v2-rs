@@ -319,16 +319,40 @@ components:
 
     ValidateResponse:
       type: object
-      required: [valid, metadata]
+      required: [valid, message_type, segment_count, issue_count, issues, metadata]
       properties:
         valid:
           type: boolean
+        message_type:
+          type: string
+          description: HL7 trigger event from MSH.9, such as ADT^A01
+        profile:
+          type: string
+          nullable: true
+          description: Profile identifier used for validation
+        segment_count:
+          type: integer
+          minimum: 0
+          description: Number of parsed message segments
+        issue_count:
+          type: integer
+          minimum: 0
+          description: Number of reported validation issues
+        issues:
+          type: array
+          description: Stable validation issue records shared with CLI reports
+          items:
+            $ref: '#/components/schemas/ValidationReportIssue'
         errors:
           type: array
+          deprecated: true
+          description: Compatibility error array; use issues instead
           items:
             $ref: '#/components/schemas/ValidationError'
         warnings:
           type: array
+          deprecated: true
+          description: Compatibility warning array; use issues instead
           items:
             $ref: '#/components/schemas/ValidationWarning'
         metadata:
@@ -421,6 +445,38 @@ components:
         severity:
           type: string
           enum: [error, warning, info]
+
+    ValidationReportIssue:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code:
+          type: string
+          description: Stable snake_case issue code
+        severity:
+          type: string
+          enum: [error, warning]
+        path:
+          type: string
+          nullable: true
+          description: HL7 path associated with the issue, such as PID.3
+        rule_id:
+          type: string
+          nullable: true
+          description: Stable rule identifier
+        message:
+          type: string
+          description: Human-readable issue message
+        segment_index:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Zero-based segment index when available
+        field_index:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: One-based HL7 field index when available
 
     ValidationWarning:
       type: object

@@ -60,6 +60,37 @@ Validates an HL7 v2 message against a provided conformance profile.
 }
 ```
 
+**Response Body:**
+```json
+{
+  "valid": false,
+  "message_type": "ADT^A01",
+  "profile": "ADT_A01",
+  "segment_count": 2,
+  "issue_count": 1,
+  "issues": [
+    {
+      "code": "missing_required_field",
+      "severity": "error",
+      "path": "PID.3",
+      "rule_id": "missing_required_field",
+      "message": "Required field PID.3 is missing",
+      "segment_index": 1,
+      "field_index": 3
+    }
+  ],
+  "metadata": {
+    "message_type": "ADT^A01",
+    "version": "2.5",
+    "sending_application": "SENDER",
+    "sending_facility": "FAC",
+    "message_control_id": "123",
+    "segment_count": 2,
+    "charsets": []
+  }
+}
+```
+
 **cURL Example:**
 ```bash
 # Using a local profile file
