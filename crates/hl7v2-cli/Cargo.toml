@@ -17,7 +17,7 @@ clap = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml.workspace = true
-hl7v2 = { version = "1.2.0", path = "../hl7v2", features = [
+hl7v2 = { version = "1.2.1", path = "../hl7v2", features = [
     "profile",
     "ack",
     "normalize",
@@ -26,7 +26,7 @@ hl7v2 = { version = "1.2.0", path = "../hl7v2", features = [
     "network",
     "synthetic",
 ] }
-hl7v2-server = { version = "1.2.0", path = "../hl7v2-server" }
+hl7v2-server = { version = "1.2.1", path = "../hl7v2-server" }
 sysinfo = "0.38.2"
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

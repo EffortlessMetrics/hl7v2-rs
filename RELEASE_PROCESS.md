@@ -31,7 +31,7 @@ Update the `version` field in the root `Cargo.toml`. Since we use workspace inhe
 
 ```toml
 [workspace.package]
-version = "1.2.0"
+version = "<version>"
 ```
 
 ### 2. Update Changelog
@@ -52,8 +52,8 @@ cargo build --workspace --release
 Create a git tag for the new version.
 
 ```bash
-git tag -a v1.2.0 -m "Release v1.2.0"
-git push origin v1.2.0
+git tag -a v<version> -m "Release v<version>"
+git push origin v<version>
 ```
 
 ### 5. Publish to Crates.io
@@ -71,7 +71,7 @@ cargo run -p xtask -- publish --yes
 cargo run -p xtask -- publish --yes --from hl7v2-template-values
 ```
 
-The publish sequence excludes non-published workspace members such as `hl7v2-bench`, `hl7v2-test-utils`, `hl7v2-e2e-tests`, `xtask`, and the root `hl7v2-examples` package.
+The publish sequence excludes non-published workspace members such as `hl7v2-python`, `hl7v2-bench`, `hl7v2-test-utils`, `hl7v2-e2e-tests`, `xtask`, and the root `hl7v2-examples` package.
 
 For GitHub Actions based releases, use the manual `Publish to crates.io` workflow. It prints the derived order first and only publishes when `execute=true` is selected and the `CARGO_REGISTRY_TOKEN` secret is configured.
 

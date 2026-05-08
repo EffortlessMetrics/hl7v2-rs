@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.2.1] - 2026-05-08
+
+### Release
+
+- Moved the package line to `1.2.1` so the final Rust publish can use a fresh
+  release tag instead of reusing the historical `v1.2.0` tag.
+
 ### Documentation
 
 - Clarified the post-collapse public package surface: `hl7v2`, `hl7v2-python`,

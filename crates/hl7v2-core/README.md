@@ -6,7 +6,7 @@ Use the `hl7v2` crate for new Rust code:
 
 ```toml
 [dependencies]
-hl7v2 = "1.2.0"
+hl7v2 = "1.2.1"
 ```
 
 `hl7v2-core` is retained temporarily as a deprecated compatibility shim over
