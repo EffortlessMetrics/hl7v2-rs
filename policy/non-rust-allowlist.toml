@@ -253,6 +253,15 @@ classification = "test"
 reason = "Repository-wide HL7, MLLP, and template fixtures used by CLI and integration tests."
 covered_by = ["cargo test --workspace --all-features"]
 
+[[allow]]
+glob = "fixtures/evidence/**"
+kind = "fixture_input"
+owner = "api"
+surface = "tests"
+classification = "test"
+reason = "Representative evidence artifact fixtures validated against public JSON schemas."
+covered_by = [".github/workflows/contracts.yml"]
+
 # ---------------------------------------------------------------------------
 # Profiles (HL7 message profile YAML)
 # ---------------------------------------------------------------------------

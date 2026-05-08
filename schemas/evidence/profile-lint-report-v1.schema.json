@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/profile-lint-report/v1",
+  "title": "HL7v2 Profile Lint Report",
+  "description": "Machine-readable profile lint report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["valid", "error_count", "warning_count", "issue_count", "issues"],
+  "properties": {
+    "valid": {
+      "type": "boolean"
+    },
+    "error_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warning_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "issue_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/profile_lint_issue"
+      }
+    }
+  },
+  "definitions": {
+    "profile_lint_issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

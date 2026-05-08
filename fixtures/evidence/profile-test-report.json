@@ -1,0 +1,55 @@
+{
+  "profile": "profiles/adt_a01.yaml",
+  "fixtures": "fixtures/profile/adt_a01",
+  "valid": false,
+  "case_count": 2,
+  "passed_count": 1,
+  "failed_count": 1,
+  "cases": [
+    {
+      "name": "valid/minimal.hl7",
+      "path": "fixtures/profile/adt_a01/valid/minimal.hl7",
+      "expectation": "valid",
+      "passed": true,
+      "message": "Fixture passed as expected.",
+      "validation_report": {
+        "valid": true,
+        "message_type": "ADT^A01",
+        "profile": "profiles/adt_a01.yaml",
+        "segment_count": 3,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "name": "invalid/missing_pid3.hl7",
+      "path": "fixtures/profile/adt_a01/invalid/missing_pid3.hl7",
+      "expectation": "invalid",
+      "passed": false,
+      "message": "Expected report did not match actual validation issues.",
+      "validation_report": {
+        "valid": false,
+        "message_type": "ADT^A01",
+        "profile": "profiles/adt_a01.yaml",
+        "segment_count": 3,
+        "issue_count": 1,
+        "issues": [
+          {
+            "code": "required_field_missing",
+            "severity": "error",
+            "path": "PID.3",
+            "rule_id": "patient_identifier_required",
+            "message": "PID.3 is required by profile ADT_A01.",
+            "segment_index": 1,
+            "field_index": 3
+          }
+        ]
+      },
+      "expected_report": {
+        "path": "fixtures/profile/adt_a01/expected/missing_pid3.report.json",
+        "matched": false,
+        "message": "Expected report was missing required_field_missing at PID.3."
+      }
+    }
+  ]
+}

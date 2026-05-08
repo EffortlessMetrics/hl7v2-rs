@@ -1,0 +1,18 @@
+{
+  "bundle_version": "1",
+  "output_dir": "issue-bundle",
+  "message_type": "ADT^A01",
+  "validation_valid": false,
+  "validation_issue_count": 1,
+  "redaction_phi_removed": true,
+  "artifacts": [
+    "message.redacted.hl7",
+    "validation-report.json",
+    "field-paths.json",
+    "profile.yaml",
+    "redaction-receipt.json",
+    "environment.json",
+    "replay.sh",
+    "replay.ps1"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "phi_removed": true,
+  "hash_algorithm": "sha256",
+  "actions": [
+    {
+      "path": "PID.3",
+      "action": "hash",
+      "reason": "Patient identifier is direct PHI.",
+      "matched_count": 1,
+      "optional": false,
+      "status": "applied"
+    },
+    {
+      "path": "PID.5",
+      "action": "drop",
+      "reason": "Patient name is direct PHI.",
+      "matched_count": 1,
+      "optional": false,
+      "status": "applied"
+    },
+    {
+      "path": "OBX.3",
+      "action": "retain",
+      "reason": "Observation identifier is needed for support analysis.",
+      "matched_count": 1,
+      "optional": false,
+      "status": "retained"
+    }
+  ]
+}

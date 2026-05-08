@@ -1,0 +1,249 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/profile-explain-report/v1",
+  "title": "HL7v2 Profile Explain Report",
+  "description": "Machine-readable profile explanation report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "profile_sha256",
+    "message_structure",
+    "version",
+    "message_type",
+    "parent",
+    "summary",
+    "segments",
+    "required_fields",
+    "field_constraints",
+    "length_rules",
+    "datatype_rules",
+    "value_sets",
+    "rules",
+    "hl7_tables",
+    "table_precedence",
+    "expression_guardrails",
+    "lint"
+  ],
+  "properties": {
+    "profile": {"type": "string"},
+    "profile_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "message_structure": {"type": "string"},
+    "version": {"type": "string"},
+    "message_type": {"type": ["string", "null"]},
+    "parent": {"type": ["string", "null"]},
+    "summary": {"$ref": "#/definitions/summary"},
+    "segments": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/segment"}
+    },
+    "required_fields": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/required_field"}
+    },
+    "field_constraints": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/field_constraint"}
+    },
+    "length_rules": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/length_rule"}
+    },
+    "datatype_rules": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/datatype_rule"}
+    },
+    "value_sets": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/value_set"}
+    },
+    "rules": {"$ref": "#/definitions/rules"},
+    "hl7_tables": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/hl7_table"}
+    },
+    "table_precedence": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "expression_guardrails": {"$ref": "#/definitions/expression_guardrails"},
+    "lint": {"$ref": "#/definitions/lint_summary"}
+  },
+  "definitions": {
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segment_count",
+        "required_field_count",
+        "field_constraint_count",
+        "length_rule_count",
+        "datatype_rule_count",
+        "advanced_datatype_rule_count",
+        "value_set_count",
+        "cross_field_rule_count",
+        "temporal_rule_count",
+        "contextual_rule_count",
+        "custom_rule_count",
+        "hl7_table_count"
+      ],
+      "properties": {
+        "segment_count": {"type": "integer", "minimum": 0},
+        "required_field_count": {"type": "integer", "minimum": 0},
+        "field_constraint_count": {"type": "integer", "minimum": 0},
+        "length_rule_count": {"type": "integer", "minimum": 0},
+        "datatype_rule_count": {"type": "integer", "minimum": 0},
+        "advanced_datatype_rule_count": {"type": "integer", "minimum": 0},
+        "value_set_count": {"type": "integer", "minimum": 0},
+        "cross_field_rule_count": {"type": "integer", "minimum": 0},
+        "temporal_rule_count": {"type": "integer", "minimum": 0},
+        "contextual_rule_count": {"type": "integer", "minimum": 0},
+        "custom_rule_count": {"type": "integer", "minimum": 0},
+        "hl7_table_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {"id": {"type": "string"}}
+    },
+    "required_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "conditional"],
+      "properties": {
+        "path": {"type": "string"},
+        "conditional": {"type": "boolean"}
+      }
+    },
+    "field_constraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "required",
+        "conditional",
+        "component_min",
+        "component_max",
+        "allowed_value_count",
+        "allowed_values",
+        "pattern"
+      ],
+      "properties": {
+        "path": {"type": "string"},
+        "required": {"type": "boolean"},
+        "conditional": {"type": "boolean"},
+        "component_min": {"type": ["integer", "null"], "minimum": 0},
+        "component_max": {"type": ["integer", "null"], "minimum": 0},
+        "allowed_value_count": {"type": "integer", "minimum": 0},
+        "allowed_values": {"type": "array", "items": {"type": "string"}},
+        "pattern": {"type": ["string", "null"]}
+      }
+    },
+    "length_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "max", "policy"],
+      "properties": {
+        "path": {"type": "string"},
+        "max": {"type": ["integer", "null"], "minimum": 0},
+        "policy": {"type": ["string", "null"]}
+      }
+    },
+    "datatype_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "datatype", "kind", "pattern", "min_length", "max_length", "format", "checksum"],
+      "properties": {
+        "path": {"type": "string"},
+        "datatype": {"type": "string"},
+        "kind": {"type": "string", "enum": ["simple", "advanced"]},
+        "pattern": {"type": ["string", "null"]},
+        "min_length": {"type": ["integer", "null"], "minimum": 0},
+        "max_length": {"type": ["integer", "null"], "minimum": 0},
+        "format": {"type": ["string", "null"]},
+        "checksum": {"type": ["string", "null"]}
+      }
+    },
+    "value_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "source", "inline_code_count", "table_code_count"],
+      "properties": {
+        "name": {"type": "string"},
+        "path": {"type": "string"},
+        "source": {"type": "string", "enum": ["inline", "hl7_table", "empty"]},
+        "inline_code_count": {"type": "integer", "minimum": 0},
+        "table_code_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cross_field", "temporal", "contextual", "custom"],
+      "properties": {
+        "cross_field": {"type": "array", "items": {"$ref": "#/definitions/rule"}},
+        "temporal": {"type": "array", "items": {"$ref": "#/definitions/rule"}},
+        "contextual": {"type": "array", "items": {"$ref": "#/definitions/rule"}},
+        "custom": {"type": "array", "items": {"$ref": "#/definitions/rule"}}
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "hl7_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "version", "code_count"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "code_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "expression_guardrails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_depth", "max_length", "allow_custom_scripts"],
+      "properties": {
+        "max_depth": {"type": ["integer", "null"], "minimum": 0},
+        "max_length": {"type": ["integer", "null"], "minimum": 0},
+        "allow_custom_scripts": {"type": "boolean"}
+      }
+    },
+    "lint_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valid", "error_count", "warning_count", "issue_count", "ignored_or_unsupported"],
+      "properties": {
+        "valid": {"type": "boolean"},
+        "error_count": {"type": "integer", "minimum": 0},
+        "warning_count": {"type": "integer", "minimum": 0},
+        "issue_count": {"type": "integer", "minimum": 0},
+        "ignored_or_unsupported": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/profile_lint_issue"}
+        }
+      }
+    },
+    "profile_lint_issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "severity": {"type": "string", "enum": ["error", "warning"]},
+        "path": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    }
+  }
+}

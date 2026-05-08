@@ -1,0 +1,109 @@
+{
+  "profile": "profiles/adt_a01.yaml",
+  "profile_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "message_structure": "ADT_A01",
+  "version": "2.5.1",
+  "message_type": "ADT^A01",
+  "parent": null,
+  "summary": {
+    "segment_count": 3,
+    "required_field_count": 2,
+    "field_constraint_count": 2,
+    "length_rule_count": 1,
+    "datatype_rule_count": 1,
+    "advanced_datatype_rule_count": 1,
+    "value_set_count": 1,
+    "cross_field_rule_count": 1,
+    "temporal_rule_count": 0,
+    "contextual_rule_count": 0,
+    "custom_rule_count": 0,
+    "hl7_table_count": 1
+  },
+  "segments": [
+    {"id": "MSH"},
+    {"id": "PID"},
+    {"id": "PV1"}
+  ],
+  "required_fields": [
+    {"path": "PID.3", "conditional": false},
+    {"path": "PID.5", "conditional": false}
+  ],
+  "field_constraints": [
+    {
+      "path": "PID.3",
+      "required": true,
+      "conditional": false,
+      "component_min": 1,
+      "component_max": null,
+      "allowed_value_count": 0,
+      "allowed_values": [],
+      "pattern": null
+    },
+    {
+      "path": "PID.8",
+      "required": false,
+      "conditional": false,
+      "component_min": null,
+      "component_max": null,
+      "allowed_value_count": 2,
+      "allowed_values": ["F", "M"],
+      "pattern": null
+    }
+  ],
+  "length_rules": [
+    {"path": "PID.3", "max": 32, "policy": "warn"}
+  ],
+  "datatype_rules": [
+    {
+      "path": "PID.7",
+      "datatype": "DTM",
+      "kind": "advanced",
+      "pattern": null,
+      "min_length": 8,
+      "max_length": 26,
+      "format": "hl7_ts",
+      "checksum": null
+    }
+  ],
+  "value_sets": [
+    {
+      "name": "Administrative Sex",
+      "path": "PID.8",
+      "source": "inline",
+      "inline_code_count": 2,
+      "table_code_count": 0
+    }
+  ],
+  "rules": {
+    "cross_field": [
+      {
+        "id": "patient_identifier_required",
+        "description": "PID.3 is required for admitted patients."
+      }
+    ],
+    "temporal": [],
+    "contextual": [],
+    "custom": []
+  },
+  "hl7_tables": [
+    {
+      "id": "0001",
+      "name": "Administrative Sex",
+      "version": "2.5.1",
+      "code_count": 2
+    }
+  ],
+  "table_precedence": ["inline", "profile", "hl7_table"],
+  "expression_guardrails": {
+    "max_depth": 8,
+    "max_length": 256,
+    "allow_custom_scripts": false
+  },
+  "lint": {
+    "valid": true,
+    "error_count": 0,
+    "warning_count": 0,
+    "issue_count": 0,
+    "ignored_or_unsupported": []
+  }
+}
