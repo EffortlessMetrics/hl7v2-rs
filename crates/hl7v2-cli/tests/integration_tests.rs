@@ -97,6 +97,15 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_profile_explain_help() {
+        let mut cmd = cli_command();
+        cmd.args(["profile", "explain", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Explain the loaded profile"));
+    }
+
+    #[test]
     fn test_corpus_help() {
         let mut cmd = cli_command();
         cmd.args(["corpus", "--help"])
@@ -603,6 +612,182 @@ constraints:
                 .iter()
                 .any(|issue| issue["code"] == "invalid_constraint_pattern")
         );
+    }
+
+    #[test]
+    fn test_profile_explain_json_reports_contract_shape() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5.1"
+message_type: "ADT^A01"
+parent: BASE_ADT
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+  - path: PID.8
+    in: ["M", "F", "U"]
+lengths:
+  - path: PID.3
+    max: 40
+    policy: no-truncate
+datatypes:
+  - path: PID.7
+    type: DT
+valuesets:
+  - path: PID.8
+    name: AdministrativeSex
+    codes: ["M", "F", "U"]
+hl7_tables:
+  - id: HL70001
+    name: Administrative Sex
+    version: "2.5.1"
+    codes:
+      - value: M
+        description: Male
+      - value: F
+        description: Female
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute profile explain");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile explain output should be JSON");
+        assert_eq!(report["message_structure"], "ADT_A01");
+        assert_eq!(report["version"], "2.5.1");
+        assert_eq!(report["message_type"], "ADT^A01");
+        assert_eq!(report["parent"], "BASE_ADT");
+        assert_eq!(report["summary"]["segment_count"], 2);
+        assert_eq!(report["summary"]["required_field_count"], 1);
+        assert_eq!(report["summary"]["value_set_count"], 1);
+        assert_eq!(report["segments"][0]["id"], "MSH");
+        assert_eq!(report["required_fields"][0]["path"], "PID.3");
+        assert_eq!(report["field_constraints"][1]["allowed_value_count"], 3);
+        assert_eq!(report["length_rules"][0]["policy"], "no-truncate");
+        assert_eq!(report["datatype_rules"][0]["datatype"], "DT");
+        assert_eq!(report["value_sets"][0]["inline_code_count"], 3);
+        assert_eq!(report["hl7_tables"][0]["code_count"], 2);
+        assert_eq!(report["lint"]["valid"], true);
+    }
+
+    #[test]
+    fn test_profile_explain_yaml_reports_contract_shape() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile_file.to_str().unwrap(),
+                "--format",
+                "yaml",
+            ])
+            .output()
+            .expect("Failed to execute profile explain");
+
+        assert!(output.status.success());
+        let report: serde_yaml::Value =
+            serde_yaml::from_slice(&output.stdout).expect("profile explain output should be YAML");
+        assert_eq!(report["message_structure"].as_str().unwrap(), "ADT_A01");
+        assert_eq!(report["message_type"], serde_yaml::Value::Null);
+        assert_eq!(report["summary"]["required_field_count"], 1);
+        assert_eq!(
+            report["required_fields"][0]["path"].as_str().unwrap(),
+            "MSH.9"
+        );
+        assert!(report["lint"]["valid"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_profile_explain_reports_lint_invalid_without_becoming_lint_gate() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+constraints:
+  - path: PID.x
+    required: true
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute profile explain");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile explain output should be JSON");
+        assert_eq!(report["lint"]["valid"], false);
+        assert!(
+            report["lint"]["error_count"]
+                .as_u64()
+                .is_some_and(|count| count >= 1)
+        );
+        assert!(
+            report["profile_sha256"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty())
+        );
+    }
+
+    #[test]
+    fn test_profile_explain_text_reports_ignored_config_warnings() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+rules: []
+"#,
+        );
+
+        let mut cmd = cli_command();
+        cmd.args(["profile", "explain", profile_file.to_str().unwrap()])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Profile explain"))
+            .stdout(predicate::str::contains("Segments: 1 (MSH)"))
+            .stdout(predicate::str::contains(
+                "Ignored or unsupported profile config",
+            ))
+            .stdout(predicate::str::contains("unknown_top_level_key"));
     }
 
     #[test]
