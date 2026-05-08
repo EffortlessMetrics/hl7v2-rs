@@ -22,7 +22,10 @@
 )]
 
 use clap::{Parser, Subcommand};
-use hl7v2::synthetic::corpus::{CorpusSummary, summarize_corpus_path};
+use hl7v2::synthetic::corpus::{
+    CorpusCount, CorpusFingerprint, CorpusFingerprintProfile, CorpusSummary, compute_sha256,
+    fingerprint_corpus_path, summarize_corpus_path,
+};
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
     AckCode as GenAckCode, Event, Message, ProfileLintReport, StreamParser, ValidationReport, ack,
@@ -282,6 +285,20 @@ enum CorpusCommands {
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
     },
+
+    /// Create a deterministic feed fingerprint
+    Fingerprint {
+        /// Corpus directory or single HL7 file
+        path: PathBuf,
+
+        /// Optional profile YAML file for validation issue-code counts
+        #[arg(long)]
+        profile: Option<PathBuf>,
+
+        /// Output fingerprint format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        format: ReportFormat,
+    },
 }
 
 /// Server mode selection
@@ -425,6 +442,11 @@ async fn main() {
         },
         Commands::Corpus { command } => match command {
             CorpusCommands::Summarize { path, format } => corpus_summarize_command(path, format),
+            CorpusCommands::Fingerprint {
+                path,
+                profile,
+                format,
+            } => corpus_fingerprint_command(path, profile.as_ref(), format),
         },
         Commands::Ack {
             input,
@@ -1540,6 +1562,217 @@ fn append_counts(output: &mut String, counts: &[hl7v2::synthetic::corpus::Corpus
 
     for count in counts {
         output.push_str(&format!("  {}: {}\n", count.value, count.count));
+    }
+}
+
+fn corpus_fingerprint_command(
+    path: &PathBuf,
+    profile: Option<&PathBuf>,
+    format: &ReportFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut fingerprint = fingerprint_corpus_path(path)?;
+
+    if let Some(profile_path) = profile {
+        let (profile_metadata, issue_counts) =
+            fingerprint_validation_issue_counts(path, profile_path)?;
+        fingerprint.profile = Some(profile_metadata);
+        fingerprint.validation_issue_code_counts = issue_counts;
+    }
+
+    let output = format_corpus_fingerprint(&fingerprint, format)?;
+    println!("{}", output);
+    Ok(())
+}
+
+fn fingerprint_validation_issue_counts(
+    path: &Path,
+    profile_path: &Path,
+) -> Result<(CorpusFingerprintProfile, Vec<CorpusCount>), Box<dyn std::error::Error>> {
+    let profile_yaml = fs::read_to_string(profile_path)?;
+    let profile = load_profile_checked(&profile_yaml)?;
+    let profile_metadata = CorpusFingerprintProfile {
+        path: profile_path.to_string_lossy().to_string(),
+        sha256: compute_sha256(&profile_yaml),
+        version: profile.version.clone(),
+        message_structure: profile.message_structure.clone(),
+    };
+
+    let mut files = Vec::new();
+    collect_cli_corpus_files(path, &mut files)?;
+    files.sort();
+
+    let mut counts = std::collections::BTreeMap::new();
+    for file in files {
+        let bytes = fs::read(&file)?;
+        let parsed = if is_mllp_framed(&bytes) {
+            parse_mllp(&bytes)
+        } else {
+            parse(&bytes)
+        };
+        let Ok(message) = parsed else {
+            continue;
+        };
+        let issues = validate(&message, &profile);
+        let report = ValidationReport::from_issues(
+            &message,
+            Some(profile_path.to_string_lossy().to_string()),
+            issues,
+        );
+        for issue in report.issues {
+            let count = counts.entry(issue.code).or_insert(0usize);
+            *count = count.saturating_add(1);
+        }
+    }
+
+    Ok((profile_metadata, counts_to_corpus_counts(counts)))
+}
+
+fn collect_cli_corpus_files(
+    path: &Path,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if path.is_file() {
+        files.push(path.to_path_buf());
+        return Ok(());
+    }
+
+    if !path.is_dir() {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("{} is not a file or directory", path.display()),
+        )));
+    }
+
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let child = entry.path();
+        if child.is_dir() {
+            collect_cli_corpus_files(&child, files)?;
+        } else if child.is_file() {
+            files.push(child);
+        }
+    }
+
+    Ok(())
+}
+
+fn counts_to_corpus_counts(counts: std::collections::BTreeMap<String, usize>) -> Vec<CorpusCount> {
+    counts
+        .into_iter()
+        .map(|(value, count)| CorpusCount { value, count })
+        .collect()
+}
+
+fn format_corpus_fingerprint(
+    fingerprint: &CorpusFingerprint,
+    format: &ReportFormat,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match format {
+        ReportFormat::Json => Ok(serde_json::to_string_pretty(fingerprint)?),
+        ReportFormat::Yaml => Ok(serde_yaml::to_string(fingerprint)?),
+        ReportFormat::Text => {
+            let mut output = String::new();
+            output.push_str("Corpus Fingerprint:\n");
+            output.push_str(&format!("  Path: {}\n", fingerprint.root));
+            output.push_str(&format!(
+                "  Fingerprint version: {}\n",
+                fingerprint.fingerprint_version
+            ));
+            output.push_str(&format!("  Tool version: {}\n", fingerprint.tool_version));
+            output.push_str(&format!("  Files scanned: {}\n", fingerprint.file_count));
+            output.push_str(&format!(
+                "  Parsed messages: {}\n",
+                fingerprint.message_count
+            ));
+            output.push_str(&format!(
+                "  Parse errors: {}\n",
+                fingerprint.parse_error_count
+            ));
+
+            if let Some(profile) = &fingerprint.profile {
+                output.push('\n');
+                output.push_str("Profile:\n");
+                output.push_str(&format!("  Path: {}\n", profile.path));
+                output.push_str(&format!("  SHA-256: {}\n", profile.sha256));
+                output.push_str(&format!("  Version: {}\n", profile.version));
+                output.push_str(&format!(
+                    "  Message structure: {}\n",
+                    profile.message_structure
+                ));
+            }
+
+            output.push('\n');
+            output.push_str("Message types:\n");
+            append_counts(&mut output, &fingerprint.message_type_counts);
+
+            output.push('\n');
+            output.push_str("Segments:\n");
+            append_counts(&mut output, &fingerprint.segment_counts);
+
+            output.push('\n');
+            output.push_str("Field presence:\n");
+            append_fingerprint_field_presence(&mut output, fingerprint);
+
+            output.push('\n');
+            output.push_str("Value shapes:\n");
+            append_value_shape_stats(&mut output, fingerprint);
+
+            if fingerprint.profile.is_some() {
+                output.push('\n');
+                output.push_str("Validation issue codes:\n");
+                append_counts(&mut output, &fingerprint.validation_issue_code_counts);
+            }
+
+            Ok(output)
+        }
+    }
+}
+
+fn append_fingerprint_field_presence(output: &mut String, fingerprint: &CorpusFingerprint) {
+    if fingerprint.field_presence.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for field in &fingerprint.field_presence {
+        if let Some(cardinality) = fingerprint
+            .field_cardinality
+            .iter()
+            .find(|candidate| candidate.path == field.path)
+        {
+            output.push_str(&format!(
+                "  {}: {} message(s), {} occurrence(s), min {}, max {}\n",
+                field.path,
+                field.message_count,
+                field.occurrence_count,
+                cardinality.min_per_message,
+                cardinality.max_per_message
+            ));
+        } else {
+            output.push_str(&format!(
+                "  {}: {} message(s), {} occurrence(s)\n",
+                field.path, field.message_count, field.occurrence_count
+            ));
+        }
+    }
+}
+
+fn append_value_shape_stats(output: &mut String, fingerprint: &CorpusFingerprint) {
+    if fingerprint.value_shape_stats.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for stats in &fingerprint.value_shape_stats {
+        output.push_str(&format!(
+            "  {}: coded {}, timestamp {}, numeric {}, null {}, text {}\n",
+            stats.path,
+            stats.coded_count,
+            stats.timestamp_count,
+            stats.numeric_count,
+            stats.null_count,
+            stats.text_count
+        ));
     }
 }
 

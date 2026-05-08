@@ -158,6 +158,82 @@ pub struct CorpusSummary {
     pub parse_errors: Vec<CorpusParseFailure>,
 }
 
+/// Field cardinality observed across parsed corpus messages.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFieldCardinality {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Minimum occurrences observed in any parsed message.
+    pub min_per_message: usize,
+    /// Maximum occurrences observed in any parsed message.
+    pub max_per_message: usize,
+    /// Total occurrences across all parsed messages.
+    pub total_occurrences: usize,
+    /// Number of parsed messages where this path was present.
+    pub message_count: usize,
+}
+
+/// Value shape counts for one HL7 field path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusValueShapeStats {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Count of coded/component values.
+    pub coded_count: usize,
+    /// Count of timestamp-like values.
+    pub timestamp_count: usize,
+    /// Count of numeric values.
+    pub numeric_count: usize,
+    /// Count of explicit HL7 null values.
+    pub null_count: usize,
+    /// Count of other non-empty text values.
+    pub text_count: usize,
+}
+
+/// Profile metadata attached to a corpus fingerprint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFingerprintProfile {
+    /// Profile path supplied by the caller.
+    pub path: String,
+    /// SHA-256 hash of the profile content.
+    pub sha256: String,
+    /// Profile version, when loaded.
+    pub version: String,
+    /// Profile message structure, when loaded.
+    pub message_structure: String,
+}
+
+/// Deterministic compact signature for a file or directory corpus.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFingerprint {
+    /// Fingerprint schema version.
+    pub fingerprint_version: String,
+    /// hl7v2 tool version.
+    pub tool_version: String,
+    /// Root path that was fingerprinted.
+    pub root: String,
+    /// Optional profile metadata.
+    pub profile: Option<CorpusFingerprintProfile>,
+    /// Number of regular files scanned.
+    pub file_count: usize,
+    /// Number of messages parsed successfully.
+    pub message_count: usize,
+    /// Number of files that could not be parsed as HL7 v2.
+    pub parse_error_count: usize,
+    /// Message type counts from parsed MSH-9 values.
+    pub message_type_counts: Vec<CorpusCount>,
+    /// Segment ID counts across parsed messages.
+    pub segment_counts: Vec<CorpusCount>,
+    /// Field presence counts across parsed messages.
+    pub field_presence: Vec<CorpusFieldPresence>,
+    /// Field cardinality observations across parsed messages.
+    pub field_cardinality: Vec<CorpusFieldCardinality>,
+    /// Value shape observations across parsed messages.
+    pub value_shape_stats: Vec<CorpusValueShapeStats>,
+    /// Validation issue code counts when a profile is supplied.
+    pub validation_issue_code_counts: Vec<CorpusCount>,
+}
+
 /// Train/validation/test split information
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CorpusSplits {
@@ -463,6 +539,104 @@ pub fn summarize_corpus_path(path: impl AsRef<Path>) -> Result<CorpusSummary, Co
     })
 }
 
+/// Fingerprint a file or directory of HL7 v2 messages.
+///
+/// The fingerprint is a compact deterministic feed signature derived from the
+/// parsed messages in the corpus. Parse failures are counted but skipped for
+/// shape-level dimensions.
+///
+/// # Errors
+///
+/// Returns [`CorpusError::InvalidConfig`] if the path is neither a regular file
+/// nor a directory. Returns [`CorpusError::IoError`] if traversal or file
+/// reading fails.
+pub fn fingerprint_corpus_path(path: impl AsRef<Path>) -> Result<CorpusFingerprint, CorpusError> {
+    let root = path.as_ref();
+    let summary = summarize_corpus_path(root)?;
+    let (field_cardinality, value_shape_stats) =
+        collect_fingerprint_details(root, summary.message_count)?;
+
+    Ok(CorpusFingerprint {
+        fingerprint_version: "1".to_string(),
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        root: summary.root,
+        profile: None,
+        file_count: summary.file_count,
+        message_count: summary.message_count,
+        parse_error_count: summary.parse_error_count,
+        message_type_counts: summary.message_types,
+        segment_counts: summary.segments,
+        field_presence: summary.field_presence,
+        field_cardinality,
+        value_shape_stats,
+        validation_issue_code_counts: Vec::new(),
+    })
+}
+
+fn collect_fingerprint_details(
+    root: &Path,
+    message_count: usize,
+) -> Result<(Vec<CorpusFieldCardinality>, Vec<CorpusValueShapeStats>), CorpusError> {
+    let mut files = Vec::new();
+    collect_corpus_files(root, &mut files)?;
+    files.sort();
+
+    let mut cardinality: BTreeMap<String, FieldCardinalityAccumulator> = BTreeMap::new();
+    let mut value_shapes: BTreeMap<String, CorpusValueShapeStats> = BTreeMap::new();
+
+    for file in &files {
+        let relative_path = relative_corpus_path(root, file);
+        let bytes =
+            fs::read(file).map_err(|e| CorpusError::IoError(format!("{relative_path}: {e}")))?;
+        let parsed = if is_mllp_framed(&bytes) {
+            parse_mllp(&bytes)
+        } else {
+            parse(&bytes)
+        };
+        let Ok(message) = parsed else {
+            continue;
+        };
+
+        let mut message_occurrences: BTreeMap<String, usize> = BTreeMap::new();
+        record_fingerprint_message_shape(&message, &mut message_occurrences, &mut value_shapes);
+
+        for (path, occurrences) in message_occurrences {
+            let entry = cardinality.entry(path).or_default();
+            entry.present_message_count = entry.present_message_count.saturating_add(1);
+            entry.total_occurrences = entry.total_occurrences.saturating_add(occurrences);
+            entry.max_per_message = entry.max_per_message.max(occurrences);
+            entry.min_present_per_message = match entry.min_present_per_message {
+                Some(current) => Some(current.min(occurrences)),
+                None => Some(occurrences),
+            };
+        }
+    }
+
+    let mut cardinality: Vec<CorpusFieldCardinality> = cardinality
+        .into_iter()
+        .map(|(path, stats)| {
+            let min_per_message = if stats.present_message_count < message_count {
+                0
+            } else {
+                stats.min_present_per_message.unwrap_or_default()
+            };
+            CorpusFieldCardinality {
+                path,
+                min_per_message,
+                max_per_message: stats.max_per_message,
+                total_occurrences: stats.total_occurrences,
+                message_count: stats.present_message_count,
+            }
+        })
+        .collect();
+    cardinality.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+
+    let mut value_shape_stats: Vec<CorpusValueShapeStats> = value_shapes.into_values().collect();
+    value_shape_stats.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+
+    Ok((cardinality, value_shape_stats))
+}
+
 fn collect_corpus_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), CorpusError> {
     if path.is_file() {
         files.push(path.to_path_buf());
@@ -531,6 +705,39 @@ fn record_message_shape(
     }
 }
 
+#[derive(Default)]
+struct FieldCardinalityAccumulator {
+    present_message_count: usize,
+    total_occurrences: usize,
+    max_per_message: usize,
+    min_present_per_message: Option<usize>,
+}
+
+fn record_fingerprint_message_shape(
+    message: &Message,
+    message_occurrences: &mut BTreeMap<String, usize>,
+    value_shapes: &mut BTreeMap<String, CorpusValueShapeStats>,
+) {
+    for segment in &message.segments {
+        let segment_id = segment.id_str().to_string();
+
+        for (field_index, field) in segment.fields.iter().enumerate() {
+            if !field_is_present(field) {
+                continue;
+            }
+
+            let display_index = if segment_id == "MSH" {
+                field_index.saturating_add(2)
+            } else {
+                field_index.saturating_add(1)
+            };
+            let path = format!("{segment_id}.{display_index}");
+            increment_count(message_occurrences, path.clone());
+            record_value_shape(value_shapes, &path, field);
+        }
+    }
+}
+
 fn field_is_present(field: &Field) -> bool {
     field.reps.iter().any(|rep| {
         rep.comps.iter().any(|comp| {
@@ -540,6 +747,87 @@ fn field_is_present(field: &Field) -> bool {
             })
         })
     })
+}
+
+#[derive(Clone, Copy)]
+enum ValueShape {
+    Coded,
+    Timestamp,
+    Numeric,
+    Null,
+    Text,
+}
+
+fn record_value_shape(
+    value_shapes: &mut BTreeMap<String, CorpusValueShapeStats>,
+    path: &str,
+    field: &Field,
+) {
+    let stats = value_shapes
+        .entry(path.to_string())
+        .or_insert_with(|| empty_value_shape_stats(path));
+    for shape in field_value_shapes(field) {
+        match shape {
+            ValueShape::Coded => stats.coded_count = stats.coded_count.saturating_add(1),
+            ValueShape::Timestamp => {
+                stats.timestamp_count = stats.timestamp_count.saturating_add(1);
+            }
+            ValueShape::Numeric => stats.numeric_count = stats.numeric_count.saturating_add(1),
+            ValueShape::Null => stats.null_count = stats.null_count.saturating_add(1),
+            ValueShape::Text => stats.text_count = stats.text_count.saturating_add(1),
+        }
+    }
+}
+
+fn empty_value_shape_stats(path: &str) -> CorpusValueShapeStats {
+    CorpusValueShapeStats {
+        path: path.to_string(),
+        coded_count: 0,
+        timestamp_count: 0,
+        numeric_count: 0,
+        null_count: 0,
+        text_count: 0,
+    }
+}
+
+fn field_value_shapes(field: &Field) -> Vec<ValueShape> {
+    field
+        .reps
+        .iter()
+        .filter_map(repetition_value_shape)
+        .collect()
+}
+
+fn repetition_value_shape(rep: &crate::model::Rep) -> Option<ValueShape> {
+    if rep
+        .comps
+        .iter()
+        .flat_map(|component| component.subs.iter())
+        .any(|atom| matches!(atom, Atom::Null))
+    {
+        return Some(ValueShape::Null);
+    }
+
+    if rep.comps.len() > 1 {
+        return Some(ValueShape::Coded);
+    }
+
+    let text = rep.first_text()?;
+    if text.is_empty() {
+        return None;
+    }
+
+    if is_hl7_timestamp_shape(text) {
+        Some(ValueShape::Timestamp)
+    } else if text.parse::<f64>().is_ok() {
+        Some(ValueShape::Numeric)
+    } else {
+        Some(ValueShape::Text)
+    }
+}
+
+fn is_hl7_timestamp_shape(text: &str) -> bool {
+    matches!(text.len(), 8 | 12 | 14) && text.chars().all(|character| character.is_ascii_digit())
 }
 
 fn compare_field_paths(left: &str, right: &str) -> Ordering {
@@ -677,6 +965,45 @@ mod summary_tests {
                 .first()
                 .map(|failure| failure.path.as_str()),
             Some("invalid.hl7")
+        );
+    }
+
+    #[test]
+    fn fingerprint_corpus_path_reports_shape_and_cardinality() {
+        let Ok(dir) = tempfile::tempdir() else {
+            panic!("test temp dir should be created");
+        };
+        write_message(&dir.path().join("adt.hl7"), ADT_A01);
+        write_message(&dir.path().join("oru.hl7"), ORU_R01);
+        write_message(&dir.path().join("invalid.hl7"), "not an hl7 message");
+
+        let Ok(fingerprint) = fingerprint_corpus_path(dir.path()) else {
+            panic!("corpus should fingerprint");
+        };
+
+        assert_eq!(fingerprint.fingerprint_version, "1");
+        assert_eq!(fingerprint.file_count, 3);
+        assert_eq!(fingerprint.message_count, 2);
+        assert_eq!(fingerprint.parse_error_count, 1);
+        assert!(
+            fingerprint
+                .message_type_counts
+                .iter()
+                .any(|count| count.value == "ORU^R01" && count.count == 1)
+        );
+        assert!(
+            fingerprint
+                .field_cardinality
+                .iter()
+                .any(|field| field.path == "OBX.5"
+                    && field.min_per_message == 0
+                    && field.max_per_message == 1)
+        );
+        assert!(
+            fingerprint
+                .value_shape_stats
+                .iter()
+                .any(|shape| shape.path == "OBX.5" && shape.numeric_count == 1)
         );
     }
 }
