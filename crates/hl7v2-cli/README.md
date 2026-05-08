@@ -24,7 +24,9 @@ Summarize a directory or file corpus:
 ```bash
 hl7v2 corpus summarize corpus/
 hl7v2 corpus summarize corpus/ --format json
-hl7v2 corpus diff feeds/before feeds/after --format json
+hl7v2 corpus fingerprint corpus/ --format json
+hl7v2 corpus fingerprint corpus/ --profile profiles/adt_a01.yaml --format json
+hl7v2 corpus diff feeds/before feeds/after --profile profiles/adt_a01.yaml --format json
 ```
 
 For usage examples, see the [examples/](https://github.com/EffortlessMetrics/hl7v2-rs/tree/main/examples) directory in the root of the repository.

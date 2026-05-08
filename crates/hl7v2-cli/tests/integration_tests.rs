@@ -117,6 +117,17 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_corpus_fingerprint_help() {
+        let mut cmd = cli_command();
+        cmd.args(["corpus", "fingerprint", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Create a deterministic feed fingerprint",
+            ));
+    }
+
+    #[test]
     fn test_ack_help() {
         let mut cmd = cli_command();
         cmd.args(["ack", "--help"])
@@ -692,10 +703,11 @@ mod corpus_command {
 
         let report: serde_json::Value =
             serde_json::from_slice(&output.stdout).expect("diff output should be JSON");
+        assert_eq!(report["diff_version"], "1");
         assert_eq!(report["file_count"]["delta"], 1);
         assert_eq!(report["message_count"]["delta"], 1);
         assert!(
-            report["message_types"]
+            report["message_type_counts"]
                 .as_array()
                 .unwrap()
                 .iter()
@@ -703,6 +715,145 @@ mod corpus_command {
                     && entry["before"] == 0
                     && entry["after"] == 1
                     && entry["delta"] == 1)
+        );
+        assert!(
+            report["new_message_types"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry == "ORU^R01")
+        );
+    }
+
+    #[test]
+    fn test_corpus_diff_json_with_profile_counts_issue_code_deltas() {
+        let before = create_temp_dir();
+        let after = create_temp_dir();
+        let profile_dir = create_temp_dir();
+        create_temp_hl7_file(&before, "valid.hl7");
+        create_temp_hl7_with_content(
+            &after,
+            "missing_pid3.hl7",
+            "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1\r",
+        );
+        let profile = create_temp_profile(
+            &profile_dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "diff",
+                before.path().to_str().unwrap(),
+                after.path().to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute corpus diff");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("diff output should be JSON");
+        assert_eq!(report["profile"]["message_structure"], "ADT_A01");
+        assert!(
+            report["validation_issue_code_counts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["value"] == "missing_required_field"
+                    && entry["before"] == 0
+                    && entry["after"] == 1
+                    && entry["delta"] == 1)
+        );
+    }
+
+    #[test]
+    fn test_corpus_fingerprint_text_reports_shape() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+
+        let mut cmd = cli_command();
+        cmd.args(["corpus", "fingerprint", dir.path().to_str().unwrap()])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Corpus Fingerprint:"))
+            .stdout(predicate::str::contains("Files scanned: 1"))
+            .stdout(predicate::str::contains("ADT^A01^ADT_A01: 1"))
+            .stdout(predicate::str::contains("Field presence:"))
+            .stdout(predicate::str::contains("Value shapes:"));
+    }
+
+    #[test]
+    fn test_corpus_fingerprint_json_with_profile_counts_issue_codes() {
+        let dir = create_temp_dir();
+        let profile_dir = create_temp_dir();
+        create_temp_hl7_with_content(
+            &dir,
+            "missing_pid3.hl7",
+            "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1\r",
+        );
+        let profile = create_temp_profile(
+            &profile_dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "fingerprint",
+                dir.path().to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute corpus fingerprint");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("fingerprint output should be JSON");
+        assert_eq!(report["fingerprint_version"], "1");
+        assert_eq!(report["file_count"], 1);
+        assert_eq!(report["message_count"], 1);
+        assert_eq!(report["parse_error_count"], 0);
+        assert_eq!(report["profile"]["message_structure"], "ADT_A01");
+        assert!(
+            report["validation_issue_code_counts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["value"] == "missing_required_field" && entry["count"] == 1)
         );
     }
 }

@@ -766,8 +766,11 @@ constraints:
         #[test]
         fn test_format_corpus_diff_report_text() {
             let report = hl7v2::synthetic::corpus::CorpusDiffReport {
+                diff_version: "1".to_string(),
+                tool_version: "1.2.1".to_string(),
                 before_root: "before".to_string(),
                 after_root: "after".to_string(),
+                profile: None,
                 file_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
                     before: 1,
                     after: 2,
@@ -783,18 +786,17 @@ constraints:
                     after: 1,
                     delta: 1,
                 },
-                total_bytes: hl7v2::synthetic::corpus::CorpusTotalDiff {
-                    before: 100,
-                    after: 180,
-                    delta: 80,
-                },
-                message_types: vec![hl7v2::synthetic::corpus::CorpusCountDiff {
+                new_message_types: vec!["ORU^R01".to_string()],
+                removed_message_types: Vec::new(),
+                new_segments: vec!["OBX".to_string()],
+                removed_segments: Vec::new(),
+                message_type_counts: vec![hl7v2::synthetic::corpus::CorpusCountDiff {
                     value: "ORU^R01".to_string(),
                     before: 0,
                     after: 1,
                     delta: 1,
                 }],
-                segments: vec![hl7v2::synthetic::corpus::CorpusCountDiff {
+                segment_counts: vec![hl7v2::synthetic::corpus::CorpusCountDiff {
                     value: "OBX".to_string(),
                     before: 0,
                     after: 1,
@@ -809,6 +811,50 @@ constraints:
                     after_occurrence_count: 1,
                     occurrence_count_delta: 1,
                 }],
+                field_cardinality: vec![hl7v2::synthetic::corpus::CorpusFieldCardinalityDiff {
+                    path: "OBX.5".to_string(),
+                    before_min_per_message: 0,
+                    after_min_per_message: 0,
+                    min_per_message_delta: 0,
+                    before_max_per_message: 0,
+                    after_max_per_message: 1,
+                    max_per_message_delta: 1,
+                    before_total_occurrences: 0,
+                    after_total_occurrences: 1,
+                    total_occurrences_delta: 1,
+                    before_message_count: 0,
+                    after_message_count: 1,
+                    message_count_delta: 1,
+                }],
+                value_shape_stats: vec![hl7v2::synthetic::corpus::CorpusValueShapeStatsDiff {
+                    path: "OBX.5".to_string(),
+                    coded_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                        before: 0,
+                        after: 0,
+                        delta: 0,
+                    },
+                    timestamp_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                        before: 0,
+                        after: 0,
+                        delta: 0,
+                    },
+                    numeric_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                        before: 0,
+                        after: 1,
+                        delta: 1,
+                    },
+                    null_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                        before: 0,
+                        after: 0,
+                        delta: 0,
+                    },
+                    text_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                        before: 0,
+                        after: 0,
+                        delta: 0,
+                    },
+                }],
+                validation_issue_code_counts: Vec::new(),
             };
 
             let output = crate::format_corpus_diff(&report, &crate::ReportFormat::Text)
@@ -832,8 +878,80 @@ constraints:
             let result = corpus_diff_command(
                 &before.path().to_path_buf(),
                 &after.path().to_path_buf(),
+                None,
                 &ReportFormat::Json,
             );
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn test_format_corpus_fingerprint_report_text() {
+            let report = hl7v2::synthetic::corpus::CorpusFingerprint {
+                fingerprint_version: "1".to_string(),
+                tool_version: "1.2.1".to_string(),
+                root: "corpus".to_string(),
+                profile: Some(hl7v2::synthetic::corpus::CorpusFingerprintProfile {
+                    path: "profile.yaml".to_string(),
+                    sha256: "abc123".to_string(),
+                    version: "2.5.1".to_string(),
+                    message_structure: "ADT_A01".to_string(),
+                }),
+                file_count: 2,
+                message_count: 1,
+                parse_error_count: 1,
+                message_type_counts: vec![hl7v2::synthetic::corpus::CorpusCount {
+                    value: "ADT^A01".to_string(),
+                    count: 1,
+                }],
+                segment_counts: vec![hl7v2::synthetic::corpus::CorpusCount {
+                    value: "PID".to_string(),
+                    count: 1,
+                }],
+                field_presence: vec![hl7v2::synthetic::corpus::CorpusFieldPresence {
+                    path: "PID.3".to_string(),
+                    message_count: 1,
+                    occurrence_count: 1,
+                }],
+                field_cardinality: vec![hl7v2::synthetic::corpus::CorpusFieldCardinality {
+                    path: "PID.3".to_string(),
+                    min_per_message: 0,
+                    max_per_message: 1,
+                    total_occurrences: 1,
+                    message_count: 1,
+                }],
+                value_shape_stats: vec![hl7v2::synthetic::corpus::CorpusValueShapeStats {
+                    path: "PID.3".to_string(),
+                    coded_count: 1,
+                    timestamp_count: 0,
+                    numeric_count: 0,
+                    null_count: 0,
+                    text_count: 0,
+                }],
+                validation_issue_code_counts: vec![hl7v2::synthetic::corpus::CorpusCount {
+                    value: "missing_required_field".to_string(),
+                    count: 1,
+                }],
+            };
+
+            let output = crate::format_corpus_fingerprint(&report, &crate::ReportFormat::Text)
+                .expect("Should format as text");
+
+            assert!(output.contains("Corpus Fingerprint:"));
+            assert!(output.contains("Profile:"));
+            assert!(output.contains("ADT^A01: 1"));
+            assert!(output.contains("PID.3: 1 message(s), 1 occurrence(s), min 0, max 1"));
+            assert!(output.contains("missing_required_field: 1"));
+        }
+
+        #[test]
+        fn test_corpus_fingerprint_command_execution() {
+            use crate::ReportFormat;
+            use crate::corpus_fingerprint_command;
+            let dir = TempDir::new().expect("Failed to create temp dir");
+            create_temp_hl7_file(&dir, "test.hl7");
+
+            let result =
+                corpus_fingerprint_command(&dir.path().to_path_buf(), None, &ReportFormat::Json);
             assert!(result.is_ok());
         }
 
@@ -1019,7 +1137,25 @@ constraints:
         }
 
         #[test]
-        fn test_corpus_command_has_diff_subcommand() {
+        fn test_corpus_command_has_fingerprint_subcommand() {
+            use crate::Cli;
+            use clap::CommandFactory;
+
+            let schema = Cli::command();
+            let corpus_cmd = schema
+                .get_subcommands()
+                .find(|c| c.get_name() == "corpus")
+                .expect("corpus command should exist");
+
+            assert!(
+                corpus_cmd
+                    .get_subcommands()
+                    .any(|c| c.get_name() == "fingerprint")
+            );
+        }
+
+        #[test]
+        fn test_diff_corpus_command_exists() {
             use crate::Cli;
             use clap::CommandFactory;
 

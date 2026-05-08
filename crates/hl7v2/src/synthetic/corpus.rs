@@ -201,27 +201,169 @@ pub struct CorpusFieldPresenceDiff {
     pub occurrence_count_delta: i128,
 }
 
+/// Before/after field-cardinality observation for a corpus diff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFieldCardinalityDiff {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Minimum occurrences per message in the before corpus.
+    pub before_min_per_message: usize,
+    /// Minimum occurrences per message in the after corpus.
+    pub after_min_per_message: usize,
+    /// `after_min_per_message - before_min_per_message` as a signed delta.
+    pub min_per_message_delta: i128,
+    /// Maximum occurrences per message in the before corpus.
+    pub before_max_per_message: usize,
+    /// Maximum occurrences per message in the after corpus.
+    pub after_max_per_message: usize,
+    /// `after_max_per_message - before_max_per_message` as a signed delta.
+    pub max_per_message_delta: i128,
+    /// Total occurrences in the before corpus.
+    pub before_total_occurrences: usize,
+    /// Total occurrences in the after corpus.
+    pub after_total_occurrences: usize,
+    /// `after_total_occurrences - before_total_occurrences` as a signed delta.
+    pub total_occurrences_delta: i128,
+    /// Number of before-corpus messages where this path was present.
+    pub before_message_count: usize,
+    /// Number of after-corpus messages where this path was present.
+    pub after_message_count: usize,
+    /// `after_message_count - before_message_count` as a signed delta.
+    pub message_count_delta: i128,
+}
+
+/// Before/after value-shape counts for a corpus diff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusValueShapeStatsDiff {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Coded/component count before/after/delta.
+    pub coded_count: CorpusTotalDiff,
+    /// Timestamp-like count before/after/delta.
+    pub timestamp_count: CorpusTotalDiff,
+    /// Numeric count before/after/delta.
+    pub numeric_count: CorpusTotalDiff,
+    /// Explicit HL7 null count before/after/delta.
+    pub null_count: CorpusTotalDiff,
+    /// Other non-empty text count before/after/delta.
+    pub text_count: CorpusTotalDiff,
+}
+
 /// Difference report for two HL7 v2 corpora.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CorpusDiffReport {
+    /// Diff schema version.
+    pub diff_version: String,
+    /// hl7v2 tool version.
+    pub tool_version: String,
     /// Root path summarized for the before corpus.
     pub before_root: String,
     /// Root path summarized for the after corpus.
     pub after_root: String,
+    /// Optional profile metadata used for validation issue-code counts.
+    pub profile: Option<CorpusFingerprintProfile>,
     /// Regular file count before/after/delta.
     pub file_count: CorpusTotalDiff,
     /// Parsed message count before/after/delta.
     pub message_count: CorpusTotalDiff,
     /// Parse error count before/after/delta.
     pub parse_error_count: CorpusTotalDiff,
-    /// Total byte count before/after/delta.
-    pub total_bytes: CorpusTotalDiff,
+    /// Message types that appear only in the after corpus.
+    pub new_message_types: Vec<String>,
+    /// Message types that appear only in the before corpus.
+    pub removed_message_types: Vec<String>,
+    /// Segment IDs that appear only in the after corpus.
+    pub new_segments: Vec<String>,
+    /// Segment IDs that appear only in the before corpus.
+    pub removed_segments: Vec<String>,
     /// Message type count differences.
-    pub message_types: Vec<CorpusCountDiff>,
+    pub message_type_counts: Vec<CorpusCountDiff>,
     /// Segment count differences.
-    pub segments: Vec<CorpusCountDiff>,
+    pub segment_counts: Vec<CorpusCountDiff>,
     /// Field presence differences.
     pub field_presence: Vec<CorpusFieldPresenceDiff>,
+    /// Field cardinality differences.
+    pub field_cardinality: Vec<CorpusFieldCardinalityDiff>,
+    /// Value shape differences.
+    pub value_shape_stats: Vec<CorpusValueShapeStatsDiff>,
+    /// Validation issue-code count differences when a profile is supplied.
+    pub validation_issue_code_counts: Vec<CorpusCountDiff>,
+}
+
+/// Field cardinality observed across parsed corpus messages.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFieldCardinality {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Minimum occurrences observed in any parsed message.
+    pub min_per_message: usize,
+    /// Maximum occurrences observed in any parsed message.
+    pub max_per_message: usize,
+    /// Total occurrences across all parsed messages.
+    pub total_occurrences: usize,
+    /// Number of parsed messages where this path was present.
+    pub message_count: usize,
+}
+
+/// Value shape counts for one HL7 field path.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusValueShapeStats {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Count of coded/component values.
+    pub coded_count: usize,
+    /// Count of timestamp-like values.
+    pub timestamp_count: usize,
+    /// Count of numeric values.
+    pub numeric_count: usize,
+    /// Count of explicit HL7 null values.
+    pub null_count: usize,
+    /// Count of other non-empty text values.
+    pub text_count: usize,
+}
+
+/// Profile metadata attached to a corpus fingerprint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFingerprintProfile {
+    /// Profile path supplied by the caller.
+    pub path: String,
+    /// SHA-256 hash of the profile content.
+    pub sha256: String,
+    /// Profile version, when loaded.
+    pub version: String,
+    /// Profile message structure, when loaded.
+    pub message_structure: String,
+}
+
+/// Deterministic compact signature for a file or directory corpus.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFingerprint {
+    /// Fingerprint schema version.
+    pub fingerprint_version: String,
+    /// hl7v2 tool version.
+    pub tool_version: String,
+    /// Root path that was fingerprinted.
+    pub root: String,
+    /// Optional profile metadata.
+    pub profile: Option<CorpusFingerprintProfile>,
+    /// Number of regular files scanned.
+    pub file_count: usize,
+    /// Number of messages parsed successfully.
+    pub message_count: usize,
+    /// Number of files that could not be parsed as HL7 v2.
+    pub parse_error_count: usize,
+    /// Message type counts from parsed MSH-9 values.
+    pub message_type_counts: Vec<CorpusCount>,
+    /// Segment ID counts across parsed messages.
+    pub segment_counts: Vec<CorpusCount>,
+    /// Field presence counts across parsed messages.
+    pub field_presence: Vec<CorpusFieldPresence>,
+    /// Field cardinality observations across parsed messages.
+    pub field_cardinality: Vec<CorpusFieldCardinality>,
+    /// Value shape observations across parsed messages.
+    pub value_shape_stats: Vec<CorpusValueShapeStats>,
+    /// Validation issue code counts when a profile is supplied.
+    pub validation_issue_code_counts: Vec<CorpusCount>,
 }
 
 /// Train/validation/test split information
@@ -531,8 +673,8 @@ pub fn summarize_corpus_path(path: impl AsRef<Path>) -> Result<CorpusSummary, Co
 
 /// Diff two file or directory corpora of HL7 v2 messages.
 ///
-/// This summarizes both inputs using [`summarize_corpus_path`] and returns
-/// before/after counts plus signed deltas for the stable corpus dimensions.
+/// This fingerprints both inputs using [`fingerprint_corpus_path`] and returns
+/// before/after counts plus signed deltas for stable corpus dimensions.
 ///
 /// # Errors
 ///
@@ -543,24 +685,149 @@ pub fn diff_corpus_paths(
     before: impl AsRef<Path>,
     after: impl AsRef<Path>,
 ) -> Result<CorpusDiffReport, CorpusError> {
-    let before_summary = summarize_corpus_path(before)?;
-    let after_summary = summarize_corpus_path(after)?;
-    Ok(diff_corpus_summaries(&before_summary, &after_summary))
+    let before_fingerprint = fingerprint_corpus_path(before)?;
+    let after_fingerprint = fingerprint_corpus_path(after)?;
+    Ok(diff_corpus_fingerprints(
+        &before_fingerprint,
+        &after_fingerprint,
+    ))
 }
 
-/// Diff two already-computed corpus summaries.
-pub fn diff_corpus_summaries(before: &CorpusSummary, after: &CorpusSummary) -> CorpusDiffReport {
+/// Diff two already-computed corpus fingerprints.
+pub fn diff_corpus_fingerprints(
+    before: &CorpusFingerprint,
+    after: &CorpusFingerprint,
+) -> CorpusDiffReport {
+    let message_type_counts = diff_counts(&before.message_type_counts, &after.message_type_counts);
+    let segment_counts = diff_counts(&before.segment_counts, &after.segment_counts);
+
     CorpusDiffReport {
+        diff_version: "1".to_string(),
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
         before_root: before.root.clone(),
         after_root: after.root.clone(),
+        profile: before.profile.clone().or_else(|| after.profile.clone()),
         file_count: total_diff(before.file_count, after.file_count),
         message_count: total_diff(before.message_count, after.message_count),
         parse_error_count: total_diff(before.parse_error_count, after.parse_error_count),
-        total_bytes: total_diff(before.total_bytes, after.total_bytes),
-        message_types: diff_counts(&before.message_types, &after.message_types),
-        segments: diff_counts(&before.segments, &after.segments),
+        new_message_types: new_values(&message_type_counts),
+        removed_message_types: removed_values(&message_type_counts),
+        new_segments: new_values(&segment_counts),
+        removed_segments: removed_values(&segment_counts),
+        message_type_counts,
+        segment_counts,
         field_presence: diff_field_presence(&before.field_presence, &after.field_presence),
+        field_cardinality: diff_field_cardinality(
+            &before.field_cardinality,
+            &after.field_cardinality,
+        ),
+        value_shape_stats: diff_value_shape_stats(
+            &before.value_shape_stats,
+            &after.value_shape_stats,
+        ),
+        validation_issue_code_counts: diff_counts(
+            &before.validation_issue_code_counts,
+            &after.validation_issue_code_counts,
+        ),
     }
+}
+
+/// Fingerprint a file or directory of HL7 v2 messages.
+///
+/// The fingerprint is a compact deterministic feed signature derived from the
+/// parsed messages in the corpus. Parse failures are counted but skipped for
+/// shape-level dimensions.
+///
+/// # Errors
+///
+/// Returns [`CorpusError::InvalidConfig`] if the path is neither a regular file
+/// nor a directory. Returns [`CorpusError::IoError`] if traversal or file
+/// reading fails.
+pub fn fingerprint_corpus_path(path: impl AsRef<Path>) -> Result<CorpusFingerprint, CorpusError> {
+    let root = path.as_ref();
+    let summary = summarize_corpus_path(root)?;
+    let (field_cardinality, value_shape_stats) =
+        collect_fingerprint_details(root, summary.message_count)?;
+
+    Ok(CorpusFingerprint {
+        fingerprint_version: "1".to_string(),
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        root: summary.root,
+        profile: None,
+        file_count: summary.file_count,
+        message_count: summary.message_count,
+        parse_error_count: summary.parse_error_count,
+        message_type_counts: summary.message_types,
+        segment_counts: summary.segments,
+        field_presence: summary.field_presence,
+        field_cardinality,
+        value_shape_stats,
+        validation_issue_code_counts: Vec::new(),
+    })
+}
+
+fn collect_fingerprint_details(
+    root: &Path,
+    message_count: usize,
+) -> Result<(Vec<CorpusFieldCardinality>, Vec<CorpusValueShapeStats>), CorpusError> {
+    let mut files = Vec::new();
+    collect_corpus_files(root, &mut files)?;
+    files.sort();
+
+    let mut cardinality: BTreeMap<String, FieldCardinalityAccumulator> = BTreeMap::new();
+    let mut value_shapes: BTreeMap<String, CorpusValueShapeStats> = BTreeMap::new();
+
+    for file in &files {
+        let relative_path = relative_corpus_path(root, file);
+        let bytes =
+            fs::read(file).map_err(|e| CorpusError::IoError(format!("{relative_path}: {e}")))?;
+        let parsed = if is_mllp_framed(&bytes) {
+            parse_mllp(&bytes)
+        } else {
+            parse(&bytes)
+        };
+        let Ok(message) = parsed else {
+            continue;
+        };
+
+        let mut message_occurrences: BTreeMap<String, usize> = BTreeMap::new();
+        record_fingerprint_message_shape(&message, &mut message_occurrences, &mut value_shapes);
+
+        for (path, occurrences) in message_occurrences {
+            let entry = cardinality.entry(path).or_default();
+            entry.present_message_count = entry.present_message_count.saturating_add(1);
+            entry.total_occurrences = entry.total_occurrences.saturating_add(occurrences);
+            entry.max_per_message = entry.max_per_message.max(occurrences);
+            entry.min_present_per_message = match entry.min_present_per_message {
+                Some(current) => Some(current.min(occurrences)),
+                None => Some(occurrences),
+            };
+        }
+    }
+
+    let mut cardinality: Vec<CorpusFieldCardinality> = cardinality
+        .into_iter()
+        .map(|(path, stats)| {
+            let min_per_message = if stats.present_message_count < message_count {
+                0
+            } else {
+                stats.min_present_per_message.unwrap_or_default()
+            };
+            CorpusFieldCardinality {
+                path,
+                min_per_message,
+                max_per_message: stats.max_per_message,
+                total_occurrences: stats.total_occurrences,
+                message_count: stats.present_message_count,
+            }
+        })
+        .collect();
+    cardinality.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+
+    let mut value_shape_stats: Vec<CorpusValueShapeStats> = value_shapes.into_values().collect();
+    value_shape_stats.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+
+    Ok((cardinality, value_shape_stats))
 }
 
 fn collect_corpus_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), CorpusError> {
@@ -631,6 +898,39 @@ fn record_message_shape(
     }
 }
 
+#[derive(Default)]
+struct FieldCardinalityAccumulator {
+    present_message_count: usize,
+    total_occurrences: usize,
+    max_per_message: usize,
+    min_present_per_message: Option<usize>,
+}
+
+fn record_fingerprint_message_shape(
+    message: &Message,
+    message_occurrences: &mut BTreeMap<String, usize>,
+    value_shapes: &mut BTreeMap<String, CorpusValueShapeStats>,
+) {
+    for segment in &message.segments {
+        let segment_id = segment.id_str().to_string();
+
+        for (field_index, field) in segment.fields.iter().enumerate() {
+            if !field_is_present(field) {
+                continue;
+            }
+
+            let display_index = if segment_id == "MSH" {
+                field_index.saturating_add(2)
+            } else {
+                field_index.saturating_add(1)
+            };
+            let path = format!("{segment_id}.{display_index}");
+            increment_count(message_occurrences, path.clone());
+            record_value_shape(value_shapes, &path, field);
+        }
+    }
+}
+
 fn field_is_present(field: &Field) -> bool {
     field.reps.iter().any(|rep| {
         rep.comps.iter().any(|comp| {
@@ -640,6 +940,87 @@ fn field_is_present(field: &Field) -> bool {
             })
         })
     })
+}
+
+#[derive(Clone, Copy)]
+enum ValueShape {
+    Coded,
+    Timestamp,
+    Numeric,
+    Null,
+    Text,
+}
+
+fn record_value_shape(
+    value_shapes: &mut BTreeMap<String, CorpusValueShapeStats>,
+    path: &str,
+    field: &Field,
+) {
+    let stats = value_shapes
+        .entry(path.to_string())
+        .or_insert_with(|| empty_value_shape_stats(path));
+    for shape in field_value_shapes(field) {
+        match shape {
+            ValueShape::Coded => stats.coded_count = stats.coded_count.saturating_add(1),
+            ValueShape::Timestamp => {
+                stats.timestamp_count = stats.timestamp_count.saturating_add(1);
+            }
+            ValueShape::Numeric => stats.numeric_count = stats.numeric_count.saturating_add(1),
+            ValueShape::Null => stats.null_count = stats.null_count.saturating_add(1),
+            ValueShape::Text => stats.text_count = stats.text_count.saturating_add(1),
+        }
+    }
+}
+
+fn empty_value_shape_stats(path: &str) -> CorpusValueShapeStats {
+    CorpusValueShapeStats {
+        path: path.to_string(),
+        coded_count: 0,
+        timestamp_count: 0,
+        numeric_count: 0,
+        null_count: 0,
+        text_count: 0,
+    }
+}
+
+fn field_value_shapes(field: &Field) -> Vec<ValueShape> {
+    field
+        .reps
+        .iter()
+        .filter_map(repetition_value_shape)
+        .collect()
+}
+
+fn repetition_value_shape(rep: &crate::model::Rep) -> Option<ValueShape> {
+    if rep
+        .comps
+        .iter()
+        .flat_map(|component| component.subs.iter())
+        .any(|atom| matches!(atom, Atom::Null))
+    {
+        return Some(ValueShape::Null);
+    }
+
+    if rep.comps.len() > 1 {
+        return Some(ValueShape::Coded);
+    }
+
+    let text = rep.first_text()?;
+    if text.is_empty() {
+        return None;
+    }
+
+    if is_hl7_timestamp_shape(text) {
+        Some(ValueShape::Timestamp)
+    } else if text.parse::<f64>().is_ok() {
+        Some(ValueShape::Numeric)
+    } else {
+        Some(ValueShape::Text)
+    }
+}
+
+fn is_hl7_timestamp_shape(text: &str) -> bool {
+    matches!(text.len(), 8 | 12 | 14) && text.chars().all(|character| character.is_ascii_digit())
 }
 
 fn compare_field_paths(left: &str, right: &str) -> Ordering {
@@ -695,6 +1076,22 @@ fn count_map(counts: &[CorpusCount]) -> BTreeMap<String, usize> {
         .collect()
 }
 
+fn new_values(counts: &[CorpusCountDiff]) -> Vec<String> {
+    counts
+        .iter()
+        .filter(|count| count.before == 0 && count.after > 0)
+        .map(|count| count.value.clone())
+        .collect()
+}
+
+fn removed_values(counts: &[CorpusCountDiff]) -> Vec<String> {
+    counts
+        .iter()
+        .filter(|count| count.before > 0 && count.after == 0)
+        .map(|count| count.value.clone())
+        .collect()
+}
+
 fn diff_field_presence(
     before: &[CorpusFieldPresence],
     after: &[CorpusFieldPresence],
@@ -743,6 +1140,139 @@ fn field_presence_map(fields: &[CorpusFieldPresence]) -> BTreeMap<String, &Corpu
     fields
         .iter()
         .map(|field| (field.path.clone(), field))
+        .collect()
+}
+
+fn diff_field_cardinality(
+    before: &[CorpusFieldCardinality],
+    after: &[CorpusFieldCardinality],
+) -> Vec<CorpusFieldCardinalityDiff> {
+    let before_fields = field_cardinality_map(before);
+    let after_fields = field_cardinality_map(after);
+    let mut paths = BTreeSet::new();
+
+    for path in before_fields.keys() {
+        paths.insert(path.as_str());
+    }
+    for path in after_fields.keys() {
+        paths.insert(path.as_str());
+    }
+
+    let mut diffs: Vec<CorpusFieldCardinalityDiff> = paths
+        .into_iter()
+        .map(|path| {
+            let before = before_fields.get(path);
+            let after = after_fields.get(path);
+            let before_min_per_message = before.map_or(0, |field| field.min_per_message);
+            let after_min_per_message = after.map_or(0, |field| field.min_per_message);
+            let before_max_per_message = before.map_or(0, |field| field.max_per_message);
+            let after_max_per_message = after.map_or(0, |field| field.max_per_message);
+            let before_total_occurrences = before.map_or(0, |field| field.total_occurrences);
+            let after_total_occurrences = after.map_or(0, |field| field.total_occurrences);
+            let before_message_count = before.map_or(0, |field| field.message_count);
+            let after_message_count = after.map_or(0, |field| field.message_count);
+
+            CorpusFieldCardinalityDiff {
+                path: path.to_string(),
+                before_min_per_message,
+                after_min_per_message,
+                min_per_message_delta: signed_delta(before_min_per_message, after_min_per_message),
+                before_max_per_message,
+                after_max_per_message,
+                max_per_message_delta: signed_delta(before_max_per_message, after_max_per_message),
+                before_total_occurrences,
+                after_total_occurrences,
+                total_occurrences_delta: signed_delta(
+                    before_total_occurrences,
+                    after_total_occurrences,
+                ),
+                before_message_count,
+                after_message_count,
+                message_count_delta: signed_delta(before_message_count, after_message_count),
+            }
+        })
+        .filter(|field| {
+            field.min_per_message_delta != 0
+                || field.max_per_message_delta != 0
+                || field.total_occurrences_delta != 0
+                || field.message_count_delta != 0
+        })
+        .collect();
+    diffs.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+    diffs
+}
+
+fn field_cardinality_map(
+    fields: &[CorpusFieldCardinality],
+) -> BTreeMap<String, &CorpusFieldCardinality> {
+    fields
+        .iter()
+        .map(|field| (field.path.clone(), field))
+        .collect()
+}
+
+fn diff_value_shape_stats(
+    before: &[CorpusValueShapeStats],
+    after: &[CorpusValueShapeStats],
+) -> Vec<CorpusValueShapeStatsDiff> {
+    let before_shapes = value_shape_stats_map(before);
+    let after_shapes = value_shape_stats_map(after);
+    let mut paths = BTreeSet::new();
+
+    for path in before_shapes.keys() {
+        paths.insert(path.as_str());
+    }
+    for path in after_shapes.keys() {
+        paths.insert(path.as_str());
+    }
+
+    let mut diffs: Vec<CorpusValueShapeStatsDiff> = paths
+        .into_iter()
+        .map(|path| {
+            let before = before_shapes.get(path);
+            let after = after_shapes.get(path);
+            CorpusValueShapeStatsDiff {
+                path: path.to_string(),
+                coded_count: total_diff(
+                    before.map_or(0, |shape| shape.coded_count),
+                    after.map_or(0, |shape| shape.coded_count),
+                ),
+                timestamp_count: total_diff(
+                    before.map_or(0, |shape| shape.timestamp_count),
+                    after.map_or(0, |shape| shape.timestamp_count),
+                ),
+                numeric_count: total_diff(
+                    before.map_or(0, |shape| shape.numeric_count),
+                    after.map_or(0, |shape| shape.numeric_count),
+                ),
+                null_count: total_diff(
+                    before.map_or(0, |shape| shape.null_count),
+                    after.map_or(0, |shape| shape.null_count),
+                ),
+                text_count: total_diff(
+                    before.map_or(0, |shape| shape.text_count),
+                    after.map_or(0, |shape| shape.text_count),
+                ),
+            }
+        })
+        .filter(|shape| {
+            shape.coded_count.delta != 0
+                || shape.timestamp_count.delta != 0
+                || shape.numeric_count.delta != 0
+                || shape.null_count.delta != 0
+                || shape.text_count.delta != 0
+        })
+        .collect();
+    diffs.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+    diffs
+}
+
+fn value_shape_stats_map(
+    stats: &[CorpusValueShapeStats],
+) -> BTreeMap<String, &CorpusValueShapeStats> {
+    stats
+        .iter()
+        .map(|shape| (shape.path.clone(), shape))
         .collect()
 }
 
@@ -901,19 +1431,72 @@ mod summary_tests {
         assert_eq!(diff.file_count.delta, 1);
         assert_eq!(diff.message_count.delta, 1);
         assert!(
-            diff.message_types
+            diff.message_type_counts
                 .iter()
                 .any(|count| count.value == "ORU^R01" && count.before == 0 && count.after == 1)
         );
+        assert_eq!(diff.new_message_types, vec!["ORU^R01".to_string()]);
         assert!(
-            diff.segments
+            diff.segment_counts
                 .iter()
                 .any(|count| count.value == "OBX" && count.before == 0 && count.after == 1)
         );
+        assert!(diff.new_segments.iter().any(|segment| segment == "OBX"));
         assert!(
             diff.field_presence
                 .iter()
                 .any(|field| field.path == "OBX.5" && field.message_count_delta == 1)
+        );
+        assert!(
+            diff.field_cardinality
+                .iter()
+                .any(|field| field.path == "OBX.5"
+                    && field.max_per_message_delta == 1
+                    && field.total_occurrences_delta == 1)
+        );
+        assert!(
+            diff.value_shape_stats
+                .iter()
+                .any(|shape| shape.path == "OBX.5" && shape.numeric_count.delta == 1)
+        );
+    }
+
+    #[test]
+    fn fingerprint_corpus_path_reports_shape_and_cardinality() {
+        let Ok(dir) = tempfile::tempdir() else {
+            panic!("test temp dir should be created");
+        };
+        write_message(&dir.path().join("adt.hl7"), ADT_A01);
+        write_message(&dir.path().join("oru.hl7"), ORU_R01);
+        write_message(&dir.path().join("invalid.hl7"), "not an hl7 message");
+
+        let Ok(fingerprint) = fingerprint_corpus_path(dir.path()) else {
+            panic!("corpus should fingerprint");
+        };
+
+        assert_eq!(fingerprint.fingerprint_version, "1");
+        assert_eq!(fingerprint.file_count, 3);
+        assert_eq!(fingerprint.message_count, 2);
+        assert_eq!(fingerprint.parse_error_count, 1);
+        assert!(
+            fingerprint
+                .message_type_counts
+                .iter()
+                .any(|count| count.value == "ORU^R01" && count.count == 1)
+        );
+        assert!(
+            fingerprint
+                .field_cardinality
+                .iter()
+                .any(|field| field.path == "OBX.5"
+                    && field.min_per_message == 0
+                    && field.max_per_message == 1)
+        );
+        assert!(
+            fingerprint
+                .value_shape_stats
+                .iter()
+                .any(|shape| shape.path == "OBX.5" && shape.numeric_count == 1)
         );
     }
 }
