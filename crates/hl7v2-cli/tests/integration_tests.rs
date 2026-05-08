@@ -84,6 +84,97 @@ mod help_and_version {
             .success()
             .stdout(predicate::str::contains("Generate synthetic"));
     }
+
+    #[test]
+    fn test_doctor_help() {
+        let mut cmd = cli_command();
+        cmd.args(["doctor", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Run first-use diagnostics"));
+    }
+}
+
+// =========================================================================
+// Doctor Command Tests
+// =========================================================================
+
+mod doctor_command {
+    use super::*;
+
+    #[test]
+    fn test_doctor_runs_builtin_checks() {
+        let mut cmd = cli_command();
+        cmd.arg("doctor")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("HL7v2 Doctor"))
+            .stdout(predicate::str::contains("cli-version"))
+            .stdout(predicate::str::contains("sample-parse"))
+            .stdout(predicate::str::contains("mllp-roundtrip"));
+    }
+
+    #[test]
+    fn test_doctor_json_output_is_machine_readable() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["doctor", "--format", "json"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("Doctor output should be JSON");
+        assert_eq!(report["version"], env!("CARGO_PKG_VERSION"));
+        assert!(report["checks"].is_array());
+    }
+
+    #[test]
+    fn test_doctor_checks_profile_when_supplied() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+
+        let mut cmd = cli_command();
+        cmd.args(["doctor", "--profile", profile_file.to_str().unwrap()])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("[ok] profile"));
+    }
+
+    #[test]
+    fn test_doctor_fails_invalid_sample() {
+        let dir = create_temp_dir();
+        let invalid_file = create_temp_file(&dir, "invalid.hl7", invalid_hl7_message().as_bytes());
+
+        let mut cmd = cli_command();
+        cmd.args(["doctor", "--sample", invalid_file.to_str().unwrap()])
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("[error] sample-parse"));
+    }
+
+    #[test]
+    fn test_doctor_warns_about_lf_only_sample() {
+        let dir = create_temp_dir();
+        let lf_only = "MSH|^~\\&|App|Fac|Recv|Fac|20250101000000||ADT^A01|MSG001|P|2.5.1\nPID|1||123456^^^HOSP^MR||Doe^John\n";
+        let sample_file = create_temp_hl7_with_content(&dir, "lf.hl7", lf_only);
+
+        let mut cmd = cli_command();
+        cmd.args(["doctor", "--sample", sample_file.to_str().unwrap()])
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("[warn] sample-newlines"));
+    }
+
+    #[test]
+    fn test_doctor_fails_unsupported_server_url() {
+        let mut cmd = cli_command();
+        cmd.args(["doctor", "--server-url", "https://127.0.0.1:8080/health"])
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("[error] server"));
+    }
 }
 
 // =========================================================================
