@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Moved the package line to `1.2.1` so the final Rust publish can use a fresh
   release tag instead of reusing the historical `v1.2.0` tag.
+- Published the final Rust package graph to crates.io: `hl7v2`,
+  `hl7v2-server`, and `hl7v2-cli`.
 
 ### Documentation
 

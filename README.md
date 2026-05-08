@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.2.1 package line (Rust 2024). Current `main` is tested and package-verified, but the final Rust crates.io publish sequence has not been executed. Some historical implementation microcrate artifacts already exist on crates.io; they are not the product surface for new code. The existing `v1.2.0` git tag predates the current release head and remains historical; the next release should publish from a fresh `v1.2.1` tag after final dry-runs. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.2.1 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Some historical implementation microcrate artifacts already exist on crates.io; they are compatibility artifacts, not the product surface for new code. `hl7v2-python` remains a separate Python/maturin binding lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -24,7 +24,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Not included in the local Python 3.14/PyO3 validation proof |
-| **Publish Readiness** | Package-verified | Workspace-patched dry-run verifies the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`; Python remains a separate binding lane |
+| **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.2.1 are published to crates.io; Python remains a separate binding lane |
 
 ## Features
 
@@ -67,7 +67,7 @@ cd hl7v2-rs
 cargo install --path crates/hl7v2-cli
 ```
 
-### From crates.io (when published)
+### From crates.io
 
 ```bash
 cargo install hl7v2-cli
