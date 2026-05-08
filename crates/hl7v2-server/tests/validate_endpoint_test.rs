@@ -50,6 +50,11 @@ async fn test_validate_with_minimal_profile() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body_json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(body_json["valid"], true);
+    assert_eq!(body_json["message_type"], "ADT^A01");
+    assert_eq!(body_json["profile"], "MINIMAL");
+    assert_eq!(body_json["segment_count"], 1);
+    assert_eq!(body_json["issue_count"], 0);
+    assert_eq!(body_json["issues"].as_array().unwrap().len(), 0);
 }
 
 #[tokio::test]
@@ -168,6 +173,19 @@ constraints:
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body_json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(body_json["valid"], false);
+    assert_eq!(body_json["message_type"], "ADT^A01");
+    assert_eq!(body_json["profile"], "ADT_A01");
+    assert_eq!(body_json["segment_count"], 1);
+    assert_eq!(body_json["issue_count"], 1);
+    assert_eq!(body_json["issues"][0]["code"], "missing_required_field");
+    assert_eq!(body_json["issues"][0]["severity"], "error");
+    assert_eq!(body_json["issues"][0]["path"], "PID.3");
+    assert_eq!(body_json["issues"][0]["rule_id"], "missing_required_field");
+    assert_eq!(
+        body_json["issues"][0]["message"],
+        "Required field PID.3 is missing"
+    );
+    assert_eq!(body_json["issues"][0]["field_index"], 3);
     assert_eq!(body_json["errors"][0]["code"], "MISSING_REQUIRED_FIELD");
 }
 

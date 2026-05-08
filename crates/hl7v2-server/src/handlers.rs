@@ -66,8 +66,13 @@ pub async fn validate_handler(
 
     // Perform validation using the profile
     let issues = hl7v2::validate(&message, &profile);
+    let report = hl7v2::ValidationReport::from_issues(
+        &message,
+        Some(profile.message_structure.clone()),
+        issues.clone(),
+    );
 
-    // Convert validation issues to response format
+    // Preserve legacy error/warning arrays while exposing the shared report issues.
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
@@ -96,10 +101,13 @@ pub async fn validate_handler(
         }
     }
 
-    let valid = errors.is_empty();
-
     let response = ValidateResponse {
-        valid,
+        valid: report.valid,
+        message_type: report.message_type,
+        profile: report.profile,
+        segment_count: report.segment_count,
+        issue_count: report.issue_count,
+        issues: report.issues,
         errors,
         warnings,
         metadata,

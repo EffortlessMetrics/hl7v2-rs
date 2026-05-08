@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use hl7v2::ValidationReportIssue;
+
 /// Health check response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthResponse {
@@ -105,6 +107,17 @@ pub struct ValidateRequest {
 pub struct ValidateResponse {
     /// Whether validation passed
     pub valid: bool,
+    /// HL7 trigger event from `MSH.9`, such as `ADT^A01`.
+    pub message_type: String,
+    /// Profile identifier, usually the loaded profile message structure.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    /// Number of parsed message segments.
+    pub segment_count: usize,
+    /// Number of reported validation issues.
+    pub issue_count: usize,
+    /// Stable validation issue records.
+    pub issues: Vec<ValidationReportIssue>,
     /// Validation errors
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub errors: Vec<ValidationError>,
