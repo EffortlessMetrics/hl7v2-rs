@@ -3,7 +3,7 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-07
-> **Project Status**: v1.2.0 current release; current `main` is tested and package-verified, but the real crates.io publish sequence has not been executed.
+> **Project Status**: v1.2.0 package line; current `main` is tested and package-verified, but the final four-package crates.io publish sequence has not been executed.
 
 ## Core Components
 
@@ -12,7 +12,7 @@ This document provides a transparent view of which features are fully implemente
 | `hl7v2` | ✅ 100% | 92% | Canonical Rust library crate for parsing, writing, validation, transport framing, ACK, normalization, and generation. Foundation model, escape, and MLLP implementations now live here. |
 | `hl7v2-server` | ✅ 100% | 80% | HTTP REST API with metrics, auth, ACK, and normalization routes. |
 | `hl7v2-cli` | ✅ 100% | 75% | Full-featured CLI with streaming support. |
-| compatibility shims | ✅ Package-frozen | N/A | Old microcrate package names, including `hl7v2-model`, `hl7v2-escape`, and `hl7v2-mllp`, are private deprecated shims unless explicitly retained for compatibility. |
+| compatibility shims | ✅ Package-frozen | N/A | In the current workspace, old microcrate package names, including `hl7v2-model`, `hl7v2-escape`, and `hl7v2-mllp`, are private deprecated shims unless explicitly retained for compatibility. Some historical old-name `1.2.0` artifacts already exist on crates.io and should not be treated as the current product surface. |
 
 ## Feature Set (v1.2.0)
 
@@ -36,13 +36,15 @@ This document provides a transparent view of which features are fully implemente
 
 ## Release and Publish Readiness
 
-- ✅ **Main workflows**: CI, Coverage, Security, Extended, and Benchmarks are green as of the 2026-05-07 release-readiness verification; API Contracts are unchanged unless contract files are touched.
+- ✅ **Main workflows**: CI, Coverage, Security, Extended, Benchmarks, and API Contracts are green on the 2026-05-07 release-readiness head after manual API Contracts and Coverage dispatches.
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final public package graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Dry-run publish**: Workspace-patched dry-run verification proves the current public package graph while the dependency chain is still unpublished. Direct crates.io dry-run passes for `hl7v2`; dependent crates must be dry-run again after `hl7v2` is published and available in the crates.io index. See `docs/audits/publish-dry-run-2026-05-07.md`.
+- ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
+- ⚠️ **Tag alignment**: the existing `v1.2.0` tag points at an older commit, not the current release-readiness head. The final publish procedure must choose whether to retag, move to a new version, or otherwise document the release-head/tag relationship before uploading crates.
 
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.
 
 ---
 
-**Release v1.2.0 is tagged. Current code is tested and package-verified; publish must still run dependency-ordered final dry-runs and wait for each published dependency to appear in the crates.io index before publishing dependents.**
+**Current code is tested and package-verified; publishing the final public package graph must still resolve the tag/version alignment, run dependency-ordered final dry-runs, and wait for each published dependency to appear in the crates.io index before publishing dependents.**
