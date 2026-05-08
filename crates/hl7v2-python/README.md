@@ -30,15 +30,36 @@ python tests\python_smoke\smoke.py
 ```python
 import hl7v2
 
-message = hl7v2.PyMessage.parse(
+raw = (
     "MSH|^~\\&|SEND|FAC|RECV|FAC|202605080101||ADT^A01|CTRL1|P|2.5\r"
     "PID|1||123456^^^HOSP^MR||Doe^John||19700101|M"
 )
+profile_yaml = """
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"""
 
 print(hl7v2.__version__)
+
+message = hl7v2.parse(raw)
 print(message.segment_count())
 print(message.to_json())
+
+print(hl7v2.to_json(raw))
+print(hl7v2.normalize(raw))
+
+report = hl7v2.validate(raw, profile_yaml)
+print(report.valid)
+print(report.message_type)
+print(report.to_dict())
 ```
 
-The first stable binding proof is build/install/import plus parse and JSON
-smoke coverage. Broader Python APIs should be added in focused follow-up PRs.
+The current Python surface intentionally starts with the minimum evidence loop:
+parse, JSON export, normalize, and validate. Broader Python APIs should be
+added in focused follow-up PRs.
