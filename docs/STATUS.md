@@ -3,7 +3,7 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-08
-> **Project Status**: v1.2.1 package line; current `main` is tested and package-verified, but the final Rust crates.io publish sequence has not been executed.
+> **Project Status**: v1.2.1 published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 
 ## Core Components
 
@@ -37,16 +37,17 @@ This document provides a transparent view of which features are fully implemente
 
 ## Release and Publish Readiness
 
-- ✅ **Main workflows**: CI, Coverage, Security, Extended, Benchmarks, and API Contracts are green on the 2026-05-07 release-readiness head after manual API Contracts and Coverage dispatches.
+- ✅ **Main workflows**: CI, Coverage, Security, Extended, Benchmarks, and API Contracts are green on the 2026-05-08 `v1.2.1` release head after manual API Contracts and Coverage dispatches.
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
-- ✅ **Dry-run publish**: Workspace-patched dry-run verification proves the current Rust package graph while the dependency chain is still unpublished. Direct crates.io dry-run passes for `hl7v2`; dependent crates must be dry-run again after `hl7v2` is published and available in the crates.io index. See `docs/audits/publish-dry-run-2026-05-08.md`.
+- ✅ **Published Rust graph**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.2.1 are published and visible in the crates.io index. See `docs/audits/publish-2026-05-08.md`.
+- ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See `docs/audits/publish-dry-run-2026-05-08.md`.
 - 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io and should be verified with Python packaging tooling before PyPI or wheel release.
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
-- ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. The current release line moves forward as `v1.2.1`; create a fresh `v1.2.1` tag on the release head after final dry-runs and before upload.
+- ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. The fresh `v1.2.1` tag points at the current release head.
 
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.
 
 ---
 
-**Current code is tested and package-verified; publishing the final Rust package graph must still run dependency-ordered final dry-runs, create the fresh `v1.2.1` release tag, and wait for each published dependency to appear in the crates.io index before publishing dependents.**
+**Current code is tested, package-verified, tagged as `v1.2.1`, and published to crates.io for the final Rust package graph.**

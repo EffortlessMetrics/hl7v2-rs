@@ -1,5 +1,8 @@
 # Publish Dry-Run Receipt - 2026-05-08
 
+This dry-run receipt was followed by the actual `v1.2.1` crates.io publish.
+See `docs/audits/publish-2026-05-08.md` for the upload receipt.
+
 ## Context
 
 This receipt records the release-line correction from `1.2.0` to `1.2.1`.
@@ -96,12 +99,5 @@ Buf proto lint passed through `npx -y @bufbuild/buf lint api/proto`.
 
 ## Status
 
-Current status is **package-verified** for the `1.2.1` Rust publish graph, not
-published. Before real upload:
-
-1. Merge the version-alignment PR.
-2. Verify hosted CI, Coverage, Security, and API Contracts on the release head.
-3. Run dependency-ordered final dry-runs on clean `main`.
-4. Create the fresh `v1.2.1` tag.
-5. Publish `hl7v2`, wait for index propagation, then publish `hl7v2-server`
-   and `hl7v2-cli`.
+This receipt established **package verification** for the `1.2.1` Rust publish
+graph. The follow-up publish receipt records the actual upload.
