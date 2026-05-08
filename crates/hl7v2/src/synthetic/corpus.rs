@@ -158,6 +158,138 @@ pub struct CorpusSummary {
     pub parse_errors: Vec<CorpusParseFailure>,
 }
 
+/// Before/after total for a corpus-level numeric dimension.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusTotalDiff {
+    /// Value observed in the before corpus.
+    pub before: usize,
+    /// Value observed in the after corpus.
+    pub after: usize,
+    /// `after - before` as a signed delta.
+    pub delta: i128,
+}
+
+/// Before/after count for a corpus-level string dimension.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusCountDiff {
+    /// Dimension value, such as a message type or segment ID.
+    pub value: String,
+    /// Count observed in the before corpus.
+    pub before: usize,
+    /// Count observed in the after corpus.
+    pub after: usize,
+    /// `after - before` as a signed delta.
+    pub delta: i128,
+}
+
+/// Before/after field-presence count for a corpus diff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFieldPresenceDiff {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Number of before-corpus messages where this path was present.
+    pub before_message_count: usize,
+    /// Number of after-corpus messages where this path was present.
+    pub after_message_count: usize,
+    /// `after_message_count - before_message_count` as a signed delta.
+    pub message_count_delta: i128,
+    /// Number of before-corpus occurrences.
+    pub before_occurrence_count: usize,
+    /// Number of after-corpus occurrences.
+    pub after_occurrence_count: usize,
+    /// `after_occurrence_count - before_occurrence_count` as a signed delta.
+    pub occurrence_count_delta: i128,
+}
+
+/// Before/after field-cardinality observation for a corpus diff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFieldCardinalityDiff {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Minimum occurrences per message in the before corpus.
+    pub before_min_per_message: usize,
+    /// Minimum occurrences per message in the after corpus.
+    pub after_min_per_message: usize,
+    /// `after_min_per_message - before_min_per_message` as a signed delta.
+    pub min_per_message_delta: i128,
+    /// Maximum occurrences per message in the before corpus.
+    pub before_max_per_message: usize,
+    /// Maximum occurrences per message in the after corpus.
+    pub after_max_per_message: usize,
+    /// `after_max_per_message - before_max_per_message` as a signed delta.
+    pub max_per_message_delta: i128,
+    /// Total occurrences in the before corpus.
+    pub before_total_occurrences: usize,
+    /// Total occurrences in the after corpus.
+    pub after_total_occurrences: usize,
+    /// `after_total_occurrences - before_total_occurrences` as a signed delta.
+    pub total_occurrences_delta: i128,
+    /// Number of before-corpus messages where this path was present.
+    pub before_message_count: usize,
+    /// Number of after-corpus messages where this path was present.
+    pub after_message_count: usize,
+    /// `after_message_count - before_message_count` as a signed delta.
+    pub message_count_delta: i128,
+}
+
+/// Before/after value-shape counts for a corpus diff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusValueShapeStatsDiff {
+    /// HL7 path, such as `PID.3` or `OBX.5`.
+    pub path: String,
+    /// Coded/component count before/after/delta.
+    pub coded_count: CorpusTotalDiff,
+    /// Timestamp-like count before/after/delta.
+    pub timestamp_count: CorpusTotalDiff,
+    /// Numeric count before/after/delta.
+    pub numeric_count: CorpusTotalDiff,
+    /// Explicit HL7 null count before/after/delta.
+    pub null_count: CorpusTotalDiff,
+    /// Other non-empty text count before/after/delta.
+    pub text_count: CorpusTotalDiff,
+}
+
+/// Difference report for two HL7 v2 corpora.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusDiffReport {
+    /// Diff schema version.
+    pub diff_version: String,
+    /// hl7v2 tool version.
+    pub tool_version: String,
+    /// Root path summarized for the before corpus.
+    pub before_root: String,
+    /// Root path summarized for the after corpus.
+    pub after_root: String,
+    /// Optional profile metadata used for validation issue-code counts.
+    pub profile: Option<CorpusFingerprintProfile>,
+    /// Regular file count before/after/delta.
+    pub file_count: CorpusTotalDiff,
+    /// Parsed message count before/after/delta.
+    pub message_count: CorpusTotalDiff,
+    /// Parse error count before/after/delta.
+    pub parse_error_count: CorpusTotalDiff,
+    /// Message types that appear only in the after corpus.
+    pub new_message_types: Vec<String>,
+    /// Message types that appear only in the before corpus.
+    pub removed_message_types: Vec<String>,
+    /// Segment IDs that appear only in the after corpus.
+    pub new_segments: Vec<String>,
+    /// Segment IDs that appear only in the before corpus.
+    pub removed_segments: Vec<String>,
+    /// Message type count differences.
+    pub message_type_counts: Vec<CorpusCountDiff>,
+    /// Segment count differences.
+    pub segment_counts: Vec<CorpusCountDiff>,
+    /// Field presence differences.
+    pub field_presence: Vec<CorpusFieldPresenceDiff>,
+    /// Field cardinality differences.
+    pub field_cardinality: Vec<CorpusFieldCardinalityDiff>,
+    /// Value shape differences.
+    pub value_shape_stats: Vec<CorpusValueShapeStatsDiff>,
+    /// Validation issue-code count differences when a profile is supplied.
+    pub validation_issue_code_counts: Vec<CorpusCountDiff>,
+}
+
 /// Field cardinality observed across parsed corpus messages.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CorpusFieldCardinality {
@@ -539,6 +671,67 @@ pub fn summarize_corpus_path(path: impl AsRef<Path>) -> Result<CorpusSummary, Co
     })
 }
 
+/// Diff two file or directory corpora of HL7 v2 messages.
+///
+/// This fingerprints both inputs using [`fingerprint_corpus_path`] and returns
+/// before/after counts plus signed deltas for stable corpus dimensions.
+///
+/// # Errors
+///
+/// Returns [`CorpusError::InvalidConfig`] if either input is neither a regular
+/// file nor a directory. Returns [`CorpusError::IoError`] if traversal or file
+/// reading fails.
+pub fn diff_corpus_paths(
+    before: impl AsRef<Path>,
+    after: impl AsRef<Path>,
+) -> Result<CorpusDiffReport, CorpusError> {
+    let before_fingerprint = fingerprint_corpus_path(before)?;
+    let after_fingerprint = fingerprint_corpus_path(after)?;
+    Ok(diff_corpus_fingerprints(
+        &before_fingerprint,
+        &after_fingerprint,
+    ))
+}
+
+/// Diff two already-computed corpus fingerprints.
+pub fn diff_corpus_fingerprints(
+    before: &CorpusFingerprint,
+    after: &CorpusFingerprint,
+) -> CorpusDiffReport {
+    let message_type_counts = diff_counts(&before.message_type_counts, &after.message_type_counts);
+    let segment_counts = diff_counts(&before.segment_counts, &after.segment_counts);
+
+    CorpusDiffReport {
+        diff_version: "1".to_string(),
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        before_root: before.root.clone(),
+        after_root: after.root.clone(),
+        profile: before.profile.clone().or_else(|| after.profile.clone()),
+        file_count: total_diff(before.file_count, after.file_count),
+        message_count: total_diff(before.message_count, after.message_count),
+        parse_error_count: total_diff(before.parse_error_count, after.parse_error_count),
+        new_message_types: new_values(&message_type_counts),
+        removed_message_types: removed_values(&message_type_counts),
+        new_segments: new_values(&segment_counts),
+        removed_segments: removed_values(&segment_counts),
+        message_type_counts,
+        segment_counts,
+        field_presence: diff_field_presence(&before.field_presence, &after.field_presence),
+        field_cardinality: diff_field_cardinality(
+            &before.field_cardinality,
+            &after.field_cardinality,
+        ),
+        value_shape_stats: diff_value_shape_stats(
+            &before.value_shape_stats,
+            &after.value_shape_stats,
+        ),
+        validation_issue_code_counts: diff_counts(
+            &before.validation_issue_code_counts,
+            &after.validation_issue_code_counts,
+        ),
+    }
+}
+
 /// Fingerprint a file or directory of HL7 v2 messages.
 ///
 /// The fingerprint is a compact deterministic feed signature derived from the
@@ -840,6 +1033,255 @@ fn compare_field_paths(left: &str, right: &str) -> Ordering {
         .then(left.cmp(right))
 }
 
+fn total_diff(before: usize, after: usize) -> CorpusTotalDiff {
+    CorpusTotalDiff {
+        before,
+        after,
+        delta: signed_delta(before, after),
+    }
+}
+
+fn diff_counts(before: &[CorpusCount], after: &[CorpusCount]) -> Vec<CorpusCountDiff> {
+    let before_counts = count_map(before);
+    let after_counts = count_map(after);
+    let mut values = BTreeSet::new();
+
+    for value in before_counts.keys() {
+        values.insert(value.as_str());
+    }
+    for value in after_counts.keys() {
+        values.insert(value.as_str());
+    }
+
+    values
+        .into_iter()
+        .map(|value| {
+            let before = before_counts.get(value).copied().unwrap_or_default();
+            let after = after_counts.get(value).copied().unwrap_or_default();
+            CorpusCountDiff {
+                value: value.to_string(),
+                before,
+                after,
+                delta: signed_delta(before, after),
+            }
+        })
+        .filter(|count| count.delta != 0)
+        .collect()
+}
+
+fn count_map(counts: &[CorpusCount]) -> BTreeMap<String, usize> {
+    counts
+        .iter()
+        .map(|count| (count.value.clone(), count.count))
+        .collect()
+}
+
+fn new_values(counts: &[CorpusCountDiff]) -> Vec<String> {
+    counts
+        .iter()
+        .filter(|count| count.before == 0 && count.after > 0)
+        .map(|count| count.value.clone())
+        .collect()
+}
+
+fn removed_values(counts: &[CorpusCountDiff]) -> Vec<String> {
+    counts
+        .iter()
+        .filter(|count| count.before > 0 && count.after == 0)
+        .map(|count| count.value.clone())
+        .collect()
+}
+
+fn diff_field_presence(
+    before: &[CorpusFieldPresence],
+    after: &[CorpusFieldPresence],
+) -> Vec<CorpusFieldPresenceDiff> {
+    let before_fields = field_presence_map(before);
+    let after_fields = field_presence_map(after);
+    let mut paths = BTreeSet::new();
+
+    for path in before_fields.keys() {
+        paths.insert(path.as_str());
+    }
+    for path in after_fields.keys() {
+        paths.insert(path.as_str());
+    }
+
+    let mut diffs: Vec<CorpusFieldPresenceDiff> = paths
+        .into_iter()
+        .map(|path| {
+            let before = before_fields.get(path);
+            let after = after_fields.get(path);
+            let before_message_count = before.map_or(0, |field| field.message_count);
+            let after_message_count = after.map_or(0, |field| field.message_count);
+            let before_occurrence_count = before.map_or(0, |field| field.occurrence_count);
+            let after_occurrence_count = after.map_or(0, |field| field.occurrence_count);
+
+            CorpusFieldPresenceDiff {
+                path: path.to_string(),
+                before_message_count,
+                after_message_count,
+                message_count_delta: signed_delta(before_message_count, after_message_count),
+                before_occurrence_count,
+                after_occurrence_count,
+                occurrence_count_delta: signed_delta(
+                    before_occurrence_count,
+                    after_occurrence_count,
+                ),
+            }
+        })
+        .filter(|field| field.message_count_delta != 0 || field.occurrence_count_delta != 0)
+        .collect();
+    diffs.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+    diffs
+}
+
+fn field_presence_map(fields: &[CorpusFieldPresence]) -> BTreeMap<String, &CorpusFieldPresence> {
+    fields
+        .iter()
+        .map(|field| (field.path.clone(), field))
+        .collect()
+}
+
+fn diff_field_cardinality(
+    before: &[CorpusFieldCardinality],
+    after: &[CorpusFieldCardinality],
+) -> Vec<CorpusFieldCardinalityDiff> {
+    let before_fields = field_cardinality_map(before);
+    let after_fields = field_cardinality_map(after);
+    let mut paths = BTreeSet::new();
+
+    for path in before_fields.keys() {
+        paths.insert(path.as_str());
+    }
+    for path in after_fields.keys() {
+        paths.insert(path.as_str());
+    }
+
+    let mut diffs: Vec<CorpusFieldCardinalityDiff> = paths
+        .into_iter()
+        .map(|path| {
+            let before = before_fields.get(path);
+            let after = after_fields.get(path);
+            let before_min_per_message = before.map_or(0, |field| field.min_per_message);
+            let after_min_per_message = after.map_or(0, |field| field.min_per_message);
+            let before_max_per_message = before.map_or(0, |field| field.max_per_message);
+            let after_max_per_message = after.map_or(0, |field| field.max_per_message);
+            let before_total_occurrences = before.map_or(0, |field| field.total_occurrences);
+            let after_total_occurrences = after.map_or(0, |field| field.total_occurrences);
+            let before_message_count = before.map_or(0, |field| field.message_count);
+            let after_message_count = after.map_or(0, |field| field.message_count);
+
+            CorpusFieldCardinalityDiff {
+                path: path.to_string(),
+                before_min_per_message,
+                after_min_per_message,
+                min_per_message_delta: signed_delta(before_min_per_message, after_min_per_message),
+                before_max_per_message,
+                after_max_per_message,
+                max_per_message_delta: signed_delta(before_max_per_message, after_max_per_message),
+                before_total_occurrences,
+                after_total_occurrences,
+                total_occurrences_delta: signed_delta(
+                    before_total_occurrences,
+                    after_total_occurrences,
+                ),
+                before_message_count,
+                after_message_count,
+                message_count_delta: signed_delta(before_message_count, after_message_count),
+            }
+        })
+        .filter(|field| {
+            field.min_per_message_delta != 0
+                || field.max_per_message_delta != 0
+                || field.total_occurrences_delta != 0
+                || field.message_count_delta != 0
+        })
+        .collect();
+    diffs.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+    diffs
+}
+
+fn field_cardinality_map(
+    fields: &[CorpusFieldCardinality],
+) -> BTreeMap<String, &CorpusFieldCardinality> {
+    fields
+        .iter()
+        .map(|field| (field.path.clone(), field))
+        .collect()
+}
+
+fn diff_value_shape_stats(
+    before: &[CorpusValueShapeStats],
+    after: &[CorpusValueShapeStats],
+) -> Vec<CorpusValueShapeStatsDiff> {
+    let before_shapes = value_shape_stats_map(before);
+    let after_shapes = value_shape_stats_map(after);
+    let mut paths = BTreeSet::new();
+
+    for path in before_shapes.keys() {
+        paths.insert(path.as_str());
+    }
+    for path in after_shapes.keys() {
+        paths.insert(path.as_str());
+    }
+
+    let mut diffs: Vec<CorpusValueShapeStatsDiff> = paths
+        .into_iter()
+        .map(|path| {
+            let before = before_shapes.get(path);
+            let after = after_shapes.get(path);
+            CorpusValueShapeStatsDiff {
+                path: path.to_string(),
+                coded_count: total_diff(
+                    before.map_or(0, |shape| shape.coded_count),
+                    after.map_or(0, |shape| shape.coded_count),
+                ),
+                timestamp_count: total_diff(
+                    before.map_or(0, |shape| shape.timestamp_count),
+                    after.map_or(0, |shape| shape.timestamp_count),
+                ),
+                numeric_count: total_diff(
+                    before.map_or(0, |shape| shape.numeric_count),
+                    after.map_or(0, |shape| shape.numeric_count),
+                ),
+                null_count: total_diff(
+                    before.map_or(0, |shape| shape.null_count),
+                    after.map_or(0, |shape| shape.null_count),
+                ),
+                text_count: total_diff(
+                    before.map_or(0, |shape| shape.text_count),
+                    after.map_or(0, |shape| shape.text_count),
+                ),
+            }
+        })
+        .filter(|shape| {
+            shape.coded_count.delta != 0
+                || shape.timestamp_count.delta != 0
+                || shape.numeric_count.delta != 0
+                || shape.null_count.delta != 0
+                || shape.text_count.delta != 0
+        })
+        .collect();
+    diffs.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+    diffs
+}
+
+fn value_shape_stats_map(
+    stats: &[CorpusValueShapeStats],
+) -> BTreeMap<String, &CorpusValueShapeStats> {
+    stats
+        .iter()
+        .map(|shape| (shape.path.clone(), shape))
+        .collect()
+}
+
+fn signed_delta(before: usize, after: usize) -> i128 {
+    let before = i128::try_from(before).unwrap_or(i128::MAX);
+    let after = i128::try_from(after).unwrap_or(i128::MAX);
+    after.saturating_sub(before)
+}
+
 fn split_field_path(path: &str) -> (&str, usize) {
     let Some((segment, field)) = path.split_once('.') else {
         return (path, usize::MAX);
@@ -965,6 +1407,57 @@ mod summary_tests {
                 .first()
                 .map(|failure| failure.path.as_str()),
             Some("invalid.hl7")
+        );
+    }
+
+    #[test]
+    fn diff_corpus_paths_reports_count_deltas() {
+        let Ok(before) = tempfile::tempdir() else {
+            panic!("before temp dir should be created");
+        };
+        let Ok(after) = tempfile::tempdir() else {
+            panic!("after temp dir should be created");
+        };
+        write_message(&before.path().join("adt.hl7"), ADT_A01);
+        write_message(&after.path().join("adt.hl7"), ADT_A01);
+        write_message(&after.path().join("oru.hl7"), ORU_R01);
+
+        let Ok(diff) = diff_corpus_paths(before.path(), after.path()) else {
+            panic!("corpus diff should be created");
+        };
+
+        assert_eq!(diff.file_count.before, 1);
+        assert_eq!(diff.file_count.after, 2);
+        assert_eq!(diff.file_count.delta, 1);
+        assert_eq!(diff.message_count.delta, 1);
+        assert!(
+            diff.message_type_counts
+                .iter()
+                .any(|count| count.value == "ORU^R01" && count.before == 0 && count.after == 1)
+        );
+        assert_eq!(diff.new_message_types, vec!["ORU^R01".to_string()]);
+        assert!(
+            diff.segment_counts
+                .iter()
+                .any(|count| count.value == "OBX" && count.before == 0 && count.after == 1)
+        );
+        assert!(diff.new_segments.iter().any(|segment| segment == "OBX"));
+        assert!(
+            diff.field_presence
+                .iter()
+                .any(|field| field.path == "OBX.5" && field.message_count_delta == 1)
+        );
+        assert!(
+            diff.field_cardinality
+                .iter()
+                .any(|field| field.path == "OBX.5"
+                    && field.max_per_message_delta == 1
+                    && field.total_occurrences_delta == 1)
+        );
+        assert!(
+            diff.value_shape_stats
+                .iter()
+                .any(|shape| shape.path == "OBX.5" && shape.numeric_count.delta == 1)
         );
     }
 

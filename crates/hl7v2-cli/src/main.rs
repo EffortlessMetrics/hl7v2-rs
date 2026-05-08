@@ -23,7 +23,9 @@
 
 use clap::{Parser, Subcommand};
 use hl7v2::synthetic::corpus::{
-    CorpusCount, CorpusFingerprint, CorpusFingerprintProfile, CorpusSummary, compute_sha256,
+    CorpusCount, CorpusCountDiff, CorpusDiffReport, CorpusFieldCardinalityDiff,
+    CorpusFieldPresenceDiff, CorpusFingerprint, CorpusFingerprintProfile, CorpusSummary,
+    CorpusValueShapeStatsDiff, compute_sha256, diff_corpus_fingerprints, diff_corpus_paths,
     fingerprint_corpus_path, summarize_corpus_path,
 };
 use hl7v2::synthetic::generate::{Template, generate};
@@ -299,6 +301,23 @@ enum CorpusCommands {
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
     },
+
+    /// Diff two directory or file corpora of HL7 messages
+    Diff {
+        /// Before corpus directory or single HL7 file
+        before: PathBuf,
+
+        /// After corpus directory or single HL7 file
+        after: PathBuf,
+
+        /// Optional profile YAML file for validation issue-code deltas
+        #[arg(long)]
+        profile: Option<PathBuf>,
+
+        /// Output diff format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        format: ReportFormat,
+    },
 }
 
 /// Server mode selection
@@ -447,6 +466,12 @@ async fn main() {
                 profile,
                 format,
             } => corpus_fingerprint_command(path, profile.as_ref(), format),
+            CorpusCommands::Diff {
+                before,
+                after,
+                profile,
+                format,
+            } => corpus_diff_command(before, after, profile.as_ref(), format),
         },
         Commands::Ack {
             input,
@@ -1565,6 +1590,31 @@ fn append_counts(output: &mut String, counts: &[hl7v2::synthetic::corpus::Corpus
     }
 }
 
+fn corpus_diff_command(
+    before: &PathBuf,
+    after: &PathBuf,
+    profile: Option<&PathBuf>,
+    format: &ReportFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let diff = if let Some(profile_path) = profile {
+        let mut before_fingerprint = fingerprint_corpus_path(before)?;
+        let mut after_fingerprint = fingerprint_corpus_path(after)?;
+        let (profile_metadata, before_issue_counts) =
+            fingerprint_validation_issue_counts(before, profile_path)?;
+        let (_, after_issue_counts) = fingerprint_validation_issue_counts(after, profile_path)?;
+        before_fingerprint.profile = Some(profile_metadata.clone());
+        before_fingerprint.validation_issue_code_counts = before_issue_counts;
+        after_fingerprint.profile = Some(profile_metadata);
+        after_fingerprint.validation_issue_code_counts = after_issue_counts;
+        diff_corpus_fingerprints(&before_fingerprint, &after_fingerprint)
+    } else {
+        diff_corpus_paths(before, after)?
+    };
+    let output = format_corpus_diff(&diff, format)?;
+    println!("{}", output);
+    Ok(())
+}
+
 fn corpus_fingerprint_command(
     path: &PathBuf,
     profile: Option<&PathBuf>,
@@ -1582,6 +1632,101 @@ fn corpus_fingerprint_command(
     let output = format_corpus_fingerprint(&fingerprint, format)?;
     println!("{}", output);
     Ok(())
+}
+
+fn format_corpus_diff(
+    diff: &CorpusDiffReport,
+    format: &ReportFormat,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match format {
+        ReportFormat::Json => Ok(serde_json::to_string_pretty(diff)?),
+        ReportFormat::Yaml => Ok(serde_yaml::to_string(diff)?),
+        ReportFormat::Text => {
+            let mut output = String::new();
+            output.push_str("Corpus Diff:\n");
+            output.push_str(&format!("  Diff version: {}\n", diff.diff_version));
+            output.push_str(&format!("  Tool version: {}\n", diff.tool_version));
+            output.push_str(&format!("  Before: {}\n", diff.before_root));
+            output.push_str(&format!("  After: {}\n", diff.after_root));
+
+            if let Some(profile) = &diff.profile {
+                output.push('\n');
+                output.push_str("Profile:\n");
+                output.push_str(&format!("  Path: {}\n", profile.path));
+                output.push_str(&format!("  SHA-256: {}\n", profile.sha256));
+                output.push_str(&format!("  Version: {}\n", profile.version));
+                output.push_str(&format!(
+                    "  Message structure: {}\n",
+                    profile.message_structure
+                ));
+            }
+
+            output.push('\n');
+            output.push_str("Totals:\n");
+            output.push_str(&format!(
+                "  Files scanned: {} -> {} ({})\n",
+                diff.file_count.before,
+                diff.file_count.after,
+                format_signed_delta(diff.file_count.delta)
+            ));
+            output.push_str(&format!(
+                "  Parsed messages: {} -> {} ({})\n",
+                diff.message_count.before,
+                diff.message_count.after,
+                format_signed_delta(diff.message_count.delta)
+            ));
+            output.push_str(&format!(
+                "  Parse errors: {} -> {} ({})\n",
+                diff.parse_error_count.before,
+                diff.parse_error_count.after,
+                format_signed_delta(diff.parse_error_count.delta)
+            ));
+            output.push_str(&format!(
+                "  New message types: {}\n",
+                format_string_list(&diff.new_message_types)
+            ));
+            output.push_str(&format!(
+                "  Removed message types: {}\n",
+                format_string_list(&diff.removed_message_types)
+            ));
+            output.push_str(&format!(
+                "  New segments: {}\n",
+                format_string_list(&diff.new_segments)
+            ));
+            output.push_str(&format!(
+                "  Removed segments: {}\n",
+                format_string_list(&diff.removed_segments)
+            ));
+
+            output.push('\n');
+            output.push_str("Message types:\n");
+            append_count_diffs(&mut output, &diff.message_type_counts);
+
+            output.push('\n');
+            output.push_str("Segments:\n");
+            append_count_diffs(&mut output, &diff.segment_counts);
+
+            output.push('\n');
+            output.push_str("Field presence:\n");
+            append_field_presence_diffs(&mut output, &diff.field_presence);
+
+            output.push('\n');
+            output.push_str("Field cardinality:\n");
+            append_field_cardinality_diffs(&mut output, &diff.field_cardinality);
+
+            output.push('\n');
+            output.push_str("Value shapes:\n");
+            append_value_shape_diffs(&mut output, &diff.value_shape_stats);
+
+            if diff.profile.is_some() {
+                output.push('\n');
+                output.push_str("Validation issue codes:\n");
+                append_count_diffs(&mut output, &diff.validation_issue_code_counts);
+            }
+
+            Ok(output)
+        }
+    }
 }
 
 fn fingerprint_validation_issue_counts(
@@ -1728,6 +1873,95 @@ fn format_corpus_fingerprint(
     }
 }
 
+fn append_count_diffs(output: &mut String, counts: &[CorpusCountDiff]) {
+    if counts.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for count in counts {
+        output.push_str(&format!(
+            "  {}: {} -> {} ({})\n",
+            count.value,
+            count.before,
+            count.after,
+            format_signed_delta(count.delta)
+        ));
+    }
+}
+
+fn append_field_presence_diffs(output: &mut String, fields: &[CorpusFieldPresenceDiff]) {
+    if fields.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for field in fields {
+        output.push_str(&format!(
+            "  {}: messages {} -> {} ({}), occurrences {} -> {} ({})\n",
+            field.path,
+            field.before_message_count,
+            field.after_message_count,
+            format_signed_delta(field.message_count_delta),
+            field.before_occurrence_count,
+            field.after_occurrence_count,
+            format_signed_delta(field.occurrence_count_delta)
+        ));
+    }
+}
+
+fn append_field_cardinality_diffs(output: &mut String, fields: &[CorpusFieldCardinalityDiff]) {
+    if fields.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for field in fields {
+        output.push_str(&format!(
+            "  {}: min {} -> {} ({}), max {} -> {} ({}), total {} -> {} ({})\n",
+            field.path,
+            field.before_min_per_message,
+            field.after_min_per_message,
+            format_signed_delta(field.min_per_message_delta),
+            field.before_max_per_message,
+            field.after_max_per_message,
+            format_signed_delta(field.max_per_message_delta),
+            field.before_total_occurrences,
+            field.after_total_occurrences,
+            format_signed_delta(field.total_occurrences_delta)
+        ));
+    }
+}
+
+fn append_value_shape_diffs(output: &mut String, shapes: &[CorpusValueShapeStatsDiff]) {
+    if shapes.is_empty() {
+        output.push_str("  <none>\n");
+        return;
+    }
+
+    for shape in shapes {
+        output.push_str(&format!(
+            "  {}: coded {} -> {} ({}), timestamp {} -> {} ({}), numeric {} -> {} ({}), null {} -> {} ({}), text {} -> {} ({})\n",
+            shape.path,
+            shape.coded_count.before,
+            shape.coded_count.after,
+            format_signed_delta(shape.coded_count.delta),
+            shape.timestamp_count.before,
+            shape.timestamp_count.after,
+            format_signed_delta(shape.timestamp_count.delta),
+            shape.numeric_count.before,
+            shape.numeric_count.after,
+            format_signed_delta(shape.numeric_count.delta),
+            shape.null_count.before,
+            shape.null_count.after,
+            format_signed_delta(shape.null_count.delta),
+            shape.text_count.before,
+            shape.text_count.after,
+            format_signed_delta(shape.text_count.delta)
+        ));
+    }
+}
+
 fn append_fingerprint_field_presence(output: &mut String, fingerprint: &CorpusFingerprint) {
     if fingerprint.field_presence.is_empty() {
         output.push_str("  <none>\n");
@@ -1773,6 +2007,22 @@ fn append_value_shape_stats(output: &mut String, fingerprint: &CorpusFingerprint
             stats.null_count,
             stats.text_count
         ));
+    }
+}
+
+fn format_string_list(values: &[String]) -> String {
+    if values.is_empty() {
+        "<none>".to_string()
+    } else {
+        values.join(", ")
+    }
+}
+
+fn format_signed_delta(delta: i128) -> String {
+    if delta > 0 {
+        format!("+{delta}")
+    } else {
+        delta.to_string()
     }
 }
 
