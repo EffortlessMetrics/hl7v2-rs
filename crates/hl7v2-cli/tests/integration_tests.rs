@@ -148,6 +148,17 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_redact_help() {
+        let mut cmd = cli_command();
+        cmd.args(["redact", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Redact an HL7 v2 message using a safe-analysis policy",
+            ));
+    }
+
+    #[test]
     fn test_ack_help() {
         let mut cmd = cli_command();
         cmd.args(["ack", "--help"])
@@ -1394,6 +1405,353 @@ constraints:
             ])
             .output();
         assert!(result.is_ok());
+    }
+}
+
+// =========================================================================
+// Redact Command Tests
+// =========================================================================
+
+mod redact_command {
+    use super::*;
+
+    const PID3_VALUE: &str = "123456^^^HOSP^MR";
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const PHONE_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St||5551212\r";
+    const REPEATED_NK1_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rNK1|1\rNK1|2|Kin^Jane\r";
+
+    const SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "PID.11"
+action = "drop"
+reason = "patient address"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "OBX.3"
+action = "retain"
+reason = "observation identifier is needed for analysis"
+
+[[rules]]
+path = "OBX.5"
+action = "retain"
+reason = "non-PHI synthetic observation value shape is needed for analysis"
+"#;
+
+    #[test]
+    fn test_redact_json_hashes_drops_and_receipts_without_raw_phi() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(!stdout.contains("Doe^John"));
+        assert!(!stdout.contains("123456^^^HOSP^MR"));
+        assert!(!stdout.contains("19700101"));
+        assert!(!stdout.contains("123 Main St"));
+        let expected_hash = hl7v2::synthetic::corpus::compute_sha256(PID3_VALUE);
+        assert!(stdout.contains(&format!("hash:sha256:{expected_hash}")));
+
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("redact output should be JSON");
+        assert!(
+            report["input_sha256"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty())
+        );
+        assert!(
+            report["policy_sha256"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty())
+        );
+        assert_eq!(report["message_type"], "ADT^A01");
+        assert_eq!(report["receipt"]["phi_removed"], true);
+        assert_eq!(report["receipt"]["hash_algorithm"], "sha256");
+        assert!(report["receipt"]["actions"].as_array().unwrap().iter().any(
+            |action| action["path"] == "PID.3"
+                && action["action"] == "hash"
+                && action["matched_count"] == 1
+                && action["status"] == "applied"
+        ));
+        assert!(report["receipt"]["actions"].as_array().unwrap().iter().any(
+            |action| action["path"] == "OBX.5"
+                && action["action"] == "retain"
+                && action["status"] == "retained"
+        ));
+    }
+
+    #[test]
+    fn test_redact_hl7_outputs_message_and_receipt_to_stderr() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+            "--format",
+            "hl7",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("hash:sha256:"))
+        .stdout(predicate::str::contains("MSH|"))
+        .stdout(predicate::str::contains("Doe^John").not())
+        .stderr(predicate::str::contains("Redaction receipt"));
+    }
+
+    #[test]
+    fn test_redact_rejects_malformed_policy_path() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file = create_temp_file(
+            &dir,
+            "bad-policy.toml",
+            br#"
+[[rules]]
+path = "PID.5.1"
+action = "drop"
+reason = "component targeting is not supported by this policy"
+"#,
+        );
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("must target a field"));
+    }
+
+    #[test]
+    fn test_redact_rejects_unmatched_required_redaction_rule() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file = create_temp_file(
+            &dir,
+            "bad-policy.toml",
+            format!(
+                r#"{SAFE_ANALYSIS_POLICY}
+
+[[rules]]
+path = "NK1.2"
+action = "drop"
+reason = "next of kin name"
+"#
+            )
+            .as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("matched no fields"));
+    }
+
+    #[test]
+    fn test_redact_allows_unmatched_optional_redaction_rule() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file = create_temp_file(
+            &dir,
+            "safe-analysis.toml",
+            format!(
+                r#"{SAFE_ANALYSIS_POLICY}
+
+[[rules]]
+path = "NK1.2"
+action = "drop"
+reason = "next of kin name"
+optional = true
+"#
+            )
+            .as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"optional\": true"))
+        .stdout(predicate::str::contains("\"status\": \"not_found\""));
+    }
+
+    #[test]
+    fn test_redact_rejects_retain_for_sensitive_field() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file = create_temp_file(
+            &dir,
+            "bad-policy.toml",
+            br#"
+[[rules]]
+path = "PID.5"
+action = "retain"
+reason = "unsafe retain"
+"#,
+        );
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "cannot retain a built-in sensitive field",
+        ));
+    }
+
+    #[test]
+    fn test_redact_rejects_policy_missing_present_sensitive_field() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHONE_MESSAGE);
+        let policy_file =
+            create_temp_file(&dir, "bad-policy.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("PID.13"));
+    }
+
+    #[test]
+    fn test_redact_rejects_policy_missing_sensitive_field_on_repeated_segment() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", REPEATED_NK1_MESSAGE);
+        let policy_file =
+            create_temp_file(&dir, "bad-policy.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("NK1.2"));
+    }
+
+    #[test]
+    fn test_redact_rejects_msh_delimiter_metadata_path() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file = create_temp_file(
+            &dir,
+            "bad-policy.toml",
+            br#"
+[[rules]]
+path = "MSH.2"
+action = "drop"
+reason = "delimiter metadata is not redacted by this command"
+"#,
+        );
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("delimiter metadata"));
+    }
+
+    #[test]
+    fn test_redact_rejects_policy_rule_without_reason() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file = create_temp_file(
+            &dir,
+            "bad-policy.toml",
+            br#"
+[[rules]]
+path = "PID.5"
+action = "drop"
+"#,
+        );
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "redact",
+            message_file.to_str().unwrap(),
+            "--policy",
+            policy_file.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("must include a reason"));
     }
 }
 
