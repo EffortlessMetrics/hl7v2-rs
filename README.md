@@ -135,6 +135,9 @@ hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml
 
 # Emit a machine-readable validation report
 hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report json
+
+# Lint a profile before using it as an interface contract
+hl7v2 profile lint profiles/oru_r01.yaml --report json
 ```
 
 ### Normalize Messages
@@ -188,6 +191,7 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
   - Temporal rules for date/time comparisons
   - Contextual rules with if/then logic
 - **Local profile loading**: Load YAML-based profiles from files
+- **Profile linting**: Check profile YAML for ignored keys, malformed paths, invalid regexes, and dangling rule references
 - **Flexible rule composition**: Merge profiles with child precedence
 
 ### Synthetic Message Generation (`hl7v2::synthetic`)
@@ -201,7 +205,7 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 
 ### CLI Interface (`hl7v2-cli`)
 
-- **Unified command interface**: parse, normalize, validate, acknowledge, generate
+- **Unified command interface**: parse, normalize, validate, lint profiles, acknowledge, generate
 - **Input/output formats**: Raw HL7, JSON, MLLP framing
 - **Interactive mode**: Command-line REPL for exploratory use
 - **File I/O**: Read from files or stdin, write to files or stdout

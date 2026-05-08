@@ -98,7 +98,10 @@ pub use normalize::normalize;
 pub use ack::{AckCode, ack, ack_with_error};
 
 #[cfg(feature = "profile")]
-pub use conformance::profile::{Profile, load_profile, load_profile_checked, validate};
+pub use conformance::profile::{
+    Profile, ProfileLintIssue, ProfileLintReport, ProfileLintSeverity, lint_profile_yaml,
+    load_profile, load_profile_checked, validate,
+};
 
 #[cfg(feature = "profile")]
 pub use conformance::validation::{

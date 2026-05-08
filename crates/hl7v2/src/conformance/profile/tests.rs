@@ -288,3 +288,105 @@ segments:
         assert!(matches!(load_err, ProfileLoadError::Io(_)));
     }
 }
+
+#[cfg(test)]
+mod profile_lint_tests {
+    use super::super::{ProfileLintSeverity, lint_profile_yaml};
+
+    #[test]
+    fn test_lint_profile_yaml_accepts_minimal_profile() {
+        let y = r#"
+message_structure: "ADT_A01"
+version: "2.5.1"
+segments:
+  - id: "MSH"
+constraints:
+  - path: "MSH.9"
+    required: true
+"#;
+
+        let report = lint_profile_yaml(y);
+
+        assert!(report.valid, "unexpected lint report: {report:?}");
+        assert_eq!(report.issue_count, 0);
+    }
+
+    #[test]
+    fn test_lint_profile_yaml_reports_structural_errors() {
+        let y = r#"
+message_structure: ""
+version: "2.5.1"
+segments:
+  - id: ""
+constraints:
+  - path: "PID.x"
+    pattern: "["
+cross_field_rules:
+  - id: "rule-1"
+    validation_mode: "sometimes"
+    description: "invalid mode"
+    conditions:
+      - field: "PID.3"
+        operator: "matches_regex"
+    actions:
+      - field: "PID.5"
+        action: "invent"
+        valueset: "missing"
+table_precedence:
+  - "HL79999"
+"#;
+
+        let report = lint_profile_yaml(y);
+        let codes: Vec<&str> = report
+            .issues
+            .iter()
+            .map(|issue| issue.code.as_str())
+            .collect();
+
+        assert!(!report.valid);
+        assert!(codes.contains(&"empty_message_structure"));
+        assert!(codes.contains(&"empty_segment_id"));
+        assert!(codes.contains(&"invalid_hl7_path"));
+        assert!(codes.contains(&"invalid_constraint_pattern"));
+        assert!(codes.contains(&"unknown_cross_field_validation_mode"));
+        assert!(codes.contains(&"missing_rule_condition_regex"));
+        assert!(codes.contains(&"unknown_rule_action"));
+        assert!(codes.contains(&"unknown_action_valueset"));
+        assert!(codes.contains(&"unknown_table_precedence_entry"));
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|issue| issue.severity == ProfileLintSeverity::Error)
+        );
+    }
+
+    #[test]
+    fn test_lint_profile_yaml_warns_for_ignored_top_level_keys() {
+        let y = r#"
+message_structure: "ADT_A01"
+version: "2.5.1"
+segments:
+  - id: "MSH"
+rules: []
+description: "profile metadata"
+"#;
+
+        let report = lint_profile_yaml(y);
+
+        assert!(report.valid, "warnings should not fail profile lint");
+        assert_eq!(report.warning_count, 1);
+        assert!(
+            report
+                .issues
+                .iter()
+                .all(|issue| issue.severity == ProfileLintSeverity::Warning)
+        );
+        assert!(
+            report
+                .issues
+                .iter()
+                .any(|issue| issue.path.as_deref() == Some("rules"))
+        );
+    }
+}

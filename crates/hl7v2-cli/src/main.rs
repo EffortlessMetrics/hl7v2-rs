@@ -24,14 +24,14 @@
 use clap::{Parser, Subcommand};
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
-    AckCode as GenAckCode, Event, Message, StreamParser, ValidationReport, ack, get,
-    is_mllp_framed, load_profile, load_profile_checked, normalize, parse, parse_mllp, to_json,
-    validate, wrap_mllp, write, write_mllp,
+    AckCode as GenAckCode, Event, Message, ProfileLintReport, StreamParser, ValidationReport, ack,
+    get, is_mllp_framed, lint_profile_yaml, load_profile, load_profile_checked, normalize, parse,
+    parse_mllp, to_json, validate, wrap_mllp, write, write_mllp,
 };
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::time::Duration;
 mod config;
@@ -173,6 +173,12 @@ enum Commands {
         format: ReportFormat,
     },
 
+    /// Inspect and lint validation profiles
+    Profile {
+        #[command(subcommand)]
+        command: ProfileCommands,
+    },
+
     /// Generate ACK for HL7 v2 message
     Ack {
         /// Input HL7 file
@@ -243,6 +249,19 @@ enum Commands {
 
     /// Interactive mode
     Interactive,
+}
+
+#[derive(Subcommand, Debug)]
+enum ProfileCommands {
+    /// Lint a profile YAML file
+    Lint {
+        /// Profile YAML file
+        profile: PathBuf,
+
+        /// Output lint report format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        report: ReportFormat,
+    },
 }
 
 /// Server mode selection
@@ -381,6 +400,9 @@ async fn main() {
             server_url.as_deref(),
             format,
         ),
+        Commands::Profile { command } => match command {
+            ProfileCommands::Lint { profile, report } => profile_lint_command(profile, report),
+        },
         Commands::Ack {
             input,
             mode,
@@ -1192,6 +1214,66 @@ fn val_command(
     }
 
     Ok(())
+}
+
+fn profile_lint_command(
+    profile: &Path,
+    report: &ReportFormat,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let profile_yaml = fs::read_to_string(profile)?;
+    let lint_report = lint_profile_yaml(&profile_yaml);
+    let output = format_profile_lint_report(profile, &lint_report, report)?;
+    println!("{}", output);
+
+    if !lint_report.valid {
+        return Err(std::io::Error::other("profile lint reported errors").into());
+    }
+
+    Ok(())
+}
+
+fn format_profile_lint_report(
+    profile: &Path,
+    report: &ProfileLintReport,
+    format: &ReportFormat,
+) -> Result<String, Box<dyn std::error::Error>> {
+    match format {
+        ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
+        ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
+        ReportFormat::Text => {
+            let mut lines = Vec::new();
+            if report.valid {
+                lines.push(format!("Profile lint passed: {}", profile.display()));
+            } else {
+                lines.push(format!(
+                    "Profile lint failed: {} error(s), {} warning(s)",
+                    report.error_count, report.warning_count
+                ));
+            }
+
+            for issue in &report.issues {
+                let location = issue.path.as_deref().unwrap_or("profile");
+                lines.push(format!(
+                    "  - {} {} {}: {}",
+                    issue.severity.as_str(),
+                    issue.code,
+                    location,
+                    issue.message
+                ));
+            }
+
+            if report.issues.is_empty() {
+                lines.push("  No profile lint issues found".to_string());
+            } else if report.warning_count > 0 && report.error_count == 0 {
+                lines.push(format!(
+                    "  {} warning(s) found; profile can still load",
+                    report.warning_count
+                ));
+            }
+
+            Ok(lines.join("\n"))
+        }
+    }
 }
 
 /// Statistics report structure for JSON/YAML output

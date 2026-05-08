@@ -68,6 +68,24 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_profile_help() {
+        let mut cmd = cli_command();
+        cmd.args(["profile", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Inspect and lint"));
+    }
+
+    #[test]
+    fn test_profile_lint_help() {
+        let mut cmd = cli_command();
+        cmd.args(["profile", "lint", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Lint a profile YAML file"));
+    }
+
+    #[test]
     fn test_ack_help() {
         let mut cmd = cli_command();
         cmd.args(["ack", "--help"])
@@ -413,6 +431,112 @@ mod norm_command {
         let normalized_msg = hl7v2::parse(&normalized_content).expect("Normalized should parse");
 
         assert_eq!(original_msg.segments.len(), normalized_msg.segments.len());
+    }
+}
+
+// =========================================================================
+// Profile Command Tests
+// =========================================================================
+
+mod profile_command {
+    use super::*;
+
+    #[test]
+    fn test_profile_lint_passes_minimal_profile() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+
+        let mut cmd = cli_command();
+        cmd.args(["profile", "lint", profile_file.to_str().unwrap()])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("Profile lint passed"))
+            .stdout(predicate::str::contains("No profile lint issues found"));
+    }
+
+    #[test]
+    fn test_profile_lint_json_reports_warnings_without_failing() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+rules: []
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "lint",
+                profile_file.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute profile lint");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile lint output should be JSON");
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["warning_count"], 1);
+        assert_eq!(report["issues"][0]["code"], "unknown_top_level_key");
+        assert_eq!(report["issues"][0]["path"], "rules");
+    }
+
+    #[test]
+    fn test_profile_lint_json_reports_errors_and_fails() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ""
+version: "2.5"
+segments:
+  - id: ""
+constraints:
+  - path: PID.x
+    pattern: "["
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let assert = cmd
+            .args([
+                "profile",
+                "lint",
+                profile_file.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .assert()
+            .failure();
+        let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+        let report: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+        assert_eq!(report["valid"], false);
+        assert!(report["error_count"].as_u64().unwrap() >= 3);
+        assert!(
+            report["issues"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|issue| issue["code"] == "empty_message_structure")
+        );
+        assert!(
+            report["issues"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|issue| issue["code"] == "invalid_constraint_pattern")
+        );
     }
 }
 
