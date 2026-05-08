@@ -112,6 +112,15 @@ reason = "cargo-make task definitions for local DevEx."
 covered_by = ["cargo make"]
 
 [[allow]]
+path = "pyproject.toml"
+kind = "python_package_config"
+owner = "hl7v2-python"
+surface = "python-binding"
+classification = "production"
+reason = "Maturin build metadata for the hl7v2-python wheel lane; the binding stays outside the Rust crates.io graph."
+covered_by = [".github/workflows/python-wheels.yml"]
+
+[[allow]]
 path = "justfile"
 kind = "build_config"
 owner = "EffortlessMetrics"
@@ -303,6 +312,15 @@ surface = "developer-tooling"
 classification = "tooling"
 reason = "Auxiliary developer scripts (gitignore tests, etc.)."
 covered_by = ["scripts/tests/test_gitignore_nodejs.sh"]
+
+[[allow]]
+glob = "tests/python_smoke/**"
+kind = "python_smoke_test"
+owner = "hl7v2-python"
+surface = "tests"
+classification = "test"
+reason = "Python binding smoke tests verify wheel install, import, parse, and JSON conversion."
+covered_by = [".github/workflows/python-wheels.yml", "python tests/python_smoke/smoke.py"]
 
 # ---------------------------------------------------------------------------
 # Governance receipts (docs/ subtree)

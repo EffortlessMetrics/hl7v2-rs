@@ -103,6 +103,19 @@ enabled, so this workflow does not add a status check to every PR.
 Full-repository `@droid security --full` scans are not enabled in this first
 pass because they can create branches and need broader write permissions.
 
+### `.github/workflows/python-wheels.yml` - Python Wheel Smoke
+
+Builds the separate `hl7v2-python` maturin package and proves the wheel can be
+installed and imported. This workflow does not publish to PyPI.
+
+#### Jobs:
+
+1. **wheel-smoke** - Python package proof
+   - Builds a wheel with maturin
+   - Installs the built wheel
+   - Runs `tests/python_smoke/smoke.py`
+   - Uploads the wheel as a short-retention smoke artifact
+
 ## Viewing CI Results
 
 ### GitHub Actions
@@ -129,6 +142,7 @@ The following artifacts are generated and available for download:
 | nightly.yml | api-docs | Generated API documentation |
 | coverage.yml | tarpaulin-coverage | Tarpaulin coverage reports |
 | coverage.yml | llvm-coverage | LLVM coverage reports |
+| python-wheels.yml | python-wheel-* | Smoke-test wheels for the Python binding lane |
 
 ## Manual Triggers
 

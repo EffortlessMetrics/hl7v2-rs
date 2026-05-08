@@ -23,7 +23,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
-| **Python Bindings** | Experimental | Not included in the local Python 3.14/PyO3 validation proof |
+| **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; not published to crates.io |
 | **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.2.1 are published to crates.io; Python remains a separate binding lane |
 
 ## Features
@@ -247,6 +247,21 @@ hl7v2-python
 Retired compatibility crate names should not gain new behavior. See
 [ADR-015](docs/adr/0015-collapse-public-crate-surface.md) and
 [the module map](docs/architecture/module-map.md) for the migration policy.
+
+## Python Binding Lane
+
+`hl7v2-python` is built with maturin and installs as the Python module
+`hl7v2`. It is not part of the Rust crates.io publish graph.
+
+```bash
+python -m pip install "maturin==1.13.1"
+PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin build --release --out dist
+python -m pip install dist/*.whl
+python tests/python_smoke/smoke.py
+```
+
+The current binding proof covers wheel build, install, import, version
+metadata, parse, segment count, and JSON conversion.
 
 ## Performance Characteristics
 

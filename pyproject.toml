@@ -1,0 +1,28 @@
+[build-system]
+requires = ["maturin>=1.13.1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "hl7v2-python"
+dynamic = ["version"]
+description = "Python bindings for the hl7v2 Rust toolkit."
+readme = "crates/hl7v2-python/README.md"
+requires-python = ">=3.10"
+license = { text = "AGPL-3.0-or-later" }
+authors = [
+    { name = "EffortlessMetrics", email = "team@effortlessmetrics.com" },
+]
+keywords = ["hl7", "healthcare", "parser", "validator"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+]
+
+[project.urls]
+Homepage = "https://github.com/EffortlessMetrics/hl7v2-rs"
+Repository = "https://github.com/EffortlessMetrics/hl7v2-rs"
+
+[tool.maturin]
+manifest-path = "crates/hl7v2-python/Cargo.toml"
+module-name = "hl7v2"
+bindings = "pyo3"
