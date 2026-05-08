@@ -101,7 +101,9 @@ pub use ack::{AckCode, ack, ack_with_error};
 pub use conformance::profile::{Profile, load_profile, load_profile_checked, validate};
 
 #[cfg(feature = "profile")]
-pub use conformance::validation::{Issue, Severity};
+pub use conformance::validation::{
+    Issue, Severity, ValidationReport, ValidationReportIssue, ValidationReportSeverity,
+};
 
 #[cfg(feature = "stream")]
 pub use stream::{AsyncStreamParser, Event, StreamParser, StreamParserBuilder};
