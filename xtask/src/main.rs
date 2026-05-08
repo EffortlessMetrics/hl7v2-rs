@@ -2780,9 +2780,10 @@ mod tests {
     fn publish_order_uses_workspace_dependency_order() -> Result<()> {
         let ordered = publish_order(None)?;
 
-        for public_surface in ["hl7v2", "hl7v2-server", "hl7v2-cli", "hl7v2-python"] {
+        for public_surface in ["hl7v2", "hl7v2-server", "hl7v2-cli"] {
             ensure_contains(&ordered, public_surface)?;
         }
+        ensure_not_contains(&ordered, "hl7v2-python")?;
         for frozen_shim in [
             "hl7v2-ack",
             "hl7v2-batch",
@@ -2819,7 +2820,6 @@ mod tests {
 
         assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-server")?;
         assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-cli")?;
-        assert_dependency_precedes(&ordered, "hl7v2", "hl7v2-python")?;
         Ok(())
     }
 
