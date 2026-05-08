@@ -87,6 +87,22 @@ Dedicated workflow for code coverage analysis.
 3. **coverage-diff** - PR coverage comparison
    - Compares PR coverage against base branch
 
+### `.github/workflows/droid.yml` - Factory Droid Manual Review
+
+Optional Factory Droid review automation. It responds only to explicit `@droid`
+commands in pull request comments or review text. Automatic PR review is not
+enabled, so this workflow does not add a status check to every PR.
+
+#### Setup:
+
+1. Install the Factory Droid GitHub App for this repository.
+2. Add `FACTORY_API_KEY` under repository or organization Actions secrets.
+3. Ask a repository writer to comment `@droid review`, `@droid fill`, or
+   `@droid security` on a pull request.
+
+Full-repository `@droid security --full` scans are not enabled in this first
+pass because they can create branches and need broader write permissions.
+
 ## Viewing CI Results
 
 ### GitHub Actions
@@ -173,6 +189,7 @@ The following jobs use `continue-on-error: true`:
 | Secret | Purpose | Required For |
 |--------|---------|--------------|
 | `CODECOV_TOKEN` | Upload coverage to Codecov | Coverage uploads |
+| `FACTORY_API_KEY` | Authenticate Factory Droid sessions | Optional Droid manual review workflow |
 | `GITHUB_TOKEN` | GitHub API access | Built-in, automatic |
 
 ## Best Practices

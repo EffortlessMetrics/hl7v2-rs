@@ -1,0 +1,70 @@
+# Manual-first Factory Droid integration.
+#
+# Required setup before use:
+# - Install the Factory Droid GitHub App for this repository.
+# - Add FACTORY_API_KEY as a repository or organization Actions secret.
+#
+# This workflow responds only to explicit @droid commands in pull request
+# comments or review text. Full-repository security scans are intentionally not
+# enabled in this first pass because they can create branches and need broader
+# write permissions.
+#
+# Automatic PR review is intentionally deferred until the manual path is proven
+# stable, so this workflow does not add pull_request status checks to every PR.
+name: Droid Manual
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: droid-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
+jobs:
+  droid:
+    name: Respond to @droid
+    if: >-
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '@droid') &&
+      !contains(github.event.comment.body, '@droid security --full')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+      contains(github.event.comment.body, '@droid') &&
+      !contains(github.event.comment.body, '@droid security --full')) ||
+      (github.event_name == 'pull_request_review' &&
+      contains(github.event.review.body, '@droid') &&
+      !contains(github.event.review.body, '@droid security --full'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Factory API key
+        env:
+          FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
+        run: |
+          if [ -z "$FACTORY_API_KEY" ]; then
+            echo "::error::FACTORY_API_KEY secret is not configured. Add it under repository or organization Actions secrets before using @droid."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Droid
+        uses: Factory-AI/droid-action@v5
+        with:
+          factory_api_key: ${{ secrets.FACTORY_API_KEY }}
+          allowed_bots: ""
+          use_sticky_comment: true
+          show_full_output: false
