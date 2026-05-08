@@ -816,7 +816,7 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
 
 /// Validate that a required field is present
 fn validate_field_required(msg: &Message, path: &str, issues: &mut Vec<Issue>) {
-    // Use the get function from hl7v2-query to retrieve the value
+    // Use the query module to retrieve the value.
     if let Some(value) = crate::query::get(msg, path) {
         // If we get a value, check if it's empty
         if value.is_empty() {
@@ -880,7 +880,7 @@ fn check_condition(msg: &Message, condition: &Condition) -> bool {
 /// Validate that a required MSH field is present
 fn validate_msh_field_required(msg: &Message, path: &str, issues: &mut Vec<Issue>) {
     let full_path = format!("MSH.{}", path);
-    // Use the get function from hl7v2-query to retrieve the value
+    // Use the query module to retrieve the value.
     if crate::query::get(msg, &full_path).is_none() {
         issues.push(Issue::error(
             "MISSING_REQUIRED_FIELD",

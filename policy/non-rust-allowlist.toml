@@ -205,7 +205,7 @@ reason = "Server-local proto IDL used by tonic codegen at build time."
 covered_by = ["cargo build -p hl7v2-server"]
 
 # ---------------------------------------------------------------------------
-# BDD features and proptest regressions
+# BDD features and fixtures
 # ---------------------------------------------------------------------------
 
 [[allow]]
@@ -215,46 +215,6 @@ owner = "testing"
 surface = "tests"
 classification = "test"
 reason = "Cucumber/Gherkin scenarios drive crate-level BDD test harnesses."
-covered_by = ["cargo test --workspace --all-features"]
-
-[[allow]]
-glob = "crates/*/tests/features/**/*.feature"
-kind = "bdd_feature"
-owner = "testing"
-surface = "tests"
-classification = "test"
-reason = "Cucumber/Gherkin scenarios under tests/ for crates that scope BDD per-test."
-covered_by = ["cargo test --workspace --all-features"]
-
-[[allow]]
-glob = "crates/*/tests/*.proptest-regressions"
-kind = "proptest_regression"
-owner = "testing"
-surface = "tests"
-classification = "test"
-reason = "Persisted proptest regression seeds; checked in to keep CI deterministic."
-covered_by = ["cargo test --workspace --all-features"]
-
-[[allow]]
-glob = "crates/*/proptest-regressions/**"
-kind = "proptest_regression"
-owner = "testing"
-surface = "tests"
-classification = "test"
-reason = "Persisted proptest regression seeds under per-crate proptest-regressions/."
-covered_by = ["cargo test --workspace --all-features"]
-
-# ---------------------------------------------------------------------------
-# Snapshot tests, fixtures, sample messages
-# ---------------------------------------------------------------------------
-
-[[allow]]
-glob = "crates/*/tests/snapshots/**/*.snap"
-kind = "snapshot_fixture"
-owner = "testing"
-surface = "tests"
-classification = "test"
-reason = "Insta snapshot fixtures committed for parser and writer regression coverage."
 covered_by = ["cargo test --workspace --all-features"]
 
 [[allow]]
@@ -284,24 +244,6 @@ classification = "test"
 reason = "Repository-wide HL7, MLLP, and template fixtures used by CLI and integration tests."
 covered_by = ["cargo test --workspace --all-features"]
 
-[[allow]]
-glob = "crates/hl7v2-core/test_*.hl7"
-kind = "fixture_input"
-owner = "testing"
-surface = "tests"
-classification = "test"
-reason = "Legacy test inputs colocated with the canonical facade crate."
-covered_by = ["cargo test -p hl7v2-core --all-features"]
-
-[[allow]]
-glob = "crates/hl7v2-core/test_*.txt"
-kind = "fixture_input"
-owner = "testing"
-surface = "tests"
-classification = "test"
-reason = "Legacy text outputs colocated with the canonical facade crate; retained for review parity."
-covered_by = ["cargo test -p hl7v2-core --all-features"]
-
 # ---------------------------------------------------------------------------
 # Profiles (HL7 message profile YAML)
 # ---------------------------------------------------------------------------
@@ -309,16 +251,16 @@ covered_by = ["cargo test -p hl7v2-core --all-features"]
 [[allow]]
 glob = "profiles/**"
 kind = "profile_data"
-owner = "hl7v2-prof"
+owner = "hl7v2"
 surface = "production"
 classification = "production"
-reason = "Bundled HL7 v2 message profiles consumed by hl7v2-prof at runtime."
-covered_by = ["cargo test -p hl7v2-prof --all-features"]
+reason = "Bundled HL7 v2 message profiles consumed by hl7v2::conformance::profile at runtime."
+covered_by = ["cargo test -p hl7v2 --all-features conformance"]
 
 [[allow]]
 glob = "examples/profiles/**"
 kind = "profile_data"
-owner = "hl7v2-prof"
+owner = "hl7v2"
 surface = "production"
 classification = "docs"
 reason = "Example profiles referenced by examples/ and docs/."

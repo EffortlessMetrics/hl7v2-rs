@@ -1,4 +1,4 @@
-//! Comprehensive unit tests for hl7v2-escape crate
+//! Comprehensive unit tests for the escape module.
 //!
 //! This module contains unit tests for:
 //! - Escape sequence encoding (F, S, T, R, E)

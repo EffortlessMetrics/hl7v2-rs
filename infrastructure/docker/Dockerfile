@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for optimized hl7v2-rs builds
 
 # Stage 1: Build
-FROM rust:1.89-alpine AS builder
+FROM rust:1.93-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -13,20 +13,25 @@ WORKDIR /app
 
 # Copy manifest files only (for better caching)
 COPY Cargo.toml Cargo.lock ./
-COPY crates/hl7v2-core/Cargo.toml ./crates/hl7v2-core/Cargo.toml
-COPY crates/hl7v2-prof/Cargo.toml ./crates/hl7v2-prof/Cargo.toml
-COPY crates/hl7v2-gen/Cargo.toml ./crates/hl7v2-gen/Cargo.toml
+COPY crates/hl7v2/Cargo.toml ./crates/hl7v2/Cargo.toml
+COPY crates/hl7v2-bench/Cargo.toml ./crates/hl7v2-bench/Cargo.toml
+COPY crates/hl7v2-python/Cargo.toml ./crates/hl7v2-python/Cargo.toml
 COPY crates/hl7v2-cli/Cargo.toml ./crates/hl7v2-cli/Cargo.toml
 COPY crates/hl7v2-server/Cargo.toml ./crates/hl7v2-server/Cargo.toml
+COPY crates/hl7v2-e2e-tests/Cargo.toml ./crates/hl7v2-e2e-tests/Cargo.toml
+COPY crates/hl7v2-test-utils/Cargo.toml ./crates/hl7v2-test-utils/Cargo.toml
+COPY xtask/Cargo.toml ./xtask/Cargo.toml
 
 # Fetch dependencies (cached layer)
 RUN cargo fetch --locked
 
 # Copy source code
 COPY crates/ ./crates/
+COPY examples/ ./examples/
+COPY xtask/ ./xtask/
 
 # Build release binary
-RUN cargo build --release --locked
+RUN cargo build --release --locked -p hl7v2-cli
 
 # Stage 2: Runtime
 FROM alpine:latest
@@ -42,7 +47,7 @@ RUN addgroup -g 1000 hl7v2 && \
     adduser -D -u 1000 -G hl7v2 hl7v2
 
 # Copy binary from builder
-COPY --from=builder /app/target/release/hl7v2 /usr/local/bin/hl7v2
+COPY --from=builder /app/target/release/hl7v2-cli /usr/local/bin/hl7v2
 
 # Copy configuration and profiles
 COPY profiles/ /var/lib/hl7v2/profiles/
