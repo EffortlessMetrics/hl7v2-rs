@@ -1,8 +1,8 @@
 //! HL7 v2 Message Validation
 //!
-//! This crate provides validation functionality for HL7 v2 messages.
+//! This module provides validation functionality for HL7 v2 messages.
 //! It can be used standalone for basic validation or integrated with
-//! profile-based validation through the `hl7v2-prof` crate.
+//! profile-based validation through `hl7v2::conformance::profile`.
 //!
 //! # Features
 //!

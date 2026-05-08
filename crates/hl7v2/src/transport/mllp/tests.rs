@@ -1,4 +1,4 @@
-//! Comprehensive unit tests for hl7v2-mllp crate
+//! Comprehensive unit tests for the MLLP transport module.
 //!
 //! This module contains unit tests for:
 //! - MLLP framing (wrap/unwrap)
