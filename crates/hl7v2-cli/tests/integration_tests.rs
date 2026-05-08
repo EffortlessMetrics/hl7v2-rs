@@ -159,6 +159,17 @@ mod help_and_version {
     }
 
     #[test]
+    fn test_bundle_help() {
+        let mut cmd = cli_command();
+        cmd.args(["bundle", "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "Create a redacted support/debug evidence bundle",
+            ));
+    }
+
+    #[test]
     fn test_ack_help() {
         let mut cmd = cli_command();
         cmd.args(["ack", "--help"])
@@ -1752,6 +1763,250 @@ action = "drop"
         .assert()
         .failure()
         .stderr(predicate::str::contains("must include a reason"));
+    }
+}
+
+// =========================================================================
+// Evidence Bundle Command Tests
+// =========================================================================
+
+mod bundle_command {
+    use super::*;
+
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const PID5_CONSTRAINT_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: MSH.9
+    required: true
+  - path: PID.5
+    in:
+      - Allowed^Name
+"#;
+    const SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "PID.11"
+action = "drop"
+reason = "patient address"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "OBX.3"
+action = "retain"
+reason = "observation identifier is needed for analysis"
+
+[[rules]]
+path = "OBX.5"
+action = "retain"
+reason = "non-PHI synthetic observation value shape is needed for analysis"
+"#;
+
+    #[test]
+    fn test_bundle_writes_redacted_replayable_evidence_artifacts() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+        let bundle_dir = dir.path().join("issue-bundle");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "bundle",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--redact-policy",
+                policy_file.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+            ])
+            .output()
+            .expect("Failed to execute bundle");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let summary: serde_json::Value =
+            serde_json::from_str(&stdout).expect("bundle summary should be JSON");
+        assert_eq!(summary["bundle_version"], "1");
+        assert_eq!(summary["output_dir"], ".");
+        assert_eq!(summary["message_type"], "ADT^A01");
+        assert_eq!(summary["validation_valid"], true);
+        assert_eq!(summary["redaction_phi_removed"], true);
+
+        for artifact in [
+            "message.redacted.hl7",
+            "validation-report.json",
+            "field-paths.json",
+            "profile.yaml",
+            "redaction-receipt.json",
+            "environment.json",
+            "replay.sh",
+            "replay.ps1",
+        ] {
+            assert!(
+                bundle_dir.join(artifact).exists(),
+                "missing bundle artifact {artifact}"
+            );
+        }
+
+        let redacted_message =
+            std::fs::read_to_string(bundle_dir.join("message.redacted.hl7")).unwrap();
+        assert!(redacted_message.contains("hash:sha256:"));
+        assert!(!redacted_message.contains("Doe^John"));
+        assert!(!redacted_message.contains("123456^^^HOSP^MR"));
+        assert!(!redacted_message.contains("19700101"));
+        assert!(!redacted_message.contains("123 Main St"));
+
+        for artifact in [
+            "validation-report.json",
+            "field-paths.json",
+            "redaction-receipt.json",
+            "environment.json",
+            "replay.sh",
+            "replay.ps1",
+        ] {
+            let content = std::fs::read_to_string(bundle_dir.join(artifact)).unwrap();
+            assert!(
+                !content.contains("Doe^John"),
+                "{artifact} leaked patient name"
+            );
+            assert!(
+                !content.contains("123456^^^HOSP^MR"),
+                "{artifact} leaked patient identifier"
+            );
+            assert!(!content.contains("19700101"), "{artifact} leaked DOB");
+            assert!(
+                !content.contains("123 Main St"),
+                "{artifact} leaked address"
+            );
+        }
+
+        let validation_report: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("validation-report.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(validation_report["profile"], "profile.yaml");
+
+        let field_paths: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("field-paths.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(field_paths["fields"].as_array().unwrap().iter().any(
+            |field| field["canonical_path"] == "PID.3"
+                && field["redaction_action"] == "hash"
+                && field["value_shape"] == "hashed_sha256"
+        ));
+
+        let receipt: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("redaction-receipt.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(receipt["phi_removed"], true);
+
+        let environment: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("environment.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(environment["tool_name"], "hl7v2-cli");
+        assert_eq!(
+            environment["replay_command"],
+            "hl7v2 val message.redacted.hl7 --profile profile.yaml --report json"
+        );
+    }
+
+    #[test]
+    fn test_bundle_validation_report_uses_redacted_message_without_phi() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID5_CONSTRAINT_PROFILE);
+        let hash_name_policy = SAFE_ANALYSIS_POLICY.replace(
+            "path = \"PID.5\"\naction = \"drop\"",
+            "path = \"PID.5\"\naction = \"hash\"",
+        );
+        let policy_file = create_temp_file(&dir, "safe-analysis.toml", hash_name_policy.as_bytes());
+        let bundle_dir = dir.path().join("issue-bundle");
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "bundle",
+            message_file.to_str().unwrap(),
+            "--profile",
+            profile_file.to_str().unwrap(),
+            "--redact-policy",
+            policy_file.to_str().unwrap(),
+            "--out",
+            bundle_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"validation_valid\": false"));
+
+        let validation_report =
+            std::fs::read_to_string(bundle_dir.join("validation-report.json")).unwrap();
+        assert!(validation_report.contains("value_not_in_constraint"));
+        assert!(validation_report.contains("hash:sha256:"));
+        assert!(!validation_report.contains("Doe^John"));
+        assert!(!validation_report.contains("123456^^^HOSP^MR"));
+        assert!(!validation_report.contains("19700101"));
+        assert!(!validation_report.contains("123 Main St"));
+    }
+
+    #[test]
+    fn test_bundle_rejects_existing_output_directory() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+        let bundle_dir = dir.path().join("issue-bundle");
+        std::fs::create_dir(&bundle_dir).unwrap();
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "bundle",
+            message_file.to_str().unwrap(),
+            "--profile",
+            profile_file.to_str().unwrap(),
+            "--redact-policy",
+            policy_file.to_str().unwrap(),
+            "--out",
+            bundle_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "bundle output directory already exists",
+        ));
     }
 }
 

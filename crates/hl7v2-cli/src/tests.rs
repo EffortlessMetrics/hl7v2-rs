@@ -132,6 +132,17 @@ mod cli_unit_tests {
                     .any(|command| command.get_name() == "redact")
             );
         }
+
+        #[test]
+        fn test_bundle_command_exists() {
+            use crate::Cli;
+            let schema = Cli::command();
+            assert!(
+                schema
+                    .get_subcommands()
+                    .any(|command| command.get_name() == "bundle")
+            );
+        }
     }
 
     // =========================================================================

@@ -36,6 +36,7 @@ Redact a message for safe analysis:
 ```bash
 hl7v2 redact message.hl7 --policy safe-analysis.toml --format json
 hl7v2 redact message.hl7 --policy safe-analysis.toml --format hl7 > message.redacted.hl7
+hl7v2 bundle message.hl7 --profile profiles/adt_a01.yaml --redact-policy safe-analysis.toml --out issue-bundle/
 ```
 
 Policy files use explicit rules with required reasons:
@@ -61,5 +62,15 @@ Rules default to fail-closed: `hash` and `drop` rules must match at least one
 field unless `optional = true` is set. Built-in sensitive fields such as
 `PID.3`, `PID.5`, `PID.7`, `PID.11`, `PID.13`, `PID.19`, and next-of-kin
 fields must be protected when present and cannot be retained.
+
+`hl7v2 bundle` writes a redacted evidence packet containing:
+
+- `message.redacted.hl7`
+- `validation-report.json`
+- `field-paths.json`
+- `profile.yaml`
+- `redaction-receipt.json`
+- `environment.json`
+- `replay.sh` and `replay.ps1`
 
 For usage examples, see the [examples/](https://github.com/EffortlessMetrics/hl7v2-rs/tree/main/examples) directory in the root of the repository.
