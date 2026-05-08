@@ -138,12 +138,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assert_matches"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
-
-[[package]]
 name = "async-compression"
 version = "0.4.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -681,32 +675,6 @@ dependencies = [
 
 [[package]]
 name = "criterion"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2b12d017a929603d80db1831cd3a24082f8137ce19c69e6447f54f5fc8d692f"
-dependencies = [
- "anes",
- "cast",
- "ciborium",
- "clap",
- "criterion-plot 0.5.0",
- "is-terminal",
- "itertools 0.10.5",
- "num-traits",
- "once_cell",
- "oorandom",
- "plotters",
- "rayon",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "tinytemplate",
- "walkdir",
-]
-
-[[package]]
-name = "criterion"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "950046b2aa2492f9a536f5f4f9a3de7b9e2476e575e05bd6c333371add4d98f3"
@@ -716,7 +684,7 @@ dependencies = [
  "cast",
  "ciborium",
  "clap",
- "criterion-plot 0.8.2",
+ "criterion-plot",
  "itertools 0.13.0",
  "num-traits",
  "oorandom",
@@ -729,16 +697,6 @@ dependencies = [
  "tinytemplate",
  "tokio",
  "walkdir",
-]
-
-[[package]]
-name = "criterion-plot"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b50826342786a51a89e2da3a28f1c32b06e387201bc2d19791f622c673706b1"
-dependencies = [
- "cast",
- "itertools 0.10.5",
 ]
 
 [[package]]
@@ -1559,32 +1517,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "hl7v2-ack"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "hl7v2-test-utils",
- "proptest",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-batch"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "hl7v2-test-utils",
- "proptest",
- "tokio",
-]
-
-[[package]]
 name = "hl7v2-bench"
 version = "1.2.1"
 dependencies = [
- "criterion 0.8.2",
+ "criterion",
  "futures",
  "hl7v2",
  "rand 0.10.1",
@@ -1610,50 +1546,9 @@ dependencies = [
  "sysinfo",
  "tempfile",
  "tokio",
- "toml 1.1.2+spec-1.1.0",
+ "toml",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "hl7v2-core"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "proptest",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-corpus"
-version = "1.2.1"
-dependencies = [
- "hl7v2",
- "proptest",
- "serde_json",
-]
-
-[[package]]
-name = "hl7v2-datatype"
-version = "1.2.1"
-dependencies = [
- "chrono",
- "cucumber",
- "hl7v2",
- "proptest",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-datetime"
-version = "1.2.1"
-dependencies = [
- "chrono",
- "cucumber",
- "hl7v2",
- "proptest",
- "tokio",
 ]
 
 [[package]]
@@ -1685,17 +1580,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hl7v2-escape"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "hl7v2-test-utils",
- "proptest",
- "tokio",
-]
-
-[[package]]
 name = "hl7v2-examples"
 version = "1.2.1"
 dependencies = [
@@ -1706,162 +1590,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "hl7v2-faker"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "proptest",
- "rand 0.10.1",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-gen"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "hl7v2-normalize",
- "hl7v2-parser",
- "hl7v2-query",
- "proptest",
- "rand 0.10.1",
- "tokio",
- "toml 0.8.23",
-]
-
-[[package]]
-name = "hl7v2-guard"
-version = "1.2.1"
-dependencies = [
- "hl7v2",
-]
-
-[[package]]
-name = "hl7v2-json"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "proptest",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-lifecycle"
-version = "1.2.1"
-dependencies = [
- "hl7v2",
-]
-
-[[package]]
-name = "hl7v2-mllp"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "hl7v2-test-utils",
- "proptest",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-model"
-version = "1.2.1"
-dependencies = [
- "hl7v2",
- "serde_json",
-]
-
-[[package]]
-name = "hl7v2-network"
-version = "1.2.1"
-dependencies = [
- "bytes",
- "hl7v2",
- "tokio",
- "tokio-util",
-]
-
-[[package]]
-name = "hl7v2-normalize"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "proptest",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-parser"
-version = "1.2.1"
-dependencies = [
- "assert_matches",
- "cucumber",
- "hl7v2",
- "hl7v2-escape",
- "hl7v2-mllp",
- "hl7v2-model",
- "hl7v2-query",
- "hl7v2-test-utils",
- "hl7v2-writer",
- "insta",
- "pretty_assertions",
- "proptest",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-path"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "proptest",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-prof"
-version = "1.2.1"
-dependencies = [
- "hl7v2",
- "hl7v2-parser",
- "proptest",
- "serde_yaml_ng",
- "tempfile",
- "tokio",
- "wiremock",
-]
-
-[[package]]
 name = "hl7v2-python"
 version = "1.2.1"
 dependencies = [
  "hl7v2",
  "pyo3",
-]
-
-[[package]]
-name = "hl7v2-query"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "hl7v2-model",
- "hl7v2-parser",
- "proptest",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-redact"
-version = "1.2.1"
-dependencies = [
- "hl7v2",
 ]
 
 [[package]]
@@ -1901,41 +1634,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "hl7v2-stream"
-version = "1.2.1"
-dependencies = [
- "criterion 0.5.1",
- "hl7v2",
- "hl7v2-test-utils",
-]
-
-[[package]]
-name = "hl7v2-template"
-version = "1.2.1"
-dependencies = [
- "hl7v2",
- "proptest",
-]
-
-[[package]]
-name = "hl7v2-template-values"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "proptest",
- "rand 0.10.1",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "hl7v2-test-utils"
 version = "1.2.1"
 dependencies = [
- "hl7v2-model",
- "hl7v2-parser",
- "hl7v2-query",
+ "hl7v2",
  "insta",
  "pretty_assertions",
  "proptest",
@@ -1945,40 +1647,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
-]
-
-[[package]]
-name = "hl7v2-validation"
-version = "1.2.1"
-dependencies = [
- "assert_matches",
- "cucumber",
- "hl7v2",
- "hl7v2-model",
- "hl7v2-parser",
- "hl7v2-query",
- "hl7v2-test-utils",
- "insta",
- "pretty_assertions",
- "proptest",
- "regex",
- "serde",
- "tokio",
-]
-
-[[package]]
-name = "hl7v2-writer"
-version = "1.2.1"
-dependencies = [
- "cucumber",
- "hl7v2",
- "hl7v2-mllp",
- "hl7v2-model",
- "hl7v2-parser",
- "hl7v2-test-utils",
- "proptest",
- "serde_json",
- "tokio",
 ]
 
 [[package]]
@@ -2336,8 +2004,6 @@ checksum = "7b4a6248eb93a4401ed2f37dfe8ea592d3cf05b7cf4f8efa867b6895af7e094e"
 dependencies = [
  "console",
  "once_cell",
- "pest",
- "pest_derive",
  "serde",
  "similar",
  "tempfile",
@@ -2369,30 +2035,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "is-terminal"
-version = "0.4.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
-dependencies = [
- "hermit-abi",
- "libc",
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
-
-[[package]]
-name = "itertools"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
-dependencies = [
- "either",
-]
 
 [[package]]
 name = "itertools"
@@ -2984,49 +2630,6 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
-
-[[package]]
-name = "pest"
-version = "2.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0848c601009d37dfa3430c4666e147e49cdcf1b92ecd3e63657d8a5f19da662"
-dependencies = [
- "memchr",
- "ucd-trie",
-]
-
-[[package]]
-name = "pest_derive"
-version = "2.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11f486f1ea21e6c10ed15d5a7c77165d0ee443402f0780849d1768e7d9d6fe77"
-dependencies = [
- "pest",
- "pest_generator",
-]
-
-[[package]]
-name = "pest_generator"
-version = "2.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8040c4647b13b210a963c1ed407c1ff4fdfa01c31d6d2a098218702e6664f94f"
-dependencies = [
- "pest",
- "pest_meta",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "pest_meta"
-version = "2.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89815c69d36021a140146f26659a81d6c2afa33d216d736dd4be5381a7362220"
-dependencies = [
- "pest",
- "sha2",
-]
 
 [[package]]
 name = "petgraph"
@@ -4054,15 +3657,6 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "0.6.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "serde_spanned"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
@@ -4774,38 +4368,17 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc1beb996b9d83529a9e75c17a1686767d148d70663143c7854d8b4a09ced362"
-dependencies = [
- "serde",
- "serde_spanned 0.6.9",
- "toml_datetime 0.6.11",
- "toml_edit",
-]
-
-[[package]]
-name = "toml"
 version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81f3d15e84cbcd896376e6730314d59fb5a87f31e4b038454184435cd57defee"
 dependencies = [
  "indexmap 2.14.0",
  "serde_core",
- "serde_spanned 1.1.1",
- "toml_datetime 1.1.1+spec-1.1.0",
+ "serde_spanned",
+ "toml_datetime",
  "toml_parser",
  "toml_writer",
- "winnow 1.0.2",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "0.6.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22cddaf88f4fbc13c51aebbf5f8eceb5c7c5a9da2ac40a13519eb5b0a0e8f11c"
-dependencies = [
- "serde",
+ "winnow",
 ]
 
 [[package]]
@@ -4818,33 +4391,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml_edit"
-version = "0.22.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
-dependencies = [
- "indexmap 2.14.0",
- "serde",
- "serde_spanned 0.6.9",
- "toml_datetime 0.6.11",
- "toml_write",
- "winnow 0.7.15",
-]
-
-[[package]]
 name = "toml_parser"
 version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2abe9b86193656635d2411dc43050282ca48aa31c2451210f4202550afb7526"
 dependencies = [
- "winnow 1.0.2",
+ "winnow",
 ]
-
-[[package]]
-name = "toml_write"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "toml_writer"
@@ -5122,12 +4675,6 @@ name = "typenum"
 version = "1.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40ce102ab67701b8526c123c1bab5cbe42d7040ccfd0f64af1a385808d2f43de"
-
-[[package]]
-name = "ucd-trie"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2896d95c02a80c6d6a5d6e953d479f5ddf2dfdb6a244441010e373ac0fb88971"
 
 [[package]]
 name = "unarray"
@@ -5870,15 +5417,6 @@ name = "windows_x86_64_msvc"
 version = "0.53.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
-
-[[package]]
-name = "winnow"
-version = "0.7.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "winnow"

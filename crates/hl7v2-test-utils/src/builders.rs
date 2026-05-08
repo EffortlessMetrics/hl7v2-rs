@@ -16,11 +16,11 @@
 //!     .build_bytes();
 //!
 //! // Parse and verify
-//! let message = hl7v2_parser::parse(&bytes).unwrap();
+//! let message = hl7v2::parse(&bytes).unwrap();
 //! assert_eq!(message.segments.len(), 3);
 //! ```
 
-use hl7v2_model::{Comp, Delims, Field, Message, Rep, Segment};
+use hl7v2::model::{Atom, Comp, Delims, Field, Message, Rep, Segment};
 
 /// Builder for creating test HL7 messages.
 ///
@@ -751,7 +751,7 @@ impl SegmentBuilder {
             let mut rep = Rep::new();
             let mut comp = Comp::new();
             for value in *rep_components {
-                comp.subs.push(hl7v2_model::Atom::text(*value));
+                comp.subs.push(Atom::text(*value));
             }
             rep.comps.push(comp);
             field.reps.push(rep);
@@ -823,7 +823,7 @@ fn chrono_timestamp() -> String {
 fn make_component_field(components: &[&str]) -> Field {
     let mut comp = Comp::new();
     for value in components {
-        comp.subs.push(hl7v2_model::Atom::text(*value));
+        comp.subs.push(Atom::text(*value));
     }
     let mut rep = Rep::new();
     rep.comps.push(comp);
@@ -897,10 +897,10 @@ fn write_comp(comp: &Comp, delims: &Delims) -> String {
 }
 
 /// Write a subcomponent to an HL7-formatted string.
-fn write_atom(atom: &hl7v2_model::Atom) -> String {
+fn write_atom(atom: &Atom) -> String {
     match atom {
-        hl7v2_model::Atom::Text(t) => t.clone(),
-        hl7v2_model::Atom::Null => String::new(),
+        Atom::Text(t) => t.clone(),
+        Atom::Null => String::new(),
     }
 }
 
@@ -940,9 +940,9 @@ fn parse_raw_field(field_str: &str, delims: &Delims) -> Field {
             let mut comp = Comp::new();
             for sub_str in comp_str.split(delims.sub) {
                 if sub_str.is_empty() {
-                    comp.subs.push(hl7v2_model::Atom::Null);
+                    comp.subs.push(Atom::Null);
                 } else {
-                    comp.subs.push(hl7v2_model::Atom::text(sub_str));
+                    comp.subs.push(Atom::text(sub_str));
                 }
             }
             rep.comps.push(comp);
@@ -956,6 +956,7 @@ fn parse_raw_field(field_str: &str, delims: &Delims) -> Field {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hl7v2::parse;
 
     #[test]
     fn test_message_builder_new() {
@@ -969,7 +970,7 @@ mod tests {
             .with_pid("MRN123", "Doe", "John")
             .build_bytes();
 
-        let message = hl7v2_parser::parse(&bytes).unwrap();
+        let message = parse(&bytes).unwrap();
         assert_eq!(message.segments.len(), 2);
     }
 
@@ -981,7 +982,7 @@ mod tests {
             .with_pv1("I", "ICU^101")
             .build_bytes();
 
-        let message = hl7v2_parser::parse(&bytes).unwrap();
+        let message = parse(&bytes).unwrap();
         assert_eq!(message.segments.len(), 3);
     }
 
@@ -993,7 +994,7 @@ mod tests {
             .with_obx("1", "NM", "WBC^White Blood Count", "7.5", "10^9/L")
             .build_bytes();
 
-        let message = hl7v2_parser::parse(&bytes).unwrap();
+        let message = parse(&bytes).unwrap();
         assert_eq!(message.segments.len(), 4);
     }
 
@@ -1004,7 +1005,7 @@ mod tests {
             .with_message_control_id("CUSTOM123")
             .build_bytes();
 
-        let message = hl7v2_parser::parse(&bytes).unwrap();
+        let message = parse(&bytes).unwrap();
         // Verify the message was created successfully
         assert_eq!(message.segments.len(), 1);
     }
@@ -1040,7 +1041,7 @@ mod tests {
             .with_raw_segment("ZPV|1|Custom|Value")
             .build_bytes();
 
-        let message = hl7v2_parser::parse(&bytes).unwrap();
+        let message = parse(&bytes).unwrap();
         assert_eq!(message.segments.len(), 2);
         assert_eq!(message.segments[1].id_str(), "ZPV");
     }

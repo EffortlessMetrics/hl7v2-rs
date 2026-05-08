@@ -119,32 +119,16 @@ jobs:
 
       - name: Run BDD tests
         run: |
-          # Run BDD tests for crates that have them
-          cargo test --test bdd_tests -p hl7v2-core || echo "No BDD tests in hl7v2-core"
+          # Run BDD tests for active crates that have them
           cargo test --test bdd_tests -p hl7v2-cli || echo "No BDD tests in hl7v2-cli"
-          cargo test --test bdd_tests -p hl7v2-validation || echo "No BDD tests in hl7v2-validation"
+          cargo test --test bdd_tests -p hl7v2-server || echo "No BDD tests in hl7v2-server"
         timeout-minutes: 5
 
       - name: Run limited property tests
         env:
           PROPTEST_CASES: 100
         run: |
-          cargo test -p hl7v2-ack --test property_tests
-          cargo test -p hl7v2-batch --test property_tests
-          cargo test -p hl7v2-core --test property_tests
-          cargo test -p hl7v2-corpus --test property_tests
-          cargo test -p hl7v2-datatype --test property_tests
-          cargo test -p hl7v2-datetime --test property_tests
-          cargo test -p hl7v2-escape --test property_tests
-          cargo test -p hl7v2-faker --test property_tests
-          cargo test -p hl7v2-json --test property_tests
-          cargo test -p hl7v2-mllp --test property_tests
-          cargo test -p hl7v2-normalize --test property_tests
-          cargo test -p hl7v2-path --test property_tests
-          cargo test -p hl7v2-prof --test property_tests
-          cargo test -p hl7v2-query --test property_tests
-          cargo test -p hl7v2-template --test property_tests
-          cargo test -p hl7v2-writer --test property_tests
+          cargo test -p hl7v2 --all-features property_tests
         timeout-minutes: 5
 
   # ============================================================================
@@ -224,22 +208,7 @@ jobs:
         env:
           PROPTEST_CASES: 1000
         run: |
-          cargo test -p hl7v2-ack --test property_tests
-          cargo test -p hl7v2-batch --test property_tests
-          cargo test -p hl7v2-core --test property_tests
-          cargo test -p hl7v2-corpus --test property_tests
-          cargo test -p hl7v2-datatype --test property_tests
-          cargo test -p hl7v2-datetime --test property_tests
-          cargo test -p hl7v2-escape --test property_tests
-          cargo test -p hl7v2-faker --test property_tests
-          cargo test -p hl7v2-json --test property_tests
-          cargo test -p hl7v2-mllp --test property_tests
-          cargo test -p hl7v2-normalize --test property_tests
-          cargo test -p hl7v2-path --test property_tests
-          cargo test -p hl7v2-prof --test property_tests
-          cargo test -p hl7v2-query --test property_tests
-          cargo test -p hl7v2-template --test property_tests
-          cargo test -p hl7v2-writer --test property_tests
+          cargo test -p hl7v2 --all-features property_tests
         timeout-minutes: 10
 
   # ============================================================================
