@@ -306,6 +306,19 @@ pub struct BundleRequest {
     pub bundle_artifact_schema_version: Option<u8>,
 }
 
+/// Server evidence bundle replay request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplayRequest {
+    /// Caller-supplied bundle identifier relative to the configured bundle root.
+    pub bundle_id: String,
+    /// Optional evidence replay report schema version.
+    ///
+    /// Omitted or `1` preserves the default replay report shape. `2` returns
+    /// the v2 replay report shape with embedded evidence provenance.
+    #[serde(default)]
+    pub replay_report_schema_version: Option<u8>,
+}
+
 /// Evidence bundle summary response body.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvidenceBundleSummary {

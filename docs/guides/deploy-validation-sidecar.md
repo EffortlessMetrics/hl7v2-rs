@@ -389,8 +389,8 @@ the evidence endpoints for interface decisions.
   explicitly allows it.
 - Keep redaction policies fail-closed; a rejected policy is safer than a leaky
   bundle.
-- Replay server-created bundles with `hl7v2 replay <bundle-dir> --format json`
-  before attaching them to tickets.
+- Replay server-created bundles with `POST /hl7/replay` or
+  `hl7v2 replay <bundle-dir> --format json` before attaching them to tickets.
 
 ## Workflow Summary
 

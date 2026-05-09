@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const BUNDLE_VERSION: &str = "1";
 const QUARANTINE_VERSION: &str = "1";
@@ -125,7 +125,7 @@ pub fn write_evidence_bundle(
 
     validate_bundle_id(bundle_id)?;
 
-    let bundle_dir = root.join(bundle_id);
+    let bundle_dir = bundle_path_for_id(root, bundle_id)?;
     fs::create_dir(&bundle_dir).map_err(|error| {
         if error.kind() == std::io::ErrorKind::AlreadyExists {
             EvidenceBundleError::Conflict(format!(
@@ -346,6 +346,15 @@ fn validate_bundle_id(bundle_id: &str) -> Result<(), EvidenceBundleError> {
     }
 
     Ok(())
+}
+
+/// Return the bundle directory for a caller-supplied bundle id under a configured root.
+///
+/// The id must be a single safe path segment; callers never provide arbitrary
+/// filesystem paths.
+pub fn bundle_path_for_id(root: &Path, bundle_id: &str) -> Result<PathBuf, EvidenceBundleError> {
+    validate_bundle_id(bundle_id)?;
+    Ok(root.join(bundle_id))
 }
 
 fn write_json_file<T: serde::Serialize>(path: &Path, value: &T) -> Result<(), EvidenceBundleError> {
