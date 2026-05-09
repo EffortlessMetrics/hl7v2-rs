@@ -2,16 +2,19 @@
 
 Date: 2026-05-08
 
+Updated: 2026-05-09 after the v1.3.0 Evidence Loop release hardening pass.
+
 ## Purpose
 
-This audit records the current evidence-loop state after the product-usefulness
-lane added first-run diagnostics, typed validation reports, profile commands,
-corpus observability, safe redaction, evidence bundle/replay, and Python API
-parity.
+This audit records the evidence-loop state after the product-usefulness lane
+added first-run diagnostics, typed validation reports, profile commands, corpus
+observability, safe redaction, evidence bundle/replay, Python API parity, and
+the v1.3.0 contract-hardening pass.
 
-The goal is to make the next hardening work concrete: JSON Schemas, golden
-fixtures, CLI output semantics, bundle manifest verification, server parity, and
-Python bundle/replay APIs should be based on the artifacts that exist now.
+The goal is to keep the next hardening work concrete. The loop now has JSON
+Schemas, golden fixtures, CLI output semantics, bundle manifest verification,
+server parity, and Python bundle/replay APIs; the remaining gaps are narrower
+provenance and identity details.
 
 ## Current Product Loop
 
@@ -43,19 +46,19 @@ summary/fingerprint/diff dict outputs, and safe-analysis redaction output.
 
 | Artifact | Current state | Main gap |
 | --- | --- | --- |
-| `ValidationReport` | Shared Rust type used by CLI, Python, and server validation response fields, including `/hl7/validate-redacted`. Includes stable issue code, severity, path, rule ID, message, segment index, and field index. | Missing artifact `schema_version`, `tool_version`, JSON Schema, and golden fixture set. |
-| `ProfileLintReport` | Shared Rust type from profile linting. CLI emits text/JSON/YAML. | Missing version fields and JSON Schema. |
-| `ProfileTestReport` | CLI report with fixture cases, pass/fail status, embedded validation reports, and optional expected-report comparison. | CLI-local type; missing version fields and JSON Schema. |
-| `ProfileExplainReport` | CLI report with profile SHA-256, structure, version, segments, constraints, tables, rules, and lint summary. | CLI-local type; missing artifact version and tool version. |
-| `CorpusSummary` | Shared Rust corpus summary type. CLI emits text/JSON/YAML and Python returns the same dict shape. | Missing version fields; JSON Schema and golden fixture exist. |
+| `ValidationReport` | Shared Rust type used by CLI, Python, and server validation response fields, including `/hl7/validate-redacted`. Includes stable issue code, severity, path, rule ID, message, segment index, and field index. | JSON Schema and golden fixture exist; no embedded artifact `schema_version` or `tool_version`. |
+| `ProfileLintReport` | Shared Rust type from profile linting. CLI emits text/JSON/YAML. | JSON Schema and golden fixture exist; no embedded version fields. |
+| `ProfileTestReport` | CLI report with fixture cases, pass/fail status, embedded validation reports, and optional expected-report comparison. | JSON Schema and golden fixture exist; CLI-local type with no embedded version fields. |
+| `ProfileExplainReport` | CLI report with profile SHA-256, structure, version, segments, constraints, tables, rules, and lint summary. | JSON Schema and golden fixture exist; no embedded artifact version or tool version. |
+| `CorpusSummary` | Shared Rust corpus summary type. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; no embedded version fields. |
 | `CorpusFingerprint` | Shared Rust fingerprint type with `fingerprint_version`, `tool_version`, optional profile hash, counts, field presence/cardinality, value shapes, and validation issue-code counts. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; null/empty behavior still needs clearer docs. |
 | `CorpusDiffReport` | Shared Rust diff type with `diff_version`, `tool_version`, optional profile hash, totals, new/removed message types and segments, field deltas, value-shape deltas, and validation issue-code deltas. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; null/empty behavior still needs clearer docs. |
-| `RedactionReceipt` | CLI, server, and Python receipts record PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | Missing version fields and dedicated leak-sentinel fixture family; JSON Schema exists. |
-| `EvidenceBundleSummary` | CLI stdout JSON summary, Python `bundle()` output, and server `/hl7/bundle` JSON response include `bundle_version`, output directory/id, message type, validation status, redaction status, and artifact list. | Includes `manifest.json`; no `tool_version` in the summary itself. |
-| Bundle artifacts | CLI, Python, and server bundles write `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, `README.md`, and `manifest.json`. | Bundle README is generated and manifest-hashed. |
+| `RedactionReceipt` | CLI, server, and Python receipts record PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | JSON Schema, golden fixture, and synthetic PHI leak-sentinel tests exist; no embedded version fields. |
+| `EvidenceBundleSummary` | CLI stdout JSON summary, Python `bundle()` output, and server `/hl7/bundle` JSON response include `bundle_version`, output directory/id, message type, validation status, redaction status, and artifact list. | JSON Schema and golden fixture exist; no `tool_version` in the summary itself. |
+| Bundle artifacts | CLI, Python, and server bundles write `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, `README.md`, and `manifest.json`. | Bundle README is generated and manifest-hashed; profile text is user-authored and included as supplied. |
 | `QuarantineOutputSummary` | Server `/hl7/validate-redacted` can return a root-relative quarantine output id, reason, validation issue count, and artifact list when `[quarantine]` is enabled and validation fails. | Server-local response type; JSON Schema exists; full-bundle mode reuses bundle artifacts. |
-| `EvidenceBundleManifest` | Bundle `manifest.json` records bundle-relative artifact paths, roles, SHA-256 hashes, and the generating tool name (`hl7v2-cli`, `hl7v2-server`, or `hl7v2-python`). | Replay verifies manifest catalog and hashes before using artifacts. |
-| `EvidenceReplayReport` | CLI and Python reports include `replay_version`, `bundle_version`, `tool_name`, `tool_version`, replay checks, reproduction status, and optional regenerated validation report. | Fails closed on malformed manifests, missing artifacts, and hash mismatches; report schema exists. |
+| `EvidenceBundleManifest` | Bundle `manifest.json` records bundle-relative artifact paths, roles, SHA-256 hashes, and the generating tool name (`hl7v2-cli`, `hl7v2-server`, or `hl7v2-python`). | JSON Schema and golden fixture exist; replay verifies manifest catalog and hashes before using artifacts. |
+| `EvidenceReplayReport` | CLI and Python reports include `replay_version`, `bundle_version`, `tool_name`, `tool_version`, replay checks, reproduction status, and optional regenerated validation report. | JSON Schema and golden fixture exist; fails closed on malformed manifests, missing artifacts, and hash mismatches. |
 | Python validation report | `report.valid`, `message_type`, `profile`, `segment_count`, `issue_count`, `to_dict()`, and `to_json()` mirror `ValidationReport`. | Python exposes validation reports, corpus summary/fingerprint/diff dict APIs, safe-analysis redaction output, bundle creation, and replay verification. |
 
 ## Surface Parity
@@ -69,8 +72,9 @@ summary/fingerprint/diff dict outputs, and safe-analysis redaction output.
 
 One known validation parity detail remains: the CLI report `profile` value is
 the profile path supplied by the user, while the server and Python surfaces use
-the loaded profile message structure. The shape is shared; the profile identity
-semantics still need to be made explicit before schemas are treated as stable.
+the loaded profile message structure. The shape is schema-backed and shared; the
+profile identity semantics still need to be made explicit before profile labels
+are treated as cross-surface equivalent.
 
 ## CLI Automation Semantics
 
@@ -93,15 +97,15 @@ Current behavior is script-grade:
 
 ## Known Contract Gaps
 
-The evidence loop exists, but it is not yet fully contract-grade. Remaining
-hardening work:
+The evidence loop is contract-grade enough for the v1.3.0 release: schemas,
+goldens, CLI output semantics, manifest verification, server edge-guard routes,
+Python parity, and user guides are in place. Remaining hardening work:
 
 1. Add artifact version and tool version fields consistently.
 2. Document null/empty-list behavior for optional fields.
-3. Add fuller external guides for sharing and replaying bundles.
-4. Add broader synthetic PHI leak sentinels for future server/Python evidence
+3. Add broader synthetic PHI leak sentinels for future server/Python evidence
    wrappers and additional fixture families.
-5. Promote shared report types out of CLI-local structs when server or Python
+4. Promote shared report types out of CLI-local structs when server or Python
    parity needs them.
 
 ## Verification Performed For This Audit

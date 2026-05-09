@@ -2,7 +2,8 @@
 
 This document maps the current evidence-loop artifacts and their contract
 status. It is a current-state reference for the schema, golden-fixture, CLI
-output-contract, server parity, and Python parity follow-up work.
+output-contract, server parity, and Python parity surfaces in the v1.3.0
+evidence loop.
 
 ## Product Loop
 
@@ -82,17 +83,21 @@ The CLI output contract is stable enough for CI and automation:
 3 = IO/runtime/environment error
 ```
 
-## Contract Hardening Gaps
+## Remaining Contract Hardening Gaps
 
-The next contract-hardening work should lock:
+The v1.3.0 evidence loop has schema-backed JSON artifacts, golden fixtures,
+CLI output semantics, bundle manifest verification, server edge-guard routes,
+Python parity, and workflow guides. Remaining hardening work should narrow the
+few places where provenance or identity is still implicit:
 
 - `schema_version` or artifact-specific version naming for every machine
   artifact.
 - `tool_version` where users need provenance outside an environment file.
 - Explicit null and empty-list behavior for optional fields.
-- Clearer external guides for sharing and replaying bundles.
-- Redaction leak sentinel tests for synthetic PHI fixtures.
-- Server and Python parity for any artifact promoted beyond CLI-only use.
+- Explicit profile identity semantics for validation reports, since CLI reports
+  the supplied profile path while server and Python reports use the loaded
+  profile message structure.
+- Shared library types for any CLI-local report promoted beyond CLI-only use.
 
 ## Non-Goals
 
