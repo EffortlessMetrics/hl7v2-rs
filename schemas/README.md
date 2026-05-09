@@ -59,10 +59,13 @@ The first target v2 evidence schemas are `validation-report-v2.schema.json`,
 `profile-explain-report-v2.schema.json`, `corpus-summary-v2.schema.json`,
 `corpus-fingerprint-v2.schema.json`, `corpus-diff-v2.schema.json`, and
 `redaction-receipt-v2.schema.json`, `quarantine-output-v2.schema.json`,
-`evidence-bundle-v2.schema.json`, and `evidence-replay-v2.schema.json`. They
-add embedded `schema_version`, `tool_name`, and `tool_version` fields while
-keeping their v1 counterparts valid until implementation PRs explicitly move
-producer output shapes.
+`evidence-bundle-v2.schema.json`, `evidence-bundle-manifest-v2.schema.json`,
+`evidence-bundle-environment-v2.schema.json`,
+`field-path-trace-v2.schema.json`, and `evidence-replay-v2.schema.json`. They
+add embedded `schema_version`, `tool_name`, and `tool_version` fields where the
+artifact did not already carry tool provenance, while keeping their v1
+counterparts valid until implementation PRs explicitly move producer output
+shapes.
 Validation reports are the first artifact with an opt-in v2 producer path:
 `hl7v2 val --report json --schema-version 2` emits the v2 shape, while the
 default output remains v1. Python validation reports expose the same opt-in
@@ -97,6 +100,10 @@ default.
 Evidence replay reports can opt into their target v2 shape with
 `hl7v2 replay ... --format json --schema-version 2`, and Python exposes the
 same shape with `replay(..., schema_version=2)`.
+Bundle-internal `manifest.json`, `environment.json`, and `field-paths.json`
+have target v2 schemas and fixtures. Live bundle writers still emit the v1
+artifact shapes until a compatibility PR explicitly migrates bundle artifact
+producers and replay verification together.
 
 #### Evidence Null And Empty Semantics
 

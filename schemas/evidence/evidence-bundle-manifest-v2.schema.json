@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/evidence-bundle-manifest/v2",
+  "title": "HL7v2 Evidence Bundle Manifest v2",
+  "description": "Machine-readable manifest written inside an evidence bundle, with explicit schema provenance. Paths are bundle-relative and hashes are SHA-256 digests of artifact contents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_version",
+    "tool_name",
+    "tool_version",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2"
+    },
+    "bundle_version": {
+      "type": "string",
+      "enum": ["1"]
+    },
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2-cli", "hl7v2-server", "hl7v2-python"]
+    },
+    "tool_version": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/artifact"
+      }
+    }
+  },
+  "definitions": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\).+$",
+          "description": "Bundle-relative artifact path. Absolute paths and Windows separators are not allowed."
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "redacted_message",
+            "validation_report",
+            "field_path_trace",
+            "profile",
+            "redaction_receipt",
+            "environment",
+            "replay_shell_script",
+            "replay_powershell_script",
+            "bundle_readme"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}
