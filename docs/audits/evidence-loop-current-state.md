@@ -39,9 +39,12 @@ redacted validation through `/hl7/validate-redacted`, server-side evidence
 bundle creation through `/hl7/bundle` when a bundle output root is configured,
 server-side replay verification through `/hl7/replay`, policy-driven ACK/NAK
 decisions through `/hl7/ack-policy`, and configured quarantine output for
-failed redacted validation. Python exposes parse, JSON
-conversion, normalization, validation report dict/JSON parity, corpus
-summary/fingerprint/diff dict outputs, and safe-analysis redaction output.
+failed redacted validation. It also exposes inline corpus summary,
+fingerprint, and diff endpoints under `/hl7/corpus/*`; these accept message
+content directly and do not read filesystem paths from request bodies. Python
+exposes parse, JSON conversion, normalization, validation report dict/JSON
+parity, corpus summary/fingerprint/diff dict outputs, and safe-analysis
+redaction output.
 
 ## Artifact Status
 
@@ -70,7 +73,7 @@ summary/fingerprint/diff dict outputs, and safe-analysis redaction output.
 | --- | --- |
 | Rust | Shared validation, profile lint, corpus summary/fingerprint/diff, parse, normalize, write, ACK, redaction module APIs, and Python-facing bundle/replay evidence APIs. Profile test and profile explain reports remain CLI-local. |
 | CLI | Complete current loop: doctor, profile lint/test/explain, validation, corpus summarize/fingerprint/diff, redact, bundle, and replay. |
-| Server | Validation report parity for `/hl7/validate`; redacted validation parity and quarantine hooks for `/hl7/validate-redacted`; configured-root bundle creation for `/hl7/bundle` with opt-in v2 bundle-internal artifacts; configured-root replay verification for `/hl7/replay`; policy-driven ACK/NAK decisions for `/hl7/ack-policy`; corpus artifacts remain follow-up work. |
+| Server | Validation report parity for `/hl7/validate`; redacted validation parity and quarantine hooks for `/hl7/validate-redacted`; configured-root bundle creation for `/hl7/bundle` with opt-in v2 bundle-internal artifacts; configured-root replay verification for `/hl7/replay`; policy-driven ACK/NAK decisions for `/hl7/ack-policy`; inline corpus summary/fingerprint/diff endpoints under `/hl7/corpus/*`. |
 | Python | Minimum API parity for parse, `to_json`, normalize, validation reports, corpus summary/fingerprint/diff dict outputs, safe-analysis redaction output, bundle creation, and replay verification. |
 
 One validation parity detail is intentionally documented as a label convention:

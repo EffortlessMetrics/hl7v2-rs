@@ -19,6 +19,7 @@ cargo run -q -p hl7v2-server -- --print-config
 | `--print-config` | Print sanitized effective configuration without leaking secrets. |
 | `GET /ready` | Prove config, profile loading, output roots, and validation-report self-checks are ready. |
 | `POST /hl7/validate-redacted` | Validate after safe-analysis redaction and optionally quarantine failures. |
+| `POST /hl7/corpus/*` | Summarize, fingerprint, and diff inline message sets without request path reads. |
 | `POST /hl7/bundle` | Create server-side redacted evidence bundles under a configured root. |
 | `POST /hl7/ack-policy` | Generate ACK/NAK responses from parse and validation results. |
 | `GET /metrics` | Expose Prometheus metrics for sidecar observation. |
@@ -274,7 +275,58 @@ Because quarantine is enabled, failed validation writes redacted artifacts under
 the configured quarantine root. The response reports a root-relative output id,
 not the server filesystem path.
 
-## 6. Create a Server-Side Evidence Bundle
+## 6. Inspect Inline Corpus Drift
+
+The corpus endpoints accept inline message bodies. They do not accept server
+filesystem paths, so callers can use them from CI or a migration script without
+granting read access to arbitrary server locations.
+
+```powershell
+$before = Get-Content test_data/invalid_message.hl7 -Raw
+$after = Get-Content test_data/valid_message.hl7 -Raw
+
+$body = @{
+    before = @(
+        @{ id = "before-1"; message = $before }
+    )
+    after = @(
+        @{ id = "after-1"; message = $after }
+    )
+    profile = $profile
+    diff_schema_version = 2
+} | ConvertTo-Json -Depth 8
+
+Invoke-RestMethod `
+    -Method Post `
+    -Uri http://127.0.0.1:18080/hl7/corpus/diff `
+    -Headers @{ "X-API-Key" = "dev-secret" } `
+    -ContentType "application/json" `
+    -Body $body |
+    ConvertTo-Json -Depth 20 |
+    Set-Content target/hl7v2-sidecar/reports/corpus-diff.json
+```
+
+Expected fields:
+
+```json
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-server",
+  "before_root": "<inline-before>",
+  "after_root": "<inline-after>",
+  "message_count": {
+    "before": 1,
+    "after": 1,
+    "delta": 0
+  },
+  "validation_issue_code_counts": []
+}
+```
+
+Use `/hl7/corpus/summarize` for aggregate counts and
+`/hl7/corpus/fingerprint` for a deterministic feed signature.
+
+## 7. Create a Server-Side Evidence Bundle
 
 The bundle endpoint writes under `bundle_output_root`. The request supplies a
 safe `bundle_id`, not an arbitrary filesystem path:
@@ -324,7 +376,7 @@ If the endpoint returns `503 BUNDLE_OUTPUT_NOT_CONFIGURED`, set
 `[server].bundle_output_root` or `HL7V2_BUNDLE_OUTPUT_ROOT` to an existing
 writable directory and restart the server.
 
-## 7. Generate ACK/NAK from Policy
+## 8. Generate ACK/NAK from Policy
 
 Use `/hl7/ack-policy` when the sidecar needs to decide an ACK from the same
 validation evidence:
@@ -366,7 +418,7 @@ For the invalid sample, expected fields include:
 
 Enhanced mode uses `CA` and `CR` instead of `AA` and `AR`.
 
-## 8. Observe the Sidecar
+## 9. Observe the Sidecar
 
 Check liveness and metrics:
 

@@ -19,6 +19,7 @@ hl7v2 = { version = "1.3.0", path = "../hl7v2", features = [
     "ack",
     "normalize",
     "redact",
+    "synthetic",
     "stream",
     "network",
 ] }

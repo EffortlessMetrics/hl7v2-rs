@@ -6,6 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use crate::models::*;
@@ -268,6 +269,88 @@ pub async fn replay_handler(
     Ok((StatusCode::OK, Json(response)))
 }
 
+/// Handler for POST /hl7/corpus/summarize
+pub async fn corpus_summarize_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<CorpusSummaryRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let schema_version = requested_corpus_summary_schema_version(request.summary_schema_version)?;
+    let ids = validated_corpus_message_ids(&request.messages, "messages", "message")?;
+    let messages = corpus_message_refs(&request.messages, &ids);
+    let summary = hl7v2::synthetic::corpus::summarize_corpus_messages("<inline-corpus>", &messages);
+    let response = if schema_version == 2 {
+        serde_json::to_value(summary.to_v2("hl7v2-server", env!("CARGO_PKG_VERSION")))
+    } else {
+        serde_json::to_value(summary)
+    }
+    .map_err(|error| AppError::Internal(format!("could not serialize corpus summary: {error}")))?;
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
+/// Handler for POST /hl7/corpus/fingerprint
+pub async fn corpus_fingerprint_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<CorpusFingerprintRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let schema_version =
+        requested_corpus_fingerprint_schema_version(request.fingerprint_schema_version)?;
+    let ids = validated_corpus_message_ids(&request.messages, "messages", "message")?;
+    let messages = corpus_message_refs(&request.messages, &ids);
+    let mut fingerprint =
+        hl7v2::synthetic::corpus::fingerprint_corpus_messages("<inline-corpus>", &messages);
+
+    if let Some(profile_yaml) = request.profile.as_deref() {
+        attach_profile_to_fingerprint(&mut fingerprint, profile_yaml, &request.messages)?;
+    }
+
+    let response = if schema_version == 2 {
+        serde_json::to_value(fingerprint.to_v2("hl7v2-server"))
+    } else {
+        serde_json::to_value(fingerprint)
+    }
+    .map_err(|error| {
+        AppError::Internal(format!("could not serialize corpus fingerprint: {error}"))
+    })?;
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
+/// Handler for POST /hl7/corpus/diff
+pub async fn corpus_diff_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<CorpusDiffRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let schema_version = requested_corpus_diff_schema_version(request.diff_schema_version)?;
+    let before_ids = validated_corpus_message_ids(&request.before, "before", "before")?;
+    let after_ids = validated_corpus_message_ids(&request.after, "after", "after")?;
+    let before_messages = corpus_message_refs(&request.before, &before_ids);
+    let after_messages = corpus_message_refs(&request.after, &after_ids);
+    let mut before_fingerprint =
+        hl7v2::synthetic::corpus::fingerprint_corpus_messages("<inline-before>", &before_messages);
+    let mut after_fingerprint =
+        hl7v2::synthetic::corpus::fingerprint_corpus_messages("<inline-after>", &after_messages);
+
+    if let Some(profile_yaml) = request.profile.as_deref() {
+        let profile_metadata =
+            attach_profile_to_fingerprint(&mut before_fingerprint, profile_yaml, &request.before)?;
+        after_fingerprint.profile = Some(profile_metadata);
+        after_fingerprint.validation_issue_code_counts =
+            validation_issue_counts_for_messages(&request.after, profile_yaml)?;
+    }
+
+    let diff =
+        hl7v2::synthetic::corpus::diff_corpus_fingerprints(&before_fingerprint, &after_fingerprint);
+    let response = if schema_version == 2 {
+        serde_json::to_value(diff.to_v2("hl7v2-server"))
+    } else {
+        serde_json::to_value(diff)
+    }
+    .map_err(|error| AppError::Internal(format!("could not serialize corpus diff: {error}")))?;
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
 /// Handler for POST /hl7/ack
 pub async fn ack_handler(
     State(_state): State<Arc<AppState>>,
@@ -454,6 +537,157 @@ fn requested_replay_report_schema_version(version: Option<u8>) -> Result<u8, App
             "unsupported replay report schema version {other}; expected 1 or 2"
         ))),
     }
+}
+
+fn requested_corpus_summary_schema_version(version: Option<u8>) -> Result<u8, AppError> {
+    match version.unwrap_or(1) {
+        1 => Ok(1),
+        2 => Ok(2),
+        other => Err(AppError::Validation(format!(
+            "unsupported corpus summary schema version {other}; expected 1 or 2"
+        ))),
+    }
+}
+
+fn requested_corpus_fingerprint_schema_version(version: Option<u8>) -> Result<u8, AppError> {
+    match version.unwrap_or(1) {
+        1 => Ok(1),
+        2 => Ok(2),
+        other => Err(AppError::Validation(format!(
+            "unsupported corpus fingerprint schema version {other}; expected 1 or 2"
+        ))),
+    }
+}
+
+fn requested_corpus_diff_schema_version(version: Option<u8>) -> Result<u8, AppError> {
+    match version.unwrap_or(1) {
+        1 => Ok(1),
+        2 => Ok(2),
+        other => Err(AppError::Validation(format!(
+            "unsupported corpus diff schema version {other}; expected 1 or 2"
+        ))),
+    }
+}
+
+fn validated_corpus_message_ids(
+    messages: &[CorpusMessageInput],
+    field_name: &str,
+    default_prefix: &str,
+) -> Result<Vec<String>, AppError> {
+    if messages.is_empty() {
+        return Err(AppError::Validation(format!(
+            "{field_name} must contain at least one message"
+        )));
+    }
+
+    messages
+        .iter()
+        .enumerate()
+        .map(|(index, message)| {
+            let label = message
+                .id
+                .clone()
+                .unwrap_or_else(|| format!("{default_prefix}-{}", index.saturating_add(1)));
+            validate_corpus_message_id(&label)?;
+            Ok(label)
+        })
+        .collect()
+}
+
+fn validate_corpus_message_id(label: &str) -> Result<(), AppError> {
+    if label.is_empty() || label == "." || label == ".." || label.len() > 128 {
+        return Err(AppError::Validation(
+            "corpus message id must be 1-128 characters and cannot be '.' or '..'".to_string(),
+        ));
+    }
+
+    if !label
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
+    {
+        return Err(AppError::Validation(
+            "corpus message id must use only ASCII letters, numbers, '.', '_' or '-'".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn corpus_message_refs<'a>(
+    messages: &'a [CorpusMessageInput],
+    ids: &'a [String],
+) -> Vec<hl7v2::synthetic::corpus::CorpusMessageRef<'a>> {
+    messages
+        .iter()
+        .zip(ids.iter())
+        .map(|(message, id)| {
+            hl7v2::synthetic::corpus::CorpusMessageRef::new(id.as_str(), message.message.as_bytes())
+        })
+        .collect()
+}
+
+fn attach_profile_to_fingerprint(
+    fingerprint: &mut hl7v2::synthetic::corpus::CorpusFingerprint,
+    profile_yaml: &str,
+    messages: &[CorpusMessageInput],
+) -> Result<hl7v2::synthetic::corpus::CorpusFingerprintProfile, AppError> {
+    let profile = hl7v2::load_profile_checked(profile_yaml)
+        .map_err(|error| AppError::ProfileLoad(error.to_string()))?;
+    let metadata = hl7v2::synthetic::corpus::CorpusFingerprintProfile {
+        path: "<inline-profile>".to_string(),
+        sha256: compute_sha256(profile_yaml),
+        version: profile.version.clone(),
+        message_structure: profile.message_structure.clone(),
+    };
+    fingerprint.profile = Some(metadata.clone());
+    fingerprint.validation_issue_code_counts =
+        validation_issue_counts_for_loaded_profile(messages, &profile);
+    Ok(metadata)
+}
+
+fn validation_issue_counts_for_messages(
+    messages: &[CorpusMessageInput],
+    profile_yaml: &str,
+) -> Result<Vec<hl7v2::synthetic::corpus::CorpusCount>, AppError> {
+    let profile = hl7v2::load_profile_checked(profile_yaml)
+        .map_err(|error| AppError::ProfileLoad(error.to_string()))?;
+    Ok(validation_issue_counts_for_loaded_profile(
+        messages, &profile,
+    ))
+}
+
+fn validation_issue_counts_for_loaded_profile(
+    messages: &[CorpusMessageInput],
+    profile: &hl7v2::Profile,
+) -> Vec<hl7v2::synthetic::corpus::CorpusCount> {
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+
+    for message in messages {
+        let parsed = if hl7v2::is_mllp_framed(message.message.as_bytes()) {
+            hl7v2::parse_mllp(message.message.as_bytes())
+        } else {
+            hl7v2::parse(message.message.as_bytes())
+        };
+        let Ok(parsed) = parsed else {
+            continue;
+        };
+
+        let issues = hl7v2::validate(&parsed, profile);
+        let report = hl7v2::ValidationReport::from_issues(
+            &parsed,
+            Some(profile.message_structure.clone()),
+            issues,
+        );
+        for issue in report.issues {
+            let count = counts.entry(issue.code).or_insert(0);
+            *count = count.saturating_add(1);
+        }
+    }
+
+    counts
+        .into_iter()
+        .map(|(value, count)| hl7v2::synthetic::corpus::CorpusCount { value, count })
+        .collect()
 }
 
 fn validation_report_v2_for_server(
