@@ -32,7 +32,7 @@
 //! assert_eq!(parsed.seed, 42);
 //! ```
 
-use crate::model::{Atom, Field, Message};
+use crate::model::{Atom, Error, Field, Message};
 use crate::parser::{parse, parse_mllp};
 use crate::transport::mllp::is_mllp_framed;
 use crate::writer::write;
@@ -133,6 +133,26 @@ pub struct CorpusParseFailure {
     pub path: String,
     /// Parser error string for this file.
     pub error: String,
+}
+
+/// In-memory corpus message supplied by a caller.
+///
+/// `id` is an artifact label used in parse-error reports. It is not treated as
+/// a filesystem path by the corpus helpers.
+#[derive(Debug, Clone, Copy)]
+pub struct CorpusMessageRef<'a> {
+    /// Caller-facing message label.
+    pub id: &'a str,
+    /// Raw HL7 message bytes. Messages may be plain or MLLP-framed.
+    pub bytes: &'a [u8],
+}
+
+impl<'a> CorpusMessageRef<'a> {
+    /// Build an in-memory corpus message reference.
+    #[must_use]
+    pub const fn new(id: &'a str, bytes: &'a [u8]) -> Self {
+        Self { id, bytes }
+    }
 }
 
 /// Summary of a directory or file corpus of HL7 v2 messages.
@@ -757,6 +777,68 @@ pub fn summarize_corpus_path(path: impl AsRef<Path>) -> Result<CorpusSummary, Co
     })
 }
 
+/// Summarize an in-memory corpus of HL7 v2 messages.
+///
+/// Each message is parsed as plain HL7 unless it is MLLP framed. Messages that
+/// fail to parse are recorded in the returned summary rather than failing the
+/// whole operation.
+#[must_use]
+pub fn summarize_corpus_messages(
+    root: impl Into<String>,
+    messages: &[CorpusMessageRef<'_>],
+) -> CorpusSummary {
+    let mut message_type_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut segment_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut field_message_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut field_occurrence_counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut parse_errors = Vec::new();
+    let mut total_bytes = 0usize;
+    let mut message_count = 0usize;
+
+    for message_ref in messages {
+        total_bytes = total_bytes.saturating_add(message_ref.bytes.len());
+
+        match parse_corpus_message_bytes(message_ref.bytes) {
+            Ok(message) => {
+                message_count = message_count.saturating_add(1);
+                increment_count(&mut message_type_counts, extract_message_type(&message));
+                record_message_shape(
+                    &message,
+                    &mut segment_counts,
+                    &mut field_message_counts,
+                    &mut field_occurrence_counts,
+                );
+            }
+            Err(error) => parse_errors.push(CorpusParseFailure {
+                path: message_ref.id.to_string(),
+                error: error.to_string(),
+            }),
+        }
+    }
+
+    let mut field_presence: Vec<CorpusFieldPresence> = field_occurrence_counts
+        .into_iter()
+        .map(|(path, occurrence_count)| CorpusFieldPresence {
+            message_count: field_message_counts.get(&path).copied().unwrap_or_default(),
+            path,
+            occurrence_count,
+        })
+        .collect();
+    field_presence.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+
+    CorpusSummary {
+        root: root.into(),
+        file_count: messages.len(),
+        message_count,
+        parse_error_count: parse_errors.len(),
+        total_bytes,
+        message_types: counts_to_vec(message_type_counts),
+        segments: counts_to_vec(segment_counts),
+        field_presence,
+        parse_errors,
+    }
+}
+
 /// Diff two file or directory corpora of HL7 v2 messages.
 ///
 /// This fingerprints both inputs using [`fingerprint_corpus_path`] and returns
@@ -852,6 +934,37 @@ pub fn fingerprint_corpus_path(path: impl AsRef<Path>) -> Result<CorpusFingerpri
     })
 }
 
+/// Fingerprint an in-memory corpus of HL7 v2 messages.
+///
+/// The fingerprint is a compact deterministic feed signature derived from the
+/// parsed messages in the corpus. Parse failures are counted but skipped for
+/// shape-level dimensions.
+#[must_use]
+pub fn fingerprint_corpus_messages(
+    root: impl Into<String>,
+    messages: &[CorpusMessageRef<'_>],
+) -> CorpusFingerprint {
+    let summary = summarize_corpus_messages(root, messages);
+    let (field_cardinality, value_shape_stats) =
+        collect_fingerprint_details_from_messages(messages, summary.message_count);
+
+    CorpusFingerprint {
+        fingerprint_version: "1".to_string(),
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        root: summary.root,
+        profile: None,
+        file_count: summary.file_count,
+        message_count: summary.message_count,
+        parse_error_count: summary.parse_error_count,
+        message_type_counts: summary.message_types,
+        segment_counts: summary.segments,
+        field_presence: summary.field_presence,
+        field_cardinality,
+        value_shape_stats,
+        validation_issue_code_counts: Vec::new(),
+    }
+}
+
 fn collect_fingerprint_details(
     root: &Path,
     message_count: usize,
@@ -916,6 +1029,58 @@ fn collect_fingerprint_details(
     Ok((cardinality, value_shape_stats))
 }
 
+fn collect_fingerprint_details_from_messages(
+    messages: &[CorpusMessageRef<'_>],
+    message_count: usize,
+) -> (Vec<CorpusFieldCardinality>, Vec<CorpusValueShapeStats>) {
+    let mut cardinality: BTreeMap<String, FieldCardinalityAccumulator> = BTreeMap::new();
+    let mut value_shapes: BTreeMap<String, CorpusValueShapeStats> = BTreeMap::new();
+
+    for message_ref in messages {
+        let Ok(message) = parse_corpus_message_bytes(message_ref.bytes) else {
+            continue;
+        };
+
+        let mut message_occurrences: BTreeMap<String, usize> = BTreeMap::new();
+        record_fingerprint_message_shape(&message, &mut message_occurrences, &mut value_shapes);
+
+        for (path, occurrences) in message_occurrences {
+            let entry = cardinality.entry(path).or_default();
+            entry.present_message_count = entry.present_message_count.saturating_add(1);
+            entry.total_occurrences = entry.total_occurrences.saturating_add(occurrences);
+            entry.max_per_message = entry.max_per_message.max(occurrences);
+            entry.min_present_per_message = match entry.min_present_per_message {
+                Some(current) => Some(current.min(occurrences)),
+                None => Some(occurrences),
+            };
+        }
+    }
+
+    let mut cardinality: Vec<CorpusFieldCardinality> = cardinality
+        .into_iter()
+        .map(|(path, stats)| {
+            let min_per_message = if stats.present_message_count < message_count {
+                0
+            } else {
+                stats.min_present_per_message.unwrap_or_default()
+            };
+            CorpusFieldCardinality {
+                path,
+                min_per_message,
+                max_per_message: stats.max_per_message,
+                total_occurrences: stats.total_occurrences,
+                message_count: stats.present_message_count,
+            }
+        })
+        .collect();
+    cardinality.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+
+    let mut value_shape_stats: Vec<CorpusValueShapeStats> = value_shapes.into_values().collect();
+    value_shape_stats.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
+
+    (cardinality, value_shape_stats)
+}
+
 fn collect_corpus_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), CorpusError> {
     if path.is_file() {
         files.push(path.to_path_buf());
@@ -940,6 +1105,14 @@ fn collect_corpus_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), Cor
     }
 
     Ok(())
+}
+
+fn parse_corpus_message_bytes(message_bytes: &[u8]) -> Result<Message, Error> {
+    if is_mllp_framed(message_bytes) {
+        parse_mllp(message_bytes)
+    } else {
+        parse(message_bytes)
+    }
 }
 
 fn relative_corpus_path(root: &Path, file: &Path) -> String {
@@ -1499,6 +1672,59 @@ mod summary_tests {
                 .first()
                 .map(|failure| failure.path.as_str()),
             Some("invalid.hl7")
+        );
+    }
+
+    #[test]
+    fn summarize_corpus_messages_uses_message_ids_for_parse_failures() {
+        let messages = [
+            CorpusMessageRef::new("adt-1", ADT_A01.as_bytes()),
+            CorpusMessageRef::new("bad-1", b"not an hl7 message"),
+        ];
+
+        let summary = summarize_corpus_messages("<inline-corpus>", &messages);
+
+        assert_eq!(summary.root, "<inline-corpus>");
+        assert_eq!(summary.file_count, 2);
+        assert_eq!(summary.message_count, 1);
+        assert_eq!(summary.parse_error_count, 1);
+        assert_eq!(
+            summary
+                .parse_errors
+                .first()
+                .map(|failure| failure.path.as_str()),
+            Some("bad-1")
+        );
+        let Some(parse_failure) = summary.parse_errors.first() else {
+            panic!("parse failure should be recorded");
+        };
+        assert!(!parse_failure.error.contains("not an hl7 message"));
+    }
+
+    #[test]
+    fn fingerprint_corpus_messages_reports_shape_and_diffable_output() {
+        let before_messages = [CorpusMessageRef::new("adt-1", ADT_A01.as_bytes())];
+        let after_messages = [
+            CorpusMessageRef::new("adt-1", ADT_A01.as_bytes()),
+            CorpusMessageRef::new("oru-1", ORU_R01.as_bytes()),
+        ];
+
+        let before = fingerprint_corpus_messages("<inline-before>", &before_messages);
+        let after = fingerprint_corpus_messages("<inline-after>", &after_messages);
+        let diff = diff_corpus_fingerprints(&before, &after);
+
+        assert_eq!(before.root, "<inline-before>");
+        assert_eq!(after.root, "<inline-after>");
+        assert_eq!(before.message_count, 1);
+        assert_eq!(after.message_count, 2);
+        assert_eq!(diff.new_message_types, vec!["ORU^R01".to_string()]);
+        assert!(
+            after
+                .field_cardinality
+                .iter()
+                .any(|field| field.path == "OBX.5"
+                    && field.min_per_message == 0
+                    && field.max_per_message == 1)
         );
     }
 

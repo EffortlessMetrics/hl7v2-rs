@@ -287,6 +287,105 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /hl7/corpus/summarize:
+    post:
+      summary: Summarize inline HL7 corpus
+      description: |
+        Summarize caller-supplied HL7 messages without reading filesystem paths from the request. Message ids are safe labels used only for parse-error attribution.
+      tags: [hl7]
+      operationId: summarizeInlineCorpus
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorpusSummaryRequest'
+      responses:
+        '200':
+          description: Corpus summary generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CorpusSummary'
+                  - $ref: '#/components/schemas/CorpusSummaryV2'
+        '400':
+          description: Invalid corpus request or schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
+  /hl7/corpus/fingerprint:
+    post:
+      summary: Fingerprint inline HL7 corpus
+      description: |
+        Generate a deterministic compact signature for caller-supplied HL7 messages. Optional inline profile content adds profile identity metadata and validation issue-code counts.
+      tags: [hl7]
+      operationId: fingerprintInlineCorpus
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorpusFingerprintRequest'
+      responses:
+        '200':
+          description: Corpus fingerprint generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CorpusFingerprint'
+                  - $ref: '#/components/schemas/CorpusFingerprintV2'
+        '400':
+          description: Invalid corpus request, profile, or schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
+  /hl7/corpus/diff:
+    post:
+      summary: Diff inline HL7 corpora
+      description: |
+        Compare before and after sets of caller-supplied HL7 messages. Optional inline profile content adds profile identity metadata and validation issue-code deltas.
+      tags: [hl7]
+      operationId: diffInlineCorpus
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorpusDiffRequest'
+      responses:
+        '200':
+          description: Corpus diff generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CorpusDiffReport'
+                  - $ref: '#/components/schemas/CorpusDiffReportV2'
+        '400':
+          description: Invalid corpus request, profile, or schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
   /hl7/ack:
     post:
       summary: Generate HL7 ACK
@@ -790,6 +889,525 @@ components:
           allOf:
             - $ref: '#/components/schemas/ValidationReport'
           nullable: true
+
+    CorpusMessageInput:
+      type: object
+      required: [message]
+      properties:
+        id:
+          type: string
+          pattern: '^(?!\.{1,2}$)[A-Za-z0-9_.-]{1,128}$'
+          description: Safe label used for parse-error attribution; not interpreted as a filesystem path
+        message:
+          type: string
+          description: Raw HL7 message content; MLLP framing is detected automatically
+
+    CorpusSummaryRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CorpusMessageInput'
+        summary_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 corpus summary response shape
+
+    CorpusFingerprintRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CorpusMessageInput'
+        profile:
+          type: string
+          description: Optional inline profile YAML used for validation issue-code counts
+        fingerprint_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 corpus fingerprint response shape
+
+    CorpusDiffRequest:
+      type: object
+      required: [before, after]
+      properties:
+        before:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CorpusMessageInput'
+        after:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CorpusMessageInput'
+        profile:
+          type: string
+          description: Optional inline profile YAML used for validation issue-code deltas
+        diff_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 corpus diff response shape
+
+    CorpusCount:
+      type: object
+      required: [value, count]
+      properties:
+        value:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+
+    CorpusFieldPresence:
+      type: object
+      required: [path, message_count, occurrence_count]
+      properties:
+        path:
+          type: string
+          description: HL7 field path such as PID.3
+        message_count:
+          type: integer
+          minimum: 0
+        occurrence_count:
+          type: integer
+          minimum: 0
+
+    CorpusParseFailure:
+      type: object
+      required: [path, error]
+      properties:
+        path:
+          type: string
+          description: Safe message id supplied by the caller or generated by the server
+        error:
+          type: string
+          description: Parser error string; raw message content is not echoed
+
+    CorpusSummary:
+      type: object
+      required:
+        - root
+        - file_count
+        - message_count
+        - parse_error_count
+        - total_bytes
+        - message_types
+        - segments
+        - field_presence
+        - parse_errors
+      properties:
+        root:
+          type: string
+          enum: ['<inline-corpus>']
+        file_count:
+          type: integer
+          minimum: 0
+        message_count:
+          type: integer
+          minimum: 0
+        parse_error_count:
+          type: integer
+          minimum: 0
+        total_bytes:
+          type: integer
+          minimum: 0
+        message_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+        field_presence:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldPresence'
+        parse_errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusParseFailure'
+
+    CorpusSummaryV2:
+      allOf:
+        - $ref: '#/components/schemas/CorpusSummary'
+        - type: object
+          required: [schema_version, tool_name, tool_version]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
+            tool_version:
+              type: string
+
+    CorpusFingerprintProfile:
+      type: object
+      required: [path, sha256, version, message_structure]
+      properties:
+        path:
+          type: string
+          enum: ['<inline-profile>']
+        sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        version:
+          type: string
+        message_structure:
+          type: string
+
+    CorpusFieldCardinality:
+      type: object
+      required: [path, min_per_message, max_per_message, total_occurrences, message_count]
+      properties:
+        path:
+          type: string
+        min_per_message:
+          type: integer
+          minimum: 0
+        max_per_message:
+          type: integer
+          minimum: 0
+        total_occurrences:
+          type: integer
+          minimum: 0
+        message_count:
+          type: integer
+          minimum: 0
+
+    CorpusValueShapeStats:
+      type: object
+      required: [path, coded_count, timestamp_count, numeric_count, null_count, text_count]
+      properties:
+        path:
+          type: string
+        coded_count:
+          type: integer
+          minimum: 0
+        timestamp_count:
+          type: integer
+          minimum: 0
+        numeric_count:
+          type: integer
+          minimum: 0
+        null_count:
+          type: integer
+          minimum: 0
+        text_count:
+          type: integer
+          minimum: 0
+
+    CorpusFingerprint:
+      type: object
+      required:
+        - fingerprint_version
+        - tool_version
+        - root
+        - profile
+        - file_count
+        - message_count
+        - parse_error_count
+        - message_type_counts
+        - segment_counts
+        - field_presence
+        - field_cardinality
+        - value_shape_stats
+        - validation_issue_code_counts
+      properties:
+        fingerprint_version:
+          type: string
+          enum: ['1']
+        tool_version:
+          type: string
+        root:
+          type: string
+          enum: ['<inline-corpus>', '<inline-before>', '<inline-after>']
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/CorpusFingerprintProfile'
+          nullable: true
+        file_count:
+          type: integer
+          minimum: 0
+        message_count:
+          type: integer
+          minimum: 0
+        parse_error_count:
+          type: integer
+          minimum: 0
+        message_type_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+        segment_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+        field_presence:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldPresence'
+        field_cardinality:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldCardinality'
+        value_shape_stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusValueShapeStats'
+        validation_issue_code_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+
+    CorpusFingerprintV2:
+      allOf:
+        - $ref: '#/components/schemas/CorpusFingerprint'
+        - type: object
+          required: [schema_version, tool_name]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
+
+    CorpusTotalDiff:
+      type: object
+      required: [before, after, delta]
+      properties:
+        before:
+          type: integer
+          minimum: 0
+        after:
+          type: integer
+          minimum: 0
+        delta:
+          type: integer
+
+    CorpusCountDiff:
+      type: object
+      required: [value, before, after, delta]
+      properties:
+        value:
+          type: string
+        before:
+          type: integer
+          minimum: 0
+        after:
+          type: integer
+          minimum: 0
+        delta:
+          type: integer
+
+    CorpusFieldPresenceDiff:
+      type: object
+      required:
+        - path
+        - before_message_count
+        - after_message_count
+        - message_count_delta
+        - before_occurrence_count
+        - after_occurrence_count
+        - occurrence_count_delta
+      properties:
+        path:
+          type: string
+        before_message_count:
+          type: integer
+          minimum: 0
+        after_message_count:
+          type: integer
+          minimum: 0
+        message_count_delta:
+          type: integer
+        before_occurrence_count:
+          type: integer
+          minimum: 0
+        after_occurrence_count:
+          type: integer
+          minimum: 0
+        occurrence_count_delta:
+          type: integer
+
+    CorpusFieldCardinalityDiff:
+      type: object
+      required:
+        - path
+        - before_min_per_message
+        - after_min_per_message
+        - min_per_message_delta
+        - before_max_per_message
+        - after_max_per_message
+        - max_per_message_delta
+        - before_total_occurrences
+        - after_total_occurrences
+        - total_occurrences_delta
+        - before_message_count
+        - after_message_count
+        - message_count_delta
+      properties:
+        path:
+          type: string
+        before_min_per_message:
+          type: integer
+          minimum: 0
+        after_min_per_message:
+          type: integer
+          minimum: 0
+        min_per_message_delta:
+          type: integer
+        before_max_per_message:
+          type: integer
+          minimum: 0
+        after_max_per_message:
+          type: integer
+          minimum: 0
+        max_per_message_delta:
+          type: integer
+        before_total_occurrences:
+          type: integer
+          minimum: 0
+        after_total_occurrences:
+          type: integer
+          minimum: 0
+        total_occurrences_delta:
+          type: integer
+        before_message_count:
+          type: integer
+          minimum: 0
+        after_message_count:
+          type: integer
+          minimum: 0
+        message_count_delta:
+          type: integer
+
+    CorpusValueShapeStatsDiff:
+      type: object
+      required: [path, coded_count, timestamp_count, numeric_count, null_count, text_count]
+      properties:
+        path:
+          type: string
+        coded_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        timestamp_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        numeric_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        null_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        text_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+
+    CorpusDiffReport:
+      type: object
+      required:
+        - diff_version
+        - tool_version
+        - before_root
+        - after_root
+        - profile
+        - file_count
+        - message_count
+        - parse_error_count
+        - new_message_types
+        - removed_message_types
+        - new_segments
+        - removed_segments
+        - message_type_counts
+        - segment_counts
+        - field_presence
+        - field_cardinality
+        - value_shape_stats
+        - validation_issue_code_counts
+      properties:
+        diff_version:
+          type: string
+          enum: ['1']
+        tool_version:
+          type: string
+        before_root:
+          type: string
+          enum: ['<inline-before>']
+        after_root:
+          type: string
+          enum: ['<inline-after>']
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/CorpusFingerprintProfile'
+          nullable: true
+        file_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        message_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        parse_error_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        new_message_types:
+          type: array
+          items:
+            type: string
+        removed_message_types:
+          type: array
+          items:
+            type: string
+        new_segments:
+          type: array
+          items:
+            type: string
+        removed_segments:
+          type: array
+          items:
+            type: string
+        message_type_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCountDiff'
+        segment_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCountDiff'
+        field_presence:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldPresenceDiff'
+        field_cardinality:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldCardinalityDiff'
+        value_shape_stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusValueShapeStatsDiff'
+        validation_issue_code_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCountDiff'
+
+    CorpusDiffReportV2:
+      allOf:
+        - $ref: '#/components/schemas/CorpusDiffReport'
+        - type: object
+          required: [schema_version, tool_name]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
 
     EvidenceReplayCheck:
       type: object

@@ -279,7 +279,89 @@ curl -X POST http://localhost:8080/hl7/replay \
 
 ---
 
-### 6. Generate ACK
+### 6. Inline Corpus Evidence
+
+The server can summarize, fingerprint, and diff caller-supplied message sets
+without reading filesystem paths from the request. Each message may include an
+optional safe `id` label; the label is used only for parse-error attribution
+and must be a single ASCII label, not a path.
+
+These endpoints do not echo raw message payloads in success or validation-error
+responses. Parse failures report the safe message id and parser error.
+
+**POST** `/hl7/corpus/summarize`
+
+```json
+{
+  "messages": [
+    {
+      "id": "before-adt-1",
+      "message": "MSH|^~\\&|..."
+    }
+  ],
+  "summary_schema_version": 2
+}
+```
+
+**POST** `/hl7/corpus/fingerprint`
+
+```json
+{
+  "messages": [
+    {
+      "id": "site-a-1",
+      "message": "MSH|^~\\&|..."
+    }
+  ],
+  "profile": "message_structure: ADT_A01\nversion: \"2.5\"\nsegments:\n  - id: MSH\n",
+  "fingerprint_schema_version": 2
+}
+```
+
+**POST** `/hl7/corpus/diff`
+
+```json
+{
+  "before": [
+    {
+      "id": "before-1",
+      "message": "MSH|^~\\&|..."
+    }
+  ],
+  "after": [
+    {
+      "id": "after-1",
+      "message": "MSH|^~\\&|..."
+    }
+  ],
+  "profile": "message_structure: ADT_A01\nversion: \"2.5\"\nsegments:\n  - id: MSH\n",
+  "diff_schema_version": 2
+}
+```
+
+The response shapes match the CLI corpus artifacts. V2 responses add
+`schema_version` and `tool_name` provenance while preserving the v1 fields:
+
+```json
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-server",
+  "diff_version": "1",
+  "before_root": "<inline-before>",
+  "after_root": "<inline-after>",
+  "message_count": {
+    "before": 1,
+    "after": 2,
+    "delta": 1
+  },
+  "new_message_types": ["ORU^R01"],
+  "validation_issue_code_counts": []
+}
+```
+
+---
+
+### 7. Generate ACK
 **POST** `/hl7/ack`
 
 Generates an HL7 ACK response from an inbound message with an explicit
@@ -297,7 +379,7 @@ caller-supplied ACK code.
 
 ---
 
-### 7. Generate Policy-Driven ACK
+### 8. Generate Policy-Driven ACK
 **POST** `/hl7/ack-policy`
 
 Parses and validates an inbound message, then chooses an ACK or NAK code from
@@ -359,7 +441,7 @@ messages and `AR` for parse or validation failures. Enhanced mode uses `CA` and
 
 ---
 
-### 8. Normalize HL7 Message
+### 9. Normalize HL7 Message
 **POST** `/hl7/normalize`
 
 Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
@@ -378,7 +460,7 @@ Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
 
 ---
 
-### 9. Health & Metrics
+### 10. Health & Metrics
 
 **Health Check:**
 ```bash

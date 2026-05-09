@@ -319,6 +319,66 @@ pub struct ReplayRequest {
     pub replay_report_schema_version: Option<u8>,
 }
 
+/// Inline corpus message supplied to corpus evidence endpoints.
+///
+/// `id` is a label used in parse-error reports. It is not interpreted as a
+/// filesystem path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpusMessageInput {
+    /// Optional caller-facing message label.
+    #[serde(default)]
+    pub id: Option<String>,
+    /// Raw HL7 message content. MLLP framing is detected automatically.
+    pub message: String,
+}
+
+/// Server inline corpus summary request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpusSummaryRequest {
+    /// Inline HL7 messages to summarize.
+    pub messages: Vec<CorpusMessageInput>,
+    /// Optional corpus summary schema version.
+    ///
+    /// Omitted or `1` preserves the default summary shape. `2` returns the v2
+    /// summary shape with embedded evidence provenance.
+    #[serde(default)]
+    pub summary_schema_version: Option<u8>,
+}
+
+/// Server inline corpus fingerprint request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpusFingerprintRequest {
+    /// Inline HL7 messages to fingerprint.
+    pub messages: Vec<CorpusMessageInput>,
+    /// Optional inline profile YAML content for validation issue-code counts.
+    #[serde(default)]
+    pub profile: Option<String>,
+    /// Optional corpus fingerprint schema version.
+    ///
+    /// Omitted or `1` preserves the default fingerprint shape. `2` returns the
+    /// v2 fingerprint shape with embedded evidence provenance.
+    #[serde(default)]
+    pub fingerprint_schema_version: Option<u8>,
+}
+
+/// Server inline corpus diff request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorpusDiffRequest {
+    /// Inline before-corpus messages.
+    pub before: Vec<CorpusMessageInput>,
+    /// Inline after-corpus messages.
+    pub after: Vec<CorpusMessageInput>,
+    /// Optional inline profile YAML content for validation issue-code deltas.
+    #[serde(default)]
+    pub profile: Option<String>,
+    /// Optional corpus diff schema version.
+    ///
+    /// Omitted or `1` preserves the default diff report shape. `2` returns the
+    /// v2 diff report shape with embedded evidence provenance.
+    #[serde(default)]
+    pub diff_schema_version: Option<u8>,
+}
+
 /// Evidence bundle summary response body.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvidenceBundleSummary {
