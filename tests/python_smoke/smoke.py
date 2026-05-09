@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
+from pathlib import Path
 
 import hl7v2
 
@@ -95,6 +97,79 @@ constraints:
     if issue["code"] != "missing_required_field" or issue["path"] != "PID.13":
         print(f"unexpected validation issue: {issue}", file=sys.stderr)
         return 1
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        before = root / "before"
+        after = root / "after"
+        before.mkdir()
+        after.mkdir()
+
+        before_message = raw
+        after_adt = raw.replace("CTRL123", "CTRL124")
+        after_oru = (
+            "MSH|^~\\&|LAB|FAC|EHR|FAC|202605080102||ORU^R01|CTRL125|P|2.5\r"
+            "PID|1||987654^^^HOSP^MR||Roe^Jane||19800101|F\r"
+            "OBR|1||ORDER1|718-7^Hemoglobin^LN\r"
+            "OBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL"
+        )
+        (before / "before.hl7").write_text(before_message, encoding="utf-8")
+        (after / "after-adt.hl7").write_text(after_adt, encoding="utf-8")
+        (after / "after-oru.hl7").write_text(after_oru, encoding="utf-8")
+
+        summary = hl7v2.corpus_summary(str(before))
+        if summary["message_count"] != 1 or summary["parse_error_count"] != 0:
+            print(f"unexpected corpus summary: {summary}", file=sys.stderr)
+            return 1
+        if summary["message_types"][0] != {"value": "ADT^A01", "count": 1}:
+            print(f"unexpected corpus message type counts: {summary}", file=sys.stderr)
+            return 1
+
+        fingerprint = hl7v2.corpus_fingerprint(
+            str(before),
+            profile_yaml=failing_profile_yaml,
+        )
+        if fingerprint["fingerprint_version"] != "1":
+            print(f"unexpected fingerprint version: {fingerprint}", file=sys.stderr)
+            return 1
+        if fingerprint["profile"]["path"] != "<inline-profile>":
+            print(f"unexpected fingerprint profile path: {fingerprint}", file=sys.stderr)
+            return 1
+        if len(fingerprint["profile"]["sha256"]) != 64:
+            print(f"unexpected profile hash: {fingerprint}", file=sys.stderr)
+            return 1
+        issue_counts = {
+            item["value"]: item["count"]
+            for item in fingerprint["validation_issue_code_counts"]
+        }
+        if issue_counts.get("missing_required_field") != 1:
+            print(f"unexpected fingerprint issue counts: {fingerprint}", file=sys.stderr)
+            return 1
+
+        diff = hl7v2.corpus_diff(
+            str(before),
+            str(after),
+            profile_yaml=failing_profile_yaml,
+        )
+        if diff["diff_version"] != "1" or diff["message_count"]["delta"] != 1:
+            print(f"unexpected corpus diff totals: {diff}", file=sys.stderr)
+            return 1
+        if "ORU^R01" not in diff["new_message_types"]:
+            print(f"diff did not report new ORU message type: {diff}", file=sys.stderr)
+            return 1
+        diff_issue_counts = {
+            item["value"]: item
+            for item in diff["validation_issue_code_counts"]
+        }
+        missing_required = diff_issue_counts.get("missing_required_field")
+        if (
+            missing_required is None
+            or missing_required["before"] != 1
+            or missing_required["after"] != 2
+            or missing_required["delta"] != 1
+        ):
+            print(f"unexpected diff issue counts: {diff}", file=sys.stderr)
+            return 1
 
     try:
         hl7v2.parse("not an hl7 message")

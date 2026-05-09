@@ -1596,6 +1596,7 @@ version = "1.2.1"
 dependencies = [
  "hl7v2",
  "pyo3",
+ "serde",
  "serde_json",
 ]
 
