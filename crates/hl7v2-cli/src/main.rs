@@ -1066,6 +1066,22 @@ struct EvidenceBundleManifest {
     artifacts: Vec<EvidenceBundleManifestArtifact>,
 }
 
+#[derive(serde::Serialize)]
+struct EvidenceBundleManifestV2<'a> {
+    schema_version: &'static str,
+    #[serde(flatten)]
+    manifest: &'a EvidenceBundleManifest,
+}
+
+impl EvidenceBundleManifest {
+    fn to_v2(&self) -> EvidenceBundleManifestV2<'_> {
+        EvidenceBundleManifestV2 {
+            schema_version: "2",
+            manifest: self,
+        }
+    }
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 struct EvidenceBundleManifestArtifact {
     path: String,
@@ -1085,6 +1101,22 @@ struct EvidenceBundleEnvironment {
     validation_valid: bool,
     validation_issue_count: usize,
     replay_command: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct EvidenceBundleEnvironmentV2<'a> {
+    schema_version: &'static str,
+    #[serde(flatten)]
+    environment: &'a EvidenceBundleEnvironment,
+}
+
+impl EvidenceBundleEnvironment {
+    fn to_v2(&self) -> EvidenceBundleEnvironmentV2<'_> {
+        EvidenceBundleEnvironmentV2 {
+            schema_version: "2",
+            environment: self,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -1137,6 +1169,26 @@ struct FieldPathTraceReport {
     message_type: String,
     field_count: usize,
     fields: Vec<FieldPathTrace>,
+}
+
+#[derive(serde::Serialize)]
+struct FieldPathTraceReportV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    trace: &'a FieldPathTraceReport,
+}
+
+impl FieldPathTraceReport {
+    fn to_v2(&self) -> FieldPathTraceReportV2<'_> {
+        FieldPathTraceReportV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            trace: self,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -2391,9 +2443,18 @@ fn bundle_command(
     fs::write(out.join("message.redacted.hl7"), redacted_hl7)?;
     fs::write(out.join("profile.yaml"), profile_yaml)?;
     write_json_file(&out.join("validation-report.json"), &validation_report)?;
-    write_json_file(&out.join("redaction-receipt.json"), &redaction_receipt)?;
-    write_json_file(&out.join("field-paths.json"), &field_trace)?;
-    write_json_file(&out.join("environment.json"), &environment)?;
+    if schema_version == 2 {
+        write_json_file(
+            &out.join("redaction-receipt.json"),
+            &redaction_receipt.to_v2(),
+        )?;
+        write_json_file(&out.join("field-paths.json"), &field_trace.to_v2())?;
+        write_json_file(&out.join("environment.json"), &environment.to_v2())?;
+    } else {
+        write_json_file(&out.join("redaction-receipt.json"), &redaction_receipt)?;
+        write_json_file(&out.join("field-paths.json"), &field_trace)?;
+        write_json_file(&out.join("environment.json"), &environment)?;
+    }
     fs::write(out.join("replay.sh"), replay_shell_script())?;
     fs::write(out.join("replay.ps1"), replay_powershell_script())?;
     fs::write(out.join("README.md"), bundle_readme())?;
@@ -2408,7 +2469,11 @@ fn bundle_command(
             .map(|(path, role)| bundle_manifest_artifact(out, path, role))
             .collect::<Result<_, _>>()?,
     };
-    write_json_file(&out.join("manifest.json"), &manifest)?;
+    if schema_version == 2 {
+        write_json_file(&out.join("manifest.json"), &manifest.to_v2())?;
+    } else {
+        write_json_file(&out.join("manifest.json"), &manifest)?;
+    }
 
     let mut artifacts = artifact_specs
         .iter()

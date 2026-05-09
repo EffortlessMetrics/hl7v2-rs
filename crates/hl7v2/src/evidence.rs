@@ -94,6 +94,27 @@ pub struct EvidenceBundleManifest {
     pub artifacts: Vec<EvidenceBundleManifestArtifact>,
 }
 
+impl EvidenceBundleManifest {
+    /// Convert this v1 bundle manifest into the explicit v2 evidence contract shape.
+    #[must_use]
+    pub fn to_v2(&self) -> EvidenceBundleManifestV2 {
+        EvidenceBundleManifestV2 {
+            schema_version: "2".to_string(),
+            manifest: self.clone(),
+        }
+    }
+}
+
+/// Evidence bundle manifest v2 with embedded schema provenance.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct EvidenceBundleManifestV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// V1 bundle manifest fields.
+    #[serde(flatten)]
+    pub manifest: EvidenceBundleManifest,
+}
+
 /// Evidence bundle manifest artifact entry.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EvidenceBundleManifestArtifact {
@@ -130,6 +151,27 @@ pub struct EvidenceBundleEnvironment {
     pub replay_command: String,
 }
 
+impl EvidenceBundleEnvironment {
+    /// Convert this v1 bundle environment into the explicit v2 evidence contract shape.
+    #[must_use]
+    pub fn to_v2(&self) -> EvidenceBundleEnvironmentV2 {
+        EvidenceBundleEnvironmentV2 {
+            schema_version: "2".to_string(),
+            environment: self.clone(),
+        }
+    }
+}
+
+/// Evidence bundle environment v2 with embedded schema provenance.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct EvidenceBundleEnvironmentV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// V1 bundle environment fields.
+    #[serde(flatten)]
+    pub environment: EvidenceBundleEnvironment,
+}
+
 /// Field-path trace written inside an evidence bundle.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FieldPathTraceReport {
@@ -139,6 +181,37 @@ pub struct FieldPathTraceReport {
     pub field_count: usize,
     /// Field path trace records.
     pub fields: Vec<FieldPathTrace>,
+}
+
+impl FieldPathTraceReport {
+    /// Convert this v1 field-path trace into the explicit v2 evidence contract shape.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> FieldPathTraceReportV2 {
+        FieldPathTraceReportV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            trace: self.clone(),
+        }
+    }
+}
+
+/// Field-path trace v2 with embedded schema and tool provenance.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct FieldPathTraceReportV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this trace.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// V1 field-path trace fields.
+    #[serde(flatten)]
+    pub trace: FieldPathTraceReport,
 }
 
 /// Field path trace record.
@@ -259,6 +332,9 @@ pub enum EvidenceError {
     /// Redacted output could not be parsed.
     #[error("redacted message parse error: {0}")]
     RedactedParse(String),
+    /// Bundle request or producer option is invalid.
+    #[error("invalid evidence bundle input: {0}")]
+    InvalidInput(String),
     /// Bundle output already exists.
     #[error("bundle output directory already exists")]
     OutputExists,
@@ -288,6 +364,43 @@ pub fn write_safe_analysis_bundle(
     out: impl AsRef<Path>,
     tool_name: &str,
 ) -> Result<EvidenceBundleSummary, EvidenceError> {
+    write_safe_analysis_bundle_with_schema_version(
+        content,
+        profile_yaml,
+        policy_text,
+        out,
+        tool_name,
+        1,
+    )
+}
+
+/// Write a safe-analysis evidence bundle with an explicit internal artifact schema version.
+///
+/// `artifact_schema_version = 1` preserves the original bundle-internal
+/// artifact shapes. `artifact_schema_version = 2` writes v2 `manifest.json`,
+/// `environment.json`, `field-paths.json`, and `redaction-receipt.json`
+/// artifacts with embedded schema/tool provenance.
+///
+/// # Errors
+///
+/// Returns [`EvidenceError`] when `artifact_schema_version` is unsupported, or
+/// when parsing, profile loading, redaction, validation setup, JSON
+/// serialization, or filesystem writes fail. Existing output directories are
+/// rejected.
+pub fn write_safe_analysis_bundle_with_schema_version(
+    content: impl AsRef<[u8]>,
+    profile_yaml: &str,
+    policy_text: &str,
+    out: impl AsRef<Path>,
+    tool_name: &str,
+    artifact_schema_version: u8,
+) -> Result<EvidenceBundleSummary, EvidenceError> {
+    if !matches!(artifact_schema_version, 1 | 2) {
+        return Err(EvidenceError::InvalidInput(
+            "evidence bundle artifact schema version must be 1 or 2".to_string(),
+        ));
+    }
+
     let content = content.as_ref();
     let out = out.as_ref();
     if out.exists() {
@@ -327,12 +440,26 @@ pub fn write_safe_analysis_bundle(
     fs::write(out.join("profile.yaml"), profile_yaml)
         .map_err(|error| EvidenceError::Io(error.to_string()))?;
     write_json_file(&out.join("validation-report.json"), &validation_report)?;
-    write_json_file(
-        &out.join("redaction-receipt.json"),
-        &redaction_output.receipt,
-    )?;
-    write_json_file(&out.join("field-paths.json"), &field_trace)?;
-    write_json_file(&out.join("environment.json"), &environment)?;
+    if artifact_schema_version == 2 {
+        write_json_file(
+            &out.join("redaction-receipt.json"),
+            &redaction_output
+                .receipt
+                .to_v2(tool_name.to_string(), env!("CARGO_PKG_VERSION").to_string()),
+        )?;
+        write_json_file(
+            &out.join("field-paths.json"),
+            &field_trace.to_v2(tool_name.to_string(), env!("CARGO_PKG_VERSION").to_string()),
+        )?;
+        write_json_file(&out.join("environment.json"), &environment.to_v2())?;
+    } else {
+        write_json_file(
+            &out.join("redaction-receipt.json"),
+            &redaction_output.receipt,
+        )?;
+        write_json_file(&out.join("field-paths.json"), &field_trace)?;
+        write_json_file(&out.join("environment.json"), &environment)?;
+    }
     fs::write(out.join("replay.sh"), replay_shell_script())
         .map_err(|error| EvidenceError::Io(error.to_string()))?;
     fs::write(out.join("replay.ps1"), replay_powershell_script())
@@ -349,7 +476,11 @@ pub fn write_safe_analysis_bundle(
             .map(|(path, role)| bundle_manifest_artifact(out, path, role))
             .collect::<Result<_, _>>()?,
     };
-    write_json_file(&out.join("manifest.json"), &manifest)?;
+    if artifact_schema_version == 2 {
+        write_json_file(&out.join("manifest.json"), &manifest.to_v2())?;
+    } else {
+        write_json_file(&out.join("manifest.json"), &manifest)?;
+    }
 
     let mut artifacts = BUNDLE_ARTIFACT_SPECS
         .iter()
@@ -991,7 +1122,10 @@ This bundle is intended for support and debugging after safe-analysis redaction.
 
 #[cfg(test)]
 mod tests {
-    use super::{EvidenceReplayCheckStatus, replay_evidence_bundle, write_safe_analysis_bundle};
+    use super::{
+        EvidenceReplayCheckStatus, json_string, read_bundle_json_value, replay_evidence_bundle,
+        write_safe_analysis_bundle, write_safe_analysis_bundle_with_schema_version,
+    };
 
     fn raw_message() -> &'static str {
         "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01^ADT_A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M"
@@ -1118,6 +1252,47 @@ reason = "Date of birth"
                 "raw PHI sentinel leaked into evidence artifacts",
             )?;
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn bundle_schema_version_two_writes_v2_internal_artifacts()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let bundle_dir = temp.path().join("bundle-v2");
+        let summary = write_safe_analysis_bundle_with_schema_version(
+            raw_message(),
+            profile_yaml(),
+            policy_toml(),
+            &bundle_dir,
+            "hl7v2-python",
+            2,
+        )?;
+
+        ensure(
+            summary.bundle_version == "1",
+            "expected bundle summary v1 fields",
+        )?;
+        for artifact in [
+            "manifest.json",
+            "field-paths.json",
+            "redaction-receipt.json",
+            "environment.json",
+        ] {
+            let json = read_bundle_json_value(&bundle_dir, artifact)?;
+            ensure(
+                json_string(&json, "schema_version").as_deref() == Some("2"),
+                "expected v2 internal bundle artifact",
+            )?;
+            ensure(
+                json_string(&json, "tool_name").as_deref() == Some("hl7v2-python"),
+                "expected v2 artifact producer",
+            )?;
+        }
+
+        let replay = replay_evidence_bundle(&bundle_dir, "hl7v2-python");
+        ensure(replay.reproduced, "expected v2 bundle artifacts to replay")?;
 
         Ok(())
     }

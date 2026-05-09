@@ -391,6 +391,24 @@ reason = "Patient identifier"
         ):
             print(f"unexpected bundle v2 summary: {bundle_v2}", file=sys.stderr)
             return 1
+        for artifact in [
+            "manifest.json",
+            "field-paths.json",
+            "redaction-receipt.json",
+            "environment.json",
+        ]:
+            artifact_json = json.loads(
+                (bundle_v2_dir / artifact).read_text(encoding="utf-8")
+            )
+            if (
+                artifact_json["schema_version"] != "2"
+                or artifact_json["tool_name"] != "hl7v2-python"
+            ):
+                print(
+                    f"unexpected bundle v2 artifact {artifact}: {artifact_json}",
+                    file=sys.stderr,
+                )
+                return 1
 
         try:
             hl7v2.bundle(
