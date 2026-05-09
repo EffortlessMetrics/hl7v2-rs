@@ -472,6 +472,10 @@ enum ProfileCommands {
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
 
+        /// Evidence schema version for machine-readable test reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Write the test report to a file instead of stdout
         #[arg(long)]
         output: Option<PathBuf>,
@@ -862,6 +866,26 @@ struct ProfileTestReport {
 }
 
 #[derive(serde::Serialize)]
+struct ProfileTestReportV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    report: &'a ProfileTestReport,
+}
+
+impl ProfileTestReport {
+    fn to_v2(&self) -> ProfileTestReportV2<'_> {
+        ProfileTestReportV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            report: self,
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
 struct ProfileTestCaseReport {
     name: String,
     path: String,
@@ -1204,6 +1228,7 @@ async fn main() {
                 profile,
                 fixtures,
                 report,
+                schema_version,
                 output,
                 quiet,
                 no_color,
@@ -1211,6 +1236,7 @@ async fn main() {
                 profile,
                 fixtures,
                 report,
+                *schema_version,
                 &OutputOptions::new(output.as_ref(), *quiet, *no_color),
             ),
         },
@@ -3519,12 +3545,21 @@ fn profile_test_command(
     profile: &Path,
     fixtures: &Path,
     report: &ReportFormat,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *report == ReportFormat::Text {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "profile test schema version is only available with --report json or --report yaml",
+        )
+        .into());
+    }
+
     let profile_yaml = fs::read_to_string(profile)?;
     let loaded_profile = load_profile_checked(&profile_yaml)?;
     let test_report = run_profile_fixture_tests(profile, fixtures, &loaded_profile)?;
-    let output = format_profile_test_report(&test_report, report)?;
+    let output = format_profile_test_report(&test_report, report, schema_version)?;
     output_options.emit(&output)?;
 
     if !test_report.valid {
@@ -3938,8 +3973,13 @@ fn relative_display_path(root: &Path, path: &Path) -> String {
 fn format_profile_test_report(
     report: &ProfileTestReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            Ok(serde_json::to_string_pretty(&report.to_v2())?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(&report.to_v2())?),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {
