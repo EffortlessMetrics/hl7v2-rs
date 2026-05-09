@@ -45,7 +45,7 @@ This document provides a transparent view of which features are fully implemente
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1` and `v1.3.0` tags point at their release heads.
 
-## Evidence Loop Candidate (current main)
+## Evidence Loop Release (current main)
 
 v1.3.0 is the Evidence Loop release line around deterministic HL7 interface
 evidence. It is tagged, released on GitHub, and uploaded to crates.io for the
