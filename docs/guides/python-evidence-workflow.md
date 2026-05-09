@@ -179,6 +179,12 @@ Run it:
 python target\hl7v2-python-evidence\workflow.py
 ```
 
+The checked-in Python wheel workflows also execute this guide block directly:
+
+```powershell
+python tests\python_smoke\evidence_workflow_guide.py
+```
+
 Expected output has the same evidence semantics as the CLI and server:
 
 ```json
