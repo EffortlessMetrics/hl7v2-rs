@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use hl7v2::ValidationReportIssue;
+use hl7v2::{ValidationReport, ValidationReportIssue};
 
 /// Health check response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -210,6 +210,87 @@ pub struct ValidateResponse {
     pub warnings: Vec<ValidationWarning>,
     /// Message metadata
     pub metadata: MessageMetadata,
+}
+
+/// Validate and redact request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidateRedactedRequest {
+    /// Raw HL7 message content.
+    pub message: String,
+    /// Inline profile YAML content to validate against.
+    pub profile: String,
+    /// Inline safe-analysis redaction policy in TOML format.
+    pub redaction_policy: String,
+    /// Whether the message is MLLP framed.
+    #[serde(default)]
+    pub mllp_framed: bool,
+    /// Whether to include the redacted HL7 payload in the response.
+    #[serde(default)]
+    pub include_redacted_hl7: bool,
+}
+
+/// Validate and redact response body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidateRedactedResponse {
+    /// Validation report generated from the redacted message.
+    pub validation_report: ValidationReport,
+    /// Receipt describing redaction actions applied before validation.
+    pub redaction_receipt: RedactionReceipt,
+    /// Redacted HL7 payload, included only when requested.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redacted_hl7: Option<String>,
+}
+
+/// Redaction receipt compatible with evidence redaction receipts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RedactionReceipt {
+    /// Whether any configured PHI-bearing field was removed or hashed.
+    pub phi_removed: bool,
+    /// Hash algorithm used by hash redaction actions.
+    pub hash_algorithm: String,
+    /// Per-rule redaction receipts.
+    pub actions: Vec<RedactionActionReceipt>,
+}
+
+/// Per-rule redaction action receipt.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RedactionActionReceipt {
+    /// HL7 path covered by this policy action.
+    pub path: String,
+    /// Policy action applied to this path.
+    pub action: RedactionAction,
+    /// Policy reason for the action.
+    pub reason: String,
+    /// Number of matching values affected by this action.
+    pub matched_count: usize,
+    /// Whether missing matches are acceptable.
+    pub optional: bool,
+    /// Action status.
+    pub status: RedactionActionStatus,
+}
+
+/// Safe-analysis redaction action.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RedactionAction {
+    /// Replace a field with a deterministic SHA-256 hash marker.
+    Hash,
+    /// Clear the field value.
+    Drop,
+    /// Keep a non-sensitive field unchanged.
+    Retain,
+}
+
+/// Redaction action status.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RedactionActionStatus {
+    /// Action was applied to at least one field.
+    Applied,
+    /// Retain action matched at least one field.
+    Retained,
+    /// Optional action did not match a field.
+    NotFound,
 }
 
 /// ACK generation request body

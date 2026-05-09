@@ -109,6 +109,18 @@ curl -X POST http://localhost:8080/hl7/validate \
   }'
 ```
 
+**Validate after safe-analysis redaction:**
+```bash
+curl -X POST http://localhost:8080/hl7/validate-redacted \
+  -H "X-API-Key: your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "MSH|^~\\&|...",
+    "profile": "...",
+    "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n"
+  }'
+```
+
 **Check server health:**
 ```bash
 curl http://localhost:8080/health

@@ -17,6 +17,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use crate::handlers::{
     ack_handler, health_handler, normalize_handler, parse_handler, ready_handler, validate_handler,
+    validate_redacted_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
 use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
@@ -40,6 +41,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let mut api_routes = Router::new()
         .route("/parse", post(parse_handler))
         .route("/validate", post(validate_handler))
+        .route("/validate-redacted", post(validate_redacted_handler))
         .route("/ack", post(ack_handler))
         .route("/normalize", post(normalize_handler));
 

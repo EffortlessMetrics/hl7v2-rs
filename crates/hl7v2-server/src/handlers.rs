@@ -8,6 +8,7 @@ use axum::{
 use std::sync::Arc;
 
 use crate::models::*;
+use crate::redaction::redact_message;
 use crate::server::AppState;
 
 /// Handler for GET /health
@@ -123,6 +124,35 @@ pub async fn validate_handler(
         errors,
         warnings,
         metadata,
+    };
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
+/// Handler for POST /hl7/validate-redacted
+pub async fn validate_redacted_handler(
+    State(_state): State<Arc<AppState>>,
+    Json(request): Json<ValidateRedactedRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let mut message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
+    let receipt =
+        redact_message(&mut message, &request.redaction_policy).map_err(AppError::Redaction)?;
+    let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
+        .map_err(|error| AppError::Internal(format!("redacted message was not UTF-8: {error}")))?;
+
+    let profile = hl7v2::load_profile_checked(&request.profile)
+        .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
+    let issues = hl7v2::validate(&message, &profile);
+    let validation_report = hl7v2::ValidationReport::from_issues(
+        &message,
+        Some(profile.message_structure.clone()),
+        issues,
+    );
+
+    let response = ValidateRedactedResponse {
+        validation_report,
+        redaction_receipt: receipt,
+        redacted_hl7: request.include_redacted_hl7.then_some(redacted_hl7),
     };
 
     Ok((StatusCode::OK, Json(response)))
@@ -286,6 +316,9 @@ pub enum AppError {
     /// Validation error (message does not conform to profile)
     Validation(String),
 
+    /// Redaction policy or redaction application error
+    Redaction(String),
+
     /// Internal server error (unexpected failures)
     Internal(String),
 }
@@ -297,6 +330,7 @@ impl IntoResponse for AppError {
             // Profile load error is a client error since the profile is provided in the request
             AppError::ProfileLoad(msg) => (StatusCode::BAD_REQUEST, "PROFILE_LOAD_ERROR", msg),
             AppError::Validation(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
+            AppError::Redaction(msg) => (StatusCode::BAD_REQUEST, "REDACTION_ERROR", msg),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg),
         };
 
@@ -311,6 +345,7 @@ impl std::fmt::Display for AppError {
             AppError::Parse(msg) => write!(f, "Parse error: {}", msg),
             AppError::ProfileLoad(msg) => write!(f, "Profile load error: {}", msg),
             AppError::Validation(msg) => write!(f, "Validation error: {}", msg),
+            AppError::Redaction(msg) => write!(f, "Redaction error: {}", msg),
             AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }

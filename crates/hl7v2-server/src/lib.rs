@@ -52,6 +52,7 @@ pub mod handlers;
 pub mod metrics;
 pub mod middleware;
 pub mod models;
+pub mod redaction;
 pub mod routes;
 pub mod server;
 
