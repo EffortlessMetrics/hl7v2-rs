@@ -273,11 +273,12 @@ pub fn corpus_summary<'py>(py: Python<'py>, path: &str) -> PyResult<Bound<'py, P
 }
 
 /// Fingerprint a file or directory corpus and return a Python dict.
-#[pyfunction(signature = (path, profile_yaml = None))]
+#[pyfunction(signature = (path, profile_yaml = None, schema_version = 1))]
 pub fn corpus_fingerprint<'py>(
     py: Python<'py>,
     path: &str,
     profile_yaml: Option<&str>,
+    schema_version: u8,
 ) -> PyResult<Bound<'py, PyAny>> {
     let corpus_path = Path::new(path);
     let mut fingerprint = fingerprint_corpus_path(corpus_path)
@@ -290,16 +291,30 @@ pub fn corpus_fingerprint<'py>(
         fingerprint.validation_issue_code_counts = issue_counts;
     }
 
-    report_to_dict(py, &fingerprint, "Corpus fingerprint serialization error")
+    match schema_version {
+        1 => report_to_dict(py, &fingerprint, "Corpus fingerprint serialization error"),
+        2 => {
+            let fingerprint_v2 = fingerprint.to_v2("hl7v2-python");
+            report_to_dict(
+                py,
+                &fingerprint_v2,
+                "Corpus fingerprint v2 serialization error",
+            )
+        }
+        _ => Err(PyValueError::new_err(
+            "corpus fingerprint schema_version must be 1 or 2",
+        )),
+    }
 }
 
 /// Diff two file or directory corpora and return a Python dict.
-#[pyfunction(signature = (before, after, profile_yaml = None))]
+#[pyfunction(signature = (before, after, profile_yaml = None, schema_version = 1))]
 pub fn corpus_diff<'py>(
     py: Python<'py>,
     before: &str,
     after: &str,
     profile_yaml: Option<&str>,
+    schema_version: u8,
 ) -> PyResult<Bound<'py, PyAny>> {
     let before_path = Path::new(before);
     let after_path = Path::new(after);
@@ -321,7 +336,16 @@ pub fn corpus_diff<'py>(
             .map_err(|e| value_error("Corpus diff error", e))?
     };
 
-    report_to_dict(py, &diff, "Corpus diff serialization error")
+    match schema_version {
+        1 => report_to_dict(py, &diff, "Corpus diff serialization error"),
+        2 => {
+            let diff_v2 = diff.to_v2("hl7v2-python");
+            report_to_dict(py, &diff_v2, "Corpus diff v2 serialization error")
+        }
+        _ => Err(PyValueError::new_err(
+            "corpus diff schema_version must be 1 or 2",
+        )),
+    }
 }
 
 /// Redact raw HL7 with a safe-analysis policy TOML string and return a Python dict.
