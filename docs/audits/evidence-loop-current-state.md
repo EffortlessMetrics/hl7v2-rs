@@ -72,6 +72,8 @@ Current behavior is script-grade:
 
 - Machine-readable JSON/YAML goes to stdout as the primary artifact.
 - Human text output also goes to stdout.
+- Evidence report commands support `--output <path>` for file capture with
+  stdout quiet, plus `--quiet` and `--no-color` for automation contexts.
 - Top-level diagnostics use stderr through the global error handler.
 - `redact --format hl7` sends the redacted HL7 body to stdout and a short
   receipt to stderr.

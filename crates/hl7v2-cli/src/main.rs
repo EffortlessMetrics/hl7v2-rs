@@ -183,6 +183,18 @@ enum Commands {
         /// Show summary statistics
         #[arg(long)]
         summary: bool,
+
+        /// Write the validation report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Show statistics for HL7 v2 message
@@ -246,6 +258,18 @@ enum Commands {
         /// Output format (json or hl7)
         #[arg(long, value_enum, default_value = "json")]
         format: RedactFormat,
+
+        /// Write the redaction output to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Create a redacted support/debug evidence bundle
@@ -264,6 +288,18 @@ enum Commands {
         /// Output bundle directory, which must not already exist
         #[arg(long)]
         out: PathBuf,
+
+        /// Write the bundle summary JSON to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Replay a redacted evidence bundle and verify it reproduces
@@ -274,6 +310,18 @@ enum Commands {
         /// Output replay report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Write the replay report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Generate ACK for HL7 v2 message
@@ -358,6 +406,18 @@ enum ProfileCommands {
         /// Output lint report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
+
+        /// Write the lint report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Explain the loaded profile contract
@@ -368,6 +428,18 @@ enum ProfileCommands {
         /// Output explain report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Write the explain report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Test a profile against valid/invalid HL7 fixture directories
@@ -381,6 +453,18 @@ enum ProfileCommands {
         /// Output test report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
+
+        /// Write the test report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 }
 
@@ -394,6 +478,18 @@ enum CorpusCommands {
         /// Output summary format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Write the summary report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Create a deterministic feed fingerprint
@@ -408,6 +504,18 @@ enum CorpusCommands {
         /// Output fingerprint format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Write the fingerprint report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Diff two directory or file corpora of HL7 messages
@@ -425,6 +533,18 @@ enum CorpusCommands {
         /// Output diff format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Write the diff report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 }
 
@@ -469,6 +589,49 @@ enum RedactFormat {
     #[default]
     Json,
     Hl7,
+}
+
+struct OutputOptions<'a> {
+    output: Option<&'a PathBuf>,
+    quiet: bool,
+    no_color: bool,
+}
+
+impl<'a> OutputOptions<'a> {
+    const fn new(output: Option<&'a PathBuf>, quiet: bool, no_color: bool) -> Self {
+        Self {
+            output,
+            quiet,
+            no_color,
+        }
+    }
+
+    fn emit(&self, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let _colors_enabled = !self.no_color;
+        if let Some(path) = self.output {
+            fs::write(path, output)?;
+        } else {
+            println!("{}", output);
+        }
+        Ok(())
+    }
+
+    fn emit_raw(&self, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let _colors_enabled = !self.no_color;
+        if let Some(path) = self.output {
+            fs::write(path, output)?;
+        } else {
+            print!("{output}");
+        }
+        Ok(())
+    }
+
+    fn diagnostic(&self, message: impl fmt::Display) {
+        let _colors_enabled = !self.no_color;
+        if !self.quiet {
+            eprintln!("{message}");
+        }
+    }
 }
 
 const DOCTOR_BUILTIN_SAMPLE: &[u8] = b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
@@ -872,7 +1035,18 @@ async fn main() {
             detailed,
             report,
             summary,
-        } => val_command(input, profile, *mllp, *detailed, report, *summary),
+            output,
+            quiet,
+            no_color,
+        } => val_command(
+            input,
+            profile,
+            *mllp,
+            *detailed,
+            report,
+            *summary,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
         Commands::Stats {
             input,
             mllp,
@@ -891,42 +1065,122 @@ async fn main() {
             format,
         ),
         Commands::Profile { command } => match command {
-            ProfileCommands::Lint { profile, report } => profile_lint_command(profile, report),
-            ProfileCommands::Explain { profile, format } => {
-                profile_explain_command(profile, format)
-            }
+            ProfileCommands::Lint {
+                profile,
+                report,
+                output,
+                quiet,
+                no_color,
+            } => profile_lint_command(
+                profile,
+                report,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
+            ProfileCommands::Explain {
+                profile,
+                format,
+                output,
+                quiet,
+                no_color,
+            } => profile_explain_command(
+                profile,
+                format,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
             ProfileCommands::Test {
                 profile,
                 fixtures,
                 report,
-            } => profile_test_command(profile, fixtures, report),
+                output,
+                quiet,
+                no_color,
+            } => profile_test_command(
+                profile,
+                fixtures,
+                report,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
         },
         Commands::Corpus { command } => match command {
-            CorpusCommands::Summarize { path, format } => corpus_summarize_command(path, format),
+            CorpusCommands::Summarize {
+                path,
+                format,
+                output,
+                quiet,
+                no_color,
+            } => corpus_summarize_command(
+                path,
+                format,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
             CorpusCommands::Fingerprint {
                 path,
                 profile,
                 format,
-            } => corpus_fingerprint_command(path, profile.as_ref(), format),
+                output,
+                quiet,
+                no_color,
+            } => corpus_fingerprint_command(
+                path,
+                profile.as_ref(),
+                format,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
             CorpusCommands::Diff {
                 before,
                 after,
                 profile,
                 format,
-            } => corpus_diff_command(before, after, profile.as_ref(), format),
+                output,
+                quiet,
+                no_color,
+            } => corpus_diff_command(
+                before,
+                after,
+                profile.as_ref(),
+                format,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
         },
         Commands::Redact {
             input,
             policy,
             format,
-        } => redact_command(input, policy, format),
+            output,
+            quiet,
+            no_color,
+        } => redact_command(
+            input,
+            policy,
+            format,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
         Commands::Bundle {
             input,
             profile,
             redact_policy,
             out,
-        } => bundle_command(input, profile, redact_policy, out),
-        Commands::Replay { bundle, format } => replay_command(bundle, format),
+            output,
+            quiet,
+            no_color,
+        } => bundle_command(
+            input,
+            profile,
+            redact_policy,
+            out,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
+        Commands::Replay {
+            bundle,
+            format,
+            output,
+            quiet,
+            no_color,
+        } => replay_command(
+            bundle,
+            format,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
         Commands::Ack {
             input,
             mode,
@@ -959,32 +1213,48 @@ async fn main() {
 
 /// Display performance statistics
 fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
-    println!();
-    println!("Performance Statistics:");
-    println!("  Total execution time: {:?}", monitor.elapsed());
+    print!("{}", format_performance_stats(monitor));
+}
+
+fn format_performance_stats(monitor: &monitor::PerformanceMonitor) -> String {
+    let mut output = String::new();
+    output.push('\n');
+    output.push_str("Performance Statistics:\n");
+    output.push_str(&format!(
+        "  Total execution time: {:?}\n",
+        monitor.elapsed()
+    ));
 
     let metrics = monitor.get_metrics();
     if !metrics.is_empty() {
-        println!("  Detailed metrics:");
+        output.push_str("  Detailed metrics:\n");
         for (name, duration) in metrics {
-            println!("    {}: {:?}", name, duration);
+            output.push_str(&format!("    {name}: {duration:?}\n"));
         }
     }
 
     // System information
     let system_info = monitor::get_system_info();
-    println!("  System information:");
+    output.push_str("  System information:\n");
     if let Some(cpu_usage) = system_info.cpu.cpu_usage_percent {
-        println!("    CPU usage: {:.2}%", cpu_usage);
+        output.push_str(&format!("    CPU usage: {cpu_usage:.2}%\n"));
     }
-    println!("    Total memory: {} bytes", system_info.total_memory);
-    println!("    Used memory: {} bytes", system_info.used_memory);
+    output.push_str(&format!(
+        "    Total memory: {} bytes\n",
+        system_info.total_memory
+    ));
+    output.push_str(&format!(
+        "    Used memory: {} bytes\n",
+        system_info.used_memory
+    ));
     if let Some(rss) = system_info.memory.resident_set_size {
-        println!("    Process memory (RSS): {} bytes", rss);
+        output.push_str(&format!("    Process memory (RSS): {rss} bytes\n"));
     }
     if let Some(vms) = system_info.memory.virtual_memory_size {
-        println!("    Process memory (VMS): {} bytes", vms);
+        output.push_str(&format!("    Process memory (VMS): {vms} bytes\n"));
     }
+
+    output
 }
 
 fn doctor_command(
@@ -1639,6 +1909,7 @@ fn val_command(
     detailed: bool,
     report: &ReportFormat,
     summary: bool,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut monitor = monitor::PerformanceMonitor::new();
 
@@ -1685,51 +1956,59 @@ fn val_command(
         results,
     );
 
-    // Output based on report format
-    match report {
-        ReportFormat::Json => {
-            let json_output = serde_json::to_string_pretty(&validation_report)?;
-            println!("{}", json_output);
-        }
-        ReportFormat::Yaml => {
-            let yaml_output = serde_yaml::to_string(&validation_report)?;
-            println!("{}", yaml_output);
-        }
+    let output = match report {
+        ReportFormat::Json => serde_json::to_string_pretty(&validation_report)?,
+        ReportFormat::Yaml => serde_yaml::to_string(&validation_report)?,
         ReportFormat::Text => {
             // Print validation results in text format
             if validation_report.valid {
-                println!("Validation passed: No issues found");
+                "Validation passed: No issues found".to_string()
             } else if detailed {
-                println!("Validation issues found:");
+                let mut output = String::from("Validation issues found:");
                 for issue in &validation_report.issues {
                     let path = issue.path.as_deref().unwrap_or("message");
-                    println!(
-                        "  - {} {} {}: {}",
+                    output.push_str(&format!(
+                        "\n  - {} {} {}: {}",
                         issue.severity.as_str(),
                         issue.code,
                         path,
                         issue.message
-                    );
+                    ));
                 }
+                output
             } else {
-                println!(
+                format!(
                     "Validation failed: {} issues found",
                     validation_report.issue_count
-                );
+                )
             }
         }
-    }
+    };
+    output_options.emit(&output)?;
 
     // Show summary if requested (only for text format to avoid mixing output)
     if summary && *report == ReportFormat::Text {
-        println!();
-        println!("Validation Summary:");
-        println!("  Input file: {:?}", input);
-        println!("  Profile file: {:?}", profile);
-        println!("  File size: {} bytes", file_size);
-        println!("  Segments: {}", validation_report.segment_count);
-        println!("  Issues found: {}", validation_report.issue_count);
-        display_performance_stats(&monitor);
+        let mut summary_output = String::new();
+        summary_output.push('\n');
+        summary_output.push_str("Validation Summary:\n");
+        summary_output.push_str(&format!("  Input file: {:?}\n", input));
+        summary_output.push_str(&format!("  Profile file: {:?}\n", profile));
+        summary_output.push_str(&format!("  File size: {file_size} bytes\n"));
+        summary_output.push_str(&format!(
+            "  Segments: {}\n",
+            validation_report.segment_count
+        ));
+        summary_output.push_str(&format!(
+            "  Issues found: {}\n",
+            validation_report.issue_count
+        ));
+        summary_output.push_str(&format_performance_stats(&monitor));
+
+        if output_options.output.is_some() || output_options.quiet {
+            output_options.diagnostic(summary_output.trim_end());
+        } else {
+            print!("{summary_output}");
+        }
     }
 
     // Exit with error code if validation failed
@@ -1744,6 +2023,7 @@ fn redact_command(
     input: &Path,
     policy: &Path,
     format: &RedactFormat,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let contents = fs::read(input)?;
     let mut message = parse(&contents)?;
@@ -1762,15 +2042,15 @@ fn redact_command(
                 redacted_hl7,
                 receipt,
             };
-            println!("{}", serde_json::to_string_pretty(&output)?);
+            output_options.emit(&serde_json::to_string_pretty(&output)?)?;
         }
         RedactFormat::Hl7 => {
-            eprintln!(
+            output_options.diagnostic(format!(
                 "Redaction receipt: {} action(s), PHI removed: {}",
                 receipt.actions.len(),
                 receipt.phi_removed
-            );
-            print!("{redacted_hl7}");
+            ));
+            output_options.emit_raw(&redacted_hl7)?;
         }
     }
 
@@ -1782,6 +2062,7 @@ fn bundle_command(
     profile: &Path,
     redact_policy: &Path,
     out: &Path,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if out.exists() {
         return Err(std::io::Error::new(
@@ -1853,14 +2134,18 @@ fn bundle_command(
         redaction_phi_removed: redaction_receipt.phi_removed,
         artifacts,
     };
-    println!("{}", serde_json::to_string_pretty(&summary)?);
+    output_options.emit(&serde_json::to_string_pretty(&summary)?)?;
 
     Ok(())
 }
 
-fn replay_command(bundle: &Path, format: &ReportFormat) -> Result<(), Box<dyn std::error::Error>> {
+fn replay_command(
+    bundle: &Path,
+    format: &ReportFormat,
+    output_options: &OutputOptions<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let report = build_replay_report(bundle);
-    println!("{}", render_replay_report(&report, format)?);
+    output_options.emit(&render_replay_report(&report, format)?)?;
 
     if report.reproduced {
         Ok(())
@@ -2533,11 +2818,12 @@ fn field_to_text(field: &Field, delims: &hl7v2::Delims) -> String {
 fn profile_lint_command(
     profile: &Path,
     report: &ReportFormat,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let profile_yaml = fs::read_to_string(profile)?;
     let lint_report = lint_profile_yaml(&profile_yaml);
     let output = format_profile_lint_report(profile, &lint_report, report)?;
-    println!("{}", output);
+    output_options.emit(&output)?;
 
     if !lint_report.valid {
         return Err(CliFailure::check_failed("profile lint reported errors"));
@@ -2549,6 +2835,7 @@ fn profile_lint_command(
 fn profile_explain_command(
     profile: &Path,
     format: &ReportFormat,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let profile_yaml = fs::read_to_string(profile)?;
     let loaded_profile = load_profile_checked(&profile_yaml)?;
@@ -2556,7 +2843,7 @@ fn profile_explain_command(
     let explain_report =
         build_profile_explain_report(profile, &profile_yaml, &loaded_profile, &lint_report);
     let output = format_profile_explain_report(&explain_report, format)?;
-    println!("{}", output);
+    output_options.emit(&output)?;
     Ok(())
 }
 
@@ -2772,12 +3059,13 @@ fn profile_test_command(
     profile: &Path,
     fixtures: &Path,
     report: &ReportFormat,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let profile_yaml = fs::read_to_string(profile)?;
     let loaded_profile = load_profile_checked(&profile_yaml)?;
     let test_report = run_profile_fixture_tests(profile, fixtures, &loaded_profile)?;
     let output = format_profile_test_report(&test_report, report)?;
-    println!("{}", output);
+    output_options.emit(&output)?;
 
     if !test_report.valid {
         return Err(CliFailure::check_failed("profile test reported failures"));
@@ -3550,10 +3838,11 @@ fn stats_command(
 fn corpus_summarize_command(
     path: &PathBuf,
     format: &ReportFormat,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let summary = summarize_corpus_path(path)?;
     let output = format_corpus_summary(&summary, format)?;
-    println!("{}", output);
+    output_options.emit(&output)?;
     Ok(())
 }
 
@@ -3623,6 +3912,7 @@ fn corpus_diff_command(
     after: &PathBuf,
     profile: Option<&PathBuf>,
     format: &ReportFormat,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let diff = if let Some(profile_path) = profile {
         let mut before_fingerprint = fingerprint_corpus_path(before)?;
@@ -3639,7 +3929,7 @@ fn corpus_diff_command(
         diff_corpus_paths(before, after)?
     };
     let output = format_corpus_diff(&diff, format)?;
-    println!("{}", output);
+    output_options.emit(&output)?;
     Ok(())
 }
 
@@ -3647,6 +3937,7 @@ fn corpus_fingerprint_command(
     path: &PathBuf,
     profile: Option<&PathBuf>,
     format: &ReportFormat,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut fingerprint = fingerprint_corpus_path(path)?;
 
@@ -3658,7 +3949,7 @@ fn corpus_fingerprint_command(
     }
 
     let output = format_corpus_fingerprint(&fingerprint, format)?;
-    println!("{}", output);
+    output_options.emit(&output)?;
     Ok(())
 }
 
@@ -4310,7 +4601,15 @@ fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    val_command(&file_path, &profile_path, mllp, detailed, &report, summary)
+    val_command(
+        &file_path,
+        &profile_path,
+        mllp,
+        detailed,
+        &report,
+        summary,
+        &OutputOptions::new(None, false, false),
+    )
 }
 
 /// Handle ack command in interactive mode
