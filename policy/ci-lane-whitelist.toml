@@ -53,7 +53,33 @@ review_after = "2026-06-09"
 expires = "2026-11-09"
 
 # ---------------------------------------------------------------------------
-# matrix_tests — Stage 2 multi-OS / multi-toolchain
+# msrv_smoke — Stage 2 MSRV compile check on every PR
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "msrv_smoke"
+workflow = ".github/workflows/ci.yml"
+job = "msrv-smoke"
+display_name = "MSRV Smoke (1.93)"
+kind = "platform"
+tier = "compatibility"
+default_pr = true
+blocking = true
+runner = "ubuntu_latest"
+base_lem = 12
+owner = "platform/compat"
+intent = "Verify the workspace compiles on the minimum supported Rust version (1.93)."
+failure_mode = "MSRV regression reaches main undetected."
+proof_obligation = "Run cargo check --workspace --all-features on Rust 1.93."
+evidence = ["job logs"]
+allowed_triggers = ["pull_request", "push", "merge_group"]
+duplicate_of = ["fast_checks"]
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# matrix_tests — Stage 2 multi-OS / multi-toolchain (label/main only)
+# Routed off ordinary PRs by PR 07; label `platform-matrix` or `full-ci`
+# triggers the full fan-out.
 # ---------------------------------------------------------------------------
 [[lane]]
 id = "matrix_tests"
@@ -62,21 +88,20 @@ job = "matrix-test"
 display_name = "Matrix Tests"
 kind = "platform"
 tier = "compatibility"
-default_pr = true
-blocking = true
+default_pr = false
+blocking = false
 runner = "mixed"
 base_lem = 85
 owner = "platform/compat"
 intent = "Run full workspace all-features tests across Ubuntu, Windows, macOS, stable, beta, and MSRV."
-failure_mode = "Platform or toolchain-specific failure reaches main."
+failure_mode = "Platform or toolchain-specific failure reaches main undetected."
 proof_obligation = "Run workspace all-features tests on OS/toolchain matrix."
 evidence = ["job logs"]
-allowed_triggers = ["pull_request", "push", "merge_group"]
-expensive = true
-default_pr_exception = "ci_exception_matrix_tests_default"
-duplicate_of = ["fast_checks", "standard_tests"]
+allowed_triggers = ["push", "merge_group", "workflow_dispatch", "pull_request:labeled"]
+labels = ["platform-matrix", "full-ci", "release-check"]
+duplicate_of = ["fast_checks", "standard_tests", "msrv_smoke"]
 review_after = "2026-06-09"
-expires = "2026-08-09"
+expires = "2026-11-09"
 
 # ---------------------------------------------------------------------------
 # extended_property_tests — Stage 3 full property tests (main/label only)

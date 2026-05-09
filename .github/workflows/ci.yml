@@ -120,13 +120,50 @@ jobs:
         timeout-minutes: 5
 
   # ============================================================================
-  # Stage 2 (Parallel): Multi-Rust Version Tests (~85 LEM)
-  # TODO(PR-07): Route off ordinary PR path onto main/labels.
+  # Stage 2 (Parallel): MSRV smoke (~12 LEM)
+  # Runs on every PR: verifies the minimum supported Rust version compiles.
+  # ============================================================================
+  msrv-smoke:
+    name: MSRV Smoke (1.93)
+    runs-on: ubuntu-latest
+    needs: fast
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MSRV toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: '1.93'
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: hl7v2-msrv-1.93-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Check workspace compiles on MSRV
+        run: cargo check --workspace --all-features
+        timeout-minutes: 10
+
+  # ============================================================================
+  # Stage 2 (Parallel): Full Multi-OS/Toolchain Matrix (~85 LEM)
+  # Runs on: main push, merge_group, platform-matrix label, full-ci label,
+  #           release-check label, workflow_dispatch.
+  # NOT the default for ordinary PRs (see msrv-smoke above).
   # ============================================================================
   matrix-test:
     name: Matrix Tests
     runs-on: ${{ matrix.os }}
     needs: fast
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'merge_group' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'platform-matrix') ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci') ||
+      contains(github.event.pull_request.labels.*.name, 'release-check')
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -156,7 +193,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: hl7v2-matrix-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.lock') }}
-          # Only save the canonical ubuntu+stable cache from main to avoid cache thrash
+          # Only save the canonical ubuntu+stable cache from main
           save-if: ${{ github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest' && matrix.rust == 'stable' }}
 
       - name: Run tests
@@ -240,7 +277,7 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [fast, standard, matrix-test]
+    needs: [fast, standard, msrv-smoke]
     if: always() && !failure()
     steps:
       - name: Check CI status
@@ -248,4 +285,4 @@ jobs:
           echo "CI Pipeline completed successfully"
           echo "- Fast checks: passed"
           echo "- Standard tests: passed"
-          echo "- Matrix tests: passed"
+          echo "- MSRV smoke: passed"

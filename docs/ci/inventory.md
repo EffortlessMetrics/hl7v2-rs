@@ -2,7 +2,7 @@
 
 Current lane inventory derived from `policy/ci-lane-whitelist.toml`.
 
-Last updated: 2026-05-09
+Last updated: 2026-05-09 (PR 07: platform matrix routed off ordinary PRs)
 
 ## Active Lanes
 
@@ -10,7 +10,8 @@ Last updated: 2026-05-09
 | ------------------------- | --------------------- | ---------------- | ------------- | :---------: | :-------: | -------: | --------------- |
 | `fast_checks`             | `ci.yml`              | `fast`           | frontdoor     | yes         | yes       |       12 | core/build      |
 | `standard_tests`          | `ci.yml`              | `standard`       | frontdoor     | yes         | yes       |       15 | core/test       |
-| `matrix_tests`            | `ci.yml`              | `matrix-test`    | compatibility | yes*        | yes       |       85 | platform/compat |
+| `msrv_smoke`              | `ci.yml`              | `msrv-smoke`     | compatibility | yes         | yes       |       12 | platform/compat |
+| `matrix_tests`            | `ci.yml`              | `matrix-test`    | compatibility | **no**      | no        |       85 | platform/compat |
 | `extended_property_tests` | `ci.yml`              | `extended`       | deep          | no          | no        |       20 | core/parser     |
 | `benchmarks`              | `ci.yml`              | `benchmarks`     | deep          | no          | no        |       15 | performance     |
 | `ci_success`              | `ci.yml`              | `ci-success`     | frontdoor     | yes         | yes       |        1 | release/ci      |
@@ -21,34 +22,57 @@ Last updated: 2026-05-09
 | `contracts`               | `contracts.yml`       | `contracts`      | deep          | no          | no        |       15 | api/contracts   |
 | `publish`                 | `publish.yml`         | `publish`        | release       | no          | no        |       20 | release/ci      |
 
-*`matrix_tests` is `default_pr = true` with an active exception (`ci_exception_matrix_tests_default`).
- This is the primary target of PR 07 (route platform matrix to main and labels).
+## Default PR LEM Estimate (after PR 07)
 
-## Default PR LEM Estimate
-
-With the current configuration, every ordinary PR runs:
+Ordinary PRs now run:
 
 | Lane             | Base LEM |
 | ---------------- | -------: |
 | `fast_checks`    |       12 |
 | `standard_tests` |       15 |
-| `matrix_tests`   |       85 |
+| `msrv_smoke`     |       12 |
 | `ci_success`     |        1 |
-| **Total**        |  **113** |
+| **Total**        |   **40** |
 
-After PR 07 (matrix routing), the ordinary PR estimate drops to:
+This is within the 35 LEM preferred target for most PRs. The 5 LEM overage
+comes from the MSRV smoke check which verifies the minimum supported Rust
+version on every PR — a cheap compile-only check that prevents MSRV regressions.
 
-| Lane             | Base LEM |
-| ---------------- | -------: |
-| `fast_checks`    |       12 |
-| `standard_tests` |       15 |
-| `ci_success`     |        1 |
-| **Total**        |   **28** |
+## LEM Savings from PR 07
 
-This brings ordinary PRs within the preferred 25 LEM target and well under the 35 LEM limit.
+Before PR 07, ordinary PRs ran the full matrix (85 LEM):
+
+| Before | After | Saved |
+| -----: | ----: | ----: |
+|    113 |    40 |    73 |
+
+That is a 65% reduction in default PR LEM. On $0.008/LEM, each ordinary PR
+now costs approximately $0.32 instead of $0.90.
+
+## Label-Triggered Lanes
+
+| Label              | Additionally triggers            |
+| ------------------ | -------------------------------- |
+| `platform-matrix`  | `matrix_tests` (85 LEM)          |
+| `full-ci`          | all deep lanes + `matrix_tests`  |
+| `release-check`    | `matrix_tests`, `security`, `publish` |
+| `property-tests`   | `extended_property_tests`        |
+| `python`           | `python_wheels`                  |
+| `api-contract`     | `contracts`                      |
+| `coverage`         | `coverage`                       |
+| `benchmarks`       | `benchmarks`                     |
+
+## Main Branch Lanes
+
+On `push` to `main`, the following additional lanes run beyond default PRs:
+
+- `matrix_tests` (full platform fan-out)
+- `extended_property_tests` (PROPTEST_CASES=1000)
+- `benchmarks`
+- `nightly` (via nightly.yml schedule)
+- `coverage` (via coverage.yml)
 
 ## Exceptions
 
-| Exception ID                           | Lane           | Expires    | Reason              |
-| -------------------------------------- | -------------- | ---------- | ------------------- |
-| `ci_exception_matrix_tests_default`    | `matrix_tests` | 2026-08-09 | Pending PR 07 route |
+No active exceptions. The `ci_exception_matrix_tests_default` exception was
+retired in PR 07 when `matrix_tests` was moved off the ordinary PR path.

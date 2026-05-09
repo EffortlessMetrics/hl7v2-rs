@@ -7,19 +7,7 @@ status = "active"
 # Each exception must have a reason, a review date, and an expiry.
 # Expired exceptions cause check-ci-lane-whitelist to warn (advisory) or fail (enforcing).
 
-[[exception]]
-id = "ci_exception_matrix_tests_default"
-kind = "expensive_default_pr_lane"
-lane = "matrix_tests"
-allowed = true
-owner = "platform/compat"
-issue = "TODO: file tracking issue for platform-matrix routing"
-reason = """
-The current CI runs a broad OS/toolchain matrix on PRs. Keep temporarily until PR Plan
-and risk-pack routing (PR 07) move platform breadth to main/labels. The matrix includes
-Ubuntu/Windows/macOS × stable/beta/MSRV, but beta and MSRV already exclude Windows and
-macOS to partially reduce load. Full routing happens in PR 07.
-"""
-created = "2026-05-09"
-review_after = "2026-06-09"
-expires = "2026-08-09"
+# ci_exception_matrix_tests_default was removed in PR 07.
+# matrix_tests is no longer default_pr=true; it is now label/main-triggered only.
+# Kept as a comment for audit trail.
+
