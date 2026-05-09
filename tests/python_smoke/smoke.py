@@ -168,6 +168,28 @@ constraints:
         if issue_counts.get("missing_required_field") != 1:
             print(f"unexpected fingerprint issue counts: {fingerprint}", file=sys.stderr)
             return 1
+        fingerprint_v2 = hl7v2.corpus_fingerprint(
+            str(before),
+            profile_yaml=failing_profile_yaml,
+            schema_version=2,
+        )
+        if (
+            fingerprint_v2["schema_version"] != "2"
+            or fingerprint_v2["tool_name"] != "hl7v2-python"
+            or fingerprint_v2["fingerprint_version"] != "1"
+            or fingerprint_v2["profile"]["path"] != "<inline-profile>"
+        ):
+            print(f"unexpected fingerprint v2 provenance: {fingerprint_v2}", file=sys.stderr)
+            return 1
+        try:
+            hl7v2.corpus_fingerprint(str(before), schema_version=3)
+        except ValueError as exc:
+            if "schema_version must be 1 or 2" not in str(exc):
+                print(f"unexpected fingerprint schema version failure: {exc}", file=sys.stderr)
+                return 1
+        else:
+            print("expected unsupported fingerprint schema version to fail", file=sys.stderr)
+            return 1
 
         diff = hl7v2.corpus_diff(
             str(before),
@@ -192,6 +214,29 @@ constraints:
             or missing_required["delta"] != 1
         ):
             print(f"unexpected diff issue counts: {diff}", file=sys.stderr)
+            return 1
+        diff_v2 = hl7v2.corpus_diff(
+            str(before),
+            str(after),
+            profile_yaml=failing_profile_yaml,
+            schema_version=2,
+        )
+        if (
+            diff_v2["schema_version"] != "2"
+            or diff_v2["tool_name"] != "hl7v2-python"
+            or diff_v2["diff_version"] != "1"
+            or diff_v2["message_count"]["delta"] != 1
+        ):
+            print(f"unexpected diff v2 provenance: {diff_v2}", file=sys.stderr)
+            return 1
+        try:
+            hl7v2.corpus_diff(str(before), str(after), schema_version=3)
+        except ValueError as exc:
+            if "schema_version must be 1 or 2" not in str(exc):
+                print(f"unexpected diff schema version failure: {exc}", file=sys.stderr)
+                return 1
+        else:
+            print("expected unsupported diff schema version to fail", file=sys.stderr)
             return 1
 
     redaction_policy = """

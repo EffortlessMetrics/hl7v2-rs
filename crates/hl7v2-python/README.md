@@ -63,14 +63,27 @@ print(report.to_json(2))
 
 summary = hl7v2.corpus_summary("feeds/site-a")
 fingerprint = hl7v2.corpus_fingerprint("feeds/site-a", profile_yaml=profile_yaml)
+fingerprint_v2 = hl7v2.corpus_fingerprint(
+    "feeds/site-a",
+    profile_yaml=profile_yaml,
+    schema_version=2,
+)
 diff = hl7v2.corpus_diff(
     "feeds/before",
     "feeds/after",
     profile_yaml=profile_yaml,
 )
+diff_v2 = hl7v2.corpus_diff(
+    "feeds/before",
+    "feeds/after",
+    profile_yaml=profile_yaml,
+    schema_version=2,
+)
 print(summary["message_count"])
 print(fingerprint["fingerprint_version"])
+print(fingerprint_v2["schema_version"])
 print(diff["diff_version"])
+print(diff_v2["schema_version"])
 
 policy_toml = """
 [[rules]]
