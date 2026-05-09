@@ -26,6 +26,7 @@ hl7v2 = { version = "1.2.1", path = "../hl7v2", features = [
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+toml = "1.1.2"
 axum = { workspace = true }
 tower = { workspace = true, features = ["limit"] }
 tower-http = { workspace = true, features = ["trace", "cors", "compression-gzip"] }
@@ -55,6 +56,7 @@ http-body-util = "0.1"
 cucumber = "0.22.1"
 serde_json = { workspace = true }
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
+assert_cmd = "2.0"
 
 [[test]]
 name = "bdd_tests"

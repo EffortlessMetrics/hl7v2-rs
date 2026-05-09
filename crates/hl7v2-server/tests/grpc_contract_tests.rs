@@ -17,7 +17,7 @@ mod tests {
         ParseStreamRequest, ParseStreamResponse, ValidateRequest, generate_ack_request,
         health_check_response, validation_issue,
     };
-    use hl7v2_server::server::AppState;
+    use hl7v2_server::server::{AppState, ServerConfig};
     use http_body_util::Empty;
     use metrics_exporter_prometheus::PrometheusBuilder;
     use std::sync::Arc;
@@ -35,6 +35,7 @@ mod tests {
             metrics_handle: Arc::new(handle),
             api_key: None,
             cors_allowed_origins: Default::default(),
+            readiness_checks: ServerConfig::default().readiness_checks(),
         })
     }
 

@@ -1,7 +1,12 @@
 //! HTTP server implementation.
 
+use crate::models::{ReadinessCheck, ReadyResponse};
 use metrics_exporter_prometheus::PrometheusHandle;
+use serde::{Deserialize, Serialize};
+use std::ffi::OsString;
+use std::fs;
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::net::TcpListener;
@@ -21,6 +26,15 @@ pub struct AppState {
     pub api_key: Option<String>,
     /// CORS origin policy for browser clients
     pub cors_allowed_origins: CorsAllowedOrigins,
+    /// Startup readiness checks.
+    pub readiness_checks: Vec<ReadinessCheck>,
+}
+
+impl AppState {
+    /// Build the current readiness response.
+    pub fn ready_response(&self) -> ReadyResponse {
+        ReadyResponse::from_checks(self.readiness_checks.clone())
+    }
 }
 
 /// CORS origin policy.
@@ -76,6 +90,10 @@ pub struct ServerConfig {
     pub api_key: Option<String>,
     /// CORS origin policy
     pub cors_allowed_origins: CorsAllowedOrigins,
+    /// Configured profile files that must load before the server is ready.
+    pub profile_paths: Vec<String>,
+    /// Optional config file source used to build this configuration.
+    pub config_source: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -85,7 +103,249 @@ impl Default for ServerConfig {
             max_body_size: 10 * 1024 * 1024, // 10MB
             api_key: None,
             cors_allowed_origins: CorsAllowedOrigins::default(),
+            profile_paths: Vec::new(),
+            config_source: None,
         }
+    }
+}
+
+/// Sanitized server configuration suitable for printing and diagnostics.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PublicServerConfig {
+    /// Address the server will bind.
+    pub bind_address: String,
+    /// Maximum request body size in bytes.
+    pub max_body_size: usize,
+    /// Whether an API key is configured without exposing the secret.
+    pub api_key_configured: bool,
+    /// CORS origin policy.
+    pub cors_allowed_origins: PublicCorsAllowedOrigins,
+    /// Profile paths checked by readiness.
+    pub profile_paths: Vec<String>,
+    /// Optional config file source.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config_source: Option<String>,
+}
+
+/// Sanitized CORS origin policy for printed config.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PublicCorsAllowedOrigins {
+    /// Policy mode: `any` or `list`.
+    pub mode: String,
+    /// Configured origins when mode is `list`.
+    pub origins: Vec<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct FileConfig {
+    #[serde(default)]
+    server: FileServerConfig,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct FileServerConfig {
+    host: Option<String>,
+    port: Option<u16>,
+    api_key: Option<String>,
+}
+
+impl ServerConfig {
+    /// Build server configuration from supported environment variables.
+    pub fn from_env() -> Result<Self> {
+        let config_path = std::env::var_os("HL7V2_CONFIG").map(PathBuf::from);
+        Self::from_sources(
+            config_path.as_deref(),
+            std::env::var("BIND_ADDRESS").ok(),
+            std::env::var("HL7V2_API_KEY").ok(),
+            std::env::var("HL7V2_CORS_ALLOWED_ORIGINS").ok(),
+            std::env::var_os("HL7V2_PROFILE_PATHS"),
+        )
+    }
+
+    /// Build server configuration from explicit sources.
+    pub fn from_sources(
+        config_path: Option<&Path>,
+        bind_address: Option<String>,
+        api_key: Option<String>,
+        cors_allowed_origins: Option<String>,
+        profile_paths: Option<OsString>,
+    ) -> Result<Self> {
+        let mut config = if let Some(path) = config_path {
+            let mut config = Self::from_config_file(path)?;
+            config.config_source = Some(path.display().to_string());
+            config
+        } else {
+            Self::default()
+        };
+
+        if let Some(bind_address) = bind_address {
+            config.bind_address = bind_address;
+        }
+
+        if let Some(api_key) = api_key {
+            config.api_key = Some(api_key);
+        }
+
+        if let Some(cors_allowed_origins) = cors_allowed_origins {
+            config.cors_allowed_origins = CorsAllowedOrigins::from_csv(&cors_allowed_origins);
+        }
+
+        if let Some(profile_paths) = profile_paths {
+            config.profile_paths = split_profile_paths(profile_paths);
+        }
+
+        Ok(config)
+    }
+
+    fn from_config_file(path: &Path) -> Result<Self> {
+        let content = fs::read_to_string(path).map_err(|error| {
+            crate::Error::Config(format!("Failed to read config file: {error}"))
+        })?;
+        let file_config: FileConfig = match path.extension().and_then(|value| value.to_str()) {
+            Some("yaml" | "yml") => serde_yaml::from_str(&content).map_err(|error| {
+                crate::Error::Config(format!("Failed to parse YAML config file: {error}"))
+            })?,
+            _ => toml::from_str(&content).map_err(|error| {
+                crate::Error::Config(format!("Failed to parse TOML config file: {error}"))
+            })?,
+        };
+
+        let mut config = Self::default();
+        if let Some(host) = file_config.server.host {
+            let port = file_config.server.port.unwrap_or(8080);
+            config.bind_address = format!("{host}:{port}");
+        } else if let Some(port) = file_config.server.port {
+            config.bind_address = format!("0.0.0.0:{port}");
+        }
+        if let Some(api_key) = file_config.server.api_key {
+            config.api_key = Some(api_key);
+        }
+
+        Ok(config)
+    }
+
+    /// Return a sanitized public view of this configuration.
+    pub fn to_public_config(&self) -> PublicServerConfig {
+        PublicServerConfig {
+            bind_address: self.bind_address.clone(),
+            max_body_size: self.max_body_size,
+            api_key_configured: self.api_key.is_some(),
+            cors_allowed_origins: public_cors_allowed_origins(&self.cors_allowed_origins),
+            profile_paths: self.profile_paths.clone(),
+            config_source: self.config_source.clone(),
+        }
+    }
+
+    /// Build startup readiness checks for this configuration.
+    pub fn readiness_checks(&self) -> Vec<ReadinessCheck> {
+        let mut checks = Vec::new();
+
+        checks.push(ReadinessCheck::pass(
+            "config",
+            "server configuration parsed",
+        ));
+
+        match self.bind_address.parse::<SocketAddr>() {
+            Ok(_) => checks.push(ReadinessCheck::pass("bind_address", "bind address parsed")),
+            Err(error) => checks.push(ReadinessCheck::fail(
+                "bind_address",
+                format!("bind address did not parse: {error}"),
+            )),
+        }
+
+        checks.push(profile_readiness_check(&self.profile_paths));
+        checks.push(validation_report_readiness_check());
+
+        checks
+    }
+}
+
+fn split_profile_paths(paths: OsString) -> Vec<String> {
+    std::env::split_paths(&paths)
+        .map(|path| path.to_string_lossy().trim().to_string())
+        .filter(|path| !path.is_empty())
+        .collect()
+}
+
+fn public_cors_allowed_origins(origins: &CorsAllowedOrigins) -> PublicCorsAllowedOrigins {
+    match origins {
+        CorsAllowedOrigins::Any => PublicCorsAllowedOrigins {
+            mode: "any".to_string(),
+            origins: Vec::new(),
+        },
+        CorsAllowedOrigins::List(origins) => PublicCorsAllowedOrigins {
+            mode: "list".to_string(),
+            origins: origins.clone(),
+        },
+    }
+}
+
+fn profile_readiness_check(profile_paths: &[String]) -> ReadinessCheck {
+    if profile_paths.is_empty() {
+        return ReadinessCheck::pass("configured_profiles", "no configured profiles");
+    }
+
+    for path in profile_paths {
+        match fs::read_to_string(path) {
+            Ok(content) => {
+                if let Err(error) = hl7v2::load_profile_checked(&content) {
+                    return ReadinessCheck::fail(
+                        "configured_profiles",
+                        format!("profile {path} did not load: {error}"),
+                    );
+                }
+            }
+            Err(error) => {
+                return ReadinessCheck::fail(
+                    "configured_profiles",
+                    format!("profile {path} could not be read: {error}"),
+                );
+            }
+        }
+    }
+
+    ReadinessCheck::pass(
+        "configured_profiles",
+        format!("loaded {} configured profile(s)", profile_paths.len()),
+    )
+}
+
+fn validation_report_readiness_check() -> ReadinessCheck {
+    const SAMPLE_MESSAGE: &str =
+        "MSH|^~\\&|HL7V2|READY|OPS|OPS|202605030101||ADT^A01|READY1|P|2.5\r";
+    const SAMPLE_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+    required: true
+    max_uses: 1
+"#;
+
+    let result = (|| -> std::result::Result<bool, String> {
+        let message = hl7v2::parse(SAMPLE_MESSAGE.as_bytes()).map_err(|error| error.to_string())?;
+        let profile =
+            hl7v2::load_profile_checked(SAMPLE_PROFILE).map_err(|error| error.to_string())?;
+        let issues = hl7v2::validate(&message, &profile);
+        let report =
+            hl7v2::ValidationReport::from_issues(&message, Some(profile.message_structure), issues);
+
+        Ok(!report.message_type.is_empty() && report.profile.is_some())
+    })();
+
+    match result {
+        Ok(true) => ReadinessCheck::pass(
+            "validation_report",
+            "validation report self-check produced typed evidence",
+        ),
+        Ok(false) => ReadinessCheck::fail(
+            "validation_report",
+            "validation report self-check returned incomplete evidence",
+        ),
+        Err(error) => ReadinessCheck::fail(
+            "validation_report",
+            format!("validation report self-check failed: {error}"),
+        ),
     }
 }
 
@@ -106,6 +366,7 @@ impl Server {
             metrics_handle: Arc::new(metrics_handle),
             api_key: config.api_key.clone(),
             cors_allowed_origins: config.cors_allowed_origins.clone(),
+            readiness_checks: config.readiness_checks(),
         });
 
         Self { config, state }
@@ -180,6 +441,16 @@ impl ServerBuilder {
         self
     }
 
+    /// Set profile files that must load before readiness passes.
+    pub fn profile_paths<I, S>(mut self, paths: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.config.profile_paths = paths.into_iter().map(Into::into).collect();
+        self
+    }
+
     /// Build the server
     pub fn build(self) -> Server {
         Server::new(self.config)
@@ -213,6 +484,7 @@ mod tests {
         assert_eq!(config.bind_address, "0.0.0.0:8080");
         assert_eq!(config.max_body_size, 10 * 1024 * 1024);
         assert_eq!(config.cors_allowed_origins, CorsAllowedOrigins::Any);
+        assert!(config.profile_paths.is_empty());
     }
 
     #[test]
@@ -226,5 +498,117 @@ mod tests {
                 "https://ops.example".to_string()
             ])
         );
+    }
+
+    #[test]
+    fn server_config_loads_config_file_and_env_style_overrides() {
+        let path = temp_file_path("server-config.toml");
+        fs::write(
+            &path,
+            r#"
+[server]
+host = "127.0.0.1"
+port = 18080
+api_key = "file-secret"
+"#,
+        )
+        .expect("config fixture should be written");
+
+        let config = ServerConfig::from_sources(
+            Some(&path),
+            Some("0.0.0.0:19090".to_string()),
+            Some("env-secret".to_string()),
+            Some("https://app.example,https://ops.example".to_string()),
+            None,
+        )
+        .expect("config should load");
+
+        assert_eq!(config.bind_address, "0.0.0.0:19090");
+        assert_eq!(config.api_key.as_deref(), Some("env-secret"));
+        assert_eq!(
+            config.cors_allowed_origins,
+            CorsAllowedOrigins::List(vec![
+                "https://app.example".to_string(),
+                "https://ops.example".to_string()
+            ])
+        );
+        assert_eq!(config.config_source, Some(path.display().to_string()));
+
+        fs::remove_file(path).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn public_config_redacts_api_key_value() {
+        let config = ServerConfig {
+            api_key: Some("super-secret".to_string()),
+            ..ServerConfig::default()
+        };
+
+        let printed = serde_json::to_string(&config.to_public_config())
+            .expect("public config should serialize");
+
+        assert!(printed.contains("\"api_key_configured\":true"));
+        assert!(!printed.contains("super-secret"));
+    }
+
+    #[test]
+    fn readiness_checks_load_configured_profiles() {
+        let path = temp_file_path("ready-profile.yaml");
+        fs::write(
+            &path,
+            r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+"#,
+        )
+        .expect("profile fixture should be written");
+
+        let config = ServerConfig::from_sources(
+            None,
+            None,
+            None,
+            None,
+            Some(OsString::from(path.as_os_str())),
+        )
+        .expect("config should build");
+        let check = config
+            .readiness_checks()
+            .into_iter()
+            .find(|check| check.name == "configured_profiles")
+            .expect("configured profile check should exist");
+
+        assert_eq!(check.status, crate::models::ReadinessCheckStatus::Pass);
+        assert!(check.message.contains("loaded 1 configured profile"));
+
+        fs::remove_file(path).expect("profile fixture should be removed");
+    }
+
+    #[test]
+    fn readiness_checks_fail_missing_configured_profile() {
+        let config = ServerConfig {
+            profile_paths: vec!["missing-profile.yaml".to_string()],
+            ..ServerConfig::default()
+        };
+        let check = config
+            .readiness_checks()
+            .into_iter()
+            .find(|check| check.name == "configured_profiles")
+            .expect("configured profile check should exist");
+
+        assert_eq!(check.status, crate::models::ReadinessCheckStatus::Fail);
+        assert!(check.message.contains("missing-profile.yaml"));
+    }
+
+    fn temp_file_path(name: &str) -> PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "hl7v2-server-{}-{nonce}-{name}",
+            std::process::id()
+        ))
     }
 }

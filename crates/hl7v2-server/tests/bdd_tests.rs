@@ -61,6 +61,7 @@ impl ServerWorld {
             metrics_handle: Arc::new(metrics_handle),
             api_key: self.api_key.clone(),
             cors_allowed_origins: Default::default(),
+            readiness_checks: hl7v2_server::ServerConfig::default().readiness_checks(),
         });
         hl7v2_server::routes::build_router(state)
     }

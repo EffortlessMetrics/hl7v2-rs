@@ -6,7 +6,7 @@
 //! - Request size limits
 
 use axum::http::{Request, StatusCode, header};
-use hl7v2_server::{AppState, build_router};
+use hl7v2_server::{AppState, ServerConfig, build_router};
 use std::sync::Arc;
 use std::time::Instant;
 use tower::ServiceExt;
@@ -19,6 +19,7 @@ async fn test_auth_missing_api_key_fails() {
         metrics_handle: Arc::new(metrics_handle),
         api_key: Some("secret-key".to_string()),
         cors_allowed_origins: Default::default(),
+        readiness_checks: ServerConfig::default().readiness_checks(),
     });
     let app = build_router(state);
 
@@ -49,6 +50,7 @@ async fn test_auth_valid_api_key_succeeds() {
         metrics_handle: Arc::new(metrics_handle),
         api_key: Some("secret-key".to_string()),
         cors_allowed_origins: Default::default(),
+        readiness_checks: ServerConfig::default().readiness_checks(),
     });
     let app = build_router(state);
 
@@ -85,6 +87,7 @@ async fn test_auth_invalid_api_key_fails() {
         metrics_handle: Arc::new(metrics_handle),
         api_key: Some("secret-key".to_string()),
         cors_allowed_origins: Default::default(),
+        readiness_checks: ServerConfig::default().readiness_checks(),
     });
     let app = build_router(state);
 
@@ -116,6 +119,7 @@ async fn test_health_metrics_public() {
         metrics_handle: Arc::new(metrics_handle),
         api_key: Some("secret-key".to_string()),
         cors_allowed_origins: Default::default(),
+        readiness_checks: ServerConfig::default().readiness_checks(),
     });
     let app = build_router(state);
 

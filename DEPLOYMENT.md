@@ -33,8 +33,7 @@ cargo run --bin hl7v2-server
 ### Environment Variables
 
 ```bash
-export HL7V2_HOST="0.0.0.0"              # Bind address (default: 127.0.0.1)
-export HL7V2_PORT="8080"                  # Port (default: 8080)
+export BIND_ADDRESS="0.0.0.0:8080"        # Bind address (default: 127.0.0.1:8080)
 export HL7V2_MAX_CONCURRENT="100"         # Max concurrent requests (default: 100)
 export HL7V2_MAX_BODY_SIZE="1048576"      # Max body size in bytes (default: 1MB)
 export HL7V2_API_KEY="your-secret-key"    # API key for authentication (optional)
@@ -51,8 +50,7 @@ docker build -t hl7v2-server:latest .
 
 # Run container
 docker run -p 8080:8080 \
-  -e HL7V2_HOST=0.0.0.0 \
-  -e HL7V2_PORT=8080 \
+  -e BIND_ADDRESS=0.0.0.0:8080 \
   -e RUST_LOG=info \
   hl7v2-server:latest
 ```
@@ -81,8 +79,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      HL7V2_HOST: "0.0.0.0"
-      HL7V2_PORT: "8080"
+      BIND_ADDRESS: "0.0.0.0:8080"
       HL7V2_MAX_CONCURRENT: "200"
       RUST_LOG: "info"
     healthcheck:
@@ -275,8 +272,7 @@ For NixOS deployments, see [NIX_USAGE.md](NIX_USAGE.md) for complete guide.
 
 **Bind Address and Port:**
 ```bash
-HL7V2_HOST="0.0.0.0"  # Listen on all interfaces
-HL7V2_PORT="8080"      # HTTP port
+BIND_ADDRESS="0.0.0.0:8080"  # Listen on all interfaces
 ```
 
 **Concurrency Limiting:**
@@ -315,23 +311,27 @@ export RUST_LOG_FORMAT="json"
 
 ### Configuration File
 
-Create `config.yaml`:
+Set `HL7V2_CONFIG` to a TOML or YAML file. The server consumes the `[server]`
+section from the same checked config shape as `config.example.toml`.
 
-```yaml
-server:
-  bind_address: "0.0.0.0:8080"
-  max_body_size: 1048576
-  max_concurrent: 100
+Create `config.toml`:
 
-logging:
-  level: "info"
-  format: "json"
+```toml
+[server]
+host = "0.0.0.0"
+port = 8080
+# api_key = "your-secret-api-key-here"
 
-security:
-  api_key_required: true
-  cors_allowed_origins:
-    - "https://app.example.com"
-    - "https://dashboard.example.com"
+[logging]
+level = "info"
+log_to_file = false
+```
+
+Then run:
+
+```bash
+HL7V2_CONFIG=/etc/hl7v2/config.toml hl7v2-server --print-config
+HL7V2_CONFIG=/etc/hl7v2/config.toml hl7v2-server
 ```
 
 ## Monitoring

@@ -13,7 +13,7 @@ use axum::{
 use hl7v2_server::{
     handlers::{parse_handler, validate_handler},
     metrics::{init_metrics_recorder, metrics_handler},
-    server::AppState,
+    server::{AppState, ServerConfig},
 };
 use std::sync::Arc;
 use std::time::Instant;
@@ -39,6 +39,7 @@ fn build_test_router(
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
         cors_allowed_origins: Default::default(),
+        readiness_checks: ServerConfig::default().readiness_checks(),
     });
 
     // Rate limit configuration

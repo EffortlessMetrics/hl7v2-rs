@@ -2,13 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.hl7v2-rs.org/config/v1",
   "title": "HL7v2-rs Configuration Schema",
-  "description": "Configuration file for the currently implemented CLI configuration loader",
+  "description": "Configuration file for implemented CLI helpers and the standalone HTTP server",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "server": {
       "type": "object",
-      "description": "HTTP server defaults used by CLI configuration helpers",
+      "description": "HTTP server defaults used by the standalone server and CLI configuration helpers",
       "additionalProperties": false,
       "properties": {
         "host": {

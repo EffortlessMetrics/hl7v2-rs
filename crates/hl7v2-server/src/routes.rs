@@ -16,7 +16,7 @@ use tower_http::{
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::handlers::{
-    ack_handler, health_handler, normalize_handler, parse_handler, validate_handler,
+    ack_handler, health_handler, normalize_handler, parse_handler, ready_handler, validate_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
 use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
@@ -82,13 +82,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
 }
 
-/// Handler for GET /ready
-async fn ready_handler() -> &'static str {
-    // Simple readiness check - if we can respond, we're ready
-    // In production, you might want to check database connections, etc.
-    "{\"ready\":true}"
-}
-
 /// Build CORS layer
 fn build_cors_layer(origins: &CorsAllowedOrigins) -> CorsLayer {
     let layer = CorsLayer::new().allow_methods(Any).allow_headers(Any);
@@ -129,6 +122,7 @@ mod tests {
             metrics_handle: Arc::new(metrics_handle),
             api_key: Some(api_key.clone()),
             cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
         });
         (build_router(state), api_key)
     }
@@ -178,6 +172,7 @@ mod tests {
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
             cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
         });
 
         let app = build_router(state);
@@ -211,6 +206,7 @@ mod tests {
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
             cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
         });
 
         let app = build_router(state);
