@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Prepared the v1.3.0 Evidence Loop release candidate around deterministic
+- Released the v1.3.0 Evidence Loop around deterministic
   HL7 interface evidence: first-run diagnostics, typed validation reports,
   profile lint/test/explain, corpus summarize/fingerprint/diff,
   safe-analysis redaction, evidence bundle/replay, and Python binding parity.
@@ -38,8 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Evidence bundles now include manifest and README artifacts, and replay
   verifies manifest hashes before comparing regenerated evidence.
-- Current release documentation positions v1.3.0 as the Evidence Loop
-  release candidate while keeping v1.2.1 as the latest published Rust release.
+- Current release documentation positions v1.3.0 as the published Evidence
+  Loop release for the final Rust package graph.
 
 ### Fixed
 

@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.2.1 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is preparing the v1.3.0 Evidence Loop release line, which is not yet published. Some historical implementation microcrate artifacts already exist on crates.io; they are compatibility artifacts, not the product surface for new code. `hl7v2-python` remains a separate Python/maturin binding lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.3.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Some historical implementation microcrate artifacts already exist on crates.io; they are compatibility artifacts, not the product surface for new code. `hl7v2-python` remains a separate Python/maturin binding lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -24,8 +24,8 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; not published to crates.io |
-| **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.2.1 are published to crates.io; Python remains a separate binding lane |
-| **Evidence Loop** | Candidate | Current `main` includes typed reports, profile test/explain, corpus fingerprint/diff, redaction, bundle/replay, schemas, goldens, and server/Python parity for a v1.3.0 release candidate |
+| **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.3.0 are published to crates.io; Python remains a separate binding lane |
+| **Evidence Loop** | Stable | v1.3.0 includes typed reports, profile test/explain, corpus fingerprint/diff, redaction, bundle/replay, schemas, goldens, and server/Python parity |
 
 ## Features
 
