@@ -349,7 +349,8 @@ python tests/python_smoke/smoke.py
 
 The current binding proof covers wheel build, install, import, version
 metadata, parse, segment count, JSON conversion, validation report parity,
-corpus summary/fingerprint/diff dict outputs, and safe-analysis redaction.
+corpus summary/fingerprint/diff dict outputs, safe-analysis redaction, evidence
+bundle creation, and replay verification.
 
 ## Performance Characteristics
 

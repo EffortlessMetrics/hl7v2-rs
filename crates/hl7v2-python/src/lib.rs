@@ -1,5 +1,9 @@
 //! Python bindings for HL7v2 via PyO3.
 
+use ::hl7v2::evidence::{
+    replay_evidence_bundle as rust_replay_evidence_bundle,
+    write_safe_analysis_bundle as rust_write_safe_analysis_bundle,
+};
 use ::hl7v2::redact::redact_hl7_safe_analysis as rust_redact_hl7_safe_analysis;
 use ::hl7v2::synthetic::corpus::{
     CorpusCount, CorpusFingerprintProfile, compute_sha256, diff_corpus_fingerprints,
@@ -301,6 +305,33 @@ pub fn redact<'py>(
     report_to_dict(py, &output, "Redaction serialization error")
 }
 
+/// Write a redacted evidence bundle and return a Python dict summary.
+#[pyfunction]
+pub fn bundle<'py>(
+    py: Python<'py>,
+    content: &str,
+    profile_yaml: &str,
+    policy_toml: &str,
+    out_dir: &str,
+) -> PyResult<Bound<'py, PyAny>> {
+    let summary = rust_write_safe_analysis_bundle(
+        content.as_bytes(),
+        profile_yaml,
+        policy_toml,
+        Path::new(out_dir),
+        "hl7v2-python",
+    )
+    .map_err(|e| value_error("Bundle error", e))?;
+    report_to_dict(py, &summary, "Bundle summary serialization error")
+}
+
+/// Replay and verify an evidence bundle directory.
+#[pyfunction]
+pub fn replay<'py>(py: Python<'py>, bundle_dir: &str) -> PyResult<Bound<'py, PyAny>> {
+    let report = rust_replay_evidence_bundle(Path::new(bundle_dir), "hl7v2-python");
+    report_to_dict(py, &report, "Replay report serialization error")
+}
+
 /// HL7v2 module for Python
 #[pymodule]
 fn hl7v2(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -315,5 +346,7 @@ fn hl7v2(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(corpus_fingerprint, m)?)?;
     m.add_function(wrap_pyfunction!(corpus_diff, m)?)?;
     m.add_function(wrap_pyfunction!(redact, m)?)?;
+    m.add_function(wrap_pyfunction!(bundle, m)?)?;
+    m.add_function(wrap_pyfunction!(replay, m)?)?;
     Ok(())
 }

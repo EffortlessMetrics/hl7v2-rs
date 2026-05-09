@@ -232,6 +232,94 @@ reason = "Patient identifier"
         print("expected incomplete redaction policy to fail closed", file=sys.stderr)
         return 1
 
+    with tempfile.TemporaryDirectory() as tmp:
+        bundle_dir = Path(tmp) / "issue-bundle"
+        bundle = hl7v2.bundle(raw, profile_yaml, redaction_policy, str(bundle_dir))
+        if bundle["bundle_version"] != "1" or bundle["output_dir"] != ".":
+            print(f"unexpected bundle summary: {bundle}", file=sys.stderr)
+            return 1
+        if (
+            bundle["message_type"] != "ADT^A01"
+            or bundle["validation_valid"] is not True
+            or bundle["redaction_phi_removed"] is not True
+        ):
+            print(f"unexpected bundle evidence status: {bundle}", file=sys.stderr)
+            return 1
+        for artifact in [
+            "message.redacted.hl7",
+            "validation-report.json",
+            "field-paths.json",
+            "profile.yaml",
+            "redaction-receipt.json",
+            "environment.json",
+            "replay.sh",
+            "replay.ps1",
+            "README.md",
+            "manifest.json",
+        ]:
+            if artifact not in bundle["artifacts"] or not (bundle_dir / artifact).is_file():
+                print(f"bundle missing artifact {artifact}: {bundle}", file=sys.stderr)
+                return 1
+
+        manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
+        if manifest["tool_name"] != "hl7v2-python":
+            print(f"unexpected bundle manifest tool: {manifest}", file=sys.stderr)
+            return 1
+        environment = json.loads((bundle_dir / "environment.json").read_text(encoding="utf-8"))
+        if environment["tool_name"] != "hl7v2-python":
+            print(f"unexpected bundle environment tool: {environment}", file=sys.stderr)
+            return 1
+
+        replay = hl7v2.replay(str(bundle_dir))
+        if replay["reproduced"] is not True or replay["tool_name"] != "hl7v2-python":
+            print(f"unexpected replay report: {replay}", file=sys.stderr)
+            return 1
+        replay_checks = {item["name"]: item["status"] for item in replay["checks"]}
+        if replay_checks.get("manifest-hashes") != "pass":
+            print(f"replay did not verify manifest hashes: {replay}", file=sys.stderr)
+            return 1
+
+        evidence_text = "\n".join(
+            (bundle_dir / artifact).read_text(encoding="utf-8")
+            for artifact in [
+                "validation-report.json",
+                "field-paths.json",
+                "redaction-receipt.json",
+                "environment.json",
+                "manifest.json",
+            ]
+        )
+        evidence_text += json.dumps(replay)
+        for sentinel in ["Doe^John", "123456", "19700101"]:
+            if sentinel in evidence_text:
+                print(f"raw PHI sentinel leaked through bundle/replay: {sentinel}", file=sys.stderr)
+                return 1
+
+        (bundle_dir / "message.redacted.hl7").write_text(
+            "MSH|^~\\&|SEND|FAC|RECV|FAC|202605080101||ADT^A01|TAMPER|P|2.5",
+            encoding="utf-8",
+        )
+        tampered_replay = hl7v2.replay(str(bundle_dir))
+        if tampered_replay["reproduced"] is not False:
+            print(f"expected tampered bundle replay to fail: {tampered_replay}", file=sys.stderr)
+            return 1
+        tampered_checks = {item["name"]: item["status"] for item in tampered_replay["checks"]}
+        if tampered_checks.get("manifest-hashes") != "fail":
+            print(f"tampered replay did not report hash failure: {tampered_replay}", file=sys.stderr)
+            return 1
+
+        existing_dir = Path(tmp) / "existing-bundle"
+        existing_dir.mkdir()
+        try:
+            hl7v2.bundle(raw, profile_yaml, redaction_policy, str(existing_dir))
+        except ValueError as exc:
+            if "bundle output directory already exists" not in str(exc):
+                print(f"unexpected existing bundle failure: {exc}", file=sys.stderr)
+                return 1
+        else:
+            print("expected existing bundle directory to fail closed", file=sys.stderr)
+            return 1
+
     try:
         hl7v2.parse("not an hl7 message")
     except ValueError as exc:
