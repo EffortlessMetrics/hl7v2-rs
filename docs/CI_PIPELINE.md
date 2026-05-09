@@ -116,6 +116,19 @@ installed and imported. This workflow does not publish to PyPI.
    - Runs `tests/python_smoke/smoke.py`
    - Uploads the wheel as a short-retention smoke artifact
 
+### `.github/workflows/python-testpypi.yml` - Python TestPyPI Proof
+
+Manual-only workflow for the separate `hl7v2-python` distribution lane. The
+default dispatch builds the wheel, installs it into a fresh virtual
+environment, runs `tests/python_smoke/smoke.py`, and uploads the wheel as a
+short-retention artifact without publishing.
+
+When `publish_to_testpypi=true` is selected, the workflow publishes to TestPyPI
+using Trusted Publishing from the `testpypi` GitHub environment, then installs
+`hl7v2-python==<workspace version>` back from TestPyPI and reruns the smoke
+test. The workflow uses `id-token: write` only for the publish job and does not
+use repository PyPI tokens.
+
 ## Viewing CI Results
 
 ### GitHub Actions
@@ -143,6 +156,7 @@ The following artifacts are generated and available for download:
 | coverage.yml | tarpaulin-coverage | Tarpaulin coverage reports |
 | coverage.yml | llvm-coverage | LLVM coverage reports |
 | python-wheels.yml | python-wheel-* | Smoke-test wheels for the Python binding lane |
+| python-testpypi.yml | python-testpypi-wheel | Manual TestPyPI proof wheel artifact |
 
 ## Manual Triggers
 

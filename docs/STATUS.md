@@ -41,7 +41,7 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Published Rust graph**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.3.0 are published and visible in the crates.io index. See `docs/audits/publish-2026-05-09.md`.
 - ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See `docs/audits/publish-dry-run-2026-05-09.md`.
-- 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io. The binding is verified through a maturin wheel build/install/import smoke lane before any PyPI or TestPyPI release.
+- 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io. The binding is verified through a maturin wheel build/install/import smoke lane, with a manual TestPyPI proof workflow available before any production PyPI release.
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1` and `v1.3.0` tags point at their release heads.
 
@@ -61,7 +61,7 @@ final Rust package graph.
 | Evidence contracts | ✅ Stable | JSON schemas and golden fixtures guard the machine-readable evidence artifacts. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
 | Server edge guard | ✅ Stable | Server supports sanitized `--print-config`, `/ready`, `/hl7/validate-redacted`, `/hl7/bundle`, `/hl7/replay`, `/hl7/ack-policy`, inline corpus endpoints, quarantine hooks, and redacted structured evidence logs. |
-| Python evidence lane | 🟡 Separate lane | Python wheel proof and minimum API parity cover parse, JSON export, normalize, validation, corpus, redaction, bundle, and replay. Python remains outside the crates.io Rust publish graph. |
+| Python evidence lane | 🟡 Separate lane | Python wheel proof and minimum API parity cover parse, JSON export, normalize, validation, corpus, redaction, bundle, and replay. Python remains outside the crates.io Rust publish graph; TestPyPI proof is manual-first and separate from production PyPI. |
 
 ## v1.3.0 Readiness Checklist
 

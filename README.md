@@ -370,6 +370,10 @@ bundle creation, and replay verification. Validation, corpus, redaction,
 bundle, and replay APIs also support the same opt-in v2 evidence shapes used by
 the CLI/server contracts where those surfaces expose v2 output.
 
+TestPyPI proof is manual-first through the `Python TestPyPI Proof` workflow and
+does not change the Rust publish graph. See
+[`docs/guides/python-testpypi-release-proof.md`](docs/guides/python-testpypi-release-proof.md).
+
 ## Performance Characteristics
 
 - Parsing throughput: ≥100k small messages/minute on NVMe (typical ADT/ORU ~200 bytes)
