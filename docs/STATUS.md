@@ -3,7 +3,7 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-09
-> **Project Status**: v1.2.1 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` contains the post-v1.2.1 v1.3.0 Evidence Loop release candidate, which is not yet published.
+> **Project Status**: v1.2.1 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is preparing the v1.3.0 Evidence Loop release line, which is not yet published.
 
 ## Core Components
 
@@ -47,10 +47,9 @@ This document provides a transparent view of which features are fully implemente
 
 ## Evidence Loop Candidate (current main)
 
-Current `main` adds a v1.3.0 release candidate around deterministic HL7
-interface evidence. This work is available from source but has not gone through
-the final v1.3.0 publish dry-runs, tag, release notes publication, or crates.io
-upload.
+Current `main` prepares the v1.3.0 release line around deterministic HL7
+interface evidence. This work is available from source but has not been tagged,
+released on GitHub, or uploaded to crates.io.
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -70,7 +69,7 @@ Release-note draft: [`docs/releases/v1.3.0-evidence-loop-draft.md`](releases/v1.
 
 - ⏳ **Publish plan**: confirm `cargo run -p xtask -- publish-plan` still resolves `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 - ⏳ **Full gate**: run the current full release gate on the v1.3.0 release head.
-- ⏳ **Direct dry-runs**: run `cargo publish --dry-run` for `hl7v2`, then dependent dry-runs for `hl7v2-server` and `hl7v2-cli`.
+- ⏳ **Dry-runs**: run workspace-patched publish verification for the full graph, then direct `cargo publish --dry-run` for `hl7v2`. Dependent direct dry-runs may need to wait until `hl7v2` v1.3.0 is visible in the crates.io index.
 - ⏳ **Python proof**: run the maturin wheel build/install/import smoke lane without publishing `hl7v2-python` to crates.io.
 - ⏳ **Release notes and tag**: publish final release notes and tag only after the checks above pass on the release head.
 
