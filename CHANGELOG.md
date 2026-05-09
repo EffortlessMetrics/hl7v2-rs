@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added opt-in v2 provenance contracts and producer paths across validation,
+  profile, corpus, redaction, bundle, replay, quarantine, and doctor evidence
+  artifacts while keeping v1 defaults compatible.
+- Added server sidecar hardening after v1.3.0: inline corpus evidence
+  endpoints, server replay, bundle artifact schema opt-in, readiness path-leak
+  protection, redacted structured evidence logs, evidence metrics, and Docker
+  Compose smoke coverage.
+- Added Python evidence hardening: validation/corpus/redaction/bundle/replay
+  v2 parity, cross-surface PHI sentinel coverage, a manual TestPyPI proof
+  workflow, and a Python evidence workflow guide.
+- Added `cargo run -p xtask -- evidence-schema-check` as the maintained local
+  evidence fixture/schema validation rail.
+
 ### Fixed
 
 - Fixed server evidence bundles so replay reproduces messages whose `MSH.9`
@@ -18,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Verified and refreshed the validation sidecar guide with live server replay
   output and the current inline corpus diff response shape.
+- Added current-state and contract-index documentation for the post-v1.3.0
+  evidence-contract line.
 
 ---
 
@@ -50,11 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verifies manifest hashes before comparing regenerated evidence.
 - Current release documentation positions v1.3.0 as the published Evidence
   Loop release for the final Rust package graph.
-
-### Fixed
-
-- Aligned evidence bundle replay message-type handling with the bundle
-  contract so replay reports reproduce the stored validation report.
 
 ---
 
@@ -239,13 +251,15 @@ See [docs/STATUS.md](docs/STATUS.md) for complete status.
 
 ## Future Releases
 
-### v1.3.0 Evidence Loop Release
+### v1.4.0 Evidence Contracts and Server Sidecar
 
-- Promote the current evidence-loop candidate once final release validation
-  passes: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` publish dry-runs,
-  full gate checks, API contract checks, and Python wheel smoke proof.
+- Promote the current post-v1.3.0 evidence-contract candidate once final
+  release validation passes: evidence schema checks, full gate, API contract
+  checks, Rust publish dry-runs for `hl7v2`, `hl7v2-server`, and `hl7v2-cli`,
+  and Python wheel smoke proof.
 - Keep `hl7v2-python` on the Python/maturin lane instead of the Rust
-  crates.io publish graph.
+  crates.io publish graph. Use the manual TestPyPI proof workflow before any
+  production PyPI release.
 
 ### Later releases
 
