@@ -1,11 +1,10 @@
 # Evidence Provenance And Versioning
 
-This document defines the next contract-hardening step for evidence artifacts.
-It is a plan, not a live schema change. The v1.3.0 evidence loop is already
-schema-backed and golden-tested, but not every standalone artifact embeds enough
-version and producer information to remain self-describing when copied out of a
-bundle, sent through a pipeline, or compared across CLI, server, Rust, and
-Python producers.
+This document defines the provenance and versioning compatibility rules for
+evidence artifacts. It began as the v2 migration plan; most high-value v2
+schemas and producer paths now exist, but the rule still matters: v1 defaults
+remain compatible, and provenance-bearing shapes are explicit opt-ins unless a
+release intentionally changes the default.
 
 ## Current Rule
 
@@ -51,7 +50,7 @@ exception:
 ```
 
 Artifacts that already have domain version fields keep those fields. For
-example, a future corpus fingerprint should carry both `schema_version` and
+example, a corpus fingerprint v2 artifact carries both `schema_version` and
 `fingerprint_version`; the former identifies the JSON contract, while the latter
 identifies the fingerprinting algorithm.
 
@@ -94,9 +93,9 @@ Rules:
 | `ProfileLintReport` | Shared Rust type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI lint output can emit v2 when requested. |
 | `ProfileTestReport` | CLI-local type with embedded validation reports. | A target v2 schema exists, and CLI test output can emit v2 when requested. Promote to a shared type only if server/Python need it. |
 | `ProfileExplainReport` | CLI-local report with profile hash but no artifact/tool version by default. | A target v2 schema exists, and CLI explain output can emit v2 when requested. |
-| `CorpusSummary` | Shared Rust/Python/CLI type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python summary output can emit v2 when requested. |
-| `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python fingerprint output can emit v2 when requested. |
-| `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python diff output can emit v2 when requested. |
+| `CorpusSummary` | Shared Rust/Python/CLI type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server summary output can emit v2 when requested. |
+| `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server fingerprint output can emit v2 when requested. |
+| `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server diff output can emit v2 when requested. |
 | `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version by default. | A v1 outer schema exists for current CLI/Python default outputs. CLI and Python redaction output can emit the target v2 schema with top-level provenance when requested. |
 | `RedactionReceipt` | Shared receipt schema without embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server redaction output can emit v2 when requested. CLI/Python/server bundle artifacts can also emit v2 receipts through explicit bundle artifact schema opt-in. |
 | `FieldPathTraceReport` | Bundle artifact with a v1 JSON Schema but no embedded version fields. | A target v2 bundle-artifact schema and fixture exist. CLI/Python/server bundle writers can emit v2 field-path traces through explicit bundle artifact schema opt-in. |
@@ -106,9 +105,9 @@ Rules:
 | `EvidenceBundleEnvironment` | Has `bundle_version`, `tool_name`, `tool_version`, input/profile/policy hashes, validation summary, replay command, and a v1 JSON Schema. | A target v2 schema and fixture exist with `schema_version`; CLI/Python/server bundle writers can emit v2 environments through explicit bundle artifact schema opt-in. |
 | `EvidenceReplayReport` | Has `replay_version`, `bundle_version`, `tool_name`, and `tool_version` by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server replay output can emit v2 when requested. |
 
-## Migration Sequence
+## Migration Sequence Status
 
-Do the migration in narrow PRs:
+The migration is intentionally narrow and additive:
 
 1. Add v2 schemas and v2 golden fixtures for the highest-value shared reports:
    `ValidationReport`, `ProfileLintReport`, `ProfileExplainReport`,
@@ -138,10 +137,12 @@ Do the migration in narrow PRs:
    `CorpusSummary`, `CorpusFingerprint`, and `CorpusDiffReport` now have
    explicit v2 conversion helpers. `hl7v2 corpus summarize` / `hl7v2 corpus
    fingerprint` / `hl7v2 corpus diff` can opt into v2 JSON/YAML output with
-   `--schema-version 2`, and Python can opt into the same shapes with
+   `--schema-version 2`, Python can opt into the same shapes with
    `corpus_summary(..., schema_version=2)`,
    `corpus_fingerprint(..., schema_version=2)`, and
-   `corpus_diff(..., schema_version=2)`. Defaults remain v1-compatible.
+   `corpus_diff(..., schema_version=2)`, and server inline corpus endpoints can
+   opt in with the corresponding `*_schema_version: 2` request fields. Defaults
+   remain v1-compatible.
    `RedactionReceipt` now has an explicit v2 conversion helper. `hl7v2 redact
    --format json --schema-version 2`, Python `redact(..., schema_version=2)`,
    and server `/hl7/validate-redacted` requests with
@@ -176,7 +177,9 @@ Do the migration in narrow PRs:
 4. Update server responses only after OpenAPI examples and integration tests
    cover the v2 shape.
 5. Update Python dictionaries and `to_json()` outputs after the Rust and CLI
-   contracts are stable.
+   contracts are stable. Python now exposes opt-in v2 validation, corpus,
+   redaction, bundle, and replay outputs. Profile explain/test remain CLI-local
+   report types until a future parity PR promotes them.
 6. Keep v1 schemas and fixtures for at least two minor releases after v2 output
    becomes the default.
 
@@ -196,7 +199,6 @@ Do the migration in narrow PRs:
 
 ## Non-Goals
 
-This plan does not require immediate v2 output in the CLI, server, Rust library,
-or Python binding. It also does not redefine validation issue codes, redaction
-policy semantics, ACK/NAK policy, or corpus diff algorithms. Those are separate
-contract changes.
+This compatibility policy does not make v2 the default output shape. It also
+does not redefine validation issue codes, redaction policy semantics, ACK/NAK
+policy, or corpus diff algorithms. Those are separate contract changes.

@@ -72,8 +72,8 @@ The first target v2 evidence schemas are `doctor-report-v2.schema.json`,
 `evidence-bundle-environment-v2.schema.json`, `field-path-trace-v2.schema.json`,
 and `evidence-replay-v2.schema.json`. They add embedded `schema_version`,
 `tool_name`, and `tool_version` fields where the artifact did not already carry
-tool provenance, while keeping their v1 counterparts valid until
-implementation PRs explicitly move producer output shapes.
+tool provenance. Producer paths use explicit v2 opt-ins as documented below,
+while v1 counterparts remain the default compatible shapes.
 Doctor reports can opt into their target v2 shape with
 `hl7v2 doctor --format json --schema-version 2`; defaults remain v1.
 Validation reports can opt into their target v2 shape with
@@ -95,7 +95,9 @@ shapes with `hl7v2 corpus summarize --format json --schema-version 2`,
 diff --format json --schema-version 2`. Python exposes the same opt-in shapes
 with `corpus_summary(..., schema_version=2)`,
 `corpus_fingerprint(..., schema_version=2)`, and
-`corpus_diff(..., schema_version=2)`; defaults remain v1.
+`corpus_diff(..., schema_version=2)`. Server inline corpus endpoints expose the
+same opt-in shapes through `summary_schema_version`, `fingerprint_schema_version`,
+and `diff_schema_version` request fields; defaults remain v1.
 Redaction receipts can opt into their target v2 shape with
 `hl7v2 redact --format json --schema-version 2`, Python
 `redact(..., schema_version=2)`, or server `/hl7/validate-redacted` requests
@@ -115,7 +117,9 @@ Evidence bundle summaries can opt into their target v2 shape with
 default.
 Evidence replay reports can opt into their target v2 shape with
 `hl7v2 replay ... --format json --schema-version 2`, and Python exposes the
-same shape with `replay(..., schema_version=2)`.
+same shape with `replay(..., schema_version=2)`. Server `/hl7/replay`
+responses can include the same v2 shape when requests set
+`"replay_report_schema_version": 2`.
 Bundle-internal `manifest.json`, `environment.json`, `field-paths.json`, and
 `redaction-receipt.json` can opt into their v2 shapes when CLI bundles are
 created with `hl7v2 bundle ... --schema-version 2` or Python bundles are

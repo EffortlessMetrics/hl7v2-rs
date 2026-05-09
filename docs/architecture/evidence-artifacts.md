@@ -2,8 +2,8 @@
 
 This document maps the current evidence-loop artifacts and their contract
 status. It is a current-state reference for the schema, golden-fixture, CLI
-output-contract, server parity, and Python parity surfaces in the v1.3.0
-evidence loop.
+output-contract, server parity, redacted server logging, and Python parity
+surfaces in the v1.3.0 evidence loop and current post-release hardening line.
 
 ## Product Loop
 
@@ -11,6 +11,7 @@ The evidence loop is:
 
 ```text
 raw feed / message
+  -> doctor / environment proof
   -> profile lint
   -> profile test / explain
   -> validation report
@@ -20,6 +21,8 @@ raw feed / message
   -> safe-analysis redact
   -> redacted evidence bundle
   -> replay verification
+  -> server sidecar evidence
+  -> Python data workflow
 ```
 
 The target is deterministic, machine-readable proof of what arrived, what
@@ -52,8 +55,8 @@ failed, what changed, what was redacted, and how to replay the result.
 | --- | --- |
 | Rust library | Owns the shared `ValidationReport`, `ProfileLintReport`, corpus summary/fingerprint/diff types, redaction output/receipt types, and Python-facing evidence bundle/replay types. Profile test and profile explain report types are currently CLI-local. |
 | CLI | Produces the complete evidence loop today. Most commands support JSON/YAML/text. `redact` supports JSON or HL7 output. `bundle` currently emits JSON summary only. |
-| Server | `/hl7/validate` exposes the shared validation issue fields, preserves legacy `errors` / `warnings`, and can include `validation_report_v2` when `report_schema_version` is `2`; `/hl7/validate-redacted` applies safe-analysis redaction, returns a validation report plus redaction receipt, can include the same v2 validation artifact, and can write configured quarantine output for failed validation; `/hl7/corpus/summarize`, `/hl7/corpus/fingerprint`, and `/hl7/corpus/diff` produce inline corpus evidence without reading request-supplied filesystem paths; `/hl7/bundle` writes redacted evidence bundles under a configured server root and can opt into v2 bundle-internal artifacts; `/hl7/replay` verifies configured-root bundles and can opt into the v2 replay report shape; `/hl7/ack-policy` returns policy-driven ACK/NAK decisions backed by validation reports. |
-| Python | Exposes parse, JSON conversion, normalize, validation report dict/JSON parity, corpus summary/fingerprint/diff dict parity, safe-analysis redaction dict output, evidence bundle creation, and replay verification. |
+| Server | `/hl7/validate` exposes the shared validation issue fields, preserves legacy `errors` / `warnings`, and can include `validation_report_v2` when `report_schema_version` is `2`; `/hl7/validate-redacted` applies safe-analysis redaction, returns a validation report plus redaction receipt, can include the same v2 validation artifact, and can write configured quarantine output for failed validation; `/hl7/corpus/summarize`, `/hl7/corpus/fingerprint`, and `/hl7/corpus/diff` produce inline corpus evidence without reading request-supplied filesystem paths; `/hl7/bundle` writes redacted evidence bundles under a configured server root and can opt into v2 bundle-internal artifacts; `/hl7/replay` verifies configured-root bundles and can opt into the v2 replay report shape; `/hl7/ack-policy` returns policy-driven ACK/NAK decisions backed by validation reports; evidence workflow logs hash message-control and bundle identifiers and avoid raw HL7, profile YAML, redaction policy TOML, and configured filesystem roots by default. |
+| Python | Exposes parse, JSON conversion, normalize, validation report dict/JSON parity, corpus summary/fingerprint/diff dict parity, safe-analysis redaction dict output, evidence bundle creation, and replay verification. Validation, corpus, redaction, bundle, and replay APIs support opt-in v2 shapes where those contracts exist. |
 
 `ValidationReport.profile` is a surface-local display label, not a canonical
 profile identity. The CLI uses the supplied profile path, while the server and
@@ -86,20 +89,21 @@ The CLI output contract is stable enough for CI and automation:
 
 Evidence JSON null, omitted-field, and empty-array semantics are documented in
 [`schemas/README.md`](../../schemas/README.md#evidence-null-and-empty-semantics).
-The next provenance/versioning contract is planned in
+The provenance/versioning compatibility rules are maintained in
 [`evidence-provenance-versioning.md`](evidence-provenance-versioning.md).
 
 ## Remaining Contract Hardening Gaps
 
-The v1.3.0 evidence loop has schema-backed JSON artifacts, golden fixtures,
-CLI output semantics, bundle manifest verification, server edge-guard routes,
-Python parity, and workflow guides. Remaining hardening work should narrow the
-few places where provenance or identity is still implicit:
+The v1.3.0 evidence loop and current post-release hardening line have
+schema-backed JSON artifacts, golden fixtures, CLI output semantics, bundle
+manifest verification, server edge-guard routes, redacted structured server
+logs, Python parity, and workflow guides. Remaining hardening work should
+narrow the few places where provenance or identity is still implicit:
 
 - `schema_version` or artifact-specific version naming for every machine
   artifact. The compatibility plan is documented in
   [`evidence-provenance-versioning.md`](evidence-provenance-versioning.md);
-  implementation still requires explicit v2 schema/type work.
+  remaining implementation should continue through explicit v2 schema/type work.
 - `tool_version` where users need provenance outside an environment file.
 - Shared library types for any CLI-local report promoted beyond CLI-only use.
 
