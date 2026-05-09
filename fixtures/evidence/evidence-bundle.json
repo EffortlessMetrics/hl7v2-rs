@@ -1,9 +1,9 @@
 {
   "bundle_version": "1",
-  "output_dir": "issue-bundle",
+  "output_dir": ".",
   "message_type": "ADT^A01",
-  "validation_valid": false,
-  "validation_issue_count": 1,
+  "validation_valid": true,
+  "validation_issue_count": 0,
   "redaction_phi_removed": true,
   "artifacts": [
     "message.redacted.hl7",

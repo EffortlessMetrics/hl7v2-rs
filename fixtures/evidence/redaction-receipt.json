@@ -5,7 +5,7 @@
     {
       "path": "PID.3",
       "action": "hash",
-      "reason": "Patient identifier is direct PHI.",
+      "reason": "patient identifier",
       "matched_count": 1,
       "optional": false,
       "status": "applied"
@@ -13,15 +13,55 @@
     {
       "path": "PID.5",
       "action": "drop",
-      "reason": "Patient name is direct PHI.",
+      "reason": "patient name",
       "matched_count": 1,
       "optional": false,
       "status": "applied"
     },
     {
+      "path": "PID.7",
+      "action": "drop",
+      "reason": "date of birth",
+      "matched_count": 1,
+      "optional": false,
+      "status": "applied"
+    },
+    {
+      "path": "PID.11",
+      "action": "drop",
+      "reason": "patient address",
+      "matched_count": 1,
+      "optional": false,
+      "status": "applied"
+    },
+    {
+      "path": "MSH.9",
+      "action": "retain",
+      "reason": "message type is needed for analysis",
+      "matched_count": 1,
+      "optional": false,
+      "status": "retained"
+    },
+    {
+      "path": "MSH.10",
+      "action": "retain",
+      "reason": "control id is needed for replay correlation",
+      "matched_count": 1,
+      "optional": false,
+      "status": "retained"
+    },
+    {
       "path": "OBX.3",
       "action": "retain",
-      "reason": "Observation identifier is needed for support analysis.",
+      "reason": "observation identifier is needed for analysis",
+      "matched_count": 1,
+      "optional": false,
+      "status": "retained"
+    },
+    {
+      "path": "OBX.5",
+      "action": "retain",
+      "reason": "non-PHI synthetic observation value shape is needed for analysis",
       "matched_count": 1,
       "optional": false,
       "status": "retained"

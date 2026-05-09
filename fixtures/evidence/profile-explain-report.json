@@ -1,102 +1,57 @@
 {
-  "profile": "profiles/adt_a01.yaml",
-  "profile_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "profile": "profile.yaml",
+  "profile_sha256": "3fb926fc70cb562412775c4f91f0ee9e9c4405e120057d7c8ab21f6a6d2526bc",
   "message_structure": "ADT_A01",
-  "version": "2.5.1",
-  "message_type": "ADT^A01",
+  "version": "2.5",
+  "message_type": null,
   "parent": null,
   "summary": {
-    "segment_count": 3,
-    "required_field_count": 2,
-    "field_constraint_count": 2,
-    "length_rule_count": 1,
-    "datatype_rule_count": 1,
-    "advanced_datatype_rule_count": 1,
-    "value_set_count": 1,
-    "cross_field_rule_count": 1,
+    "segment_count": 2,
+    "required_field_count": 1,
+    "field_constraint_count": 1,
+    "length_rule_count": 0,
+    "datatype_rule_count": 0,
+    "advanced_datatype_rule_count": 0,
+    "value_set_count": 0,
+    "cross_field_rule_count": 0,
     "temporal_rule_count": 0,
     "contextual_rule_count": 0,
     "custom_rule_count": 0,
-    "hl7_table_count": 1
+    "hl7_table_count": 0
   },
   "segments": [
     {"id": "MSH"},
-    {"id": "PID"},
-    {"id": "PV1"}
+    {"id": "PID"}
   ],
   "required_fields": [
-    {"path": "PID.3", "conditional": false},
-    {"path": "PID.5", "conditional": false}
+    {"path": "PID.3", "conditional": false}
   ],
   "field_constraints": [
     {
       "path": "PID.3",
       "required": true,
       "conditional": false,
-      "component_min": 1,
+      "component_min": null,
       "component_max": null,
       "allowed_value_count": 0,
       "allowed_values": [],
       "pattern": null
-    },
-    {
-      "path": "PID.8",
-      "required": false,
-      "conditional": false,
-      "component_min": null,
-      "component_max": null,
-      "allowed_value_count": 2,
-      "allowed_values": ["F", "M"],
-      "pattern": null
     }
   ],
-  "length_rules": [
-    {"path": "PID.3", "max": 32, "policy": "warn"}
-  ],
-  "datatype_rules": [
-    {
-      "path": "PID.7",
-      "datatype": "DTM",
-      "kind": "advanced",
-      "pattern": null,
-      "min_length": 8,
-      "max_length": 26,
-      "format": "hl7_ts",
-      "checksum": null
-    }
-  ],
-  "value_sets": [
-    {
-      "name": "Administrative Sex",
-      "path": "PID.8",
-      "source": "inline",
-      "inline_code_count": 2,
-      "table_code_count": 0
-    }
-  ],
+  "length_rules": [],
+  "datatype_rules": [],
+  "value_sets": [],
   "rules": {
-    "cross_field": [
-      {
-        "id": "patient_identifier_required",
-        "description": "PID.3 is required for admitted patients."
-      }
-    ],
+    "cross_field": [],
     "temporal": [],
     "contextual": [],
     "custom": []
   },
-  "hl7_tables": [
-    {
-      "id": "0001",
-      "name": "Administrative Sex",
-      "version": "2.5.1",
-      "code_count": 2
-    }
-  ],
-  "table_precedence": ["inline", "profile", "hl7_table"],
+  "hl7_tables": [],
+  "table_precedence": [],
   "expression_guardrails": {
-    "max_depth": 8,
-    "max_length": 256,
+    "max_depth": null,
+    "max_length": null,
     "allow_custom_scripts": false
   },
   "lint": {

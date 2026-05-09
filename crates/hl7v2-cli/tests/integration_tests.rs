@@ -2194,6 +2194,336 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 }
 
 // =========================================================================
+// Evidence Golden Fixture Tests
+// =========================================================================
+
+mod evidence_golden_fixtures {
+    use super::*;
+    use serde_json::Value;
+    use std::path::Path;
+
+    const PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#;
+
+    const LINT_WARNING_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+rules: []
+"#;
+
+    const MISSING_PID3_MESSAGE: &str = "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\rPID|1\r";
+    const VALID_ADT_MESSAGE: &str =
+        "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR\r";
+    const CORPUS_ADT_MESSAGE: &str = "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\r";
+    const CORPUS_ORU_MESSAGE: &str = "MSH|^~\\&|||||||ORU^R01|CTRL124|P|2.5\r";
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "PID.11"
+action = "drop"
+reason = "patient address"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "OBX.3"
+action = "retain"
+reason = "observation identifier is needed for analysis"
+
+[[rules]]
+path = "OBX.5"
+action = "retain"
+reason = "non-PHI synthetic observation value shape is needed for analysis"
+"#;
+
+    fn fixture(name: &str) -> Value {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("fixtures")
+            .join("evidence")
+            .join(format!("{name}.json"));
+        serde_json::from_slice(&std::fs::read(&path).expect("evidence fixture should be readable"))
+            .expect("evidence fixture should be valid JSON")
+    }
+
+    fn set(value: &mut Value, pointer: &str, replacement: impl Into<Value>) {
+        *value
+            .pointer_mut(pointer)
+            .expect("fixture normalization pointer should exist") = replacement.into();
+    }
+
+    fn command_json(args: &[String], expect_success: bool) -> Value {
+        let mut cmd = cli_command();
+        let output = cmd.args(args).output().expect("CLI command should run");
+        assert_eq!(
+            output.status.success(),
+            expect_success,
+            "stdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice(&output.stdout).expect("CLI stdout should be JSON")
+    }
+
+    fn assert_fixture(name: &str, actual: Value) {
+        assert_eq!(
+            actual,
+            fixture(name),
+            "evidence fixture {name}.json drifted"
+        );
+    }
+
+    #[test]
+    fn test_validation_report_matches_golden_fixture() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE);
+        let mut report = command_json(
+            &[
+                "val".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+            ],
+            false,
+        );
+        set(&mut report, "/profile", "profile.yaml");
+
+        assert_fixture("validation-report", report);
+    }
+
+    #[test]
+    fn test_profile_reports_match_golden_fixtures() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE);
+        let lint_profile = create_temp_profile(&dir, "lint.yaml", LINT_WARNING_PROFILE);
+
+        let lint_report = command_json(
+            &[
+                "profile".to_string(),
+                "lint".to_string(),
+                lint_profile.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        assert_fixture("profile-lint-report", lint_report);
+
+        let mut explain_report = command_json(
+            &[
+                "profile".to_string(),
+                "explain".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut explain_report, "/profile", "profile.yaml");
+        assert_fixture("profile-explain-report", explain_report);
+
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/valid.hl7",
+            VALID_ADT_MESSAGE.as_bytes(),
+        );
+        create_temp_hl7_with_content(
+            &dir,
+            "fixtures/invalid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE,
+        );
+
+        let mut test_report = command_json(
+            &[
+                "profile".to_string(),
+                "test".to_string(),
+                profile.to_string_lossy().into_owned(),
+                fixtures.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut test_report, "/profile", "profile.yaml");
+        set(&mut test_report, "/fixtures", "fixtures");
+        set(
+            &mut test_report,
+            "/cases/0/path",
+            "fixtures/valid/valid.hl7",
+        );
+        set(
+            &mut test_report,
+            "/cases/0/validation_report/profile",
+            "profile.yaml",
+        );
+        set(
+            &mut test_report,
+            "/cases/1/path",
+            "fixtures/invalid/missing_pid3.hl7",
+        );
+        set(
+            &mut test_report,
+            "/cases/1/validation_report/profile",
+            "profile.yaml",
+        );
+        assert_fixture("profile-test-report", test_report);
+    }
+
+    #[test]
+    fn test_corpus_reports_match_golden_fixtures() {
+        let dir = create_temp_dir();
+        let site = dir.path().join("site-a");
+        let before = dir.path().join("before");
+        let after = dir.path().join("after");
+        std::fs::create_dir_all(&site).unwrap();
+        std::fs::create_dir_all(&before).unwrap();
+        std::fs::create_dir_all(&after).unwrap();
+        create_temp_file(&dir, "site-a/adt.hl7", CORPUS_ADT_MESSAGE.as_bytes());
+        create_temp_file(&dir, "before/adt.hl7", CORPUS_ADT_MESSAGE.as_bytes());
+        create_temp_file(&dir, "after/oru.hl7", CORPUS_ORU_MESSAGE.as_bytes());
+
+        let mut summary = command_json(
+            &[
+                "corpus".to_string(),
+                "summarize".to_string(),
+                site.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut summary, "/root", "site-a");
+        assert_fixture("corpus-summary", summary);
+
+        let mut fingerprint = command_json(
+            &[
+                "corpus".to_string(),
+                "fingerprint".to_string(),
+                site.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut fingerprint, "/tool_version", "1.2.1");
+        set(&mut fingerprint, "/root", "site-a");
+        assert_fixture("corpus-fingerprint", fingerprint);
+
+        let mut diff = command_json(
+            &[
+                "corpus".to_string(),
+                "diff".to_string(),
+                before.to_string_lossy().into_owned(),
+                after.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut diff, "/tool_version", "1.2.1");
+        set(&mut diff, "/before_root", "before");
+        set(&mut diff, "/after_root", "after");
+        assert_fixture("corpus-diff", diff);
+    }
+
+    #[test]
+    fn test_redaction_bundle_and_replay_reports_match_golden_fixtures() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+        let policy = create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let redact_output = command_json(
+            &[
+                "redact".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        assert_fixture("redaction-receipt", redact_output["receipt"].clone());
+
+        let bundle = dir.path().join("issue-bundle");
+        let bundle_summary = command_json(
+            &[
+                "bundle".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--redact-policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--out".to_string(),
+                bundle.to_string_lossy().into_owned(),
+            ],
+            true,
+        );
+        assert_fixture("evidence-bundle", bundle_summary);
+
+        let receipt: Value = serde_json::from_slice(
+            &std::fs::read(bundle.join("redaction-receipt.json"))
+                .expect("bundle redaction receipt should be readable"),
+        )
+        .expect("bundle redaction receipt should be JSON");
+        assert_fixture("redaction-receipt", receipt);
+
+        let mut replay = command_json(
+            &[
+                "replay".to_string(),
+                bundle.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut replay, "/tool_version", "1.2.1");
+        assert_fixture("evidence-replay", replay);
+    }
+}
+
+// =========================================================================
 // ACK Generation Command Tests
 // =========================================================================
 

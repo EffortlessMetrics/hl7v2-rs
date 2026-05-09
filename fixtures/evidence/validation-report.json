@@ -1,16 +1,16 @@
 {
   "valid": false,
   "message_type": "ADT^A01",
-  "profile": "profiles/adt_a01.yaml",
-  "segment_count": 3,
+  "profile": "profile.yaml",
+  "segment_count": 2,
   "issue_count": 1,
   "issues": [
     {
-      "code": "required_field_missing",
+      "code": "missing_required_field",
       "severity": "error",
       "path": "PID.3",
-      "rule_id": "patient_identifier_required",
-      "message": "PID.3 is required by profile ADT_A01.",
+      "rule_id": "missing_required_field",
+      "message": "Required field PID.3 is missing",
       "segment_index": 1,
       "field_index": 3
     }
