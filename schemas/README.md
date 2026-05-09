@@ -63,6 +63,9 @@ default output remains v1. Python validation reports expose the same opt-in
 shape through `report.to_dict(2)` and `report.to_json(2)`. Server validation
 endpoints keep their existing v1-compatible response fields by default and add
 `validation_report_v2` when requests include `"report_schema_version": 2`.
+Corpus fingerprint and diff reports can opt into their target v2 shapes with
+`hl7v2 corpus fingerprint --format json --schema-version 2` and
+`hl7v2 corpus diff --format json --schema-version 2`; defaults remain v1.
 
 #### Evidence Null And Empty Semantics
 

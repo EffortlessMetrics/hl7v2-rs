@@ -94,8 +94,8 @@ Rules:
 | `ProfileTestReport` | CLI-local type with embedded validation reports. | Promote to shared type only if server/Python need it; otherwise add v2 provenance in the CLI schema first. |
 | `ProfileExplainReport` | CLI-local report with profile hash but no artifact/tool version. | Add common provenance fields; preserve profile hash metadata. |
 | `CorpusSummary` | Shared Rust/Python/CLI type with no embedded version fields. | Add common provenance fields. |
-| `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | Add `schema_version`; keep `fingerprint_version` as algorithm version. |
-| `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | Add `schema_version`; keep `diff_version` as algorithm version. |
+| `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI fingerprint output can emit v2 when requested. Python still emits v1 until migrated explicitly. |
+| `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI diff output can emit v2 when requested. Python still emits v1 until migrated explicitly. |
 | `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version. | Add common provenance fields to the outer output. |
 | `RedactionReceipt` | Shared receipt schema without embedded version fields. | Add common provenance fields if receipts remain useful outside a bundle or redaction output. |
 | `FieldPathTraceReport` | Bundle artifact with no JSON Schema. | Add a v1 schema first or fold into a v2 bundle-artifact schema set with common provenance. |
@@ -122,6 +122,9 @@ Do the migration in narrow PRs:
    `report.to_json(2)`. Server validation responses can include the same shape
    as nested `validation_report_v2` when requests set `report_schema_version`
    to `2`. Defaults remain v1-compatible.
+   `CorpusFingerprint` and `CorpusDiffReport` now have explicit v2 conversion
+   helpers, and `hl7v2 corpus fingerprint` / `hl7v2 corpus diff` can opt into
+   v2 JSON/YAML output with `--schema-version 2`. Defaults remain v1-compatible.
 3. Update CLI JSON/YAML output to choose the v2 shape only when the command or
    release notes explicitly say so. If a compatibility flag is needed, document
    it before exposing it.

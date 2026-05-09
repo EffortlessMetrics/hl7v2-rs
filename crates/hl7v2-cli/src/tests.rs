@@ -1057,13 +1057,60 @@ constraints:
                 validation_issue_code_counts: Vec::new(),
             };
 
-            let output = crate::format_corpus_diff(&report, &crate::ReportFormat::Text)
+            let output = crate::format_corpus_diff(&report, &crate::ReportFormat::Text, 1)
                 .expect("Should format as text");
 
             assert!(output.contains("Corpus Diff:"));
             assert!(output.contains("Parsed messages: 1 -> 2 (+1)"));
             assert!(output.contains("ORU^R01: 0 -> 1 (+1)"));
             assert!(output.contains("OBX.5: messages 0 -> 1 (+1)"));
+        }
+
+        #[test]
+        fn test_format_corpus_diff_report_json_v2() {
+            let report = hl7v2::synthetic::corpus::CorpusDiffReport {
+                diff_version: "1".to_string(),
+                tool_version: "1.3.0".to_string(),
+                before_root: "before".to_string(),
+                after_root: "after".to_string(),
+                profile: None,
+                file_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                    before: 1,
+                    after: 1,
+                    delta: 0,
+                },
+                message_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                    before: 1,
+                    after: 1,
+                    delta: 0,
+                },
+                parse_error_count: hl7v2::synthetic::corpus::CorpusTotalDiff {
+                    before: 0,
+                    after: 0,
+                    delta: 0,
+                },
+                new_message_types: Vec::new(),
+                removed_message_types: Vec::new(),
+                new_segments: Vec::new(),
+                removed_segments: Vec::new(),
+                message_type_counts: Vec::new(),
+                segment_counts: Vec::new(),
+                field_presence: Vec::new(),
+                field_cardinality: Vec::new(),
+                value_shape_stats: Vec::new(),
+                validation_issue_code_counts: Vec::new(),
+            };
+
+            let output = crate::format_corpus_diff(&report, &crate::ReportFormat::Json, 2)
+                .expect("Should format v2 JSON");
+            let json: serde_json::Value =
+                serde_json::from_str(&output).expect("v2 diff should be JSON");
+
+            assert_eq!(json["schema_version"], "2");
+            assert_eq!(json["tool_name"], "hl7v2-cli");
+            assert_eq!(json["diff_version"], "1");
+            assert_eq!(json["before_root"], "before");
+            assert_eq!(json["after_root"], "after");
         }
 
         #[test]
@@ -1081,6 +1128,7 @@ constraints:
                 &after.path().to_path_buf(),
                 None,
                 &ReportFormat::Json,
+                1,
                 &OutputOptions::new(None, false, false),
             );
             assert!(result.is_ok());
@@ -1135,7 +1183,7 @@ constraints:
                 }],
             };
 
-            let output = crate::format_corpus_fingerprint(&report, &crate::ReportFormat::Text)
+            let output = crate::format_corpus_fingerprint(&report, &crate::ReportFormat::Text, 1)
                 .expect("Should format as text");
 
             assert!(output.contains("Corpus Fingerprint:"));
@@ -1143,6 +1191,35 @@ constraints:
             assert!(output.contains("ADT^A01: 1"));
             assert!(output.contains("PID.3: 1 message(s), 1 occurrence(s), min 0, max 1"));
             assert!(output.contains("missing_required_field: 1"));
+        }
+
+        #[test]
+        fn test_format_corpus_fingerprint_report_json_v2() {
+            let report = hl7v2::synthetic::corpus::CorpusFingerprint {
+                fingerprint_version: "1".to_string(),
+                tool_version: "1.3.0".to_string(),
+                root: "corpus".to_string(),
+                profile: None,
+                file_count: 1,
+                message_count: 1,
+                parse_error_count: 0,
+                message_type_counts: Vec::new(),
+                segment_counts: Vec::new(),
+                field_presence: Vec::new(),
+                field_cardinality: Vec::new(),
+                value_shape_stats: Vec::new(),
+                validation_issue_code_counts: Vec::new(),
+            };
+
+            let output = crate::format_corpus_fingerprint(&report, &crate::ReportFormat::Json, 2)
+                .expect("Should format v2 JSON");
+            let json: serde_json::Value =
+                serde_json::from_str(&output).expect("v2 fingerprint should be JSON");
+
+            assert_eq!(json["schema_version"], "2");
+            assert_eq!(json["tool_name"], "hl7v2-cli");
+            assert_eq!(json["fingerprint_version"], "1");
+            assert_eq!(json["root"], "corpus");
         }
 
         #[test]
@@ -1157,6 +1234,7 @@ constraints:
                 &dir.path().to_path_buf(),
                 None,
                 &ReportFormat::Json,
+                1,
                 &OutputOptions::new(None, false, false),
             );
             assert!(result.is_ok());
@@ -1382,6 +1460,27 @@ constraints:
         }
 
         #[test]
+        fn test_corpus_fingerprint_command_has_schema_version_flag() {
+            use crate::Cli;
+            use clap::CommandFactory;
+
+            let schema = Cli::command();
+            let corpus_cmd = schema
+                .get_subcommands()
+                .find(|c| c.get_name() == "corpus")
+                .expect("corpus command should exist");
+            let fingerprint_cmd = corpus_cmd
+                .get_subcommands()
+                .find(|c| c.get_name() == "fingerprint")
+                .expect("fingerprint command should exist");
+
+            let schema_version_arg = fingerprint_cmd
+                .get_arguments()
+                .find(|arg| arg.get_id() == "schema_version");
+            assert!(schema_version_arg.is_some());
+        }
+
+        #[test]
         fn test_diff_corpus_command_exists() {
             use crate::Cli;
             use clap::CommandFactory;
@@ -1393,6 +1492,27 @@ constraints:
                 .expect("corpus command should exist");
 
             assert!(corpus_cmd.get_subcommands().any(|c| c.get_name() == "diff"));
+        }
+
+        #[test]
+        fn test_corpus_diff_command_has_schema_version_flag() {
+            use crate::Cli;
+            use clap::CommandFactory;
+
+            let schema = Cli::command();
+            let corpus_cmd = schema
+                .get_subcommands()
+                .find(|c| c.get_name() == "corpus")
+                .expect("corpus command should exist");
+            let diff_cmd = corpus_cmd
+                .get_subcommands()
+                .find(|c| c.get_name() == "diff")
+                .expect("diff command should exist");
+
+            let schema_version_arg = diff_cmd
+                .get_arguments()
+                .find(|arg| arg.get_id() == "schema_version");
+            assert!(schema_version_arg.is_some());
         }
 
         #[test]

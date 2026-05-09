@@ -511,6 +511,10 @@ enum CorpusCommands {
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
 
+        /// Evidence schema version for machine-readable fingerprint reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Write the fingerprint report to a file instead of stdout
         #[arg(long)]
         output: Option<PathBuf>,
@@ -539,6 +543,10 @@ enum CorpusCommands {
         /// Output diff format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Evidence schema version for machine-readable diff reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
 
         /// Write the diff report to a file instead of stdout
         #[arg(long)]
@@ -1150,6 +1158,7 @@ async fn main() {
                 path,
                 profile,
                 format,
+                schema_version,
                 output,
                 quiet,
                 no_color,
@@ -1157,6 +1166,7 @@ async fn main() {
                 path,
                 profile.as_ref(),
                 format,
+                *schema_version,
                 &OutputOptions::new(output.as_ref(), *quiet, *no_color),
             ),
             CorpusCommands::Diff {
@@ -1164,6 +1174,7 @@ async fn main() {
                 after,
                 profile,
                 format,
+                schema_version,
                 output,
                 quiet,
                 no_color,
@@ -1172,6 +1183,7 @@ async fn main() {
                 after,
                 profile.as_ref(),
                 format,
+                *schema_version,
                 &OutputOptions::new(output.as_ref(), *quiet, *no_color),
             ),
         },
@@ -4233,8 +4245,16 @@ fn corpus_diff_command(
     after: &PathBuf,
     profile: Option<&PathBuf>,
     format: &ReportFormat,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "corpus diff schema v2 is available only with --format json or --format yaml",
+        )));
+    }
+
     let diff = if let Some(profile_path) = profile {
         let mut before_fingerprint = fingerprint_corpus_path(before)?;
         let mut after_fingerprint = fingerprint_corpus_path(after)?;
@@ -4249,7 +4269,7 @@ fn corpus_diff_command(
     } else {
         diff_corpus_paths(before, after)?
     };
-    let output = format_corpus_diff(&diff, format)?;
+    let output = format_corpus_diff(&diff, format, schema_version)?;
     output_options.emit(&output)?;
     Ok(())
 }
@@ -4258,8 +4278,16 @@ fn corpus_fingerprint_command(
     path: &PathBuf,
     profile: Option<&PathBuf>,
     format: &ReportFormat,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "corpus fingerprint schema v2 is available only with --format json or --format yaml",
+        )));
+    }
+
     let mut fingerprint = fingerprint_corpus_path(path)?;
 
     if let Some(profile_path) = profile {
@@ -4269,7 +4297,7 @@ fn corpus_fingerprint_command(
         fingerprint.validation_issue_code_counts = issue_counts;
     }
 
-    let output = format_corpus_fingerprint(&fingerprint, format)?;
+    let output = format_corpus_fingerprint(&fingerprint, format, schema_version)?;
     output_options.emit(&output)?;
     Ok(())
 }
@@ -4277,8 +4305,17 @@ fn corpus_fingerprint_command(
 fn format_corpus_diff(
     diff: &CorpusDiffReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            let diff_v2 = diff.to_v2("hl7v2-cli");
+            Ok(serde_json::to_string_pretty(&diff_v2)?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => {
+            let diff_v2 = diff.to_v2("hl7v2-cli");
+            Ok(serde_yaml::to_string(&diff_v2)?)
+        }
         ReportFormat::Json => Ok(serde_json::to_string_pretty(diff)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(diff)?),
         ReportFormat::Text => {
@@ -4451,8 +4488,17 @@ fn counts_to_corpus_counts(counts: std::collections::BTreeMap<String, usize>) ->
 fn format_corpus_fingerprint(
     fingerprint: &CorpusFingerprint,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            let fingerprint_v2 = fingerprint.to_v2("hl7v2-cli");
+            Ok(serde_json::to_string_pretty(&fingerprint_v2)?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => {
+            let fingerprint_v2 = fingerprint.to_v2("hl7v2-cli");
+            Ok(serde_yaml::to_string(&fingerprint_v2)?)
+        }
         ReportFormat::Json => Ok(serde_json::to_string_pretty(fingerprint)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(fingerprint)?),
         ReportFormat::Text => {
