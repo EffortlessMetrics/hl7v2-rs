@@ -209,6 +209,7 @@ constraints:
             profile: PROFILE.to_string(),
             mllp_framed: false,
             options: None,
+            report_schema_version: 0,
         });
 
         let response = service.validate(request).await.expect("RPC should succeed");
@@ -220,6 +221,39 @@ constraints:
         let summary = inner.summary.expect("Summary should exist");
         assert_eq!(summary.error_count, 0);
         assert_eq!(summary.warning_count, 0);
+
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        assert!(report.valid);
+        assert_eq!(report.message_type, "ADT^A01");
+        assert_eq!(report.profile.as_deref(), Some("ADT_A01"));
+        assert_eq!(report.segment_count, 2);
+        assert_eq!(report.issue_count, 0);
+        assert!(report.issues.is_empty());
+        assert!(inner.validation_report_v2.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_mllp_framed_message() {
+        let service = service();
+        let request = Request::new(ValidateRequest {
+            message: hl7v2::wrap_mllp(SAMPLE_MSG),
+            profile: PROFILE.to_string(),
+            mllp_framed: true,
+            options: None,
+            report_schema_version: 0,
+        });
+
+        let response = service.validate(request).await.expect("RPC should succeed");
+        let inner = response.into_inner();
+
+        assert!(inner.valid);
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        assert_eq!(report.message_type, "ADT^A01");
+        assert_eq!(report.profile.as_deref(), Some("ADT_A01"));
     }
 
     #[tokio::test]
@@ -231,6 +265,7 @@ constraints:
             profile: "invalid: yaml: structure:".to_string(),
             mllp_framed: false,
             options: None,
+            report_schema_version: 0,
         });
 
         let err = service
@@ -260,6 +295,7 @@ constraints:
             profile: profile.to_string(),
             mllp_framed: false,
             options: None,
+            report_schema_version: 2,
         });
 
         let response = service.validate(request).await.expect("RPC should succeed");
@@ -277,6 +313,42 @@ constraints:
         let summary = inner.summary.expect("Summary should exist");
         assert_eq!(summary.error_count, 1);
         assert_eq!(summary.warning_count, 0);
+
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        assert!(!report.valid);
+        assert_eq!(report.message_type, "ADT^A01");
+        assert_eq!(report.profile.as_deref(), Some("ADT_A01"));
+        assert_eq!(report.segment_count, 2);
+        assert_eq!(report.issue_count, 1);
+        assert_eq!(report.issues.len(), 1);
+        assert_eq!(report.issues[0].code, "missing_required_field");
+        assert_eq!(report.issues[0].severity, "error");
+        assert_eq!(report.issues[0].path.as_deref(), Some("PID.99"));
+        assert_eq!(
+            report.issues[0].rule_id.as_deref(),
+            Some("missing_required_field")
+        );
+        assert_eq!(report.issues[0].segment_index, Some(1));
+        assert_eq!(report.issues[0].field_index, Some(99));
+
+        let report_v2 = inner
+            .validation_report_v2
+            .expect("Validation report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+        assert_eq!(report_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        assert!(!report_v2.valid);
+        assert_eq!(report_v2.message_type, "ADT^A01");
+        assert_eq!(report_v2.profile.as_deref(), Some("ADT_A01"));
+        let identity = report_v2
+            .profile_identity
+            .expect("Profile identity should exist");
+        assert_eq!(identity.label, "ADT_A01");
+        assert_eq!(identity.message_structure.as_deref(), Some("ADT_A01"));
+        assert_eq!(identity.version.as_deref(), Some("2.5"));
+        assert_eq!(report_v2.issues[0].code, "missing_required_field");
     }
 
     #[tokio::test]

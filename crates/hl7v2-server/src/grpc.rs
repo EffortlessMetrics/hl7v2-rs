@@ -109,14 +109,26 @@ impl Hl7Service for Hl7ServiceImpl {
     ) -> Result<Response<ValidateResponse>, Status> {
         let req = request.into_inner();
 
-        let message = rust_parse(&req.message)
+        let message_bytes = if req.mllp_framed {
+            hl7v2::unwrap_mllp(&req.message)
+                .map_err(|e| Status::invalid_argument(format!("Failed to unwrap MLLP: {}", e)))?
+        } else {
+            req.message.as_slice()
+        };
+
+        let message = rust_parse(message_bytes)
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
 
         let profile = hl7v2::load_profile(&req.profile)
             .map_err(|e| Status::invalid_argument(format!("Failed to load profile: {}", e)))?;
 
         let issues = hl7v2::validate(&message, &profile);
-        let valid = issues.iter().all(|i| i.severity != hl7v2::Severity::Error);
+        let report = hl7v2::ValidationReport::from_issues(
+            &message,
+            Some(profile.message_structure.clone()),
+            issues.clone(),
+        );
+        let valid = report.valid;
 
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
@@ -166,6 +178,20 @@ impl Hl7Service for Hl7ServiceImpl {
             errors,
             warnings,
             summary,
+            validation_report: Some(proto_validation_report_from_rust(&report)),
+            validation_report_v2: (req.report_schema_version == 2).then(|| {
+                let profile_identity = Some(hl7v2::ValidationReportProfileIdentity {
+                    label: profile.message_structure.clone(),
+                    message_structure: Some(profile.message_structure.clone()),
+                    version: Some(profile.version.clone()),
+                    sha256: None,
+                });
+                proto_validation_report_v2_from_rust(&report.to_v2(
+                    "hl7v2-server-grpc",
+                    env!("CARGO_PKG_VERSION"),
+                    profile_identity,
+                ))
+            }),
         }))
     }
 
@@ -246,6 +272,68 @@ fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
         control_id: hl7v2::get(msg, "MSH.10").unwrap_or("UNKNOWN").to_string(),
         sending_facility: hl7v2::get(msg, "MSH.4").unwrap_or("").to_string(),
         receiving_facility: hl7v2::get(msg, "MSH.6").unwrap_or("").to_string(),
+    }
+}
+
+fn proto_validation_report_from_rust(report: &hl7v2::ValidationReport) -> ValidationReport {
+    ValidationReport {
+        valid: report.valid,
+        message_type: report.message_type.clone(),
+        profile: report.profile.clone(),
+        segment_count: report.segment_count as i32,
+        issue_count: report.issue_count as i32,
+        issues: report
+            .issues
+            .iter()
+            .map(proto_validation_report_issue_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_validation_report_v2_from_rust(report: &hl7v2::ValidationReportV2) -> ValidationReportV2 {
+    ValidationReportV2 {
+        schema_version: report.schema_version.clone(),
+        tool_name: report.tool_name.clone(),
+        tool_version: report.tool_version.clone(),
+        valid: report.valid,
+        message_type: report.message_type.clone(),
+        profile: report.profile.clone(),
+        profile_identity: report
+            .profile_identity
+            .as_ref()
+            .map(proto_validation_report_profile_identity_from_rust),
+        segment_count: report.segment_count as i32,
+        issue_count: report.issue_count as i32,
+        issues: report
+            .issues
+            .iter()
+            .map(proto_validation_report_issue_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_validation_report_profile_identity_from_rust(
+    profile: &hl7v2::ValidationReportProfileIdentity,
+) -> ValidationReportProfileIdentity {
+    ValidationReportProfileIdentity {
+        label: profile.label.clone(),
+        message_structure: profile.message_structure.clone(),
+        version: profile.version.clone(),
+        sha256: profile.sha256.clone(),
+    }
+}
+
+fn proto_validation_report_issue_from_rust(
+    issue: &hl7v2::ValidationReportIssue,
+) -> ValidationReportIssue {
+    ValidationReportIssue {
+        code: issue.code.clone(),
+        severity: issue.severity.as_str().to_string(),
+        path: issue.path.clone(),
+        rule_id: issue.rule_id.clone(),
+        message: issue.message.clone(),
+        segment_index: issue.segment_index.map(|value| value as u32),
+        field_index: issue.field_index.map(|value| value as u32),
     }
 }
 
