@@ -1,0 +1,36 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.3.0",
+  "message_type": "ADT^A01",
+  "field_count": 3,
+  "fields": [
+    {
+      "path": "MSH[1].9",
+      "canonical_path": "MSH.9",
+      "segment_index": 1,
+      "field_index": 9,
+      "present": true,
+      "value_shape": "present",
+      "redaction_action": "retain"
+    },
+    {
+      "path": "PID[2].3",
+      "canonical_path": "PID.3",
+      "segment_index": 2,
+      "field_index": 3,
+      "present": true,
+      "value_shape": "hashed_sha256",
+      "redaction_action": "hash"
+    },
+    {
+      "path": "PID[2].5",
+      "canonical_path": "PID.5",
+      "segment_index": 2,
+      "field_index": 5,
+      "present": false,
+      "value_shape": "empty",
+      "redaction_action": "drop"
+    }
+  ]
+}
