@@ -460,6 +460,11 @@ components:
         mllp_framed:
           type: boolean
           default: false
+        report_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional validation report schema version. Version 2 adds validation_report_v2 with embedded evidence provenance while preserving the existing response fields.
 
     ValidateResponse:
       type: object
@@ -487,6 +492,11 @@ components:
           description: Stable validation issue records shared with CLI reports
           items:
             $ref: '#/components/schemas/ValidationReportIssue'
+        validation_report_v2:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReportV2'
+          nullable: true
+          description: Opt-in validation report v2 artifact returned when report_schema_version is 2
         errors:
           type: array
           deprecated: true
@@ -522,6 +532,11 @@ components:
           type: boolean
           default: false
           description: Whether to include the redacted HL7 payload in the response
+        report_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional validation report schema version. Version 2 adds validation_report_v2 with embedded evidence provenance while preserving the existing response fields.
 
     ValidateRedactedResponse:
       type: object
@@ -529,6 +544,11 @@ components:
       properties:
         validation_report:
           $ref: '#/components/schemas/ValidationReport'
+        validation_report_v2:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReportV2'
+          nullable: true
+          description: Opt-in validation report v2 artifact returned when report_schema_version is 2
         redaction_receipt:
           $ref: '#/components/schemas/RedactionReceipt'
         quarantine:
@@ -644,6 +664,67 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ValidationReportIssue'
+
+    ValidationReportV2:
+      type: object
+      required: [schema_version, tool_name, tool_version, valid, message_type, segment_count, issue_count, issues]
+      properties:
+        schema_version:
+          type: string
+          enum: ['2']
+        tool_name:
+          type: string
+          enum: [hl7v2-server]
+        tool_version:
+          type: string
+          description: Semantic version of the server crate that generated the report
+        valid:
+          type: boolean
+        message_type:
+          type: string
+          description: HL7 trigger event from MSH.9, such as ADT^A01
+        profile:
+          type: string
+          nullable: true
+          description: Profile identifier used for validation
+        profile_identity:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReportProfileIdentity'
+          nullable: true
+          description: Reproducible profile identity metadata for the inline profile
+        segment_count:
+          type: integer
+          minimum: 0
+          description: Number of parsed message segments
+        issue_count:
+          type: integer
+          minimum: 0
+          description: Number of reported validation issues
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationReportIssue'
+
+    ValidationReportProfileIdentity:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          description: Display label for the inline profile; the server uses the loaded profile message structure
+        message_structure:
+          type: string
+          nullable: true
+          description: Loaded profile message structure when known
+        version:
+          type: string
+          nullable: true
+          description: Loaded profile HL7 version when known
+        sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          nullable: true
+          description: SHA-256 digest of the supplied inline profile YAML
 
     RedactionReceipt:
       type: object

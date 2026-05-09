@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use hl7v2::{ValidationReport, ValidationReportIssue};
+use hl7v2::{ValidationReport, ValidationReportIssue, ValidationReportV2};
 
 /// Health check response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -185,6 +185,12 @@ pub struct ValidateRequest {
     /// Whether the message is MLLP framed
     #[serde(default)]
     pub mllp_framed: bool,
+    /// Optional validation report schema version.
+    ///
+    /// Omitted or `1` preserves the existing response shape. `2` adds the
+    /// nested `validation_report_v2` field with embedded evidence provenance.
+    #[serde(default)]
+    pub report_schema_version: Option<u8>,
 }
 
 /// Validate response
@@ -203,6 +209,9 @@ pub struct ValidateResponse {
     pub issue_count: usize,
     /// Stable validation issue records.
     pub issues: Vec<ValidationReportIssue>,
+    /// Opt-in validation report v2 artifact with embedded provenance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation_report_v2: Option<ValidationReportV2>,
     /// Validation errors
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub errors: Vec<ValidationError>,
@@ -228,6 +237,12 @@ pub struct ValidateRedactedRequest {
     /// Whether to include the redacted HL7 payload in the response.
     #[serde(default)]
     pub include_redacted_hl7: bool,
+    /// Optional validation report schema version.
+    ///
+    /// Omitted or `1` preserves the existing response shape. `2` adds the
+    /// nested `validation_report_v2` field with embedded evidence provenance.
+    #[serde(default)]
+    pub report_schema_version: Option<u8>,
 }
 
 /// Validate and redact response body.
@@ -235,6 +250,9 @@ pub struct ValidateRedactedRequest {
 pub struct ValidateRedactedResponse {
     /// Validation report generated from the redacted message.
     pub validation_report: ValidationReport,
+    /// Opt-in validation report v2 artifact with embedded provenance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation_report_v2: Option<ValidationReportV2>,
     /// Receipt describing redaction actions applied before validation.
     pub redaction_receipt: RedactionReceipt,
     /// Quarantine output written when configured and validation failed.

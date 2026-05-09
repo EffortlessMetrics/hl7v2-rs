@@ -137,6 +137,51 @@ async fn test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_
 }
 
 #[tokio::test]
+async fn test_validate_redacted_report_schema_v2_returns_nested_provenance_report_without_phi() {
+    let app = common::create_test_router();
+    let request_body = json!({
+        "message": PHI_MESSAGE,
+        "profile": PROFILE_REQUIRES_DROPPED_NAME,
+        "redaction_policy": REDACTION_POLICY,
+        "include_redacted_hl7": true,
+        "report_schema_version": 2
+    });
+
+    let response = app
+        .oneshot(validate_redacted_request(request_body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let report_v2 = &body_json["validation_report_v2"];
+
+    assert_eq!(body_json["validation_report"]["valid"], false);
+    assert_eq!(report_v2["schema_version"], "2");
+    assert_eq!(report_v2["tool_name"], "hl7v2-server");
+    assert_eq!(report_v2["valid"], false);
+    assert_eq!(report_v2["message_type"], "ADT^A01");
+    assert_eq!(report_v2["profile"], "ADT_A01");
+    assert_eq!(report_v2["profile_identity"]["label"], "ADT_A01");
+    assert_eq!(
+        report_v2["profile_identity"]["message_structure"],
+        "ADT_A01"
+    );
+    assert_eq!(report_v2["profile_identity"]["version"], "2.5");
+    assert_eq!(
+        report_v2["profile_identity"]["sha256"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
+    assert_eq!(report_v2["issues"][0]["path"], "PID.5");
+    assert_no_phi(&body_text);
+}
+
+#[tokio::test]
 async fn test_validate_redacted_omits_redacted_hl7_unless_requested() {
     let app = common::create_test_router();
     let request_body = json!({
