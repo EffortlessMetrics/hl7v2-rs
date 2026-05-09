@@ -3,7 +3,10 @@
 Date: 2026-05-09
 
 This receipt records release-head package verification for the v1.3.0 Evidence
-Loop release candidate. No crates were published by these commands.
+Loop release line. No crates were published by these commands.
+
+This dry-run receipt was followed by the actual `v1.3.0` crates.io publish.
+See [`docs/audits/publish-2026-05-09.md`](publish-2026-05-09.md).
 
 ## Version Line
 
