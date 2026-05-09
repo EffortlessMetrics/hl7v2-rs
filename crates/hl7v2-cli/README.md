@@ -41,7 +41,7 @@ Redact a message for safe analysis:
 hl7v2 redact message.hl7 --policy safe-analysis.toml --format json
 hl7v2 redact message.hl7 --policy safe-analysis.toml --format json --schema-version 2
 hl7v2 redact message.hl7 --policy safe-analysis.toml --format hl7 > message.redacted.hl7
-hl7v2 bundle message.hl7 --profile profiles/adt_a01.yaml --redact-policy safe-analysis.toml --out issue-bundle/
+hl7v2 bundle message.hl7 --profile profiles/adt_a01.yaml --redact-policy safe-analysis.toml --out issue-bundle/ --schema-version 2
 hl7v2 replay issue-bundle/ --format json
 ```
 

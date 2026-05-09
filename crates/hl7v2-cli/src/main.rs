@@ -299,6 +299,10 @@ enum Commands {
         #[arg(long)]
         out: PathBuf,
 
+        /// Evidence schema version for the bundle summary JSON
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Write the bundle summary JSON to a file instead of stdout
         #[arg(long)]
         output: Option<PathBuf>,
@@ -1027,6 +1031,26 @@ struct EvidenceBundleSummary {
     artifacts: Vec<String>,
 }
 
+#[derive(serde::Serialize)]
+struct EvidenceBundleSummaryV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    summary: &'a EvidenceBundleSummary,
+}
+
+impl EvidenceBundleSummary {
+    fn to_v2(&self) -> EvidenceBundleSummaryV2<'_> {
+        EvidenceBundleSummaryV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            summary: self,
+        }
+    }
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 struct EvidenceBundleManifest {
     bundle_version: String,
@@ -1307,6 +1331,7 @@ async fn main() {
             profile,
             redact_policy,
             out,
+            schema_version,
             output,
             quiet,
             no_color,
@@ -1315,6 +1340,7 @@ async fn main() {
             profile,
             redact_policy,
             out,
+            *schema_version,
             &OutputOptions::new(output.as_ref(), *quiet, *no_color),
         ),
         Commands::Replay {
@@ -2292,6 +2318,7 @@ fn bundle_command(
     profile: &Path,
     redact_policy: &Path,
     out: &Path,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if out.exists() {
@@ -2370,7 +2397,18 @@ fn bundle_command(
         redaction_phi_removed: redaction_receipt.phi_removed,
         artifacts,
     };
-    output_options.emit(&serde_json::to_string_pretty(&summary)?)?;
+    let output = match schema_version {
+        1 => serde_json::to_string_pretty(&summary)?,
+        2 => serde_json::to_string_pretty(&summary.to_v2())?,
+        _ => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "bundle summary schema_version must be 1 or 2",
+            )
+            .into());
+        }
+    };
+    output_options.emit(&output)?;
 
     Ok(())
 }

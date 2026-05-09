@@ -47,6 +47,40 @@ pub struct EvidenceBundleSummary {
     pub artifacts: Vec<String>,
 }
 
+impl EvidenceBundleSummary {
+    /// Convert this v1 bundle summary into the explicit v2 evidence contract shape.
+    ///
+    /// This preserves the default serialized form of [`EvidenceBundleSummary`].
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> EvidenceBundleSummaryV2 {
+        EvidenceBundleSummaryV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            summary: self.clone(),
+        }
+    }
+}
+
+/// Evidence bundle summary v2 with embedded evidence provenance.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct EvidenceBundleSummaryV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this bundle summary.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// V1 bundle summary fields.
+    #[serde(flatten)]
+    pub summary: EvidenceBundleSummary,
+}
+
 /// Evidence bundle manifest written inside the bundle directory.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EvidenceBundleManifest {
@@ -1004,6 +1038,19 @@ reason = "Date of birth"
                 .iter()
                 .any(|artifact| artifact == "manifest.json"),
             "expected manifest artifact",
+        )?;
+        let summary_v2 = summary.to_v2("hl7v2-python", "1.3.0");
+        ensure(
+            summary_v2.schema_version == "2",
+            "expected bundle summary v2 schema version",
+        )?;
+        ensure(
+            summary_v2.tool_name == "hl7v2-python",
+            "expected bundle summary producer",
+        )?;
+        ensure(
+            summary_v2.summary.bundle_version == "1",
+            "expected v2 summary to preserve bundle version",
         )?;
 
         let replay = replay_evidence_bundle(&bundle_dir, "hl7v2-python");

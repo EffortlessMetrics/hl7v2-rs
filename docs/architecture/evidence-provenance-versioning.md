@@ -99,7 +99,7 @@ Rules:
 | `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version. | Keep the outer output v1-compatible; migrate the nested receipt first. |
 | `RedactionReceipt` | Shared receipt schema without embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server redaction output can emit v2 when requested. Bundle artifacts remain v1 until migrated separately. |
 | `FieldPathTraceReport` | Bundle artifact with a v1 JSON Schema but no embedded version fields. | Fold into a v2 bundle-artifact schema set with common provenance only if standalone field-path traces are promoted beyond bundle context. |
-| `EvidenceBundleSummary` | Has `bundle_version`; no `tool_version` in the summary. | Add `schema_version`, `tool_name`, and `tool_version`; keep `bundle_version`. |
+| `EvidenceBundleSummary` | Has `bundle_version`; no `tool_version` in the summary by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python bundle output can emit v2 when requested. Server `/hl7/bundle` remains v1 by default. |
 | `QuarantineOutputSummary` | Has `quarantine_version`; server-local schema. | Add `schema_version`, `tool_name`, and `tool_version`; keep root-relative output ids only. |
 | `EvidenceBundleManifest` | Has `bundle_version`, `tool_name`, `tool_version`, and hashed artifact catalog. | Add `schema_version`; keep manifest hash rules unchanged. |
 | `EvidenceBundleEnvironment` | Has `bundle_version`, `tool_name`, `tool_version`, input/profile/policy hashes, validation summary, replay command, and a v1 JSON Schema. | Add `schema_version` before treating it as a stable standalone artifact outside bundle context. |
@@ -143,6 +143,11 @@ Do the migration in narrow PRs:
    and server `/hl7/validate-redacted` requests with
    `redaction_receipt_schema_version: 2` can opt into the v2 nested receipt.
    Defaults remain v1-compatible.
+   `EvidenceBundleSummary` now has an explicit v2 conversion helper.
+   `hl7v2 bundle ... --schema-version 2` and Python
+   `bundle(..., schema_version=2)` can opt into the v2 summary. Defaults
+   remain v1-compatible, and server `/hl7/bundle` keeps its v1 response shape
+   until a request-level opt-in is added.
 3. Update CLI JSON/YAML output to choose the v2 shape only when the command or
    release notes explicitly say so. If a compatibility flag is needed, document
    it before exposing it.

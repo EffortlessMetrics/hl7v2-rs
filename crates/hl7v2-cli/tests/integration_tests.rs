@@ -2541,6 +2541,44 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_bundle_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+        let bundle_dir = dir.path().join("issue-bundle");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "bundle",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--redact-policy",
+                policy_file.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute bundle");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("bundle summary should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["bundle_version"], "1");
+        assert_eq!(report["output_dir"], ".");
+        assert_eq!(report["message_type"], "ADT^A01");
+        assert_eq!(report["validation_valid"], true);
+    }
+
+    #[test]
     fn test_bundle_artifacts_do_not_emit_phi_leak_sentinels_or_paths() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(
@@ -3395,6 +3433,25 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             true,
         );
         assert_fixture("evidence-bundle", bundle_summary);
+
+        let bundle_v2 = dir.path().join("issue-bundle-v2");
+        let mut bundle_summary_v2 = command_json(
+            &[
+                "bundle".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--redact-policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--out".to_string(),
+                bundle_v2.to_string_lossy().into_owned(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut bundle_summary_v2, "/tool_version", "1.3.0");
+        assert_fixture("evidence-bundle-v2", bundle_summary_v2);
 
         let receipt: Value = serde_json::from_slice(
             &std::fs::read(bundle.join("redaction-receipt.json"))
