@@ -51,8 +51,8 @@ summary/fingerprint/diff dict outputs, and safe-analysis redaction output.
 | `ProfileTestReport` | CLI report with fixture cases, pass/fail status, embedded validation reports, and optional expected-report comparison. | JSON Schema and golden fixture exist; CLI-local type with no embedded version fields. |
 | `ProfileExplainReport` | CLI report with profile SHA-256, structure, version, segments, constraints, tables, rules, and lint summary. | JSON Schema and golden fixture exist; no embedded artifact version or tool version. |
 | `CorpusSummary` | Shared Rust corpus summary type. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; no embedded version fields. |
-| `CorpusFingerprint` | Shared Rust fingerprint type with `fingerprint_version`, `tool_version`, optional profile hash, counts, field presence/cardinality, value shapes, and validation issue-code counts. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; null/empty behavior still needs clearer docs. |
-| `CorpusDiffReport` | Shared Rust diff type with `diff_version`, `tool_version`, optional profile hash, totals, new/removed message types and segments, field deltas, value-shape deltas, and validation issue-code deltas. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; null/empty behavior still needs clearer docs. |
+| `CorpusFingerprint` | Shared Rust fingerprint type with `fingerprint_version`, `tool_version`, optional profile hash, counts, field presence/cardinality, value shapes, and validation issue-code counts. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; `profile: null` and empty-array semantics are documented in the schema README. |
+| `CorpusDiffReport` | Shared Rust diff type with `diff_version`, `tool_version`, optional profile hash, totals, new/removed message types and segments, field deltas, value-shape deltas, and validation issue-code deltas. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; `profile: null` and empty-array semantics are documented in the schema README. |
 | `RedactionReceipt` | CLI, server, and Python receipts record PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | JSON Schema, golden fixture, and synthetic PHI leak-sentinel tests exist; no embedded version fields. |
 | `EvidenceBundleSummary` | CLI stdout JSON summary, Python `bundle()` output, and server `/hl7/bundle` JSON response include `bundle_version`, output directory/id, message type, validation status, redaction status, and artifact list. | JSON Schema and golden fixture exist; no `tool_version` in the summary itself. |
 | Bundle artifacts | CLI, Python, and server bundles write `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, `README.md`, and `manifest.json`. | Bundle README is generated and manifest-hashed; profile text is user-authored and included as supplied. |
@@ -99,13 +99,13 @@ Current behavior is script-grade:
 
 The evidence loop is contract-grade enough for the v1.3.0 release: schemas,
 goldens, CLI output semantics, manifest verification, server edge-guard routes,
-Python parity, and user guides are in place. Remaining hardening work:
+Python parity, user guides, and documented evidence null/empty semantics are in
+place. Remaining hardening work:
 
 1. Add artifact version and tool version fields consistently.
-2. Document null/empty-list behavior for optional fields.
-3. Add broader synthetic PHI leak sentinels for future server/Python evidence
+2. Add broader synthetic PHI leak sentinels for future server/Python evidence
    wrappers and additional fixture families.
-4. Promote shared report types out of CLI-local structs when server or Python
+3. Promote shared report types out of CLI-local structs when server or Python
    parity needs them.
 
 ## Verification Performed For This Audit

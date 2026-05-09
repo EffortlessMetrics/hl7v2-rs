@@ -83,6 +83,9 @@ The CLI output contract is stable enough for CI and automation:
 3 = IO/runtime/environment error
 ```
 
+Evidence JSON null, omitted-field, and empty-array semantics are documented in
+[`schemas/README.md`](../../schemas/README.md#evidence-null-and-empty-semantics).
+
 ## Remaining Contract Hardening Gaps
 
 The v1.3.0 evidence loop has schema-backed JSON artifacts, golden fixtures,
@@ -93,7 +96,6 @@ few places where provenance or identity is still implicit:
 - `schema_version` or artifact-specific version naming for every machine
   artifact.
 - `tool_version` where users need provenance outside an environment file.
-- Explicit null and empty-list behavior for optional fields.
 - Explicit profile identity semantics for validation reports, since CLI reports
   the supplied profile path while server and Python reports use the loaded
   profile message structure.

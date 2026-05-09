@@ -52,6 +52,34 @@ Python lanes:
 - Corpus summary, fingerprint, and diff reports
 - Redaction receipts and evidence bundle/replay summaries
 
+#### Evidence Null And Empty Semantics
+
+Evidence schemas use a small set of conventions so CI jobs and data pipelines
+can distinguish "not applicable" from "not evaluated":
+
+- Required fields are always present, even when their value is empty.
+- Empty arrays mean the category was evaluated and no entries were found. For
+  example, `issues: []`, `parse_errors: []`, `new_segments: []`, and
+  `validation_issue_code_counts: []` are successful empty results, not missing
+  scans.
+- Explicit `null` means the field is known but not applicable or not available
+  for this artifact. For example, corpus `profile: null` means no profile was
+  supplied, replay `message_type: null` means replay could not recover a message
+  type, and replay `validation_valid: null` means validation was not regenerated.
+- Optional fields that are absent are additive context fields, not failed
+  checks. For example, `validation_report` is absent from replay reports when
+  replay fails before a report can be regenerated.
+- Numeric counters use `0` when the category was evaluated and empty. Consumers
+  should prefer the explicit status fields, such as `valid`, `reproduced`, and
+  replay check statuses, when deciding whether work succeeded.
+- Profile explain fields such as `message_type`, `parent`, component bounds,
+  datatype bounds, patterns, and expression guardrail limits use `null` for
+  unspecified profile configuration.
+
+These conventions are part of the evidence contract for the `*-v1` schemas.
+Changing a field from absent to required, from empty array to omitted, or from
+`null` to a sentinel string is a contract change.
+
 ## Usage
 
 ### Validate YAML Against Schema
