@@ -60,7 +60,9 @@ valid until implementation PRs explicitly move producer output shapes.
 Validation reports are the first artifact with an opt-in v2 producer path:
 `hl7v2 val --report json --schema-version 2` emits the v2 shape, while the
 default output remains v1. Python validation reports expose the same opt-in
-shape through `report.to_dict(2)` and `report.to_json(2)`.
+shape through `report.to_dict(2)` and `report.to_json(2)`. Server validation
+endpoints keep their existing v1-compatible response fields by default and add
+`validation_report_v2` when requests include `"report_schema_version": 2`.
 
 #### Evidence Null And Empty Semantics
 

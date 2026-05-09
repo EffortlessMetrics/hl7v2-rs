@@ -5,6 +5,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
 use crate::models::*;
@@ -67,6 +68,7 @@ pub async fn validate_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<ValidateRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    let report_schema_version = requested_report_schema_version(request.report_schema_version)?;
     let message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
 
     // Extract metadata
@@ -84,6 +86,8 @@ pub async fn validate_handler(
         Some(profile.message_structure.clone()),
         issues.clone(),
     );
+    let validation_report_v2 = (report_schema_version == 2)
+        .then(|| validation_report_v2_for_server(&report, &request.profile, &profile));
 
     // Preserve legacy error/warning arrays while exposing the shared report issues.
     let mut errors = Vec::new();
@@ -121,6 +125,7 @@ pub async fn validate_handler(
         segment_count: report.segment_count,
         issue_count: report.issue_count,
         issues: report.issues,
+        validation_report_v2,
         errors,
         warnings,
         metadata,
@@ -134,6 +139,7 @@ pub async fn validate_redacted_handler(
     State(state): State<Arc<AppState>>,
     Json(request): Json<ValidateRedactedRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    let report_schema_version = requested_report_schema_version(request.report_schema_version)?;
     let raw_input = request.message.into_bytes();
     let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
     let receipt =
@@ -149,6 +155,8 @@ pub async fn validate_redacted_handler(
         Some(profile.message_structure.clone()),
         issues,
     );
+    let validation_report_v2 = (report_schema_version == 2)
+        .then(|| validation_report_v2_for_server(&validation_report, &request.profile, &profile));
     let quarantine = maybe_write_redacted_quarantine(RedactedQuarantineContext {
         state: &state,
         raw_input: &raw_input,
@@ -162,6 +170,7 @@ pub async fn validate_redacted_handler(
 
     let response = ValidateRedactedResponse {
         validation_report,
+        validation_report_v2,
         redaction_receipt: receipt,
         quarantine,
         redacted_hl7: request.include_redacted_hl7.then_some(redacted_hl7),
@@ -346,6 +355,39 @@ fn parse_request_message(
     } else {
         hl7v2::parse(message_bytes).map_err(|e| AppError::Parse(format!("Parse error: {}", e)))
     }
+}
+
+fn requested_report_schema_version(version: Option<u8>) -> Result<u8, AppError> {
+    match version.unwrap_or(1) {
+        1 => Ok(1),
+        2 => Ok(2),
+        other => Err(AppError::Validation(format!(
+            "unsupported validation report schema version {other}; expected 1 or 2"
+        ))),
+    }
+}
+
+fn validation_report_v2_for_server(
+    report: &hl7v2::ValidationReport,
+    profile_yaml: &str,
+    profile: &hl7v2::Profile,
+) -> hl7v2::ValidationReportV2 {
+    report.to_v2(
+        "hl7v2-server",
+        env!("CARGO_PKG_VERSION"),
+        Some(hl7v2::ValidationReportProfileIdentity {
+            label: profile.message_structure.clone(),
+            message_structure: Some(profile.message_structure.clone()),
+            version: Some(profile.version.clone()),
+            sha256: Some(compute_sha256(profile_yaml)),
+        }),
+    )
+}
+
+fn compute_sha256(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    format!("{:x}", hasher.finalize())
 }
 
 fn parse_msh_for_ack_policy(
