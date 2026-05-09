@@ -230,6 +230,63 @@ async fn test_ready_endpoint_returns_503_when_startup_check_failed() {
 }
 
 #[tokio::test]
+async fn test_ready_endpoint_does_not_expose_configured_profile_path_when_not_ready() {
+    let profile_path = std::env::temp_dir()
+        .join("hl7v2-sensitive-profile-root")
+        .join("missing-profile.yaml")
+        .display()
+        .to_string();
+    let config = hl7v2_server::ServerConfig {
+        profile_paths: vec![profile_path.clone()],
+        ..Default::default()
+    };
+    let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
+    let state = Arc::new(hl7v2_server::AppState {
+        start_time: Instant::now(),
+        metrics_handle: Arc::new(metrics_handle),
+        api_key: None,
+        cors_allowed_origins: Default::default(),
+        readiness_checks: config.readiness_checks(),
+        bundle_output_root: None,
+        ack_policy: Default::default(),
+        quarantine: Default::default(),
+    });
+    let app = hl7v2_server::build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/ready")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    assert!(!body_text.contains(&profile_path));
+    assert!(!body_text.contains("missing-profile.yaml"));
+
+    let ready: ReadyResponse = serde_json::from_str(&body_text).unwrap();
+    assert!(!ready.ready);
+    let check = ready
+        .checks
+        .iter()
+        .find(|check| check.name == "configured_profiles");
+    assert!(check.is_some(), "configured profile check should exist");
+    let check = check.unwrap();
+    assert_eq!(check.status, ReadinessCheckStatus::Fail);
+    assert!(check.message.contains("configured profile 1"));
+}
+
+#[tokio::test]
 async fn test_metrics_endpoint_returns_200() {
     let app = common::create_test_router();
 

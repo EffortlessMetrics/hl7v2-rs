@@ -337,20 +337,21 @@ fn profile_readiness_check(profile_paths: &[String]) -> ReadinessCheck {
         return ReadinessCheck::pass("configured_profiles", "no configured profiles");
     }
 
-    for path in profile_paths {
+    for (index, path) in profile_paths.iter().enumerate() {
+        let profile_number = index.saturating_add(1);
         match fs::read_to_string(path) {
             Ok(content) => {
                 if let Err(error) = hl7v2::load_profile_checked(&content) {
                     return ReadinessCheck::fail(
                         "configured_profiles",
-                        format!("profile {path} did not load: {error}"),
+                        format!("configured profile {profile_number} did not load: {error}"),
                     );
                 }
             }
             Err(error) => {
                 return ReadinessCheck::fail(
                     "configured_profiles",
-                    format!("profile {path} could not be read: {error}"),
+                    format!("configured profile {profile_number} could not be read: {error}"),
                 );
             }
         }
@@ -808,7 +809,31 @@ segments:
             .expect("configured profile check should exist");
 
         assert_eq!(check.status, crate::models::ReadinessCheckStatus::Fail);
-        assert!(check.message.contains("missing-profile.yaml"));
+        assert!(check.message.contains("configured profile 1"));
+        assert!(!check.message.contains("missing-profile.yaml"));
+    }
+
+    #[test]
+    fn readiness_checks_fail_invalid_configured_profile_without_exposing_path() {
+        let path = temp_file_path("invalid-ready-profile.yaml");
+        fs::write(&path, "message_structure: [").expect("profile fixture should be written");
+        let path_text = path.display().to_string();
+        let config = ServerConfig {
+            profile_paths: vec![path_text.clone()],
+            ..ServerConfig::default()
+        };
+        let check = config
+            .readiness_checks()
+            .into_iter()
+            .find(|check| check.name == "configured_profiles")
+            .expect("configured profile check should exist");
+
+        assert_eq!(check.status, crate::models::ReadinessCheckStatus::Fail);
+        assert!(check.message.contains("configured profile 1"));
+        assert!(!check.message.contains(&path_text));
+        assert!(!check.message.contains("invalid-ready-profile.yaml"));
+
+        fs::remove_file(path).expect("profile fixture should be removed");
     }
 
     #[test]

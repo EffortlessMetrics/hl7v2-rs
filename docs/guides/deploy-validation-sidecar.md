@@ -215,7 +215,9 @@ Expected checks include:
 
 If `/ready` returns `503`, do not send traffic. Fix the failed check first:
 profile path, bundle root, quarantine root, bind address, or validation-report
-self-check.
+self-check. The public readiness response identifies failed configured profile
+checks by position instead of echoing local profile paths; use `--print-config`
+locally when you need to inspect the configured path list.
 
 ## 5. Validate After Redaction
 
