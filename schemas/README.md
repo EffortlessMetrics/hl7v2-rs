@@ -111,10 +111,11 @@ default.
 Evidence replay reports can opt into their target v2 shape with
 `hl7v2 replay ... --format json --schema-version 2`, and Python exposes the
 same shape with `replay(..., schema_version=2)`.
-Bundle-internal `manifest.json`, `environment.json`, and `field-paths.json`
-have target v2 schemas and fixtures. Live bundle writers still emit the v1
-artifact shapes until a compatibility PR explicitly migrates bundle artifact
-producers and replay verification together.
+Bundle-internal `manifest.json`, `environment.json`, `field-paths.json`, and
+`redaction-receipt.json` can opt into their v2 shapes when CLI bundles are
+created with `hl7v2 bundle ... --schema-version 2` or Python bundles are
+created with `bundle(..., schema_version=2)`. Default bundle artifacts remain
+v1-compatible; server-created bundles remain v1 by default.
 
 #### Evidence Null And Empty Semantics
 

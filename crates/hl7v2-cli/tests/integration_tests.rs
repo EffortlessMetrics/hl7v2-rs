@@ -3526,6 +3526,61 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         set(&mut bundle_summary_v2, "/tool_version", "1.3.0");
         assert_fixture("evidence-bundle-v2", bundle_summary_v2);
 
+        let mut receipt_v2: Value = serde_json::from_slice(
+            &std::fs::read(bundle_v2.join("redaction-receipt.json"))
+                .expect("bundle v2 redaction receipt should be readable"),
+        )
+        .expect("bundle v2 redaction receipt should be JSON");
+        set(&mut receipt_v2, "/tool_version", "1.4.0");
+        assert_fixture("redaction-receipt-v2", receipt_v2);
+
+        let mut field_paths_v2: Value = serde_json::from_slice(
+            &std::fs::read(bundle_v2.join("field-paths.json"))
+                .expect("bundle v2 field-path trace should be readable"),
+        )
+        .expect("bundle v2 field-path trace should be JSON");
+        set(&mut field_paths_v2, "/tool_version", "1.3.0");
+        assert_fixture("field-path-trace-v2", field_paths_v2);
+
+        let mut environment_v2: Value = serde_json::from_slice(
+            &std::fs::read(bundle_v2.join("environment.json"))
+                .expect("bundle v2 environment should be readable"),
+        )
+        .expect("bundle v2 environment should be JSON");
+        set(&mut environment_v2, "/tool_version", "1.3.0");
+        set(
+            &mut environment_v2,
+            "/input_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        set(
+            &mut environment_v2,
+            "/profile_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        set(
+            &mut environment_v2,
+            "/redaction_policy_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        assert_fixture("evidence-bundle-environment-v2", environment_v2);
+
+        let mut manifest_v2: Value = serde_json::from_slice(
+            &std::fs::read(bundle_v2.join("manifest.json"))
+                .expect("bundle v2 manifest should be readable"),
+        )
+        .expect("bundle v2 manifest should be JSON");
+        set(&mut manifest_v2, "/tool_version", "1.3.0");
+        for artifact in manifest_v2
+            .get_mut("artifacts")
+            .and_then(Value::as_array_mut)
+            .expect("manifest v2 artifacts should be an array")
+        {
+            artifact["sha256"] =
+                "0000000000000000000000000000000000000000000000000000000000000000".into();
+        }
+        assert_fixture("evidence-bundle-manifest-v2", manifest_v2);
+
         let receipt: Value = serde_json::from_slice(
             &std::fs::read(bundle.join("redaction-receipt.json"))
                 .expect("bundle redaction receipt should be readable"),

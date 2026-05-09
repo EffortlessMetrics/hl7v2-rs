@@ -2,7 +2,7 @@
 
 use ::hl7v2::evidence::{
     replay_evidence_bundle as rust_replay_evidence_bundle,
-    write_safe_analysis_bundle as rust_write_safe_analysis_bundle,
+    write_safe_analysis_bundle_with_schema_version as rust_write_safe_analysis_bundle,
 };
 use ::hl7v2::redact::redact_hl7_safe_analysis as rust_redact_hl7_safe_analysis;
 use ::hl7v2::synthetic::corpus::{
@@ -406,6 +406,7 @@ pub fn bundle<'py>(
         policy_toml,
         Path::new(out_dir),
         "hl7v2-python",
+        schema_version,
     )
     .map_err(|e| value_error("Bundle error", e))?;
     if schema_version == 2 {

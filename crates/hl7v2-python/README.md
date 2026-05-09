@@ -114,6 +114,8 @@ bundle = hl7v2.bundle(raw, profile_yaml, policy_toml, "issue-bundle")
 bundle_v2 = hl7v2.bundle(raw, profile_yaml, policy_toml, "issue-bundle-v2", schema_version=2)
 print(bundle["artifacts"])
 print(bundle_v2["schema_version"])
+# issue-bundle-v2/manifest.json, field-paths.json, redaction-receipt.json,
+# and environment.json also carry schema_version = "2".
 
 replay = hl7v2.replay("issue-bundle")
 replay_v2 = hl7v2.replay("issue-bundle", schema_version=2)
