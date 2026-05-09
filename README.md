@@ -25,7 +25,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; not published to crates.io |
 | **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.3.0 are published to crates.io; Python remains a separate binding lane |
-| **Evidence Loop** | Stable | v1.3.0 includes typed reports, profile test/explain, corpus fingerprint/diff, redaction, bundle/replay, schemas, goldens, and server/Python parity; current main adds redacted structured server evidence logs |
+| **Evidence Loop** | Stable | v1.3.0 is the published Evidence Loop baseline; current main is the unreleased v1.4 candidate with opt-in v2 provenance, schema gates, server sidecar hardening, Python/TestPyPI proof, PHI sentinels, and replay fixes |
 
 ## Features
 

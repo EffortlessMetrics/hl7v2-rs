@@ -3,7 +3,7 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-09
-> **Project Status**: v1.3.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is the post-v1.3.0 evidence-hardening line.
+> **Project Status**: v1.3.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is an unreleased v1.4.0 evidence-contract candidate.
 
 ## Core Components
 
@@ -27,7 +27,7 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **API Authentication**: Constant-time API Key validation.
 - ✅ **Rate Limiting**: Per-IP throttling to prevent DoS.
 - ✅ **Prometheus Metrics**: Throughput, latency, and error tracking.
-- ✅ **Audit Ready**: Redacted structured evidence logs with hashed message-control and bundle identifiers; JSON output is available with `RUST_LOG_FORMAT=json`.
+- ✅ **Audit Ready**: Server metrics and structured runtime logs are available. Redacted evidence-workflow logs with hashed message-control and bundle identifiers are part of the unreleased v1.4.0 candidate.
 
 ### 🧪 Quality Assurance
 - ✅ **BDD Tests**: Real validation scenarios verified with Cucumber.
@@ -41,7 +41,8 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Published Rust graph**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.3.0 are published and visible in the crates.io index. See `docs/audits/publish-2026-05-09.md`.
 - ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See `docs/audits/publish-dry-run-2026-05-09.md`.
-- 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io. The binding is verified through a maturin wheel build/install/import smoke lane, with a manual TestPyPI proof workflow available before any production PyPI release.
+- 🟡 **Current main release candidate**: current `main` is not published as v1.4.0 yet. Run a fresh full gate, evidence schema check, API Contracts, and dependency-ordered `cargo publish --dry-run` before tagging or uploading the next Rust release.
+- 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io. The v1.3.0 binding is verified through a maturin wheel build/install/import smoke lane; current `main` also has a manual TestPyPI proof workflow before any production PyPI release.
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1` and `v1.3.0` tags point at their release heads.
 
@@ -51,6 +52,13 @@ v1.3.0 is the Evidence Loop release line around deterministic HL7 interface
 evidence. It is tagged, released on GitHub, and uploaded to crates.io for the
 final Rust package graph.
 
+Current `main` is not yet published as v1.4.0. It contains post-v1.3.0
+evidence-contract hardening: opt-in v2 provenance producers, maintained schema
+validation through `xtask evidence-schema-check`, server replay and inline
+corpus endpoints, redacted structured evidence logs, Docker sidecar smoke
+coverage, broader PHI sentinel tests, Python/TestPyPI proof, and the server
+bundle replay message-type fix.
+
 | Area | Status | Notes |
 |------|--------|-------|
 | First-run diagnostics | ✅ Stable | `hl7v2 doctor` verifies CLI version, sample parse, profile loading, JSON output, optional server reachability, and optional Python binding presence. |
@@ -58,10 +66,10 @@ final Rust package graph.
 | Profiles as code | ✅ Stable | `profile lint`, `profile test`, and `profile explain` produce machine-readable profile evidence. |
 | Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. |
 | Safe support packets | ✅ Stable | `redact`, `bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. |
-| Evidence contracts | ✅ Stable | JSON schemas and golden fixtures guard the machine-readable evidence artifacts. |
+| Evidence contracts | ✅ Stable | v1.3.0 shipped the evidence loop baseline; current main adds opt-in v2 provenance schemas/producers and an `xtask evidence-schema-check` gate. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
-| Server edge guard | ✅ Stable | Server supports sanitized `--print-config`, `/ready`, `/hl7/validate-redacted`, `/hl7/bundle`, `/hl7/replay`, `/hl7/ack-policy`, inline corpus endpoints, quarantine hooks, and redacted structured evidence logs. |
-| Python evidence lane | 🟡 Separate lane | Python wheel proof and minimum API parity cover parse, JSON export, normalize, validation, corpus, redaction, bundle, and replay. Python remains outside the crates.io Rust publish graph; TestPyPI proof is manual-first and separate from production PyPI. |
+| Server edge guard | ✅ Stable | v1.3.0 shipped the sidecar baseline. Current main adds `/hl7/replay`, inline corpus endpoints, bundle artifact schema opt-in, redacted structured evidence logs, evidence metrics, Docker smoke coverage, and the bundle replay message-type fix. |
+| Python evidence lane | 🟡 Separate lane | Python wheel proof and minimum API parity cover parse, JSON export, normalize, validation, corpus, redaction, bundle, and replay. Current main adds v2 parity, PHI sentinel coverage, Python evidence docs, and a manual TestPyPI proof workflow. Python remains outside the crates.io Rust publish graph. |
 
 ## v1.3.0 Readiness Checklist
 
@@ -75,6 +83,17 @@ Publish receipt: [`docs/audits/publish-2026-05-09.md`](audits/publish-2026-05-09
 - ✅ **Python proof**: the maturin wheel build/install/import smoke lane passes without publishing `hl7v2-python` to crates.io.
 - ✅ **Release notes and tag**: `v1.3.0` is tagged and the GitHub release is published.
 
+## v1.4.0 Candidate Checklist
+
+Draft release notes: [`docs/releases/v1.4.0-evidence-contracts.md`](releases/v1.4.0-evidence-contracts.md).
+
+- 🟡 **Publish plan**: `cargo run -p xtask -- publish-plan` should continue to resolve `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+- 🟡 **Evidence schemas**: `cargo run -p xtask -- evidence-schema-check` must pass on the release head.
+- 🟡 **Full gate**: `cargo run -p xtask -- gate --check` must pass on the release head.
+- 🟡 **Dry-runs**: run dependency-ordered `cargo publish --dry-run` for `hl7v2`, `hl7v2-server`, and `hl7v2-cli` before upload.
+- 🟡 **Python proof**: run maturin wheel build/install/import smoke proof, and use the manual TestPyPI proof workflow before production PyPI.
+- 🟡 **Release notes and tag**: no `v1.4.0` tag or GitHub release exists yet.
+
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.
 
@@ -83,4 +102,5 @@ Old planning documents have been moved to `docs/plans/` for archival reference.
 **Current published release**: v1.3.0 is tested, package-verified, tagged, and published to crates.io for the final Rust package graph.
 
 **Current main**: tracks the post-v1.3.0 Evidence Loop hardening line. The
-published Rust crates remain v1.3.0 until the next release train.
+published Rust crates remain v1.3.0 until the v1.4.0 dry-run and publish train
+is executed.
