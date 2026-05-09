@@ -73,6 +73,10 @@ cargo install hl7v2-cli
 
 ## Quick Start
 
+For a task-focused walkthrough from local diagnostics to validation reports,
+corpus fingerprint/diff output, and replayable redacted bundles, start with the
+[First 10 Minutes guide](docs/guides/first-10-minutes.md).
+
 ### HTTP/REST API Server
 
 The fastest way to get started is with the HTTP API server:
