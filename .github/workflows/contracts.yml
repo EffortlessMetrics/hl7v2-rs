@@ -145,10 +145,14 @@ jobs:
 
       - name: Validate Evidence Fixtures
         run: |
-          for schema in schemas/evidence/*-v1.schema.json; do
+          for schema in schemas/evidence/*-v*.schema.json; do
             name="$(basename "$schema")"
-            name="${name%-v1.schema.json}"
+            name="${name%.schema.json}"
             data="fixtures/evidence/${name}.json"
+            if [ ! -f "$data" ]; then
+              legacy_name="${name%-v1}"
+              data="fixtures/evidence/${legacy_name}.json"
+            fi
             echo "Validating $data against $schema"
             ajv validate -c ajv-formats \
               -s "$schema" \
