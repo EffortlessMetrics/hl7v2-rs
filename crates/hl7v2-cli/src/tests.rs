@@ -102,6 +102,9 @@ mod cli_unit_tests {
                 .get_arguments()
                 .find(|arg| arg.get_id() == "schema_version");
             assert!(schema_version_arg.is_some());
+            assert!(doctor.get_arguments().any(|arg| arg.get_id() == "output"));
+            assert!(doctor.get_arguments().any(|arg| arg.get_id() == "quiet"));
+            assert!(doctor.get_arguments().any(|arg| arg.get_id() == "no_color"));
         }
 
         #[test]

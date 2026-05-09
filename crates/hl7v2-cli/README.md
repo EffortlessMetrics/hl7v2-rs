@@ -10,6 +10,7 @@ Run first-use diagnostics:
 hl7v2 doctor
 hl7v2 doctor --sample message.hl7 --profile profiles/adt_a01.yaml
 hl7v2 doctor --server-url http://127.0.0.1:8080/health --format json
+hl7v2 doctor --format json --schema-version 2 --output doctor-report.json --quiet --no-color
 ```
 
 Lint a profile before using it as an interface contract:
