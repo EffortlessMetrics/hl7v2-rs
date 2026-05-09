@@ -444,6 +444,27 @@ curl http://127.0.0.1:18080/metrics
 Use `/health` for process liveness. Use `/ready` for deployment readiness. Use
 the evidence endpoints for interface decisions.
 
+The Prometheus metrics contract is intentionally small and low-cardinality:
+
+```text
+hl7v2_requests_total
+hl7v2_request_duration_seconds
+hl7v2_messages_parsed_total
+hl7v2_messages_validated_total
+hl7v2_message_size_bytes
+hl7v2_parse_failures_total
+hl7v2_validation_failures_total
+hl7v2_redaction_failures_total
+hl7v2_bundles_created_total
+hl7v2_replays_total
+hl7v2_replay_failures_total
+hl7v2_corpus_diffs_total
+```
+
+Metric labels use bounded operation/status values. They do not include raw HL7
+payloads, profile YAML, redaction policies, local filesystem roots, raw bundle
+IDs, raw message control IDs, or patient identifiers.
+
 The server also emits structured evidence workflow logs for parse, validate,
 validate-redacted, bundle, replay, ACK, and ACK-policy requests. The useful
 fields are intentionally operational rather than payload-bearing:

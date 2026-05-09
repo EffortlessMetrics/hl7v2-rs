@@ -477,7 +477,7 @@ curl http://localhost:8080/ready
 **Prometheus Metrics:**
 ```bash
 curl http://localhost:8080/metrics
-# Returns: hl7v2_requests_total{method="POST",path="/hl7/parse",status="200"} 42 ...
+# Returns: hl7v2_requests_total{endpoint="/hl7/parse",status="200"} 42 ...
 ```
 
 ---

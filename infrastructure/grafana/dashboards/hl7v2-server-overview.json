@@ -144,12 +144,12 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "hl7v2_active_connections{job=\"hl7v2-server\"}",
-          "legendFormat": "Active Connections",
+          "expr": "sum(rate(hl7v2_parse_failures_total[5m])) + sum(rate(hl7v2_validation_failures_total[5m])) + sum(rate(hl7v2_redaction_failures_total[5m]))",
+          "legendFormat": "Evidence Failures",
           "refId": "A"
         }
       ],
-      "title": "Active Connections",
+      "title": "Evidence Failure Rate",
       "type": "gauge"
     },
     {
@@ -410,12 +410,12 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "increase(hl7v2_parse_errors_total{job=\"hl7v2-server\"}[1h])",
-          "legendFormat": "Parse Errors (1h)",
+          "expr": "increase(hl7v2_parse_failures_total{job=\"hl7v2-server\"}[1h])",
+          "legendFormat": "Parse Failures (1h)",
           "refId": "A"
         }
       ],
-      "title": "Parse Errors (Last Hour)",
+      "title": "Parse Failures (Last Hour)",
       "type": "gauge"
     },
     {

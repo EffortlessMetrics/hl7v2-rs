@@ -21,6 +21,13 @@ Useful release-candidate workflows include:
 - `POST /hl7/ack-policy` for policy-driven ACK/NAK decisions.
 - `/metrics` for Prometheus metrics.
 
+The stable Prometheus contract includes HTTP request metrics plus evidence-loop
+counters for parse failures, validation failures, redaction failures, bundles
+created, replay attempts/failures, and inline corpus diffs. Labels are bounded
+operation/status values only; raw HL7 payloads, profile YAML, redaction policies,
+local paths, raw bundle IDs, raw message control IDs, and patient identifiers
+are not metric labels.
+
 The server reuses the same evidence contracts as the CLI and `hl7v2` library
 instead of defining a server-only report language.
 

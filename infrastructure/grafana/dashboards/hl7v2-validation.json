@@ -107,12 +107,12 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(hl7v2_validation_total{result=\"valid\"}[5m]))",
+          "expr": "sum(increase(hl7v2_messages_validated_total[5m])) - sum(increase(hl7v2_validation_failures_total[5m]))",
           "legendFormat": "Valid",
           "refId": "A"
         },
         {
-          "expr": "sum(increase(hl7v2_validation_total{result=\"invalid\"}[5m]))",
+          "expr": "sum(increase(hl7v2_validation_failures_total[5m]))",
           "legendFormat": "Invalid",
           "refId": "B"
         }
@@ -170,7 +170,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(hl7v2_validation_total{result=\"valid\"}[5m])) / sum(rate(hl7v2_validation_total[5m])) * 100",
+          "expr": "(sum(rate(hl7v2_messages_validated_total[5m])) - sum(rate(hl7v2_validation_failures_total[5m]))) / sum(rate(hl7v2_messages_validated_total[5m])) * 100",
           "legendFormat": "Success Rate",
           "refId": "A"
         }
@@ -246,12 +246,12 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum by (profile) (rate(hl7v2_validation_total[5m])))",
-          "legendFormat": "{{profile}}",
+          "expr": "topk(10, sum by (operation) (rate(hl7v2_messages_validated_total[5m])))",
+          "legendFormat": "{{operation}}",
           "refId": "A"
         }
       ],
-      "title": "Top Profiles by Validation Rate",
+      "title": "Top Operations by Validation Rate",
       "type": "timeseries"
     },
     {
@@ -322,12 +322,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (error_type) (increase(hl7v2_validation_errors_total[1h]))",
-          "legendFormat": "{{error_type}}",
+          "expr": "sum by (operation) (increase(hl7v2_validation_failures_total[1h]))",
+          "legendFormat": "{{operation}}",
           "refId": "A"
         }
       ],
-      "title": "Validation Errors by Type (1h)",
+      "title": "Validation Failures by Operation (1h)",
       "type": "timeseries"
     },
     {
@@ -372,13 +372,13 @@
       },
       "targets": [
         {
-          "expr": "topk(20, increase(hl7v2_validation_errors_total[1h]))",
+          "expr": "topk(20, increase(hl7v2_validation_failures_total[1h]))",
           "format": "table",
           "instant": true,
           "refId": "A"
         }
       ],
-      "title": "Top 20 Validation Errors",
+      "title": "Top Validation Failure Series",
       "transformations": [
         {
           "id": "organize",
@@ -392,8 +392,7 @@
             "indexByName": {},
             "renameByName": {
               "Value": "Count",
-              "error_type": "Error Type",
-              "profile": "Profile"
+              "operation": "Operation"
             }
           }
         }
@@ -417,5 +416,5 @@
   "title": "HL7v2 - Validation Dashboard",
   "uid": "hl7v2-validation",
   "version": 1,
-  "description": "HL7v2 message validation metrics showing success rates, error types, and profile usage"
+  "description": "HL7v2 message validation metrics showing success rates and bounded evidence operation failures"
 }
