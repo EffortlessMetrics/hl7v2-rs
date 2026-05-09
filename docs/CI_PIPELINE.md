@@ -129,6 +129,19 @@ using Trusted Publishing from the `testpypi` GitHub environment, then installs
 test. The workflow uses `id-token: write` only for the publish job and does not
 use repository PyPI tokens.
 
+### `.github/workflows/server-smoke.yml` - Server Docker Smoke
+
+Path-scoped and manual workflow for the deployable validation sidecar. It
+validates `infrastructure/docker/docker-compose.yml`, starts the checked-in
+Compose stack, runs `tests/server_smoke/smoke.py`, prints container logs on
+failure, and tears the stack down with volumes removed.
+
+The smoke script exercises `/health`, `/ready`, `/hl7/validate-redacted`,
+`/hl7/bundle`, `/hl7/replay`, and `/hl7/corpus/diff` against the running
+container. It uses the local `dev-secret` API key from
+`infrastructure/docker/sidecar.env.example`; do not replace that with a real
+deployment secret.
+
 ## Viewing CI Results
 
 ### GitHub Actions
@@ -183,6 +196,20 @@ The coverage workflow can be manually triggered:
 2. Click **Run workflow**
 3. Choose whether to upload to Codecov
 4. Click **Run workflow**
+
+### Server Docker Smoke
+
+The server smoke workflow can be manually triggered when validating sidecar
+deployment behavior:
+
+1. Go to **Actions** > **Server Docker Smoke**
+2. Click **Run workflow**
+3. Select the branch to test
+4. Click **Run workflow**
+
+The same workflow also runs on PRs and `main` pushes that change the server,
+canonical library, Docker sidecar files, profiles, smoke script, or sidecar
+deployment guide.
 
 ## Caching Strategy
 
