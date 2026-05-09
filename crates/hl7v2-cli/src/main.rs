@@ -489,6 +489,10 @@ enum CorpusCommands {
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
 
+        /// Evidence schema version for machine-readable summary reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Write the summary report to a file instead of stdout
         #[arg(long)]
         output: Option<PathBuf>,
@@ -1182,12 +1186,14 @@ async fn main() {
             CorpusCommands::Summarize {
                 path,
                 format,
+                schema_version,
                 output,
                 quiet,
                 no_color,
             } => corpus_summarize_command(
                 path,
                 format,
+                *schema_version,
                 &OutputOptions::new(output.as_ref(), *quiet, *no_color),
             ),
             CorpusCommands::Fingerprint {
@@ -4242,10 +4248,19 @@ fn stats_command(
 fn corpus_summarize_command(
     path: &PathBuf,
     format: &ReportFormat,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "corpus summary schema version is only available with --format json or --format yaml",
+        )
+        .into());
+    }
+
     let summary = summarize_corpus_path(path)?;
-    let output = format_corpus_summary(&summary, format)?;
+    let output = format_corpus_summary(&summary, format, schema_version)?;
     output_options.emit(&output)?;
     Ok(())
 }
@@ -4253,8 +4268,15 @@ fn corpus_summarize_command(
 fn format_corpus_summary(
     summary: &CorpusSummary,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => Ok(serde_json::to_string_pretty(
+            &summary.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
+        )?),
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(
+            &summary.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
+        )?),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(summary)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(summary)?),
         ReportFormat::Text => {

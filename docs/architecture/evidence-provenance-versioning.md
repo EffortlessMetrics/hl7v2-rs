@@ -93,7 +93,7 @@ Rules:
 | `ProfileLintReport` | Shared Rust type with no embedded version fields. | Add common provenance fields in v2. |
 | `ProfileTestReport` | CLI-local type with embedded validation reports. | Promote to shared type only if server/Python need it; otherwise add v2 provenance in the CLI schema first. |
 | `ProfileExplainReport` | CLI-local report with profile hash but no artifact/tool version. | Add common provenance fields; preserve profile hash metadata. |
-| `CorpusSummary` | Shared Rust/Python/CLI type with no embedded version fields. | Add common provenance fields. |
+| `CorpusSummary` | Shared Rust/Python/CLI type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python summary output can emit v2 when requested. |
 | `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python fingerprint output can emit v2 when requested. |
 | `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python diff output can emit v2 when requested. |
 | `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version. | Keep the outer output v1-compatible; migrate the nested receipt first. |
@@ -110,8 +110,8 @@ Rules:
 Do the migration in narrow PRs:
 
 1. Add v2 schemas and v2 golden fixtures for the highest-value shared reports:
-   `ValidationReport`, `CorpusFingerprint`, `CorpusDiffReport`, and
-   `RedactionReceipt`. These artifacts now have target v2 schemas and
+   `ValidationReport`, `CorpusSummary`, `CorpusFingerprint`,
+   `CorpusDiffReport`, and `RedactionReceipt`. These artifacts now have target v2 schemas and
    fixtures; producers still emit the current v1 shapes until migrated
    explicitly.
 2. Add additive Rust fields behind explicit v2 serializers or conversion
@@ -122,10 +122,12 @@ Do the migration in narrow PRs:
    `report.to_json(2)`. Server validation responses can include the same shape
    as nested `validation_report_v2` when requests set `report_schema_version`
    to `2`. Defaults remain v1-compatible.
-   `CorpusFingerprint` and `CorpusDiffReport` now have explicit v2 conversion
-   helpers. `hl7v2 corpus fingerprint` / `hl7v2 corpus diff` can opt into v2
-   JSON/YAML output with `--schema-version 2`, and Python can opt into the
-   same shapes with `corpus_fingerprint(..., schema_version=2)` and
+   `CorpusSummary`, `CorpusFingerprint`, and `CorpusDiffReport` now have
+   explicit v2 conversion helpers. `hl7v2 corpus summarize` / `hl7v2 corpus
+   fingerprint` / `hl7v2 corpus diff` can opt into v2 JSON/YAML output with
+   `--schema-version 2`, and Python can opt into the same shapes with
+   `corpus_summary(..., schema_version=2)`,
+   `corpus_fingerprint(..., schema_version=2)`, and
    `corpus_diff(..., schema_version=2)`. Defaults remain v1-compatible.
    `RedactionReceipt` now has an explicit v2 conversion helper. `hl7v2 redact
    --format json --schema-version 2`, Python `redact(..., schema_version=2)`,

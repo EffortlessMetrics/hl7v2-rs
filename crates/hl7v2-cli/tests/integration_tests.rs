@@ -1148,6 +1148,59 @@ mod corpus_command {
     }
 
     #[test]
+    fn test_corpus_summarize_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "summarize",
+                dir.path().to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute corpus summarize");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("summary output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["file_count"], 1);
+        assert_eq!(report["message_count"], 1);
+    }
+
+    #[test]
+    fn test_corpus_summarize_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "corpus",
+            "summarize",
+            dir.path().to_str().unwrap(),
+            "--format",
+            "text",
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "corpus summary schema version is only available",
+        ));
+    }
+
+    #[test]
     fn test_corpus_diff_text_reports_deltas() {
         let before = create_temp_dir();
         let after = create_temp_dir();
@@ -2984,6 +3037,22 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         );
         set(&mut summary, "/root", "site-a");
         assert_fixture("corpus-summary", summary);
+
+        let mut summary_v2 = command_json(
+            &[
+                "corpus".to_string(),
+                "summarize".to_string(),
+                site.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut summary_v2, "/tool_version", "1.4.0");
+        set(&mut summary_v2, "/root", "site-a");
+        assert_fixture("corpus-summary-v2", summary_v2);
 
         let mut fingerprint = command_json(
             &[

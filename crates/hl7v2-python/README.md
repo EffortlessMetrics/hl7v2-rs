@@ -62,6 +62,7 @@ print(report.to_dict(2))  # opt-in validation report v2 with provenance
 print(report.to_json(2))
 
 summary = hl7v2.corpus_summary("feeds/site-a")
+summary_v2 = hl7v2.corpus_summary("feeds/site-a", schema_version=2)
 fingerprint = hl7v2.corpus_fingerprint("feeds/site-a", profile_yaml=profile_yaml)
 fingerprint_v2 = hl7v2.corpus_fingerprint(
     "feeds/site-a",
@@ -80,6 +81,7 @@ diff_v2 = hl7v2.corpus_diff(
     schema_version=2,
 )
 print(summary["message_count"])
+print(summary_v2["schema_version"])
 print(fingerprint["fingerprint_version"])
 print(fingerprint_v2["schema_version"])
 print(diff["diff_version"])

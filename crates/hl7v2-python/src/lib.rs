@@ -265,11 +265,24 @@ pub fn validate(content: &str, profile_yaml: &str) -> PyResult<PyValidationRepor
 }
 
 /// Summarize a file or directory corpus and return a Python dict.
-#[pyfunction]
-pub fn corpus_summary<'py>(py: Python<'py>, path: &str) -> PyResult<Bound<'py, PyAny>> {
+#[pyfunction(signature = (path, schema_version = 1))]
+pub fn corpus_summary<'py>(
+    py: Python<'py>,
+    path: &str,
+    schema_version: u8,
+) -> PyResult<Bound<'py, PyAny>> {
     let summary =
         summarize_corpus_path(path).map_err(|e| value_error("Corpus summary error", e))?;
-    report_to_dict(py, &summary, "Corpus summary serialization error")
+    match schema_version {
+        1 => report_to_dict(py, &summary, "Corpus summary serialization error"),
+        2 => {
+            let summary_v2 = summary.to_v2("hl7v2-python", env!("CARGO_PKG_VERSION"));
+            report_to_dict(py, &summary_v2, "Corpus summary v2 serialization error")
+        }
+        _ => Err(PyValueError::new_err(
+            "corpus summary schema_version must be 1 or 2",
+        )),
+    }
 }
 
 /// Fingerprint a file or directory corpus and return a Python dict.
