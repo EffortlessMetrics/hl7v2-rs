@@ -104,8 +104,8 @@ Python parity, user guides, and documented evidence null/empty semantics are in
 place. Remaining hardening work:
 
 1. Add artifact version and tool version fields consistently.
-2. Add broader synthetic PHI leak sentinels for future server/Python evidence
-   wrappers and additional fixture families.
+2. Expand PHI leak sentinels beyond the current synthetic patient/contact
+   fixture family as new evidence surfaces or policy modes are added.
 3. Promote shared report types out of CLI-local structs when server or Python
    parity needs them.
 

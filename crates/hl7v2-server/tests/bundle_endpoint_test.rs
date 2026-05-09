@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use tower::ServiceExt;
 
-const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St||5558675309\rNK1|1|Watcher^Nora||900 Support Way|5550001234\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
 
 const PROFILE: &str = r#"
 message_structure: ADT_A01
@@ -52,6 +52,26 @@ reason = "date of birth"
 path = "PID.11"
 action = "drop"
 reason = "patient address"
+
+[[rules]]
+path = "PID.13"
+action = "drop"
+reason = "patient phone"
+
+[[rules]]
+path = "NK1.2"
+action = "drop"
+reason = "next-of-kin name"
+
+[[rules]]
+path = "NK1.4"
+action = "drop"
+reason = "next-of-kin address"
+
+[[rules]]
+path = "NK1.5"
+action = "drop"
+reason = "next-of-kin phone"
 
 [[rules]]
 path = "MSH.9"
@@ -284,7 +304,16 @@ async fn test_bundle_endpoint_rejects_existing_bundle_id() {
 }
 
 fn assert_no_phi(content: &str) {
-    for sentinel in ["Doe^John", "123456^^^HOSP^MR", "19700101", "123 Main St"] {
+    for sentinel in [
+        "Doe^John",
+        "123456^^^HOSP^MR",
+        "19700101",
+        "123 Main St",
+        "5558675309",
+        "Watcher^Nora",
+        "900 Support Way",
+        "5550001234",
+    ] {
         assert!(!content.contains(sentinel), "content leaked {sentinel}");
     }
 }

@@ -16,7 +16,7 @@ use tower::ServiceExt;
 
 mod common;
 
-const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St||5558675309\rNK1|1|Watcher^Nora||900 Support Way|5550001234\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
 
 const REDACTION_POLICY: &str = r#"
 [[rules]]
@@ -38,6 +38,26 @@ reason = "drop date of birth"
 path = "PID.11"
 action = "drop"
 reason = "drop patient address"
+
+[[rules]]
+path = "PID.13"
+action = "drop"
+reason = "drop patient phone"
+
+[[rules]]
+path = "NK1.2"
+action = "drop"
+reason = "drop next-of-kin name"
+
+[[rules]]
+path = "NK1.4"
+action = "drop"
+reason = "drop next-of-kin address"
+
+[[rules]]
+path = "NK1.5"
+action = "drop"
+reason = "drop next-of-kin phone"
 "#;
 
 const VALIDATION_PROFILE: &str = r#"
@@ -113,10 +133,7 @@ async fn test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_
             .unwrap()
             .contains("hash:sha256:")
     );
-    assert!(!body_text.contains("Doe^John"));
-    assert!(!body_text.contains("123456^^^HOSP^MR"));
-    assert!(!body_text.contains("19700101"));
-    assert!(!body_text.contains("123 Main St"));
+    assert_no_phi(&body_text);
 }
 
 #[tokio::test]
@@ -162,7 +179,7 @@ async fn test_validate_redacted_report_is_generated_from_redacted_message() {
 
     assert_eq!(body_json["validation_report"]["valid"], false);
     assert_eq!(body_json["validation_report"]["issues"][0]["path"], "PID.5");
-    assert!(!body_text.contains("Doe^John"));
+    assert_no_phi(&body_text);
 }
 
 #[tokio::test]
@@ -193,8 +210,20 @@ reason = "hash patient identifier"
 
     assert_eq!(body_json["code"], "REDACTION_ERROR");
     assert!(body_json["message"].as_str().unwrap().contains("PID.5"));
-    assert!(!body_text.contains("Doe^John"));
-    assert!(!body_text.contains("123456^^^HOSP^MR"));
-    assert!(!body_text.contains("19700101"));
-    assert!(!body_text.contains("123 Main St"));
+    assert_no_phi(&body_text);
+}
+
+fn assert_no_phi(content: &str) {
+    for sentinel in [
+        "Doe^John",
+        "123456^^^HOSP^MR",
+        "19700101",
+        "123 Main St",
+        "5558675309",
+        "Watcher^Nora",
+        "900 Support Way",
+        "5550001234",
+    ] {
+        assert!(!content.contains(sentinel), "content leaked {sentinel}");
+    }
 }
