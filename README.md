@@ -19,7 +19,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Writer / Normalize** | Stable | Writer tests plus HTTP/gRPC normalization contract coverage |
 | **MLLP / Network** | Stable | MLLP parse/framing tests and CI matrix coverage |
 | **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, redacted validation, bundle/replay, ACK, normalize, inline corpus evidence, readiness, and redacted structured logs |
-| **gRPC Service** | Beta | Contract tests cover Parse, Validate, GenerateAck, Normalize, and HealthCheck; ParseStream is explicitly unsupported |
+| **gRPC Service** | Beta | v1.4.0 contract tests cover Parse, Validate, GenerateAck, Normalize, and HealthCheck; current main also covers ParseStream as one request message into one response message |
 | **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
