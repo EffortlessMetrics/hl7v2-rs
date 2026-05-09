@@ -86,6 +86,8 @@ The CLI output contract is stable enough for CI and automation:
 
 Evidence JSON null, omitted-field, and empty-array semantics are documented in
 [`schemas/README.md`](../../schemas/README.md#evidence-null-and-empty-semantics).
+The next provenance/versioning contract is planned in
+[`evidence-provenance-versioning.md`](evidence-provenance-versioning.md).
 
 ## Remaining Contract Hardening Gaps
 
@@ -95,7 +97,9 @@ Python parity, and workflow guides. Remaining hardening work should narrow the
 few places where provenance or identity is still implicit:
 
 - `schema_version` or artifact-specific version naming for every machine
-  artifact.
+  artifact. The compatibility plan is documented in
+  [`evidence-provenance-versioning.md`](evidence-provenance-versioning.md);
+  implementation still requires explicit v2 schema/type work.
 - `tool_version` where users need provenance outside an environment file.
 - Shared library types for any CLI-local report promoted beyond CLI-only use.
 

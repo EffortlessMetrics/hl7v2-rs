@@ -104,6 +104,10 @@ Python parity, user guides, and documented evidence null/empty semantics are in
 place. Remaining hardening work:
 
 1. Add artifact version and tool version fields consistently.
+   The compatibility plan is documented in
+   [`../architecture/evidence-provenance-versioning.md`](../architecture/evidence-provenance-versioning.md);
+   implementation should happen through explicit v2 schema/type PRs, not
+   silent v1 shape changes.
 2. Expand PHI leak sentinels beyond the current synthetic patient/contact
    fixture family as new evidence surfaces or policy modes are added.
 3. Promote shared report types out of CLI-local structs when server or Python

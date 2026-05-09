@@ -187,6 +187,14 @@ Schemas are versioned with `-v1`, `-v2` suffixes. Breaking changes require:
 3. Maintain backward compatibility for 2 versions
 4. Document migration path
 
+Evidence artifacts also have a dedicated provenance/versioning plan in
+[`docs/architecture/evidence-provenance-versioning.md`](../docs/architecture/evidence-provenance-versioning.md).
+For evidence contracts, adding embedded `schema_version`, `tool_name`, or
+`tool_version` fields to an already published `*-v1` JSON shape is a contract
+change because evidence schemas use `additionalProperties: false`. Add those
+fields through explicit v2 schemas and golden fixtures unless a PR documents a
+different compatibility path.
+
 ## References
 
 - [JSON Schema Specification](https://json-schema.org/)
