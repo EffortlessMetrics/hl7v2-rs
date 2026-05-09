@@ -589,6 +589,16 @@ reason = "Patient identifier"
         )
         evidence_text += json.dumps(replay)
         evidence_text += json.dumps(replay_v2)
+        evidence_text += json.dumps(bundle_v2)
+        evidence_text += "\n".join(
+            (bundle_v2_dir / artifact).read_text(encoding="utf-8")
+            for artifact in [
+                "field-paths.json",
+                "redaction-receipt.json",
+                "environment.json",
+                "manifest.json",
+            ]
+        )
         try:
             assert_no_phi_leak_sentinels_or_paths(
                 "Python bundle/replay evidence",

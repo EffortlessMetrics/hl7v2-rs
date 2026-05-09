@@ -94,6 +94,8 @@ reason = "drop next-of-kin phone"
 
 PHI_SENTINELS = [
     "Doe^John",
+    "123456^^^HOSP^MR",
+    "19700101",
     "123 Main St",
     "5558675309",
     "Watcher^Nora",

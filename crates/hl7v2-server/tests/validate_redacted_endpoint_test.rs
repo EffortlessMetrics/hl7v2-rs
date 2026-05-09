@@ -10,55 +10,15 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use hl7v2_test_utils::{
+    PHI_LEAK_SENTINEL_MESSAGE as PHI_MESSAGE, PHI_LEAK_SENTINEL_POLICY as REDACTION_POLICY,
+    assert_no_phi_leak_sentinels,
+};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
 mod common;
-
-const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St||5558675309\rNK1|1|Watcher^Nora||900 Support Way|5550001234\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
-
-const REDACTION_POLICY: &str = r#"
-[[rules]]
-path = "PID.3"
-action = "hash"
-reason = "hash patient identifier for support analysis"
-
-[[rules]]
-path = "PID.5"
-action = "drop"
-reason = "drop patient name"
-
-[[rules]]
-path = "PID.7"
-action = "drop"
-reason = "drop date of birth"
-
-[[rules]]
-path = "PID.11"
-action = "drop"
-reason = "drop patient address"
-
-[[rules]]
-path = "PID.13"
-action = "drop"
-reason = "drop patient phone"
-
-[[rules]]
-path = "NK1.2"
-action = "drop"
-reason = "drop next-of-kin name"
-
-[[rules]]
-path = "NK1.4"
-action = "drop"
-reason = "drop next-of-kin address"
-
-[[rules]]
-path = "NK1.5"
-action = "drop"
-reason = "drop next-of-kin phone"
-"#;
 
 const VALIDATION_PROFILE: &str = r#"
 message_structure: "ADT_A01"
@@ -328,16 +288,5 @@ reason = "hash patient identifier"
 }
 
 fn assert_no_phi(content: &str) {
-    for sentinel in [
-        "Doe^John",
-        "123456^^^HOSP^MR",
-        "19700101",
-        "123 Main St",
-        "5558675309",
-        "Watcher^Nora",
-        "900 Support Way",
-        "5550001234",
-    ] {
-        assert!(!content.contains(sentinel), "content leaked {sentinel}");
-    }
+    assert_no_phi_leak_sentinels("validate-redacted response", content);
 }
