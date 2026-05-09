@@ -84,6 +84,12 @@ The CLI keeps primary command output on stdout. For JSON/YAML evidence commands,
 stdout is the machine-readable artifact. Stderr is reserved for diagnostics,
 receipts, and top-level errors.
 
+Evidence commands that produce reports accept `--output <path>`, `--quiet`, and
+`--no-color`. Without `--output`, the report is written to stdout. With
+`--output`, the same artifact is written to the requested file and stdout stays
+quiet. `--quiet` suppresses non-error diagnostics, while top-level errors still
+go to stderr.
+
 Exit codes are stable for automation:
 
 | Code | Meaning |

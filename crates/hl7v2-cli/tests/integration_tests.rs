@@ -3127,6 +3127,288 @@ action = "hash"
         assert!(output_text(&output.stdout).contains("hash:sha256:"));
         assert!(output_text(&output.stderr).contains("Redaction receipt"));
     }
+
+    fn json_from_file(path: &std::path::Path) -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(path).expect("output file should be readable"))
+            .expect("output file should contain JSON")
+    }
+
+    #[test]
+    fn test_report_commands_write_output_file_and_keep_stdout_quiet() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+        let corpus = dir.path().join("corpus");
+        let before = dir.path().join("before");
+        let after = dir.path().join("after");
+        std::fs::create_dir_all(&corpus).unwrap();
+        std::fs::create_dir_all(&before).unwrap();
+        std::fs::create_dir_all(&after).unwrap();
+        create_temp_file(&dir, "corpus/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
+        create_temp_file(&dir, "before/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
+        create_temp_file(&dir, "after/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
+
+        let val_report = dir.path().join("validation-report.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+                "--output",
+                val_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("validation command should run");
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&val_report)["valid"], false);
+
+        let val_text_report = dir.path().join("validation-report.txt");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "text",
+                "--summary",
+                "--output",
+                val_text_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("text validation command should run");
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("validation failed"));
+        let val_text_output = std::fs::read_to_string(&val_text_report).unwrap();
+        assert!(val_text_output.contains("Validation failed"));
+        assert!(!val_text_output.contains("Validation Summary"));
+
+        let lint_report = dir.path().join("profile-lint.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "lint",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+                "--output",
+                lint_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("profile lint should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&lint_report)["valid"], true);
+
+        let explain_report = dir.path().join("profile-explain.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                explain_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("profile explain should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(
+            json_from_file(&explain_report)["message_structure"],
+            "ADT_A01"
+        );
+
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/valid.hl7",
+            VALID_ADT_MESSAGE.as_bytes(),
+        );
+        create_temp_file(
+            &dir,
+            "fixtures/invalid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE.as_bytes(),
+        );
+        let test_report = dir.path().join("profile-test.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "test",
+                profile.to_str().unwrap(),
+                fixtures.to_str().unwrap(),
+                "--report",
+                "json",
+                "--output",
+                test_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("profile test should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&test_report)["valid"], true);
+
+        let summary_report = dir.path().join("corpus-summary.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "summarize",
+                corpus.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                summary_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("corpus summarize should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&summary_report)["message_count"], 1);
+
+        let fingerprint_report = dir.path().join("corpus-fingerprint.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "fingerprint",
+                corpus.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                fingerprint_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("corpus fingerprint should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&fingerprint_report)["message_count"], 1);
+
+        let diff_report = dir.path().join("corpus-diff.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "diff",
+                before.to_str().unwrap(),
+                after.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                diff_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("corpus diff should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&diff_report)["diff_version"], "1");
+    }
+
+    #[test]
+    fn test_redact_bundle_and_replay_write_output_files_and_keep_stdout_quiet() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", VALID_ADT_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+        let policy = create_temp_profile(&dir, "policy.toml", SAFE_ANALYSIS_POLICY);
+
+        let redacted = dir.path().join("message.redacted.hl7");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message.to_str().unwrap(),
+                "--policy",
+                policy.to_str().unwrap(),
+                "--format",
+                "hl7",
+                "--output",
+                redacted.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("redact should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert!(output.stderr.is_empty());
+        assert!(
+            std::fs::read_to_string(&redacted)
+                .unwrap()
+                .contains("hash:sha256:")
+        );
+
+        let bundle_dir = dir.path().join("bundle");
+        let bundle_summary = dir.path().join("bundle-summary.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "bundle",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--redact-policy",
+                policy.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+                "--output",
+                bundle_summary.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("bundle should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&bundle_summary)["bundle_version"], "1");
+
+        let replay_report = dir.path().join("replay-report.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "replay",
+                bundle_dir.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                replay_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("replay should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&replay_report)["reproduced"], true);
+    }
 }
 
 // =========================================================================

@@ -63,6 +63,11 @@ The CLI output contract is stable enough for CI and automation:
 
 - JSON/YAML output goes to stdout as the primary machine-readable artifact.
 - Human text output also goes to stdout.
+- Evidence report commands support `--output <path>` to write the same artifact
+  to a file while keeping stdout quiet.
+- `--quiet` suppresses non-error diagnostics; top-level errors still use stderr.
+- `--no-color` is accepted by evidence commands so automation can opt out of
+  colored diagnostics as formatting evolves.
 - Diagnostics and top-level errors are written to stderr by the global error
   path.
 - `hl7v2 redact --format hl7` writes the redacted message to stdout and a short

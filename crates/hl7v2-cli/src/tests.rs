@@ -949,12 +949,17 @@ constraints:
 
         #[test]
         fn test_corpus_summarize_command_execution() {
+            use crate::OutputOptions;
             use crate::ReportFormat;
             use crate::corpus_summarize_command;
             let dir = TempDir::new().expect("Failed to create temp dir");
             create_temp_hl7_file(&dir, "test.hl7");
 
-            let result = corpus_summarize_command(&dir.path().to_path_buf(), &ReportFormat::Json);
+            let result = corpus_summarize_command(
+                &dir.path().to_path_buf(),
+                &ReportFormat::Json,
+                &OutputOptions::new(None, false, false),
+            );
             assert!(result.is_ok());
         }
 
@@ -1063,6 +1068,7 @@ constraints:
 
         #[test]
         fn test_corpus_diff_command_execution() {
+            use crate::OutputOptions;
             use crate::ReportFormat;
             use crate::corpus_diff_command;
             let before = TempDir::new().expect("Failed to create before temp dir");
@@ -1075,6 +1081,7 @@ constraints:
                 &after.path().to_path_buf(),
                 None,
                 &ReportFormat::Json,
+                &OutputOptions::new(None, false, false),
             );
             assert!(result.is_ok());
         }
@@ -1140,13 +1147,18 @@ constraints:
 
         #[test]
         fn test_corpus_fingerprint_command_execution() {
+            use crate::OutputOptions;
             use crate::ReportFormat;
             use crate::corpus_fingerprint_command;
             let dir = TempDir::new().expect("Failed to create temp dir");
             create_temp_hl7_file(&dir, "test.hl7");
 
-            let result =
-                corpus_fingerprint_command(&dir.path().to_path_buf(), None, &ReportFormat::Json);
+            let result = corpus_fingerprint_command(
+                &dir.path().to_path_buf(),
+                None,
+                &ReportFormat::Json,
+                &OutputOptions::new(None, false, false),
+            );
             assert!(result.is_ok());
         }
 
@@ -1197,6 +1209,7 @@ constraints:
                     false,
                     &crate::ReportFormat::Text,
                     false,
+                    &crate::OutputOptions::new(None, false, false),
                 )
                 .is_ok()
             );
