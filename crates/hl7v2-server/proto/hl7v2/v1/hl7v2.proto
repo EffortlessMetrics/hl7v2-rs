@@ -186,6 +186,12 @@ message ValidateRequest {
 
   // Validation options
   ValidationOptions options = 4;
+
+  // Optional validation evidence schema version.
+  //
+  // Omitted or 1 preserves the legacy response fields. 2 includes the
+  // validation_report_v2 field with embedded provenance.
+  int32 report_schema_version = 5;
 }
 
 message ValidationOptions {
@@ -209,6 +215,12 @@ message ValidateResponse {
 
   // Summary
   ValidationSummary summary = 4;
+
+  // Stable validation report fields shared with CLI, REST, Rust, and Python
+  ValidationReport validation_report = 5;
+
+  // Opt-in validation report with embedded evidence provenance
+  ValidationReportV2 validation_report_v2 = 6;
 }
 
 // Validation Issue
@@ -259,6 +271,99 @@ message ValidationSummary {
   int32 error_count = 1;
   int32 warning_count = 2;
   int32 info_count = 3;
+}
+
+// Stable validation report artifact.
+message ValidationReport {
+  // Whether validation passed without error-level issues
+  bool valid = 1;
+
+  // HL7 trigger event from MSH.9, such as ADT^A01
+  string message_type = 2;
+
+  // Profile identifier, usually the loaded profile message structure
+  optional string profile = 3;
+
+  // Number of parsed message segments
+  int32 segment_count = 4;
+
+  // Number of reported validation issues
+  int32 issue_count = 5;
+
+  // Stable validation issue records
+  repeated ValidationReportIssue issues = 6;
+}
+
+// Validation report v2 artifact with embedded evidence provenance.
+message ValidationReportV2 {
+  // Evidence artifact schema version
+  string schema_version = 1;
+
+  // Producer surface that generated this report
+  string tool_name = 2;
+
+  // Semantic version of the producing crate or binding package
+  string tool_version = 3;
+
+  // Whether validation passed without error-level issues
+  bool valid = 4;
+
+  // HL7 trigger event from MSH.9, such as ADT^A01
+  string message_type = 5;
+
+  // Profile identifier, usually the loaded profile message structure
+  optional string profile = 6;
+
+  // Reproducible profile identity metadata when available
+  ValidationReportProfileIdentity profile_identity = 7;
+
+  // Number of parsed message segments
+  int32 segment_count = 8;
+
+  // Number of reported validation issues
+  int32 issue_count = 9;
+
+  // Stable validation issue records
+  repeated ValidationReportIssue issues = 10;
+}
+
+// Reproducible profile identity metadata.
+message ValidationReportProfileIdentity {
+  // Display label for the profile source
+  string label = 1;
+
+  // Loaded profile message structure when known
+  optional string message_structure = 2;
+
+  // Loaded profile HL7 version when known
+  optional string version = 3;
+
+  // SHA-256 digest of the profile bytes when available
+  optional string sha256 = 4;
+}
+
+// Stable validation issue record used in machine-readable reports.
+message ValidationReportIssue {
+  // Stable snake_case issue code
+  string code = 1;
+
+  // Error or warning severity
+  string severity = 2;
+
+  // HL7 path associated with the issue, such as PID.3
+  optional string path = 3;
+
+  // Stable rule identifier
+  optional string rule_id = 4;
+
+  // Human-readable issue message
+  string message = 5;
+
+  // Zero-based segment index when known
+  optional uint32 segment_index = 6;
+
+  // One-based HL7 field index when known
+  optional uint32 field_index = 7;
 }
 
 // ACK Request
