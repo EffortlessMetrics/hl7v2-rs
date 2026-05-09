@@ -241,6 +241,133 @@ pub struct ValidateRedactedResponse {
     pub redacted_hl7: Option<String>,
 }
 
+/// Server evidence bundle creation request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BundleRequest {
+    /// Raw HL7 message content.
+    pub message: String,
+    /// Inline profile YAML content to validate against.
+    pub profile: String,
+    /// Inline safe-analysis redaction policy in TOML format.
+    pub redaction_policy: String,
+    /// Caller-supplied bundle identifier relative to the configured bundle root.
+    pub bundle_id: String,
+    /// Whether the message is MLLP framed.
+    #[serde(default)]
+    pub mllp_framed: bool,
+}
+
+/// Evidence bundle summary response body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceBundleSummary {
+    /// Evidence bundle contract version.
+    pub bundle_version: String,
+    /// Bundle output directory relative to the configured server bundle root.
+    pub output_dir: String,
+    /// HL7 trigger event from `MSH.9`, such as `ADT^A01`.
+    pub message_type: String,
+    /// Whether validation passed after redaction.
+    pub validation_valid: bool,
+    /// Number of validation issues generated from the redacted message.
+    pub validation_issue_count: usize,
+    /// Whether configured PHI paths were removed or hashed.
+    pub redaction_phi_removed: bool,
+    /// Bundle-relative artifact names written by the server.
+    pub artifacts: Vec<String>,
+}
+
+/// Evidence bundle manifest written inside the bundle directory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceBundleManifest {
+    /// Evidence bundle contract version.
+    pub bundle_version: String,
+    /// Tool that generated this bundle.
+    pub tool_name: String,
+    /// Tool version that generated this bundle.
+    pub tool_version: String,
+    /// Bundle-relative artifact entries.
+    pub artifacts: Vec<EvidenceBundleManifestArtifact>,
+}
+
+/// Evidence bundle manifest artifact entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceBundleManifestArtifact {
+    /// Bundle-relative artifact path.
+    pub path: String,
+    /// Stable artifact role.
+    pub role: String,
+    /// SHA-256 digest of the artifact bytes.
+    pub sha256: String,
+}
+
+/// Environment metadata written inside an evidence bundle.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceBundleEnvironment {
+    /// Evidence bundle contract version.
+    pub bundle_version: String,
+    /// Tool that generated this bundle.
+    pub tool_name: String,
+    /// Tool version that generated this bundle.
+    pub tool_version: String,
+    /// Message type from the raw message.
+    pub message_type: String,
+    /// SHA-256 digest of the raw input message.
+    pub input_sha256: String,
+    /// SHA-256 digest of the profile YAML.
+    pub profile_sha256: String,
+    /// SHA-256 digest of the redaction policy TOML.
+    pub redaction_policy_sha256: String,
+    /// Whether validation passed after redaction.
+    pub validation_valid: bool,
+    /// Number of validation issues generated from the redacted message.
+    pub validation_issue_count: usize,
+    /// Replay command for validating the bundled artifacts.
+    pub replay_command: String,
+}
+
+/// Field-path trace written inside an evidence bundle.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldPathTraceReport {
+    /// HL7 trigger event from `MSH.9`, such as `ADT^A01`.
+    pub message_type: String,
+    /// Number of field entries included in the trace.
+    pub field_count: usize,
+    /// Field path trace records.
+    pub fields: Vec<FieldPathTrace>,
+}
+
+/// Field path trace record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldPathTrace {
+    /// Segment-position-qualified path.
+    pub path: String,
+    /// Segment and HL7 field path, such as `PID.3`.
+    pub canonical_path: String,
+    /// One-based segment index.
+    pub segment_index: usize,
+    /// One-based HL7 field index.
+    pub field_index: usize,
+    /// Whether the field value is present after redaction.
+    pub present: bool,
+    /// Shape of the redacted field value.
+    pub value_shape: FieldValueShape,
+    /// Redaction action associated with this path, when configured.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redaction_action: Option<RedactionAction>,
+}
+
+/// Redacted field value shape.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FieldValueShape {
+    /// Empty field after redaction or original content.
+    Empty,
+    /// Non-empty value not matching a known redaction marker.
+    Present,
+    /// SHA-256 redaction marker.
+    HashedSha256,
+}
+
 /// Redaction receipt compatible with evidence redaction receipts.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RedactionReceipt {

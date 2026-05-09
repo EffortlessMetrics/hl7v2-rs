@@ -121,6 +121,20 @@ curl -X POST http://localhost:8080/hl7/validate-redacted \
   }'
 ```
 
+**Create a redacted evidence bundle:**
+```bash
+# Requires HL7V2_BUNDLE_OUTPUT_ROOT to point at an existing writable directory.
+curl -X POST http://localhost:8080/hl7/bundle \
+  -H "X-API-Key: your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bundle_id": "case-001",
+    "message": "MSH|^~\\&|...",
+    "profile": "...",
+    "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n"
+  }'
+```
+
 **Check server health:**
 ```bash
 curl http://localhost:8080/health

@@ -16,8 +16,8 @@ use tower_http::{
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::handlers::{
-    ack_handler, health_handler, normalize_handler, parse_handler, ready_handler, validate_handler,
-    validate_redacted_handler,
+    ack_handler, bundle_handler, health_handler, normalize_handler, parse_handler, ready_handler,
+    validate_handler, validate_redacted_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
 use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
@@ -42,6 +42,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/parse", post(parse_handler))
         .route("/validate", post(validate_handler))
         .route("/validate-redacted", post(validate_redacted_handler))
+        .route("/bundle", post(bundle_handler))
         .route("/ack", post(ack_handler))
         .route("/normalize", post(normalize_handler));
 
@@ -125,6 +126,7 @@ mod tests {
             api_key: Some(api_key.clone()),
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
         });
         (build_router(state), api_key)
     }
@@ -175,6 +177,7 @@ mod tests {
             api_key: None,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
         });
 
         let app = build_router(state);
@@ -209,6 +212,7 @@ mod tests {
             api_key: None,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
         });
 
         let app = build_router(state);

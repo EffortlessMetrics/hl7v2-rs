@@ -40,6 +40,7 @@ fn build_test_router(
         api_key: None,
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
+        bundle_output_root: None,
     });
 
     // Rate limit configuration

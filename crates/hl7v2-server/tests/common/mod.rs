@@ -19,6 +19,7 @@ pub fn create_test_server() -> Server {
         cors_allowed_origins: Default::default(),
         profile_paths: Vec::new(),
         config_source: None,
+        bundle_output_root: None,
     };
     Server::new(config)
 }
@@ -32,6 +33,7 @@ pub fn create_test_router() -> Router {
         api_key: None,
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
+        bundle_output_root: None,
     });
     hl7v2_server::routes::build_router(state)
 }

@@ -193,6 +193,49 @@ paths:
         '401':
           description: Unauthorized
 
+  /hl7/bundle:
+    post:
+      summary: Create redacted evidence bundle
+      description: |
+        Apply safe-analysis redaction, validate the redacted message, and write a replayable evidence bundle under the server's configured bundle output root. The request supplies a bundle_id, not a filesystem path.
+      tags: [hl7]
+      operationId: createEvidenceBundle
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BundleRequest'
+      responses:
+        '201':
+          description: Evidence bundle created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceBundleSummary'
+        '400':
+          description: Invalid request, profile, message, redaction policy, or bundle id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '409':
+          description: Bundle id already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Server bundle output root is not configured or not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /hl7/ack:
     post:
       summary: Generate HL7 ACK
@@ -453,6 +496,58 @@ components:
           type: string
           nullable: true
           description: Redacted HL7 payload, returned only when requested
+
+    BundleRequest:
+      type: object
+      required: [message, profile, redaction_policy, bundle_id]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        profile:
+          type: string
+          description: Profile content (YAML)
+        redaction_policy:
+          type: string
+          description: Safe-analysis redaction policy content (TOML)
+        bundle_id:
+          type: string
+          pattern: '^(?!\.{1,2}$)[A-Za-z0-9_.-]{1,128}$'
+          description: Single safe path segment relative to the configured server bundle output root
+        mllp_framed:
+          type: boolean
+          default: false
+
+    EvidenceBundleSummary:
+      type: object
+      required:
+        - bundle_version
+        - output_dir
+        - message_type
+        - validation_valid
+        - validation_issue_count
+        - redaction_phi_removed
+        - artifacts
+      properties:
+        bundle_version:
+          type: string
+          enum: ['1']
+        output_dir:
+          type: string
+          description: Bundle id relative to the configured server bundle output root
+        message_type:
+          type: string
+        validation_valid:
+          type: boolean
+        validation_issue_count:
+          type: integer
+          minimum: 0
+        redaction_phi_removed:
+          type: boolean
+        artifacts:
+          type: array
+          items:
+            type: string
 
     ValidationReport:
       type: object
