@@ -171,6 +171,67 @@ constraints:
             print(f"unexpected diff issue counts: {diff}", file=sys.stderr)
             return 1
 
+    redaction_policy = """
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "Patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "Patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "Date of birth"
+"""
+    redaction = hl7v2.redact(raw, redaction_policy)
+    if redaction["message_type"] != "ADT^A01":
+        print(f"unexpected redaction message type: {redaction}", file=sys.stderr)
+        return 1
+    if len(redaction["input_sha256"]) != 64 or len(redaction["policy_sha256"]) != 64:
+        print(f"redaction hashes are not SHA-256 digests: {redaction}", file=sys.stderr)
+        return 1
+    redacted_hl7 = redaction["redacted_hl7"]
+    receipt = redaction["receipt"]
+    if receipt["hash_algorithm"] != "sha256" or receipt["phi_removed"] is not True:
+        print(f"unexpected redaction receipt: {receipt}", file=sys.stderr)
+        return 1
+    if "hash:sha256:" not in redacted_hl7:
+        print(f"redacted HL7 did not include hash marker: {redacted_hl7}", file=sys.stderr)
+        return 1
+    for sentinel in ["Doe^John", "123456", "19700101"]:
+        if sentinel in redacted_hl7 or sentinel in json.dumps(receipt):
+            print(f"raw PHI sentinel leaked through redaction: {sentinel}", file=sys.stderr)
+            return 1
+    actions = {item["path"]: item for item in receipt["actions"]}
+    if (
+        actions["PID.3"]["action"] != "hash"
+        or actions["PID.3"]["status"] != "applied"
+        or actions["PID.5"]["action"] != "drop"
+        or actions["PID.7"]["action"] != "drop"
+    ):
+        print(f"unexpected redaction actions: {receipt}", file=sys.stderr)
+        return 1
+
+    unsafe_policy = """
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "Patient identifier"
+"""
+    try:
+        hl7v2.redact(raw, unsafe_policy)
+    except ValueError as exc:
+        if "redaction policy does not protect present sensitive field" not in str(exc):
+            print(f"unexpected redaction failure: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print("expected incomplete redaction policy to fail closed", file=sys.stderr)
+        return 1
+
     try:
         hl7v2.parse("not an hl7 message")
     except ValueError as exc:

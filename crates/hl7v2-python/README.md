@@ -69,8 +69,29 @@ diff = hl7v2.corpus_diff(
 print(summary["message_count"])
 print(fingerprint["fingerprint_version"])
 print(diff["diff_version"])
+
+policy_toml = """
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "Patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "Patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "Date of birth"
+"""
+redaction = hl7v2.redact(raw, policy_toml)
+print(redaction["redacted_hl7"])
+print(redaction["receipt"]["phi_removed"])
 ```
 
 The current Python surface intentionally starts with the minimum evidence loop:
-parse, JSON export, normalize, validate, and corpus summary/fingerprint/diff.
-Redaction, bundle, and replay APIs should be added in focused follow-up PRs.
+parse, JSON export, normalize, validate, corpus summary/fingerprint/diff, and
+safe-analysis redaction. Bundle and replay APIs should be added in focused
+follow-up PRs.

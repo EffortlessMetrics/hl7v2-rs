@@ -1,5 +1,6 @@
 //! Python bindings for HL7v2 via PyO3.
 
+use ::hl7v2::redact::redact_hl7_safe_analysis as rust_redact_hl7_safe_analysis;
 use ::hl7v2::synthetic::corpus::{
     CorpusCount, CorpusFingerprintProfile, compute_sha256, diff_corpus_fingerprints,
     diff_corpus_paths, fingerprint_corpus_path, summarize_corpus_path,
@@ -288,6 +289,18 @@ pub fn corpus_diff<'py>(
     report_to_dict(py, &diff, "Corpus diff serialization error")
 }
 
+/// Redact raw HL7 with a safe-analysis policy TOML string and return a Python dict.
+#[pyfunction]
+pub fn redact<'py>(
+    py: Python<'py>,
+    content: &str,
+    policy_toml: &str,
+) -> PyResult<Bound<'py, PyAny>> {
+    let output = rust_redact_hl7_safe_analysis(content.as_bytes(), policy_toml)
+        .map_err(|e| value_error("Redaction error", e))?;
+    report_to_dict(py, &output, "Redaction serialization error")
+}
+
 /// HL7v2 module for Python
 #[pymodule]
 fn hl7v2(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -301,5 +314,6 @@ fn hl7v2(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(corpus_summary, m)?)?;
     m.add_function(wrap_pyfunction!(corpus_fingerprint, m)?)?;
     m.add_function(wrap_pyfunction!(corpus_diff, m)?)?;
+    m.add_function(wrap_pyfunction!(redact, m)?)?;
     Ok(())
 }

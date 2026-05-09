@@ -11,7 +11,7 @@ parity.
 
 The goal is to make the next hardening work concrete: JSON Schemas, golden
 fixtures, CLI output semantics, bundle manifest verification, server parity, and
-Python redaction APIs should be based on the artifacts that exist now.
+Python bundle/replay APIs should be based on the artifacts that exist now.
 
 ## Current Product Loop
 
@@ -36,8 +36,8 @@ redacted validation through `/hl7/validate-redacted`, server-side evidence
 bundle creation through `/hl7/bundle` when a bundle output root is configured,
 policy-driven ACK/NAK decisions through `/hl7/ack-policy`, and configured
 quarantine output for failed redacted validation. Python exposes parse, JSON
-conversion, normalization, validation report dict/JSON parity, and corpus
-summary/fingerprint/diff dict outputs.
+conversion, normalization, validation report dict/JSON parity, corpus
+summary/fingerprint/diff dict outputs, and safe-analysis redaction output.
 
 ## Artifact Status
 
@@ -50,13 +50,13 @@ summary/fingerprint/diff dict outputs.
 | `CorpusSummary` | Shared Rust corpus summary type. CLI emits text/JSON/YAML and Python returns the same dict shape. | Missing version fields; JSON Schema and golden fixture exist. |
 | `CorpusFingerprint` | Shared Rust fingerprint type with `fingerprint_version`, `tool_version`, optional profile hash, counts, field presence/cardinality, value shapes, and validation issue-code counts. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; null/empty behavior still needs clearer docs. |
 | `CorpusDiffReport` | Shared Rust diff type with `diff_version`, `tool_version`, optional profile hash, totals, new/removed message types and segments, field deltas, value-shape deltas, and validation issue-code deltas. CLI emits text/JSON/YAML and Python returns the same dict shape. | JSON Schema and golden fixture exist; null/empty behavior still needs clearer docs. |
-| `RedactionReceipt` | CLI and server receipts record PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | Missing version fields, JSON Schema, and dedicated leak-sentinel fixture family. |
+| `RedactionReceipt` | CLI, server, and Python receipts record PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | Missing version fields and dedicated leak-sentinel fixture family; JSON Schema exists. |
 | `EvidenceBundleSummary` | CLI stdout JSON summary and server `/hl7/bundle` JSON response include `bundle_version`, output directory/id, message type, validation status, redaction status, and artifact list. | Includes `manifest.json`; no `tool_version` in the summary itself. |
 | Bundle artifacts | CLI and server bundles write `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, `README.md`, and `manifest.json`. | Bundle README is generated and manifest-hashed. |
 | `QuarantineOutputSummary` | Server `/hl7/validate-redacted` can return a root-relative quarantine output id, reason, validation issue count, and artifact list when `[quarantine]` is enabled and validation fails. | Server-local response type; JSON Schema exists; full-bundle mode reuses bundle artifacts. |
 | `EvidenceBundleManifest` | Bundle `manifest.json` records bundle-relative artifact paths, roles, SHA-256 hashes, and the generating tool name (`hl7v2-cli` or `hl7v2-server`). | Replay verifies manifest catalog and hashes before using artifacts. |
 | `EvidenceReplayReport` | CLI report with `replay_version`, `bundle_version`, `tool_name`, `tool_version`, replay checks, reproduction status, and optional regenerated validation report. | Fails closed on malformed manifests, missing artifacts, and hash mismatches; report schema exists. |
-| Python validation report | `report.valid`, `message_type`, `profile`, `segment_count`, `issue_count`, `to_dict()`, and `to_json()` mirror `ValidationReport`. | Python exposes validation reports and corpus summary/fingerprint/diff dict APIs; redaction, bundle, and replay artifact APIs remain follow-up work. |
+| Python validation report | `report.valid`, `message_type`, `profile`, `segment_count`, `issue_count`, `to_dict()`, and `to_json()` mirror `ValidationReport`. | Python exposes validation reports, corpus summary/fingerprint/diff dict APIs, and safe-analysis redaction output; bundle and replay artifact APIs remain follow-up work. |
 
 ## Surface Parity
 
@@ -65,7 +65,7 @@ summary/fingerprint/diff dict outputs.
 | Rust | Shared validation, profile lint, corpus summary/fingerprint/diff, parse, normalize, write, ACK, and redaction module APIs. Several evidence packet reports remain CLI-local. |
 | CLI | Complete current loop: doctor, profile lint/test/explain, validation, corpus summarize/fingerprint/diff, redact, bundle, and replay. |
 | Server | Validation report parity for `/hl7/validate`; redacted validation parity and quarantine hooks for `/hl7/validate-redacted`; configured-root bundle creation for `/hl7/bundle`; policy-driven ACK/NAK decisions for `/hl7/ack-policy`; replay endpoint and corpus artifacts remain follow-up work. |
-| Python | Minimum API parity for parse, `to_json`, normalize, validation reports, and corpus summary/fingerprint/diff dict outputs. Redaction, bundle, and replay APIs remain follow-up work. |
+| Python | Minimum API parity for parse, `to_json`, normalize, validation reports, corpus summary/fingerprint/diff dict outputs, and safe-analysis redaction output. Bundle and replay APIs remain follow-up work. |
 
 One known validation parity detail remains: the CLI report `profile` value is
 the profile path supplied by the user, while the server and Python surfaces use
@@ -99,8 +99,8 @@ hardening work:
 1. Add artifact version and tool version fields consistently.
 2. Document null/empty-list behavior for optional fields.
 3. Add fuller external guides for sharing and replaying bundles.
-4. Add synthetic PHI leak sentinels for redaction, bundle, replay, and later
-   Python wrappers.
+4. Add broader synthetic PHI leak sentinels for bundle, replay, and future
+   Python bundle/replay wrappers.
 5. Promote shared report types out of CLI-local structs when server or Python
    parity needs them.
 
@@ -111,7 +111,7 @@ hardening work:
 | Inspected CLI command definitions and formatters | Pass | `doctor`, `profile`, `corpus`, `redact`, `bundle`, and `replay` commands are present. |
 | Inspected shared Rust validation and corpus types | Pass | `ValidationReport`, `ProfileLintReport`, `CorpusSummary`, `CorpusFingerprint`, and `CorpusDiffReport` are library types. |
 | Inspected server validation handlers and response models | Pass | `/hl7/validate` builds `ValidationReport`; `/hl7/validate-redacted` returns a validation report plus redaction receipt. |
-| Inspected Python binding API | Pass | Python exposes parse, JSON conversion, normalization, validation report dict/JSON access, and corpus summary/fingerprint/diff dict outputs. |
+| Inspected Python binding API | Pass | Python exposes parse, JSON conversion, normalization, validation report dict/JSON access, corpus summary/fingerprint/diff dict outputs, and safe-analysis redaction output. |
 | Checked existing integration tests | Pass | CLI tests cover JSON outputs, redaction no-PHI assertions, bundle artifacts, replay success, replay drift failure, and missing-artifact failure. |
 
 ## Result
