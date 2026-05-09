@@ -11,6 +11,7 @@ on:
       - "crates/hl7v2/**"
       - "crates/hl7v2-python/**"
       - "tests/python_smoke/**"
+      - "docs/guides/python-evidence-workflow.md"
       - ".github/workflows/python-wheels.yml"
   pull_request:
     branches: [main]
@@ -22,6 +23,7 @@ on:
       - "crates/hl7v2/**"
       - "crates/hl7v2-python/**"
       - "tests/python_smoke/**"
+      - "docs/guides/python-evidence-workflow.md"
       - ".github/workflows/python-wheels.yml"
 
 permissions:
@@ -77,6 +79,9 @@ jobs:
 
       - name: Run import smoke test
         run: python tests/python_smoke/smoke.py
+
+      - name: Run Python evidence guide smoke test
+        run: python tests/python_smoke/evidence_workflow_guide.py
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v7

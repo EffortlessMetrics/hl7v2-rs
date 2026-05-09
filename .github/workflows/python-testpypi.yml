@@ -81,6 +81,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --force-reinstall dist/*.whl
           python tests/python_smoke/smoke.py
+          python tests/python_smoke/evidence_workflow_guide.py
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v7
@@ -147,3 +148,4 @@ jobs:
             --force-reinstall \
             "hl7v2-python==${PACKAGE_VERSION}"
           python tests/python_smoke/smoke.py
+          python tests/python_smoke/evidence_workflow_guide.py
