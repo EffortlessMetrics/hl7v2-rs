@@ -48,10 +48,14 @@ CLI and server configuration (hl7v2.toml):
 ### Evidence (`evidence/*-v*.schema.json`)
 Machine-readable evidence artifacts emitted by the CLI, library, server, and
 Python lanes:
-- Validation reports and profile lint/test/explain reports
+- Doctor reports, validation reports, and profile lint/test/explain reports
 - Corpus summary, fingerprint, and diff reports
 - Redaction receipts, field-path traces, bundle environment metadata, and
   evidence bundle/replay summaries
+
+`doctor-report-v1.schema.json` validates the current `hl7v2 doctor --format
+json` output. The doctor report has no embedded `schema_version`; v1 is the
+current compatible shape.
 
 The first target v2 evidence schemas are `validation-report-v2.schema.json`,
 `profile-lint-report-v2.schema.json`,
