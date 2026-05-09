@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.4.0] - 2026-05-09
+
 ### Added
 
 - Added opt-in v2 provenance contracts and producer paths across validation,
@@ -31,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Prepared the v1.4.0 package line and publish dry-run receipt for the final
+  Rust crates.io graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 - Verified and refreshed the validation sidecar guide with live server replay
   output and the current inline corpus diff response shape.
 - Added current-state and contract-index documentation for the post-v1.3.0
@@ -250,18 +256,6 @@ See [docs/STATUS.md](docs/STATUS.md) for complete status.
 ---
 
 ## Future Releases
-
-### v1.4.0 Evidence Contracts and Server Sidecar
-
-- Promote the current post-v1.3.0 evidence-contract candidate once final
-  release validation passes: evidence schema checks, full gate, API contract
-  checks, Rust publish dry-runs for `hl7v2`, `hl7v2-server`, and `hl7v2-cli`,
-  and Python wheel smoke proof.
-- Keep `hl7v2-python` on the Python/maturin lane instead of the Rust
-  crates.io publish graph. Use the manual TestPyPI proof workflow before any
-  production PyPI release.
-
-### Later releases
 
 - Continue server sidecar hardening, Python distribution proof, profile
   conformance quality, and compatibility-shim policy cleanup as separate

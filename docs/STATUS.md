@@ -3,7 +3,7 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-09
-> **Project Status**: v1.3.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is an unreleased v1.4.0 evidence-contract candidate.
+> **Project Status**: v1.3.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` prepares the unpublished v1.4.0 evidence-contract package line.
 
 ## Core Components
 
@@ -41,7 +41,7 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Published Rust graph**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.3.0 are published and visible in the crates.io index. See `docs/audits/publish-2026-05-09.md`.
 - ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See `docs/audits/publish-dry-run-2026-05-09.md`.
-- 🟡 **Current main release candidate**: current `main` is not published as v1.4.0 yet. Run a fresh full gate, evidence schema check, API Contracts, and dependency-ordered `cargo publish --dry-run` before tagging or uploading the next Rust release.
+- 🟡 **Current main release candidate**: current `main` is prepared as v1.4.0 and has a local dry-run receipt. It is not tagged, released on GitHub, or published to crates.io yet. Run hosted CI/API Contracts on the release PR and rerun dependency-ordered dry-runs during the real upload sequence.
 - 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io. The v1.3.0 binding is verified through a maturin wheel build/install/import smoke lane; current `main` also has a manual TestPyPI proof workflow before any production PyPI release.
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1` and `v1.3.0` tags point at their release heads.
@@ -52,7 +52,8 @@ v1.3.0 is the Evidence Loop release line around deterministic HL7 interface
 evidence. It is tagged, released on GitHub, and uploaded to crates.io for the
 final Rust package graph.
 
-Current `main` is not yet published as v1.4.0. It contains post-v1.3.0
+Current `main` is prepared as the v1.4.0 package line but is not yet published
+as v1.4.0. It contains post-v1.3.0
 evidence-contract hardening: opt-in v2 provenance producers, maintained schema
 validation through `xtask evidence-schema-check`, server replay and inline
 corpus endpoints, redacted structured evidence logs, Docker sidecar smoke
@@ -86,12 +87,14 @@ Publish receipt: [`docs/audits/publish-2026-05-09.md`](audits/publish-2026-05-09
 ## v1.4.0 Candidate Checklist
 
 Draft release notes: [`docs/releases/v1.4.0-evidence-contracts.md`](releases/v1.4.0-evidence-contracts.md).
+Dry-run receipt: [`docs/audits/publish-dry-run-v1.4.0-2026-05-09.md`](audits/publish-dry-run-v1.4.0-2026-05-09.md).
 
-- 🟡 **Publish plan**: `cargo run -p xtask -- publish-plan` should continue to resolve `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
-- 🟡 **Evidence schemas**: `cargo run -p xtask -- evidence-schema-check` must pass on the release head.
-- 🟡 **Full gate**: `cargo run -p xtask -- gate --check` must pass on the release head.
-- 🟡 **Dry-runs**: run dependency-ordered `cargo publish --dry-run` for `hl7v2`, `hl7v2-server`, and `hl7v2-cli` before upload.
-- 🟡 **Python proof**: run maturin wheel build/install/import smoke proof, and use the manual TestPyPI proof workflow before production PyPI.
+- ✅ **Publish plan**: `cargo run -p xtask -- publish-plan` resolves `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+- ✅ **Evidence schemas**: `cargo run -p xtask -- evidence-schema-check` passes on the v1.4.0 package line.
+- ✅ **API contracts**: local OpenAPI lint, proto lint, and packaged proto/OpenAPI drift tests pass on the v1.4.0 package line.
+- ✅ **Full gate**: `cargo run -p xtask -- gate --check` passes on the v1.4.0 package line.
+- ✅ **Dry-runs**: direct `hl7v2` dry-run and workspace-patched full-graph dry-run pass. Direct dependent dry-runs correctly wait for `hl7v2` v1.4.0 to exist in the crates.io index during the real publish sequence.
+- ✅ **Python proof**: the maturin wheel build/install/import smoke proof passes for the v1.4.0 Python lane package without publishing `hl7v2-python` to crates.io.
 - 🟡 **Release notes and tag**: no `v1.4.0` tag or GitHub release exists yet.
 
 ## Historical Plans
@@ -102,5 +105,5 @@ Old planning documents have been moved to `docs/plans/` for archival reference.
 **Current published release**: v1.3.0 is tested, package-verified, tagged, and published to crates.io for the final Rust package graph.
 
 **Current main**: tracks the post-v1.3.0 Evidence Loop hardening line. The
-published Rust crates remain v1.3.0 until the v1.4.0 dry-run and publish train
-is executed.
+published Rust crates remain v1.3.0 until the v1.4.0 publish train is
+executed.
