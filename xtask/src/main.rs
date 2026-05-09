@@ -101,6 +101,8 @@ enum Commands {
     },
     /// Verify the non-Rust file allowlist against tracked files
     CheckFilePolicy,
+    /// Verify CI lane whitelist: coverage, required fields, expensive-default exceptions
+    CheckCiLaneWhitelist,
 }
 
 #[derive(Subcommand)]
@@ -150,6 +152,7 @@ fn main() -> Result<()> {
             NoPanicAction::Propose { include_staged } => no_panic_propose(include_staged)?,
         },
         Commands::CheckFilePolicy => check_file_policy()?,
+        Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
     }
 
     Ok(())
@@ -2659,6 +2662,259 @@ fn string_array_after_root(text: &str, key: &str) -> Option<Vec<String>> {
             .map(|s| s.trim_matches('"').to_string())
             .collect(),
     )
+}
+
+// ============================================================================
+// CI Lane Whitelist
+// ============================================================================
+
+struct CiLaneEntry {
+    id: String,
+    workflow: String,
+    job: String,
+    owner: String,
+    intent: String,
+    failure_mode: String,
+    proof_obligation: String,
+    evidence: Vec<String>,
+    duplicate_of: Vec<String>,
+    default_pr: bool,
+    blocking: bool,
+    expensive: bool,
+    default_pr_exception: Option<String>,
+    expires: String,
+}
+
+struct CiException {
+    id: String,
+    lane: String,
+    allowed: bool,
+    expires: String,
+}
+
+fn parse_ci_lane_whitelist(text: &str) -> Result<Vec<CiLaneEntry>> {
+    let raw_entries = table_array_entries(text, "[[lane]]");
+    let mut out = Vec::with_capacity(raw_entries.len());
+    for (idx, raw) in raw_entries.iter().enumerate() {
+        let n = idx.checked_add(1).unwrap_or(idx);
+        let field = |key: &str| -> Result<String> {
+            top_level_quoted_value(raw, key).ok_or_else(|| {
+                anyhow!("ci-lane-whitelist.toml entry {n}: missing required field `{key}`")
+            })
+        };
+        let id = field("id")?;
+        let workflow = field("workflow")?;
+        let job = field("job")?;
+        let owner = field("owner")?;
+        let intent = field("intent")?;
+        let failure_mode = field("failure_mode")?;
+        let proof_obligation = field("proof_obligation")?;
+        let expires = field("expires")?;
+        let evidence = string_array_after_root(raw, "evidence").unwrap_or_default();
+        let duplicate_of = string_array_after_root(raw, "duplicate_of").unwrap_or_default();
+        let default_pr = top_level_quoted_value(raw, "default_pr")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+        let blocking = top_level_quoted_value(raw, "blocking")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+        let expensive = top_level_quoted_value(raw, "expensive")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+        let default_pr_exception = top_level_quoted_value(raw, "default_pr_exception");
+
+        if workflow.is_empty() || !workflow.starts_with(".github/workflows/") {
+            return Err(anyhow!(
+                "ci-lane-whitelist.toml entry {n} (id={id}): `workflow` must start with `.github/workflows/`"
+            ));
+        }
+        if job.is_empty() {
+            return Err(anyhow!(
+                "ci-lane-whitelist.toml entry {n} (id={id}): `job` must not be empty"
+            ));
+        }
+
+        out.push(CiLaneEntry {
+            id,
+            workflow,
+            job,
+            owner,
+            intent,
+            failure_mode,
+            proof_obligation,
+            evidence,
+            duplicate_of,
+            default_pr,
+            blocking,
+            expensive,
+            default_pr_exception,
+            expires,
+        });
+    }
+    Ok(out)
+}
+
+fn parse_ci_exceptions(text: &str) -> Result<Vec<CiException>> {
+    let raw_entries = table_array_entries(text, "[[exception]]");
+    let mut out = Vec::with_capacity(raw_entries.len());
+    for (idx, raw) in raw_entries.iter().enumerate() {
+        let n = idx.checked_add(1).unwrap_or(idx);
+        let field = |key: &str| -> Result<String> {
+            top_level_quoted_value(raw, key).ok_or_else(|| {
+                anyhow!("ci-whitelist-exceptions.toml entry {n}: missing required field `{key}`")
+            })
+        };
+        let id = field("id")?;
+        let lane = field("lane")?;
+        let expires = field("expires")?;
+        let allowed = top_level_quoted_value(raw, "allowed")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+        out.push(CiException { id, lane, allowed, expires });
+    }
+    Ok(out)
+}
+
+fn today_iso() -> String {
+    if let Ok(d) = env::var("CI_TODAY") {
+        return d;
+    }
+    Command::new("date")
+        .arg("+%Y-%m-%d")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "9999-12-31".to_string())
+}
+
+fn check_ci_lane_whitelist() -> Result<()> {
+    println!("🔎 Checking CI lane whitelist...");
+    let root = env::current_dir()?;
+
+    let whitelist_text =
+        fs::read_to_string(root.join("policy/ci-lane-whitelist.toml"))
+            .map_err(|e| anyhow!("Cannot read policy/ci-lane-whitelist.toml: {e}"))?;
+    let exceptions_text =
+        fs::read_to_string(root.join("policy/ci-whitelist-exceptions.toml"))
+            .map_err(|e| anyhow!("Cannot read policy/ci-whitelist-exceptions.toml: {e}"))?;
+
+    let lanes = parse_ci_lane_whitelist(&whitelist_text)?;
+    let exceptions = parse_ci_exceptions(&exceptions_text)?;
+
+    let today = today_iso();
+    let lane_ids: HashSet<String> = lanes.iter().map(|l| l.id.clone()).collect();
+    let exception_by_id: HashMap<String, &CiException> =
+        exceptions.iter().map(|e| (e.id.clone(), e)).collect();
+
+    let mut warnings: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    for ex in &exceptions {
+        if ex.expires.as_str() < today.as_str() {
+            warnings.push(format!(
+                "exception '{}' for lane '{}' expired on {} (today: {}); update or remove",
+                ex.id, ex.lane, ex.expires, today
+            ));
+        }
+        if !lane_ids.contains(&ex.lane) {
+            warnings.push(format!(
+                "exception '{}' references unknown lane '{}'",
+                ex.id, ex.lane
+            ));
+        }
+    }
+
+    for lane in &lanes {
+        if lane.expires.as_str() < today.as_str() {
+            warnings.push(format!(
+                "lane '{}' `expires` date {} has passed (today: {}); review required",
+                lane.id, lane.expires, today
+            ));
+        }
+
+        for (fname, fval) in [
+            ("intent", lane.intent.as_str()),
+            ("failure_mode", lane.failure_mode.as_str()),
+            ("proof_obligation", lane.proof_obligation.as_str()),
+            ("owner", lane.owner.as_str()),
+            ("workflow", lane.workflow.as_str()),
+            ("job", lane.job.as_str()),
+        ] {
+            if fval.is_empty() {
+                errors.push(format!("lane '{}' has empty required field `{fname}`", lane.id));
+            }
+        }
+
+        if lane.blocking && lane.evidence.is_empty() {
+            warnings.push(format!(
+                "blocking lane '{}' has an empty evidence list",
+                lane.id
+            ));
+        }
+
+        for dep in &lane.duplicate_of {
+            if !lane_ids.contains(dep) {
+                warnings.push(format!(
+                    "lane '{}' duplicate_of references unknown lane '{}'",
+                    lane.id, dep
+                ));
+            }
+        }
+
+        if lane.default_pr && lane.expensive {
+            match &lane.default_pr_exception {
+                None => {
+                    errors.push(format!(
+                        "lane '{}' has default_pr=true and expensive=true but no default_pr_exception",
+                        lane.id
+                    ));
+                }
+                Some(exc_id) => match exception_by_id.get(exc_id) {
+                    None => {
+                        errors.push(format!(
+                            "lane '{}' default_pr_exception '{}' not found in ci-whitelist-exceptions.toml",
+                            lane.id, exc_id
+                        ));
+                    }
+                    Some(ex) => {
+                        if !ex.allowed {
+                            errors.push(format!(
+                                "lane '{}' default_pr_exception '{}' has allowed=false",
+                                lane.id, exc_id
+                            ));
+                        }
+                        if ex.expires.as_str() < today.as_str() {
+                            errors.push(format!(
+                                "lane '{}' default_pr_exception '{}' expired on {}; remove expensive=true or renew exception",
+                                lane.id, exc_id, ex.expires
+                            ));
+                        }
+                    }
+                },
+            }
+        }
+    }
+
+    for w in &warnings {
+        eprintln!("ci-lane-whitelist: warning: {w}");
+    }
+    if !errors.is_empty() {
+        for e in &errors {
+            eprintln!("ci-lane-whitelist: error: {e}");
+        }
+        return Err(anyhow!(
+            "ci-lane-whitelist: {} error(s), {} warning(s)",
+            errors.len(),
+            warnings.len()
+        ));
+    }
+
+    println!(
+        "✅ ci-lane-whitelist: {} lane(s), {} exception(s), {} warning(s)",
+        lanes.len(),
+        exceptions.len(),
+        warnings.len()
+    );
+    Ok(())
 }
 
 #[cfg(test)]
