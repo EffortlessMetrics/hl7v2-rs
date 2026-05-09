@@ -126,6 +126,8 @@ When `[quarantine]` is enabled in `HL7V2_CONFIG`, failed validation writes
 configured quarantine output under the server-controlled quarantine root and
 adds a `quarantine` summary. The summary reports only a root-relative output id
 and artifact names; it does not expose the configured filesystem path.
+Set `quarantine_schema_version` to `2` to also include `quarantine_v2` with
+embedded evidence provenance when quarantine output is written.
 
 ```toml
 [quarantine]
@@ -143,6 +145,7 @@ write_bundle = true
   "profile": "message_structure: ADT_A01\nversion: \"2.5\"\nsegments:\n  - id: MSH\n",
   "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n",
   "redaction_receipt_schema_version": 2,
+  "quarantine_schema_version": 2,
   "include_redacted_hl7": true
 }
 ```
