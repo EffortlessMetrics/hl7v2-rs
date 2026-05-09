@@ -80,6 +80,21 @@ These conventions are part of the evidence contract for the `*-v1` schemas.
 Changing a field from absent to required, from empty array to omitted, or from
 `null` to a sentinel string is a contract change.
 
+#### Evidence Profile Labels
+
+`ValidationReport.profile` is a display label for the profile used by that
+surface, not a canonical cross-surface profile identity:
+
+- CLI validation reports use the profile path supplied by the user.
+- Server validation reports use the loaded profile `message_structure`.
+- Python validation reports use the loaded profile `message_structure`.
+
+Consumers that need reproducible profile identity should use artifacts that
+carry `profile_sha256` or profile metadata, such as profile explain reports,
+corpus fingerprints/diffs with a profile, or evidence bundle environment and
+manifest files. Do not compare `ValidationReport.profile` across CLI, server,
+and Python as if it were a stable hash or normalized profile id.
+
 ## Usage
 
 ### Validate YAML Against Schema

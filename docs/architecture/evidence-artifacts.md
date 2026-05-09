@@ -55,10 +55,11 @@ failed, what changed, what was redacted, and how to replay the result.
 | Server | `/hl7/validate` exposes the shared validation issue fields and preserves legacy `errors` / `warnings`; `/hl7/validate-redacted` applies safe-analysis redaction, returns a validation report plus redaction receipt, and can write configured quarantine output for failed validation; `/hl7/bundle` writes redacted evidence bundles under a configured server root; `/hl7/ack-policy` returns policy-driven ACK/NAK decisions backed by validation reports. Replay endpoints and corpus artifacts remain follow-up work. |
 | Python | Exposes parse, JSON conversion, normalize, validation report dict/JSON parity, corpus summary/fingerprint/diff dict parity, safe-analysis redaction dict output, evidence bundle creation, and replay verification. |
 
-One current validation-report parity wrinkle is the profile label. The CLI uses
-the profile file path, while the server and Python binding use the loaded
-profile `message_structure`. The report fields are otherwise shared through
-`hl7v2::ValidationReport`.
+`ValidationReport.profile` is a surface-local display label, not a canonical
+profile identity. The CLI uses the supplied profile path, while the server and
+Python binding use the loaded profile `message_structure`. Consumers that need
+reproducible profile identity should use artifacts with profile SHA-256
+metadata. The report fields are otherwise shared through `hl7v2::ValidationReport`.
 
 ## Output Semantics
 
@@ -96,9 +97,6 @@ few places where provenance or identity is still implicit:
 - `schema_version` or artifact-specific version naming for every machine
   artifact.
 - `tool_version` where users need provenance outside an environment file.
-- Explicit profile identity semantics for validation reports, since CLI reports
-  the supplied profile path while server and Python reports use the loaded
-  profile message structure.
 - Shared library types for any CLI-local report promoted beyond CLI-only use.
 
 ## Non-Goals
