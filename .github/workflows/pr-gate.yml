@@ -1,0 +1,129 @@
+name: PR Gate
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-gate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Step 1: Classify the diff and estimate LEM cost
+  # ---------------------------------------------------------------------------
+  plan:
+    name: PR Plan
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/pr-plan.yml
+
+  # ---------------------------------------------------------------------------
+  # Step 2a: Rust Fast Gate (all Rust PRs)
+  # Runs when PR Plan says it's not docs-only, or when triggered from
+  # merge_group / workflow_dispatch (where plan is skipped).
+  # ---------------------------------------------------------------------------
+  rust:
+    name: Rust Fast Gate
+    needs: plan
+    if: >-
+      always() && (
+        needs.plan.result == 'skipped' ||
+        needs.plan.outputs.docs_only != 'true'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: hl7v2-pr-gate-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Run gate checks
+        run: cargo run -p xtask -- gate --check
+
+  # ---------------------------------------------------------------------------
+  # Step 2b: Docs Gate (docs-only PRs)
+  # Skips Rust compilation entirely for documentation-only changes.
+  # ---------------------------------------------------------------------------
+  docs:
+    name: Docs Gate
+    needs: plan
+    if: >-
+      always() &&
+      needs.plan.result == 'success' &&
+      needs.plan.outputs.docs_only == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify markdown is readable
+        run: |
+          echo "Docs-only PR: skipping Rust gate"
+          find docs -name '*.md' -print | wc -l
+
+  # ---------------------------------------------------------------------------
+  # Summary: PR Gate Success
+  # This is the intended required branch-protection check (from PR 16).
+  # It passes when exactly one of rust/docs succeeded and the other was skipped.
+  # ---------------------------------------------------------------------------
+  success:
+    name: PR Gate Success
+    needs: [plan, rust, docs]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate gate results
+        run: |
+          set -euo pipefail
+          PLAN='${{ needs.plan.result }}'
+          RUST='${{ needs.rust.result }}'
+          DOCS='${{ needs.docs.result }}'
+
+          echo "plan=$PLAN rust=$RUST docs=$DOCS"
+
+          # Plan failure is fatal
+          if [ "$PLAN" = "failure" ] || [ "$PLAN" = "cancelled" ]; then
+            echo "::error::PR Plan failed or was cancelled"
+            exit 1
+          fi
+
+          # Rust gate passed, docs gate skipped (normal Rust PR)
+          if [ "$RUST" = "success" ] && [ "$DOCS" = "skipped" ]; then
+            echo "✅ Rust gate passed"
+            exit 0
+          fi
+
+          # Docs gate passed, rust gate skipped (docs-only PR)
+          if [ "$DOCS" = "success" ] && [ "$RUST" = "skipped" ]; then
+            echo "✅ Docs gate passed"
+            exit 0
+          fi
+
+          # merge_group: plan skipped, rust must pass
+          if [ "$PLAN" = "skipped" ] && [ "$RUST" = "success" ]; then
+            echo "✅ Rust gate passed (merge group)"
+            exit 0
+          fi
+
+          # workflow_dispatch: plan skipped, rust must pass
+          if [ "$PLAN" = "skipped" ] && [ "$RUST" = "success" ]; then
+            echo "✅ Rust gate passed (workflow_dispatch)"
+            exit 0
+          fi
+
+          echo "::error::Required gate did not pass: plan=$PLAN rust=$RUST docs=$DOCS"
+          exit 1
