@@ -290,6 +290,32 @@ pub struct CorpusDiffReport {
     pub validation_issue_code_counts: Vec<CorpusCountDiff>,
 }
 
+impl CorpusDiffReport {
+    /// Convert this v1 report into the explicit v2 evidence contract shape.
+    ///
+    /// This preserves the default serialized form of [`CorpusDiffReport`].
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    pub fn to_v2(&self, tool_name: impl Into<String>) -> CorpusDiffReportV2 {
+        CorpusDiffReportV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            report: self.clone(),
+        }
+    }
+}
+
+/// Corpus diff report v2 with embedded evidence provenance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusDiffReportV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this report.
+    pub tool_name: String,
+    /// V1 diff report fields.
+    #[serde(flatten)]
+    pub report: CorpusDiffReport,
+}
+
 /// Field cardinality observed across parsed corpus messages.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CorpusFieldCardinality {
@@ -364,6 +390,32 @@ pub struct CorpusFingerprint {
     pub value_shape_stats: Vec<CorpusValueShapeStats>,
     /// Validation issue code counts when a profile is supplied.
     pub validation_issue_code_counts: Vec<CorpusCount>,
+}
+
+impl CorpusFingerprint {
+    /// Convert this v1 fingerprint into the explicit v2 evidence contract shape.
+    ///
+    /// This preserves the default serialized form of [`CorpusFingerprint`].
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    pub fn to_v2(&self, tool_name: impl Into<String>) -> CorpusFingerprintV2 {
+        CorpusFingerprintV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            fingerprint: self.clone(),
+        }
+    }
+}
+
+/// Corpus fingerprint v2 with embedded evidence provenance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusFingerprintV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this fingerprint.
+    pub tool_name: String,
+    /// V1 fingerprint fields.
+    #[serde(flatten)]
+    pub fingerprint: CorpusFingerprint,
 }
 
 /// Train/validation/test split information
@@ -1459,6 +1511,11 @@ mod summary_tests {
                 .iter()
                 .any(|shape| shape.path == "OBX.5" && shape.numeric_count.delta == 1)
         );
+
+        let diff_v2 = diff.to_v2("hl7v2");
+        assert_eq!(diff_v2.schema_version, "2");
+        assert_eq!(diff_v2.tool_name, "hl7v2");
+        assert_eq!(diff_v2.report.diff_version, "1");
     }
 
     #[test]
@@ -1498,5 +1555,10 @@ mod summary_tests {
                 .iter()
                 .any(|shape| shape.path == "OBX.5" && shape.numeric_count == 1)
         );
+
+        let fingerprint_v2 = fingerprint.to_v2("hl7v2");
+        assert_eq!(fingerprint_v2.schema_version, "2");
+        assert_eq!(fingerprint_v2.tool_name, "hl7v2");
+        assert_eq!(fingerprint_v2.fingerprint.fingerprint_version, "1");
     }
 }

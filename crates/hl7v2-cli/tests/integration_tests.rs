@@ -1226,6 +1226,51 @@ mod corpus_command {
     }
 
     #[test]
+    fn test_corpus_diff_json_schema_version_2_adds_provenance() {
+        let before = create_temp_dir();
+        let after = create_temp_dir();
+        create_temp_hl7_file(&before, "adt.hl7");
+        create_temp_hl7_file(&after, "adt.hl7");
+        create_temp_file(
+            &after,
+            "oru.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::oru_r01().as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "diff",
+                before.path().to_str().unwrap(),
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute corpus diff");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("diff output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["diff_version"], "1");
+        assert_eq!(report["file_count"]["delta"], 1);
+        assert!(
+            report["new_message_types"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry == "ORU^R01")
+        );
+    }
+
+    #[test]
     fn test_corpus_diff_json_with_profile_counts_issue_code_deltas() {
         let before = create_temp_dir();
         let after = create_temp_dir();
@@ -1355,6 +1400,37 @@ constraints:
                 .iter()
                 .any(|entry| entry["value"] == "missing_required_field" && entry["count"] == 1)
         );
+    }
+
+    #[test]
+    fn test_corpus_fingerprint_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "fingerprint",
+                dir.path().to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute corpus fingerprint");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("fingerprint output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["fingerprint_version"], "1");
+        assert_eq!(report["file_count"], 1);
+        assert_eq!(report["message_count"], 1);
     }
 }
 
