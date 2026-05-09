@@ -68,6 +68,9 @@ This builds the wheel, installs it into a fresh virtual environment, runs the
 Python smoke test, and uploads the wheel as a short-retention artifact. It does
 not publish.
 
+The 2026-05-09 run of this non-publishing mode passed on `main`; see
+[`docs/audits/python-testpypi-nonpublish-proof-2026-05-09.md`](../audits/python-testpypi-nonpublish-proof-2026-05-09.md).
+
 After the local wheel proof and non-publishing workflow pass, rerun with:
 
 ```text
@@ -99,3 +102,7 @@ A TestPyPI proof is complete only when all of these are true:
 
 This is still not a production PyPI release. Treat it as packaging evidence for
 the separate Python lane.
+
+Current status: the non-publishing proof is complete for current `main`; the
+TestPyPI upload/install-back mode remains intentionally unrun until a separate
+distribution decision confirms the trusted-publisher setup and version.
