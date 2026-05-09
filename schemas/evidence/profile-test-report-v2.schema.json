@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/profile-test-report/v2",
+  "title": "HL7v2 Profile Test Report v2",
+  "description": "Machine-readable profile fixture test report with embedded evidence provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_name",
+    "tool_version",
+    "profile",
+    "fixtures",
+    "valid",
+    "case_count",
+    "passed_count",
+    "failed_count",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {"const": "2"},
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2-cli"]
+    },
+    "tool_version": {"type": "string"},
+    "profile": {
+      "type": "string"
+    },
+    "fixtures": {
+      "type": "string"
+    },
+    "valid": {
+      "type": "boolean"
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "passed_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/profile_test_case"
+      }
+    }
+  },
+  "definitions": {
+    "profile_test_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "expectation", "passed", "message"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "expectation": {
+          "type": "string",
+          "enum": ["valid", "invalid"]
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        },
+        "validation_report": {
+          "$ref": "#/definitions/validation_report"
+        },
+        "expected_report": {
+          "$ref": "#/definitions/expected_report_comparison"
+        }
+      }
+    },
+    "expected_report_comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "matched"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "matched": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "validation_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valid", "message_type", "segment_count", "issue_count", "issues"],
+      "properties": {
+        "valid": {"type": "boolean"},
+        "message_type": {"type": "string"},
+        "profile": {"type": "string"},
+        "segment_count": {"type": "integer", "minimum": 0},
+        "issue_count": {"type": "integer", "minimum": 0},
+        "issues": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/validation_issue"}
+        }
+      }
+    },
+    "validation_issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "severity": {"type": "string", "enum": ["error", "warning"]},
+        "path": {"type": "string"},
+        "rule_id": {"type": "string"},
+        "message": {"type": "string"},
+        "segment_index": {"type": "integer", "minimum": 0},
+        "field_index": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

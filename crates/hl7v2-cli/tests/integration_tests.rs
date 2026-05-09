@@ -1156,6 +1156,83 @@ rules: []
     }
 
     #[test]
+    fn test_profile_test_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/adt.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::adt_a01().as_bytes(),
+        );
+        create_temp_hl7_with_content(
+            &dir,
+            "fixtures/invalid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "test",
+                profile_file.to_str().unwrap(),
+                fixtures.to_str().unwrap(),
+                "--report",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute profile test");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile test output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["case_count"], 2);
+        assert!(
+            report["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|case| case["expectation"] == "invalid"
+                    && case["validation_report"]["issues"][0]["code"] == "missing_required_field")
+        );
+    }
+
+    #[test]
+    fn test_profile_test_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "profile",
+            "test",
+            profile_file.to_str().unwrap(),
+            fixtures.to_str().unwrap(),
+            "--report",
+            "text",
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "profile test schema version is only available",
+        ));
+    }
+
+    #[test]
     fn test_profile_test_fails_when_invalid_fixture_validates() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
@@ -3154,6 +3231,44 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "profile.yaml",
         );
         assert_fixture("profile-test-report", test_report);
+
+        let mut test_report_v2 = command_json(
+            &[
+                "profile".to_string(),
+                "test".to_string(),
+                profile.to_string_lossy().into_owned(),
+                fixtures.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut test_report_v2, "/tool_version", "1.4.0");
+        set(&mut test_report_v2, "/profile", "profile.yaml");
+        set(&mut test_report_v2, "/fixtures", "fixtures");
+        set(
+            &mut test_report_v2,
+            "/cases/0/path",
+            "fixtures/valid/valid.hl7",
+        );
+        set(
+            &mut test_report_v2,
+            "/cases/0/validation_report/profile",
+            "profile.yaml",
+        );
+        set(
+            &mut test_report_v2,
+            "/cases/1/path",
+            "fixtures/invalid/missing_pid3.hl7",
+        );
+        set(
+            &mut test_report_v2,
+            "/cases/1/validation_report/profile",
+            "profile.yaml",
+        );
+        assert_fixture("profile-test-report-v2", test_report_v2);
     }
 
     #[test]

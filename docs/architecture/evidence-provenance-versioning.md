@@ -91,7 +91,7 @@ Rules:
 | --- | --- | --- |
 | `ValidationReport` | Shared Rust/CLI/server/Python type with no embedded `schema_version` or `tool_version`. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python validation can emit v2 when requested. Server validation keeps its v1 response shape by default and can include nested `validation_report_v2` when requests set `report_schema_version` to `2`. |
 | `ProfileLintReport` | Shared Rust type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI lint output can emit v2 when requested. |
-| `ProfileTestReport` | CLI-local type with embedded validation reports. | Promote to shared type only if server/Python need it; otherwise add v2 provenance in the CLI schema first. |
+| `ProfileTestReport` | CLI-local type with embedded validation reports. | A target v2 schema exists, and CLI test output can emit v2 when requested. Promote to a shared type only if server/Python need it. |
 | `ProfileExplainReport` | CLI-local report with profile hash but no artifact/tool version by default. | A target v2 schema exists, and CLI explain output can emit v2 when requested. |
 | `CorpusSummary` | Shared Rust/Python/CLI type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python summary output can emit v2 when requested. |
 | `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python fingerprint output can emit v2 when requested. |
@@ -128,6 +128,9 @@ Do the migration in narrow PRs:
    Defaults remain v1-compatible.
    `ProfileExplainReport` can opt into v2 JSON/YAML output with
    `--schema-version 2`. Defaults remain v1-compatible.
+   `ProfileTestReport` can opt into v2 JSON/YAML output with
+   `--schema-version 2`. Defaults remain v1-compatible; nested validation
+   reports preserve the current serialized shape.
    `CorpusSummary`, `CorpusFingerprint`, and `CorpusDiffReport` now have
    explicit v2 conversion helpers. `hl7v2 corpus summarize` / `hl7v2 corpus
    fingerprint` / `hl7v2 corpus diff` can opt into v2 JSON/YAML output with
