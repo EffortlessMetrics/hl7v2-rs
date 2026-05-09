@@ -34,6 +34,51 @@ constraints:
     required: true
 "#;
 
+const TRIPLET_MESSAGE: &str = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01^ADT_A01|ABC123|P|2.5.1\rPID|1||123456^^^HOSP^MR||||19800101|X||Caucasian\r";
+
+const TRIPLET_PROFILE: &str = r#"
+message_structure: "GENERIC"
+version: "2.5.1"
+segments:
+  - id: "MSH"
+  - id: "PID"
+constraints:
+  - path: "PID.3"
+    required: true
+valuesets:
+  - path: "PID.8"
+    name: "HL70001"
+    codes:
+      - "F"
+      - "M"
+      - "O"
+      - "U"
+      - "A"
+      - "N"
+"#;
+
+const TRIPLET_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "PID.8"
+action = "retain"
+reason = "administrative sex is required to reproduce validation"
+"#;
+
 struct TempRoot {
     path: PathBuf,
 }
@@ -103,13 +148,23 @@ async fn post_json(app: axum::Router, uri: &str, body: Value) -> (StatusCode, Va
 }
 
 async fn create_bundle(root: &TempRoot, bundle_id: &str) {
+    create_bundle_with_input(root, bundle_id, PHI_MESSAGE, PROFILE, POLICY).await;
+}
+
+async fn create_bundle_with_input(
+    root: &TempRoot,
+    bundle_id: &str,
+    message: &str,
+    profile: &str,
+    policy: &str,
+) -> Value {
     let body = json!({
-        "message": PHI_MESSAGE,
-        "profile": PROFILE,
-        "redaction_policy": POLICY,
+        "message": message,
+        "profile": profile,
+        "redaction_policy": policy,
         "bundle_id": bundle_id
     });
-    let (status, _value, body_text) = post_json(
+    let (status, value, body_text) = post_json(
         test_router(Some(root.path().to_path_buf())),
         "/hl7/bundle",
         body,
@@ -117,6 +172,7 @@ async fn create_bundle(root: &TempRoot, bundle_id: &str) {
     .await;
 
     assert_eq!(status, StatusCode::CREATED, "{body_text}");
+    value
 }
 
 fn replay_body(bundle_id: &str) -> Value {
@@ -175,6 +231,47 @@ async fn test_replay_endpoint_schema_version_two_returns_v2_replay_report() {
     assert_eq!(report["tool_name"], "hl7v2-server");
     assert_eq!(report["reproduced"], true);
     assert_no_phi(&body_text);
+}
+
+#[tokio::test]
+async fn test_replay_endpoint_reproduces_bundle_when_msh9_has_message_structure_component() {
+    let root = TempRoot::new("msh9-triplet");
+    let bundle_id = "case-triplet";
+    let summary = create_bundle_with_input(
+        &root,
+        bundle_id,
+        TRIPLET_MESSAGE,
+        TRIPLET_PROFILE,
+        TRIPLET_POLICY,
+    )
+    .await;
+    assert_eq!(summary["message_type"], "ADT^A01");
+
+    let (status, report, body_text) = post_json(
+        test_router(Some(root.path().to_path_buf())),
+        "/hl7/replay",
+        json!({
+            "bundle_id": bundle_id,
+            "replay_report_schema_version": 2
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(report["schema_version"], "2");
+    assert_eq!(report["reproduced"], true, "{body_text}");
+    assert_eq!(report["message_type"], "ADT^A01");
+    assert_eq!(report["validation_valid"], false);
+    assert!(
+        report["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|check| check["name"] == "environment-match" && check["status"] == "pass"),
+        "{body_text}"
+    );
+    assert_no_phi(&body_text);
+    assert!(!body_text.contains(root.path().to_string_lossy().as_ref()));
 }
 
 #[tokio::test]

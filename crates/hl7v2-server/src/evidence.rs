@@ -138,7 +138,7 @@ pub fn write_evidence_bundle(
         }
     })?;
 
-    let message_type = message_type(redacted_message);
+    let message_type = validation_report.message_type.clone();
     let field_trace = build_field_path_trace(redacted_message, redaction_receipt);
     let environment = EvidenceBundleEnvironment {
         bundle_version: BUNDLE_VERSION.to_string(),

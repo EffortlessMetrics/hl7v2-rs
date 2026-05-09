@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed server evidence bundles so replay reproduces messages whose `MSH.9`
+  includes a third message-structure component such as `ADT^A01^ADT_A01`.
+
+### Documentation
+
+- Verified and refreshed the validation sidecar guide with live server replay
+  output and the current inline corpus diff response shape.
+
 ---
 
 ## [1.3.0] - 2026-05-09
