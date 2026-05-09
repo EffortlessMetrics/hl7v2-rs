@@ -967,7 +967,7 @@ constraints:
         fn test_format_corpus_diff_report_text() {
             let report = hl7v2::synthetic::corpus::CorpusDiffReport {
                 diff_version: "1".to_string(),
-                tool_version: "1.2.1".to_string(),
+                tool_version: "1.3.0".to_string(),
                 before_root: "before".to_string(),
                 after_root: "after".to_string(),
                 profile: None,
@@ -1090,7 +1090,7 @@ constraints:
         fn test_format_corpus_fingerprint_report_text() {
             let report = hl7v2::synthetic::corpus::CorpusFingerprint {
                 fingerprint_version: "1".to_string(),
-                tool_version: "1.2.1".to_string(),
+                tool_version: "1.3.0".to_string(),
                 root: "corpus".to_string(),
                 profile: Some(hl7v2::synthetic::corpus::CorpusFingerprintProfile {
                     path: "profile.yaml".to_string(),

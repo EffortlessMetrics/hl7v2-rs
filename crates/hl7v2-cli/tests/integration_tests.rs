@@ -2849,7 +2849,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut fingerprint, "/tool_version", "1.2.1");
+        set(&mut fingerprint, "/tool_version", "1.3.0");
         set(&mut fingerprint, "/root", "site-a");
         assert_fixture("corpus-fingerprint", fingerprint);
 
@@ -2864,7 +2864,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut diff, "/tool_version", "1.2.1");
+        set(&mut diff, "/tool_version", "1.3.0");
         set(&mut diff, "/before_root", "before");
         set(&mut diff, "/after_root", "after");
         assert_fixture("corpus-diff", diff);
@@ -2918,7 +2918,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
                 .expect("bundle manifest should be readable"),
         )
         .expect("bundle manifest should be JSON");
-        set(&mut manifest, "/tool_version", "1.2.1");
+        set(&mut manifest, "/tool_version", "1.3.0");
         for artifact in manifest
             .get_mut("artifacts")
             .and_then(Value::as_array_mut)
@@ -2938,7 +2938,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut replay, "/tool_version", "1.2.1");
+        set(&mut replay, "/tool_version", "1.3.0");
         assert_fixture("evidence-replay", replay);
     }
 }
