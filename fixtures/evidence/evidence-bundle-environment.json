@@ -1,0 +1,12 @@
+{
+  "bundle_version": "1",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.3.0",
+  "message_type": "ADT^A01",
+  "input_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "profile_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "redaction_policy_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "validation_valid": true,
+  "validation_issue_count": 0,
+  "replay_command": "hl7v2 val message.redacted.hl7 --profile profile.yaml --report json"
+}

@@ -3410,6 +3410,29 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         .expect("bundle field-path trace should be JSON");
         assert_fixture("field-path-trace", field_paths);
 
+        let mut environment: Value = serde_json::from_slice(
+            &std::fs::read(bundle.join("environment.json"))
+                .expect("bundle environment should be readable"),
+        )
+        .expect("bundle environment should be JSON");
+        set(&mut environment, "/tool_version", "1.3.0");
+        set(
+            &mut environment,
+            "/input_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        set(
+            &mut environment,
+            "/profile_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        set(
+            &mut environment,
+            "/redaction_policy_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        assert_fixture("evidence-bundle-environment", environment);
+
         let mut manifest: Value = serde_json::from_slice(
             &std::fs::read(bundle.join("manifest.json"))
                 .expect("bundle manifest should be readable"),
