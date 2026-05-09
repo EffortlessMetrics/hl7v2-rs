@@ -17,7 +17,7 @@
     },
     "tool_name": {
       "type": "string",
-      "enum": ["hl7v2-cli", "hl7v2-server"]
+      "enum": ["hl7v2-cli", "hl7v2-server", "hl7v2-python"]
     },
     "tool_version": {
       "type": "string"

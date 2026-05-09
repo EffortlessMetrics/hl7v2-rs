@@ -89,9 +89,14 @@ reason = "Date of birth"
 redaction = hl7v2.redact(raw, policy_toml)
 print(redaction["redacted_hl7"])
 print(redaction["receipt"]["phi_removed"])
+
+bundle = hl7v2.bundle(raw, profile_yaml, policy_toml, "issue-bundle")
+print(bundle["artifacts"])
+
+replay = hl7v2.replay("issue-bundle")
+print(replay["reproduced"])
 ```
 
 The current Python surface intentionally starts with the minimum evidence loop:
-parse, JSON export, normalize, validate, corpus summary/fingerprint/diff, and
-safe-analysis redaction. Bundle and replay APIs should be added in focused
-follow-up PRs.
+parse, JSON export, normalize, validate, corpus summary/fingerprint/diff,
+safe-analysis redaction, evidence bundle creation, and replay verification.

@@ -68,6 +68,9 @@ pub mod synthetic;
 #[cfg(feature = "redact")]
 pub mod redact;
 
+#[cfg(all(feature = "profile", feature = "redact"))]
+pub mod evidence;
+
 #[cfg(feature = "lifecycle")]
 pub mod lifecycle;
 
