@@ -18,6 +18,16 @@ Versioning rules:
 - Redaction receipts prove configured policy actions. They are not a universal
   PHI absence certificate.
 
+Schema validation is maintained by:
+
+```bash
+cargo run -p xtask -- evidence-schema-check
+```
+
+The command validates every primary evidence fixture against its matching
+`schemas/evidence/*-v*.schema.json` contract and covers documented supplemental
+fixtures such as the v1 redaction output containing a v2 nested receipt.
+
 ## Contract Map
 
 | Artifact | Producer surfaces | v1 schema | v2 schema | Default shape | v2 opt-in | Golden fixtures | PHI / logging notes |
