@@ -52,10 +52,11 @@ Python lanes:
 - Corpus summary, fingerprint, and diff reports
 - Redaction receipts and evidence bundle/replay summaries
 
-`validation-report-v2.schema.json` is the first target evidence schema with
-embedded `schema_version`, `tool_name`, and `tool_version` fields. It is a
-contract artifact for the planned v2 migration; current v1 producers remain
-valid until implementation PRs explicitly move their output shape.
+The first target v2 evidence schemas are `validation-report-v2.schema.json`,
+`corpus-fingerprint-v2.schema.json`, and `corpus-diff-v2.schema.json`. They
+add embedded `schema_version`, `tool_name`, and `tool_version` fields while
+keeping their v1 counterparts valid until implementation PRs explicitly move
+producer output shapes.
 
 #### Evidence Null And Empty Semantics
 

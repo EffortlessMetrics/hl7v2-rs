@@ -1,0 +1,158 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/corpus-diff/v2",
+  "title": "HL7v2 Corpus Diff Report v2",
+  "description": "Difference report for two HL7 v2 corpora with embedded evidence provenance. This is the v2 target contract; v1 producers remain valid until migrated explicitly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "diff_version",
+    "tool_name",
+    "tool_version",
+    "before_root",
+    "after_root",
+    "profile",
+    "file_count",
+    "message_count",
+    "parse_error_count",
+    "new_message_types",
+    "removed_message_types",
+    "new_segments",
+    "removed_segments",
+    "message_type_counts",
+    "segment_counts",
+    "field_presence",
+    "field_cardinality",
+    "value_shape_stats",
+    "validation_issue_code_counts"
+  ],
+  "properties": {
+    "schema_version": {"const": "2"},
+    "diff_version": {"type": "string"},
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2", "hl7v2-cli", "hl7v2-server", "hl7v2-python"]
+    },
+    "tool_version": {"type": "string"},
+    "before_root": {"type": "string"},
+    "after_root": {"type": "string"},
+    "profile": {"anyOf": [{"$ref": "#/definitions/profile"}, {"type": "null"}]},
+    "file_count": {"$ref": "#/definitions/total_diff"},
+    "message_count": {"$ref": "#/definitions/total_diff"},
+    "parse_error_count": {"$ref": "#/definitions/total_diff"},
+    "new_message_types": {"type": "array", "items": {"type": "string"}},
+    "removed_message_types": {"type": "array", "items": {"type": "string"}},
+    "new_segments": {"type": "array", "items": {"type": "string"}},
+    "removed_segments": {"type": "array", "items": {"type": "string"}},
+    "message_type_counts": {"type": "array", "items": {"$ref": "#/definitions/count_diff"}},
+    "segment_counts": {"type": "array", "items": {"$ref": "#/definitions/count_diff"}},
+    "field_presence": {"type": "array", "items": {"$ref": "#/definitions/field_presence_diff"}},
+    "field_cardinality": {"type": "array", "items": {"$ref": "#/definitions/field_cardinality_diff"}},
+    "value_shape_stats": {"type": "array", "items": {"$ref": "#/definitions/value_shape_stats_diff"}},
+    "validation_issue_code_counts": {"type": "array", "items": {"$ref": "#/definitions/count_diff"}}
+  },
+  "definitions": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "version", "message_structure"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "version": {"type": "string"},
+        "message_structure": {"type": "string"}
+      }
+    },
+    "total_diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after", "delta"],
+      "properties": {
+        "before": {"type": "integer", "minimum": 0},
+        "after": {"type": "integer", "minimum": 0},
+        "delta": {"type": "integer"}
+      }
+    },
+    "count_diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "before", "after", "delta"],
+      "properties": {
+        "value": {"type": "string"},
+        "before": {"type": "integer", "minimum": 0},
+        "after": {"type": "integer", "minimum": 0},
+        "delta": {"type": "integer"}
+      }
+    },
+    "field_presence_diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "before_message_count",
+        "after_message_count",
+        "message_count_delta",
+        "before_occurrence_count",
+        "after_occurrence_count",
+        "occurrence_count_delta"
+      ],
+      "properties": {
+        "path": {"type": "string"},
+        "before_message_count": {"type": "integer", "minimum": 0},
+        "after_message_count": {"type": "integer", "minimum": 0},
+        "message_count_delta": {"type": "integer"},
+        "before_occurrence_count": {"type": "integer", "minimum": 0},
+        "after_occurrence_count": {"type": "integer", "minimum": 0},
+        "occurrence_count_delta": {"type": "integer"}
+      }
+    },
+    "field_cardinality_diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "before_min_per_message",
+        "after_min_per_message",
+        "min_per_message_delta",
+        "before_max_per_message",
+        "after_max_per_message",
+        "max_per_message_delta",
+        "before_total_occurrences",
+        "after_total_occurrences",
+        "total_occurrences_delta",
+        "before_message_count",
+        "after_message_count",
+        "message_count_delta"
+      ],
+      "properties": {
+        "path": {"type": "string"},
+        "before_min_per_message": {"type": "integer", "minimum": 0},
+        "after_min_per_message": {"type": "integer", "minimum": 0},
+        "min_per_message_delta": {"type": "integer"},
+        "before_max_per_message": {"type": "integer", "minimum": 0},
+        "after_max_per_message": {"type": "integer", "minimum": 0},
+        "max_per_message_delta": {"type": "integer"},
+        "before_total_occurrences": {"type": "integer", "minimum": 0},
+        "after_total_occurrences": {"type": "integer", "minimum": 0},
+        "total_occurrences_delta": {"type": "integer"},
+        "before_message_count": {"type": "integer", "minimum": 0},
+        "after_message_count": {"type": "integer", "minimum": 0},
+        "message_count_delta": {"type": "integer"}
+      }
+    },
+    "value_shape_stats_diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "coded_count", "timestamp_count", "numeric_count", "null_count", "text_count"],
+      "properties": {
+        "path": {"type": "string"},
+        "coded_count": {"$ref": "#/definitions/total_diff"},
+        "timestamp_count": {"$ref": "#/definitions/total_diff"},
+        "numeric_count": {"$ref": "#/definitions/total_diff"},
+        "null_count": {"$ref": "#/definitions/total_diff"},
+        "text_count": {"$ref": "#/definitions/total_diff"}
+      }
+    }
+  }
+}
