@@ -305,13 +305,16 @@ reason = "Date of birth"
     redaction_v2 = hl7v2.redact(raw, redaction_policy, schema_version=2)
     receipt_v2 = redaction_v2["receipt"]
     if (
-        receipt_v2["schema_version"] != "2"
+        redaction_v2["schema_version"] != "2"
+        or redaction_v2["tool_name"] != "hl7v2-python"
+        or redaction_v2["tool_version"] != hl7v2.__version__
+        or receipt_v2["schema_version"] != "2"
         or receipt_v2["tool_name"] != "hl7v2-python"
         or receipt_v2["tool_version"] != hl7v2.__version__
         or receipt_v2["phi_removed"] is not True
         or receipt_v2["hash_algorithm"] != "sha256"
     ):
-        print(f"unexpected redaction receipt v2 provenance: {receipt_v2}", file=sys.stderr)
+        print(f"unexpected redaction output v2 provenance: {redaction_v2}", file=sys.stderr)
         return 1
     for sentinel in ["Doe^John", "123456", "19700101"]:
         if sentinel in redaction_v2["redacted_hl7"] or sentinel in json.dumps(receipt_v2):

@@ -70,6 +70,51 @@ pub struct SafeAnalysisRedactionOutput {
     pub receipt: RedactionReceipt,
 }
 
+impl SafeAnalysisRedactionOutput {
+    /// Convert this redaction output to the v2 evidence contract with embedded
+    /// tool provenance.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> SafeAnalysisRedactionOutputV2 {
+        let tool_name = tool_name.into();
+        let tool_version = tool_version.into();
+        SafeAnalysisRedactionOutputV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.clone(),
+            tool_version: tool_version.clone(),
+            input_sha256: self.input_sha256.clone(),
+            policy_sha256: self.policy_sha256.clone(),
+            message_type: self.message_type.clone(),
+            redacted_hl7: self.redacted_hl7.clone(),
+            receipt: self.receipt.to_v2(tool_name, tool_version),
+        }
+    }
+}
+
+/// Safe-analysis redaction output v2 with embedded evidence provenance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SafeAnalysisRedactionOutputV2 {
+    /// Evidence schema version.
+    pub schema_version: String,
+    /// Tool or binding that produced the redaction output.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// SHA-256 digest of the original input message.
+    pub input_sha256: String,
+    /// SHA-256 digest of the policy TOML.
+    pub policy_sha256: String,
+    /// Message type from `MSH.9`, such as `ADT^A01`.
+    pub message_type: String,
+    /// Redacted HL7 message.
+    pub redacted_hl7: String,
+    /// Receipt describing the redaction actions applied.
+    pub receipt: RedactionReceiptV2,
+}
+
 /// Redaction receipt compatible with safe-analysis evidence artifacts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RedactionReceipt {
@@ -777,6 +822,34 @@ optional = true
                 .iter()
                 .any(|action| action.path == "PID.3" && action.action == RedactionAction::Hash),
             "expected PID.3 hash action",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_output_v2_embeds_tool_provenance() -> Result<(), Box<dyn std::error::Error>> {
+        let output = redact_hl7_safe_analysis(safe_analysis_message(), safe_analysis_policy())?;
+        let output_v2 = output.to_v2("hl7v2-cli", "1.3.0");
+
+        ensure(output_v2.schema_version == "2", "expected v2 schema")?;
+        ensure(output_v2.tool_name == "hl7v2-cli", "expected tool name")?;
+        ensure(output_v2.tool_version == "1.3.0", "expected tool version")?;
+        ensure(
+            output_v2.receipt.schema_version == "2",
+            "expected nested receipt v2 schema",
+        )?;
+        ensure(
+            output_v2.receipt.tool_name == "hl7v2-cli",
+            "expected nested receipt tool name",
+        )?;
+        ensure(
+            output_v2.receipt.tool_version == "1.3.0",
+            "expected nested receipt tool version",
+        )?;
+        ensure(output_v2.receipt.phi_removed, "expected PHI removal")?;
+        ensure(
+            !output_v2.redacted_hl7.contains("Doe^John"),
+            "redacted HL7 leaked patient name",
         )?;
         Ok(())
     }

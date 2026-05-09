@@ -91,10 +91,12 @@ Redaction receipts can opt into their target v2 shape with
 `hl7v2 redact --format json --schema-version 2`, Python
 `redact(..., schema_version=2)`, or server `/hl7/validate-redacted` requests
 that set `"redaction_receipt_schema_version": 2`; defaults remain v1.
-Safe-analysis redaction output has a v1 schema that validates both current CLI
-and Python output forms: default nested receipt v1 and opt-in nested receipt
-v2. The target `safe-analysis-redaction-output-v2.schema.json` adds top-level
-provenance, but live producers do not emit that outer v2 shape yet.
+Safe-analysis redaction output has a v1 schema that validates the default CLI
+and Python output form with a nested receipt v1, plus the transitional
+v1-compatible outer form with a nested receipt v2. CLI and Python can opt into
+the target `safe-analysis-redaction-output-v2.schema.json` shape with
+`hl7v2 redact --format json --schema-version 2` and
+`redact(..., schema_version=2)`.
 Server quarantine output summaries can opt into their target v2 shape with
 `/hl7/validate-redacted` requests that set `"quarantine_schema_version": 2`;
 defaults remain v1.

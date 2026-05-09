@@ -1980,7 +1980,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
-    fn test_redact_json_schema_v2_returns_provenance_receipt_without_raw_phi() {
+    fn test_redact_json_schema_v2_returns_provenance_output_without_raw_phi() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
         let policy_file =
@@ -2009,6 +2009,9 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 
         let report: serde_json::Value =
             serde_json::from_str(&stdout).expect("redact output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
         assert_eq!(report["receipt"]["schema_version"], "2");
         assert_eq!(report["receipt"]["tool_name"], "hl7v2-cli");
         assert_eq!(report["receipt"]["tool_version"], env!("CARGO_PKG_VERSION"));
@@ -2023,7 +2026,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
-    fn test_redact_rejects_receipt_schema_v2_for_hl7_output() {
+    fn test_redact_rejects_output_schema_v2_for_hl7_output() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
         let policy_file =
@@ -2046,7 +2049,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 
         assert!(!output.status.success());
         let stderr = String::from_utf8(output.stderr).unwrap();
-        assert!(stderr.contains("redaction receipt schema version is only available"));
+        assert!(stderr.contains("redaction output schema version is only available"));
     }
 
     #[test]

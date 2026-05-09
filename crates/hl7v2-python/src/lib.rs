@@ -373,19 +373,13 @@ pub fn redact<'py>(
         .map_err(|e| value_error("Redaction error", e))?;
     match schema_version {
         1 => report_to_dict(py, &output, "Redaction serialization error"),
-        2 => {
-            let mut output_value = serde_json::to_value(&output)
-                .map_err(|e| value_error("Redaction serialization error", e))?;
-            output_value["receipt"] = serde_json::to_value(
-                output
-                    .receipt
-                    .to_v2("hl7v2-python", env!("CARGO_PKG_VERSION")),
-            )
-            .map_err(|e| value_error("Redaction receipt v2 serialization error", e))?;
-            py_json_loads(py, output_value.to_string())
-        }
+        2 => report_to_dict(
+            py,
+            &output.to_v2("hl7v2-python", env!("CARGO_PKG_VERSION")),
+            "Redaction v2 serialization error",
+        ),
         _ => Err(PyValueError::new_err(
-            "redaction receipt schema_version must be 1 or 2",
+            "redaction output schema_version must be 1 or 2",
         )),
     }
 }

@@ -96,7 +96,7 @@ Rules:
 | `CorpusSummary` | Shared Rust/Python/CLI type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python summary output can emit v2 when requested. |
 | `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python fingerprint output can emit v2 when requested. |
 | `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python diff output can emit v2 when requested. |
-| `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version. | A v1 outer schema exists for current CLI/Python outputs, including the opt-in nested v2 receipt form. A target v2 schema exists for future top-level provenance; live producers remain v1-compatible until that migration is explicit. |
+| `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version by default. | A v1 outer schema exists for current CLI/Python default outputs. CLI and Python redaction output can emit the target v2 schema with top-level provenance when requested. |
 | `RedactionReceipt` | Shared receipt schema without embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server redaction output can emit v2 when requested. Bundle artifacts remain v1 until migrated separately. |
 | `FieldPathTraceReport` | Bundle artifact with a v1 JSON Schema but no embedded version fields. | A target v2 bundle-artifact schema and fixture exist. Live bundle writers remain v1 until `field-paths.json`, manifest hashing, and replay verification migrate together. |
 | `EvidenceBundleSummary` | Has `bundle_version`; no `tool_version` in the summary by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python bundle output can emit v2 when requested. Server `/hl7/bundle` remains v1 by default. |
@@ -143,10 +143,10 @@ Do the migration in narrow PRs:
    and server `/hl7/validate-redacted` requests with
    `redaction_receipt_schema_version: 2` can opt into the v2 nested receipt.
    Defaults remain v1-compatible.
-   `SafeAnalysisRedactionOutput` now has a v1 schema and fixtures for both
-   current nested receipt shapes, plus a target v2 schema and fixture for future
-   top-level provenance. Live CLI and Python redaction outputs remain
-   v1-compatible.
+   `SafeAnalysisRedactionOutput` now has a v1 schema and fixture for the
+   default output, a compatibility fixture for the transitional v1 outer shape
+   with a nested v2 receipt, and an opt-in v2 producer path for CLI and Python
+   redaction output with top-level provenance. Defaults remain v1-compatible.
    `QuarantineOutputSummary` now has an explicit v2 conversion helper. Server
    `/hl7/validate-redacted` requests with `quarantine_schema_version: 2` can
    opt into the nested `quarantine_v2` summary when quarantine output is
