@@ -14,6 +14,21 @@
       "message": "all expected bundle artifacts are present"
     },
     {
+      "name": "manifest",
+      "status": "pass",
+      "message": "manifest.json parsed"
+    },
+    {
+      "name": "manifest-artifacts",
+      "status": "pass",
+      "message": "manifest lists expected bundle artifacts"
+    },
+    {
+      "name": "manifest-hashes",
+      "status": "pass",
+      "message": "manifest artifact hashes match bundle contents"
+    },
+    {
       "name": "environment",
       "status": "pass",
       "message": "environment.json parsed"

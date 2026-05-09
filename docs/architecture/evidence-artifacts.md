@@ -40,9 +40,9 @@ failed, what changed, what was redacted, and how to replay the result.
 | Redaction receipt | `hl7v2 redact --format json`, bundle `redaction-receipt.json` | CLI-local `RedactionReceipt` | Captures actions and PHI removal status; JSON Schema exists at `schemas/evidence/redaction-receipt-v1.schema.json`; no `schema_version`; no `tool_version`. |
 | Field path trace | Bundle `field-paths.json` | CLI-local `FieldPathTraceReport` | Captures redacted message field paths and value shapes; no `schema_version`; no JSON Schema. |
 | Evidence bundle summary | `hl7v2 bundle ...` stdout | CLI-local `EvidenceBundleSummary` | Has `bundle_version`; JSON Schema exists at `schemas/evidence/evidence-bundle-v1.schema.json`; no `tool_version`; includes `manifest.json` in the artifact list. |
-| Evidence bundle manifest | Bundle `manifest.json` | CLI-local `EvidenceBundleManifest` | Records `bundle_version`, `tool_version`, bundle-relative artifact paths, roles, and SHA-256 hashes; JSON Schema exists at `schemas/evidence/evidence-bundle-manifest-v1.schema.json`; replay hash verification is a follow-up. |
+| Evidence bundle manifest | Bundle `manifest.json` | CLI-local `EvidenceBundleManifest` | Records `bundle_version`, `tool_version`, bundle-relative artifact paths, roles, and SHA-256 hashes; JSON Schema exists at `schemas/evidence/evidence-bundle-manifest-v1.schema.json`; replay verifies manifest catalog and hashes before using artifacts. |
 | Evidence bundle environment | Bundle `environment.json` | CLI-local `EvidenceBundleEnvironment` | Has `bundle_version`, `tool_name`, `tool_version`, input/profile/policy hashes, and replay command. |
-| Evidence replay report | `hl7v2 replay --format json|yaml|text` | CLI-local `EvidenceReplayReport` | Has `replay_version`, `bundle_version`, `tool_name`, `tool_version`, replay checks, optional regenerated validation report, and JSON Schema at `schemas/evidence/evidence-replay-v1.schema.json`; no manifest hash verification yet. |
+| Evidence replay report | `hl7v2 replay --format json|yaml|text` | CLI-local `EvidenceReplayReport` | Has `replay_version`, `bundle_version`, `tool_name`, `tool_version`, replay checks, optional regenerated validation report, and JSON Schema at `schemas/evidence/evidence-replay-v1.schema.json`; fails closed on malformed manifests, missing artifacts, and hash mismatches. |
 
 ## Current Parity
 
@@ -89,7 +89,7 @@ The next contract-hardening work should lock:
   artifact.
 - `tool_version` where users need provenance outside an environment file.
 - Explicit null and empty-list behavior for optional fields.
-- Manifest artifact SHA-256 verification during replay.
+- Bundle README and clearer human replay instructions.
 - Redaction leak sentinel tests for synthetic PHI fixtures.
 - Server and Python parity for any artifact promoted beyond CLI-only use.
 

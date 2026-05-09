@@ -41,7 +41,7 @@ use std::fmt;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process;
 use std::time::Duration;
 mod config;
@@ -914,18 +914,18 @@ struct EvidenceBundleSummary {
     artifacts: Vec<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 struct EvidenceBundleManifest {
-    bundle_version: &'static str,
-    tool_name: &'static str,
-    tool_version: &'static str,
+    bundle_version: String,
+    tool_name: String,
+    tool_version: String,
     artifacts: Vec<EvidenceBundleManifestArtifact>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 struct EvidenceBundleManifestArtifact {
     path: String,
-    role: &'static str,
+    role: String,
     sha256: String,
 }
 
@@ -2128,20 +2128,11 @@ fn bundle_command(
     fs::write(out.join("replay.sh"), replay_shell_script())?;
     fs::write(out.join("replay.ps1"), replay_powershell_script())?;
 
-    let artifact_specs = [
-        ("message.redacted.hl7", "redacted_message"),
-        ("validation-report.json", "validation_report"),
-        ("field-paths.json", "field_path_trace"),
-        ("profile.yaml", "profile"),
-        ("redaction-receipt.json", "redaction_receipt"),
-        ("environment.json", "environment"),
-        ("replay.sh", "replay_shell_script"),
-        ("replay.ps1", "replay_powershell_script"),
-    ];
+    let artifact_specs = bundle_artifact_specs();
     let manifest = EvidenceBundleManifest {
-        bundle_version: "1",
-        tool_name: "hl7v2-cli",
-        tool_version: env!("CARGO_PKG_VERSION"),
+        bundle_version: "1".to_string(),
+        tool_name: "hl7v2-cli".to_string(),
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
         artifacts: artifact_specs
             .iter()
             .map(|(path, role)| bundle_manifest_artifact(out, path, role))
@@ -2189,6 +2180,7 @@ fn replay_command(
 fn build_replay_report(bundle: &Path) -> EvidenceReplayReport {
     let mut checks = Vec::new();
     let required_artifacts = [
+        "manifest.json",
         "message.redacted.hl7",
         "validation-report.json",
         "field-paths.json",
@@ -2219,6 +2211,50 @@ fn build_replay_report(bundle: &Path) -> EvidenceReplayReport {
                 missing_artifacts.join(", ")
             ),
         ));
+    }
+
+    let manifest = match read_bundle_manifest(bundle) {
+        Ok(manifest) => {
+            checks.push(replay_check(
+                "manifest",
+                EvidenceReplayCheckStatus::Pass,
+                "manifest.json parsed",
+            ));
+            Some(manifest)
+        }
+        Err(error) => {
+            checks.push(replay_check(
+                "manifest",
+                EvidenceReplayCheckStatus::Fail,
+                error,
+            ));
+            None
+        }
+    };
+    let manifest_bundle_version = manifest
+        .as_ref()
+        .map(|manifest| manifest.bundle_version.clone());
+    let manifest_catalog_ok = manifest
+        .as_ref()
+        .is_some_and(|manifest| verify_bundle_manifest_catalog(manifest, &mut checks));
+    let manifest_hashes_ok = manifest_catalog_ok
+        && manifest
+            .as_ref()
+            .is_some_and(|manifest| verify_bundle_manifest_hashes(bundle, manifest, &mut checks));
+
+    if !manifest_hashes_ok {
+        return EvidenceReplayReport {
+            replay_version: "1",
+            bundle_version: manifest_bundle_version,
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            message_type: None,
+            reproduced: false,
+            validation_valid: None,
+            validation_issue_count: None,
+            checks,
+            validation_report: None,
+        };
     }
 
     let environment = match read_bundle_json_value(bundle, "environment.json") {
@@ -2398,7 +2434,8 @@ fn build_replay_report(bundle: &Path) -> EvidenceReplayReport {
         .all(|check| check.status == EvidenceReplayCheckStatus::Pass);
     let bundle_version = environment
         .as_ref()
-        .and_then(|value| json_string(value, "bundle_version"));
+        .and_then(|value| json_string(value, "bundle_version"))
+        .or(manifest_bundle_version);
     let message_type = actual_report
         .as_ref()
         .map(|report| report.message_type.clone())
@@ -2439,6 +2476,154 @@ fn replay_check(
         status,
         message: message.into(),
     }
+}
+
+fn bundle_artifact_specs() -> [(&'static str, &'static str); 8] {
+    [
+        ("message.redacted.hl7", "redacted_message"),
+        ("validation-report.json", "validation_report"),
+        ("field-paths.json", "field_path_trace"),
+        ("profile.yaml", "profile"),
+        ("redaction-receipt.json", "redaction_receipt"),
+        ("environment.json", "environment"),
+        ("replay.sh", "replay_shell_script"),
+        ("replay.ps1", "replay_powershell_script"),
+    ]
+}
+
+fn read_bundle_manifest(bundle: &Path) -> Result<EvidenceBundleManifest, String> {
+    let contents = read_bundle_string(bundle, "manifest.json")?;
+    serde_json::from_str(&contents)
+        .map_err(|error| format!("manifest.json is invalid JSON: {error}"))
+}
+
+fn verify_bundle_manifest_catalog(
+    manifest: &EvidenceBundleManifest,
+    checks: &mut Vec<EvidenceReplayCheck>,
+) -> bool {
+    let expected = bundle_artifact_specs();
+    let mut errors = Vec::new();
+    let mut seen_paths = BTreeSet::new();
+
+    for artifact in &manifest.artifacts {
+        if !seen_paths.insert(artifact.path.clone()) {
+            errors.push("duplicate artifact path".to_string());
+        }
+        if safe_bundle_relative_path(&artifact.path).is_err() {
+            errors.push("unsafe artifact path".to_string());
+            continue;
+        }
+        if !is_lower_sha256_hex(&artifact.sha256) {
+            errors.push(format!("{} has invalid sha256", artifact.path));
+        }
+        if !expected
+            .iter()
+            .any(|(path, role)| *path == artifact.path.as_str() && *role == artifact.role.as_str())
+        {
+            errors.push(format!(
+                "{} has unexpected role {}",
+                artifact.path, artifact.role
+            ));
+        }
+    }
+
+    for (expected_path, expected_role) in expected {
+        if !manifest
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.path == expected_path && artifact.role == expected_role)
+        {
+            errors.push(format!("missing manifest entry for {expected_path}"));
+        }
+    }
+
+    if errors.is_empty() {
+        checks.push(replay_check(
+            "manifest-artifacts",
+            EvidenceReplayCheckStatus::Pass,
+            "manifest lists expected bundle artifacts",
+        ));
+        true
+    } else {
+        checks.push(replay_check(
+            "manifest-artifacts",
+            EvidenceReplayCheckStatus::Fail,
+            format!("manifest artifact catalog invalid: {}", errors.join(", ")),
+        ));
+        false
+    }
+}
+
+fn verify_bundle_manifest_hashes(
+    bundle: &Path,
+    manifest: &EvidenceBundleManifest,
+    checks: &mut Vec<EvidenceReplayCheck>,
+) -> bool {
+    let mut errors = Vec::new();
+
+    for artifact in &manifest.artifacts {
+        let relative_path = match safe_bundle_relative_path(&artifact.path) {
+            Ok(relative_path) => relative_path,
+            Err(error) => {
+                errors.push(error);
+                continue;
+            }
+        };
+        match fs::read(bundle.join(relative_path)) {
+            Ok(bytes) => {
+                let actual = compute_sha256_bytes(&bytes);
+                if actual != artifact.sha256 {
+                    errors.push(format!("{} hash mismatch", artifact.path));
+                }
+            }
+            Err(error) => {
+                errors.push(format!("could not read {}: {error}", artifact.path));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        checks.push(replay_check(
+            "manifest-hashes",
+            EvidenceReplayCheckStatus::Pass,
+            "manifest artifact hashes match bundle contents",
+        ));
+        true
+    } else {
+        checks.push(replay_check(
+            "manifest-hashes",
+            EvidenceReplayCheckStatus::Fail,
+            format!("manifest hash verification failed: {}", errors.join(", ")),
+        ));
+        false
+    }
+}
+
+fn safe_bundle_relative_path(path: &str) -> Result<PathBuf, String> {
+    if path.is_empty() || path.contains('\\') {
+        return Err("manifest artifact path must be bundle-relative".to_string());
+    }
+
+    let relative_path = Path::new(path);
+    if relative_path.is_absolute()
+        || relative_path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::Prefix(_) | Component::RootDir
+            )
+        })
+    {
+        return Err("manifest artifact path must be bundle-relative".to_string());
+    }
+
+    Ok(relative_path.to_path_buf())
+}
+
+fn is_lower_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 fn read_bundle_artifact(bundle: &Path, artifact: &str) -> Result<Vec<u8>, String> {
@@ -2525,14 +2710,17 @@ fn bundle_manifest_artifact(
     role: &'static str,
 ) -> Result<EvidenceBundleManifestArtifact, Box<dyn std::error::Error>> {
     let bytes = fs::read(bundle_dir.join(path))?;
-    let mut hasher = Sha256::new();
-    hasher.update(&bytes);
-    let sha256 = format!("{:x}", hasher.finalize());
     Ok(EvidenceBundleManifestArtifact {
         path: path.to_string(),
-        role,
-        sha256,
+        role: role.to_string(),
+        sha256: compute_sha256_bytes(&bytes),
     })
+}
+
+fn compute_sha256_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
 }
 
 fn replay_shell_script() -> &'static str {
