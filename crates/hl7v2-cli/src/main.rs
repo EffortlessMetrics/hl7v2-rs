@@ -242,6 +242,18 @@ enum Commands {
         /// Evidence schema version for machine-readable doctor reports
         #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
         schema_version: u8,
+
+        /// Write the doctor report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Inspect and lint validation profiles
@@ -1313,12 +1325,16 @@ async fn main() {
             server_url,
             format,
             schema_version,
+            output,
+            quiet,
+            no_color,
         } => doctor_command(
             sample.as_ref(),
             profile.as_ref(),
             server_url.as_deref(),
             format,
             *schema_version,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
         ),
         Commands::Profile { command } => match command {
             ProfileCommands::Lint {
@@ -1537,6 +1553,7 @@ fn doctor_command(
     server_url: Option<&str>,
     format: &ReportFormat,
     schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut report = DoctorReport {
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -1555,7 +1572,7 @@ fn doctor_command(
     add_python_check(&mut report);
 
     let output = format_doctor_report(&report, format, schema_version)?;
-    println!("{}", output);
+    output_options.emit(&output)?;
 
     if report.has_errors() {
         return Err(CliFailure::check_failed("doctor reported failed checks"));

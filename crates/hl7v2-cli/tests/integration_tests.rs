@@ -4407,6 +4407,26 @@ action = "hash"
         create_temp_file(&dir, "before/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
         create_temp_file(&dir, "after/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
 
+        let doctor_report = dir.path().join("doctor-report.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "doctor",
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+                "--output",
+                doctor_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("doctor should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&doctor_report)["schema_version"], "2");
+
         let val_report = dir.path().join("validation-report.json");
         let mut cmd = cli_command();
         let output = cmd
