@@ -66,11 +66,12 @@ released on GitHub, or uploaded to crates.io.
 ## v1.3.0 Readiness Checklist
 
 Release-note draft: [`docs/releases/v1.3.0-evidence-loop-draft.md`](releases/v1.3.0-evidence-loop-draft.md).
+Dry-run receipt: [`docs/audits/publish-dry-run-2026-05-09.md`](audits/publish-dry-run-2026-05-09.md).
 
-- ⏳ **Publish plan**: confirm `cargo run -p xtask -- publish-plan` still resolves `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
-- ⏳ **Full gate**: run the current full release gate on the v1.3.0 release head.
-- ⏳ **Dry-runs**: run workspace-patched publish verification for the full graph, then direct `cargo publish --dry-run` for `hl7v2`. Dependent direct dry-runs may need to wait until `hl7v2` v1.3.0 is visible in the crates.io index.
-- ⏳ **Python proof**: run the maturin wheel build/install/import smoke lane without publishing `hl7v2-python` to crates.io.
+- ✅ **Publish plan**: `cargo run -p xtask -- publish-plan` resolves `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+- ✅ **Full gate**: `cargo run -p xtask -- gate --check` passes on the v1.3.0 package line.
+- ✅ **Dry-runs**: workspace-patched publish verification passes for the full graph and direct `cargo publish --dry-run` passes for `hl7v2`. Dependent direct dry-runs correctly wait for `hl7v2` v1.3.0 to exist in the crates.io index.
+- ✅ **Python proof**: the maturin wheel build/install/import smoke lane passes without publishing `hl7v2-python` to crates.io.
 - ⏳ **Release notes and tag**: publish final release notes and tag only after the checks above pass on the release head.
 
 ## Historical Plans
