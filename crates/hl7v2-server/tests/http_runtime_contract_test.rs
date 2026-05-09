@@ -36,6 +36,7 @@ fn test_router(api_key: Option<&str>, cors_allowed_origins: CorsAllowedOrigins) 
         cors_allowed_origins,
         readiness_checks: hl7v2_server::ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
+        ack_policy: Default::default(),
     });
     build_router(state)
 }
@@ -177,6 +178,30 @@ async fn test_new_hl7_routes_require_api_key_when_configured() {
                     serde_json::to_string(&json!({
                         "message": SAMPLE_MSG,
                         "code": "AA"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/hl7/ack-policy")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "message": SAMPLE_MSG,
+                        "profile": MINIMAL_PROFILE
                     }))
                     .unwrap(),
                 ))

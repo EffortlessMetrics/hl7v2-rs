@@ -114,6 +114,7 @@ fn test_router(bundle_output_root: Option<PathBuf>) -> axum::Router {
         cors_allowed_origins: CorsAllowedOrigins::default(),
         readiness_checks: hl7v2_server::ServerConfig::default().readiness_checks(),
         bundle_output_root,
+        ack_policy: Default::default(),
     });
     build_router(state)
 }

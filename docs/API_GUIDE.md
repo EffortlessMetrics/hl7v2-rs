@@ -194,7 +194,8 @@ curl -X POST http://localhost:8080/hl7/bundle \
 ### 5. Generate ACK
 **POST** `/hl7/ack`
 
-Generates an HL7 ACK response from an inbound message.
+Generates an HL7 ACK response from an inbound message with an explicit
+caller-supplied ACK code.
 
 **Request Body:**
 ```json
@@ -208,7 +209,69 @@ Generates an HL7 ACK response from an inbound message.
 
 ---
 
-### 6. Normalize HL7 Message
+### 6. Generate Policy-Driven ACK
+**POST** `/hl7/ack-policy`
+
+Parses and validates an inbound message, then chooses an ACK or NAK code from
+the server ACK policy. Configure the policy in `HL7V2_CONFIG`:
+
+```toml
+[ack]
+mode = "original" # original|enhanced
+accept_on = "valid"
+reject_on = ["parse_error", "validation_error"]
+include_error_text = true
+```
+
+Default behavior preserves original-mode application ACK codes: `AA` for valid
+messages and `AR` for parse or validation failures. Enhanced mode uses `CA` and
+`CR`. Error text is intentionally generic and does not include raw field values.
+
+**Request Body:**
+```json
+{
+  "message": "MSH|^~\\&|...",
+  "profile": "message_structure: ADT_A01\nversion: \"2.5\"\nsegments:\n  - id: MSH\n",
+  "mllp_framed": false,
+  "mllp_frame": false
+}
+```
+
+**Response Body:**
+```json
+{
+  "ack_message": "MSH|^~\\&|...",
+  "ack_code": "AA",
+  "decision": {
+    "mode": "original",
+    "outcome": "accepted",
+    "reason": "valid",
+    "ack_code": "AA",
+    "include_error_text": false
+  },
+  "validation_report": {
+    "valid": true,
+    "message_type": "ADT^A01",
+    "profile": "ADT_A01",
+    "segment_count": 2,
+    "issue_count": 0,
+    "issues": []
+  },
+  "metadata": {
+    "message_type": "ACK^ADT",
+    "version": "2.5",
+    "sending_application": "RECEIVER",
+    "sending_facility": "FACILITY",
+    "message_control_id": "MSG123",
+    "segment_count": 2,
+    "charsets": []
+  }
+}
+```
+
+---
+
+### 7. Normalize HL7 Message
 **POST** `/hl7/normalize`
 
 Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
@@ -227,7 +290,7 @@ Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
 
 ---
 
-### 7. Health & Metrics
+### 8. Health & Metrics
 
 **Health Check:**
 ```bash

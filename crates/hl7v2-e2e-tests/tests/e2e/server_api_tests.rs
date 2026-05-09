@@ -37,6 +37,7 @@ fn create_test_router() -> axum::Router {
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
+        ack_policy: Default::default(),
     });
     build_router(state)
 }
@@ -895,6 +896,7 @@ mod server_integration {
             profile_paths: Vec::new(),
             config_source: None,
             bundle_output_root: None,
+            ack_policy: Default::default(),
         };
 
         // Build server

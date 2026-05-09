@@ -240,7 +240,7 @@ paths:
     post:
       summary: Generate HL7 ACK
       description: |
-        Generate an HL7 v2 ACK message for a parsed inbound message.
+        Generate an HL7 v2 ACK message with an explicit caller-supplied ACK code.
       tags: [hl7]
       operationId: generateAck
       security:
@@ -260,6 +260,39 @@ paths:
                 $ref: '#/components/schemas/AckResponse'
         '400':
           description: Invalid message format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+  /hl7/ack-policy:
+    post:
+      summary: Generate policy-driven HL7 ACK
+      description: |
+        Parse and validate an inbound HL7 v2 message, then choose an ACK or NAK code using the server's configured ACK policy.
+      tags: [hl7]
+      operationId: generatePolicyAck
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckPolicyRequest'
+      responses:
+        '200':
+          description: Policy-driven ACK generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckPolicyResponse'
+        '400':
+          description: Invalid message or profile
           content:
             application/json:
               schema:
@@ -646,6 +679,68 @@ components:
           enum: [AA, AE, AR, CA, CE, CR]
         metadata:
           $ref: '#/components/schemas/MessageMetadata'
+
+    AckPolicyRequest:
+      type: object
+      required: [message, profile]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        profile:
+          type: string
+          description: Profile content (YAML) used to validate before choosing ACK or NAK
+        mllp_framed:
+          type: boolean
+          default: false
+          description: Whether the input message is MLLP framed
+        mllp_frame:
+          type: boolean
+          default: false
+          description: Whether to MLLP frame the ACK response
+
+    AckPolicyResponse:
+      type: object
+      required: [ack_message, ack_code, decision, metadata]
+      properties:
+        ack_message:
+          type: string
+          description: Generated ACK or NAK message
+        ack_code:
+          type: string
+          enum: [AA, AR, CA, CR]
+        decision:
+          $ref: '#/components/schemas/AckPolicyDecision'
+        validation_report:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReport'
+          nullable: true
+          description: Validation report used for the decision, absent when the message could not be parsed
+        metadata:
+          $ref: '#/components/schemas/MessageMetadata'
+
+    AckPolicyDecision:
+      type: object
+      required: [mode, outcome, reason, ack_code, include_error_text]
+      properties:
+        mode:
+          type: string
+          enum: [original, enhanced]
+        outcome:
+          type: string
+          enum: [accepted, rejected]
+        reason:
+          type: string
+          enum: [valid, parse_error, validation_error]
+        ack_code:
+          type: string
+          enum: [AA, AR, CA, CR]
+        include_error_text:
+          type: boolean
+        error_text:
+          type: string
+          nullable: true
+          description: Non-PHI error text included in ERR when configured
 
     NormalizeRequest:
       type: object
