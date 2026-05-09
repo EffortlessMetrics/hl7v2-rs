@@ -1,0 +1,104 @@
+schema_version = "1.0"
+policy = "ci-risk-packs"
+owner = "release/ci"
+status = "advisory"
+
+# Risk packs map file path patterns to CI lane sets.
+# The PR Plan job reads this file to determine which lanes to trigger.
+# Paths use glob patterns relative to the repository root.
+
+[risk_pack.core_parser]
+description = "HL7 message parser, segment/field/component structure, escape handling, canonical model."
+paths = [
+  "crates/hl7v2/src/parser/**",
+  "crates/hl7v2/src/model/**",
+  "crates/hl7v2/src/writer/**",
+  "crates/hl7v2/src/normalize/**",
+]
+lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+deep_lanes = ["extended_property_tests"]
+labels = ["property-tests", "full-ci"]
+
+[risk_pack.profile_validation]
+description = "Conformance profile loading, inheritance, constraints, validation reports."
+paths = [
+  "crates/hl7v2/src/conformance/**",
+  "profiles/**",
+  "fixtures/**",
+]
+lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+deep_lanes = ["extended_property_tests"]
+labels = ["profile", "property-tests", "full-ci"]
+
+[risk_pack.transport_mllp]
+description = "MLLP/network framing, streaming parser, batch/file transport."
+paths = [
+  "crates/hl7v2/src/transport/**",
+  "crates/hl7v2/src/stream/**",
+  "crates/hl7v2/src/batch/**",
+]
+lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+deep_lanes = ["matrix_tests"]
+labels = ["network", "full-ci"]
+
+[risk_pack.server_api]
+description = "HTTP/gRPC server, OpenAPI/API schema, auth, metrics, runtime config."
+paths = [
+  "crates/hl7v2-server/**",
+  "api/**",
+  "schemas/**",
+  "metadata.json",
+  "buf.gen.yaml",
+]
+lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+deep_lanes = ["contracts"]
+labels = ["api-contract", "full-ci"]
+
+[risk_pack.cli]
+description = "Command-line interface, evidence bundle, replay, corpus commands."
+paths = [
+  "crates/hl7v2-cli/**",
+  "fixtures/evidence/**",
+]
+lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+deep_lanes = []
+labels = ["evidence", "full-ci"]
+
+[risk_pack.python_binding]
+description = "PyO3/maturin Python binding lane."
+paths = [
+  "crates/hl7v2-python/**",
+  "tests/python_smoke/**",
+  "pyproject.toml",
+]
+lanes = ["python_wheels"]
+deep_lanes = []
+labels = ["python", "full-ci"]
+
+[risk_pack.release]
+description = "Crates publish graph, dependency, release, license, package metadata."
+paths = [
+  "Cargo.toml",
+  "Cargo.lock",
+  "deny.toml",
+  "RELEASE_PROCESS.md",
+  "CHANGELOG.md",
+]
+lanes = ["fast_checks", "security"]
+deep_lanes = ["publish"]
+labels = ["release-check", "security-audit", "full-ci"]
+
+[risk_pack.docs_only]
+description = "Documentation-only changes."
+paths = [
+  "docs/**",
+  "README.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "ROADMAP.md",
+  "TESTING.md",
+  "*.md",
+]
+lanes = []
+deep_lanes = []
+labels = []
