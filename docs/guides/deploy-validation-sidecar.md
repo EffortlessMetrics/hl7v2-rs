@@ -21,6 +21,7 @@ cargo run -q -p hl7v2-server -- --print-config
 | `POST /hl7/validate-redacted` | Validate after safe-analysis redaction and optionally quarantine failures. |
 | `POST /hl7/corpus/*` | Summarize, fingerprint, and diff inline message sets without request path reads. |
 | `POST /hl7/bundle` | Create server-side redacted evidence bundles under a configured root. |
+| `POST /hl7/replay` | Verify server-created bundles by id and return a replay report. |
 | `POST /hl7/ack-policy` | Generate ACK/NAK responses from parse and validation results. |
 | `GET /metrics` | Expose Prometheus metrics for sidecar observation. |
 
@@ -130,10 +131,12 @@ Expected fields:
 ```json
 {
   "bind_address": "127.0.0.1:18080",
+  "max_body_size": 10485760,
   "api_key_configured": true,
   "profile_paths": [
     "profiles/generic.yaml"
   ],
+  "config_source": "target/hl7v2-sidecar/server.toml",
   "bundle_output_root_configured": true,
   "ack_policy": {
     "mode": "original",
@@ -174,8 +177,8 @@ cargo run -q -p hl7v2-server
 
 The server binds `127.0.0.1:18080` from the config above.
 
-For a container smoke check from the repository root, use the checked-in
-Compose stack:
+For a container smoke check from the repository root, start Docker first and use
+the checked-in Compose stack:
 
 ```bash
 docker compose -f infrastructure/docker/docker-compose.yml up --build -d
@@ -333,12 +336,27 @@ Expected fields:
     "after": 1,
     "delta": 0
   },
-  "validation_issue_code_counts": []
+  "field_presence": [
+    {
+      "path": "PID.5",
+      "message_count_delta": 1
+    }
+  ],
+  "validation_issue_code_counts": [
+    {
+      "value": "value_not_in_set",
+      "before": 1,
+      "after": 0,
+      "delta": -1
+    }
+  ]
 }
 ```
 
 Use `/hl7/corpus/summarize` for aggregate counts and
-`/hl7/corpus/fingerprint` for a deterministic feed signature.
+`/hl7/corpus/fingerprint` for a deterministic feed signature. In this fixture,
+the after message is cleaner than the before message: `PID.5` appears and the
+`PID.8` value-set issue disappears.
 
 ## 7. Create a Server-Side Evidence Bundle
 
@@ -369,7 +387,7 @@ Expected fields:
 {
   "bundle_version": "1",
   "output_dir": "case-001",
-  "message_type": "ADT^A01^ADT_A01",
+  "message_type": "ADT^A01",
   "redaction_phi_removed": true,
   "artifacts": [
     "message.redacted.hl7",
@@ -390,7 +408,59 @@ If the endpoint returns `503 BUNDLE_OUTPUT_NOT_CONFIGURED`, set
 `[server].bundle_output_root` or `HL7V2_BUNDLE_OUTPUT_ROOT` to an existing
 writable directory and restart the server.
 
-## 8. Generate ACK/NAK from Policy
+## 8. Replay the Server Bundle
+
+Replay verifies bundle integrity and regenerates the validation report from the
+stored redacted message and profile:
+
+```powershell
+$body = @{
+    bundle_id = "case-001"
+    replay_report_schema_version = 2
+} | ConvertTo-Json -Depth 8
+
+Invoke-RestMethod `
+    -Method Post `
+    -Uri http://127.0.0.1:18080/hl7/replay `
+    -Headers @{ "X-API-Key" = "dev-secret" } `
+    -ContentType "application/json" `
+    -Body $body |
+    ConvertTo-Json -Depth 20 |
+    Set-Content target/hl7v2-sidecar/reports/replay-report.json
+```
+
+Expected fields:
+
+```json
+{
+  "schema_version": "2",
+  "replay_version": "1",
+  "message_type": "ADT^A01",
+  "reproduced": true,
+  "validation_valid": false,
+  "validation_issue_count": 1,
+  "checks": [
+    {
+      "name": "manifest-hashes",
+      "status": "pass"
+    },
+    {
+      "name": "report-match",
+      "status": "pass"
+    },
+    {
+      "name": "environment-match",
+      "status": "pass"
+    }
+  ]
+}
+```
+
+If replay does not reproduce, treat the packet as untrusted. The report tells
+you whether the failure is a missing artifact, manifest/hash mismatch,
+parse/profile problem, report drift, or environment mismatch.
+
+## 9. Generate ACK/NAK from Policy
 
 Use `/hl7/ack-policy` when the sidecar needs to decide an ACK from the same
 validation evidence:
@@ -432,7 +502,7 @@ For the invalid sample, expected fields include:
 
 Enhanced mode uses `CA` and `CR` instead of `AA` and `AR`.
 
-## 9. Observe the Sidecar
+## 10. Observe the Sidecar
 
 Check liveness and metrics:
 
