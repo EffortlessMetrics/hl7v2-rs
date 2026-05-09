@@ -58,8 +58,19 @@ report = hl7v2.validate(raw, profile_yaml)
 print(report.valid)
 print(report.message_type)
 print(report.to_dict())
+
+summary = hl7v2.corpus_summary("feeds/site-a")
+fingerprint = hl7v2.corpus_fingerprint("feeds/site-a", profile_yaml=profile_yaml)
+diff = hl7v2.corpus_diff(
+    "feeds/before",
+    "feeds/after",
+    profile_yaml=profile_yaml,
+)
+print(summary["message_count"])
+print(fingerprint["fingerprint_version"])
+print(diff["diff_version"])
 ```
 
 The current Python surface intentionally starts with the minimum evidence loop:
-parse, JSON export, normalize, and validate. Broader Python APIs should be
-added in focused follow-up PRs.
+parse, JSON export, normalize, validate, and corpus summary/fingerprint/diff.
+Redaction, bundle, and replay APIs should be added in focused follow-up PRs.
