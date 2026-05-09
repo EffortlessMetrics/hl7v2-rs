@@ -142,6 +142,8 @@ pub async fn validate_redacted_handler(
     let report_schema_version = requested_report_schema_version(request.report_schema_version)?;
     let redaction_receipt_schema_version =
         requested_redaction_receipt_schema_version(request.redaction_receipt_schema_version)?;
+    let quarantine_schema_version =
+        requested_quarantine_schema_version(request.quarantine_schema_version)?;
     let raw_input = request.message.into_bytes();
     let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
     let receipt =
@@ -170,6 +172,13 @@ pub async fn validate_redacted_handler(
         redaction_receipt: &receipt,
         validation_report: &validation_report,
     })?;
+    let quarantine_v2 = if quarantine_schema_version == 2 {
+        quarantine
+            .as_ref()
+            .map(|summary| summary.to_v2("hl7v2-server", env!("CARGO_PKG_VERSION")))
+    } else {
+        None
+    };
 
     let response = ValidateRedactedResponse {
         validation_report,
@@ -177,6 +186,7 @@ pub async fn validate_redacted_handler(
         redaction_receipt: receipt,
         redaction_receipt_v2,
         quarantine,
+        quarantine_v2,
         redacted_hl7: request.include_redacted_hl7.then_some(redacted_hl7),
     };
 
@@ -377,6 +387,16 @@ fn requested_redaction_receipt_schema_version(version: Option<u8>) -> Result<u8,
         2 => Ok(2),
         other => Err(AppError::Validation(format!(
             "unsupported redaction receipt schema version {other}; expected 1 or 2"
+        ))),
+    }
+}
+
+fn requested_quarantine_schema_version(version: Option<u8>) -> Result<u8, AppError> {
+    match version.unwrap_or(1) {
+        1 => Ok(1),
+        2 => Ok(2),
+        other => Err(AppError::Validation(format!(
+            "unsupported quarantine output schema version {other}; expected 1 or 2"
         ))),
     }
 }

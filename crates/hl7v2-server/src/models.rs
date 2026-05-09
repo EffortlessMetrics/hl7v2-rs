@@ -250,6 +250,13 @@ pub struct ValidateRedactedRequest {
     /// provenance.
     #[serde(default)]
     pub redaction_receipt_schema_version: Option<u8>,
+    /// Optional quarantine output summary schema version.
+    ///
+    /// Omitted or `1` preserves the existing `quarantine` field. `2` adds the
+    /// nested `quarantine_v2` field with embedded evidence provenance when
+    /// quarantine output is written.
+    #[serde(default)]
+    pub quarantine_schema_version: Option<u8>,
 }
 
 /// Validate and redact response body.
@@ -268,6 +275,9 @@ pub struct ValidateRedactedResponse {
     /// Quarantine output written when configured and validation failed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quarantine: Option<QuarantineOutputSummary>,
+    /// Opt-in quarantine output v2 artifact with embedded provenance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quarantine_v2: Option<QuarantineOutputSummaryV2>,
     /// Redacted HL7 payload, included only when requested.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacted_hl7: Option<String>,
@@ -368,6 +378,40 @@ pub struct QuarantineOutputSummary {
     pub validation_issue_count: usize,
     /// Quarantine-relative artifact names written by the server.
     pub artifacts: Vec<String>,
+}
+
+impl QuarantineOutputSummary {
+    /// Convert this v1 quarantine summary into the explicit v2 evidence contract shape.
+    ///
+    /// The default serialized server response remains v1-compatible. Callers
+    /// opt into this additive v2 shape with `quarantine_schema_version = 2`.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> QuarantineOutputSummaryV2 {
+        QuarantineOutputSummaryV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            summary: self.clone(),
+        }
+    }
+}
+
+/// Quarantine output summary v2 with embedded evidence provenance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuarantineOutputSummaryV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this quarantine summary.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// V1 quarantine summary fields.
+    #[serde(flatten)]
+    pub summary: QuarantineOutputSummary,
 }
 
 /// Reason that caused quarantine output.

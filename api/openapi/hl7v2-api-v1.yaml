@@ -465,11 +465,6 @@ components:
           enum: [1, 2]
           default: 1
           description: Optional validation report schema version. Version 2 adds validation_report_v2 with embedded evidence provenance while preserving the existing response fields.
-        redaction_receipt_schema_version:
-          type: integer
-          enum: [1, 2]
-          default: 1
-          description: Optional redaction receipt schema version. Version 2 adds redaction_receipt_v2 with embedded evidence provenance while preserving the existing response fields.
 
     ValidateResponse:
       type: object
@@ -542,6 +537,16 @@ components:
           enum: [1, 2]
           default: 1
           description: Optional validation report schema version. Version 2 adds validation_report_v2 with embedded evidence provenance while preserving the existing response fields.
+        redaction_receipt_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional redaction receipt schema version. Version 2 adds redaction_receipt_v2 with embedded evidence provenance while preserving the existing response fields.
+        quarantine_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional quarantine output summary schema version. Version 2 adds quarantine_v2 with embedded evidence provenance while preserving the existing quarantine field.
 
     ValidateRedactedResponse:
       type: object
@@ -566,6 +571,11 @@ components:
             - $ref: '#/components/schemas/QuarantineOutputSummary'
           nullable: true
           description: Quarantine output summary when configured and validation failed
+        quarantine_v2:
+          allOf:
+            - $ref: '#/components/schemas/QuarantineOutputSummaryV2'
+          nullable: true
+          description: Opt-in quarantine output v2 artifact returned when quarantine_schema_version is 2 and quarantine output is written
         redacted_hl7:
           type: string
           nullable: true
@@ -632,6 +642,43 @@ components:
         - validation_issue_count
         - artifacts
       properties:
+        quarantine_version:
+          type: string
+          enum: ['1']
+        output_dir:
+          type: string
+          description: Quarantine output id relative to the configured server quarantine root
+        reason:
+          type: string
+          enum: [validation_error]
+        validation_issue_count:
+          type: integer
+          minimum: 0
+        artifacts:
+          type: array
+          items:
+            type: string
+
+    QuarantineOutputSummaryV2:
+      type: object
+      required:
+        - schema_version
+        - tool_name
+        - tool_version
+        - quarantine_version
+        - output_dir
+        - reason
+        - validation_issue_count
+        - artifacts
+      properties:
+        schema_version:
+          type: string
+          enum: ['2']
+        tool_name:
+          type: string
+          enum: [hl7v2-server]
+        tool_version:
+          type: string
         quarantine_version:
           type: string
           enum: ['1']

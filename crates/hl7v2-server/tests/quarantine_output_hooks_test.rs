@@ -160,13 +160,15 @@ fn test_router(quarantine: QuarantineConfig) -> axum::Router {
 }
 
 fn validate_redacted_request(profile: &str) -> Request<Body> {
-    let body = json!({
+    validate_redacted_request_with_body(json!({
         "message": PHI_MESSAGE,
         "profile": profile,
         "redaction_policy": REDACTION_POLICY,
         "include_redacted_hl7": false
-    });
+    }))
+}
 
+fn validate_redacted_request_with_body(body: Value) -> Request<Body> {
     Request::builder()
         .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
             [127, 0, 0, 1],
@@ -182,6 +184,21 @@ fn validate_redacted_request(profile: &str) -> Request<Body> {
 async fn post_validate_redacted(app: axum::Router, profile: &str) -> (StatusCode, Value, String) {
     let response = app
         .oneshot(validate_redacted_request(profile))
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let value = serde_json::from_str(&body_text).unwrap_or_else(|_| json!({}));
+    (status, value, body_text)
+}
+
+async fn post_validate_redacted_body(
+    app: axum::Router,
+    body: Value,
+) -> (StatusCode, Value, String) {
+    let response = app
+        .oneshot(validate_redacted_request_with_body(body))
         .await
         .unwrap();
     let status = response.status();
@@ -234,6 +251,73 @@ async fn test_quarantine_hook_writes_bundle_for_failed_redacted_validation() {
         assert_no_phi(&content);
         assert!(!content.contains(root.path().to_string_lossy().as_ref()));
     }
+}
+
+#[tokio::test]
+async fn test_quarantine_hook_can_return_v2_provenance_summary() {
+    let root = TempRoot::new("bundle-v2");
+    let quarantine = QuarantineConfig {
+        enabled: true,
+        path: Some(root.path().to_path_buf()),
+        ..Default::default()
+    };
+    let request = json!({
+        "message": PHI_MESSAGE,
+        "profile": FAILING_PROFILE,
+        "redaction_policy": REDACTION_POLICY,
+        "include_redacted_hl7": false,
+        "quarantine_schema_version": 2
+    });
+
+    let (status, body, body_text) =
+        post_validate_redacted_body(test_router(quarantine), request).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["quarantine"]["quarantine_version"], "1");
+    assert_eq!(body["quarantine_v2"]["schema_version"], "2");
+    assert_eq!(body["quarantine_v2"]["tool_name"], "hl7v2-server");
+    assert_eq!(
+        body["quarantine_v2"]["tool_version"],
+        env!("CARGO_PKG_VERSION")
+    );
+    assert_eq!(
+        body["quarantine_v2"]["output_dir"],
+        body["quarantine"]["output_dir"]
+    );
+    assert_eq!(body["quarantine_v2"]["reason"], "validation_error");
+    assert_eq!(body["quarantine_v2"]["validation_issue_count"], 1);
+    assert_no_phi(&body_text);
+    assert!(!body_text.contains(root.path().to_string_lossy().as_ref()));
+}
+
+#[tokio::test]
+async fn test_quarantine_hook_rejects_unsupported_schema_version() {
+    let root = TempRoot::new("bundle-v3");
+    let quarantine = QuarantineConfig {
+        enabled: true,
+        path: Some(root.path().to_path_buf()),
+        ..Default::default()
+    };
+    let request = json!({
+        "message": PHI_MESSAGE,
+        "profile": FAILING_PROFILE,
+        "redaction_policy": REDACTION_POLICY,
+        "quarantine_schema_version": 3
+    });
+
+    let (status, body, body_text) =
+        post_validate_redacted_body(test_router(quarantine), request).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "VALIDATION_ERROR");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("unsupported quarantine output schema version 3")
+    );
+    assert_no_phi(&body_text);
+    assert!(fs::read_dir(root.path()).unwrap().next().is_none());
 }
 
 #[tokio::test]
