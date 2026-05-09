@@ -59,7 +59,8 @@ The first target v2 evidence schemas are `validation-report-v2.schema.json`,
 valid until implementation PRs explicitly move producer output shapes.
 Validation reports are the first artifact with an opt-in v2 producer path:
 `hl7v2 val --report json --schema-version 2` emits the v2 shape, while the
-default output remains v1.
+default output remains v1. Python validation reports expose the same opt-in
+shape through `report.to_dict(2)` and `report.to_json(2)`.
 
 #### Evidence Null And Empty Semantics
 

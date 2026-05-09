@@ -10,9 +10,9 @@ use ::hl7v2::synthetic::corpus::{
     diff_corpus_paths, fingerprint_corpus_path, summarize_corpus_path,
 };
 use ::hl7v2::{
-    Message, ValidationReport, is_mllp_framed, load_profile_checked, normalize as rust_normalize,
-    parse as rust_parse, parse_mllp as rust_parse_mllp, to_json as rust_to_json,
-    validate as rust_validate,
+    Message, ValidationReport, ValidationReportProfileIdentity, is_mllp_framed,
+    load_profile_checked, normalize as rust_normalize, parse as rust_parse,
+    parse_mllp as rust_parse_mllp, to_json as rust_to_json, validate as rust_validate,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -53,6 +53,7 @@ impl PyMessage {
 #[pyclass]
 pub struct PyValidationReport {
     inner: ValidationReport,
+    profile_identity: Option<ValidationReportProfileIdentity>,
 }
 
 #[pymethods]
@@ -88,15 +89,39 @@ impl PyValidationReport {
     }
 
     /// Convert the validation report to a JSON string.
-    pub fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string(&self.inner)
+    #[pyo3(signature = (schema_version = 1))]
+    pub fn to_json(&self, schema_version: u8) -> PyResult<String> {
+        let report = self.report_for_schema_version(schema_version)?;
+        serde_json::to_string(&report)
             .map_err(|e| PyValueError::new_err(format!("Report serialization error: {e}")))
     }
 
     /// Convert the validation report to a Python dict.
-    pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let json = self.to_json()?;
+    #[pyo3(signature = (schema_version = 1))]
+    pub fn to_dict<'py>(&self, py: Python<'py>, schema_version: u8) -> PyResult<Bound<'py, PyAny>> {
+        let json = self.to_json(schema_version)?;
         py.import("json")?.call_method1("loads", (json,))
+    }
+}
+
+impl PyValidationReport {
+    fn report_for_schema_version(&self, schema_version: u8) -> PyResult<serde_json::Value> {
+        match schema_version {
+            1 => serde_json::to_value(&self.inner)
+                .map_err(|e| PyValueError::new_err(format!("Report serialization error: {e}"))),
+            2 => {
+                let report = self.inner.to_v2(
+                    "hl7v2-python",
+                    env!("CARGO_PKG_VERSION"),
+                    self.profile_identity.clone(),
+                );
+                serde_json::to_value(report)
+                    .map_err(|e| PyValueError::new_err(format!("Report serialization error: {e}")))
+            }
+            _ => Err(PyValueError::new_err(
+                "validation report schema_version must be 1 or 2",
+            )),
+        }
     }
 }
 
@@ -230,6 +255,12 @@ pub fn validate(content: &str, profile_yaml: &str) -> PyResult<PyValidationRepor
             Some(profile.message_structure.clone()),
             issues,
         ),
+        profile_identity: Some(ValidationReportProfileIdentity {
+            label: "<inline-profile>".to_string(),
+            message_structure: Some(profile.message_structure.clone()),
+            version: Some(profile.version.clone()),
+            sha256: Some(compute_sha256(profile_yaml)),
+        }),
     })
 }
 
