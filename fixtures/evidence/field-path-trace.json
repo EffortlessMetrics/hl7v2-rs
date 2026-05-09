@@ -1,0 +1,238 @@
+{
+  "message_type": "ADT^A01",
+  "field_count": 28,
+  "fields": [
+    {
+      "path": "MSH[1].2",
+      "canonical_path": "MSH.2",
+      "segment_index": 1,
+      "field_index": 2,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "MSH[1].3",
+      "canonical_path": "MSH.3",
+      "segment_index": 1,
+      "field_index": 3,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "MSH[1].4",
+      "canonical_path": "MSH.4",
+      "segment_index": 1,
+      "field_index": 4,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "MSH[1].5",
+      "canonical_path": "MSH.5",
+      "segment_index": 1,
+      "field_index": 5,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "MSH[1].6",
+      "canonical_path": "MSH.6",
+      "segment_index": 1,
+      "field_index": 6,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "MSH[1].7",
+      "canonical_path": "MSH.7",
+      "segment_index": 1,
+      "field_index": 7,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "MSH[1].8",
+      "canonical_path": "MSH.8",
+      "segment_index": 1,
+      "field_index": 8,
+      "present": false,
+      "value_shape": "empty"
+    },
+    {
+      "path": "MSH[1].9",
+      "canonical_path": "MSH.9",
+      "segment_index": 1,
+      "field_index": 9,
+      "present": true,
+      "value_shape": "present",
+      "redaction_action": "retain"
+    },
+    {
+      "path": "MSH[1].10",
+      "canonical_path": "MSH.10",
+      "segment_index": 1,
+      "field_index": 10,
+      "present": true,
+      "value_shape": "present",
+      "redaction_action": "retain"
+    },
+    {
+      "path": "MSH[1].11",
+      "canonical_path": "MSH.11",
+      "segment_index": 1,
+      "field_index": 11,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "MSH[1].12",
+      "canonical_path": "MSH.12",
+      "segment_index": 1,
+      "field_index": 12,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "PID[2].1",
+      "canonical_path": "PID.1",
+      "segment_index": 2,
+      "field_index": 1,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "PID[2].2",
+      "canonical_path": "PID.2",
+      "segment_index": 2,
+      "field_index": 2,
+      "present": false,
+      "value_shape": "empty"
+    },
+    {
+      "path": "PID[2].3",
+      "canonical_path": "PID.3",
+      "segment_index": 2,
+      "field_index": 3,
+      "present": true,
+      "value_shape": "hashed_sha256",
+      "redaction_action": "hash"
+    },
+    {
+      "path": "PID[2].4",
+      "canonical_path": "PID.4",
+      "segment_index": 2,
+      "field_index": 4,
+      "present": false,
+      "value_shape": "empty"
+    },
+    {
+      "path": "PID[2].5",
+      "canonical_path": "PID.5",
+      "segment_index": 2,
+      "field_index": 5,
+      "present": false,
+      "value_shape": "empty",
+      "redaction_action": "drop"
+    },
+    {
+      "path": "PID[2].6",
+      "canonical_path": "PID.6",
+      "segment_index": 2,
+      "field_index": 6,
+      "present": false,
+      "value_shape": "empty"
+    },
+    {
+      "path": "PID[2].7",
+      "canonical_path": "PID.7",
+      "segment_index": 2,
+      "field_index": 7,
+      "present": false,
+      "value_shape": "empty",
+      "redaction_action": "drop"
+    },
+    {
+      "path": "PID[2].8",
+      "canonical_path": "PID.8",
+      "segment_index": 2,
+      "field_index": 8,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "PID[2].9",
+      "canonical_path": "PID.9",
+      "segment_index": 2,
+      "field_index": 9,
+      "present": false,
+      "value_shape": "empty"
+    },
+    {
+      "path": "PID[2].10",
+      "canonical_path": "PID.10",
+      "segment_index": 2,
+      "field_index": 10,
+      "present": false,
+      "value_shape": "empty"
+    },
+    {
+      "path": "PID[2].11",
+      "canonical_path": "PID.11",
+      "segment_index": 2,
+      "field_index": 11,
+      "present": false,
+      "value_shape": "empty",
+      "redaction_action": "drop"
+    },
+    {
+      "path": "OBX[3].1",
+      "canonical_path": "OBX.1",
+      "segment_index": 3,
+      "field_index": 1,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "OBX[3].2",
+      "canonical_path": "OBX.2",
+      "segment_index": 3,
+      "field_index": 2,
+      "present": true,
+      "value_shape": "present"
+    },
+    {
+      "path": "OBX[3].3",
+      "canonical_path": "OBX.3",
+      "segment_index": 3,
+      "field_index": 3,
+      "present": true,
+      "value_shape": "present",
+      "redaction_action": "retain"
+    },
+    {
+      "path": "OBX[3].4",
+      "canonical_path": "OBX.4",
+      "segment_index": 3,
+      "field_index": 4,
+      "present": false,
+      "value_shape": "empty"
+    },
+    {
+      "path": "OBX[3].5",
+      "canonical_path": "OBX.5",
+      "segment_index": 3,
+      "field_index": 5,
+      "present": true,
+      "value_shape": "present",
+      "redaction_action": "retain"
+    },
+    {
+      "path": "OBX[3].6",
+      "canonical_path": "OBX.6",
+      "segment_index": 3,
+      "field_index": 6,
+      "present": true,
+      "value_shape": "present"
+    }
+  ]
+}

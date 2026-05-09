@@ -3403,6 +3403,13 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         .expect("bundle redaction receipt should be JSON");
         assert_fixture("redaction-receipt", receipt);
 
+        let field_paths: Value = serde_json::from_slice(
+            &std::fs::read(bundle.join("field-paths.json"))
+                .expect("bundle field-path trace should be readable"),
+        )
+        .expect("bundle field-path trace should be JSON");
+        assert_fixture("field-path-trace", field_paths);
+
         let mut manifest: Value = serde_json::from_slice(
             &std::fs::read(bundle.join("manifest.json"))
                 .expect("bundle manifest should be readable"),
