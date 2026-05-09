@@ -89,7 +89,7 @@ Rules:
 
 | Artifact | V1 state | V2 direction |
 | --- | --- | --- |
-| `ValidationReport` | Shared Rust/CLI/server/Python type with no embedded `schema_version` or `tool_version`. | Add `schema_version`, `tool_name`, `tool_version`, and optional `profile_identity` in a v2 schema and type migration. |
+| `ValidationReport` | Shared Rust/CLI/server/Python type with no embedded `schema_version` or `tool_version`. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI validation can emit v2 when requested. Server and Python producers still emit v1 until migrated explicitly. |
 | `ProfileLintReport` | Shared Rust type with no embedded version fields. | Add common provenance fields in v2. |
 | `ProfileTestReport` | CLI-local type with embedded validation reports. | Promote to shared type only if server/Python need it; otherwise add v2 provenance in the CLI schema first. |
 | `ProfileExplainReport` | CLI-local report with profile hash but no artifact/tool version. | Add common provenance fields; preserve profile hash metadata. |
@@ -116,6 +116,9 @@ Do the migration in narrow PRs:
    explicitly.
 2. Add additive Rust fields behind explicit v2 serializers or conversion
    helpers. Do not break callers that still expect the v1 shapes.
+   `ValidationReport` now has an explicit v2 conversion helper and `hl7v2 val`
+   can opt into v2 JSON/YAML output with `--schema-version 2`; the default
+   remains v1.
 3. Update CLI JSON/YAML output to choose the v2 shape only when the command or
    release notes explicitly say so. If a compatibility flag is needed, document
    it before exposing it.

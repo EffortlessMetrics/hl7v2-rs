@@ -3368,6 +3368,71 @@ reason = "patient identifier"
     }
 
     #[test]
+    fn test_validation_report_schema_v2_includes_provenance() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("validation command should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["profile"], "profile.yaml");
+        assert_eq!(report["profile_identity"]["label"], "profile.yaml");
+        assert_eq!(report["profile_identity"]["message_structure"], "ADT_A01");
+        assert_eq!(report["profile_identity"]["version"], "2.5");
+        assert_eq!(
+            report["profile_identity"]["sha256"]
+                .as_str()
+                .unwrap_or_default()
+                .len(),
+            64
+        );
+        assert_eq!(report["issues"][0]["code"], "missing_required_field");
+        assert!(output_text(&output.stderr).contains("Error: validation failed"));
+    }
+
+    #[test]
+    fn test_validation_report_schema_v2_rejects_text_output() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("validation command should run");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("schema v2"));
+    }
+
+    #[test]
     fn test_profile_check_failure_returns_one_with_report_on_stdout() {
         let dir = create_temp_dir();
         let profile = create_temp_profile(

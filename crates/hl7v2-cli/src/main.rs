@@ -30,9 +30,10 @@ use hl7v2::synthetic::corpus::{
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
     AckCode as GenAckCode, Atom, Event, Field, Message, Profile, ProfileLintIssue,
-    ProfileLintReport, StreamParser, ValidationReport, ack, get, is_mllp_framed, lint_profile_yaml,
-    load_profile, load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp,
-    write, write_mllp,
+    ProfileLintReport, StreamParser, ValidationReport, ValidationReportProfileIdentity,
+    ValidationReportV2, ack, get, is_mllp_framed, lint_profile_yaml, load_profile,
+    load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp, write,
+    write_mllp,
 };
 use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
@@ -180,6 +181,10 @@ enum Commands {
         /// Output validation report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
+
+        /// Evidence schema version for machine-readable validation reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
 
         /// Show summary statistics
         #[arg(long)]
@@ -635,6 +640,14 @@ impl<'a> OutputOptions<'a> {
     }
 }
 
+struct ValCommandOptions<'a> {
+    mllp: bool,
+    detailed: bool,
+    report: &'a ReportFormat,
+    schema_version: u8,
+    summary: bool,
+}
+
 const DOCTOR_BUILTIN_SAMPLE: &[u8] = b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
 
 #[derive(serde::Serialize)]
@@ -1050,6 +1063,7 @@ async fn main() {
             mllp,
             detailed,
             report,
+            schema_version,
             summary,
             output,
             quiet,
@@ -1057,10 +1071,13 @@ async fn main() {
         } => val_command(
             input,
             profile,
-            *mllp,
-            *detailed,
-            report,
-            *summary,
+            &ValCommandOptions {
+                mllp: *mllp,
+                detailed: *detailed,
+                report,
+                schema_version: *schema_version,
+                summary: *summary,
+            },
             &OutputOptions::new(output.as_ref(), *quiet, *no_color),
         ),
         Commands::Stats {
@@ -1921,12 +1938,16 @@ fn norm_command(
 fn val_command(
     input: &PathBuf,
     profile: &PathBuf,
-    mllp: bool,
-    detailed: bool,
-    report: &ReportFormat,
-    summary: bool,
+    options: &ValCommandOptions<'_>,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if options.schema_version == 2 && *options.report == ReportFormat::Text {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "validation report schema v2 is available only with --report json or --report yaml",
+        )));
+    }
+
     let mut monitor = monitor::PerformanceMonitor::new();
 
     // Read the HL7 message file
@@ -1937,7 +1958,7 @@ fn val_command(
     monitor.record_metric("File read", read_time);
 
     // Parse the HL7 message
-    let message = if mllp {
+    let message = if options.mllp {
         parse_mllp(&contents)?
     } else {
         parse(&contents)?
@@ -1972,14 +1993,32 @@ fn val_command(
         results,
     );
 
-    let output = match report {
+    let output = match options.report {
+        ReportFormat::Json if options.schema_version == 2 => {
+            let report_v2 = validation_report_v2_for_cli(
+                &validation_report,
+                profile,
+                &profile_yaml,
+                &loaded_profile,
+            );
+            serde_json::to_string_pretty(&report_v2)?
+        }
+        ReportFormat::Yaml if options.schema_version == 2 => {
+            let report_v2 = validation_report_v2_for_cli(
+                &validation_report,
+                profile,
+                &profile_yaml,
+                &loaded_profile,
+            );
+            serde_yaml::to_string(&report_v2)?
+        }
         ReportFormat::Json => serde_json::to_string_pretty(&validation_report)?,
         ReportFormat::Yaml => serde_yaml::to_string(&validation_report)?,
         ReportFormat::Text => {
             // Print validation results in text format
             if validation_report.valid {
                 "Validation passed: No issues found".to_string()
-            } else if detailed {
+            } else if options.detailed {
                 let mut output = String::from("Validation issues found:");
                 for issue in &validation_report.issues {
                     let path = issue.path.as_deref().unwrap_or("message");
@@ -2003,7 +2042,7 @@ fn val_command(
     output_options.emit(&output)?;
 
     // Show summary if requested (only for text format to avoid mixing output)
-    if summary && *report == ReportFormat::Text {
+    if options.summary && *options.report == ReportFormat::Text {
         let mut summary_output = String::new();
         summary_output.push('\n');
         summary_output.push_str("Validation Summary:\n");
@@ -2033,6 +2072,34 @@ fn val_command(
     }
 
     Ok(())
+}
+
+fn validation_report_v2_for_cli(
+    report: &ValidationReport,
+    profile_path: &Path,
+    profile_yaml: &str,
+    loaded_profile: &Profile,
+) -> ValidationReportV2 {
+    let profile_label = profile_display_label(profile_path);
+    let mut report_v2 = report.to_v2(
+        "hl7v2-cli",
+        env!("CARGO_PKG_VERSION"),
+        Some(ValidationReportProfileIdentity {
+            label: profile_label.clone(),
+            message_structure: Some(loaded_profile.message_structure.clone()),
+            version: Some(loaded_profile.version.clone()),
+            sha256: Some(compute_sha256(profile_yaml)),
+        }),
+    );
+    report_v2.profile = Some(profile_label);
+    report_v2
+}
+
+fn profile_display_label(profile_path: &Path) -> String {
+    profile_path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| "profile".to_string())
 }
 
 fn redact_command(
@@ -4858,10 +4925,13 @@ fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
     val_command(
         &file_path,
         &profile_path,
-        mllp,
-        detailed,
-        &report,
-        summary,
+        &ValCommandOptions {
+            mllp,
+            detailed,
+            report: &report,
+            schema_version: 1,
+            summary,
+        },
         &OutputOptions::new(None, false, false),
     )
 }

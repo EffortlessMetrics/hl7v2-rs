@@ -108,7 +108,8 @@ pub use conformance::profile::{
 
 #[cfg(feature = "profile")]
 pub use conformance::validation::{
-    Issue, Severity, ValidationReport, ValidationReportIssue, ValidationReportSeverity,
+    Issue, Severity, ValidationReport, ValidationReportIssue, ValidationReportProfileIdentity,
+    ValidationReportSeverity, ValidationReportV2,
 };
 
 #[cfg(feature = "stream")]

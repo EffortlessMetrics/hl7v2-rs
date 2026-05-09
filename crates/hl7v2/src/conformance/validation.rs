@@ -149,6 +149,73 @@ impl ValidationReport {
             issues: report_issues,
         }
     }
+
+    /// Convert this v1 report into the explicit v2 evidence contract shape.
+    ///
+    /// This does not change the default serialized form of `ValidationReport`.
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+        profile_identity: Option<ValidationReportProfileIdentity>,
+    ) -> ValidationReportV2 {
+        ValidationReportV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            valid: self.valid,
+            message_type: self.message_type.clone(),
+            profile: self.profile.clone(),
+            profile_identity,
+            segment_count: self.segment_count,
+            issue_count: self.issue_count,
+            issues: self.issues.clone(),
+        }
+    }
+}
+
+/// Reproducible profile identity metadata for validation report v2.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationReportProfileIdentity {
+    /// Display label for the profile source.
+    pub label: String,
+    /// Loaded profile message structure when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_structure: Option<String>,
+    /// Loaded profile HL7 version when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// SHA-256 digest of the profile bytes when available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<String>,
+}
+
+/// Validation report v2 with embedded evidence provenance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationReportV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this report.
+    pub tool_name: String,
+    /// Semantic version of the producing crate or binding package.
+    pub tool_version: String,
+    /// Whether the message passed validation without error-level issues.
+    pub valid: bool,
+    /// HL7 trigger event from `MSH.9`, such as `ADT^A01`.
+    pub message_type: String,
+    /// Profile identifier, usually a path or configured profile name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    /// Reproducible profile identity metadata when available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_identity: Option<ValidationReportProfileIdentity>,
+    /// Number of parsed message segments.
+    pub segment_count: usize,
+    /// Number of reported validation issues.
+    pub issue_count: usize,
+    /// Stable validation issue records.
+    pub issues: Vec<ValidationReportIssue>,
 }
 
 /// Stable validation issue record used in machine-readable reports.
@@ -1188,6 +1255,45 @@ mod legacy_tests {
         assert_eq!(report.issues[0].path.as_deref(), Some("PID.3"));
         assert_eq!(report.issues[0].segment_index, Some(1));
         assert_eq!(report.issues[0].field_index, Some(3));
+    }
+
+    #[test]
+    fn validation_report_v2_embeds_provenance_without_changing_v1() {
+        let message = crate::parser::parse(
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||\r",
+        )
+        .unwrap_or_default();
+        let report = ValidationReport::from_issues(
+            &message,
+            Some("adt_a01.yaml".to_string()),
+            vec![Issue::error(
+                "MISSING_REQUIRED_FIELD",
+                Some("PID.3".to_string()),
+                "PID.3 is required".to_string(),
+            )],
+        );
+        let v1_json = serde_json::to_value(&report).unwrap_or_default();
+        let v2 = report.to_v2(
+            "hl7v2",
+            "1.4.0",
+            Some(ValidationReportProfileIdentity {
+                label: "adt_a01.yaml".to_string(),
+                message_structure: Some("ADT_A01".to_string()),
+                version: Some("2.5.1".to_string()),
+                sha256: Some(
+                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".to_string(),
+                ),
+            }),
+        );
+        let v2_json = serde_json::to_value(&v2).unwrap_or_default();
+
+        assert!(v1_json.get("schema_version").is_none());
+        assert_eq!(v2.schema_version, "2");
+        assert_eq!(v2.tool_name, "hl7v2");
+        assert_eq!(v2.tool_version, "1.4.0");
+        assert_eq!(v2_json["profile_identity"]["message_structure"], "ADT_A01");
+        assert_eq!(v2.issue_count, report.issue_count);
+        assert_eq!(v2.issues, report.issues);
     }
 
     #[test]
