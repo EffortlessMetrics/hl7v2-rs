@@ -236,6 +236,38 @@ pub async fn bundle_handler(
     Ok((StatusCode::CREATED, Json(summary)))
 }
 
+/// Handler for POST /hl7/replay
+pub async fn replay_handler(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<ReplayRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let report_schema_version =
+        requested_replay_report_schema_version(request.replay_report_schema_version)?;
+    let bundle_output_root = state
+        .bundle_output_root
+        .as_deref()
+        .ok_or(AppError::BundleOutputNotConfigured)?;
+    let bundle_dir = crate::evidence::bundle_path_for_id(bundle_output_root, &request.bundle_id)
+        .map_err(AppError::from)?;
+
+    if !bundle_dir.is_dir() {
+        return Err(AppError::BundleNotFound(format!(
+            "bundle_id '{}' was not found",
+            request.bundle_id
+        )));
+    }
+
+    let report = hl7v2::evidence::replay_evidence_bundle(&bundle_dir, "hl7v2-server");
+    let response = if report_schema_version == 2 {
+        serde_json::to_value(report.to_v2())
+    } else {
+        serde_json::to_value(report)
+    }
+    .map_err(|error| AppError::Internal(format!("could not serialize replay report: {error}")))?;
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
 /// Handler for POST /hl7/ack
 pub async fn ack_handler(
     State(_state): State<Arc<AppState>>,
@@ -410,6 +442,16 @@ fn requested_bundle_artifact_schema_version(version: Option<u8>) -> Result<u8, A
         2 => Ok(2),
         other => Err(AppError::Validation(format!(
             "unsupported bundle artifact schema version {other}; expected 1 or 2"
+        ))),
+    }
+}
+
+fn requested_replay_report_schema_version(version: Option<u8>) -> Result<u8, AppError> {
+    match version.unwrap_or(1) {
+        1 => Ok(1),
+        2 => Ok(2),
+        other => Err(AppError::Validation(format!(
+            "unsupported replay report schema version {other}; expected 1 or 2"
         ))),
     }
 }
@@ -696,6 +738,9 @@ pub enum AppError {
     /// Bundle output already exists
     Conflict(String),
 
+    /// Requested bundle id was not found under the configured output root
+    BundleNotFound(String),
+
     /// Quarantine output is enabled but no path is configured
     QuarantineOutputNotConfigured,
 
@@ -760,6 +805,7 @@ impl IntoResponse for AppError {
             ),
             AppError::Bundle(msg) => (StatusCode::BAD_REQUEST, "BUNDLE_ERROR", msg),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, "BUNDLE_EXISTS", msg),
+            AppError::BundleNotFound(msg) => (StatusCode::NOT_FOUND, "BUNDLE_NOT_FOUND", msg),
             AppError::QuarantineOutputNotConfigured => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "QUARANTINE_OUTPUT_NOT_CONFIGURED",
@@ -795,6 +841,7 @@ impl std::fmt::Display for AppError {
             }
             AppError::Bundle(msg) => write!(f, "Bundle error: {}", msg),
             AppError::Conflict(msg) => write!(f, "Bundle conflict: {}", msg),
+            AppError::BundleNotFound(msg) => write!(f, "Bundle not found: {}", msg),
             AppError::QuarantineOutputNotConfigured => {
                 write!(f, "Quarantine output path is not configured")
             }

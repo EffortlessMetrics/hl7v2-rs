@@ -221,7 +221,65 @@ curl -X POST http://localhost:8080/hl7/bundle \
 
 ---
 
-### 5. Generate ACK
+### 5. Replay Evidence Bundle
+**POST** `/hl7/replay`
+
+Replays and verifies a previously written evidence bundle under the configured
+`HL7V2_BUNDLE_OUTPUT_ROOT`. The request supplies a `bundle_id`, not a
+filesystem path. Replay returns the same evidence replay report shape used by
+the CLI and Python surfaces.
+
+The endpoint fails closed with `503 BUNDLE_OUTPUT_NOT_CONFIGURED` when the
+server has no configured bundle output root. Unknown bundle ids return
+`404 BUNDLE_NOT_FOUND`.
+
+Set `replay_report_schema_version` to `2` to return the v2 replay report with
+embedded `schema_version` provenance.
+
+**Request Body:**
+```json
+{
+  "bundle_id": "case-001",
+  "replay_report_schema_version": 2
+}
+```
+
+**Response Body:**
+```json
+{
+  "schema_version": "2",
+  "replay_version": "1",
+  "bundle_version": "1",
+  "tool_name": "hl7v2-server",
+  "tool_version": "1.3.0",
+  "message_type": "ADT^A01",
+  "reproduced": true,
+  "validation_valid": true,
+  "validation_issue_count": 0,
+  "checks": [
+    {
+      "name": "manifest-hashes",
+      "status": "pass",
+      "message": "manifest artifact hashes match bundle contents"
+    }
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8080/hl7/replay \
+  -H "X-API-Key: your-secret-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bundle_id": "case-001",
+    "replay_report_schema_version": 2
+  }'
+```
+
+---
+
+### 6. Generate ACK
 **POST** `/hl7/ack`
 
 Generates an HL7 ACK response from an inbound message with an explicit
@@ -239,7 +297,7 @@ caller-supplied ACK code.
 
 ---
 
-### 6. Generate Policy-Driven ACK
+### 7. Generate Policy-Driven ACK
 **POST** `/hl7/ack-policy`
 
 Parses and validates an inbound message, then chooses an ACK or NAK code from
@@ -301,7 +359,7 @@ messages and `AR` for parse or validation failures. Enhanced mode uses `CA` and
 
 ---
 
-### 7. Normalize HL7 Message
+### 8. Normalize HL7 Message
 **POST** `/hl7/normalize`
 
 Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
@@ -320,7 +378,7 @@ Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
 
 ---
 
-### 8. Health & Metrics
+### 9. Health & Metrics
 
 **Health Check:**
 ```bash
