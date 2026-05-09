@@ -325,6 +325,10 @@ enum Commands {
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
 
+        /// Evidence schema version for machine-readable replay reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Write the replay report to a file instead of stdout
         #[arg(long)]
         output: Option<PathBuf>,
@@ -1096,6 +1100,22 @@ struct EvidenceReplayReport {
 }
 
 #[derive(serde::Serialize)]
+struct EvidenceReplayReportV2<'a> {
+    schema_version: &'static str,
+    #[serde(flatten)]
+    report: &'a EvidenceReplayReport,
+}
+
+impl EvidenceReplayReport {
+    fn to_v2(&self) -> EvidenceReplayReportV2<'_> {
+        EvidenceReplayReportV2 {
+            schema_version: "2",
+            report: self,
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
 struct EvidenceReplayCheck {
     name: &'static str,
     status: EvidenceReplayCheckStatus,
@@ -1346,12 +1366,14 @@ async fn main() {
         Commands::Replay {
             bundle,
             format,
+            schema_version,
             output,
             quiet,
             no_color,
         } => replay_command(
             bundle,
             format,
+            *schema_version,
             &OutputOptions::new(output.as_ref(), *quiet, *no_color),
         ),
         Commands::Ack {
@@ -2416,10 +2438,11 @@ fn bundle_command(
 fn replay_command(
     bundle: &Path,
     format: &ReportFormat,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let report = build_replay_report(bundle);
-    output_options.emit(&render_replay_report(&report, format)?)?;
+    output_options.emit(&render_replay_report(&report, format, schema_version)?)?;
 
     if report.reproduced {
         Ok(())
@@ -2920,8 +2943,18 @@ fn json_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
 fn render_replay_report(
     report: &EvidenceReplayReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            Ok(serde_json::to_string_pretty(&report.to_v2())?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(&report.to_v2())?),
+        ReportFormat::Text if schema_version == 2 => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "replay report schema v2 is available only with --format json or --format yaml",
+        )
+        .into()),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {

@@ -426,10 +426,24 @@ pub fn bundle<'py>(
 }
 
 /// Replay and verify an evidence bundle directory.
-#[pyfunction]
-pub fn replay<'py>(py: Python<'py>, bundle_dir: &str) -> PyResult<Bound<'py, PyAny>> {
+#[pyfunction(signature = (bundle_dir, schema_version = 1))]
+pub fn replay<'py>(
+    py: Python<'py>,
+    bundle_dir: &str,
+    schema_version: u8,
+) -> PyResult<Bound<'py, PyAny>> {
+    if !matches!(schema_version, 1 | 2) {
+        return Err(PyValueError::new_err(
+            "evidence replay schema_version must be 1 or 2",
+        ));
+    }
+
     let report = rust_replay_evidence_bundle(Path::new(bundle_dir), "hl7v2-python");
-    report_to_dict(py, &report, "Replay report serialization error")
+    if schema_version == 2 {
+        report_to_dict(py, &report.to_v2(), "Replay report v2 serialization error")
+    } else {
+        report_to_dict(py, &report, "Replay report serialization error")
+    }
 }
 
 /// HL7v2 module for Python

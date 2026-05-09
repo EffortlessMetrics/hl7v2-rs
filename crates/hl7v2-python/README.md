@@ -115,7 +115,9 @@ print(bundle["artifacts"])
 print(bundle_v2["schema_version"])
 
 replay = hl7v2.replay("issue-bundle")
+replay_v2 = hl7v2.replay("issue-bundle", schema_version=2)
 print(replay["reproduced"])
+print(replay_v2["schema_version"])
 ```
 
 The current Python surface intentionally starts with the minimum evidence loop:

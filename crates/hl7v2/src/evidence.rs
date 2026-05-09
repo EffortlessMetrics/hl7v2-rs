@@ -199,6 +199,30 @@ pub struct EvidenceReplayReport {
     pub validation_report: Option<ValidationReport>,
 }
 
+impl EvidenceReplayReport {
+    /// Convert this v1 replay report into the explicit v2 evidence contract shape.
+    ///
+    /// This preserves the default serialized form of [`EvidenceReplayReport`].
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    #[must_use]
+    pub fn to_v2(&self) -> EvidenceReplayReportV2 {
+        EvidenceReplayReportV2 {
+            schema_version: "2".to_string(),
+            report: self.clone(),
+        }
+    }
+}
+
+/// Evidence replay report v2 with embedded evidence schema version.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct EvidenceReplayReportV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// V1 replay report fields.
+    #[serde(flatten)]
+    pub report: EvidenceReplayReport,
+}
+
 /// One replay verification check.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EvidenceReplayCheck {
@@ -1058,6 +1082,15 @@ reason = "Date of birth"
         ensure(
             replay.tool_name == "hl7v2-python",
             "expected Python replay tool name",
+        )?;
+        let replay_v2 = replay.to_v2();
+        ensure(
+            replay_v2.schema_version == "2",
+            "expected replay v2 schema version",
+        )?;
+        ensure(
+            replay_v2.report.replay_version == "1",
+            "expected replay v2 to preserve replay version",
         )?;
         ensure(
             replay

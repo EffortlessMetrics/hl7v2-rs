@@ -1,0 +1,76 @@
+{
+  "schema_version": "2",
+  "replay_version": "1",
+  "bundle_version": "1",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.3.0",
+  "message_type": "ADT^A01",
+  "reproduced": true,
+  "validation_valid": true,
+  "validation_issue_count": 0,
+  "checks": [
+    {
+      "name": "bundle-layout",
+      "status": "pass",
+      "message": "all expected bundle artifacts are present"
+    },
+    {
+      "name": "manifest",
+      "status": "pass",
+      "message": "manifest.json parsed"
+    },
+    {
+      "name": "manifest-artifacts",
+      "status": "pass",
+      "message": "manifest lists expected bundle artifacts"
+    },
+    {
+      "name": "manifest-hashes",
+      "status": "pass",
+      "message": "manifest artifact hashes match bundle contents"
+    },
+    {
+      "name": "environment",
+      "status": "pass",
+      "message": "environment.json parsed"
+    },
+    {
+      "name": "stored-validation-report",
+      "status": "pass",
+      "message": "validation-report.json parsed"
+    },
+    {
+      "name": "parse-redacted-message",
+      "status": "pass",
+      "message": "message.redacted.hl7 parsed"
+    },
+    {
+      "name": "load-profile",
+      "status": "pass",
+      "message": "profile.yaml loaded"
+    },
+    {
+      "name": "generate-validation-report",
+      "status": "pass",
+      "message": "validation report regenerated from bundled message and profile"
+    },
+    {
+      "name": "report-match",
+      "status": "pass",
+      "message": "regenerated validation report matches validation-report.json"
+    },
+    {
+      "name": "environment-match",
+      "status": "pass",
+      "message": "environment metadata matches regenerated validation report"
+    }
+  ],
+  "validation_report": {
+    "valid": true,
+    "message_type": "ADT^A01",
+    "profile": "profile.yaml",
+    "segment_count": 3,
+    "issue_count": 0,
+    "issues": []
+  }
+}
