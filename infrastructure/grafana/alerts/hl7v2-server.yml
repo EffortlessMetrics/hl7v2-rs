@@ -124,9 +124,9 @@ groups:
       - alert: HL7v2LowValidationSuccessRate
         expr: |
           (
-            sum(rate(hl7v2_validation_total{result="valid"}[10m]))
+            sum(rate(hl7v2_messages_validated_total[10m])) - sum(rate(hl7v2_validation_failures_total[10m]))
             /
-            sum(rate(hl7v2_validation_total[10m]))
+            sum(rate(hl7v2_messages_validated_total[10m]))
           ) < 0.90
         for: 10m
         labels:
@@ -142,9 +142,9 @@ groups:
       - alert: HL7v2CriticalValidationSuccessRate
         expr: |
           (
-            sum(rate(hl7v2_validation_total{result="valid"}[10m]))
+            sum(rate(hl7v2_messages_validated_total[10m])) - sum(rate(hl7v2_validation_failures_total[10m]))
             /
-            sum(rate(hl7v2_validation_total[10m]))
+            sum(rate(hl7v2_messages_validated_total[10m]))
           ) < 0.50
         for: 5m
         labels:
@@ -159,7 +159,7 @@ groups:
       # High parse error rate
       - alert: HL7v2HighParseErrorRate
         expr: |
-          rate(hl7v2_parse_errors_total[5m]) > 1
+          sum(rate(hl7v2_parse_failures_total[5m])) > 1
         for: 5m
         labels:
           severity: warning
@@ -167,26 +167,12 @@ groups:
           team: platform
         annotations:
           summary: "High parse error rate (>1/s)"
-          description: "Parse error rate is {{ $value }} errors/second for {{ $labels.error_type }}"
+          description: "Parse failure rate is {{ $value }} failures/second."
           runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Parse-Errors"
 
   - name: hl7v2_capacity
     interval: 1m
     rules:
-      # Approaching concurrency limit
-      - alert: HL7v2ApproachingConcurrencyLimit
-        expr: |
-          hl7v2_active_connections > 80
-        for: 5m
-        labels:
-          severity: warning
-          component: hl7v2-server
-          team: platform
-        annotations:
-          summary: "Approaching concurrency limit (>80 connections)"
-          description: "Active connections: {{ $value }} (limit: 100)"
-          runbook_url: "https://github.com/EffortlessMetrics/hl7v2-rs/wiki/Runbook-Capacity"
-
       # High 503 rate (backpressure activated)
       - alert: HL7v2HighBackpressureRate
         expr: |

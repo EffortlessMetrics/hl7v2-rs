@@ -296,11 +296,22 @@ HL7V2_CONFIG=/etc/hl7v2/config.toml hl7v2-server
 The server exposes metrics at `/metrics`:
 
 **Key Metrics:**
-- `hl7v2_requests_total` - Total request count by endpoint and status
-- `hl7v2_request_duration_seconds` - Request latency histogram
-- `hl7v2_active_connections` - Current active connections
-- `hl7v2_parse_errors_total` - Parse error count
-- `hl7v2_validation_errors_total` - Validation error count
+- `hl7v2_requests_total` - HTTP request count by endpoint and status.
+- `hl7v2_request_duration_seconds` - HTTP request latency histogram by endpoint.
+- `hl7v2_messages_parsed_total` - Messages parsed by bounded evidence operation.
+- `hl7v2_messages_validated_total` - Messages validated by bounded evidence operation.
+- `hl7v2_message_size_bytes` - Input HL7 message size histogram.
+- `hl7v2_parse_failures_total` - Parse failures by bounded evidence operation.
+- `hl7v2_validation_failures_total` - Validation failures by bounded evidence operation.
+- `hl7v2_redaction_failures_total` - Redaction failures by bounded evidence operation.
+- `hl7v2_bundles_created_total` - Evidence bundles created by the server.
+- `hl7v2_replays_total` - Evidence replay attempts.
+- `hl7v2_replay_failures_total` - Replay attempts that did not reproduce.
+- `hl7v2_corpus_diffs_total` - Inline corpus diff requests completed by the server.
+
+Metric labels are intentionally low-cardinality. The server does not use raw
+HL7 payloads, profile YAML, redaction policies, local paths, raw message control
+IDs, raw bundle IDs, or patient identifiers as metric labels.
 
 **Prometheus Configuration:**
 
@@ -323,7 +334,7 @@ scrape_configs:
 Import dashboards from `infrastructure/grafana/`:
 
 1. **HL7v2 Server Overview**: Request rates, latencies, error rates
-2. **HL7v2 Validation**: Validation success/failure rates, profile usage
+2. **HL7v2 Validation**: Validation success/failure rates by bounded operation
 3. **HL7v2 Performance**: P50/P95/P99 latencies, throughput
 
 ### Health Checks

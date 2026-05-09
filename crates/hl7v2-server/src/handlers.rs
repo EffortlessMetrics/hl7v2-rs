@@ -44,7 +44,11 @@ pub async fn parse_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<ParseRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
+    let message = parse_request_message_with_metrics(
+        request.message.as_bytes(),
+        request.mllp_framed,
+        crate::metrics::operation::PARSE,
+    )?;
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
@@ -83,7 +87,11 @@ pub async fn validate_handler(
     Json(request): Json<ValidateRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let report_schema_version = requested_report_schema_version(request.report_schema_version)?;
-    let message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
+    let message = parse_request_message_with_metrics(
+        request.message.as_bytes(),
+        request.mllp_framed,
+        crate::metrics::operation::VALIDATE,
+    )?;
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
@@ -101,6 +109,7 @@ pub async fn validate_handler(
         Some(profile.message_structure.clone()),
         issues.clone(),
     );
+    crate::metrics::record_validation_result(crate::metrics::operation::VALIDATE, report.valid);
     let validation_report_v2 = (report_schema_version == 2)
         .then(|| validation_report_v2_for_server(&report, &request.profile, &profile));
 
@@ -174,10 +183,17 @@ pub async fn validate_redacted_handler(
     let quarantine_schema_version =
         requested_quarantine_schema_version(request.quarantine_schema_version)?;
     let raw_input = request.message.into_bytes();
-    let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
+    let mut message = parse_request_message_with_metrics(
+        &raw_input,
+        request.mllp_framed,
+        crate::metrics::operation::VALIDATE_REDACTED,
+    )?;
     let log_context = MessageLogContext::from_message(&message);
-    let receipt =
-        redact_message(&mut message, &request.redaction_policy).map_err(AppError::Redaction)?;
+    let receipt = redact_message_with_metrics(
+        &mut message,
+        &request.redaction_policy,
+        crate::metrics::operation::VALIDATE_REDACTED,
+    )?;
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
         .map_err(|error| AppError::Internal(format!("redacted message was not UTF-8: {error}")))?;
 
@@ -188,6 +204,10 @@ pub async fn validate_redacted_handler(
         &message,
         Some(profile.message_structure.clone()),
         issues,
+    );
+    crate::metrics::record_validation_result(
+        crate::metrics::operation::VALIDATE_REDACTED,
+        validation_report.valid,
     );
     let validation_report_v2 = (report_schema_version == 2)
         .then(|| validation_report_v2_for_server(&validation_report, &request.profile, &profile));
@@ -259,10 +279,17 @@ pub async fn bundle_handler(
         .ok_or(AppError::BundleOutputNotConfigured)?;
 
     let raw_input = request.message.into_bytes();
-    let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
+    let mut message = parse_request_message_with_metrics(
+        &raw_input,
+        request.mllp_framed,
+        crate::metrics::operation::BUNDLE,
+    )?;
     let log_context = MessageLogContext::from_message(&message);
-    let receipt =
-        redact_message(&mut message, &request.redaction_policy).map_err(AppError::Redaction)?;
+    let receipt = redact_message_with_metrics(
+        &mut message,
+        &request.redaction_policy,
+        crate::metrics::operation::BUNDLE,
+    )?;
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
         .map_err(|error| AppError::Internal(format!("redacted message was not UTF-8: {error}")))?;
 
@@ -271,6 +298,10 @@ pub async fn bundle_handler(
     let issues = hl7v2::validate(&message, &profile);
     let validation_report =
         hl7v2::ValidationReport::from_issues(&message, Some("profile.yaml".to_string()), issues);
+    crate::metrics::record_validation_result(
+        crate::metrics::operation::BUNDLE,
+        validation_report.valid,
+    );
 
     let summary =
         crate::evidence::write_evidence_bundle(crate::evidence::EvidenceBundleWriteRequest {
@@ -286,6 +317,7 @@ pub async fn bundle_handler(
             artifact_schema_version,
         })
         .map_err(AppError::from)?;
+    crate::metrics::record_bundle_created();
 
     tracing::info!(
         target: "hl7v2_server::evidence",
@@ -323,6 +355,7 @@ pub async fn replay_handler(
         .map_err(AppError::from)?;
 
     if !bundle_dir.is_dir() {
+        crate::metrics::record_replay_result(false);
         return Err(AppError::BundleNotFound(format!(
             "bundle_id '{}' was not found",
             request.bundle_id
@@ -330,6 +363,7 @@ pub async fn replay_handler(
     }
 
     let report = hl7v2::evidence::replay_evidence_bundle(&bundle_dir, "hl7v2-server");
+    crate::metrics::record_replay_result(report.reproduced);
     let message_type = report.message_type.as_deref().unwrap_or("unknown");
     let validation_status = report
         .validation_valid
@@ -431,6 +465,7 @@ pub async fn corpus_diff_handler(
 
     let diff =
         hl7v2::synthetic::corpus::diff_corpus_fingerprints(&before_fingerprint, &after_fingerprint);
+    crate::metrics::record_corpus_diff();
     let response = if schema_version == 2 {
         serde_json::to_value(diff.to_v2("hl7v2-server"))
     } else {
@@ -446,7 +481,11 @@ pub async fn ack_handler(
     State(_state): State<Arc<AppState>>,
     Json(request): Json<AckRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
+    let message = parse_request_message_with_metrics(
+        request.message.as_bytes(),
+        request.mllp_framed,
+        crate::metrics::operation::ACK,
+    )?;
     let log_context = MessageLogContext::from_message(&message);
     let ack_code = map_ack_code(request.code);
 
@@ -494,28 +533,35 @@ pub async fn ack_policy_handler(
     let raw_input = request.message.into_bytes();
     let policy = &state.ack_policy;
 
-    let (message, validation_report, decision) =
-        match parse_request_message(&raw_input, request.mllp_framed) {
-            Ok(message) => {
-                let profile = hl7v2::load_profile_checked(&request.profile)
-                    .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
-                let issues = hl7v2::validate(&message, &profile);
-                let report = hl7v2::ValidationReport::from_issues(
-                    &message,
-                    Some(profile.message_structure.clone()),
-                    issues,
-                );
-                let decision = ack_policy_decision_for_validation(policy, &report)?;
-                (message, Some(report), decision)
-            }
-            Err(error) if policy.rejects(AckPolicyRejectCondition::ParseError) => {
-                let message = parse_msh_for_ack_policy(&raw_input, request.mllp_framed)
-                    .map_err(|_fallback_error| error)?;
-                let decision = ack_policy_reject_decision(policy, AckPolicyReason::ParseError, 0);
-                (message, None, decision)
-            }
-            Err(error) => return Err(error),
-        };
+    let (message, validation_report, decision) = match parse_request_message_with_metrics(
+        &raw_input,
+        request.mllp_framed,
+        crate::metrics::operation::ACK_POLICY,
+    ) {
+        Ok(message) => {
+            let profile = hl7v2::load_profile_checked(&request.profile)
+                .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
+            let issues = hl7v2::validate(&message, &profile);
+            let report = hl7v2::ValidationReport::from_issues(
+                &message,
+                Some(profile.message_structure.clone()),
+                issues,
+            );
+            crate::metrics::record_validation_result(
+                crate::metrics::operation::ACK_POLICY,
+                report.valid,
+            );
+            let decision = ack_policy_decision_for_validation(policy, &report)?;
+            (message, Some(report), decision)
+        }
+        Err(error) if policy.rejects(AckPolicyRejectCondition::ParseError) => {
+            let message = parse_msh_for_ack_policy(&raw_input, request.mllp_framed)
+                .map_err(|_fallback_error| error)?;
+            let decision = ack_policy_reject_decision(policy, AckPolicyReason::ParseError, 0);
+            (message, None, decision)
+        }
+        Err(error) => return Err(error),
+    };
     let log_context = MessageLogContext::from_message(&message);
 
     let ack_code = ack_code_from_policy_decision(&decision)?;
@@ -584,8 +630,14 @@ pub async fn normalize_handler(
 
     let normalized_bytes = hl7v2::normalize(input, request.options.canonical_delimiters)
         .map_err(|e| AppError::Parse(format!("Normalize error: {}", e)))?;
-    let normalized_message = hl7v2::parse(&normalized_bytes)
-        .map_err(|e| AppError::Parse(format!("Normalized message parse error: {}", e)))?;
+    let normalized_message = hl7v2::parse(&normalized_bytes).map_err(|e| {
+        crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
+        AppError::Parse(format!("Normalized message parse error: {}", e))
+    })?;
+    crate::metrics::record_parse_success(
+        crate::metrics::operation::NORMALIZE,
+        normalized_bytes.len(),
+    );
     let metadata = extract_metadata(&normalized_message)?;
     let log_context = MessageLogContext::from_message(&normalized_message);
 
@@ -624,6 +676,37 @@ fn parse_request_message(
             .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))
     } else {
         hl7v2::parse(message_bytes).map_err(|e| AppError::Parse(format!("Parse error: {}", e)))
+    }
+}
+
+fn parse_request_message_with_metrics(
+    message_bytes: &[u8],
+    mllp_framed: bool,
+    operation: &'static str,
+) -> Result<hl7v2::Message, AppError> {
+    match parse_request_message(message_bytes, mllp_framed) {
+        Ok(message) => {
+            crate::metrics::record_parse_success(operation, message_bytes.len());
+            Ok(message)
+        }
+        Err(error) => {
+            crate::metrics::record_parse_failure(operation);
+            Err(error)
+        }
+    }
+}
+
+fn redact_message_with_metrics(
+    message: &mut hl7v2::Message,
+    policy_toml: &str,
+    operation: &'static str,
+) -> Result<RedactionReceipt, AppError> {
+    match redact_message(message, policy_toml) {
+        Ok(receipt) => Ok(receipt),
+        Err(error) => {
+            crate::metrics::record_redaction_failure(operation);
+            Err(AppError::Redaction(error))
+        }
     }
 }
 

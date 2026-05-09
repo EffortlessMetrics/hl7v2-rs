@@ -344,3 +344,68 @@ async fn test_metrics_endpoint_returns_prometheus_format() {
         }
     );
 }
+
+#[tokio::test]
+async fn test_metrics_endpoint_exposes_evidence_contract_metrics() {
+    let app = common::create_test_router();
+
+    hl7v2_server::metrics::record_request("/hl7/validate", "200", 0.015);
+    hl7v2_server::metrics::record_parse_success(hl7v2_server::metrics::operation::PARSE, 128);
+    hl7v2_server::metrics::record_parse_failure(hl7v2_server::metrics::operation::VALIDATE);
+    hl7v2_server::metrics::record_validation_result(
+        hl7v2_server::metrics::operation::VALIDATE,
+        false,
+    );
+    hl7v2_server::metrics::record_redaction_failure(
+        hl7v2_server::metrics::operation::VALIDATE_REDACTED,
+    );
+    hl7v2_server::metrics::record_bundle_created();
+    hl7v2_server::metrics::record_replay_result(false);
+    hl7v2_server::metrics::record_corpus_diff();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+    for metric_name in [
+        "hl7v2_requests_total",
+        "hl7v2_request_duration_seconds",
+        "hl7v2_messages_parsed_total",
+        "hl7v2_messages_validated_total",
+        "hl7v2_message_size_bytes",
+        "hl7v2_parse_failures_total",
+        "hl7v2_validation_failures_total",
+        "hl7v2_redaction_failures_total",
+        "hl7v2_bundles_created_total",
+        "hl7v2_replays_total",
+        "hl7v2_replay_failures_total",
+        "hl7v2_corpus_diffs_total",
+    ] {
+        assert!(
+            body_str.contains(metric_name),
+            "metrics response should include {metric_name}; body was: {body_str}"
+        );
+    }
+
+    for forbidden in ["MRN123", "Doe", "John", "PID|"] {
+        assert!(
+            !body_str.contains(forbidden),
+            "metrics response must not contain fixture PHI sentinel {forbidden}"
+        );
+    }
+}

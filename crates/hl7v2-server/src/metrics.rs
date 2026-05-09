@@ -9,8 +9,15 @@
 //! - `hl7v2_request_duration_seconds`: Request duration histogram by endpoint
 //! - `hl7v2_messages_parsed_total`: Total number of messages successfully parsed
 //! - `hl7v2_messages_validated_total`: Total number of messages validated
-//! - `hl7v2_validation_errors_total`: Total number of validation errors
-//! - `hl7v2_parse_errors_total`: Total number of parse errors
+//! - `hl7v2_parse_failures_total`: Parse failures by bounded operation label
+//! - `hl7v2_validation_failures_total`: Validation failures by bounded operation label
+//! - `hl7v2_redaction_failures_total`: Redaction failures by bounded operation label
+//! - `hl7v2_bundles_created_total`: Evidence bundles created by the server
+//! - `hl7v2_replays_total`: Evidence replay attempts
+//! - `hl7v2_replay_failures_total`: Evidence replay attempts that did not reproduce
+//! - `hl7v2_corpus_diffs_total`: Inline corpus diff requests completed by the server
+//! - `hl7v2_parse_errors_total`: Compatibility parse error counter
+//! - `hl7v2_validation_errors_total`: Compatibility validation error counter
 //!
 //! ## Usage
 //!
@@ -22,7 +29,7 @@
 //!
 //! // Record metrics
 //! metrics::record_request("/hl7/parse", "200", 0.05);
-//! metrics::increment_messages_parsed();
+//! metrics::record_parse_success(metrics::operation::PARSE, 256);
 //! ```
 
 use axum::{
@@ -36,6 +43,32 @@ use std::sync::{Arc, OnceLock};
 /// Global metrics handle, initialized once
 static METRICS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
+/// Bounded operation labels for evidence workflow metrics.
+///
+/// These labels are deliberately static and low-cardinality. Do not use raw
+/// request data, profile names, message IDs, bundle IDs, file paths, or route
+/// parameters as metric labels.
+pub mod operation {
+    /// `POST /hl7/ack`.
+    pub const ACK: &str = "ack";
+    /// `POST /hl7/ack-policy`.
+    pub const ACK_POLICY: &str = "ack_policy";
+    /// `POST /hl7/bundle`.
+    pub const BUNDLE: &str = "bundle";
+    /// `POST /hl7/corpus/diff`.
+    pub const CORPUS_DIFF: &str = "corpus_diff";
+    /// `POST /hl7/normalize`.
+    pub const NORMALIZE: &str = "normalize";
+    /// `POST /hl7/parse`.
+    pub const PARSE: &str = "parse";
+    /// `POST /hl7/replay`.
+    pub const REPLAY: &str = "replay";
+    /// `POST /hl7/validate`.
+    pub const VALIDATE: &str = "validate";
+    /// `POST /hl7/validate-redacted`.
+    pub const VALIDATE_REDACTED: &str = "validate_redacted";
+}
+
 /// Initialize the Prometheus metrics recorder
 ///
 /// This should be called once at application startup before any metrics are recorded.
@@ -47,6 +80,8 @@ static METRICS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 pub fn init_metrics_recorder() -> PrometheusHandle {
     METRICS_HANDLE
         .get_or_init(|| {
+            describe_metrics();
+
             PrometheusBuilder::new()
                 .set_buckets_for_metric(
                     Matcher::Full("hl7v2_request_duration_seconds".to_string()),
@@ -59,6 +94,62 @@ pub fn init_metrics_recorder() -> PrometheusHandle {
                 .expect("Failed to install Prometheus recorder")
         })
         .clone()
+}
+
+fn describe_metrics() {
+    metrics::describe_counter!(
+        "hl7v2_requests_total",
+        "Total HTTP requests by endpoint and HTTP status code."
+    );
+    metrics::describe_histogram!(
+        "hl7v2_request_duration_seconds",
+        "HTTP request latency in seconds by endpoint."
+    );
+    metrics::describe_counter!(
+        "hl7v2_messages_parsed_total",
+        "HL7 messages parsed successfully by server evidence workflows."
+    );
+    metrics::describe_counter!(
+        "hl7v2_messages_validated_total",
+        "HL7 messages validated by server evidence workflows."
+    );
+    metrics::describe_histogram!(
+        "hl7v2_message_size_bytes",
+        "Input HL7 message size in bytes."
+    );
+    metrics::describe_counter!(
+        "hl7v2_parse_failures_total",
+        "Parse failures by bounded server operation label."
+    );
+    metrics::describe_counter!(
+        "hl7v2_validation_failures_total",
+        "Validation failures by bounded server operation label."
+    );
+    metrics::describe_counter!(
+        "hl7v2_redaction_failures_total",
+        "Redaction failures by bounded server operation label."
+    );
+    metrics::describe_counter!(
+        "hl7v2_bundles_created_total",
+        "Evidence bundles created by the server."
+    );
+    metrics::describe_counter!("hl7v2_replays_total", "Evidence replay attempts.");
+    metrics::describe_counter!(
+        "hl7v2_replay_failures_total",
+        "Evidence replay attempts that did not reproduce."
+    );
+    metrics::describe_counter!(
+        "hl7v2_corpus_diffs_total",
+        "Inline corpus diff requests completed by the server."
+    );
+    metrics::describe_counter!(
+        "hl7v2_parse_errors_total",
+        "Compatibility counter for parse errors."
+    );
+    metrics::describe_counter!(
+        "hl7v2_validation_errors_total",
+        "Compatibility counter for validation errors."
+    );
 }
 
 /// Record an HTTP request
@@ -80,24 +171,70 @@ pub fn record_request(endpoint: &str, status: &str, duration_seconds: f64) {
     .record(duration_seconds);
 }
 
+/// Record a successfully parsed HL7 message for an evidence workflow.
+pub fn record_parse_success(operation: &'static str, size_bytes: usize) {
+    metrics::counter!("hl7v2_messages_parsed_total", "operation" => operation).increment(1);
+    record_message_size(size_bytes);
+}
+
+/// Record a parse failure for an evidence workflow.
+pub fn record_parse_failure(operation: &'static str) {
+    metrics::counter!("hl7v2_parse_failures_total", "operation" => operation).increment(1);
+    metrics::counter!("hl7v2_parse_errors_total").increment(1);
+}
+
+/// Record a validation result for an evidence workflow.
+pub fn record_validation_result(operation: &'static str, valid: bool) {
+    metrics::counter!("hl7v2_messages_validated_total", "operation" => operation).increment(1);
+
+    if !valid {
+        metrics::counter!("hl7v2_validation_failures_total", "operation" => operation).increment(1);
+        metrics::counter!("hl7v2_validation_errors_total").increment(1);
+    }
+}
+
+/// Record a redaction failure for an evidence workflow.
+pub fn record_redaction_failure(operation: &'static str) {
+    metrics::counter!("hl7v2_redaction_failures_total", "operation" => operation).increment(1);
+}
+
+/// Record a successfully written evidence bundle.
+pub fn record_bundle_created() {
+    metrics::counter!("hl7v2_bundles_created_total").increment(1);
+}
+
+/// Record an evidence replay attempt.
+pub fn record_replay_result(reproduced: bool) {
+    metrics::counter!("hl7v2_replays_total").increment(1);
+
+    if !reproduced {
+        metrics::counter!("hl7v2_replay_failures_total").increment(1);
+    }
+}
+
+/// Record a completed inline corpus diff request.
+pub fn record_corpus_diff() {
+    metrics::counter!("hl7v2_corpus_diffs_total").increment(1);
+}
+
 /// Increment the count of successfully parsed messages
 pub fn increment_messages_parsed() {
-    metrics::counter!("hl7v2_messages_parsed_total").increment(1);
+    metrics::counter!("hl7v2_messages_parsed_total", "operation" => "unspecified").increment(1);
 }
 
 /// Increment the count of validated messages
 pub fn increment_messages_validated() {
-    metrics::counter!("hl7v2_messages_validated_total").increment(1);
+    metrics::counter!("hl7v2_messages_validated_total", "operation" => "unspecified").increment(1);
 }
 
 /// Increment the count of validation errors
 pub fn increment_validation_errors() {
-    metrics::counter!("hl7v2_validation_errors_total").increment(1);
+    record_validation_result("unspecified", false);
 }
 
 /// Increment the count of parse errors
 pub fn increment_parse_errors() {
-    metrics::counter!("hl7v2_parse_errors_total").increment(1);
+    record_parse_failure("unspecified");
 }
 
 /// Record message size in bytes
@@ -180,6 +317,10 @@ mod tests {
         increment_messages_validated();
         increment_validation_errors();
         increment_parse_errors();
+        record_redaction_failure(operation::VALIDATE_REDACTED);
+        record_bundle_created();
+        record_replay_result(false);
+        record_corpus_diff();
         // No panic means success
     }
 
@@ -188,5 +329,40 @@ mod tests {
         // Test recording message size
         record_message_size(1024);
         // No panic means success
+    }
+
+    #[test]
+    fn test_evidence_contract_metrics_render() {
+        let handle = init_metrics_recorder();
+
+        record_request("/hl7/validate", "200", 0.015);
+        record_parse_success(operation::PARSE, 256);
+        record_parse_failure(operation::VALIDATE);
+        record_validation_result(operation::VALIDATE, false);
+        record_redaction_failure(operation::BUNDLE);
+        record_bundle_created();
+        record_replay_result(false);
+        record_corpus_diff();
+
+        let output = handle.render();
+        for metric_name in [
+            "hl7v2_requests_total",
+            "hl7v2_request_duration_seconds",
+            "hl7v2_messages_parsed_total",
+            "hl7v2_messages_validated_total",
+            "hl7v2_message_size_bytes",
+            "hl7v2_parse_failures_total",
+            "hl7v2_validation_failures_total",
+            "hl7v2_redaction_failures_total",
+            "hl7v2_bundles_created_total",
+            "hl7v2_replays_total",
+            "hl7v2_replay_failures_total",
+            "hl7v2_corpus_diffs_total",
+        ] {
+            assert!(
+                output.contains(metric_name),
+                "Prometheus output should include {metric_name}; output was: {output}"
+            );
+        }
     }
 }
