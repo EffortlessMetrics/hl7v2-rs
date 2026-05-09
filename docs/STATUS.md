@@ -2,8 +2,8 @@
 
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
-> **Last Updated**: 2026-05-08
-> **Project Status**: v1.2.1 published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+> **Last Updated**: 2026-05-09
+> **Project Status**: v1.2.1 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` contains the post-v1.2.1 v1.3.0 Evidence Loop release candidate, which is not yet published.
 
 ## Core Components
 
@@ -15,7 +15,7 @@ This document provides a transparent view of which features are fully implemente
 | `hl7v2-python` | 🟡 Experimental | Smoke | PyO3 binding package held out of the crates.io Rust publish graph; validated through the Python/maturin wheel smoke lane before any PyPI release. |
 | retired old package names | ✅ Retired locally | N/A | Old microcrate package names, including `hl7v2-model`, `hl7v2-escape`, and `hl7v2-mllp`, are no longer local workspace crates. Some historical old-name `1.2.0` artifacts already exist on crates.io and should not be treated as the current product surface. |
 
-## Feature Set (v1.2.1)
+## Published Feature Set (v1.2.1)
 
 ### 🚀 Connectivity
 - ✅ **MLLP Over TCP**: Fully implemented async client and server.
@@ -45,9 +45,40 @@ This document provides a transparent view of which features are fully implemente
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. The fresh `v1.2.1` tag points at the current release head.
 
+## Evidence Loop Candidate (current main)
+
+Current `main` adds a v1.3.0 release candidate around deterministic HL7
+interface evidence. This work is available from source but has not gone through
+the final v1.3.0 publish dry-runs, tag, release notes publication, or crates.io
+upload.
+
+| Area | Status | Notes |
+|------|--------|-------|
+| First-run diagnostics | ✅ Candidate | `hl7v2 doctor` verifies CLI version, sample parse, profile loading, JSON output, optional server reachability, and optional Python binding presence. |
+| Typed validation evidence | ✅ Candidate | `ValidationReport` is shared by library, CLI, server validation, and Python bindings. |
+| Profiles as code | ✅ Candidate | `profile lint`, `profile test`, and `profile explain` produce machine-readable profile evidence. |
+| Corpus observability | ✅ Candidate | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. |
+| Safe support packets | ✅ Candidate | `redact`, `bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. |
+| Evidence contracts | ✅ Candidate | JSON schemas and golden fixtures guard the machine-readable evidence artifacts. |
+| CLI automation contract | ✅ Candidate | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
+| Server edge guard | ✅ Candidate | Server supports sanitized `--print-config`, `/ready`, `/hl7/validate-redacted`, `/hl7/bundle`, `/hl7/ack-policy`, and quarantine hooks. |
+| Python evidence lane | 🟡 Candidate | Python wheel proof and minimum API parity cover parse, JSON export, normalize, validation, corpus, redaction, bundle, and replay. Python remains outside the crates.io Rust publish graph. |
+
+## v1.3.0 Readiness Checklist
+
+Release-note draft: [`docs/releases/v1.3.0-evidence-loop-draft.md`](releases/v1.3.0-evidence-loop-draft.md).
+
+- ⏳ **Publish plan**: confirm `cargo run -p xtask -- publish-plan` still resolves `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+- ⏳ **Full gate**: run the current full release gate on the v1.3.0 release head.
+- ⏳ **Direct dry-runs**: run `cargo publish --dry-run` for `hl7v2`, then dependent dry-runs for `hl7v2-server` and `hl7v2-cli`.
+- ⏳ **Python proof**: run the maturin wheel build/install/import smoke lane without publishing `hl7v2-python` to crates.io.
+- ⏳ **Release notes and tag**: publish final release notes and tag only after the checks above pass on the release head.
+
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.
 
 ---
 
-**Current code is tested, package-verified, tagged as `v1.2.1`, and published to crates.io for the final Rust package graph.**
+**Current published release**: v1.2.1 is tested, package-verified, tagged, and published to crates.io for the final Rust package graph.
+
+**Current main**: contains the v1.3.0 Evidence Loop release candidate, which still needs final release-head validation before publication.

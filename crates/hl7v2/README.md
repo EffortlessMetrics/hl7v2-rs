@@ -43,6 +43,20 @@ Implementer APIs are grouped under modules such as `hl7v2::model`,
 `hl7v2::parser`, `hl7v2::writer`, `hl7v2::query`, `hl7v2::transport`,
 `hl7v2::conformance`, and `hl7v2::synthetic`.
 
+## Evidence APIs
+
+The crate also exposes the evidence-loop building blocks used by the CLI,
+server, and Python binding:
+
+- typed validation reports through `hl7v2::ValidationReport`
+- profile lint/test/explain report types under `hl7v2::conformance`
+- corpus summary, fingerprint, and diff helpers under `hl7v2::synthetic::corpus`
+- safe-analysis redaction helpers under `hl7v2::redact`
+- evidence bundle and replay helpers under `hl7v2::evidence`
+
+These APIs are the source of truth for the machine-readable artifacts documented
+in the workspace evidence schemas and guides.
+
 ## License
 
 AGPL-3.0-or-later
