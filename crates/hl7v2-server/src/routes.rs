@@ -129,6 +129,7 @@ mod tests {
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
             ack_policy: Default::default(),
+            quarantine: Default::default(),
         });
         (build_router(state), api_key)
     }
@@ -181,6 +182,7 @@ mod tests {
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
             ack_policy: Default::default(),
+            quarantine: Default::default(),
         });
 
         let app = build_router(state);
@@ -217,6 +219,7 @@ mod tests {
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
             ack_policy: Default::default(),
+            quarantine: Default::default(),
         });
 
         let app = build_router(state);

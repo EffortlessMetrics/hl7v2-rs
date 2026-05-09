@@ -22,6 +22,7 @@ async fn test_auth_missing_api_key_fails() {
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
         ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     let app = build_router(state);
 
@@ -55,6 +56,7 @@ async fn test_auth_valid_api_key_succeeds() {
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
         ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     let app = build_router(state);
 
@@ -94,6 +96,7 @@ async fn test_auth_invalid_api_key_fails() {
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
         ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     let app = build_router(state);
 
@@ -128,6 +131,7 @@ async fn test_health_metrics_public() {
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
         ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     let app = build_router(state);
 

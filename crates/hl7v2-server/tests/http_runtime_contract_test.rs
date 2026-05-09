@@ -37,6 +37,7 @@ fn test_router(api_key: Option<&str>, cors_allowed_origins: CorsAllowedOrigins) 
         readiness_checks: hl7v2_server::ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
         ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     build_router(state)
 }

@@ -69,6 +69,38 @@
         }
       }
     },
+    "quarantine": {
+      "type": "object",
+      "description": "Policy for writing server-side quarantine output after failed redacted validation",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether failed redacted validation writes quarantine output"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Existing writable directory used for quarantine output"
+        },
+        "write_redacted": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether partial quarantine output includes message.redacted.hl7"
+        },
+        "write_report": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether partial quarantine output includes validation-report.json"
+        },
+        "write_bundle": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether quarantine output writes a full replayable evidence bundle"
+        }
+      }
+    },
     "cli": {
       "type": "object",
       "description": "Command-line defaults",
@@ -124,6 +156,13 @@
         "accept_on": "valid",
         "reject_on": ["parse_error", "validation_error"],
         "include_error_text": true
+      },
+      "quarantine": {
+        "enabled": false,
+        "path": "quarantine",
+        "write_redacted": true,
+        "write_report": true,
+        "write_bundle": true
       },
       "cli": {
         "default_version": "2.5.1",

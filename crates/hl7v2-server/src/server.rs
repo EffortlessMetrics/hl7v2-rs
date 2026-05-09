@@ -1,6 +1,8 @@
 //! HTTP server implementation.
 
-use crate::models::{AckPolicyConfig, ReadinessCheck, ReadyResponse};
+use crate::models::{
+    AckPolicyConfig, PublicQuarantineConfig, QuarantineConfig, ReadinessCheck, ReadyResponse,
+};
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
@@ -32,6 +34,8 @@ pub struct AppState {
     pub bundle_output_root: Option<PathBuf>,
     /// Policy used by the policy-driven ACK endpoint.
     pub ack_policy: AckPolicyConfig,
+    /// Quarantine output policy for failed redacted validation.
+    pub quarantine: QuarantineConfig,
 }
 
 impl AppState {
@@ -102,6 +106,8 @@ pub struct ServerConfig {
     pub bundle_output_root: Option<PathBuf>,
     /// Policy used by the policy-driven ACK endpoint.
     pub ack_policy: AckPolicyConfig,
+    /// Quarantine output policy for failed redacted validation.
+    pub quarantine: QuarantineConfig,
 }
 
 impl Default for ServerConfig {
@@ -115,6 +121,7 @@ impl Default for ServerConfig {
             config_source: None,
             bundle_output_root: None,
             ack_policy: AckPolicyConfig::default(),
+            quarantine: QuarantineConfig::default(),
         }
     }
 }
@@ -139,6 +146,8 @@ pub struct PublicServerConfig {
     pub bundle_output_root_configured: bool,
     /// Policy used by the policy-driven ACK endpoint.
     pub ack_policy: AckPolicyConfig,
+    /// Sanitized quarantine output policy.
+    pub quarantine: PublicQuarantineConfig,
 }
 
 /// Sanitized CORS origin policy for printed config.
@@ -156,6 +165,8 @@ struct FileConfig {
     server: FileServerConfig,
     #[serde(default)]
     ack: AckPolicyConfig,
+    #[serde(default)]
+    quarantine: QuarantineConfig,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -247,6 +258,7 @@ impl ServerConfig {
             config.bundle_output_root = Some(bundle_output_root);
         }
         config.ack_policy = file_config.ack;
+        config.quarantine = file_config.quarantine;
 
         Ok(config)
     }
@@ -262,6 +274,13 @@ impl ServerConfig {
             config_source: self.config_source.clone(),
             bundle_output_root_configured: self.bundle_output_root.is_some(),
             ack_policy: self.ack_policy.clone(),
+            quarantine: PublicQuarantineConfig {
+                enabled: self.quarantine.enabled,
+                path_configured: self.quarantine.path.is_some(),
+                write_redacted: self.quarantine.write_redacted,
+                write_report: self.quarantine.write_report,
+                write_bundle: self.quarantine.write_bundle,
+            },
         }
     }
 
@@ -286,6 +305,7 @@ impl ServerConfig {
         checks.push(bundle_output_root_readiness_check(
             self.bundle_output_root.as_deref(),
         ));
+        checks.push(quarantine_readiness_check(&self.quarantine));
         checks.push(validation_report_readiness_check());
 
         checks
@@ -347,19 +367,54 @@ fn bundle_output_root_readiness_check(bundle_output_root: Option<&Path>) -> Read
         return ReadinessCheck::pass("bundle_output_root", "server bundle output not configured");
     };
 
+    writable_directory_readiness_check(
+        "bundle_output_root",
+        root,
+        "bundle output root is writable",
+        "bundle output root",
+    )
+}
+
+fn quarantine_readiness_check(quarantine: &QuarantineConfig) -> ReadinessCheck {
+    if !quarantine.enabled {
+        return ReadinessCheck::pass("quarantine_output", "quarantine output not enabled");
+    }
+
+    if !quarantine.write_bundle && !quarantine.write_report && !quarantine.write_redacted {
+        return ReadinessCheck::fail(
+            "quarantine_output",
+            "quarantine output has no artifact writers enabled",
+        );
+    }
+
+    let Some(root) = quarantine.path.as_deref() else {
+        return ReadinessCheck::fail(
+            "quarantine_output",
+            "quarantine output is enabled but no path is configured",
+        );
+    };
+
+    writable_directory_readiness_check(
+        "quarantine_output",
+        root,
+        "quarantine output root is writable",
+        "quarantine output root",
+    )
+}
+
+fn writable_directory_readiness_check(
+    name: &str,
+    root: &Path,
+    success_message: &str,
+    label: &str,
+) -> ReadinessCheck {
     match fs::metadata(root) {
         Ok(metadata) if metadata.is_dir() => {}
         Ok(_) => {
-            return ReadinessCheck::fail(
-                "bundle_output_root",
-                "bundle output root is not a directory",
-            );
+            return ReadinessCheck::fail(name, format!("{label} is not a directory"));
         }
         Err(error) => {
-            return ReadinessCheck::fail(
-                "bundle_output_root",
-                format!("bundle output root is not readable: {error}"),
-            );
+            return ReadinessCheck::fail(name, format!("{label} is not readable: {error}"));
         }
     }
 
@@ -373,16 +428,12 @@ fn bundle_output_root_readiness_check(bundle_output_root: Option<&Path>) -> Read
 
     match fs::write(&probe_path, b"ready") {
         Ok(()) => match fs::remove_file(&probe_path) {
-            Ok(()) => ReadinessCheck::pass("bundle_output_root", "bundle output root is writable"),
-            Err(error) => ReadinessCheck::fail(
-                "bundle_output_root",
-                format!("bundle output root probe cleanup failed: {error}"),
-            ),
+            Ok(()) => ReadinessCheck::pass(name, success_message),
+            Err(error) => {
+                ReadinessCheck::fail(name, format!("{label} probe cleanup failed: {error}"))
+            }
         },
-        Err(error) => ReadinessCheck::fail(
-            "bundle_output_root",
-            format!("bundle output root is not writable: {error}"),
-        ),
+        Err(error) => ReadinessCheck::fail(name, format!("{label} is not writable: {error}")),
     }
 }
 
@@ -445,6 +496,7 @@ impl Server {
             readiness_checks: config.readiness_checks(),
             bundle_output_root: config.bundle_output_root.clone(),
             ack_policy: config.ack_policy.clone(),
+            quarantine: config.quarantine.clone(),
         });
 
         Self { config, state }
@@ -541,6 +593,12 @@ impl ServerBuilder {
         self
     }
 
+    /// Set the quarantine output policy.
+    pub fn quarantine(mut self, quarantine: QuarantineConfig) -> Self {
+        self.config.quarantine = quarantine;
+        self
+    }
+
     /// Build the server
     pub fn build(self) -> Server {
         Server::new(self.config)
@@ -606,6 +664,13 @@ mode = "enhanced"
 accept_on = "valid"
 reject_on = ["validation_error"]
 include_error_text = false
+
+[quarantine]
+enabled = true
+path = "quarantine"
+write_redacted = true
+write_report = true
+write_bundle = false
 "#,
         )
         .expect("config fixture should be written");
@@ -632,6 +697,11 @@ include_error_text = false
             vec![crate::models::AckPolicyRejectCondition::ValidationError]
         );
         assert!(!config.ack_policy.include_error_text);
+        assert!(config.quarantine.enabled);
+        assert_eq!(config.quarantine.path, Some(PathBuf::from("quarantine")));
+        assert!(config.quarantine.write_redacted);
+        assert!(config.quarantine.write_report);
+        assert!(!config.quarantine.write_bundle);
         assert_eq!(
             config.cors_allowed_origins,
             CorsAllowedOrigins::List(vec![
@@ -666,6 +736,28 @@ include_error_text = false
         assert!(printed.contains("\"ack_policy\""));
         assert!(printed.contains("\"mode\":\"original\""));
         assert!(printed.contains("\"reject_on\":[\"parse_error\",\"validation_error\"]"));
+    }
+
+    #[test]
+    fn public_config_reports_quarantine_without_exposing_path() {
+        let config = ServerConfig {
+            quarantine: crate::models::QuarantineConfig {
+                enabled: true,
+                path: Some(PathBuf::from("sensitive-quarantine-path")),
+                write_redacted: true,
+                write_report: true,
+                write_bundle: true,
+            },
+            ..ServerConfig::default()
+        };
+
+        let printed = serde_json::to_string(&config.to_public_config())
+            .expect("public config should serialize");
+
+        assert!(printed.contains("\"quarantine\""));
+        assert!(printed.contains("\"enabled\":true"));
+        assert!(printed.contains("\"path_configured\":true"));
+        assert!(!printed.contains("sensitive-quarantine-path"));
     }
 
     #[test]
@@ -765,6 +857,49 @@ segments:
             .into_iter()
             .find(|check| check.name == "bundle_output_root")
             .expect("bundle root readiness check should exist");
+
+        assert_eq!(check.status, crate::models::ReadinessCheckStatus::Fail);
+    }
+
+    #[test]
+    fn readiness_checks_configured_quarantine_output_writable() {
+        let root = temp_dir_path("quarantine-root");
+        fs::create_dir(&root).expect("quarantine root should be created");
+        let config = ServerConfig {
+            quarantine: crate::models::QuarantineConfig {
+                enabled: true,
+                path: Some(root.clone()),
+                ..Default::default()
+            },
+            ..ServerConfig::default()
+        };
+
+        let check = config
+            .readiness_checks()
+            .into_iter()
+            .find(|check| check.name == "quarantine_output")
+            .expect("quarantine readiness check should exist");
+
+        assert_eq!(check.status, crate::models::ReadinessCheckStatus::Pass);
+
+        fs::remove_dir(root).expect("quarantine root should be removed");
+    }
+
+    #[test]
+    fn readiness_checks_fail_enabled_quarantine_without_path() {
+        let config = ServerConfig {
+            quarantine: crate::models::QuarantineConfig {
+                enabled: true,
+                path: None,
+                ..Default::default()
+            },
+            ..ServerConfig::default()
+        };
+        let check = config
+            .readiness_checks()
+            .into_iter()
+            .find(|check| check.name == "quarantine_output")
+            .expect("quarantine readiness check should exist");
 
         assert_eq!(check.status, crate::models::ReadinessCheckStatus::Fail);
     }
