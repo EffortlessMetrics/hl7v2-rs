@@ -162,6 +162,37 @@ paths:
         '401':
           description: Unauthorized
 
+  /hl7/validate-redacted:
+    post:
+      summary: Validate redacted HL7 message
+      description: |
+        Apply a safe-analysis redaction policy to an HL7 message, then validate the redacted message against a conformance profile.
+      tags: [hl7]
+      operationId: validateRedactedMessage
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRedactedRequest'
+      responses:
+        '200':
+          description: Redaction and validation complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateRedactedResponse'
+        '400':
+          description: Invalid request, profile, message, or redaction policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
   /hl7/ack:
     post:
       summary: Generate HL7 ACK
@@ -388,6 +419,101 @@ components:
             $ref: '#/components/schemas/ValidationWarning'
         metadata:
           $ref: '#/components/schemas/MessageMetadata'
+
+    ValidateRedactedRequest:
+      type: object
+      required: [message, profile, redaction_policy]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        profile:
+          type: string
+          description: Profile content (YAML)
+        redaction_policy:
+          type: string
+          description: Safe-analysis redaction policy content (TOML)
+        mllp_framed:
+          type: boolean
+          default: false
+        include_redacted_hl7:
+          type: boolean
+          default: false
+          description: Whether to include the redacted HL7 payload in the response
+
+    ValidateRedactedResponse:
+      type: object
+      required: [validation_report, redaction_receipt]
+      properties:
+        validation_report:
+          $ref: '#/components/schemas/ValidationReport'
+        redaction_receipt:
+          $ref: '#/components/schemas/RedactionReceipt'
+        redacted_hl7:
+          type: string
+          nullable: true
+          description: Redacted HL7 payload, returned only when requested
+
+    ValidationReport:
+      type: object
+      required: [valid, message_type, segment_count, issue_count, issues]
+      properties:
+        valid:
+          type: boolean
+        message_type:
+          type: string
+          description: HL7 trigger event from MSH.9, such as ADT^A01
+        profile:
+          type: string
+          nullable: true
+          description: Profile identifier used for validation
+        segment_count:
+          type: integer
+          minimum: 0
+          description: Number of parsed message segments
+        issue_count:
+          type: integer
+          minimum: 0
+          description: Number of reported validation issues
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationReportIssue'
+
+    RedactionReceipt:
+      type: object
+      required: [phi_removed, hash_algorithm, actions]
+      properties:
+        phi_removed:
+          type: boolean
+          description: Whether any configured PHI-bearing path was removed or hashed
+        hash_algorithm:
+          type: string
+          enum: [sha256]
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedactionActionReceipt'
+
+    RedactionActionReceipt:
+      type: object
+      required: [path, action, reason, matched_count, optional, status]
+      properties:
+        path:
+          type: string
+        action:
+          type: string
+          enum: [hash, drop, retain]
+        reason:
+          type: string
+        matched_count:
+          type: integer
+          minimum: 0
+        optional:
+          type: boolean
+        status:
+          type: string
+          enum: [applied, retained, not_found]
 
     AckRequest:
       type: object

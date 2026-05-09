@@ -109,7 +109,27 @@ EOF
 
 ---
 
-### 3. Generate ACK
+### 3. Validate Redacted HL7 Message
+**POST** `/hl7/validate-redacted`
+
+Applies a safe-analysis redaction policy first, then validates the redacted
+message against the supplied profile. The response includes a
+`validation_report`, a `redaction_receipt`, and an optional `redacted_hl7`
+field when `include_redacted_hl7` is true.
+
+**Request Body:**
+```json
+{
+  "message": "MSH|^~\\&|...",
+  "profile": "message_structure: ADT_A01\nversion: \"2.5\"\nsegments:\n  - id: MSH\n",
+  "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n",
+  "include_redacted_hl7": true
+}
+```
+
+---
+
+### 4. Generate ACK
 **POST** `/hl7/ack`
 
 Generates an HL7 ACK response from an inbound message.
@@ -126,7 +146,7 @@ Generates an HL7 ACK response from an inbound message.
 
 ---
 
-### 4. Normalize HL7 Message
+### 5. Normalize HL7 Message
 **POST** `/hl7/normalize`
 
 Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
@@ -145,7 +165,7 @@ Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
 
 ---
 
-### 5. Health & Metrics
+### 6. Health & Metrics
 
 **Health Check:**
 ```bash

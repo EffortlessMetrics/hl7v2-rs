@@ -19,6 +19,13 @@ use tower::ServiceExt;
 
 const SAMPLE_MSG: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
 const CUSTOM_DELIMS_MSG: &str = "MSH*%$!?*SENDAPP*SENDFAC*RECVAPP*RECVFAC*202605030101**ADT%A01*CTRL123*P*2.5\rPID*1**123456%%%HOSP%MR**Doe%John**19700101*M\r";
+const MINIMAL_PROFILE: &str = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+    required: true
+"#;
 
 fn test_router(api_key: Option<&str>, cors_allowed_origins: CorsAllowedOrigins) -> axum::Router {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
@@ -169,6 +176,31 @@ async fn test_new_hl7_routes_require_api_key_when_configured() {
                     serde_json::to_string(&json!({
                         "message": SAMPLE_MSG,
                         "code": "AA"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/hl7/validate-redacted")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "message": SAMPLE_MSG,
+                        "profile": MINIMAL_PROFILE,
+                        "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n"
                     }))
                     .unwrap(),
                 ))
