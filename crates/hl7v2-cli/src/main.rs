@@ -265,7 +265,7 @@ enum Commands {
         #[arg(long, value_enum, default_value = "json")]
         format: RedactFormat,
 
-        /// Evidence schema version for the nested redaction receipt in JSON output
+        /// Evidence schema version for redaction JSON output
         #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
         schema_version: u8,
 
@@ -969,6 +969,9 @@ struct RedactionOutput {
 
 #[derive(serde::Serialize)]
 struct RedactionOutputWithReceiptV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
     input_sha256: String,
     policy_sha256: String,
     message_type: String,
@@ -2274,7 +2277,7 @@ fn redact_command(
     if *format == RedactFormat::Hl7 && schema_version != 1 {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "redaction receipt schema version is only available with --format json",
+            "redaction output schema version is only available with --format json",
         )
         .into());
     }
@@ -2305,6 +2308,9 @@ fn redact_command(
                 }
                 2 => {
                     let output = RedactionOutputWithReceiptV2 {
+                        schema_version: "2",
+                        tool_name: "hl7v2-cli",
+                        tool_version: env!("CARGO_PKG_VERSION"),
                         input_sha256,
                         policy_sha256,
                         message_type,
@@ -2316,7 +2322,7 @@ fn redact_command(
                 _ => {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
-                        "redaction receipt schema version must be 1 or 2",
+                        "redaction output schema version must be 1 or 2",
                     )
                     .into());
                 }
