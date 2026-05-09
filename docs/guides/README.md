@@ -6,3 +6,4 @@ feeds.
 | Guide | Use when |
 | --- | --- |
 | [First 10 Minutes](first-10-minutes.md) | You want to verify the CLI, validate a message, inspect a tiny corpus, and create a replayable evidence bundle. |
+| [Vendor Upgrade Diff](vendor-upgrade-diff.md) | You need to compare before/after HL7 corpora and produce drift evidence for a migration, vendor change, or CI gate. |

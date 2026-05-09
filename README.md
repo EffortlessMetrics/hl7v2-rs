@@ -76,6 +76,8 @@ cargo install hl7v2-cli
 For a task-focused walkthrough from local diagnostics to validation reports,
 corpus fingerprint/diff output, and replayable redacted bundles, start with the
 [First 10 Minutes guide](docs/guides/first-10-minutes.md).
+For migration and vendor-change review, see the
+[Vendor Upgrade Diff guide](docs/guides/vendor-upgrade-diff.md).
 
 ### HTTP/REST API Server
 
