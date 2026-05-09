@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/redaction-receipt/v2",
+  "title": "HL7v2 Redaction Receipt v2",
+  "description": "Machine-readable receipt describing safe-analysis redaction actions with embedded evidence provenance. This is the v2 target contract; v1 producers remain valid until migrated explicitly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_name",
+    "tool_version",
+    "phi_removed",
+    "hash_algorithm",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {"const": "2"},
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2", "hl7v2-cli", "hl7v2-server", "hl7v2-python"]
+    },
+    "tool_version": {"type": "string"},
+    "phi_removed": {
+      "type": "boolean",
+      "description": "Whether any configured PHI-bearing path was removed or hashed."
+    },
+    "hash_algorithm": {
+      "type": "string",
+      "enum": ["sha256"],
+      "description": "Hash algorithm used by hash redaction actions."
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/redaction_action"
+      }
+    }
+  },
+  "definitions": {
+    "redaction_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "action", "reason", "matched_count", "optional", "status"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "HL7 path covered by this policy action."
+        },
+        "action": {
+          "type": "string",
+          "enum": ["hash", "drop", "retain"]
+        },
+        "reason": {
+          "type": "string",
+          "description": "Policy reason for the action."
+        },
+        "matched_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of matching values affected by the action."
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "Whether missing matches are acceptable for this policy rule."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["applied", "retained", "not_found"]
+        }
+      }
+    }
+  }
+}
