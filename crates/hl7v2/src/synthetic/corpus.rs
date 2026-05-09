@@ -158,6 +158,40 @@ pub struct CorpusSummary {
     pub parse_errors: Vec<CorpusParseFailure>,
 }
 
+impl CorpusSummary {
+    /// Convert this v1 summary into the explicit v2 evidence contract shape.
+    ///
+    /// This preserves the default serialized form of [`CorpusSummary`].
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> CorpusSummaryV2 {
+        CorpusSummaryV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            summary: self.clone(),
+        }
+    }
+}
+
+/// Corpus summary v2 with embedded evidence provenance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorpusSummaryV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this summary.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// V1 summary fields.
+    #[serde(flatten)]
+    pub summary: CorpusSummary,
+}
+
 /// Before/after total for a corpus-level numeric dimension.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CorpusTotalDiff {
@@ -1436,6 +1470,12 @@ mod summary_tests {
                 .iter()
                 .any(|field| field.path == "PID.3" && field.message_count == 2)
         );
+
+        let summary_v2 = summary.to_v2("hl7v2", "1.3.0");
+        assert_eq!(summary_v2.schema_version, "2");
+        assert_eq!(summary_v2.tool_name, "hl7v2");
+        assert_eq!(summary_v2.tool_version, "1.3.0");
+        assert_eq!(summary_v2.summary.file_count, 2);
     }
 
     #[test]

@@ -147,6 +147,24 @@ constraints:
         if summary["message_types"][0] != {"value": "ADT^A01", "count": 1}:
             print(f"unexpected corpus message type counts: {summary}", file=sys.stderr)
             return 1
+        summary_v2 = hl7v2.corpus_summary(str(before), schema_version=2)
+        if (
+            summary_v2["schema_version"] != "2"
+            or summary_v2["tool_name"] != "hl7v2-python"
+            or summary_v2["tool_version"] != hl7v2.__version__
+            or summary_v2["message_count"] != 1
+        ):
+            print(f"unexpected summary v2 provenance: {summary_v2}", file=sys.stderr)
+            return 1
+        try:
+            hl7v2.corpus_summary(str(before), schema_version=3)
+        except ValueError as exc:
+            if "schema_version must be 1 or 2" not in str(exc):
+                print(f"unexpected summary schema version failure: {exc}", file=sys.stderr)
+                return 1
+        else:
+            print("expected unsupported summary schema version to fail", file=sys.stderr)
+            return 1
 
         fingerprint = hl7v2.corpus_fingerprint(
             str(before),

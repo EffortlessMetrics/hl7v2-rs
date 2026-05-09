@@ -53,20 +53,23 @@ Python lanes:
 - Redaction receipts and evidence bundle/replay summaries
 
 The first target v2 evidence schemas are `validation-report-v2.schema.json`,
-`corpus-fingerprint-v2.schema.json`, `corpus-diff-v2.schema.json`, and
-`redaction-receipt-v2.schema.json`. They add embedded `schema_version`,
-`tool_name`, and `tool_version` fields while keeping their v1 counterparts
-valid until implementation PRs explicitly move producer output shapes.
+`corpus-summary-v2.schema.json`, `corpus-fingerprint-v2.schema.json`,
+`corpus-diff-v2.schema.json`, and `redaction-receipt-v2.schema.json`. They add
+embedded `schema_version`, `tool_name`, and `tool_version` fields while keeping
+their v1 counterparts valid until implementation PRs explicitly move producer
+output shapes.
 Validation reports are the first artifact with an opt-in v2 producer path:
 `hl7v2 val --report json --schema-version 2` emits the v2 shape, while the
 default output remains v1. Python validation reports expose the same opt-in
 shape through `report.to_dict(2)` and `report.to_json(2)`. Server validation
 endpoints keep their existing v1-compatible response fields by default and add
 `validation_report_v2` when requests include `"report_schema_version": 2`.
-Corpus fingerprint and diff reports can opt into their target v2 shapes with
-`hl7v2 corpus fingerprint --format json --schema-version 2` and
-`hl7v2 corpus diff --format json --schema-version 2`. Python exposes the same
-opt-in shapes with `corpus_fingerprint(..., schema_version=2)` and
+Corpus summary, fingerprint, and diff reports can opt into their target v2
+shapes with `hl7v2 corpus summarize --format json --schema-version 2`,
+`hl7v2 corpus fingerprint --format json --schema-version 2`, and `hl7v2 corpus
+diff --format json --schema-version 2`. Python exposes the same opt-in shapes
+with `corpus_summary(..., schema_version=2)`,
+`corpus_fingerprint(..., schema_version=2)`, and
 `corpus_diff(..., schema_version=2)`; defaults remain v1.
 Redaction receipts can opt into their target v2 shape with
 `hl7v2 redact --format json --schema-version 2`, Python

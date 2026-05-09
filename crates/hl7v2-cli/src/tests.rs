@@ -937,7 +937,7 @@ constraints:
                 }],
             };
 
-            let output = crate::format_corpus_summary(&report, &crate::ReportFormat::Text)
+            let output = crate::format_corpus_summary(&report, &crate::ReportFormat::Text, 1)
                 .expect("Should format as text");
 
             assert!(output.contains("Corpus Summary:"));
@@ -958,9 +958,31 @@ constraints:
             let result = corpus_summarize_command(
                 &dir.path().to_path_buf(),
                 &ReportFormat::Json,
+                1,
                 &OutputOptions::new(None, false, false),
             );
             assert!(result.is_ok());
+        }
+
+        #[test]
+        fn test_corpus_summarize_command_has_schema_version_flag() {
+            use crate::Cli;
+            use clap::CommandFactory;
+
+            let schema = Cli::command();
+            let corpus_cmd = schema
+                .get_subcommands()
+                .find(|c| c.get_name() == "corpus")
+                .expect("corpus command should exist");
+            let summarize_cmd = corpus_cmd
+                .get_subcommands()
+                .find(|c| c.get_name() == "summarize")
+                .expect("summarize command should exist");
+
+            let schema_version_arg = summarize_cmd
+                .get_arguments()
+                .find(|arg| arg.get_id() == "schema_version");
+            assert!(schema_version_arg.is_some());
         }
 
         #[test]
