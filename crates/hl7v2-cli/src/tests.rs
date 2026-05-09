@@ -108,6 +108,43 @@ mod cli_unit_tests {
         }
 
         #[test]
+        fn test_sample_commands_exist() {
+            use crate::Cli;
+            let schema = Cli::command();
+
+            let sample = schema
+                .get_subcommands()
+                .find(|command| command.get_name() == "sample")
+                .expect("sample command should exist");
+            assert!(
+                sample
+                    .get_arguments()
+                    .any(|arg| arg.get_id() == "sample_type")
+            );
+            assert!(sample.get_arguments().any(|arg| arg.get_id() == "output"));
+
+            let validate_sample = schema
+                .get_subcommands()
+                .find(|command| command.get_name() == "validate-sample")
+                .expect("validate-sample command should exist");
+            assert!(
+                validate_sample
+                    .get_arguments()
+                    .any(|arg| arg.get_id() == "sample_type")
+            );
+            assert!(
+                validate_sample
+                    .get_arguments()
+                    .any(|arg| arg.get_id() == "schema_version")
+            );
+            assert!(
+                validate_sample
+                    .get_arguments()
+                    .any(|arg| arg.get_id() == "output")
+            );
+        }
+
+        #[test]
         fn test_profile_command_has_test_subcommand() {
             use crate::Cli;
             let schema = Cli::command();
