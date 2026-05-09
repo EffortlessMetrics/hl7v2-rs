@@ -2,8 +2,9 @@
 
 Date: 2026-05-08
 
-Updated: 2026-05-09 after the v1.3.0 Evidence Loop release hardening pass and
-the redacted structured server logging pass.
+Updated: 2026-05-09 after the v1.3.0 Evidence Loop release hardening pass,
+the redacted structured server logging pass, and post-v1.4.0 gRPC
+`ParseStream` / `ValidateRedacted` parity work.
 
 ## Purpose
 
@@ -14,9 +15,9 @@ the v1.3.0 contract-hardening pass.
 
 The goal is to keep the next hardening work concrete. The loop now has JSON
 Schemas, golden fixtures, CLI output semantics, bundle manifest verification,
-server parity, redacted structured server logs, and Python bundle/replay APIs;
-the remaining gaps are narrower contract-index, deployment-proof, and
-distribution-readiness details.
+server parity, redacted structured server logs, Python bundle/replay APIs, and
+gRPC parse-stream plus redacted-validation evidence parity; the remaining gaps
+are narrower deployment-proof and distribution-readiness details.
 
 ## Current Product Loop
 
@@ -46,17 +47,21 @@ fingerprint, and diff endpoints under `/hl7/corpus/*`; these accept message
 content directly and do not read filesystem paths from request bodies. Server
 evidence workflow logs hash message-control and bundle identifiers and avoid
 raw HL7, profile YAML, redaction policy TOML, and configured filesystem roots by
-default. Python
-exposes parse, JSON conversion, normalization, validation report dict/JSON
-parity, corpus summary/fingerprint/diff dict outputs, and safe-analysis
-redaction output, bundle creation, and replay verification.
+default. The gRPC service exposes `Parse`, `ParseStream`, `Validate`,
+`ValidateRedacted`, `GenerateAck`, `Normalize`, and `HealthCheck`; gRPC
+`ValidateRedacted` applies safe-analysis redaction before validation, returns
+v1 validation report and redaction receipt fields by default, and can include
+opt-in v2 provenance fields. Python exposes parse, JSON conversion,
+normalization, validation report dict/JSON parity,
+corpus summary/fingerprint/diff dict outputs, and safe-analysis redaction
+output, bundle creation, and replay verification.
 
 ## Artifact Status
 
 | Artifact | Current state | Main gap |
 | --- | --- | --- |
 | `DoctorReport` | CLI `hl7v2 doctor --format json` reports tool version plus first-run diagnostic checks for CLI version, sample parse, MLLP framing, optional profile, optional server reachability, and Python binding availability. `hl7v2 doctor --format json --schema-version 2` adds embedded schema/tool provenance. | JSON Schemas and golden fixtures exist for v1 and opt-in v2. Defaults remain v1-compatible. |
-| `ValidationReport` | Shared Rust type used by CLI, Python, and server validation response fields, including `/hl7/validate-redacted`. Includes stable issue code, severity, path, rule ID, message, segment index, and field index. | JSON Schemas and golden fixtures exist for v1 and opt-in v2. CLI/Python can emit v2 directly, and server responses can include nested `validation_report_v2` when requested. Defaults remain v1-compatible. |
+| `ValidationReport` | Shared Rust type used by CLI, Python, and server validation response fields, including REST `/hl7/validate-redacted` and gRPC `ValidateRedacted`. Includes stable issue code, severity, path, rule ID, message, segment index, and field index. | JSON Schemas and golden fixtures exist for v1 and opt-in v2. CLI/Python can emit v2 directly, and server responses can include nested `validation_report_v2` when requested. Defaults remain v1-compatible. |
 | `ProfileLintReport` | Shared Rust type from profile linting. CLI emits text/JSON/YAML by default, with opt-in v2 output for embedded provenance. | JSON Schemas and golden fixtures exist for v1 and v2; defaults remain v1-compatible. |
 | `ProfileTestReport` | CLI report with fixture cases, pass/fail status, embedded validation reports, and optional expected-report comparison; opt-in v2 output adds embedded provenance. | JSON Schemas and golden fixtures exist for v1 and v2; defaults remain v1-compatible. |
 | `ProfileExplainReport` | CLI report with profile SHA-256, structure, version, segments, constraints, tables, rules, and lint summary; opt-in v2 output adds embedded provenance. | JSON Schemas and golden fixtures exist for v1 and v2; defaults remain v1-compatible. |
@@ -64,7 +69,7 @@ redaction output, bundle creation, and replay verification.
 | `CorpusFingerprint` | Shared Rust fingerprint type with `fingerprint_version`, `tool_version`, optional profile hash, counts, field presence/cardinality, value shapes, and validation issue-code counts. CLI emits text/JSON/YAML, Python returns the same dict shape, and server `/hl7/corpus/fingerprint` produces inline corpus evidence. | JSON Schemas and golden fixtures exist for v1 and opt-in v2; `profile: null` and empty-array semantics are documented in the schema README. |
 | `CorpusDiffReport` | Shared Rust diff type with `diff_version`, `tool_version`, optional profile hash, totals, new/removed message types and segments, field deltas, value-shape deltas, and validation issue-code deltas. CLI emits text/JSON/YAML, Python returns the same dict shape, and server `/hl7/corpus/diff` produces inline corpus evidence. | JSON Schemas and golden fixtures exist for v1 and opt-in v2; `profile: null` and empty-array semantics are documented in the schema README. |
 | `SafeAnalysisRedactionOutput` | CLI `hl7v2 redact --format json` and Python `redact()` return input and policy SHA-256 values, message type, redacted HL7 text, and a nested redaction receipt. | JSON Schema and fixtures exist for the default v1-compatible output, the transitional v1 outer shape with a nested v2 receipt, and opt-in v2 output with top-level `schema_version`, `tool_name`, and `tool_version`. Defaults remain v1-compatible. |
-| `RedactionReceipt` | CLI, server, and Python receipts record PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | JSON Schemas, golden fixtures, and synthetic PHI leak-sentinel tests exist for v1 and opt-in v2. Defaults remain v1-compatible; v2 adds embedded `schema_version`, `tool_name`, and `tool_version`. |
+| `RedactionReceipt` | CLI, server REST/gRPC, and Python receipts record PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | JSON Schemas, golden fixtures, and synthetic PHI leak-sentinel tests exist for v1 and opt-in v2. Defaults remain v1-compatible; v2 adds embedded `schema_version`, `tool_name`, and `tool_version`. |
 | `EvidenceBundleSummary` | CLI stdout JSON summary, Python `bundle()` output, and server `/hl7/bundle` JSON response include `bundle_version`, output directory/id, message type, validation status, redaction status, and artifact list. | v1 and v2 JSON Schemas plus golden fixtures exist. CLI and Python can opt into v2 provenance with `schema_version = 2`; server keeps the v1 response shape by default. |
 | Bundle artifacts | CLI, Python, and server bundles write `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, `README.md`, and `manifest.json`. | Bundle README is generated and manifest-hashed. CLI/Python bundles can opt into v2 `field-paths.json`, `redaction-receipt.json`, `environment.json`, and `manifest.json` artifacts with bundle `schema_version = 2`; server bundles can opt in with `bundle_artifact_schema_version = 2`. Defaults remain v1-compatible. Profile text is user-authored and included as supplied. |
 | `QuarantineOutputSummary` | Server `/hl7/validate-redacted` can return a root-relative quarantine output id, reason, validation issue count, and artifact list when `[quarantine]` is enabled and validation fails. | Server-local response type; v1 and opt-in v2 JSON Schemas exist. Requests with `quarantine_schema_version: 2` include `quarantine_v2` with provenance while preserving the v1 `quarantine` field. Full-bundle mode reuses bundle artifacts. |
@@ -78,7 +83,7 @@ redaction output, bundle creation, and replay verification.
 | --- | --- |
 | Rust | Shared validation, profile lint, corpus summary/fingerprint/diff, parse, normalize, write, ACK, redaction module APIs, and Python-facing bundle/replay evidence APIs. Profile test and profile explain reports remain CLI-local. |
 | CLI | Complete current loop: doctor, profile lint/test/explain, validation, corpus summarize/fingerprint/diff, redact, bundle, and replay. |
-| Server | Validation report parity for `/hl7/validate`; redacted validation parity and quarantine hooks for `/hl7/validate-redacted`; configured-root bundle creation for `/hl7/bundle` with opt-in v2 bundle-internal artifacts; configured-root replay verification for `/hl7/replay`; policy-driven ACK/NAK decisions for `/hl7/ack-policy`; inline corpus summary/fingerprint/diff endpoints under `/hl7/corpus/*`; redacted structured evidence logs with hashed message-control and bundle identifiers. |
+| Server | Validation report parity for REST `/hl7/validate` and gRPC `Validate`; REST redacted validation parity and quarantine hooks for `/hl7/validate-redacted`; gRPC redacted validation parity through `ValidateRedacted`; gRPC streaming parse through `ParseStream`; configured-root bundle creation for `/hl7/bundle` with opt-in v2 bundle-internal artifacts; configured-root replay verification for `/hl7/replay`; policy-driven ACK/NAK decisions for `/hl7/ack-policy`; inline corpus summary/fingerprint/diff endpoints under `/hl7/corpus/*`; redacted structured evidence logs with hashed message-control and bundle identifiers. |
 | Python | Minimum API parity for parse, `to_json`, normalize, validation reports, corpus summary/fingerprint/diff dict outputs, safe-analysis redaction output, bundle creation, and replay verification. |
 
 One validation parity detail is intentionally documented as a label convention:

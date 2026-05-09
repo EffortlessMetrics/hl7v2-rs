@@ -21,6 +21,13 @@ Useful release-candidate workflows include:
 - `POST /hl7/ack-policy` for policy-driven ACK/NAK decisions.
 - `/metrics` for Prometheus metrics.
 
+The gRPC service implements `Parse`, `ParseStream`, `Validate`,
+`ValidateRedacted`, `GenerateAck`, `Normalize`, and `HealthCheck`.
+`Validate` and `ValidateRedacted` return the shared validation report fields;
+`ValidateRedacted` also returns a redaction receipt and keeps the redacted HL7
+payload opt-in. See [GRPC_IMPLEMENTATION.md](GRPC_IMPLEMENTATION.md) for the
+current protobuf and test contract notes.
+
 The stable Prometheus contract includes HTTP request metrics plus evidence-loop
 counters for parse failures, validation failures, redaction failures, bundles
 created, replay attempts/failures, and inline corpus diffs. Labels are bounded
