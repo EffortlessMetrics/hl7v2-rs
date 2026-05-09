@@ -21,14 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    // Initialize tracing/logging
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "hl7v2_server=info,tower_http=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    init_tracing();
 
     tracing::info!("Starting HL7v2 HTTP server");
     tracing::info!("Bind address: {}", config.bind_address);
@@ -77,7 +70,41 @@ where
 }
 
 fn usage() -> &'static str {
-    "Usage: hl7v2-server [--print-config]\n\nOptions:\n  --print-config  Print sanitized effective server configuration as JSON and exit\n  -h, --help      Print help\n\nEnvironment:\n  HL7V2_CONFIG                Optional TOML/YAML config file with [server], [ack], and [quarantine] settings\n  BIND_ADDRESS                Override bind address, for example 0.0.0.0:8080\n  HL7V2_API_KEY               API key for protected /hl7/* routes\n  HL7V2_CORS_ALLOWED_ORIGINS  Comma-separated CORS origins, or * for any\n  HL7V2_PROFILE_PATHS         Profile files that must load before readiness passes\n  HL7V2_BUNDLE_OUTPUT_ROOT    Existing writable directory for server-generated evidence bundles"
+    "Usage: hl7v2-server [--print-config]\n\nOptions:\n  --print-config  Print sanitized effective server configuration as JSON and exit\n  -h, --help      Print help\n\nEnvironment:\n  HL7V2_CONFIG                Optional TOML/YAML config file with [server], [ack], and [quarantine] settings\n  BIND_ADDRESS                Override bind address, for example 0.0.0.0:8080\n  HL7V2_API_KEY               API key for protected /hl7/* routes\n  HL7V2_CORS_ALLOWED_ORIGINS  Comma-separated CORS origins, or * for any\n  HL7V2_PROFILE_PATHS         Profile files that must load before readiness passes\n  HL7V2_BUNDLE_OUTPUT_ROOT    Existing writable directory for server-generated evidence bundles\n  RUST_LOG                    tracing filter, for example hl7v2_server=info,tower_http=debug\n  RUST_LOG_FORMAT             set to json for JSON logs; any other value uses text logs"
+}
+
+fn init_tracing() {
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "hl7v2_server=info,tower_http=debug".into());
+    let subscriber = tracing_subscriber::registry().with(env_filter);
+
+    match log_format_from_env() {
+        LogFormat::Json => subscriber
+            .with(tracing_subscriber::fmt::layer().json())
+            .init(),
+        LogFormat::Text => subscriber.with(tracing_subscriber::fmt::layer()).init(),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LogFormat {
+    Text,
+    Json,
+}
+
+fn log_format_from_env() -> LogFormat {
+    std::env::var("RUST_LOG_FORMAT")
+        .ok()
+        .and_then(|value| parse_log_format(&value))
+        .unwrap_or(LogFormat::Text)
+}
+
+fn parse_log_format(value: &str) -> Option<LogFormat> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "" | "text" | "pretty" => Some(LogFormat::Text),
+        "json" => Some(LogFormat::Json),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -112,5 +139,15 @@ mod tests {
             parse_args(["--unknown"]),
             Err(error) if error.contains("unknown argument")
         ));
+    }
+
+    #[test]
+    fn parse_log_format_accepts_json_and_text_values() {
+        assert_eq!(parse_log_format("json"), Some(LogFormat::Json));
+        assert_eq!(parse_log_format(" JSON "), Some(LogFormat::Json));
+        assert_eq!(parse_log_format("text"), Some(LogFormat::Text));
+        assert_eq!(parse_log_format("pretty"), Some(LogFormat::Text));
+        assert_eq!(parse_log_format(""), Some(LogFormat::Text));
+        assert_eq!(parse_log_format("xml"), None);
     }
 }
