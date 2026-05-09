@@ -77,6 +77,29 @@ constraints:
     if report_json["message_type"] != "ADT^A01":
         print("validation report JSON did not preserve message_type", file=sys.stderr)
         return 1
+    report_v2 = report.to_dict(2)
+    if (
+        report_v2["schema_version"] != "2"
+        or report_v2["tool_name"] != "hl7v2-python"
+        or report_v2["profile_identity"]["label"] != "<inline-profile>"
+        or report_v2["profile_identity"]["message_structure"] != "ADT_A01"
+        or len(report_v2["profile_identity"]["sha256"]) != 64
+    ):
+        print(f"validation report v2 did not preserve provenance: {report_v2}", file=sys.stderr)
+        return 1
+    report_v2_json = json.loads(report.to_json(2))
+    if report_v2_json["schema_version"] != "2":
+        print("validation report v2 JSON did not preserve schema_version", file=sys.stderr)
+        return 1
+    try:
+        report.to_dict(3)
+    except ValueError as exc:
+        if "schema_version must be 1 or 2" not in str(exc):
+            print(f"unexpected schema version failure: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print("expected unsupported report schema version to fail", file=sys.stderr)
+        return 1
 
     failing_profile_yaml = """
 message_structure: ADT_A01

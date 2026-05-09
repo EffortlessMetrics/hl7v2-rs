@@ -58,6 +58,8 @@ report = hl7v2.validate(raw, profile_yaml)
 print(report.valid)
 print(report.message_type)
 print(report.to_dict())
+print(report.to_dict(2))  # opt-in validation report v2 with provenance
+print(report.to_json(2))
 
 summary = hl7v2.corpus_summary("feeds/site-a")
 fingerprint = hl7v2.corpus_fingerprint("feeds/site-a", profile_yaml=profile_yaml)
