@@ -28,6 +28,8 @@ pub struct AppState {
     pub cors_allowed_origins: CorsAllowedOrigins,
     /// Startup readiness checks.
     pub readiness_checks: Vec<ReadinessCheck>,
+    /// Configured root for server-generated evidence bundles.
+    pub bundle_output_root: Option<PathBuf>,
 }
 
 impl AppState {
@@ -94,6 +96,8 @@ pub struct ServerConfig {
     pub profile_paths: Vec<String>,
     /// Optional config file source used to build this configuration.
     pub config_source: Option<String>,
+    /// Optional filesystem root for server-generated evidence bundles.
+    pub bundle_output_root: Option<PathBuf>,
 }
 
 impl Default for ServerConfig {
@@ -105,6 +109,7 @@ impl Default for ServerConfig {
             cors_allowed_origins: CorsAllowedOrigins::default(),
             profile_paths: Vec::new(),
             config_source: None,
+            bundle_output_root: None,
         }
     }
 }
@@ -125,6 +130,8 @@ pub struct PublicServerConfig {
     /// Optional config file source.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config_source: Option<String>,
+    /// Whether server-side evidence bundle output is configured.
+    pub bundle_output_root_configured: bool,
 }
 
 /// Sanitized CORS origin policy for printed config.
@@ -147,6 +154,7 @@ struct FileServerConfig {
     host: Option<String>,
     port: Option<u16>,
     api_key: Option<String>,
+    bundle_output_root: Option<PathBuf>,
 }
 
 impl ServerConfig {
@@ -159,6 +167,7 @@ impl ServerConfig {
             std::env::var("HL7V2_API_KEY").ok(),
             std::env::var("HL7V2_CORS_ALLOWED_ORIGINS").ok(),
             std::env::var_os("HL7V2_PROFILE_PATHS"),
+            std::env::var_os("HL7V2_BUNDLE_OUTPUT_ROOT"),
         )
     }
 
@@ -169,6 +178,7 @@ impl ServerConfig {
         api_key: Option<String>,
         cors_allowed_origins: Option<String>,
         profile_paths: Option<OsString>,
+        bundle_output_root: Option<OsString>,
     ) -> Result<Self> {
         let mut config = if let Some(path) = config_path {
             let mut config = Self::from_config_file(path)?;
@@ -192,6 +202,10 @@ impl ServerConfig {
 
         if let Some(profile_paths) = profile_paths {
             config.profile_paths = split_profile_paths(profile_paths);
+        }
+
+        if let Some(bundle_output_root) = bundle_output_root {
+            config.bundle_output_root = Some(PathBuf::from(bundle_output_root));
         }
 
         Ok(config)
@@ -220,6 +234,9 @@ impl ServerConfig {
         if let Some(api_key) = file_config.server.api_key {
             config.api_key = Some(api_key);
         }
+        if let Some(bundle_output_root) = file_config.server.bundle_output_root {
+            config.bundle_output_root = Some(bundle_output_root);
+        }
 
         Ok(config)
     }
@@ -233,6 +250,7 @@ impl ServerConfig {
             cors_allowed_origins: public_cors_allowed_origins(&self.cors_allowed_origins),
             profile_paths: self.profile_paths.clone(),
             config_source: self.config_source.clone(),
+            bundle_output_root_configured: self.bundle_output_root.is_some(),
         }
     }
 
@@ -254,6 +272,9 @@ impl ServerConfig {
         }
 
         checks.push(profile_readiness_check(&self.profile_paths));
+        checks.push(bundle_output_root_readiness_check(
+            self.bundle_output_root.as_deref(),
+        ));
         checks.push(validation_report_readiness_check());
 
         checks
@@ -308,6 +329,50 @@ fn profile_readiness_check(profile_paths: &[String]) -> ReadinessCheck {
         "configured_profiles",
         format!("loaded {} configured profile(s)", profile_paths.len()),
     )
+}
+
+fn bundle_output_root_readiness_check(bundle_output_root: Option<&Path>) -> ReadinessCheck {
+    let Some(root) = bundle_output_root else {
+        return ReadinessCheck::pass("bundle_output_root", "server bundle output not configured");
+    };
+
+    match fs::metadata(root) {
+        Ok(metadata) if metadata.is_dir() => {}
+        Ok(_) => {
+            return ReadinessCheck::fail(
+                "bundle_output_root",
+                "bundle output root is not a directory",
+            );
+        }
+        Err(error) => {
+            return ReadinessCheck::fail(
+                "bundle_output_root",
+                format!("bundle output root is not readable: {error}"),
+            );
+        }
+    }
+
+    let probe_path = root.join(format!(
+        ".hl7v2-server-ready-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |duration| duration.as_nanos())
+    ));
+
+    match fs::write(&probe_path, b"ready") {
+        Ok(()) => match fs::remove_file(&probe_path) {
+            Ok(()) => ReadinessCheck::pass("bundle_output_root", "bundle output root is writable"),
+            Err(error) => ReadinessCheck::fail(
+                "bundle_output_root",
+                format!("bundle output root probe cleanup failed: {error}"),
+            ),
+        },
+        Err(error) => ReadinessCheck::fail(
+            "bundle_output_root",
+            format!("bundle output root is not writable: {error}"),
+        ),
+    }
 }
 
 fn validation_report_readiness_check() -> ReadinessCheck {
@@ -367,6 +432,7 @@ impl Server {
             api_key: config.api_key.clone(),
             cors_allowed_origins: config.cors_allowed_origins.clone(),
             readiness_checks: config.readiness_checks(),
+            bundle_output_root: config.bundle_output_root.clone(),
         });
 
         Self { config, state }
@@ -451,6 +517,12 @@ impl ServerBuilder {
         self
     }
 
+    /// Set the filesystem root for server-generated evidence bundles.
+    pub fn bundle_output_root(mut self, path: impl Into<PathBuf>) -> Self {
+        self.config.bundle_output_root = Some(path.into());
+        self
+    }
+
     /// Build the server
     pub fn build(self) -> Server {
         Server::new(self.config)
@@ -520,11 +592,13 @@ api_key = "file-secret"
             Some("env-secret".to_string()),
             Some("https://app.example,https://ops.example".to_string()),
             None,
+            Some(OsString::from("bundles")),
         )
         .expect("config should load");
 
         assert_eq!(config.bind_address, "0.0.0.0:19090");
         assert_eq!(config.api_key.as_deref(), Some("env-secret"));
+        assert_eq!(config.bundle_output_root, Some(PathBuf::from("bundles")));
         assert_eq!(
             config.cors_allowed_origins,
             CorsAllowedOrigins::List(vec![
@@ -571,6 +645,7 @@ segments:
             None,
             None,
             Some(OsString::from(path.as_os_str())),
+            None,
         )
         .expect("config should build");
         let check = config
@@ -601,7 +676,61 @@ segments:
         assert!(check.message.contains("missing-profile.yaml"));
     }
 
+    #[test]
+    fn public_config_reports_bundle_output_root_without_exposing_path() {
+        let config = ServerConfig {
+            bundle_output_root: Some(PathBuf::from("sensitive-local-path")),
+            ..ServerConfig::default()
+        };
+
+        let printed = serde_json::to_string(&config.to_public_config())
+            .expect("public config should serialize");
+
+        assert!(printed.contains("\"bundle_output_root_configured\":true"));
+        assert!(!printed.contains("sensitive-local-path"));
+    }
+
+    #[test]
+    fn readiness_checks_configured_bundle_output_root_writable() {
+        let root = temp_dir_path("bundle-root");
+        fs::create_dir(&root).expect("bundle root should be created");
+        let config = ServerConfig {
+            bundle_output_root: Some(root.clone()),
+            ..ServerConfig::default()
+        };
+
+        let check = config
+            .readiness_checks()
+            .into_iter()
+            .find(|check| check.name == "bundle_output_root")
+            .expect("bundle root readiness check should exist");
+
+        assert_eq!(check.status, crate::models::ReadinessCheckStatus::Pass);
+
+        fs::remove_dir(root).expect("bundle root should be removed");
+    }
+
+    #[test]
+    fn readiness_checks_fail_missing_bundle_output_root() {
+        let root = temp_dir_path("missing-bundle-root");
+        let config = ServerConfig {
+            bundle_output_root: Some(root),
+            ..ServerConfig::default()
+        };
+        let check = config
+            .readiness_checks()
+            .into_iter()
+            .find(|check| check.name == "bundle_output_root")
+            .expect("bundle root readiness check should exist");
+
+        assert_eq!(check.status, crate::models::ReadinessCheckStatus::Fail);
+    }
+
     fn temp_file_path(name: &str) -> PathBuf {
+        temp_dir_path(name)
+    }
+
+    fn temp_dir_path(name: &str) -> PathBuf {
         let nonce = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system clock should be after epoch")

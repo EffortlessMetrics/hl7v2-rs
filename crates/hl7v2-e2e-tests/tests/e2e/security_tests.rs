@@ -20,6 +20,7 @@ async fn test_auth_missing_api_key_fails() {
         api_key: Some("secret-key".to_string()),
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
+        bundle_output_root: None,
     });
     let app = build_router(state);
 
@@ -51,6 +52,7 @@ async fn test_auth_valid_api_key_succeeds() {
         api_key: Some("secret-key".to_string()),
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
+        bundle_output_root: None,
     });
     let app = build_router(state);
 
@@ -88,6 +90,7 @@ async fn test_auth_invalid_api_key_fails() {
         api_key: Some("secret-key".to_string()),
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
+        bundle_output_root: None,
     });
     let app = build_router(state);
 
@@ -120,6 +123,7 @@ async fn test_health_metrics_public() {
         api_key: Some("secret-key".to_string()),
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
+        bundle_output_root: None,
     });
     let app = build_router(state);
 

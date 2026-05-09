@@ -129,7 +129,69 @@ field when `include_redacted_hl7` is true.
 
 ---
 
-### 4. Generate ACK
+### 4. Create Redacted Evidence Bundle
+**POST** `/hl7/bundle`
+
+Applies a safe-analysis redaction policy, validates the redacted message,
+and writes a replayable evidence bundle under the configured
+`HL7V2_BUNDLE_OUTPUT_ROOT`. The request supplies a `bundle_id`, not a
+filesystem path. The bundle id must be one safe path segment using ASCII
+letters, numbers, `.`, `_`, or `-`; `.` and `..` are rejected.
+
+The endpoint fails closed with `503 BUNDLE_OUTPUT_NOT_CONFIGURED` when the
+server has no configured bundle output root.
+
+**Request Body:**
+```json
+{
+  "bundle_id": "case-001",
+  "message": "MSH|^~\\&|...",
+  "profile": "message_structure: ADT_A01\nversion: \"2.5\"\nsegments:\n  - id: MSH\n",
+  "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n",
+  "mllp_framed": false
+}
+```
+
+**Response Body:**
+```json
+{
+  "bundle_version": "1",
+  "output_dir": "case-001",
+  "message_type": "ADT^A01",
+  "validation_valid": true,
+  "validation_issue_count": 0,
+  "redaction_phi_removed": true,
+  "artifacts": [
+    "message.redacted.hl7",
+    "validation-report.json",
+    "field-paths.json",
+    "profile.yaml",
+    "redaction-receipt.json",
+    "environment.json",
+    "replay.sh",
+    "replay.ps1",
+    "README.md",
+    "manifest.json"
+  ]
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8080/hl7/bundle \
+  -H "X-API-Key: your-secret-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bundle_id": "case-001",
+    "message": "MSH|^~\\&|...",
+    "profile": "...",
+    "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n"
+  }'
+```
+
+---
+
+### 5. Generate ACK
 **POST** `/hl7/ack`
 
 Generates an HL7 ACK response from an inbound message.
@@ -146,7 +208,7 @@ Generates an HL7 ACK response from an inbound message.
 
 ---
 
-### 5. Normalize HL7 Message
+### 6. Normalize HL7 Message
 **POST** `/hl7/normalize`
 
 Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
@@ -165,7 +227,7 @@ Rewrites an HL7 message with stable delimiters and optional MLLP output framing.
 
 ---
 
-### 6. Health & Metrics
+### 7. Health & Metrics
 
 **Health Check:**
 ```bash
@@ -203,7 +265,9 @@ The API uses standard HTTP status codes and returns a JSON error body:
 - `200 OK`: Success.
 - `400 Bad Request`: Invalid JSON, malformed HL7, or profile load error.
 - `401 Unauthorized`: Missing or invalid `X-API-Key`.
+- `409 Conflict`: Requested evidence bundle id already exists.
 - `429 Too Many Requests`: Rate limit exceeded.
+- `503 Service Unavailable`: Server-side evidence bundle output is not configured or not ready.
 - `500 Internal Server Error`: Server configuration error.
 
 ---

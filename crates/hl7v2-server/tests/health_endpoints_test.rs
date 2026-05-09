@@ -197,6 +197,7 @@ async fn test_ready_endpoint_returns_503_when_startup_check_failed() {
             "configured_profiles",
             "profile missing-profile.yaml could not be read",
         )],
+        bundle_output_root: None,
     });
     let app = hl7v2_server::build_router(state);
 

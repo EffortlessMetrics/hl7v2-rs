@@ -158,6 +158,46 @@ pub async fn validate_redacted_handler(
     Ok((StatusCode::OK, Json(response)))
 }
 
+/// Handler for POST /hl7/bundle
+pub async fn bundle_handler(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<BundleRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let bundle_output_root = state
+        .bundle_output_root
+        .as_deref()
+        .ok_or(AppError::BundleOutputNotConfigured)?;
+
+    let raw_input = request.message.into_bytes();
+    let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
+    let receipt =
+        redact_message(&mut message, &request.redaction_policy).map_err(AppError::Redaction)?;
+    let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
+        .map_err(|error| AppError::Internal(format!("redacted message was not UTF-8: {error}")))?;
+
+    let profile = hl7v2::load_profile_checked(&request.profile)
+        .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
+    let issues = hl7v2::validate(&message, &profile);
+    let validation_report =
+        hl7v2::ValidationReport::from_issues(&message, Some("profile.yaml".to_string()), issues);
+
+    let summary =
+        crate::evidence::write_evidence_bundle(crate::evidence::EvidenceBundleWriteRequest {
+            root: bundle_output_root,
+            bundle_id: &request.bundle_id,
+            raw_input: &raw_input,
+            profile_yaml: &request.profile,
+            policy_text: &request.redaction_policy,
+            redacted_message: &message,
+            redacted_hl7: &redacted_hl7,
+            redaction_receipt: &receipt,
+            validation_report: &validation_report,
+        })
+        .map_err(AppError::from)?;
+
+    Ok((StatusCode::CREATED, Json(summary)))
+}
+
 /// Handler for POST /hl7/ack
 pub async fn ack_handler(
     State(_state): State<Arc<AppState>>,
@@ -319,8 +359,32 @@ pub enum AppError {
     /// Redaction policy or redaction application error
     Redaction(String),
 
+    /// Bundle output is not configured on the server
+    BundleOutputNotConfigured,
+
+    /// Bundle output root is configured but not writable or available
+    BundleOutputNotReady(String),
+
+    /// Bundle request or write error
+    Bundle(String),
+
+    /// Bundle output already exists
+    Conflict(String),
+
     /// Internal server error (unexpected failures)
     Internal(String),
+}
+
+impl From<crate::evidence::EvidenceBundleError> for AppError {
+    fn from(error: crate::evidence::EvidenceBundleError) -> Self {
+        match error {
+            crate::evidence::EvidenceBundleError::InvalidRequest(message) => Self::Bundle(message),
+            crate::evidence::EvidenceBundleError::Conflict(message) => Self::Conflict(message),
+            crate::evidence::EvidenceBundleError::Io(message) => {
+                Self::BundleOutputNotReady(message)
+            }
+        }
+    }
 }
 
 impl IntoResponse for AppError {
@@ -331,6 +395,18 @@ impl IntoResponse for AppError {
             AppError::ProfileLoad(msg) => (StatusCode::BAD_REQUEST, "PROFILE_LOAD_ERROR", msg),
             AppError::Validation(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
             AppError::Redaction(msg) => (StatusCode::BAD_REQUEST, "REDACTION_ERROR", msg),
+            AppError::BundleOutputNotConfigured => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "BUNDLE_OUTPUT_NOT_CONFIGURED",
+                "server bundle output root is not configured".to_string(),
+            ),
+            AppError::BundleOutputNotReady(msg) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "BUNDLE_OUTPUT_NOT_READY",
+                msg,
+            ),
+            AppError::Bundle(msg) => (StatusCode::BAD_REQUEST, "BUNDLE_ERROR", msg),
+            AppError::Conflict(msg) => (StatusCode::CONFLICT, "BUNDLE_EXISTS", msg),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg),
         };
 
@@ -346,6 +422,14 @@ impl std::fmt::Display for AppError {
             AppError::ProfileLoad(msg) => write!(f, "Profile load error: {}", msg),
             AppError::Validation(msg) => write!(f, "Validation error: {}", msg),
             AppError::Redaction(msg) => write!(f, "Redaction error: {}", msg),
+            AppError::BundleOutputNotConfigured => {
+                write!(f, "Bundle output root is not configured")
+            }
+            AppError::BundleOutputNotReady(msg) => {
+                write!(f, "Bundle output root is not ready: {}", msg)
+            }
+            AppError::Bundle(msg) => write!(f, "Bundle error: {}", msg),
+            AppError::Conflict(msg) => write!(f, "Bundle conflict: {}", msg),
             AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }

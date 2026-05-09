@@ -31,9 +31,11 @@ hl7v2 bundle <message.hl7> --profile <profile.yaml> --redact-policy <safe-analys
 hl7v2 replay <bundle/> --format json
 ```
 
-The server exposes validation report parity through `/hl7/validate` and safe
-redacted validation through `/hl7/validate-redacted`. Python exposes parse, JSON
-conversion, normalization, and validation report dict/JSON parity.
+The server exposes validation report parity through `/hl7/validate`, safe
+redacted validation through `/hl7/validate-redacted`, and server-side evidence
+bundle creation through `/hl7/bundle` when a bundle output root is configured.
+Python exposes parse, JSON conversion, normalization, and validation report
+dict/JSON parity.
 
 ## Artifact Status
 
@@ -47,9 +49,9 @@ conversion, normalization, and validation report dict/JSON parity.
 | `CorpusFingerprint` | Shared Rust fingerprint type with `fingerprint_version`, `tool_version`, optional profile hash, counts, field presence/cardinality, value shapes, and validation issue-code counts. | Needs JSON Schema and golden fixtures. |
 | `CorpusDiffReport` | Shared Rust diff type with `diff_version`, `tool_version`, optional profile hash, totals, new/removed message types and segments, field deltas, value-shape deltas, and validation issue-code deltas. | Needs JSON Schema and golden fixtures. |
 | `RedactionReceipt` | CLI and server receipts record PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | Missing version fields, JSON Schema, and dedicated leak-sentinel fixture family. |
-| `EvidenceBundleSummary` | CLI stdout JSON summary includes `bundle_version`, output directory, message type, validation status, redaction status, and artifact list. | Includes `manifest.json`; no `tool_version` in the summary itself. |
-| Bundle artifacts | `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, `README.md`, and `manifest.json`. | Bundle README is generated and manifest-hashed. |
-| `EvidenceBundleManifest` | Bundle `manifest.json` records bundle-relative artifact paths, roles, and SHA-256 hashes. | Replay verifies manifest catalog and hashes before using artifacts. |
+| `EvidenceBundleSummary` | CLI stdout JSON summary and server `/hl7/bundle` JSON response include `bundle_version`, output directory/id, message type, validation status, redaction status, and artifact list. | Includes `manifest.json`; no `tool_version` in the summary itself. |
+| Bundle artifacts | CLI and server bundles write `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, `README.md`, and `manifest.json`. | Bundle README is generated and manifest-hashed. |
+| `EvidenceBundleManifest` | Bundle `manifest.json` records bundle-relative artifact paths, roles, SHA-256 hashes, and the generating tool name (`hl7v2-cli` or `hl7v2-server`). | Replay verifies manifest catalog and hashes before using artifacts. |
 | `EvidenceReplayReport` | CLI report with `replay_version`, `bundle_version`, `tool_name`, `tool_version`, replay checks, reproduction status, and optional regenerated validation report. | Fails closed on malformed manifests, missing artifacts, and hash mismatches; report schema exists. |
 | Python validation report | `report.valid`, `message_type`, `profile`, `segment_count`, `issue_count`, `to_dict()`, and `to_json()` mirror `ValidationReport`. | Python does not yet expose corpus, redaction, bundle, or replay artifact APIs. |
 
@@ -59,7 +61,7 @@ conversion, normalization, and validation report dict/JSON parity.
 | --- | --- |
 | Rust | Shared validation, profile lint, corpus summary/fingerprint/diff, parse, normalize, write, ACK, and redaction module APIs. Several evidence packet reports remain CLI-local. |
 | CLI | Complete current loop: doctor, profile lint/test/explain, validation, corpus summarize/fingerprint/diff, redact, bundle, and replay. |
-| Server | Validation report parity for `/hl7/validate`; redacted validation parity for `/hl7/validate-redacted`; bundle, replay, corpus, ACK policy, and quarantine hooks remain follow-up work. |
+| Server | Validation report parity for `/hl7/validate`; redacted validation parity for `/hl7/validate-redacted`; configured-root bundle creation for `/hl7/bundle`; replay endpoint, corpus artifacts, ACK policy, and quarantine hooks remain follow-up work. |
 | Python | Minimum API parity for parse, `to_json`, normalize, and validation reports. Corpus, redaction, bundle, and replay APIs remain follow-up work. |
 
 One known validation parity detail remains: the CLI report `profile` value is
