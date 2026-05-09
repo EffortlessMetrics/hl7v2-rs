@@ -10,6 +10,108 @@ from pathlib import Path
 import hl7v2
 
 
+PHI_LEAK_SENTINEL_MESSAGE = (
+    "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\r"
+    "PID|1||MRN-777-ALPHA^^^HOSP^MR||Signal^Patricia||19661224|M|||742 Evergreen Terrace||5558675309\r"
+    "NK1|1|Watcher^Nora||900 Support Way|5550001234\r"
+    "OBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r"
+)
+
+PHI_LEAK_SENTINEL_POLICY = """
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "Patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "Patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "Date of birth"
+
+[[rules]]
+path = "PID.11"
+action = "drop"
+reason = "Patient address"
+
+[[rules]]
+path = "PID.13"
+action = "drop"
+reason = "Patient phone"
+
+[[rules]]
+path = "NK1.2"
+action = "drop"
+reason = "Next-of-kin name"
+
+[[rules]]
+path = "NK1.4"
+action = "drop"
+reason = "Next-of-kin address"
+
+[[rules]]
+path = "NK1.5"
+action = "drop"
+reason = "Next-of-kin phone"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "Message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "Control id is needed for replay correlation"
+
+[[rules]]
+path = "OBX.3"
+action = "retain"
+reason = "Observation identifier is needed for analysis"
+
+[[rules]]
+path = "OBX.5"
+action = "retain"
+reason = "Synthetic observation value shape is needed for analysis"
+"""
+
+PHI_LEAK_SENTINELS = (
+    ("patient name", "Signal^Patricia"),
+    ("MRN", "MRN-777-ALPHA^^^HOSP^MR"),
+    ("date of birth", "19661224"),
+    ("address", "742 Evergreen Terrace"),
+    ("phone", "5558675309"),
+    ("next-of-kin name", "Watcher^Nora"),
+    ("next-of-kin address", "900 Support Way"),
+    ("next-of-kin phone", "5550001234"),
+)
+
+
+def assert_no_phi_leak_sentinels(context: str, content: str) -> None:
+    for label, value in PHI_LEAK_SENTINELS:
+        if value in content:
+            raise AssertionError(f"{context} leaked {label}: {value}")
+
+
+def assert_no_phi_leak_sentinels_or_paths(
+    context: str,
+    content: str,
+    *paths: Path,
+) -> None:
+    assert_no_phi_leak_sentinels(context, content)
+    for path in paths:
+        path_text = str(path)
+        if path_text in content:
+            raise AssertionError(f"{context} leaked local path: {path_text}")
+    for file_name in ("raw-phi-input-sentinel.hl7", "raw-policy-sentinel.toml"):
+        if file_name in content:
+            raise AssertionError(f"{context} leaked raw fixture file name: {file_name}")
+
+
 def main() -> int:
     raw = (
         "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01|CTRL123|P|2.5\r"
@@ -257,23 +359,9 @@ constraints:
             print("expected unsupported diff schema version to fail", file=sys.stderr)
             return 1
 
-    redaction_policy = """
-[[rules]]
-path = "PID.3"
-action = "hash"
-reason = "Patient identifier"
-
-[[rules]]
-path = "PID.5"
-action = "drop"
-reason = "Patient name"
-
-[[rules]]
-path = "PID.7"
-action = "drop"
-reason = "Date of birth"
-"""
-    redaction = hl7v2.redact(raw, redaction_policy)
+    phi_raw = PHI_LEAK_SENTINEL_MESSAGE
+    redaction_policy = PHI_LEAK_SENTINEL_POLICY
+    redaction = hl7v2.redact(phi_raw, redaction_policy)
     if redaction["message_type"] != "ADT^A01":
         print(f"unexpected redaction message type: {redaction}", file=sys.stderr)
         return 1
@@ -288,21 +376,34 @@ reason = "Date of birth"
     if "hash:sha256:" not in redacted_hl7:
         print(f"redacted HL7 did not include hash marker: {redacted_hl7}", file=sys.stderr)
         return 1
-    for sentinel in ["Doe^John", "123456", "19700101"]:
-        if sentinel in redacted_hl7 or sentinel in json.dumps(receipt):
-            print(f"raw PHI sentinel leaked through redaction: {sentinel}", file=sys.stderr)
-            return 1
+    try:
+        assert_no_phi_leak_sentinels(
+            "Python redacted HL7",
+            redacted_hl7,
+        )
+        assert_no_phi_leak_sentinels(
+            "Python redaction receipt",
+            json.dumps(receipt, sort_keys=True),
+        )
+    except AssertionError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     actions = {item["path"]: item for item in receipt["actions"]}
     if (
         actions["PID.3"]["action"] != "hash"
         or actions["PID.3"]["status"] != "applied"
         or actions["PID.5"]["action"] != "drop"
         or actions["PID.7"]["action"] != "drop"
+        or actions["PID.11"]["action"] != "drop"
+        or actions["PID.13"]["action"] != "drop"
+        or actions["NK1.2"]["action"] != "drop"
+        or actions["NK1.4"]["action"] != "drop"
+        or actions["NK1.5"]["action"] != "drop"
     ):
         print(f"unexpected redaction actions: {receipt}", file=sys.stderr)
         return 1
 
-    redaction_v2 = hl7v2.redact(raw, redaction_policy, schema_version=2)
+    redaction_v2 = hl7v2.redact(phi_raw, redaction_policy, schema_version=2)
     receipt_v2 = redaction_v2["receipt"]
     if (
         redaction_v2["schema_version"] != "2"
@@ -316,12 +417,20 @@ reason = "Date of birth"
     ):
         print(f"unexpected redaction output v2 provenance: {redaction_v2}", file=sys.stderr)
         return 1
-    for sentinel in ["Doe^John", "123456", "19700101"]:
-        if sentinel in redaction_v2["redacted_hl7"] or sentinel in json.dumps(receipt_v2):
-            print(f"raw PHI sentinel leaked through redaction v2: {sentinel}", file=sys.stderr)
-            return 1
     try:
-        hl7v2.redact(raw, redaction_policy, schema_version=3)
+        assert_no_phi_leak_sentinels(
+            "Python redacted HL7 v2",
+            redaction_v2["redacted_hl7"],
+        )
+        assert_no_phi_leak_sentinels(
+            "Python redaction receipt v2",
+            json.dumps(receipt_v2, sort_keys=True),
+        )
+    except AssertionError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    try:
+        hl7v2.redact(phi_raw, redaction_policy, schema_version=3)
     except ValueError as exc:
         if "schema_version must be 1 or 2" not in str(exc):
             print(f"unexpected redaction schema version failure: {exc}", file=sys.stderr)
@@ -337,7 +446,7 @@ action = "hash"
 reason = "Patient identifier"
 """
     try:
-        hl7v2.redact(raw, unsafe_policy)
+        hl7v2.redact(phi_raw, unsafe_policy)
     except ValueError as exc:
         if "redaction policy does not protect present sensitive field" not in str(exc):
             print(f"unexpected redaction failure: {exc}", file=sys.stderr)
@@ -348,7 +457,7 @@ reason = "Patient identifier"
 
     with tempfile.TemporaryDirectory() as tmp:
         bundle_dir = Path(tmp) / "issue-bundle"
-        bundle = hl7v2.bundle(raw, profile_yaml, redaction_policy, str(bundle_dir))
+        bundle = hl7v2.bundle(phi_raw, profile_yaml, redaction_policy, str(bundle_dir))
         if bundle["bundle_version"] != "1" or bundle["output_dir"] != ".":
             print(f"unexpected bundle summary: {bundle}", file=sys.stderr)
             return 1
@@ -377,7 +486,7 @@ reason = "Patient identifier"
 
         bundle_v2_dir = Path(tmp) / "issue-bundle-v2"
         bundle_v2 = hl7v2.bundle(
-            raw,
+            phi_raw,
             profile_yaml,
             redaction_policy,
             str(bundle_v2_dir),
@@ -412,7 +521,7 @@ reason = "Patient identifier"
 
         try:
             hl7v2.bundle(
-                raw,
+                phi_raw,
                 profile_yaml,
                 redaction_policy,
                 str(Path(tmp) / "bad-schema-bundle"),
@@ -466,19 +575,30 @@ reason = "Patient identifier"
         evidence_text = "\n".join(
             (bundle_dir / artifact).read_text(encoding="utf-8")
             for artifact in [
+                "message.redacted.hl7",
                 "validation-report.json",
                 "field-paths.json",
+                "profile.yaml",
                 "redaction-receipt.json",
                 "environment.json",
                 "manifest.json",
+                "replay.sh",
+                "replay.ps1",
+                "README.md",
             ]
         )
         evidence_text += json.dumps(replay)
         evidence_text += json.dumps(replay_v2)
-        for sentinel in ["Doe^John", "123456", "19700101"]:
-            if sentinel in evidence_text:
-                print(f"raw PHI sentinel leaked through bundle/replay: {sentinel}", file=sys.stderr)
-                return 1
+        try:
+            assert_no_phi_leak_sentinels_or_paths(
+                "Python bundle/replay evidence",
+                evidence_text,
+                bundle_dir,
+                Path(tmp),
+            )
+        except AssertionError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
 
         (bundle_dir / "message.redacted.hl7").write_text(
             "MSH|^~\\&|SEND|FAC|RECV|FAC|202605080101||ADT^A01|TAMPER|P|2.5",
@@ -496,7 +616,7 @@ reason = "Patient identifier"
         existing_dir = Path(tmp) / "existing-bundle"
         existing_dir.mkdir()
         try:
-            hl7v2.bundle(raw, profile_yaml, redaction_policy, str(existing_dir))
+            hl7v2.bundle(phi_raw, profile_yaml, redaction_policy, str(existing_dir))
         except ValueError as exc:
             if "bundle output directory already exists" not in str(exc):
                 print(f"unexpected existing bundle failure: {exc}", file=sys.stderr)
