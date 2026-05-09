@@ -114,8 +114,9 @@ same shape with `replay(..., schema_version=2)`.
 Bundle-internal `manifest.json`, `environment.json`, `field-paths.json`, and
 `redaction-receipt.json` can opt into their v2 shapes when CLI bundles are
 created with `hl7v2 bundle ... --schema-version 2` or Python bundles are
-created with `bundle(..., schema_version=2)`. Default bundle artifacts remain
-v1-compatible; server-created bundles remain v1 by default.
+created with `bundle(..., schema_version=2)`, or when server `/hl7/bundle`
+requests set `"bundle_artifact_schema_version": 2`. Default bundle artifacts
+remain v1-compatible.
 
 #### Evidence Null And Empty Semantics
 

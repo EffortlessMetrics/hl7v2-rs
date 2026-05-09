@@ -164,6 +164,11 @@ letters, numbers, `.`, `_`, or `-`; `.` and `..` are rejected.
 The endpoint fails closed with `503 BUNDLE_OUTPUT_NOT_CONFIGURED` when the
 server has no configured bundle output root.
 
+Set `bundle_artifact_schema_version` to `2` to write v2 bundle-internal
+artifacts for `manifest.json`, `environment.json`, `field-paths.json`, and
+`redaction-receipt.json`. The response body remains the v1-compatible bundle
+summary.
+
 **Request Body:**
 ```json
 {
@@ -171,7 +176,8 @@ server has no configured bundle output root.
   "message": "MSH|^~\\&|...",
   "profile": "message_structure: ADT_A01\nversion: \"2.5\"\nsegments:\n  - id: MSH\n",
   "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n",
-  "mllp_framed": false
+  "mllp_framed": false,
+  "bundle_artifact_schema_version": 2
 }
 ```
 
@@ -208,7 +214,8 @@ curl -X POST http://localhost:8080/hl7/bundle \
     "bundle_id": "case-001",
     "message": "MSH|^~\\&|...",
     "profile": "...",
-    "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n"
+    "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n",
+    "bundle_artifact_schema_version": 2
   }'
 ```
 
