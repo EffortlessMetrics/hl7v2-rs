@@ -423,6 +423,25 @@ reason = "Patient identifier"
             print(f"replay did not verify manifest hashes: {replay}", file=sys.stderr)
             return 1
 
+        replay_v2 = hl7v2.replay(str(bundle_dir), schema_version=2)
+        if (
+            replay_v2["schema_version"] != "2"
+            or replay_v2["tool_name"] != "hl7v2-python"
+            or replay_v2["replay_version"] != "1"
+            or replay_v2["reproduced"] is not True
+        ):
+            print(f"unexpected replay v2 report: {replay_v2}", file=sys.stderr)
+            return 1
+        try:
+            hl7v2.replay(str(bundle_dir), schema_version=3)
+        except ValueError as exc:
+            if "schema_version must be 1 or 2" not in str(exc):
+                print(f"unexpected replay schema failure: {exc}", file=sys.stderr)
+                return 1
+        else:
+            print("expected unsupported replay schema_version to fail", file=sys.stderr)
+            return 1
+
         evidence_text = "\n".join(
             (bundle_dir / artifact).read_text(encoding="utf-8")
             for artifact in [
@@ -434,6 +453,7 @@ reason = "Patient identifier"
             ]
         )
         evidence_text += json.dumps(replay)
+        evidence_text += json.dumps(replay_v2)
         for sentinel in ["Doe^John", "123456", "19700101"]:
             if sentinel in evidence_text:
                 print(f"raw PHI sentinel leaked through bundle/replay: {sentinel}", file=sys.stderr)

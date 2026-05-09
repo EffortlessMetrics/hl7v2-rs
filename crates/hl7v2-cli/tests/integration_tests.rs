@@ -2835,6 +2835,54 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_replay_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "replay",
+                bundle_dir.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("replay output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["replay_version"], "1");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["reproduced"], true);
+    }
+
+    #[test]
+    fn test_replay_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "replay",
+            bundle_dir.to_str().unwrap(),
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "replay report schema v2 is available only",
+        ));
+    }
+
+    #[test]
     fn test_replay_fails_when_stored_validation_report_is_tampered() {
         let dir = create_temp_dir();
         let bundle_dir = create_replayable_bundle(&dir);
@@ -3517,6 +3565,20 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         );
         set(&mut replay, "/tool_version", "1.3.0");
         assert_fixture("evidence-replay", replay);
+
+        let mut replay_v2 = command_json(
+            &[
+                "replay".to_string(),
+                bundle.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut replay_v2, "/tool_version", "1.3.0");
+        assert_fixture("evidence-replay-v2", replay_v2);
     }
 }
 

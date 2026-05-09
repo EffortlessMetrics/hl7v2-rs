@@ -103,7 +103,7 @@ Rules:
 | `QuarantineOutputSummary` | Has `quarantine_version`; server-local schema. | Add `schema_version`, `tool_name`, and `tool_version`; keep root-relative output ids only. |
 | `EvidenceBundleManifest` | Has `bundle_version`, `tool_name`, `tool_version`, and hashed artifact catalog. | Add `schema_version`; keep manifest hash rules unchanged. |
 | `EvidenceBundleEnvironment` | Has `bundle_version`, `tool_name`, `tool_version`, input/profile/policy hashes, validation summary, replay command, and a v1 JSON Schema. | Add `schema_version` before treating it as a stable standalone artifact outside bundle context. |
-| `EvidenceReplayReport` | Has `replay_version`, `bundle_version`, `tool_name`, and `tool_version`. | Add `schema_version`; keep replay/domain version fields. |
+| `EvidenceReplayReport` | Has `replay_version`, `bundle_version`, `tool_name`, and `tool_version` by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python replay output can emit v2 when requested. |
 
 ## Migration Sequence
 
@@ -148,6 +148,10 @@ Do the migration in narrow PRs:
    `bundle(..., schema_version=2)` can opt into the v2 summary. Defaults
    remain v1-compatible, and server `/hl7/bundle` keeps its v1 response shape
    until a request-level opt-in is added.
+   `EvidenceReplayReport` now has an explicit v2 conversion helper.
+   `hl7v2 replay ... --format json --schema-version 2` and Python
+   `replay(..., schema_version=2)` can opt into the v2 replay report. Defaults
+   remain v1-compatible.
 3. Update CLI JSON/YAML output to choose the v2 shape only when the command or
    release notes explicitly say so. If a compatibility flag is needed, document
    it before exposing it.

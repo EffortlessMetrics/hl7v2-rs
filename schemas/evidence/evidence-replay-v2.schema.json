@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/evidence-replay/v2",
+  "title": "HL7v2 Evidence Replay Report v2",
+  "description": "Machine-readable report emitted when replaying an evidence bundle with embedded evidence schema version.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "replay_version",
+    "bundle_version",
+    "tool_name",
+    "tool_version",
+    "message_type",
+    "reproduced",
+    "validation_valid",
+    "validation_issue_count",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {"const": "2"},
+    "replay_version": {"type": "string"},
+    "bundle_version": {"type": ["string", "null"]},
+    "tool_name": {"type": "string"},
+    "tool_version": {"type": "string"},
+    "message_type": {"type": ["string", "null"]},
+    "reproduced": {"type": "boolean"},
+    "validation_valid": {"type": ["boolean", "null"]},
+    "validation_issue_count": {"type": ["integer", "null"], "minimum": 0},
+    "checks": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/replay_check"}
+    },
+    "validation_report": {"$ref": "#/definitions/validation_report"}
+  },
+  "definitions": {
+    "replay_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "message"],
+      "properties": {
+        "name": {"type": "string"},
+        "status": {"type": "string", "enum": ["pass", "fail"]},
+        "message": {"type": "string"}
+      }
+    },
+    "validation_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valid", "message_type", "segment_count", "issue_count", "issues"],
+      "properties": {
+        "valid": {"type": "boolean"},
+        "message_type": {"type": "string"},
+        "profile": {"type": "string"},
+        "segment_count": {"type": "integer", "minimum": 0},
+        "issue_count": {"type": "integer", "minimum": 0},
+        "issues": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/validation_issue"}
+        }
+      }
+    },
+    "validation_issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "severity": {"type": "string", "enum": ["error", "warning"]},
+        "path": {"type": "string"},
+        "rule_id": {"type": "string"},
+        "message": {"type": "string"},
+        "segment_index": {"type": "integer", "minimum": 0},
+        "field_index": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
