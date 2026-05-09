@@ -78,4 +78,19 @@ fields must be protected when present and cannot be retained.
 from `message.redacted.hl7` and `profile.yaml`, and fails if it no longer
 matches `validation-report.json`.
 
+## Automation contract
+
+The CLI keeps primary command output on stdout. For JSON/YAML evidence commands,
+stdout is the machine-readable artifact. Stderr is reserved for diagnostics,
+receipts, and top-level errors.
+
+Exit codes are stable for automation:
+
+| Code | Meaning |
+| ---: | ------- |
+| `0` | Success, or a check/report that passed. |
+| `1` | Validation, profile, doctor, or replay evidence check failed. |
+| `2` | Parse, profile, config, or policy input error. |
+| `3` | IO, runtime, or environment error. |
+
 For usage examples, see the [examples/](https://github.com/EffortlessMetrics/hl7v2-rs/tree/main/examples) directory in the root of the repository.

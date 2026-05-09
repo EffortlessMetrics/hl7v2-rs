@@ -2851,7 +2851,7 @@ mod exit_codes {
         let mut cmd = cli_command();
         cmd.args(["parse", invalid_file.to_str().unwrap()])
             .assert()
-            .code(predicate::ne(0));
+            .code(2);
     }
 
     #[test]
@@ -2859,7 +2859,273 @@ mod exit_codes {
         let mut cmd = cli_command();
         cmd.args(["parse", "/nonexistent/file.hl7"])
             .assert()
-            .code(predicate::ne(0));
+            .code(3);
+    }
+}
+
+// =========================================================================
+// CLI Output Contract Tests
+// =========================================================================
+
+mod output_contract {
+    use super::*;
+
+    const PROFILE_REQUIRING_PID3: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#;
+
+    const MISSING_PID3_MESSAGE: &str = "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\rPID|1\r";
+    const VALID_ADT_MESSAGE: &str =
+        "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR\r";
+    const SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+"#;
+
+    fn output_text(bytes: &[u8]) -> String {
+        String::from_utf8_lossy(bytes).to_string()
+    }
+
+    #[test]
+    fn test_machine_readable_success_uses_stdout_and_exit_zero() {
+        let dir = create_temp_dir();
+        let corpus = dir.path().join("corpus");
+        std::fs::create_dir_all(&corpus).unwrap();
+        create_temp_file(&dir, "corpus/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "summarize",
+                corpus.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("corpus summarize should run");
+
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stderr.is_empty());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON");
+        assert_eq!(report["message_count"], 1);
+    }
+
+    #[test]
+    fn test_validation_failure_returns_one_with_report_on_stdout() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("validation command should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["valid"], false);
+        assert!(output_text(&output.stderr).contains("Error: validation failed"));
+    }
+
+    #[test]
+    fn test_profile_check_failure_returns_one_with_report_on_stdout() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ""
+version: "2.5"
+segments:
+  - id: ""
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "lint",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("profile lint should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["valid"], false);
+        assert!(output_text(&output.stderr).contains("profile lint reported errors"));
+    }
+
+    #[test]
+    fn test_profile_fixture_failure_returns_one_with_report_on_stdout() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE.as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "test",
+                profile.to_str().unwrap(),
+                fixtures.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("profile test should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["valid"], false);
+        assert!(output_text(&output.stderr).contains("profile test reported failures"));
+    }
+
+    #[test]
+    fn test_replay_failure_returns_one_with_report_on_stdout() {
+        let dir = create_temp_dir();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", dir.path().to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("replay should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["reproduced"], false);
+        assert!(output_text(&output.stderr).contains("bundle replay did not reproduce"));
+    }
+
+    #[test]
+    fn test_parse_input_error_returns_two_with_diagnostic_on_stderr() {
+        let dir = create_temp_dir();
+        let invalid = create_temp_file(&dir, "invalid.hl7", invalid_hl7_message().as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["parse", invalid.to_str().unwrap()])
+            .output()
+            .expect("parse should run");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("Error:"));
+    }
+
+    #[test]
+    fn test_policy_input_error_returns_two_without_primary_output() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", VALID_ADT_MESSAGE);
+        let policy = create_temp_profile(
+            &dir,
+            "policy.toml",
+            r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message.to_str().unwrap(),
+                "--policy",
+                policy.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("redact should run");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("must include a reason"));
+    }
+
+    #[test]
+    fn test_io_runtime_error_returns_three_with_diagnostic_on_stderr() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["parse", "/nonexistent/file.hl7"])
+            .output()
+            .expect("parse should run");
+
+        assert_eq!(output.status.code(), Some(3));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("Error:"));
+    }
+
+    #[test]
+    fn test_doctor_failed_check_returns_one_with_report_on_stdout() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["doctor", "--server-url", "https://example.com/health"])
+            .output()
+            .expect("doctor should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output_text(&output.stdout).contains("[error] server"));
+        assert!(output_text(&output.stderr).contains("doctor reported failed checks"));
+    }
+
+    #[test]
+    fn test_redact_hl7_keeps_primary_output_on_stdout_and_receipt_on_stderr() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", VALID_ADT_MESSAGE);
+        let policy = create_temp_profile(&dir, "policy.toml", SAFE_ANALYSIS_POLICY);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message.to_str().unwrap(),
+                "--policy",
+                policy.to_str().unwrap(),
+                "--format",
+                "hl7",
+            ])
+            .output()
+            .expect("redact should run");
+
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output_text(&output.stdout).contains("hash:sha256:"));
+        assert!(output_text(&output.stderr).contains("Redaction receipt"));
     }
 }
 

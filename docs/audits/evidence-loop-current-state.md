@@ -68,19 +68,13 @@ semantics still need to be made explicit before schemas are treated as stable.
 
 ## CLI Automation Semantics
 
-Current behavior is useful but not fully script-grade:
+Current behavior is script-grade:
 
-- Machine-readable JSON/YAML usually goes to stdout.
+- Machine-readable JSON/YAML goes to stdout as the primary artifact.
 - Human text output also goes to stdout.
 - Top-level diagnostics use stderr through the global error handler.
 - `redact --format hl7` sends the redacted HL7 body to stdout and a short
   receipt to stderr.
-- Validation failure, profile lint failure, profile test failure, replay
-  failure, parse failure, policy failure, config/input failure, and IO failure
-  currently collapse to exit code `1`.
-
-The follow-up `cli/output-contract` PR should make this explicit and split exit
-codes by failure class:
 
 | Exit code | Intended meaning |
 | --- | --- |
