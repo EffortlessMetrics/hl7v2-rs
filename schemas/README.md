@@ -53,7 +53,8 @@ Python lanes:
 - Redaction receipts and evidence bundle/replay summaries
 
 The first target v2 evidence schemas are `validation-report-v2.schema.json`,
-`profile-lint-report-v2.schema.json`, `corpus-summary-v2.schema.json`,
+`profile-lint-report-v2.schema.json`,
+`profile-explain-report-v2.schema.json`, `corpus-summary-v2.schema.json`,
 `corpus-fingerprint-v2.schema.json`, `corpus-diff-v2.schema.json`, and
 `redaction-receipt-v2.schema.json`. They add embedded `schema_version`,
 `tool_name`, and `tool_version` fields while keeping their v1 counterparts
@@ -66,6 +67,8 @@ endpoints keep their existing v1-compatible response fields by default and add
 `validation_report_v2` when requests include `"report_schema_version": 2`.
 Profile lint reports can opt into their target v2 shape with
 `hl7v2 profile lint --report json --schema-version 2`; defaults remain v1.
+Profile explain reports can opt into their target v2 shape with
+`hl7v2 profile explain --format json --schema-version 2`; defaults remain v1.
 Corpus summary, fingerprint, and diff reports can opt into their target v2
 shapes with `hl7v2 corpus summarize --format json --schema-version 2`,
 `hl7v2 corpus fingerprint --format json --schema-version 2`, and `hl7v2 corpus

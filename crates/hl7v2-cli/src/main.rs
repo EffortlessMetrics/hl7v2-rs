@@ -443,6 +443,10 @@ enum ProfileCommands {
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
 
+        /// Evidence schema version for machine-readable explain reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Write the explain report to a file instead of stdout
         #[arg(long)]
         output: Option<PathBuf>,
@@ -719,6 +723,26 @@ struct ProfileExplainReport {
     table_precedence: Vec<String>,
     expression_guardrails: ProfileExplainExpressionGuardrails,
     lint: ProfileExplainLintSummary,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainReportV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    report: &'a ProfileExplainReport,
+}
+
+impl ProfileExplainReport {
+    fn to_v2(&self) -> ProfileExplainReportV2<'_> {
+        ProfileExplainReportV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            report: self,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -1166,12 +1190,14 @@ async fn main() {
             ProfileCommands::Explain {
                 profile,
                 format,
+                schema_version,
                 output,
                 quiet,
                 no_color,
             } => profile_explain_command(
                 profile,
                 format,
+                *schema_version,
                 &OutputOptions::new(output.as_ref(), *quiet, *no_color),
             ),
             ProfileCommands::Test {
@@ -3260,14 +3286,23 @@ fn profile_lint_command(
 fn profile_explain_command(
     profile: &Path,
     format: &ReportFormat,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "profile explain schema version is only available with --format json or --format yaml",
+        )
+        .into());
+    }
+
     let profile_yaml = fs::read_to_string(profile)?;
     let loaded_profile = load_profile_checked(&profile_yaml)?;
     let lint_report = lint_profile_yaml(&profile_yaml);
     let explain_report =
         build_profile_explain_report(profile, &profile_yaml, &loaded_profile, &lint_report);
-    let output = format_profile_explain_report(&explain_report, format)?;
+    let output = format_profile_explain_report(&explain_report, format, schema_version)?;
     output_options.emit(&output)?;
     Ok(())
 }
@@ -3944,8 +3979,13 @@ fn format_profile_test_report(
 fn format_profile_explain_report(
     report: &ProfileExplainReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            Ok(serde_json::to_string_pretty(&report.to_v2())?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(&report.to_v2())?),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {

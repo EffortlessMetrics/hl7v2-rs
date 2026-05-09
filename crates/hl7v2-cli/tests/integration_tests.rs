@@ -903,6 +903,57 @@ hl7_tables:
     }
 
     #[test]
+    fn test_profile_explain_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile_file.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute profile explain");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile explain output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["message_structure"], "ADT_A01");
+        assert_eq!(report["summary"]["required_field_count"], 1);
+    }
+
+    #[test]
+    fn test_profile_explain_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "profile",
+            "explain",
+            profile_file.to_str().unwrap(),
+            "--format",
+            "text",
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "profile explain schema version is only available",
+        ));
+    }
+
+    #[test]
     fn test_profile_explain_yaml_reports_contract_shape() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
@@ -3038,6 +3089,22 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         );
         set(&mut explain_report, "/profile", "profile.yaml");
         assert_fixture("profile-explain-report", explain_report);
+
+        let mut explain_report_v2 = command_json(
+            &[
+                "profile".to_string(),
+                "explain".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut explain_report_v2, "/tool_version", "1.4.0");
+        set(&mut explain_report_v2, "/profile", "profile.yaml");
+        assert_fixture("profile-explain-report-v2", explain_report_v2);
 
         let fixtures = dir.path().join("fixtures");
         std::fs::create_dir_all(fixtures.join("valid")).unwrap();

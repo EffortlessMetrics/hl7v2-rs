@@ -1,0 +1,67 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.4.0",
+  "profile": "profile.yaml",
+  "profile_sha256": "3fb926fc70cb562412775c4f91f0ee9e9c4405e120057d7c8ab21f6a6d2526bc",
+  "message_structure": "ADT_A01",
+  "version": "2.5",
+  "message_type": null,
+  "parent": null,
+  "summary": {
+    "segment_count": 2,
+    "required_field_count": 1,
+    "field_constraint_count": 1,
+    "length_rule_count": 0,
+    "datatype_rule_count": 0,
+    "advanced_datatype_rule_count": 0,
+    "value_set_count": 0,
+    "cross_field_rule_count": 0,
+    "temporal_rule_count": 0,
+    "contextual_rule_count": 0,
+    "custom_rule_count": 0,
+    "hl7_table_count": 0
+  },
+  "segments": [
+    {"id": "MSH"},
+    {"id": "PID"}
+  ],
+  "required_fields": [
+    {"path": "PID.3", "conditional": false}
+  ],
+  "field_constraints": [
+    {
+      "path": "PID.3",
+      "required": true,
+      "conditional": false,
+      "component_min": null,
+      "component_max": null,
+      "allowed_value_count": 0,
+      "allowed_values": [],
+      "pattern": null
+    }
+  ],
+  "length_rules": [],
+  "datatype_rules": [],
+  "value_sets": [],
+  "rules": {
+    "cross_field": [],
+    "temporal": [],
+    "contextual": [],
+    "custom": []
+  },
+  "hl7_tables": [],
+  "table_precedence": [],
+  "expression_guardrails": {
+    "max_depth": null,
+    "max_length": null,
+    "allow_custom_scripts": false
+  },
+  "lint": {
+    "valid": true,
+    "error_count": 0,
+    "warning_count": 0,
+    "issue_count": 0,
+    "ignored_or_unsupported": []
+  }
+}
