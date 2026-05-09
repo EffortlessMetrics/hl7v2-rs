@@ -59,23 +59,14 @@ profile `message_structure`. The report fields are otherwise shared through
 
 ## Output Semantics
 
-The CLI has useful machine-readable outputs, but the script contract is not yet
-uniform.
+The CLI output contract is stable enough for CI and automation:
 
-- JSON/YAML output generally goes to stdout.
+- JSON/YAML output goes to stdout as the primary machine-readable artifact.
 - Human text output also goes to stdout.
 - Diagnostics and top-level errors are written to stderr by the global error
   path.
 - `hl7v2 redact --format hl7` writes the redacted message to stdout and a short
   receipt to stderr.
-- `hl7v2 val` exits `1` for invalid validation reports.
-- `profile lint`, `profile test`, and `replay` return errors for failed
-  evidence checks, which currently route through the global `exit(1)` handler.
-- Parse/config/profile/policy/IO failures also use the same global `exit(1)`
-  behavior today.
-
-The planned output-contract work should split these into the documented
-automation classes:
 
 ```text
 0 = success
@@ -91,10 +82,7 @@ The next contract-hardening work should lock:
 - `schema_version` or artifact-specific version naming for every machine
   artifact.
 - `tool_version` where users need provenance outside an environment file.
-- Golden command-output tests that compare live commands to the representative
-  fixtures under `fixtures/evidence/`.
 - Explicit null and empty-list behavior for optional fields.
-- Stable stdout/stderr/exit-code behavior across the CLI.
 - Bundle manifest and artifact SHA-256 verification during replay.
 - Redaction leak sentinel tests for synthetic PHI fixtures.
 - Server and Python parity for any artifact promoted beyond CLI-only use.

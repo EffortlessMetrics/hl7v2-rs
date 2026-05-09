@@ -5,7 +5,6 @@
     clippy::allow_attributes,
     clippy::allow_attributes_without_reason,
     clippy::cast_precision_loss,
-    clippy::exit,
     clippy::indexing_slicing,
     clippy::unchecked_time_subtraction,
     clippy::uninlined_format_args,
@@ -37,6 +36,7 @@ use hl7v2::{
 };
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
@@ -49,6 +49,46 @@ mod monitor;
 mod serve;
 #[cfg(test)]
 mod tests;
+
+const EXIT_CHECK_FAILED: i32 = 1;
+const EXIT_INPUT_ERROR: i32 = 2;
+const EXIT_RUNTIME_ERROR: i32 = 3;
+
+#[derive(Debug)]
+struct CliFailure {
+    code: i32,
+    message: String,
+}
+
+impl CliFailure {
+    fn check_failed(message: impl Into<String>) -> Box<dyn std::error::Error> {
+        Box::new(Self {
+            code: EXIT_CHECK_FAILED,
+            message: message.into(),
+        })
+    }
+}
+
+impl fmt::Display for CliFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for CliFailure {}
+
+fn classify_cli_error(error: &(dyn std::error::Error + 'static)) -> i32 {
+    if let Some(failure) = error.downcast_ref::<CliFailure>() {
+        failure.code
+    } else if let Some(error) = error.downcast_ref::<std::io::Error>() {
+        match error.kind() {
+            std::io::ErrorKind::InvalidInput | std::io::ErrorKind::Other => EXIT_INPUT_ERROR,
+            _ => EXIT_RUNTIME_ERROR,
+        }
+    } else {
+        EXIT_INPUT_ERROR
+    }
+}
 
 #[derive(Parser)]
 #[command(
@@ -913,7 +953,7 @@ async fn main() {
 
     if let Err(e) = result {
         eprintln!("Error: {}", e);
-        process::exit(1);
+        process::exit(classify_cli_error(e.as_ref()));
     }
 }
 
@@ -973,7 +1013,7 @@ fn doctor_command(
     println!("{}", output);
 
     if report.has_errors() {
-        return Err(std::io::Error::other("doctor reported failed checks").into());
+        return Err(CliFailure::check_failed("doctor reported failed checks"));
     }
 
     Ok(())
@@ -1694,7 +1734,7 @@ fn val_command(
 
     // Exit with error code if validation failed
     if !validation_report.valid {
-        std::process::exit(1);
+        return Err(CliFailure::check_failed("validation failed"));
     }
 
     Ok(())
@@ -1825,7 +1865,9 @@ fn replay_command(bundle: &Path, format: &ReportFormat) -> Result<(), Box<dyn st
     if report.reproduced {
         Ok(())
     } else {
-        Err(std::io::Error::other("bundle replay did not reproduce stored evidence").into())
+        Err(CliFailure::check_failed(
+            "bundle replay did not reproduce stored evidence",
+        ))
     }
 }
 
@@ -2498,7 +2540,7 @@ fn profile_lint_command(
     println!("{}", output);
 
     if !lint_report.valid {
-        return Err(std::io::Error::other("profile lint reported errors").into());
+        return Err(CliFailure::check_failed("profile lint reported errors"));
     }
 
     Ok(())
@@ -2738,7 +2780,7 @@ fn profile_test_command(
     println!("{}", output);
 
     if !test_report.valid {
-        return Err(std::io::Error::other("profile test reported failures").into());
+        return Err(CliFailure::check_failed("profile test reported failures"));
     }
 
     Ok(())
