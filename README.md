@@ -18,14 +18,14 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Parser / Core** | Stable | Main CI, workspace tests, and contract checks green after the `hl7v2` facade and foundation-module collapse |
 | **Writer / Normalize** | Stable | Writer tests plus HTTP/gRPC normalization contract coverage |
 | **MLLP / Network** | Stable | MLLP parse/framing tests and CI matrix coverage |
-| **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, ACK, and normalize routes |
+| **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, redacted validation, bundle/replay, ACK, normalize, inline corpus evidence, readiness, and redacted structured logs |
 | **gRPC Service** | Beta | Contract tests cover Parse, Validate, GenerateAck, Normalize, and HealthCheck; ParseStream is explicitly unsupported |
 | **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; not published to crates.io |
 | **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.3.0 are published to crates.io; Python remains a separate binding lane |
-| **Evidence Loop** | Stable | v1.3.0 includes typed reports, profile test/explain, corpus fingerprint/diff, redaction, bundle/replay, schemas, goldens, and server/Python parity |
+| **Evidence Loop** | Stable | v1.3.0 includes typed reports, profile test/explain, corpus fingerprint/diff, redaction, bundle/replay, schemas, goldens, and server/Python parity; current main adds redacted structured server evidence logs |
 
 ## Features
 
@@ -170,6 +170,10 @@ curl http://localhost:8080/metrics  # Prometheus metrics
 ```
 
 See the [OpenAPI specification](api/openapi/hl7v2-api-v1.yaml) for complete API documentation.
+Server evidence workflow logs are structured and PHI-conscious. Set
+`RUST_LOG_FORMAT=json` for JSON records; logged identifiers such as message
+control IDs and bundle IDs are hashed, and raw HL7, profile YAML, redaction
+policy TOML, and configured filesystem roots are not logged by default.
 
 ### CLI Tools
 
@@ -310,9 +314,10 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 
 ### HTTP/REST API Server (`hl7v2-server`)
 
-- **RESTful API**: Parse, validate, acknowledge, and normalize HL7 messages over HTTP
+- **RESTful API**: Parse, validate, redact, bundle, replay, acknowledge, normalize, and inspect inline corpus evidence over HTTP
 - **Health & Readiness**: Production-ready health checks
 - **Prometheus metrics**: Request counts, latencies, error rates
+- **Redacted structured logs**: Evidence workflow logs hash message control IDs and bundle IDs while avoiding raw HL7, profile YAML, redaction policy TOML, and configured filesystem roots by default
 - **Concurrency limiting**: Built-in backpressure (100 concurrent requests default)
 - **CORS support**: Configurable allowed origins, with permissive local default
 - **Compression**: Gzip compression for responses
@@ -361,7 +366,9 @@ python tests/python_smoke/smoke.py
 The current binding proof covers wheel build, install, import, version
 metadata, parse, segment count, JSON conversion, validation report parity,
 corpus summary/fingerprint/diff dict outputs, safe-analysis redaction, evidence
-bundle creation, and replay verification.
+bundle creation, and replay verification. Validation, corpus, redaction,
+bundle, and replay APIs also support the same opt-in v2 evidence shapes used by
+the CLI/server contracts where those surfaces expose v2 output.
 
 ## Performance Characteristics
 

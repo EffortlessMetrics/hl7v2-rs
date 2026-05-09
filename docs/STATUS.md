@@ -3,14 +3,14 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-09
-> **Project Status**: v1.3.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+> **Project Status**: v1.3.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is the post-v1.3.0 evidence-hardening line.
 
 ## Core Components
 
 | Crate | Status | Coverage | Notes |
 |-------|--------|----------|-------|
 | `hl7v2` | ✅ 100% | 92% | Canonical Rust library crate for parsing, writing, validation, transport framing, ACK, normalization, and generation. Foundation model, escape, and MLLP implementations now live here. |
-| `hl7v2-server` | ✅ 100% | 80% | HTTP REST API with metrics, auth, ACK, and normalization routes. |
+| `hl7v2-server` | ✅ 100% | 80% | HTTP REST API with metrics, auth, ACK, normalization, redacted validation, configured-root bundle/replay, inline corpus evidence, readiness, quarantine, and redacted structured logs. |
 | `hl7v2-cli` | ✅ 100% | 75% | Full-featured CLI with streaming support. |
 | `hl7v2-python` | 🟡 Experimental | Smoke | PyO3 binding package held out of the crates.io Rust publish graph; validated through the Python/maturin wheel smoke lane before any PyPI release. |
 | retired old package names | ✅ Retired locally | N/A | Old microcrate package names, including `hl7v2-model`, `hl7v2-escape`, and `hl7v2-mllp`, are no longer local workspace crates. Some historical old-name `1.2.0` artifacts already exist on crates.io and should not be treated as the current product surface. |
@@ -27,7 +27,7 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **API Authentication**: Constant-time API Key validation.
 - ✅ **Rate Limiting**: Per-IP throttling to prevent DoS.
 - ✅ **Prometheus Metrics**: Throughput, latency, and error tracking.
-- ✅ **Audit Ready**: Structured JSON logging.
+- ✅ **Audit Ready**: Redacted structured evidence logs with hashed message-control and bundle identifiers; JSON output is available with `RUST_LOG_FORMAT=json`.
 
 ### 🧪 Quality Assurance
 - ✅ **BDD Tests**: Real validation scenarios verified with Cucumber.
@@ -45,7 +45,7 @@ This document provides a transparent view of which features are fully implemente
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1` and `v1.3.0` tags point at their release heads.
 
-## Evidence Loop Release (current main)
+## Evidence Loop Release And Current Main
 
 v1.3.0 is the Evidence Loop release line around deterministic HL7 interface
 evidence. It is tagged, released on GitHub, and uploaded to crates.io for the
@@ -60,7 +60,7 @@ final Rust package graph.
 | Safe support packets | ✅ Stable | `redact`, `bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. |
 | Evidence contracts | ✅ Stable | JSON schemas and golden fixtures guard the machine-readable evidence artifacts. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
-| Server edge guard | ✅ Stable | Server supports sanitized `--print-config`, `/ready`, `/hl7/validate-redacted`, `/hl7/bundle`, `/hl7/ack-policy`, and quarantine hooks. |
+| Server edge guard | ✅ Stable | Server supports sanitized `--print-config`, `/ready`, `/hl7/validate-redacted`, `/hl7/bundle`, `/hl7/replay`, `/hl7/ack-policy`, inline corpus endpoints, quarantine hooks, and redacted structured evidence logs. |
 | Python evidence lane | 🟡 Separate lane | Python wheel proof and minimum API parity cover parse, JSON export, normalize, validation, corpus, redaction, bundle, and replay. Python remains outside the crates.io Rust publish graph. |
 
 ## v1.3.0 Readiness Checklist
@@ -82,4 +82,5 @@ Old planning documents have been moved to `docs/plans/` for archival reference.
 
 **Current published release**: v1.3.0 is tested, package-verified, tagged, and published to crates.io for the final Rust package graph.
 
-**Current main**: tracks the published v1.3.0 Evidence Loop release line.
+**Current main**: tracks the post-v1.3.0 Evidence Loop hardening line. The
+published Rust crates remain v1.3.0 until the next release train.
