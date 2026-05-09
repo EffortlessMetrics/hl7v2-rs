@@ -269,7 +269,10 @@ owner = "api"
 surface = "tests"
 classification = "test"
 reason = "Representative evidence artifact fixtures validated against public JSON schemas."
-covered_by = [".github/workflows/contracts.yml"]
+covered_by = [
+    ".github/workflows/contracts.yml",
+    "cargo run -p xtask -- evidence-schema-check",
+]
 
 # ---------------------------------------------------------------------------
 # Profiles (HL7 message profile YAML)
@@ -303,7 +306,10 @@ owner = "api"
 surface = "production"
 classification = "production"
 reason = "Public JSON schemas for messages, profiles, configuration, and errors."
-covered_by = [".github/workflows/contracts.yml"]
+covered_by = [
+    ".github/workflows/contracts.yml",
+    "cargo run -p xtask -- evidence-schema-check",
+]
 
 # ---------------------------------------------------------------------------
 # Infrastructure (deployment-only; not built by cargo)

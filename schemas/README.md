@@ -250,16 +250,7 @@ evidence fixtures, then compiles every schema:
     Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
     PY
     ajv validate -c ajv-formats -s schemas/config/hl7v2-config-v1.schema.json -d 'target/contracts/config/*.json' --spec=draft7
-    for schema in schemas/evidence/*-v*.schema.json; do
-      name="$(basename "$schema")"
-      name="${name%.schema.json}"
-      data="fixtures/evidence/${name}.json"
-      if [ ! -f "$data" ]; then
-        legacy_name="${name%-v1}"
-        data="fixtures/evidence/${legacy_name}.json"
-      fi
-      ajv validate -c ajv-formats -s "$schema" -d "$data" --spec=draft7
-    done
+    cargo run -p xtask -- evidence-schema-check
 ```
 
 ## Schema Versioning
