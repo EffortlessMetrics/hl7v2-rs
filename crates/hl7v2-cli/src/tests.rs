@@ -1205,10 +1205,13 @@ constraints:
                 crate::val_command(
                     &mllp_path,
                     &profile_path,
-                    true,
-                    false,
-                    &crate::ReportFormat::Text,
-                    false,
+                    &crate::ValCommandOptions {
+                        mllp: true,
+                        detailed: false,
+                        report: &crate::ReportFormat::Text,
+                        schema_version: 1,
+                        summary: false,
+                    },
                     &crate::OutputOptions::new(None, false, false),
                 )
                 .is_ok()
@@ -1314,6 +1317,22 @@ constraints:
             let val_cmd = val_cmd.unwrap();
             let report_arg = val_cmd.get_arguments().find(|a| a.get_id() == "report");
             assert!(report_arg.is_some());
+        }
+
+        #[test]
+        fn test_val_command_has_schema_version_flag() {
+            use crate::Cli;
+            use clap::CommandFactory;
+
+            let schema = Cli::command();
+            let val_cmd = schema.get_subcommands().find(|c| c.get_name() == "val");
+            assert!(val_cmd.is_some());
+
+            let val_cmd = val_cmd.unwrap();
+            let schema_version_arg = val_cmd
+                .get_arguments()
+                .find(|a| a.get_id() == "schema_version");
+            assert!(schema_version_arg.is_some());
         }
 
         #[test]

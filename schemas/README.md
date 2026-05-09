@@ -57,6 +57,9 @@ The first target v2 evidence schemas are `validation-report-v2.schema.json`,
 `redaction-receipt-v2.schema.json`. They add embedded `schema_version`,
 `tool_name`, and `tool_version` fields while keeping their v1 counterparts
 valid until implementation PRs explicitly move producer output shapes.
+Validation reports are the first artifact with an opt-in v2 producer path:
+`hl7v2 val --report json --schema-version 2` emits the v2 shape, while the
+default output remains v1.
 
 #### Evidence Null And Empty Semantics
 
