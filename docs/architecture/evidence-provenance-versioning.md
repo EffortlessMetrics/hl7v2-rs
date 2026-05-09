@@ -98,7 +98,7 @@ Rules:
 | `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python diff output can emit v2 when requested. |
 | `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version. | Keep the outer output v1-compatible; migrate the nested receipt first. |
 | `RedactionReceipt` | Shared receipt schema without embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server redaction output can emit v2 when requested. Bundle artifacts remain v1 until migrated separately. |
-| `FieldPathTraceReport` | Bundle artifact with no JSON Schema. | Add a v1 schema first or fold into a v2 bundle-artifact schema set with common provenance. |
+| `FieldPathTraceReport` | Bundle artifact with a v1 JSON Schema but no embedded version fields. | Fold into a v2 bundle-artifact schema set with common provenance only if standalone field-path traces are promoted beyond bundle context. |
 | `EvidenceBundleSummary` | Has `bundle_version`; no `tool_version` in the summary. | Add `schema_version`, `tool_name`, and `tool_version`; keep `bundle_version`. |
 | `QuarantineOutputSummary` | Has `quarantine_version`; server-local schema. | Add `schema_version`, `tool_name`, and `tool_version`; keep root-relative output ids only. |
 | `EvidenceBundleManifest` | Has `bundle_version`, `tool_name`, `tool_version`, and hashed artifact catalog. | Add `schema_version`; keep manifest hash rules unchanged. |

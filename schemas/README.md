@@ -50,7 +50,7 @@ Machine-readable evidence artifacts emitted by the CLI, library, server, and
 Python lanes:
 - Validation reports and profile lint/test/explain reports
 - Corpus summary, fingerprint, and diff reports
-- Redaction receipts and evidence bundle/replay summaries
+- Redaction receipts, field-path traces, and evidence bundle/replay summaries
 
 The first target v2 evidence schemas are `validation-report-v2.schema.json`,
 `profile-lint-report-v2.schema.json`,
