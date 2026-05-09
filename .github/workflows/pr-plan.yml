@@ -1,0 +1,66 @@
+name: PR Plan
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+    outputs:
+      docs_only:
+        description: "'true' when all changed files are documentation only"
+        value: ${{ jobs.plan.outputs.docs_only }}
+      estimated_lem:
+        description: "Estimated Linux-Equivalent Minutes for this PR"
+        value: ${{ jobs.plan.outputs.estimated_lem }}
+      tier:
+        description: "LEM budget tier: green, ok, warning, high-warning, over-ceiling"
+        value: ${{ jobs.plan.outputs.tier }}
+      matched_packs:
+        description: "Comma-separated list of matched risk packs"
+        value: ${{ jobs.plan.outputs.matched_packs }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-plan-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+
+jobs:
+  plan:
+    name: PR Plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.plan.outputs.docs_only }}
+      estimated_lem: ${{ steps.plan.outputs.estimated_lem }}
+      tier: ${{ steps.plan.outputs.tier }}
+      matched_packs: ${{ steps.plan.outputs.matched_packs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin main --depth=50
+
+      - name: Run PR Plan
+        id: plan
+        run: |
+          mkdir -p target/ci
+          LABELS="${{ join(github.event.pull_request.labels.*.name, ',') }}"
+          python3 scripts/ci/pr-plan.py \
+            --base "origin/main" \
+            --head "${{ github.sha }}" \
+            --labels "$LABELS" \
+            --json-out target/ci/ci-plan.json \
+            --github-summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload CI plan artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-plan
+          path: target/ci/ci-plan.json
+          if-no-files-found: warn
+          retention-days: 7
