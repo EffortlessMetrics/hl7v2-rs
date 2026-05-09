@@ -238,6 +238,10 @@ enum Commands {
         /// Output report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Evidence schema version for machine-readable doctor reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
     },
 
     /// Inspect and lint validation profiles
@@ -698,6 +702,24 @@ impl DoctorReport {
             .iter()
             .any(|check| check.status == DoctorStatus::Error)
     }
+
+    fn to_v2(&self) -> DoctorReportV2<'_> {
+        DoctorReportV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            report: self,
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct DoctorReportV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    report: &'a DoctorReport,
 }
 
 #[derive(serde::Serialize)]
@@ -1290,11 +1312,13 @@ async fn main() {
             profile,
             server_url,
             format,
+            schema_version,
         } => doctor_command(
             sample.as_ref(),
             profile.as_ref(),
             server_url.as_deref(),
             format,
+            *schema_version,
         ),
         Commands::Profile { command } => match command {
             ProfileCommands::Lint {
@@ -1512,6 +1536,7 @@ fn doctor_command(
     profile: Option<&PathBuf>,
     server_url: Option<&str>,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut report = DoctorReport {
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -1529,7 +1554,7 @@ fn doctor_command(
     add_server_check(&mut report, server_url);
     add_python_check(&mut report);
 
-    let output = format_doctor_report(&report, format)?;
+    let output = format_doctor_report(&report, format, schema_version)?;
     println!("{}", output);
 
     if report.has_errors() {
@@ -1874,8 +1899,18 @@ fn add_python_check(report: &mut DoctorReport) {
 fn format_doctor_report(
     report: &DoctorReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            Ok(serde_json::to_string_pretty(&report.to_v2())?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(&report.to_v2())?),
+        ReportFormat::Text if schema_version == 2 => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "doctor report schema v2 is available only with --format json or --format yaml",
+        )
+        .into()),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {

@@ -89,7 +89,7 @@ Rules:
 
 | Artifact | V1 state | V2 direction |
 | --- | --- | --- |
-| `DoctorReport` | Has tool `version` plus diagnostic checks; no embedded `schema_version`. | A v1 schema exists for the current CLI output. Keep v1-compatible unless a future PR adds an explicit v2 producer path. |
+| `DoctorReport` | Has tool `version` plus diagnostic checks; no embedded `schema_version` by default. | A v1 schema exists for the default CLI output, and CLI doctor output can emit an explicit v2 wrapper with `schema_version`, `tool_name`, and `tool_version` when requested. Defaults remain v1-compatible. |
 | `ValidationReport` | Shared Rust/CLI/server/Python type with no embedded `schema_version` or `tool_version`. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python validation can emit v2 when requested. Server validation keeps its v1 response shape by default and can include nested `validation_report_v2` when requests set `report_schema_version` to `2`. |
 | `ProfileLintReport` | Shared Rust type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI lint output can emit v2 when requested. |
 | `ProfileTestReport` | CLI-local type with embedded validation reports. | A target v2 schema exists, and CLI test output can emit v2 when requested. Promote to a shared type only if server/Python need it. |
@@ -118,6 +118,9 @@ Do the migration in narrow PRs:
    explicitly.
 2. Add additive Rust fields behind explicit v2 serializers or conversion
    helpers. Do not break callers that still expect the v1 shapes.
+   `DoctorReport` now has an explicit v2 wrapper, and `hl7v2 doctor` can opt
+   into v2 JSON/YAML output with `--schema-version 2`. Defaults remain
+   v1-compatible.
    `ValidationReport` now has an explicit v2 conversion helper and `hl7v2 val`
    can opt into v2 JSON/YAML output with `--schema-version 2`. Python
    validation reports can opt into the same shape with `report.to_dict(2)` and

@@ -50,7 +50,7 @@ redaction output.
 
 | Artifact | Current state | Main gap |
 | --- | --- | --- |
-| `DoctorReport` | CLI `hl7v2 doctor --format json` reports tool version plus first-run diagnostic checks for CLI version, sample parse, MLLP framing, optional profile, optional server reachability, and Python binding availability. | JSON Schema and golden fixture exist for v1. It has no embedded artifact `schema_version`; v1 is the current compatible shape. |
+| `DoctorReport` | CLI `hl7v2 doctor --format json` reports tool version plus first-run diagnostic checks for CLI version, sample parse, MLLP framing, optional profile, optional server reachability, and Python binding availability. `hl7v2 doctor --format json --schema-version 2` adds embedded schema/tool provenance. | JSON Schemas and golden fixtures exist for v1 and opt-in v2. Defaults remain v1-compatible. |
 | `ValidationReport` | Shared Rust type used by CLI, Python, and server validation response fields, including `/hl7/validate-redacted`. Includes stable issue code, severity, path, rule ID, message, segment index, and field index. | JSON Schema and golden fixture exist; no embedded artifact `schema_version` or `tool_version`. |
 | `ProfileLintReport` | Shared Rust type from profile linting. CLI emits text/JSON/YAML by default, with opt-in v2 output for embedded provenance. | JSON Schemas and golden fixtures exist for v1 and v2; defaults remain v1-compatible. |
 | `ProfileTestReport` | CLI report with fixture cases, pass/fail status, embedded validation reports, and optional expected-report comparison; opt-in v2 output adds embedded provenance. | JSON Schemas and golden fixtures exist for v1 and v2; defaults remain v1-compatible. |
