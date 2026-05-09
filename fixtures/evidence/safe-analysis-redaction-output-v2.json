@@ -1,0 +1,34 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.3.0",
+  "input_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "policy_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "message_type": "ADT^A01",
+  "redacted_hl7": "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||hash:sha256:0000000000000000000000000000000000000000000000000000000000000000^^^HOSP^MR|||||M\r",
+  "receipt": {
+    "schema_version": "2",
+    "tool_name": "hl7v2-cli",
+    "tool_version": "1.3.0",
+    "phi_removed": true,
+    "hash_algorithm": "sha256",
+    "actions": [
+      {
+        "path": "PID.3",
+        "action": "hash",
+        "reason": "patient identifier",
+        "matched_count": 1,
+        "optional": false,
+        "status": "applied"
+      },
+      {
+        "path": "PID.5",
+        "action": "drop",
+        "reason": "patient name",
+        "matched_count": 1,
+        "optional": false,
+        "status": "applied"
+      }
+    ]
+  }
+}

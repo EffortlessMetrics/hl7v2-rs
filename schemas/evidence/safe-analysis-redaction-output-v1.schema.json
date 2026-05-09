@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/safe-analysis-redaction-output/v1",
+  "title": "HL7v2 Safe-Analysis Redaction Output v1",
+  "description": "Machine-readable output from safe-analysis redaction. The top-level shape is v1-compatible; the nested receipt may be the v1 receipt or the opt-in v2 receipt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "input_sha256",
+    "policy_sha256",
+    "message_type",
+    "redacted_hl7",
+    "receipt"
+  ],
+  "properties": {
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "message_type": {
+      "type": "string"
+    },
+    "redacted_hl7": {
+      "type": "string"
+    },
+    "receipt": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/redaction_receipt_v1"
+        },
+        {
+          "$ref": "#/definitions/redaction_receipt_v2"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "redaction_receipt_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phi_removed", "hash_algorithm", "actions"],
+      "properties": {
+        "phi_removed": {
+          "type": "boolean"
+        },
+        "hash_algorithm": {
+          "type": "string",
+          "enum": ["sha256"]
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/redaction_action"
+          }
+        }
+      }
+    },
+    "redaction_receipt_v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "tool_name",
+        "tool_version",
+        "phi_removed",
+        "hash_algorithm",
+        "actions"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "2"
+        },
+        "tool_name": {
+          "type": "string",
+          "enum": ["hl7v2-cli", "hl7v2-server", "hl7v2-python"]
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "phi_removed": {
+          "type": "boolean"
+        },
+        "hash_algorithm": {
+          "type": "string",
+          "enum": ["sha256"]
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/redaction_action"
+          }
+        }
+      }
+    },
+    "redaction_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "action",
+        "reason",
+        "matched_count",
+        "optional",
+        "status"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["hash", "drop", "retain"]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "matched_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["applied", "retained", "not_found"]
+        }
+      }
+    }
+  }
+}

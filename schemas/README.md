@@ -58,14 +58,15 @@ The first target v2 evidence schemas are `validation-report-v2.schema.json`,
 `profile-test-report-v2.schema.json`,
 `profile-explain-report-v2.schema.json`, `corpus-summary-v2.schema.json`,
 `corpus-fingerprint-v2.schema.json`, `corpus-diff-v2.schema.json`, and
-`redaction-receipt-v2.schema.json`, `quarantine-output-v2.schema.json`,
-`evidence-bundle-v2.schema.json`, `evidence-bundle-manifest-v2.schema.json`,
-`evidence-bundle-environment-v2.schema.json`,
-`field-path-trace-v2.schema.json`, and `evidence-replay-v2.schema.json`. They
-add embedded `schema_version`, `tool_name`, and `tool_version` fields where the
-artifact did not already carry tool provenance, while keeping their v1
-counterparts valid until implementation PRs explicitly move producer output
-shapes.
+`redaction-receipt-v2.schema.json`,
+`safe-analysis-redaction-output-v2.schema.json`,
+`quarantine-output-v2.schema.json`, `evidence-bundle-v2.schema.json`,
+`evidence-bundle-manifest-v2.schema.json`,
+`evidence-bundle-environment-v2.schema.json`, `field-path-trace-v2.schema.json`,
+and `evidence-replay-v2.schema.json`. They add embedded `schema_version`,
+`tool_name`, and `tool_version` fields where the artifact did not already carry
+tool provenance, while keeping their v1 counterparts valid until
+implementation PRs explicitly move producer output shapes.
 Validation reports are the first artifact with an opt-in v2 producer path:
 `hl7v2 val --report json --schema-version 2` emits the v2 shape, while the
 default output remains v1. Python validation reports expose the same opt-in
@@ -90,6 +91,10 @@ Redaction receipts can opt into their target v2 shape with
 `hl7v2 redact --format json --schema-version 2`, Python
 `redact(..., schema_version=2)`, or server `/hl7/validate-redacted` requests
 that set `"redaction_receipt_schema_version": 2`; defaults remain v1.
+Safe-analysis redaction output has a v1 schema that validates both current CLI
+and Python output forms: default nested receipt v1 and opt-in nested receipt
+v2. The target `safe-analysis-redaction-output-v2.schema.json` adds top-level
+provenance, but live producers do not emit that outer v2 shape yet.
 Server quarantine output summaries can opt into their target v2 shape with
 `/hl7/validate-redacted` requests that set `"quarantine_schema_version": 2`;
 defaults remain v1.
