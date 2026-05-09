@@ -110,7 +110,9 @@ print(redaction["receipt"]["phi_removed"])
 print(redaction_v2["receipt"]["schema_version"])
 
 bundle = hl7v2.bundle(raw, profile_yaml, policy_toml, "issue-bundle")
+bundle_v2 = hl7v2.bundle(raw, profile_yaml, policy_toml, "issue-bundle-v2", schema_version=2)
 print(bundle["artifacts"])
+print(bundle_v2["schema_version"])
 
 replay = hl7v2.replay("issue-bundle")
 print(replay["reproduced"])

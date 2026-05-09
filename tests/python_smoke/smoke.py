@@ -372,6 +372,39 @@ reason = "Patient identifier"
                 print(f"bundle missing artifact {artifact}: {bundle}", file=sys.stderr)
                 return 1
 
+        bundle_v2_dir = Path(tmp) / "issue-bundle-v2"
+        bundle_v2 = hl7v2.bundle(
+            raw,
+            profile_yaml,
+            redaction_policy,
+            str(bundle_v2_dir),
+            schema_version=2,
+        )
+        if (
+            bundle_v2["schema_version"] != "2"
+            or bundle_v2["tool_name"] != "hl7v2-python"
+            or "tool_version" not in bundle_v2
+            or bundle_v2["bundle_version"] != "1"
+        ):
+            print(f"unexpected bundle v2 summary: {bundle_v2}", file=sys.stderr)
+            return 1
+
+        try:
+            hl7v2.bundle(
+                raw,
+                profile_yaml,
+                redaction_policy,
+                str(Path(tmp) / "bad-schema-bundle"),
+                schema_version=3,
+            )
+        except ValueError as exc:
+            if "schema_version must be 1 or 2" not in str(exc):
+                print(f"unexpected bundle schema failure: {exc}", file=sys.stderr)
+                return 1
+        else:
+            print("expected unsupported bundle schema_version to fail", file=sys.stderr)
+            return 1
+
         manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
         if manifest["tool_name"] != "hl7v2-python":
             print(f"unexpected bundle manifest tool: {manifest}", file=sys.stderr)

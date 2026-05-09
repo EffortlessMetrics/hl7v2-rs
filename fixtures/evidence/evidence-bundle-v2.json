@@ -1,0 +1,23 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.3.0",
+  "bundle_version": "1",
+  "output_dir": ".",
+  "message_type": "ADT^A01",
+  "validation_valid": true,
+  "validation_issue_count": 0,
+  "redaction_phi_removed": true,
+  "artifacts": [
+    "message.redacted.hl7",
+    "validation-report.json",
+    "field-paths.json",
+    "profile.yaml",
+    "redaction-receipt.json",
+    "environment.json",
+    "replay.sh",
+    "replay.ps1",
+    "README.md",
+    "manifest.json"
+  ]
+}

@@ -391,14 +391,21 @@ pub fn redact<'py>(
 }
 
 /// Write a redacted evidence bundle and return a Python dict summary.
-#[pyfunction]
+#[pyfunction(signature = (content, profile_yaml, policy_toml, out_dir, schema_version = 1))]
 pub fn bundle<'py>(
     py: Python<'py>,
     content: &str,
     profile_yaml: &str,
     policy_toml: &str,
     out_dir: &str,
+    schema_version: u8,
 ) -> PyResult<Bound<'py, PyAny>> {
+    if !matches!(schema_version, 1 | 2) {
+        return Err(PyValueError::new_err(
+            "bundle summary schema_version must be 1 or 2",
+        ));
+    }
+
     let summary = rust_write_safe_analysis_bundle(
         content.as_bytes(),
         profile_yaml,
@@ -407,7 +414,15 @@ pub fn bundle<'py>(
         "hl7v2-python",
     )
     .map_err(|e| value_error("Bundle error", e))?;
-    report_to_dict(py, &summary, "Bundle summary serialization error")
+    if schema_version == 2 {
+        report_to_dict(
+            py,
+            &summary.to_v2("hl7v2-python", env!("CARGO_PKG_VERSION")),
+            "Bundle summary v2 serialization error",
+        )
+    } else {
+        report_to_dict(py, &summary, "Bundle summary serialization error")
+    }
 }
 
 /// Replay and verify an evidence bundle directory.
