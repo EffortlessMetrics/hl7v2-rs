@@ -102,7 +102,7 @@ Rules:
 | `EvidenceBundleSummary` | Has `bundle_version`; no `tool_version` in the summary. | Add `schema_version`, `tool_name`, and `tool_version`; keep `bundle_version`. |
 | `QuarantineOutputSummary` | Has `quarantine_version`; server-local schema. | Add `schema_version`, `tool_name`, and `tool_version`; keep root-relative output ids only. |
 | `EvidenceBundleManifest` | Has `bundle_version`, `tool_name`, `tool_version`, and hashed artifact catalog. | Add `schema_version`; keep manifest hash rules unchanged. |
-| `EvidenceBundleEnvironment` | Has `bundle_version`, `tool_name`, `tool_version`, and input/profile/policy hashes. | Add a JSON Schema and `schema_version` before treating it as a stable standalone artifact. |
+| `EvidenceBundleEnvironment` | Has `bundle_version`, `tool_name`, `tool_version`, input/profile/policy hashes, validation summary, replay command, and a v1 JSON Schema. | Add `schema_version` before treating it as a stable standalone artifact outside bundle context. |
 | `EvidenceReplayReport` | Has `replay_version`, `bundle_version`, `tool_name`, and `tool_version`. | Add `schema_version`; keep replay/domain version fields. |
 
 ## Migration Sequence
