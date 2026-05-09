@@ -53,6 +53,9 @@ Python lanes:
 - Redaction receipts, field-path traces, bundle environment metadata, and
   evidence bundle/replay summaries
 
+For the producer/fixture/opt-in matrix, see
+[`docs/contracts/evidence-contract-index.md`](../docs/contracts/evidence-contract-index.md).
+
 `doctor-report-v1.schema.json` validates the default `hl7v2 doctor --format
 json` output. `doctor-report-v2.schema.json` validates the opt-in
 `hl7v2 doctor --format json --schema-version 2` output with embedded

@@ -4,6 +4,8 @@ This document maps the current evidence-loop artifacts and their contract
 status. It is a current-state reference for the schema, golden-fixture, CLI
 output-contract, server parity, redacted server logging, and Python parity
 surfaces in the v1.3.0 evidence loop and current post-release hardening line.
+For a compact schema/fixture/producer map, see the
+[Evidence Contract Index](../contracts/evidence-contract-index.md).
 
 ## Product Loop
 
