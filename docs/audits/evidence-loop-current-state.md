@@ -70,11 +70,12 @@ summary/fingerprint/diff dict outputs, and safe-analysis redaction output.
 | Server | Validation report parity for `/hl7/validate`; redacted validation parity and quarantine hooks for `/hl7/validate-redacted`; configured-root bundle creation for `/hl7/bundle`; policy-driven ACK/NAK decisions for `/hl7/ack-policy`; replay endpoint and corpus artifacts remain follow-up work. |
 | Python | Minimum API parity for parse, `to_json`, normalize, validation reports, corpus summary/fingerprint/diff dict outputs, safe-analysis redaction output, bundle creation, and replay verification. |
 
-One known validation parity detail remains: the CLI report `profile` value is
-the profile path supplied by the user, while the server and Python surfaces use
-the loaded profile message structure. The shape is schema-backed and shared; the
-profile identity semantics still need to be made explicit before profile labels
-are treated as cross-surface equivalent.
+One validation parity detail is intentionally documented as a label convention:
+the CLI report `profile` value is the profile path supplied by the user, while
+the server and Python surfaces use the loaded profile message structure. The
+shape is schema-backed and shared, but `ValidationReport.profile` is not a
+canonical profile identity. Consumers that need reproducible profile identity
+should use artifacts with profile SHA-256 metadata.
 
 ## CLI Automation Semantics
 
