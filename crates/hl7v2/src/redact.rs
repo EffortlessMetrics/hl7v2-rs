@@ -81,6 +81,43 @@ pub struct RedactionReceipt {
     pub actions: Vec<RedactionActionReceipt>,
 }
 
+impl RedactionReceipt {
+    /// Convert this receipt to the v2 evidence contract with embedded tool
+    /// provenance.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> RedactionReceiptV2 {
+        RedactionReceiptV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            phi_removed: self.phi_removed,
+            hash_algorithm: self.hash_algorithm.clone(),
+            actions: self.actions.clone(),
+        }
+    }
+}
+
+/// Redaction receipt v2 with embedded evidence provenance.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RedactionReceiptV2 {
+    /// Evidence schema version.
+    pub schema_version: String,
+    /// Tool or binding that produced the receipt.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// Whether any configured PHI-bearing field was removed or hashed.
+    pub phi_removed: bool,
+    /// Hash algorithm used by hash redaction actions.
+    pub hash_algorithm: String,
+    /// Per-rule redaction receipts.
+    pub actions: Vec<RedactionActionReceipt>,
+}
+
 /// Per-rule redaction action receipt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RedactionActionReceipt {
@@ -718,6 +755,29 @@ optional = true
             "expected PID.3 applied status",
         )?;
         ensure(pid3.matched_count == 1, "expected one PID.3 match")?;
+        Ok(())
+    }
+
+    #[test]
+    fn redaction_receipt_v2_embeds_tool_provenance() -> Result<(), Box<dyn std::error::Error>> {
+        let output = redact_hl7_safe_analysis(safe_analysis_message(), safe_analysis_policy())?;
+        let receipt_v2 = output.receipt.to_v2("hl7v2", "1.3.0");
+
+        ensure(receipt_v2.schema_version == "2", "expected v2 schema")?;
+        ensure(receipt_v2.tool_name == "hl7v2", "expected tool name")?;
+        ensure(receipt_v2.tool_version == "1.3.0", "expected tool version")?;
+        ensure(receipt_v2.phi_removed, "expected PHI removal")?;
+        ensure(
+            receipt_v2.hash_algorithm == "sha256",
+            "expected SHA-256 receipt",
+        )?;
+        ensure(
+            receipt_v2
+                .actions
+                .iter()
+                .any(|action| action.path == "PID.3" && action.action == RedactionAction::Hash),
+            "expected PID.3 hash action",
+        )?;
         Ok(())
     }
 

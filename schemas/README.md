@@ -68,6 +68,10 @@ Corpus fingerprint and diff reports can opt into their target v2 shapes with
 `hl7v2 corpus diff --format json --schema-version 2`. Python exposes the same
 opt-in shapes with `corpus_fingerprint(..., schema_version=2)` and
 `corpus_diff(..., schema_version=2)`; defaults remain v1.
+Redaction receipts can opt into their target v2 shape with
+`hl7v2 redact --format json --schema-version 2`, Python
+`redact(..., schema_version=2)`, or server `/hl7/validate-redacted` requests
+that set `"redaction_receipt_schema_version": 2`; defaults remain v1.
 
 #### Evidence Null And Empty Semantics
 

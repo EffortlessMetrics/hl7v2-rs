@@ -96,8 +96,8 @@ Rules:
 | `CorpusSummary` | Shared Rust/Python/CLI type with no embedded version fields. | Add common provenance fields. |
 | `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python fingerprint output can emit v2 when requested. |
 | `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python diff output can emit v2 when requested. |
-| `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version. | Add common provenance fields to the outer output. |
-| `RedactionReceipt` | Shared receipt schema without embedded version fields. | Add common provenance fields if receipts remain useful outside a bundle or redaction output. |
+| `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version. | Keep the outer output v1-compatible; migrate the nested receipt first. |
+| `RedactionReceipt` | Shared receipt schema without embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server redaction output can emit v2 when requested. Bundle artifacts remain v1 until migrated separately. |
 | `FieldPathTraceReport` | Bundle artifact with no JSON Schema. | Add a v1 schema first or fold into a v2 bundle-artifact schema set with common provenance. |
 | `EvidenceBundleSummary` | Has `bundle_version`; no `tool_version` in the summary. | Add `schema_version`, `tool_name`, and `tool_version`; keep `bundle_version`. |
 | `QuarantineOutputSummary` | Has `quarantine_version`; server-local schema. | Add `schema_version`, `tool_name`, and `tool_version`; keep root-relative output ids only. |
@@ -127,6 +127,11 @@ Do the migration in narrow PRs:
    JSON/YAML output with `--schema-version 2`, and Python can opt into the
    same shapes with `corpus_fingerprint(..., schema_version=2)` and
    `corpus_diff(..., schema_version=2)`. Defaults remain v1-compatible.
+   `RedactionReceipt` now has an explicit v2 conversion helper. `hl7v2 redact
+   --format json --schema-version 2`, Python `redact(..., schema_version=2)`,
+   and server `/hl7/validate-redacted` requests with
+   `redaction_receipt_schema_version: 2` can opt into the v2 nested receipt.
+   Defaults remain v1-compatible.
 3. Update CLI JSON/YAML output to choose the v2 shape only when the command or
    release notes explicitly say so. If a compatibility flag is needed, document
    it before exposing it.

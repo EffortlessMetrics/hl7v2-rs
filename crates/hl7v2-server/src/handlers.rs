@@ -140,6 +140,8 @@ pub async fn validate_redacted_handler(
     Json(request): Json<ValidateRedactedRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let report_schema_version = requested_report_schema_version(request.report_schema_version)?;
+    let redaction_receipt_schema_version =
+        requested_redaction_receipt_schema_version(request.redaction_receipt_schema_version)?;
     let raw_input = request.message.into_bytes();
     let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
     let receipt =
@@ -157,6 +159,7 @@ pub async fn validate_redacted_handler(
     );
     let validation_report_v2 = (report_schema_version == 2)
         .then(|| validation_report_v2_for_server(&validation_report, &request.profile, &profile));
+    let redaction_receipt_v2 = (redaction_receipt_schema_version == 2).then(|| receipt.to_v2());
     let quarantine = maybe_write_redacted_quarantine(RedactedQuarantineContext {
         state: &state,
         raw_input: &raw_input,
@@ -172,6 +175,7 @@ pub async fn validate_redacted_handler(
         validation_report,
         validation_report_v2,
         redaction_receipt: receipt,
+        redaction_receipt_v2,
         quarantine,
         redacted_hl7: request.include_redacted_hl7.then_some(redacted_hl7),
     };
@@ -363,6 +367,16 @@ fn requested_report_schema_version(version: Option<u8>) -> Result<u8, AppError> 
         2 => Ok(2),
         other => Err(AppError::Validation(format!(
             "unsupported validation report schema version {other}; expected 1 or 2"
+        ))),
+    }
+}
+
+fn requested_redaction_receipt_schema_version(version: Option<u8>) -> Result<u8, AppError> {
+    match version.unwrap_or(1) {
+        1 => Ok(1),
+        2 => Ok(2),
+        other => Err(AppError::Validation(format!(
+            "unsupported redaction receipt schema version {other}; expected 1 or 2"
         ))),
     }
 }

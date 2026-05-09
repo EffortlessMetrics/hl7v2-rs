@@ -127,6 +127,7 @@ async fn test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_
     assert_eq!(body_json["validation_report"]["message_type"], "ADT^A01");
     assert_eq!(body_json["redaction_receipt"]["phi_removed"], true);
     assert_eq!(body_json["redaction_receipt"]["hash_algorithm"], "sha256");
+    assert!(body_json.get("redaction_receipt_v2").is_none());
     assert!(
         body_json["redacted_hl7"]
             .as_str()
@@ -179,6 +180,74 @@ async fn test_validate_redacted_report_schema_v2_returns_nested_provenance_repor
     );
     assert_eq!(report_v2["issues"][0]["path"], "PID.5");
     assert_no_phi(&body_text);
+}
+
+#[tokio::test]
+async fn test_validate_redacted_receipt_schema_v2_returns_nested_provenance_receipt_without_phi() {
+    let app = common::create_test_router();
+    let request_body = json!({
+        "message": PHI_MESSAGE,
+        "profile": VALIDATION_PROFILE,
+        "redaction_policy": REDACTION_POLICY,
+        "include_redacted_hl7": true,
+        "redaction_receipt_schema_version": 2
+    });
+
+    let response = app
+        .oneshot(validate_redacted_request(request_body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let receipt_v2 = &body_json["redaction_receipt_v2"];
+
+    assert_eq!(body_json["redaction_receipt"]["phi_removed"], true);
+    assert_eq!(receipt_v2["schema_version"], "2");
+    assert_eq!(receipt_v2["tool_name"], "hl7v2-server");
+    assert_eq!(receipt_v2["tool_version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(receipt_v2["phi_removed"], true);
+    assert_eq!(receipt_v2["hash_algorithm"], "sha256");
+    assert!(
+        receipt_v2["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|action| action["path"] == "PID.3"
+                && action["action"] == "hash"
+                && action["status"] == "applied")
+    );
+    assert_no_phi(&body_text);
+}
+
+#[tokio::test]
+async fn test_validate_redacted_rejects_unsupported_receipt_schema_version() {
+    let app = common::create_test_router();
+    let request_body = json!({
+        "message": PHI_MESSAGE,
+        "profile": VALIDATION_PROFILE,
+        "redaction_policy": REDACTION_POLICY,
+        "redaction_receipt_schema_version": 3
+    });
+
+    let response = app
+        .oneshot(validate_redacted_request(request_body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(body_json["code"], "VALIDATION_ERROR");
+    assert!(
+        body_json["message"]
+            .as_str()
+            .unwrap()
+            .contains("unsupported redaction receipt schema version 3; expected 1 or 2")
+    );
 }
 
 #[tokio::test]

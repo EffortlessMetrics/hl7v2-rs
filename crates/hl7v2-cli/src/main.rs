@@ -265,6 +265,10 @@ enum Commands {
         #[arg(long, value_enum, default_value = "json")]
         format: RedactFormat,
 
+        /// Evidence schema version for the nested redaction receipt in JSON output
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Write the redaction output to a file instead of stdout
         #[arg(long)]
         output: Option<PathBuf>,
@@ -900,10 +904,42 @@ struct RedactionOutput {
 }
 
 #[derive(serde::Serialize)]
+struct RedactionOutputWithReceiptV2<'a> {
+    input_sha256: String,
+    policy_sha256: String,
+    message_type: String,
+    redacted_hl7: String,
+    receipt: RedactionReceiptV2<'a>,
+}
+
+#[derive(serde::Serialize)]
 struct RedactionReceipt {
     phi_removed: bool,
     hash_algorithm: &'static str,
     actions: Vec<RedactionActionReceipt>,
+}
+
+#[derive(serde::Serialize)]
+struct RedactionReceiptV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    phi_removed: bool,
+    hash_algorithm: &'static str,
+    actions: &'a [RedactionActionReceipt],
+}
+
+impl RedactionReceipt {
+    fn to_v2(&self) -> RedactionReceiptV2<'_> {
+        RedactionReceiptV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            phi_removed: self.phi_removed,
+            hash_algorithm: self.hash_algorithm,
+            actions: &self.actions,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -1191,6 +1227,7 @@ async fn main() {
             input,
             policy,
             format,
+            schema_version,
             output,
             quiet,
             no_color,
@@ -1198,6 +1235,7 @@ async fn main() {
             input,
             policy,
             format,
+            *schema_version,
             &OutputOptions::new(output.as_ref(), *quiet, *no_color),
         ),
         Commands::Bundle {
@@ -2118,8 +2156,17 @@ fn redact_command(
     input: &Path,
     policy: &Path,
     format: &RedactFormat,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if *format == RedactFormat::Hl7 && schema_version != 1 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "redaction receipt schema version is only available with --format json",
+        )
+        .into());
+    }
+
     let contents = fs::read(input)?;
     let mut message = parse(&contents)?;
     let policy_text = fs::read_to_string(policy)?;
@@ -2129,15 +2176,39 @@ fn redact_command(
 
     match format {
         RedactFormat::Json => {
-            let output = RedactionOutput {
-                input_sha256: compute_sha256(&String::from_utf8_lossy(&contents)),
-                policy_sha256: compute_sha256(&policy_text),
-                message_type: message_field_text(&message, "MSH", 9)
-                    .unwrap_or_else(|| "unknown".to_string()),
-                redacted_hl7,
-                receipt,
-            };
-            output_options.emit(&serde_json::to_string_pretty(&output)?)?;
+            let input_sha256 = compute_sha256(&String::from_utf8_lossy(&contents));
+            let policy_sha256 = compute_sha256(&policy_text);
+            let message_type =
+                message_field_text(&message, "MSH", 9).unwrap_or_else(|| "unknown".to_string());
+            match schema_version {
+                1 => {
+                    let output = RedactionOutput {
+                        input_sha256,
+                        policy_sha256,
+                        message_type,
+                        redacted_hl7,
+                        receipt,
+                    };
+                    output_options.emit(&serde_json::to_string_pretty(&output)?)?;
+                }
+                2 => {
+                    let output = RedactionOutputWithReceiptV2 {
+                        input_sha256,
+                        policy_sha256,
+                        message_type,
+                        redacted_hl7,
+                        receipt: receipt.to_v2(),
+                    };
+                    output_options.emit(&serde_json::to_string_pretty(&output)?)?;
+                }
+                _ => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "redaction receipt schema version must be 1 or 2",
+                    )
+                    .into());
+                }
+            }
         }
         RedactFormat::Hl7 => {
             output_options.diagnostic(format!(

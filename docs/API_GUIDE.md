@@ -117,6 +117,11 @@ message against the supplied profile. The response includes a
 `validation_report`, a `redaction_receipt`, and an optional `redacted_hl7`
 field when `include_redacted_hl7` is true.
 
+Set `redaction_receipt_schema_version` to `2` to include the additive
+`redaction_receipt_v2` field with embedded `schema_version`, `tool_name`, and
+`tool_version` provenance. Omitting the field, or setting it to `1`, preserves
+the existing response shape.
+
 When `[quarantine]` is enabled in `HL7V2_CONFIG`, failed validation writes
 configured quarantine output under the server-controlled quarantine root and
 adds a `quarantine` summary. The summary reports only a root-relative output id
@@ -137,6 +142,7 @@ write_bundle = true
   "message": "MSH|^~\\&|...",
   "profile": "message_structure: ADT_A01\nversion: \"2.5\"\nsegments:\n  - id: MSH\n",
   "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n",
+  "redaction_receipt_schema_version": 2,
   "include_redacted_hl7": true
 }
 ```

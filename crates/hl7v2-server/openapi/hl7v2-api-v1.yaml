@@ -465,6 +465,11 @@ components:
           enum: [1, 2]
           default: 1
           description: Optional validation report schema version. Version 2 adds validation_report_v2 with embedded evidence provenance while preserving the existing response fields.
+        redaction_receipt_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional redaction receipt schema version. Version 2 adds redaction_receipt_v2 with embedded evidence provenance while preserving the existing response fields.
 
     ValidateResponse:
       type: object
@@ -551,6 +556,11 @@ components:
           description: Opt-in validation report v2 artifact returned when report_schema_version is 2
         redaction_receipt:
           $ref: '#/components/schemas/RedactionReceipt'
+        redaction_receipt_v2:
+          allOf:
+            - $ref: '#/components/schemas/RedactionReceiptV2'
+          nullable: true
+          description: Opt-in redaction receipt v2 artifact returned when redaction_receipt_schema_version is 2
         quarantine:
           allOf:
             - $ref: '#/components/schemas/QuarantineOutputSummary'
@@ -730,6 +740,30 @@ components:
       type: object
       required: [phi_removed, hash_algorithm, actions]
       properties:
+        phi_removed:
+          type: boolean
+          description: Whether any configured PHI-bearing path was removed or hashed
+        hash_algorithm:
+          type: string
+          enum: [sha256]
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedactionActionReceipt'
+
+    RedactionReceiptV2:
+      type: object
+      required: [schema_version, tool_name, tool_version, phi_removed, hash_algorithm, actions]
+      properties:
+        schema_version:
+          type: string
+          enum: ['2']
+        tool_name:
+          type: string
+          enum: [hl7v2-server]
+        tool_version:
+          type: string
+          description: Semantic version of the server crate that generated the receipt
         phi_removed:
           type: boolean
           description: Whether any configured PHI-bearing path was removed or hashed

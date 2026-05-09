@@ -284,6 +284,31 @@ reason = "Date of birth"
         print(f"unexpected redaction actions: {receipt}", file=sys.stderr)
         return 1
 
+    redaction_v2 = hl7v2.redact(raw, redaction_policy, schema_version=2)
+    receipt_v2 = redaction_v2["receipt"]
+    if (
+        receipt_v2["schema_version"] != "2"
+        or receipt_v2["tool_name"] != "hl7v2-python"
+        or receipt_v2["tool_version"] != hl7v2.__version__
+        or receipt_v2["phi_removed"] is not True
+        or receipt_v2["hash_algorithm"] != "sha256"
+    ):
+        print(f"unexpected redaction receipt v2 provenance: {receipt_v2}", file=sys.stderr)
+        return 1
+    for sentinel in ["Doe^John", "123456", "19700101"]:
+        if sentinel in redaction_v2["redacted_hl7"] or sentinel in json.dumps(receipt_v2):
+            print(f"raw PHI sentinel leaked through redaction v2: {sentinel}", file=sys.stderr)
+            return 1
+    try:
+        hl7v2.redact(raw, redaction_policy, schema_version=3)
+    except ValueError as exc:
+        if "schema_version must be 1 or 2" not in str(exc):
+            print(f"unexpected redaction schema version failure: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print("expected unsupported redaction schema version to fail", file=sys.stderr)
+        return 1
+
     unsafe_policy = """
 [[rules]]
 path = "PID.3"

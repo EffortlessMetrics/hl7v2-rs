@@ -349,15 +349,32 @@ pub fn corpus_diff<'py>(
 }
 
 /// Redact raw HL7 with a safe-analysis policy TOML string and return a Python dict.
-#[pyfunction]
+#[pyfunction(signature = (content, policy_toml, schema_version = 1))]
 pub fn redact<'py>(
     py: Python<'py>,
     content: &str,
     policy_toml: &str,
+    schema_version: u8,
 ) -> PyResult<Bound<'py, PyAny>> {
     let output = rust_redact_hl7_safe_analysis(content.as_bytes(), policy_toml)
         .map_err(|e| value_error("Redaction error", e))?;
-    report_to_dict(py, &output, "Redaction serialization error")
+    match schema_version {
+        1 => report_to_dict(py, &output, "Redaction serialization error"),
+        2 => {
+            let mut output_value = serde_json::to_value(&output)
+                .map_err(|e| value_error("Redaction serialization error", e))?;
+            output_value["receipt"] = serde_json::to_value(
+                output
+                    .receipt
+                    .to_v2("hl7v2-python", env!("CARGO_PKG_VERSION")),
+            )
+            .map_err(|e| value_error("Redaction receipt v2 serialization error", e))?;
+            py_json_loads(py, output_value.to_string())
+        }
+        _ => Err(PyValueError::new_err(
+            "redaction receipt schema_version must be 1 or 2",
+        )),
+    }
 }
 
 /// Write a redacted evidence bundle and return a Python dict summary.
