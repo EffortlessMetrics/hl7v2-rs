@@ -1737,6 +1737,76 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_redact_json_schema_v2_returns_provenance_receipt_without_raw_phi() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(!stdout.contains("Doe^John"));
+        assert!(!stdout.contains("123456^^^HOSP^MR"));
+        assert!(!stdout.contains("19700101"));
+
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("redact output should be JSON");
+        assert_eq!(report["receipt"]["schema_version"], "2");
+        assert_eq!(report["receipt"]["tool_name"], "hl7v2-cli");
+        assert_eq!(report["receipt"]["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["receipt"]["phi_removed"], true);
+        assert_eq!(report["receipt"]["hash_algorithm"], "sha256");
+        assert!(report["receipt"]["actions"].as_array().unwrap().iter().any(
+            |action| action["path"] == "PID.3"
+                && action["action"] == "hash"
+                && action["matched_count"] == 1
+                && action["status"] == "applied"
+        ));
+    }
+
+    #[test]
+    fn test_redact_rejects_receipt_schema_v2_for_hl7_output() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "hl7",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(!output.status.success());
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains("redaction receipt schema version is only available"));
+    }
+
+    #[test]
     fn test_redact_json_does_not_emit_phi_leak_sentinels_or_paths() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(
@@ -2965,6 +3035,22 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             true,
         );
         assert_fixture("redaction-receipt", redact_output["receipt"].clone());
+
+        let mut redact_v2_output = command_json(
+            &[
+                "redact".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut redact_v2_output, "/receipt/tool_version", "1.4.0");
+        assert_fixture("redaction-receipt-v2", redact_v2_output["receipt"].clone());
 
         let bundle = dir.path().join("issue-bundle");
         let bundle_summary = command_json(

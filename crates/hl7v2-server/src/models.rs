@@ -243,6 +243,13 @@ pub struct ValidateRedactedRequest {
     /// nested `validation_report_v2` field with embedded evidence provenance.
     #[serde(default)]
     pub report_schema_version: Option<u8>,
+    /// Optional redaction receipt schema version.
+    ///
+    /// Omitted or `1` preserves the existing `redaction_receipt` field. `2`
+    /// adds the nested `redaction_receipt_v2` field with embedded evidence
+    /// provenance.
+    #[serde(default)]
+    pub redaction_receipt_schema_version: Option<u8>,
 }
 
 /// Validate and redact response body.
@@ -255,6 +262,9 @@ pub struct ValidateRedactedResponse {
     pub validation_report_v2: Option<ValidationReportV2>,
     /// Receipt describing redaction actions applied before validation.
     pub redaction_receipt: RedactionReceipt,
+    /// Opt-in redaction receipt v2 artifact with embedded provenance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redaction_receipt_v2: Option<RedactionReceiptV2>,
     /// Quarantine output written when configured and validation failed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quarantine: Option<QuarantineOutputSummary>,
@@ -463,6 +473,37 @@ pub enum FieldValueShape {
 /// Redaction receipt compatible with evidence redaction receipts.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RedactionReceipt {
+    /// Whether any configured PHI-bearing field was removed or hashed.
+    pub phi_removed: bool,
+    /// Hash algorithm used by hash redaction actions.
+    pub hash_algorithm: String,
+    /// Per-rule redaction receipts.
+    pub actions: Vec<RedactionActionReceipt>,
+}
+
+impl RedactionReceipt {
+    /// Convert this receipt to the v2 evidence contract with server provenance.
+    pub fn to_v2(&self) -> RedactionReceiptV2 {
+        RedactionReceiptV2 {
+            schema_version: "2".to_string(),
+            tool_name: "hl7v2-server".to_string(),
+            tool_version: env!("CARGO_PKG_VERSION").to_string(),
+            phi_removed: self.phi_removed,
+            hash_algorithm: self.hash_algorithm.clone(),
+            actions: self.actions.clone(),
+        }
+    }
+}
+
+/// Redaction receipt v2 with embedded evidence provenance.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RedactionReceiptV2 {
+    /// Evidence schema version.
+    pub schema_version: String,
+    /// Tool or binding that produced the receipt.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
     /// Whether any configured PHI-bearing field was removed or hashed.
     pub phi_removed: bool,
     /// Hash algorithm used by hash redaction actions.
