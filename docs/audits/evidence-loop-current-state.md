@@ -48,7 +48,7 @@ parity.
 | `CorpusDiffReport` | Shared Rust diff type with `diff_version`, `tool_version`, optional profile hash, totals, new/removed message types and segments, field deltas, value-shape deltas, and validation issue-code deltas. | Needs JSON Schema and golden fixtures. |
 | `RedactionReceipt` | CLI receipt records PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | CLI-local type; missing version fields, JSON Schema, and dedicated leak-sentinel fixture family. |
 | `EvidenceBundleSummary` | CLI stdout JSON summary includes `bundle_version`, output directory, message type, validation status, redaction status, and artifact list. | Includes `manifest.json`; no `tool_version` in the summary itself. |
-| Bundle artifacts | `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, and `manifest.json`. | No generated bundle README yet. |
+| Bundle artifacts | `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, `README.md`, and `manifest.json`. | Bundle README is generated and manifest-hashed. |
 | `EvidenceBundleManifest` | Bundle `manifest.json` records bundle-relative artifact paths, roles, and SHA-256 hashes. | Replay verifies manifest catalog and hashes before using artifacts. |
 | `EvidenceReplayReport` | CLI report with `replay_version`, `bundle_version`, `tool_name`, `tool_version`, replay checks, reproduction status, and optional regenerated validation report. | Fails closed on malformed manifests, missing artifacts, and hash mismatches; report schema exists. |
 | Python validation report | `report.valid`, `message_type`, `profile`, `segment_count`, `issue_count`, `to_dict()`, and `to_json()` mirror `ValidationReport`. | Python does not yet expose corpus, redaction, bundle, or replay artifact APIs. |
@@ -93,7 +93,7 @@ hardening work:
 
 1. Add artifact version and tool version fields consistently.
 2. Document null/empty-list behavior for optional fields.
-3. Add generated bundle README content and clearer human replay instructions.
+3. Add fuller external guides for sharing and replaying bundles.
 4. Add synthetic PHI leak sentinels for redaction, bundle, replay, and later
    Python wrappers.
 5. Promote shared report types out of CLI-local structs when server or Python

@@ -1890,6 +1890,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "environment.json",
             "replay.sh",
             "replay.ps1",
+            "README.md",
             "manifest.json",
         ] {
             assert!(
@@ -1913,6 +1914,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "environment.json",
             "replay.sh",
             "replay.ps1",
+            "README.md",
             "manifest.json",
         ] {
             let content = std::fs::read_to_string(bundle_dir.join(artifact)).unwrap();
@@ -1963,6 +1965,11 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "hl7v2 val message.redacted.hl7 --profile profile.yaml --report json"
         );
 
+        let readme = std::fs::read_to_string(bundle_dir.join("README.md")).unwrap();
+        assert!(readme.contains("HL7v2 Evidence Bundle"));
+        assert!(readme.contains("hl7v2 replay . --format json"));
+        assert!(!readme.contains(dir.path().to_string_lossy().as_ref()));
+
         let manifest: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(bundle_dir.join("manifest.json")).unwrap(),
         )
@@ -1970,7 +1977,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         assert_eq!(manifest["bundle_version"], "1");
         assert_eq!(manifest["tool_name"], "hl7v2-cli");
         let artifacts = manifest["artifacts"].as_array().unwrap();
-        assert_eq!(artifacts.len(), 8);
+        assert_eq!(artifacts.len(), 9);
         assert!(artifacts.iter().any(|artifact| {
             artifact["path"] == "message.redacted.hl7"
                 && artifact["role"] == "redacted_message"
@@ -1979,6 +1986,11 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         assert!(artifacts.iter().any(|artifact| {
             artifact["path"] == "validation-report.json"
                 && artifact["role"] == "validation_report"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
+        }));
+        assert!(artifacts.iter().any(|artifact| {
+            artifact["path"] == "README.md"
+                && artifact["role"] == "bundle_readme"
                 && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
         }));
     }
