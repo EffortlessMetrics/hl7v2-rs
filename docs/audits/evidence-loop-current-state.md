@@ -47,7 +47,7 @@ summary/fingerprint/diff dict outputs, and safe-analysis redaction output.
 | Artifact | Current state | Main gap |
 | --- | --- | --- |
 | `ValidationReport` | Shared Rust type used by CLI, Python, and server validation response fields, including `/hl7/validate-redacted`. Includes stable issue code, severity, path, rule ID, message, segment index, and field index. | JSON Schema and golden fixture exist; no embedded artifact `schema_version` or `tool_version`. |
-| `ProfileLintReport` | Shared Rust type from profile linting. CLI emits text/JSON/YAML. | JSON Schema and golden fixture exist; no embedded version fields. |
+| `ProfileLintReport` | Shared Rust type from profile linting. CLI emits text/JSON/YAML by default, with opt-in v2 output for embedded provenance. | JSON Schemas and golden fixtures exist for v1 and v2; defaults remain v1-compatible. |
 | `ProfileTestReport` | CLI report with fixture cases, pass/fail status, embedded validation reports, and optional expected-report comparison. | JSON Schema and golden fixture exist; CLI-local type with no embedded version fields. |
 | `ProfileExplainReport` | CLI report with profile SHA-256, structure, version, segments, constraints, tables, rules, and lint summary. | JSON Schema and golden fixture exist; no embedded artifact version or tool version. |
 | `CorpusSummary` | Shared Rust corpus summary type. CLI emits text/JSON/YAML and Python returns the same dict shape by default, with opt-in v2 output for embedded provenance. | JSON Schemas and golden fixtures exist for v1 and v2; defaults remain v1-compatible. |

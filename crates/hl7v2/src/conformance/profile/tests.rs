@@ -309,6 +309,12 @@ constraints:
 
         assert!(report.valid, "unexpected lint report: {report:?}");
         assert_eq!(report.issue_count, 0);
+
+        let report_v2 = report.to_v2("hl7v2", "1.3.0");
+        assert_eq!(report_v2.schema_version, "2");
+        assert_eq!(report_v2.tool_name, "hl7v2");
+        assert_eq!(report_v2.tool_version, "1.3.0");
+        assert_eq!(report_v2.report.issue_count, 0);
     }
 
     #[test]

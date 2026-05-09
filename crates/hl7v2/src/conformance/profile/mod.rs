@@ -445,6 +445,38 @@ impl ProfileLintReport {
             issues,
         }
     }
+
+    /// Convert this v1 lint report into the explicit v2 evidence contract shape.
+    ///
+    /// This preserves the default serialized form of [`ProfileLintReport`].
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> ProfileLintReportV2 {
+        ProfileLintReportV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            report: self.clone(),
+        }
+    }
+}
+
+/// Profile lint report v2 with embedded evidence provenance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileLintReportV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this profile lint report.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// V1 profile lint report fields.
+    #[serde(flatten)]
+    pub report: ProfileLintReport,
 }
 
 /// A single profile lint finding.

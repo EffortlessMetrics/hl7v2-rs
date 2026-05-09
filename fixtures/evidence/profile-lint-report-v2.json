@@ -1,0 +1,17 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.4.0",
+  "valid": true,
+  "error_count": 0,
+  "warning_count": 1,
+  "issue_count": 1,
+  "issues": [
+    {
+      "code": "unknown_top_level_key",
+      "severity": "warning",
+      "path": "rules",
+      "message": "top-level key 'rules' is ignored by the profile loader"
+    }
+  ]
+}

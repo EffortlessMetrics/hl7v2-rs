@@ -71,6 +71,25 @@ mod cli_unit_tests {
         }
 
         #[test]
+        fn test_profile_lint_command_has_schema_version_flag() {
+            use crate::Cli;
+            let schema = Cli::command();
+            let profile = schema
+                .get_subcommands()
+                .find(|command| command.get_name() == "profile")
+                .expect("profile command should exist");
+            let lint = profile
+                .get_subcommands()
+                .find(|command| command.get_name() == "lint")
+                .expect("profile lint command should exist");
+
+            let schema_version_arg = lint
+                .get_arguments()
+                .find(|arg| arg.get_id() == "schema_version");
+            assert!(schema_version_arg.is_some());
+        }
+
+        #[test]
         fn test_profile_command_has_test_subcommand() {
             use crate::Cli;
             let schema = Cli::command();

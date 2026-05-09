@@ -417,6 +417,10 @@ enum ProfileCommands {
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
 
+        /// Evidence schema version for machine-readable lint reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Write the lint report to a file instead of stdout
         #[arg(long)]
         output: Option<PathBuf>,
@@ -1149,12 +1153,14 @@ async fn main() {
             ProfileCommands::Lint {
                 profile,
                 report,
+                schema_version,
                 output,
                 quiet,
                 no_color,
             } => profile_lint_command(
                 profile,
                 report,
+                *schema_version,
                 &OutputOptions::new(output.as_ref(), *quiet, *no_color),
             ),
             ProfileCommands::Explain {
@@ -3228,11 +3234,20 @@ fn field_to_text(field: &Field, delims: &hl7v2::Delims) -> String {
 fn profile_lint_command(
     profile: &Path,
     report: &ReportFormat,
+    schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *report == ReportFormat::Text {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "profile lint schema version is only available with --report json or --report yaml",
+        )
+        .into());
+    }
+
     let profile_yaml = fs::read_to_string(profile)?;
     let lint_report = lint_profile_yaml(&profile_yaml);
-    let output = format_profile_lint_report(profile, &lint_report, report)?;
+    let output = format_profile_lint_report(profile, &lint_report, report, schema_version)?;
     output_options.emit(&output)?;
 
     if !lint_report.valid {
@@ -4032,8 +4047,15 @@ fn format_profile_lint_report(
     profile: &Path,
     report: &ProfileLintReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => Ok(serde_json::to_string_pretty(
+            &report.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
+        )?),
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(
+            &report.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
+        )?),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {

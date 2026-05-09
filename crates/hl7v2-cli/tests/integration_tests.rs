@@ -718,6 +718,68 @@ rules: []
     }
 
     #[test]
+    fn test_profile_lint_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+rules: []
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "lint",
+                profile_file.to_str().unwrap(),
+                "--report",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute profile lint");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile lint output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["warning_count"], 1);
+        assert_eq!(report["issues"][0]["code"], "unknown_top_level_key");
+    }
+
+    #[test]
+    fn test_profile_lint_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "profile",
+            "lint",
+            profile_file.to_str().unwrap(),
+            "--report",
+            "text",
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "profile lint schema version is only available",
+        ));
+    }
+
+    #[test]
     fn test_profile_lint_json_reports_errors_and_fails() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(
@@ -2948,6 +3010,21 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             true,
         );
         assert_fixture("profile-lint-report", lint_report);
+
+        let mut lint_report_v2 = command_json(
+            &[
+                "profile".to_string(),
+                "lint".to_string(),
+                lint_profile.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut lint_report_v2, "/tool_version", "1.4.0");
+        assert_fixture("profile-lint-report-v2", lint_report_v2);
 
         let mut explain_report = command_json(
             &[
