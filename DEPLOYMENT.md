@@ -309,6 +309,12 @@ export RUST_LOG="hl7v2_server=debug,hl7v2_prof=info"
 export RUST_LOG_FORMAT="json"
 ```
 
+`RUST_LOG_FORMAT=json` emits tracing fields as JSON records. The server's HL7
+evidence workflow logs include message type, validation status, issue counts,
+redaction status, hashed control/correlation identifiers, and hashed caller
+bundle IDs. Raw HL7 payloads, raw `MSH.10` control IDs, profile YAML, redaction
+policies, bundle output roots, and quarantine roots are not logged by default.
+
 ### Configuration File
 
 Set `HL7V2_CONFIG` to a TOML or YAML file. The server consumes the `[server]`

@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use crate::audit::{self, MessageLogContext};
 use crate::models::*;
 use crate::redaction::redact_message;
 use crate::server::AppState;
@@ -47,6 +48,7 @@ pub async fn parse_handler(
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
+    let log_context = MessageLogContext::from_message(&message);
 
     // Optionally convert to JSON
     let message_json = if request.options.include_json {
@@ -54,6 +56,17 @@ pub async fn parse_handler(
     } else {
         None
     };
+
+    tracing::info!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_PARSE,
+        message_type = %log_context.message_type,
+        message_control_id_hash = %log_context.message_control_id_hash,
+        correlation_id = %log_context.correlation_id,
+        segment_count = metadata.segment_count,
+        include_json = request.options.include_json,
+        "parsed HL7 message"
+    );
 
     let response = ParseResponse {
         message: message_json,
@@ -74,6 +87,7 @@ pub async fn validate_handler(
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
+    let log_context = MessageLogContext::from_message(&message);
 
     // Load the profile before validation. Profile load failures are client
     // errors, not successful validation results.
@@ -89,6 +103,20 @@ pub async fn validate_handler(
     );
     let validation_report_v2 = (report_schema_version == 2)
         .then(|| validation_report_v2_for_server(&report, &request.profile, &profile));
+
+    tracing::info!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_VALIDATE,
+        message_type = %log_context.message_type,
+        message_control_id_hash = %log_context.message_control_id_hash,
+        correlation_id = %log_context.correlation_id,
+        profile = %profile.message_structure,
+        validation_status = audit::validation_status(report.valid),
+        valid = report.valid,
+        issue_count = report.issue_count,
+        report_schema_version,
+        "validated HL7 message"
+    );
 
     // Preserve legacy error/warning arrays while exposing the shared report issues.
     let mut errors = Vec::new();
@@ -147,6 +175,7 @@ pub async fn validate_redacted_handler(
         requested_quarantine_schema_version(request.quarantine_schema_version)?;
     let raw_input = request.message.into_bytes();
     let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
+    let log_context = MessageLogContext::from_message(&message);
     let receipt =
         redact_message(&mut message, &request.redaction_policy).map_err(AppError::Redaction)?;
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
@@ -180,6 +209,29 @@ pub async fn validate_redacted_handler(
     } else {
         None
     };
+    let quarantine_output_id = quarantine
+        .as_ref()
+        .map_or("none", |summary| summary.output_dir.as_str());
+
+    tracing::info!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_VALIDATE_REDACTED,
+        message_type = %log_context.message_type,
+        message_control_id_hash = %log_context.message_control_id_hash,
+        correlation_id = %log_context.correlation_id,
+        profile = %profile.message_structure,
+        validation_status = audit::validation_status(validation_report.valid),
+        valid = validation_report.valid,
+        issue_count = validation_report.issue_count,
+        redaction_status = audit::redaction_status(receipt.phi_removed),
+        redaction_phi_removed = receipt.phi_removed,
+        quarantine_output_id,
+        include_redacted_hl7 = request.include_redacted_hl7,
+        report_schema_version,
+        redaction_receipt_schema_version,
+        quarantine_schema_version,
+        "validated redacted HL7 message"
+    );
 
     let response = ValidateRedactedResponse {
         validation_report,
@@ -208,6 +260,7 @@ pub async fn bundle_handler(
 
     let raw_input = request.message.into_bytes();
     let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
+    let log_context = MessageLogContext::from_message(&message);
     let receipt =
         redact_message(&mut message, &request.redaction_policy).map_err(AppError::Redaction)?;
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
@@ -234,6 +287,24 @@ pub async fn bundle_handler(
         })
         .map_err(AppError::from)?;
 
+    tracing::info!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_BUNDLE,
+        message_type = %log_context.message_type,
+        message_control_id_hash = %log_context.message_control_id_hash,
+        correlation_id = %log_context.correlation_id,
+        profile = %profile.message_structure,
+        validation_status = audit::validation_status(summary.validation_valid),
+        valid = summary.validation_valid,
+        issue_count = summary.validation_issue_count,
+        redaction_status = audit::redaction_status(summary.redaction_phi_removed),
+        redaction_phi_removed = summary.redaction_phi_removed,
+        bundle_id_hash = %audit::hash_identifier(&summary.output_dir),
+        artifact_count = summary.artifacts.len(),
+        artifact_schema_version,
+        "wrote redacted evidence bundle"
+    );
+
     Ok((StatusCode::CREATED, Json(summary)))
 }
 
@@ -259,6 +330,25 @@ pub async fn replay_handler(
     }
 
     let report = hl7v2::evidence::replay_evidence_bundle(&bundle_dir, "hl7v2-server");
+    let message_type = report.message_type.as_deref().unwrap_or("unknown");
+    let validation_status = report
+        .validation_valid
+        .map_or("not_available", audit::validation_status);
+    let validation_issue_count = report.validation_issue_count.unwrap_or(0);
+
+    tracing::info!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_REPLAY,
+        message_type,
+        bundle_id_hash = %audit::hash_identifier(&request.bundle_id),
+        reproduced = report.reproduced,
+        validation_status,
+        issue_count = validation_issue_count,
+        check_count = report.checks.len(),
+        replay_report_schema_version = report_schema_version,
+        "replayed evidence bundle"
+    );
+
     let response = if report_schema_version == 2 {
         serde_json::to_value(report.to_v2())
     } else {
@@ -357,6 +447,7 @@ pub async fn ack_handler(
     Json(request): Json<AckRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
+    let log_context = MessageLogContext::from_message(&message);
     let ack_code = map_ack_code(request.code);
 
     let ack_message = if let Some(error_message) = request.error_message.as_deref() {
@@ -380,6 +471,17 @@ pub async fn ack_handler(
         ack_code: request.code.as_str().to_string(),
         metadata,
     };
+
+    tracing::info!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_ACK,
+        message_type = %log_context.message_type,
+        message_control_id_hash = %log_context.message_control_id_hash,
+        correlation_id = %log_context.correlation_id,
+        ack_code = request.code.as_str(),
+        mllp_frame = request.mllp_frame,
+        "generated ACK"
+    );
 
     Ok((StatusCode::OK, Json(response)))
 }
@@ -414,6 +516,7 @@ pub async fn ack_policy_handler(
             }
             Err(error) => return Err(error),
         };
+    let log_context = MessageLogContext::from_message(&message);
 
     let ack_code = ack_code_from_policy_decision(&decision)?;
     let ack_message = if let Some(error_text) = decision.error_text.as_deref() {
@@ -430,6 +533,29 @@ pub async fn ack_policy_handler(
     } else {
         ack_bytes
     };
+
+    let validation_status = validation_report.as_ref().map_or("parse_error", |report| {
+        audit::validation_status(report.valid)
+    });
+    let issue_count = validation_report
+        .as_ref()
+        .map_or(0, |report| report.issue_count);
+
+    tracing::info!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_ACK_POLICY,
+        message_type = %log_context.message_type,
+        message_control_id_hash = %log_context.message_control_id_hash,
+        correlation_id = %log_context.correlation_id,
+        validation_status,
+        issue_count,
+        ack_outcome = audit::ack_outcome_label(decision.outcome),
+        ack_reason = audit::ack_reason_label(decision.reason),
+        ack_code = %decision.ack_code,
+        include_error_text = decision.include_error_text,
+        mllp_frame = request.mllp_frame,
+        "generated policy ACK decision"
+    );
 
     let response = AckPolicyResponse {
         ack_message: String::from_utf8(ack_bytes)
@@ -461,6 +587,7 @@ pub async fn normalize_handler(
     let normalized_message = hl7v2::parse(&normalized_bytes)
         .map_err(|e| AppError::Parse(format!("Normalized message parse error: {}", e)))?;
     let metadata = extract_metadata(&normalized_message)?;
+    let log_context = MessageLogContext::from_message(&normalized_message);
 
     let response_bytes = if request.options.mllp_frame {
         hl7v2::wrap_mllp(&normalized_bytes)
@@ -473,6 +600,17 @@ pub async fn normalize_handler(
             .map_err(|e| AppError::Internal(format!("Normalized message was not UTF-8: {}", e)))?,
         metadata,
     };
+
+    tracing::info!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_NORMALIZE,
+        message_type = %log_context.message_type,
+        message_control_id_hash = %log_context.message_control_id_hash,
+        correlation_id = %log_context.correlation_id,
+        canonical_delimiters = request.options.canonical_delimiters,
+        mllp_frame = request.options.mllp_frame,
+        "normalized HL7 message"
+    );
 
     Ok((StatusCode::OK, Json(response)))
 }
@@ -1054,6 +1192,14 @@ impl IntoResponse for AppError {
             AppError::QuarantineConflict(msg) => (StatusCode::CONFLICT, "QUARANTINE_EXISTS", msg),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg),
         };
+
+        tracing::warn!(
+            target: "hl7v2_server::evidence",
+            event = audit::EVENT_ERROR,
+            status = status.as_u16(),
+            error_code = code,
+            "request failed"
+        );
 
         let error = ErrorResponse::new(code, message);
         (status, Json(error)).into_response()

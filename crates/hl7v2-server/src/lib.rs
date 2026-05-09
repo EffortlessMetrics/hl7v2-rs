@@ -47,6 +47,8 @@
     reason = "pre-existing server runtime lint debt is tracked in policy/clippy-debt.toml"
 )]
 
+mod audit;
+
 pub mod evidence;
 pub mod grpc;
 pub mod handlers;

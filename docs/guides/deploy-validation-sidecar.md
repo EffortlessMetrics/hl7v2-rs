@@ -430,6 +430,29 @@ curl http://127.0.0.1:18080/metrics
 Use `/health` for process liveness. Use `/ready` for deployment readiness. Use
 the evidence endpoints for interface decisions.
 
+The server also emits structured evidence workflow logs for parse, validate,
+validate-redacted, bundle, replay, ACK, and ACK-policy requests. The useful
+fields are intentionally operational rather than payload-bearing:
+
+```text
+event
+message_type
+message_control_id_hash
+correlation_id
+validation_status
+issue_count
+redaction_status
+bundle_id_hash
+quarantine_output_id
+ack_code
+ack_outcome
+ack_reason
+```
+
+The raw HL7 message, raw `MSH.10` control ID, profile YAML, redaction policy,
+bundle output root, and quarantine root are not logged by default. Use the
+bundle, quarantine, and replay artifacts when you need deeper evidence.
+
 ## Deployment Notes
 
 - Keep `HL7V2_API_KEY` configured for `/hl7/*` routes.

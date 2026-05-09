@@ -24,6 +24,15 @@ Useful release-candidate workflows include:
 The server reuses the same evidence contracts as the CLI and `hl7v2` library
 instead of defining a server-only report language.
 
+Structured logs are emitted for parse, validation, redacted validation, bundle,
+replay, ACK, and ACK-policy workflows. They include message type, validation
+status, issue counts, redaction status, and hashed correlation identifiers. Raw
+HL7 payloads, raw message control IDs, profile YAML, redaction policies, and
+local filesystem roots are not logged by default.
+
+Set `RUST_LOG_FORMAT=json` to emit these fields as JSON records. The default is
+human-readable text logs.
+
 ## Usage
 
 Inspect effective configuration without leaking secrets:
