@@ -19,6 +19,7 @@ hl7v2 profile lint profiles/adt_a01.yaml
 hl7v2 profile lint profiles/adt_a01.yaml --report json
 hl7v2 profile lint profiles/adt_a01.yaml --report json --schema-version 2
 hl7v2 profile explain profiles/adt_a01.yaml --format json
+hl7v2 profile explain profiles/adt_a01.yaml --format json --schema-version 2
 hl7v2 profile test profiles/adt_a01.yaml fixtures/adt_a01/ --report json
 ```
 
