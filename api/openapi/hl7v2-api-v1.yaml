@@ -67,7 +67,7 @@ paths:
   /ready:
     get:
       summary: Readiness check
-      description: Returns JSON ready status
+      description: Returns startup readiness checks and typed evidence self-check status
       tags: [health]
       operationId: readinessCheck
       responses:
@@ -76,10 +76,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ready:
-                    type: boolean
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
 
   /metrics:
     get:
@@ -245,6 +248,34 @@ components:
           type: string
         uptime_seconds:
           type: integer
+
+    ReadyResponse:
+      type: object
+      required: [ready, status, version, checks]
+      properties:
+        ready:
+          type: boolean
+        status:
+          type: string
+          enum: [ready, not_ready]
+        version:
+          type: string
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessCheck'
+
+    ReadinessCheck:
+      type: object
+      required: [name, status, message]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pass, fail]
+        message:
+          type: string
 
     ParseRequest:
       type: object

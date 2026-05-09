@@ -23,6 +23,18 @@ pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResp
     (StatusCode::OK, Json(response))
 }
 
+/// Handler for GET /ready
+pub async fn ready_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let response = state.ready_response();
+    let status = if response.ready {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+
+    (status, Json(response))
+}
+
 /// Handler for POST /hl7/parse
 pub async fn parse_handler(
     State(_state): State<Arc<AppState>>,

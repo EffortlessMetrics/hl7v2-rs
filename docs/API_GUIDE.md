@@ -153,6 +153,12 @@ curl http://localhost:8080/health
 # Returns: {"status":"healthy","uptime_seconds":3600}
 ```
 
+**Readiness Check:**
+```bash
+curl http://localhost:8080/ready
+# Returns startup checks such as config, configured_profiles, and validation_report
+```
+
 **Prometheus Metrics:**
 ```bash
 curl http://localhost:8080/metrics

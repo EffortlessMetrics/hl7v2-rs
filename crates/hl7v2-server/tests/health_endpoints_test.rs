@@ -10,7 +10,9 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use hl7v2_server::models::{ReadinessCheck, ReadinessCheckStatus, ReadinessStatus, ReadyResponse};
 use http_body_util::BodyExt;
+use std::{sync::Arc, time::Instant};
 use tower::ServiceExt;
 
 mod common;
@@ -159,12 +161,68 @@ async fn test_ready_endpoint_returns_ready_status() {
         .await
         .unwrap();
 
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body_str = String::from_utf8(body.to_vec()).unwrap();
-
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok());
     assert!(
-        body_str.contains("\"ready\":true"),
-        "Ready endpoint should return ready: true"
+        content_type.is_some_and(|value| value.contains("application/json")),
+        "Readiness response should be JSON"
+    );
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let ready: ReadyResponse = serde_json::from_slice(&body).unwrap();
+
+    assert!(ready.ready, "Ready endpoint should return ready: true");
+    assert_eq!(ready.status, ReadinessStatus::Ready);
+    assert!(
+        ready
+            .checks
+            .iter()
+            .any(|check| check.name == "validation_report"
+                && check.status == ReadinessCheckStatus::Pass),
+        "Ready response should include validation report self-check"
+    );
+}
+
+#[tokio::test]
+async fn test_ready_endpoint_returns_503_when_startup_check_failed() {
+    let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
+    let state = Arc::new(hl7v2_server::AppState {
+        start_time: Instant::now(),
+        metrics_handle: Arc::new(metrics_handle),
+        api_key: None,
+        cors_allowed_origins: Default::default(),
+        readiness_checks: vec![ReadinessCheck::fail(
+            "configured_profiles",
+            "profile missing-profile.yaml could not be read",
+        )],
+    });
+    let app = hl7v2_server::build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/ready")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let ready: ReadyResponse = serde_json::from_slice(&body).unwrap();
+    assert!(!ready.ready);
+    assert_eq!(ready.status, ReadinessStatus::NotReady);
+    assert_eq!(
+        ready.checks.first().map(|check| &check.status),
+        Some(&ReadinessCheckStatus::Fail)
     );
 }
 

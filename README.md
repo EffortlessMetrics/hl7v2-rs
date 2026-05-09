@@ -82,7 +82,10 @@ The fastest way to get started is with the HTTP API server:
 cargo run --bin hl7v2-server
 
 # Or with custom configuration
-HL7V2_HOST=0.0.0.0 HL7V2_PORT=8080 cargo run --bin hl7v2-server
+BIND_ADDRESS=0.0.0.0:8080 cargo run --bin hl7v2-server
+
+# Inspect sanitized effective configuration and exit
+cargo run --bin hl7v2-server -- --print-config
 ```
 
 **Parse a message via HTTP:**

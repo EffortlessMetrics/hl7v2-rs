@@ -18,6 +18,90 @@ pub struct HealthResponse {
     pub uptime_seconds: u64,
 }
 
+/// Readiness check response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReadyResponse {
+    /// Whether the service is ready to receive traffic.
+    pub ready: bool,
+    /// Overall readiness status.
+    pub status: ReadinessStatus,
+    /// Server package version.
+    pub version: String,
+    /// Individual readiness checks.
+    pub checks: Vec<ReadinessCheck>,
+}
+
+impl ReadyResponse {
+    /// Build a readiness response from individual checks.
+    pub fn from_checks(checks: Vec<ReadinessCheck>) -> Self {
+        let ready = checks
+            .iter()
+            .all(|check| check.status == ReadinessCheckStatus::Pass);
+
+        Self {
+            ready,
+            status: if ready {
+                ReadinessStatus::Ready
+            } else {
+                ReadinessStatus::NotReady
+            },
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            checks,
+        }
+    }
+}
+
+/// Overall readiness status.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReadinessStatus {
+    /// All required checks passed.
+    Ready,
+    /// At least one required check failed.
+    NotReady,
+}
+
+/// Individual readiness check.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ReadinessCheck {
+    /// Stable check name.
+    pub name: String,
+    /// Check status.
+    pub status: ReadinessCheckStatus,
+    /// Human-readable diagnostic message.
+    pub message: String,
+}
+
+impl ReadinessCheck {
+    /// Build a passing readiness check.
+    pub fn pass(name: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            status: ReadinessCheckStatus::Pass,
+            message: message.into(),
+        }
+    }
+
+    /// Build a failing readiness check.
+    pub fn fail(name: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            status: ReadinessCheckStatus::Fail,
+            message: message.into(),
+        }
+    }
+}
+
+/// Individual readiness check status.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ReadinessCheckStatus {
+    /// Check passed.
+    Pass,
+    /// Check failed.
+    Fail,
+}
+
 /// Health status enum
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
