@@ -251,7 +251,7 @@ pub fn write_safe_analysis_bundle(
         bundle_version: BUNDLE_VERSION.to_string(),
         tool_name: tool_name.to_string(),
         tool_version: env!("CARGO_PKG_VERSION").to_string(),
-        message_type: redaction_output.message_type.clone(),
+        message_type: validation_report.message_type.clone(),
         input_sha256: redaction_output.input_sha256,
         profile_sha256: compute_sha256(profile_yaml),
         redaction_policy_sha256: redaction_output.policy_sha256,
@@ -302,7 +302,7 @@ pub fn write_safe_analysis_bundle(
     Ok(EvidenceBundleSummary {
         bundle_version: BUNDLE_VERSION.to_string(),
         output_dir: ".".to_string(),
-        message_type: redaction_output.message_type,
+        message_type: validation_report.message_type.clone(),
         validation_valid: validation_report.valid,
         validation_issue_count: validation_report.issue_count,
         redaction_phi_removed: redaction_output.receipt.phi_removed,
@@ -936,7 +936,7 @@ mod tests {
     use super::{EvidenceReplayCheckStatus, replay_evidence_bundle, write_safe_analysis_bundle};
 
     fn raw_message() -> &'static str {
-        "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M"
+        "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01^ADT_A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M"
     }
 
     fn profile_yaml() -> &'static str {

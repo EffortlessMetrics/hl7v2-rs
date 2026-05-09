@@ -1947,7 +1947,7 @@ action = "drop"
 mod bundle_command {
     use super::*;
 
-    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01^ADT_A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
     const PID5_CONSTRAINT_PROFILE: &str = r#"
 message_structure: ADT_A01
 version: "2.5.1"
@@ -2288,7 +2288,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 mod replay_command {
     use super::*;
 
-    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01^ADT_A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
     const SAFE_ANALYSIS_POLICY: &str = r#"
 [[rules]]
 path = "PID.3"
