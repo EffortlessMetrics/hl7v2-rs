@@ -51,7 +51,8 @@
             "redaction_receipt",
             "environment",
             "replay_shell_script",
-            "replay_powershell_script"
+            "replay_powershell_script",
+            "bundle_readme"
           ]
         },
         "sha256": {
