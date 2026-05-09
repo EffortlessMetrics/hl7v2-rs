@@ -1,0 +1,11 @@
+.git
+.github
+target
+dist
+*.log
+*.tmp
+issue-bundle
+target_*
+node_modules
+.venv
+__pycache__

@@ -1,0 +1,19 @@
+# Local sidecar smoke configuration.
+
+[server]
+host = "0.0.0.0"
+port = 8080
+bundle_output_root = "/var/lib/hl7v2/bundles"
+
+[ack]
+mode = "original"
+accept_on = "valid"
+reject_on = ["parse_error", "validation_error"]
+include_error_text = true
+
+[quarantine]
+enabled = true
+path = "/var/lib/hl7v2/quarantine"
+write_redacted = true
+write_report = true
+write_bundle = true
