@@ -189,6 +189,10 @@ docker compose -f infrastructure/docker/docker-compose.yml down -v
 The smoke script exercises health, readiness, redacted validation, bundle,
 replay, and corpus diff against the running sidecar.
 
+The same Compose proof is available in GitHub Actions as the path-scoped
+**Server Docker Smoke** workflow. Use the manual trigger when you need hosted
+deployment proof without changing the main CI matrix.
+
 ## 4. Check Readiness
 
 Readiness is the deployment gate:
