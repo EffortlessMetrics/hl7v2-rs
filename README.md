@@ -80,6 +80,8 @@ For migration and vendor-change review, see the
 [Vendor Upgrade Diff guide](docs/guides/vendor-upgrade-diff.md).
 For support escalation without raw message PHI, see the
 [Safe Support Bundle guide](docs/guides/safe-support-bundle.md).
+For sidecar deployment, see the
+[Deploy Validation Sidecar guide](docs/guides/deploy-validation-sidecar.md).
 
 ### HTTP/REST API Server
 
