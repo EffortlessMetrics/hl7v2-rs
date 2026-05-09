@@ -68,70 +68,19 @@ docker run -p 8080:8080 hl7v2-rs:latest
 
 ### Docker Compose
 
-Create `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  hl7v2-server:
-    image: hl7v2-server:latest
-    ports:
-      - "8080:8080"
-    environment:
-      BIND_ADDRESS: "0.0.0.0:8080"
-      HL7V2_MAX_CONCURRENT: "200"
-      RUST_LOG: "info"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 128M
-
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    depends_on:
-      - hl7v2-server
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-changeme}
-    depends_on:
-      - prometheus
-
-volumes:
-  prometheus_data:
-  grafana_data:
-```
-
-Start the stack:
+The checked-in Compose file runs the standalone `hl7v2-server` sidecar with
+configured bundle and quarantine roots:
 
 ```bash
-docker-compose up -d
+docker compose -f infrastructure/docker/docker-compose.yml up --build -d
+python tests/server_smoke/smoke.py
+docker compose -f infrastructure/docker/docker-compose.yml down -v
 ```
+
+The smoke script checks `/health`, `/ready`, `/hl7/validate-redacted`,
+`/hl7/bundle`, `/hl7/replay`, and `/hl7/corpus/diff` against the running
+sidecar. It uses `HL7V2_SERVER_URL` and `HL7V2_API_KEY` when set, defaulting to
+the local Compose values in `infrastructure/docker/sidecar.env.example`.
 
 ## Kubernetes Deployment
 

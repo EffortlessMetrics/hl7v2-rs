@@ -174,6 +174,18 @@ cargo run -q -p hl7v2-server
 
 The server binds `127.0.0.1:18080` from the config above.
 
+For a container smoke check from the repository root, use the checked-in
+Compose stack:
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml up --build -d
+python tests/server_smoke/smoke.py
+docker compose -f infrastructure/docker/docker-compose.yml down -v
+```
+
+The smoke script exercises health, readiness, redacted validation, bundle,
+replay, and corpus diff against the running sidecar.
+
 ## 4. Check Readiness
 
 Readiness is the deployment gate:
