@@ -21,124 +21,16 @@ use common::{
     is_valid_json, minimal_profile, read_file, simple_template, strict_profile,
     truncated_hl7_message,
 };
+use hl7v2_test_utils::{
+    PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, RAW_INPUT_FILE_SENTINEL,
+    RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels_or_paths,
+};
 
 fn is_sha256_hex(value: &str) -> bool {
     value.len() == 64
         && value
             .bytes()
             .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
-}
-
-const PHI_LEAK_SENTINEL_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||MRN-777-ALPHA^^^HOSP^MR||Signal^Patricia||19661224|M|||742 Evergreen Terrace||5558675309\rNK1|1|Watcher^Nora||900 Support Way|5550001234\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
-
-const PHI_LEAK_SENTINEL_POLICY: &str = r#"
-[[rules]]
-path = "PID.3"
-action = "hash"
-reason = "patient identifier"
-
-[[rules]]
-path = "PID.5"
-action = "drop"
-reason = "patient name"
-
-[[rules]]
-path = "PID.7"
-action = "drop"
-reason = "date of birth"
-
-[[rules]]
-path = "PID.11"
-action = "drop"
-reason = "patient address"
-
-[[rules]]
-path = "PID.13"
-action = "drop"
-reason = "patient phone"
-
-[[rules]]
-path = "NK1.2"
-action = "drop"
-reason = "next of kin name"
-
-[[rules]]
-path = "NK1.4"
-action = "drop"
-reason = "next of kin address"
-
-[[rules]]
-path = "NK1.5"
-action = "drop"
-reason = "next of kin phone"
-
-[[rules]]
-path = "MSH.9"
-action = "retain"
-reason = "message type is needed for analysis"
-
-[[rules]]
-path = "MSH.10"
-action = "retain"
-reason = "control id is needed for replay correlation"
-
-[[rules]]
-path = "OBX.3"
-action = "retain"
-reason = "observation identifier is needed for analysis"
-
-[[rules]]
-path = "OBX.5"
-action = "retain"
-reason = "non-PHI synthetic observation value shape is needed for analysis"
-"#;
-
-const PHI_LEAK_SENTINELS: &[(&str, &str)] = &[
-    ("patient name", "Signal^Patricia"),
-    ("MRN", "MRN-777-ALPHA^^^HOSP^MR"),
-    ("date of birth", "19661224"),
-    ("address", "742 Evergreen Terrace"),
-    ("phone", "5558675309"),
-    ("next of kin name", "Watcher^Nora"),
-    ("next of kin address", "900 Support Way"),
-    ("next of kin phone", "5550001234"),
-];
-
-fn assert_no_phi_leak_sentinels(context: &str, content: &str) {
-    for (label, value) in PHI_LEAK_SENTINELS {
-        assert!(
-            !content.contains(value),
-            "{context} leaked {label}: {value}"
-        );
-    }
-}
-
-fn assert_no_phi_leak_sentinels_or_paths(
-    context: &str,
-    content: &str,
-    message_path: &std::path::Path,
-    policy_path: &std::path::Path,
-) {
-    assert_no_phi_leak_sentinels(context, content);
-
-    let message_path = message_path.to_string_lossy();
-    assert!(
-        !content.contains(message_path.as_ref()),
-        "{context} leaked raw input file path"
-    );
-    assert!(
-        !content.contains("raw-phi-input-sentinel.hl7"),
-        "{context} leaked raw input file name"
-    );
-    let policy_path = policy_path.to_string_lossy();
-    assert!(
-        !content.contains(policy_path.as_ref()),
-        "{context} leaked raw policy file path"
-    );
-    assert!(
-        !content.contains("raw-policy-sentinel.toml"),
-        "{context} leaked raw policy file name"
-    );
 }
 
 // =========================================================================
@@ -2201,14 +2093,11 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     #[test]
     fn test_redact_json_does_not_emit_phi_leak_sentinels_or_paths() {
         let dir = create_temp_dir();
-        let message_file = create_temp_hl7_with_content(
-            &dir,
-            "raw-phi-input-sentinel.hl7",
-            PHI_LEAK_SENTINEL_MESSAGE,
-        );
+        let message_file =
+            create_temp_hl7_with_content(&dir, RAW_INPUT_FILE_SENTINEL, PHI_LEAK_SENTINEL_MESSAGE);
         let policy_file = create_temp_file(
             &dir,
-            "raw-policy-sentinel.toml",
+            RAW_POLICY_FILE_SENTINEL,
             PHI_LEAK_SENTINEL_POLICY.as_bytes(),
         );
 
@@ -2730,15 +2619,12 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     #[test]
     fn test_bundle_artifacts_do_not_emit_phi_leak_sentinels_or_paths() {
         let dir = create_temp_dir();
-        let message_file = create_temp_hl7_with_content(
-            &dir,
-            "raw-phi-input-sentinel.hl7",
-            PHI_LEAK_SENTINEL_MESSAGE,
-        );
+        let message_file =
+            create_temp_hl7_with_content(&dir, RAW_INPUT_FILE_SENTINEL, PHI_LEAK_SENTINEL_MESSAGE);
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
         let policy_file = create_temp_file(
             &dir,
-            "raw-policy-sentinel.toml",
+            RAW_POLICY_FILE_SENTINEL,
             PHI_LEAK_SENTINEL_POLICY.as_bytes(),
         );
         let bundle_dir = dir.path().join("issue-bundle");
@@ -3164,9 +3050,9 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         let dir = create_temp_dir();
         let (bundle_dir, message_file, policy_file) = create_replayable_bundle_with_inputs(
             &dir,
-            "raw-phi-input-sentinel.hl7",
+            RAW_INPUT_FILE_SENTINEL,
             PHI_LEAK_SENTINEL_MESSAGE,
-            "raw-policy-sentinel.toml",
+            RAW_POLICY_FILE_SENTINEL,
             PHI_LEAK_SENTINEL_POLICY,
         );
 

@@ -118,6 +118,7 @@ fn joined_components(message: &hl7v2::Message, path: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hl7v2_test_utils::{PHI_LEAK_SENTINEL_MESSAGE, assert_no_phi_leak_sentinels};
 
     const SAMPLE_MESSAGE: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John\r";
     const MISSING_CONTROL_ID: &str =
@@ -151,6 +152,17 @@ mod tests {
         assert_eq!(hash.len(), 64);
         assert!(!hash.contains("Doe"));
         assert!(!hash.contains("123456"));
+    }
+
+    #[test]
+    fn message_log_context_does_not_echo_phi_leak_sentinels() {
+        let message = hl7v2::parse(PHI_LEAK_SENTINEL_MESSAGE.as_bytes())
+            .expect("sentinel message should parse");
+        let context = MessageLogContext::from_message(&message);
+
+        assert_eq!(context.message_type, "ADT^A01");
+        assert_eq!(context.message_control_id_hash.len(), 64);
+        assert_no_phi_leak_sentinels("message log context", &format!("{context:?}"));
     }
 
     #[test]

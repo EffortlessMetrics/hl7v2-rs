@@ -13,13 +13,13 @@ use axum::{
 use hl7v2_server::{
     AckPolicyConfig, AckPolicyMode, AppState, CorsAllowedOrigins, ServerConfig, build_router,
 };
+use hl7v2_test_utils::{PHI_LEAK_SENTINEL_MESSAGE as SAMPLE_MSG, assert_no_phi_leak_sentinels};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::Instant;
 use tower::ServiceExt;
 
-const SAMPLE_MSG: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
 const VALID_PROFILE: &str = r#"
 message_structure: "ADT_A01"
 version: "2.5"
@@ -200,7 +200,5 @@ async fn test_ack_policy_still_requires_auth_when_configured() {
 }
 
 fn assert_no_phi(content: &str) {
-    for sentinel in ["Doe^John", "123456^^^HOSP^MR", "19700101"] {
-        assert!(!content.contains(sentinel), "content leaked {sentinel}");
-    }
+    assert_no_phi_leak_sentinels("ack-policy response", content);
 }
