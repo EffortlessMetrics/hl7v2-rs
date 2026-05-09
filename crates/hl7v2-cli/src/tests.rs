@@ -90,6 +90,21 @@ mod cli_unit_tests {
         }
 
         #[test]
+        fn test_doctor_command_has_schema_version_flag() {
+            use crate::Cli;
+            let schema = Cli::command();
+            let doctor = schema
+                .get_subcommands()
+                .find(|command| command.get_name() == "doctor")
+                .expect("doctor command should exist");
+
+            let schema_version_arg = doctor
+                .get_arguments()
+                .find(|arg| arg.get_id() == "schema_version");
+            assert!(schema_version_arg.is_some());
+        }
+
+        #[test]
         fn test_profile_command_has_test_subcommand() {
             use crate::Cli;
             let schema = Cli::command();

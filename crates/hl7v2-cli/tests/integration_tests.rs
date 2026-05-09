@@ -363,6 +363,40 @@ mod doctor_command {
     }
 
     #[test]
+    fn test_doctor_json_schema_version_two_has_provenance() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["doctor", "--format", "json", "--schema-version", "2"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("Doctor output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["version"], env!("CARGO_PKG_VERSION"));
+        assert!(report["checks"].is_array());
+    }
+
+    #[test]
+    fn test_doctor_text_rejects_schema_version_two() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["doctor", "--schema-version", "2"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(String::from_utf8_lossy(&output.stderr).contains(
+            "doctor report schema v2 is available only with --format json or --format yaml"
+        ));
+    }
+
+    #[test]
     fn test_doctor_checks_profile_when_supplied() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
@@ -3209,6 +3243,27 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "python binding check normalized",
         );
         assert_fixture("doctor-report", report);
+
+        let mut report_v2 = command_json(
+            &[
+                "doctor".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut report_v2, "/tool_version", "1.4.0");
+        set(&mut report_v2, "/version", "1.4.0");
+        set(&mut report_v2, "/checks/0/message", "hl7v2-cli 1.4.0");
+        set(&mut report_v2, "/checks/5/status", "warn");
+        set(
+            &mut report_v2,
+            "/checks/5/message",
+            "python binding check normalized",
+        );
+        assert_fixture("doctor-report-v2", report_v2);
     }
 
     #[test]

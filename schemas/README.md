@@ -53,11 +53,14 @@ Python lanes:
 - Redaction receipts, field-path traces, bundle environment metadata, and
   evidence bundle/replay summaries
 
-`doctor-report-v1.schema.json` validates the current `hl7v2 doctor --format
-json` output. The doctor report has no embedded `schema_version`; v1 is the
-current compatible shape.
+`doctor-report-v1.schema.json` validates the default `hl7v2 doctor --format
+json` output. `doctor-report-v2.schema.json` validates the opt-in
+`hl7v2 doctor --format json --schema-version 2` output with embedded
+`schema_version`, `tool_name`, and `tool_version`; v1 remains the default
+compatible shape.
 
-The first target v2 evidence schemas are `validation-report-v2.schema.json`,
+The first target v2 evidence schemas are `doctor-report-v2.schema.json`,
+`validation-report-v2.schema.json`,
 `profile-lint-report-v2.schema.json`,
 `profile-test-report-v2.schema.json`,
 `profile-explain-report-v2.schema.json`, `corpus-summary-v2.schema.json`,
@@ -71,10 +74,12 @@ and `evidence-replay-v2.schema.json`. They add embedded `schema_version`,
 `tool_name`, and `tool_version` fields where the artifact did not already carry
 tool provenance, while keeping their v1 counterparts valid until
 implementation PRs explicitly move producer output shapes.
-Validation reports are the first artifact with an opt-in v2 producer path:
-`hl7v2 val --report json --schema-version 2` emits the v2 shape, while the
-default output remains v1. Python validation reports expose the same opt-in
-shape through `report.to_dict(2)` and `report.to_json(2)`. Server validation
+Doctor reports can opt into their target v2 shape with
+`hl7v2 doctor --format json --schema-version 2`; defaults remain v1.
+Validation reports can opt into their target v2 shape with
+`hl7v2 val --report json --schema-version 2`; defaults remain v1. Python
+validation reports expose the same opt-in shape through `report.to_dict(2)`
+and `report.to_json(2)`. Server validation
 endpoints keep their existing v1-compatible response fields by default and add
 `validation_report_v2` when requests include `"report_schema_version": 2`.
 Profile lint reports can opt into their target v2 shape with
