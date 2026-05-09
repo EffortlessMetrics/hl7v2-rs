@@ -29,6 +29,118 @@ fn is_sha256_hex(value: &str) -> bool {
             .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
+const PHI_LEAK_SENTINEL_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||MRN-777-ALPHA^^^HOSP^MR||Signal^Patricia||19661224|M|||742 Evergreen Terrace||5558675309\rNK1|1|Watcher^Nora||900 Support Way|5550001234\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+
+const PHI_LEAK_SENTINEL_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "PID.11"
+action = "drop"
+reason = "patient address"
+
+[[rules]]
+path = "PID.13"
+action = "drop"
+reason = "patient phone"
+
+[[rules]]
+path = "NK1.2"
+action = "drop"
+reason = "next of kin name"
+
+[[rules]]
+path = "NK1.4"
+action = "drop"
+reason = "next of kin address"
+
+[[rules]]
+path = "NK1.5"
+action = "drop"
+reason = "next of kin phone"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "OBX.3"
+action = "retain"
+reason = "observation identifier is needed for analysis"
+
+[[rules]]
+path = "OBX.5"
+action = "retain"
+reason = "non-PHI synthetic observation value shape is needed for analysis"
+"#;
+
+const PHI_LEAK_SENTINELS: &[(&str, &str)] = &[
+    ("patient name", "Signal^Patricia"),
+    ("MRN", "MRN-777-ALPHA^^^HOSP^MR"),
+    ("date of birth", "19661224"),
+    ("address", "742 Evergreen Terrace"),
+    ("phone", "5558675309"),
+    ("next of kin name", "Watcher^Nora"),
+    ("next of kin address", "900 Support Way"),
+    ("next of kin phone", "5550001234"),
+];
+
+fn assert_no_phi_leak_sentinels(context: &str, content: &str) {
+    for (label, value) in PHI_LEAK_SENTINELS {
+        assert!(
+            !content.contains(value),
+            "{context} leaked {label}: {value}"
+        );
+    }
+}
+
+fn assert_no_phi_leak_sentinels_or_paths(
+    context: &str,
+    content: &str,
+    message_path: &std::path::Path,
+    policy_path: &std::path::Path,
+) {
+    assert_no_phi_leak_sentinels(context, content);
+
+    let message_path = message_path.to_string_lossy();
+    assert!(
+        !content.contains(message_path.as_ref()),
+        "{context} leaked raw input file path"
+    );
+    assert!(
+        !content.contains("raw-phi-input-sentinel.hl7"),
+        "{context} leaked raw input file name"
+    );
+    let policy_path = policy_path.to_string_lossy();
+    assert!(
+        !content.contains(policy_path.as_ref()),
+        "{context} leaked raw policy file path"
+    );
+    assert!(
+        !content.contains("raw-policy-sentinel.toml"),
+        "{context} leaked raw policy file name"
+    );
+}
+
 // =========================================================================
 // Help and Version Tests
 // =========================================================================
@@ -1549,6 +1661,50 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_redact_json_does_not_emit_phi_leak_sentinels_or_paths() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(
+            &dir,
+            "raw-phi-input-sentinel.hl7",
+            PHI_LEAK_SENTINEL_MESSAGE,
+        );
+        let policy_file = create_temp_file(
+            &dir,
+            "raw-policy-sentinel.toml",
+            PHI_LEAK_SENTINEL_POLICY.as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_no_phi_leak_sentinels_or_paths(
+            "redact stdout",
+            &stdout,
+            &message_file,
+            &policy_file,
+        );
+        assert_no_phi_leak_sentinels_or_paths(
+            "redact stderr",
+            &stderr,
+            &message_file,
+            &policy_file,
+        );
+    }
+
+    #[test]
     fn test_redact_hl7_outputs_message_and_receipt_to_stderr() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
@@ -1996,6 +2152,70 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_bundle_artifacts_do_not_emit_phi_leak_sentinels_or_paths() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(
+            &dir,
+            "raw-phi-input-sentinel.hl7",
+            PHI_LEAK_SENTINEL_MESSAGE,
+        );
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+        let policy_file = create_temp_file(
+            &dir,
+            "raw-policy-sentinel.toml",
+            PHI_LEAK_SENTINEL_POLICY.as_bytes(),
+        );
+        let bundle_dir = dir.path().join("issue-bundle");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "bundle",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--redact-policy",
+                policy_file.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+            ])
+            .output()
+            .expect("Failed to execute bundle");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_no_phi_leak_sentinels_or_paths(
+            "bundle stdout",
+            &stdout,
+            &message_file,
+            &policy_file,
+        );
+        assert_no_phi_leak_sentinels_or_paths(
+            "bundle stderr",
+            &stderr,
+            &message_file,
+            &policy_file,
+        );
+
+        for artifact in [
+            "message.redacted.hl7",
+            "validation-report.json",
+            "field-paths.json",
+            "profile.yaml",
+            "redaction-receipt.json",
+            "environment.json",
+            "replay.sh",
+            "replay.ps1",
+            "README.md",
+            "manifest.json",
+        ] {
+            let content = std::fs::read_to_string(bundle_dir.join(artifact)).unwrap();
+            assert_no_phi_leak_sentinels_or_paths(artifact, &content, &message_file, &policy_file);
+        }
+    }
+
+    #[test]
     fn test_bundle_validation_report_uses_redacted_message_without_phi() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
@@ -2112,10 +2332,26 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 "#;
 
     fn create_replayable_bundle(dir: &tempfile::TempDir) -> std::path::PathBuf {
-        let message_file = create_temp_hl7_with_content(dir, "message.hl7", PHI_MESSAGE);
+        create_replayable_bundle_with_inputs(
+            dir,
+            "message.hl7",
+            PHI_MESSAGE,
+            "safe-analysis.toml",
+            SAFE_ANALYSIS_POLICY,
+        )
+        .0
+    }
+
+    fn create_replayable_bundle_with_inputs(
+        dir: &tempfile::TempDir,
+        message_name: &str,
+        message: &str,
+        policy_name: &str,
+        policy: &str,
+    ) -> (std::path::PathBuf, std::path::PathBuf, std::path::PathBuf) {
+        let message_file = create_temp_hl7_with_content(dir, message_name, message);
         let profile_file = create_temp_profile(dir, "profile.yaml", minimal_profile());
-        let policy_file =
-            create_temp_file(dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+        let policy_file = create_temp_file(dir, policy_name, policy.as_bytes());
         let bundle_dir = dir.path().join("issue-bundle");
 
         let mut cmd = cli_command();
@@ -2132,7 +2368,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         .assert()
         .success();
 
-        bundle_dir
+        (bundle_dir, message_file, policy_file)
     }
 
     #[test]
@@ -2296,6 +2532,40 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
                 .any(|check| check["name"] == "manifest-hashes"
                     && check["status"] == "fail"
                     && check["message"].as_str().unwrap().contains("hash mismatch"))
+        );
+    }
+
+    #[test]
+    fn test_replay_report_does_not_emit_phi_leak_sentinels_or_paths() {
+        let dir = create_temp_dir();
+        let (bundle_dir, message_file, policy_file) = create_replayable_bundle_with_inputs(
+            &dir,
+            "raw-phi-input-sentinel.hl7",
+            PHI_LEAK_SENTINEL_MESSAGE,
+            "raw-policy-sentinel.toml",
+            PHI_LEAK_SENTINEL_POLICY,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_no_phi_leak_sentinels_or_paths(
+            "replay stdout",
+            &stdout,
+            &message_file,
+            &policy_file,
+        );
+        assert_no_phi_leak_sentinels_or_paths(
+            "replay stderr",
+            &stderr,
+            &message_file,
+            &policy_file,
         );
     }
 
