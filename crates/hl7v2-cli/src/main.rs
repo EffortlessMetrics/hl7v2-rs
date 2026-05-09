@@ -2104,7 +2104,7 @@ fn bundle_command(
         Some("profile.yaml".to_string()),
         validate(&redacted_message, &loaded_profile),
     );
-    let message_type = message_field_text(&message, "MSH", 9).unwrap_or_else(|| "unknown".into());
+    let message_type = validation_report.message_type.clone();
     let environment = EvidenceBundleEnvironment {
         bundle_version: "1",
         tool_name: "hl7v2-cli",
