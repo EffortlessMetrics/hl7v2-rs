@@ -21,6 +21,7 @@ pub fn create_test_server() -> Server {
         config_source: None,
         bundle_output_root: None,
         ack_policy: Default::default(),
+        quarantine: Default::default(),
     };
     Server::new(config)
 }
@@ -36,6 +37,7 @@ pub fn create_test_router() -> Router {
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
         ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     hl7v2_server::routes::build_router(state)
 }

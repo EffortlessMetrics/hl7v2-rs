@@ -131,10 +131,11 @@ pub async fn validate_handler(
 
 /// Handler for POST /hl7/validate-redacted
 pub async fn validate_redacted_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<ValidateRedactedRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let mut message = parse_request_message(request.message.as_bytes(), request.mllp_framed)?;
+    let raw_input = request.message.into_bytes();
+    let mut message = parse_request_message(&raw_input, request.mllp_framed)?;
     let receipt =
         redact_message(&mut message, &request.redaction_policy).map_err(AppError::Redaction)?;
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
@@ -148,10 +149,21 @@ pub async fn validate_redacted_handler(
         Some(profile.message_structure.clone()),
         issues,
     );
+    let quarantine = maybe_write_redacted_quarantine(RedactedQuarantineContext {
+        state: &state,
+        raw_input: &raw_input,
+        profile_yaml: &request.profile,
+        policy_text: &request.redaction_policy,
+        redacted_message: &message,
+        redacted_hl7: &redacted_hl7,
+        redaction_receipt: &receipt,
+        validation_report: &validation_report,
+    })?;
 
     let response = ValidateRedactedResponse {
         validation_report,
         redaction_receipt: receipt,
+        quarantine,
         redacted_hl7: request.include_redacted_hl7.then_some(redacted_hl7),
     };
 
@@ -452,6 +464,66 @@ fn ack_code_from_policy_decision(decision: &AckPolicyDecision) -> Result<hl7v2::
     }
 }
 
+struct RedactedQuarantineContext<'a> {
+    state: &'a AppState,
+    raw_input: &'a [u8],
+    profile_yaml: &'a str,
+    policy_text: &'a str,
+    redacted_message: &'a hl7v2::Message,
+    redacted_hl7: &'a str,
+    redaction_receipt: &'a RedactionReceipt,
+    validation_report: &'a hl7v2::ValidationReport,
+}
+
+fn maybe_write_redacted_quarantine(
+    context: RedactedQuarantineContext<'_>,
+) -> Result<Option<QuarantineOutputSummary>, AppError> {
+    let RedactedQuarantineContext {
+        state,
+        raw_input,
+        profile_yaml,
+        policy_text,
+        redacted_message,
+        redacted_hl7,
+        redaction_receipt,
+        validation_report,
+    } = context;
+
+    if validation_report.valid || !state.quarantine.enabled {
+        return Ok(None);
+    }
+
+    let root = state
+        .quarantine
+        .path
+        .as_deref()
+        .ok_or(AppError::QuarantineOutputNotConfigured)?;
+    let output_id = generated_quarantine_id();
+    let summary =
+        crate::evidence::write_quarantine_output(crate::evidence::QuarantineOutputWriteRequest {
+            root,
+            output_id: &output_id,
+            config: &state.quarantine,
+            raw_input,
+            profile_yaml,
+            policy_text,
+            redacted_message,
+            redacted_hl7,
+            redaction_receipt,
+            validation_report,
+        })
+        .map_err(AppError::quarantine_from_evidence_error)?;
+
+    Ok(Some(summary))
+}
+
+fn generated_quarantine_id() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    format!("quarantine-{}-{nanos}", std::process::id())
+}
+
 /// Extract message metadata from parsed message
 fn extract_metadata(message: &hl7v2::Message) -> Result<MessageMetadata, AppError> {
     // Find MSH segment
@@ -535,6 +607,18 @@ pub enum AppError {
     /// Bundle output already exists
     Conflict(String),
 
+    /// Quarantine output is enabled but no path is configured
+    QuarantineOutputNotConfigured,
+
+    /// Quarantine output root is configured but not writable or available
+    QuarantineOutputNotReady(String),
+
+    /// Quarantine output write error
+    Quarantine(String),
+
+    /// Quarantine output already exists
+    QuarantineConflict(String),
+
     /// Internal server error (unexpected failures)
     Internal(String),
 }
@@ -546,6 +630,22 @@ impl From<crate::evidence::EvidenceBundleError> for AppError {
             crate::evidence::EvidenceBundleError::Conflict(message) => Self::Conflict(message),
             crate::evidence::EvidenceBundleError::Io(message) => {
                 Self::BundleOutputNotReady(message)
+            }
+        }
+    }
+}
+
+impl AppError {
+    fn quarantine_from_evidence_error(error: crate::evidence::EvidenceBundleError) -> Self {
+        match error {
+            crate::evidence::EvidenceBundleError::InvalidRequest(message) => {
+                Self::Quarantine(message)
+            }
+            crate::evidence::EvidenceBundleError::Conflict(message) => {
+                Self::QuarantineConflict(message)
+            }
+            crate::evidence::EvidenceBundleError::Io(message) => {
+                Self::QuarantineOutputNotReady(message)
             }
         }
     }
@@ -571,6 +671,18 @@ impl IntoResponse for AppError {
             ),
             AppError::Bundle(msg) => (StatusCode::BAD_REQUEST, "BUNDLE_ERROR", msg),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, "BUNDLE_EXISTS", msg),
+            AppError::QuarantineOutputNotConfigured => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "QUARANTINE_OUTPUT_NOT_CONFIGURED",
+                "server quarantine output is enabled but no path is configured".to_string(),
+            ),
+            AppError::QuarantineOutputNotReady(msg) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "QUARANTINE_OUTPUT_NOT_READY",
+                msg,
+            ),
+            AppError::Quarantine(msg) => (StatusCode::BAD_REQUEST, "QUARANTINE_ERROR", msg),
+            AppError::QuarantineConflict(msg) => (StatusCode::CONFLICT, "QUARANTINE_EXISTS", msg),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg),
         };
 
@@ -594,6 +706,14 @@ impl std::fmt::Display for AppError {
             }
             AppError::Bundle(msg) => write!(f, "Bundle error: {}", msg),
             AppError::Conflict(msg) => write!(f, "Bundle conflict: {}", msg),
+            AppError::QuarantineOutputNotConfigured => {
+                write!(f, "Quarantine output path is not configured")
+            }
+            AppError::QuarantineOutputNotReady(msg) => {
+                write!(f, "Quarantine output root is not ready: {}", msg)
+            }
+            AppError::Quarantine(msg) => write!(f, "Quarantine error: {}", msg),
+            AppError::QuarantineConflict(msg) => write!(f, "Quarantine conflict: {}", msg),
             AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }

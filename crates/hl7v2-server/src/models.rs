@@ -4,6 +4,7 @@
 //! with the OpenAPI specification in `api/openapi/hl7v2-api-v1.yaml`.
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 use hl7v2::{ValidationReport, ValidationReportIssue};
 
@@ -236,6 +237,9 @@ pub struct ValidateRedactedResponse {
     pub validation_report: ValidationReport,
     /// Receipt describing redaction actions applied before validation.
     pub redaction_receipt: RedactionReceipt,
+    /// Quarantine output written when configured and validation failed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quarantine: Option<QuarantineOutputSummary>,
     /// Redacted HL7 payload, included only when requested.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacted_hl7: Option<String>,
@@ -274,6 +278,76 @@ pub struct EvidenceBundleSummary {
     pub redaction_phi_removed: bool,
     /// Bundle-relative artifact names written by the server.
     pub artifacts: Vec<String>,
+}
+
+/// Server quarantine output configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct QuarantineConfig {
+    /// Whether failed redacted validation should write quarantine output.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Filesystem root used for generated quarantine output.
+    #[serde(default)]
+    pub path: Option<PathBuf>,
+    /// Whether to write `message.redacted.hl7` when not writing a full bundle.
+    #[serde(default = "default_true")]
+    pub write_redacted: bool,
+    /// Whether to write `validation-report.json` when not writing a full bundle.
+    #[serde(default = "default_true")]
+    pub write_report: bool,
+    /// Whether to write a full replayable evidence bundle.
+    #[serde(default = "default_true")]
+    pub write_bundle: bool,
+}
+
+impl Default for QuarantineConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            path: None,
+            write_redacted: true,
+            write_report: true,
+            write_bundle: true,
+        }
+    }
+}
+
+/// Sanitized quarantine configuration for diagnostics.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PublicQuarantineConfig {
+    /// Whether quarantine output is enabled.
+    pub enabled: bool,
+    /// Whether a quarantine output path is configured without exposing the path.
+    pub path_configured: bool,
+    /// Whether redacted HL7 artifacts are configured for quarantine output.
+    pub write_redacted: bool,
+    /// Whether validation report artifacts are configured for quarantine output.
+    pub write_report: bool,
+    /// Whether replayable bundle output is configured for quarantine output.
+    pub write_bundle: bool,
+}
+
+/// Summary of quarantine output written by the server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuarantineOutputSummary {
+    /// Quarantine output contract version.
+    pub quarantine_version: String,
+    /// Output directory relative to the configured quarantine root.
+    pub output_dir: String,
+    /// Stable reason for quarantine output.
+    pub reason: QuarantineReason,
+    /// Number of validation issues that triggered the quarantine write.
+    pub validation_issue_count: usize,
+    /// Quarantine-relative artifact names written by the server.
+    pub artifacts: Vec<String>,
+}
+
+/// Reason that caused quarantine output.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum QuarantineReason {
+    /// Validation report was invalid after redaction.
+    ValidationError,
 }
 
 /// Evidence bundle manifest written inside the bundle directory.

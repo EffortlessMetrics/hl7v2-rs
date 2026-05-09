@@ -117,6 +117,20 @@ message against the supplied profile. The response includes a
 `validation_report`, a `redaction_receipt`, and an optional `redacted_hl7`
 field when `include_redacted_hl7` is true.
 
+When `[quarantine]` is enabled in `HL7V2_CONFIG`, failed validation writes
+configured quarantine output under the server-controlled quarantine root and
+adds a `quarantine` summary. The summary reports only a root-relative output id
+and artifact names; it does not expose the configured filesystem path.
+
+```toml
+[quarantine]
+enabled = true
+path = "quarantine"
+write_redacted = true
+write_report = true
+write_bundle = true
+```
+
 **Request Body:**
 ```json
 {
@@ -330,7 +344,7 @@ The API uses standard HTTP status codes and returns a JSON error body:
 - `401 Unauthorized`: Missing or invalid `X-API-Key`.
 - `409 Conflict`: Requested evidence bundle id already exists.
 - `429 Too Many Requests`: Rate limit exceeded.
-- `503 Service Unavailable`: Server-side evidence bundle output is not configured or not ready.
+- `503 Service Unavailable`: Server-side evidence bundle or quarantine output is not configured or not ready.
 - `500 Internal Server Error`: Server configuration error.
 
 ---

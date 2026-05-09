@@ -38,6 +38,7 @@ mod tests {
             readiness_checks: ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
             ack_policy: Default::default(),
+            quarantine: Default::default(),
         })
     }
 

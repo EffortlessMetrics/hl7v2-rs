@@ -2,8 +2,8 @@
 
 use crate::models::{
     EvidenceBundleEnvironment, EvidenceBundleManifest, EvidenceBundleManifestArtifact,
-    EvidenceBundleSummary, FieldPathTrace, FieldPathTraceReport, FieldValueShape, RedactionAction,
-    RedactionReceipt,
+    EvidenceBundleSummary, FieldPathTrace, FieldPathTraceReport, FieldValueShape, QuarantineConfig,
+    QuarantineOutputSummary, QuarantineReason, RedactionAction, RedactionReceipt,
 };
 use hl7v2::{Atom, Field, Message, ValidationReport};
 use sha2::{Digest, Sha256};
@@ -13,6 +13,7 @@ use std::fs;
 use std::path::Path;
 
 const BUNDLE_VERSION: &str = "1";
+const QUARANTINE_VERSION: &str = "1";
 const TOOL_NAME: &str = "hl7v2-server";
 const REPLAY_COMMAND: &str = "hl7v2 replay . --format json";
 
@@ -70,6 +71,30 @@ pub struct EvidenceBundleWriteRequest<'a> {
     /// Redaction receipt written to the bundle.
     pub redaction_receipt: &'a RedactionReceipt,
     /// Validation report written to the bundle.
+    pub validation_report: &'a ValidationReport,
+}
+
+/// Inputs needed to write configured quarantine output.
+pub struct QuarantineOutputWriteRequest<'a> {
+    /// Configured quarantine output root.
+    pub root: &'a Path,
+    /// Generated safe quarantine output identifier.
+    pub output_id: &'a str,
+    /// Quarantine output policy.
+    pub config: &'a QuarantineConfig,
+    /// Original request message bytes.
+    pub raw_input: &'a [u8],
+    /// Profile YAML used for validation.
+    pub profile_yaml: &'a str,
+    /// Safe-analysis policy TOML used for redaction.
+    pub policy_text: &'a str,
+    /// Redacted parsed message used for field traces.
+    pub redacted_message: &'a Message,
+    /// Redacted HL7 wire payload.
+    pub redacted_hl7: &'a str,
+    /// Redaction receipt generated before validation.
+    pub redaction_receipt: &'a RedactionReceipt,
+    /// Validation report that triggered quarantine output.
     pub validation_report: &'a ValidationReport,
 }
 
@@ -171,6 +196,97 @@ pub fn write_evidence_bundle(
         validation_valid: validation_report.valid,
         validation_issue_count: validation_report.issue_count,
         redaction_phi_removed: redaction_receipt.phi_removed,
+        artifacts,
+    })
+}
+
+/// Write quarantine output under a configured quarantine root.
+pub fn write_quarantine_output(
+    request: QuarantineOutputWriteRequest<'_>,
+) -> Result<QuarantineOutputSummary, EvidenceBundleError> {
+    let QuarantineOutputWriteRequest {
+        root,
+        output_id,
+        config,
+        raw_input,
+        profile_yaml,
+        policy_text,
+        redacted_message,
+        redacted_hl7,
+        redaction_receipt,
+        validation_report,
+    } = request;
+
+    if !config.write_bundle && !config.write_report && !config.write_redacted {
+        return Err(EvidenceBundleError::InvalidRequest(
+            "quarantine output must enable at least one artifact writer".to_string(),
+        ));
+    }
+
+    if config.write_bundle {
+        let bundle = write_evidence_bundle(EvidenceBundleWriteRequest {
+            root,
+            bundle_id: output_id,
+            raw_input,
+            profile_yaml,
+            policy_text,
+            redacted_message,
+            redacted_hl7,
+            redaction_receipt,
+            validation_report,
+        })?;
+
+        return Ok(QuarantineOutputSummary {
+            quarantine_version: QUARANTINE_VERSION.to_string(),
+            output_dir: bundle.output_dir,
+            reason: QuarantineReason::ValidationError,
+            validation_issue_count: bundle.validation_issue_count,
+            artifacts: bundle.artifacts,
+        });
+    }
+
+    validate_bundle_id(output_id)?;
+
+    let output_dir = root.join(output_id);
+    fs::create_dir(&output_dir).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::AlreadyExists {
+            EvidenceBundleError::Conflict(format!(
+                "quarantine output directory already exists for output_id '{output_id}'"
+            ))
+        } else {
+            EvidenceBundleError::Io(format!(
+                "could not create quarantine output directory for output_id '{output_id}': {error}"
+            ))
+        }
+    })?;
+
+    let mut artifacts = Vec::new();
+    if config.write_report {
+        write_json_file(
+            &output_dir.join("validation-report.json"),
+            validation_report,
+        )?;
+        artifacts.push("validation-report.json".to_string());
+    }
+    if config.write_redacted {
+        fs::write(output_dir.join("message.redacted.hl7"), redacted_hl7).map_err(|error| {
+            EvidenceBundleError::Io(format!(
+                "could not write quarantine redacted message artifact: {error}"
+            ))
+        })?;
+        write_json_file(
+            &output_dir.join("redaction-receipt.json"),
+            redaction_receipt,
+        )?;
+        artifacts.push("message.redacted.hl7".to_string());
+        artifacts.push("redaction-receipt.json".to_string());
+    }
+
+    Ok(QuarantineOutputSummary {
+        quarantine_version: QUARANTINE_VERSION.to_string(),
+        output_dir: output_id.to_string(),
+        reason: QuarantineReason::ValidationError,
+        validation_issue_count: validation_report.issue_count,
         artifacts,
     })
 }

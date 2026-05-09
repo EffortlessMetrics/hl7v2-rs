@@ -38,6 +38,7 @@ fn create_test_router() -> axum::Router {
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
         ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     build_router(state)
 }
@@ -897,6 +898,7 @@ mod server_integration {
             config_source: None,
             bundle_output_root: None,
             ack_policy: Default::default(),
+            quarantine: Default::default(),
         };
 
         // Build server

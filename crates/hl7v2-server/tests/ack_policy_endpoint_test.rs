@@ -53,6 +53,7 @@ fn test_router(policy: AckPolicyConfig, api_key: Option<&str>) -> axum::Router {
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
         ack_policy: policy,
+        quarantine: Default::default(),
     });
     build_router(state)
 }

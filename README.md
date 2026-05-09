@@ -121,6 +121,11 @@ curl -X POST http://localhost:8080/hl7/validate-redacted \
   }'
 ```
 
+If `[quarantine]` is enabled in `HL7V2_CONFIG`, failed
+`/hl7/validate-redacted` requests write configured quarantine artifacts under
+the server-controlled quarantine root and include a root-relative `quarantine`
+summary in the response.
+
 **Generate a policy-driven ACK/NAK:**
 ```bash
 curl -X POST http://localhost:8080/hl7/ack-policy \
