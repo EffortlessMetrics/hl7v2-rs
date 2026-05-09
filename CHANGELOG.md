@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Prepared the v1.3.0 Evidence Loop release candidate around deterministic
+  HL7 interface evidence: first-run diagnostics, typed validation reports,
+  profile lint/test/explain, corpus summarize/fingerprint/diff,
+  safe-analysis redaction, evidence bundle/replay, and Python binding parity.
+- Added schema-backed evidence artifacts and golden fixtures for
+  validation reports, profile reports, corpus reports, redaction receipts,
+  bundle summaries, and replay reports.
+- Added CLI automation semantics for evidence commands: stable exit codes,
+  machine-readable stdout, diagnostic stderr, `--output`, `--quiet`, and
+  `--no-color` support.
+- Added server-side edge-guard workflows: sanitized `--print-config`,
+  readiness checks, redacted validation, evidence bundle creation,
+  policy-driven ACK/NAK decisions, and quarantine output hooks.
+- Added Python binding APIs for parse, JSON export, normalize, validation
+  reports, corpus summary/fingerprint/diff, safe-analysis redaction,
+  evidence bundle creation, and replay verification.
+- Added workflow guides for first-use evidence, vendor upgrade diffs,
+  safe support bundles, and validation sidecar deployment.
+
+### Changed
+
+- Evidence bundles now include manifest and README artifacts, and replay
+  verifies manifest hashes before comparing regenerated evidence.
+- Current release documentation positions v1.3.0 as the Evidence Loop
+  release candidate while keeping v1.2.1 as the latest published Rust release.
+
+### Fixed
+
+- Aligned evidence bundle replay message-type handling with the bundle
+  contract so replay reports reproduce the stored validation report.
+
 ---
 
 ## [1.2.1] - 2026-05-08
@@ -34,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0] - 2026-05-03
+## Historical pre-v1.2.1 recovery notes - 2026-05-03
 
 ### Added
 
@@ -192,29 +225,19 @@ See [docs/STATUS.md](docs/STATUS.md) for complete status.
 
 ## Future Releases
 
-### v1.2.0 (Planned - 8 weeks)
-- Server mode with HTTP/gRPC
-- Remote profile loading
-- Streaming backpressure
-- CLI enhancements
-- Corpus manifest
-- Expression engine improvements
+### v1.3.0 Evidence Loop Release
 
-**See**: [ROADMAP.md](ROADMAP.md) and [docs/STATUS.md](docs/STATUS.md)
+- Promote the current evidence-loop candidate once final release validation
+  passes: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` publish dry-runs,
+  full gate checks, API contract checks, and Python wheel smoke proof.
+- Keep `hl7v2-python` on the Python/maturin lane instead of the Rust
+  crates.io publish graph.
 
-### v1.3.0 (Planned - 12 weeks after v1.2)
-- Language bindings (C, Python, JavaScript, Java)
-- Database integration (PostgreSQL, Snowflake)
-- Message queue integration (Kafka, RabbitMQ)
-- Cloud storage integration (S3, GCS, Azure Blob)
-- Advanced analytics
+### Later releases
 
-### v2.0.0 (Planned - 24 weeks after v1.3)
-- Security & compliance (HIPAA, TLS, encryption)
-- Audit logging with integrity
-- High availability & clustering
-- Advanced analytics & dashboards
-- GUI interface
+- Continue server sidecar hardening, Python distribution proof, profile
+  conformance quality, and compatibility-shim policy cleanup as separate
+  release trains.
 
 ---
 

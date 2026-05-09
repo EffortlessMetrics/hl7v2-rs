@@ -66,6 +66,8 @@ fields must be protected when present and cannot be retained.
 
 `hl7v2 bundle` writes a redacted evidence packet containing:
 
+- `manifest.json`
+- `README.md`
 - `message.redacted.hl7`
 - `validation-report.json`
 - `field-paths.json`
