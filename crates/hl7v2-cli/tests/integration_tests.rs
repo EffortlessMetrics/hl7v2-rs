@@ -2160,7 +2160,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
-    fn test_replay_fails_when_stored_validation_report_drifts() {
+    fn test_replay_fails_when_stored_validation_report_is_tampered() {
         let dir = create_temp_dir();
         let bundle_dir = create_replayable_bundle(&dir);
         let report_path = bundle_dir.join("validation-report.json");
@@ -2184,12 +2184,106 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         let report: serde_json::Value =
             serde_json::from_str(&stdout).expect("replay failure output should be JSON");
         assert_eq!(report["reproduced"], false);
+        assert!(report["checks"].as_array().unwrap().iter().any(|check| {
+            check["name"] == "manifest-hashes"
+                && check["status"] == "fail"
+                && check["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("validation-report.json")
+        }));
+    }
+
+    #[test]
+    fn test_replay_fails_when_redacted_message_is_tampered() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        let message_path = bundle_dir.join("message.redacted.hl7");
+        let mut message = std::fs::read_to_string(&message_path).unwrap();
+        message.push_str("OBX|2|ST|LEAK^SENTINEL^L||not-phi\r");
+        std::fs::write(&message_path, message).unwrap();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay failure output should be JSON");
+        assert_eq!(report["reproduced"], false);
+        assert!(report["checks"].as_array().unwrap().iter().any(|check| {
+            check["name"] == "manifest-hashes"
+                && check["status"] == "fail"
+                && check["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("message.redacted.hl7")
+        }));
+    }
+
+    #[test]
+    fn test_replay_fails_when_manifest_is_malformed() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        std::fs::write(bundle_dir.join("manifest.json"), b"{not-json").unwrap();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay failure output should be JSON");
+        assert_eq!(report["reproduced"], false);
         assert!(
             report["checks"]
                 .as_array()
                 .unwrap()
                 .iter()
-                .any(|check| check["name"] == "report-match" && check["status"] == "fail")
+                .any(|check| check["name"] == "manifest" && check["status"] == "fail")
+        );
+    }
+
+    #[test]
+    fn test_replay_fails_when_manifest_hash_is_wrong() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        let manifest_path = bundle_dir.join("manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+        manifest["artifacts"][0]["sha256"] =
+            serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        std::fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay failure output should be JSON");
+        assert_eq!(report["reproduced"], false);
+        assert!(
+            report["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|check| check["name"] == "manifest-hashes"
+                    && check["status"] == "fail"
+                    && check["message"].as_str().unwrap().contains("hash mismatch"))
         );
     }
 
