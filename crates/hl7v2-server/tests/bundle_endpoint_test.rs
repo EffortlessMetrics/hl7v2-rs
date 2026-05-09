@@ -148,6 +148,22 @@ fn bundle_request(bundle_id: &str) -> Request<Body> {
         "bundle_id": bundle_id
     });
 
+    bundle_request_with_body(body)
+}
+
+fn bundle_request_with_schema_version(bundle_id: &str, schema_version: u8) -> Request<Body> {
+    let body = json!({
+        "message": PHI_MESSAGE,
+        "profile": PROFILE,
+        "redaction_policy": POLICY,
+        "bundle_id": bundle_id,
+        "bundle_artifact_schema_version": schema_version
+    });
+
+    bundle_request_with_body(body)
+}
+
+fn bundle_request_with_body(body: Value) -> Request<Body> {
     Request::builder()
         .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
             [127, 0, 0, 1],
@@ -162,6 +178,25 @@ fn bundle_request(bundle_id: &str) -> Request<Body> {
 
 async fn post_bundle(app: axum::Router, bundle_id: &str) -> (StatusCode, Value, String) {
     let response = app.oneshot(bundle_request(bundle_id)).await.unwrap();
+    let status = response.status();
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let value = serde_json::from_str(&body_text).unwrap_or_else(|_| json!({}));
+    (status, value, body_text)
+}
+
+async fn post_bundle_with_schema_version(
+    app: axum::Router,
+    bundle_id: &str,
+    schema_version: u8,
+) -> (StatusCode, Value, String) {
+    let response = app
+        .oneshot(bundle_request_with_schema_version(
+            bundle_id,
+            schema_version,
+        ))
+        .await
+        .unwrap();
     let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body_text = String::from_utf8(body.to_vec()).unwrap();
@@ -256,6 +291,76 @@ async fn test_bundle_endpoint_writes_redacted_evidence_bundle() {
         environment["replay_command"],
         "hl7v2 replay . --format json"
     );
+}
+
+#[tokio::test]
+async fn test_bundle_endpoint_schema_version_two_writes_v2_internal_artifacts() {
+    let root = TempRoot::new("v2-artifacts");
+    let bundle_id = "case-v2";
+
+    let (status, summary, body_text) =
+        post_bundle_with_schema_version(test_router(Some(root.path().to_path_buf())), bundle_id, 2)
+            .await;
+
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(summary["bundle_version"], "1");
+    assert_eq!(summary["output_dir"], bundle_id);
+    assert_no_phi(&body_text);
+
+    let bundle_dir = root.path().join(bundle_id);
+    for artifact in [
+        "manifest.json",
+        "field-paths.json",
+        "redaction-receipt.json",
+        "environment.json",
+    ] {
+        let content = fs::read_to_string(bundle_dir.join(artifact)).unwrap();
+        assert_no_phi(&content);
+        assert!(
+            !content.contains(root.path().to_string_lossy().as_ref()),
+            "{artifact} leaked server bundle root"
+        );
+        let value: Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(value["schema_version"], "2", "{artifact} was not v2");
+        assert_eq!(value["tool_name"], "hl7v2-server");
+        assert!(
+            value["tool_version"]
+                .as_str()
+                .is_some_and(|v| !v.is_empty())
+        );
+    }
+
+    let manifest: Value =
+        serde_json::from_str(&fs::read_to_string(bundle_dir.join("manifest.json")).unwrap())
+            .unwrap();
+    assert!(
+        manifest["artifacts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|artifact| artifact["path"] == "field-paths.json"
+                && artifact["role"] == "field_path_trace"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex))
+    );
+}
+
+#[tokio::test]
+async fn test_bundle_endpoint_rejects_unsupported_artifact_schema_version() {
+    let root = TempRoot::new("bad-schema");
+
+    let (status, body, body_text) =
+        post_bundle_with_schema_version(test_router(Some(root.path().to_path_buf())), "case-v3", 3)
+            .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "VALIDATION_ERROR");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("bundle artifact schema version"))
+    );
+    assert_no_phi(&body_text);
+    assert!(fs::read_dir(root.path()).unwrap().next().is_none());
 }
 
 #[tokio::test]

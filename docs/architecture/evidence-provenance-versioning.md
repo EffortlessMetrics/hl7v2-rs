@@ -98,12 +98,12 @@ Rules:
 | `CorpusFingerprint` | Has `fingerprint_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python fingerprint output can emit v2 when requested. |
 | `CorpusDiffReport` | Has `diff_version`, `tool_version`, and profile hash metadata. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python diff output can emit v2 when requested. |
 | `SafeAnalysisRedactionOutput` | Has input/policy hashes and nested receipt; no output-level schema/tool version by default. | A v1 outer schema exists for current CLI/Python default outputs. CLI and Python redaction output can emit the target v2 schema with top-level provenance when requested. |
-| `RedactionReceipt` | Shared receipt schema without embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server redaction output can emit v2 when requested. Bundle artifacts remain v1 until migrated separately. |
-| `FieldPathTraceReport` | Bundle artifact with a v1 JSON Schema but no embedded version fields. | A target v2 bundle-artifact schema and fixture exist. Live bundle writers remain v1 until `field-paths.json`, manifest hashing, and replay verification migrate together. |
-| `EvidenceBundleSummary` | Has `bundle_version`; no `tool_version` in the summary by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python bundle output can emit v2 when requested. Server `/hl7/bundle` remains v1 by default. |
+| `RedactionReceipt` | Shared receipt schema without embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python/server redaction output can emit v2 when requested. CLI/Python/server bundle artifacts can also emit v2 receipts through explicit bundle artifact schema opt-in. |
+| `FieldPathTraceReport` | Bundle artifact with a v1 JSON Schema but no embedded version fields. | A target v2 bundle-artifact schema and fixture exist. CLI/Python/server bundle writers can emit v2 field-path traces through explicit bundle artifact schema opt-in. |
+| `EvidenceBundleSummary` | Has `bundle_version`; no `tool_version` in the summary by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python bundle output can emit v2 when requested. Server `/hl7/bundle` keeps its v1 response shape by default while allowing v2 bundle-internal artifacts. |
 | `QuarantineOutputSummary` | Has `quarantine_version`; server-local schema. | A target v2 schema exists, server responses can include the additive `quarantine_v2` field when requests set `quarantine_schema_version` to `2`, and root-relative output ids remain the only exposed path. |
-| `EvidenceBundleManifest` | Has `bundle_version`, `tool_name`, `tool_version`, and hashed artifact catalog. | A target v2 schema and fixture exist with `schema_version`; live manifests remain v1 until manifest hash rules and replay verification migrate explicitly. |
-| `EvidenceBundleEnvironment` | Has `bundle_version`, `tool_name`, `tool_version`, input/profile/policy hashes, validation summary, replay command, and a v1 JSON Schema. | A target v2 schema and fixture exist with `schema_version`; live bundle writers remain v1 until bundle artifact migration is explicit. |
+| `EvidenceBundleManifest` | Has `bundle_version`, `tool_name`, `tool_version`, and hashed artifact catalog. | A target v2 schema and fixture exist with `schema_version`; CLI/Python/server bundle writers can emit v2 manifests through explicit bundle artifact schema opt-in. |
+| `EvidenceBundleEnvironment` | Has `bundle_version`, `tool_name`, `tool_version`, input/profile/policy hashes, validation summary, replay command, and a v1 JSON Schema. | A target v2 schema and fixture exist with `schema_version`; CLI/Python/server bundle writers can emit v2 environments through explicit bundle artifact schema opt-in. |
 | `EvidenceReplayReport` | Has `replay_version`, `bundle_version`, `tool_name`, and `tool_version` by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python replay output can emit v2 when requested. |
 
 ## Migration Sequence
@@ -156,15 +156,16 @@ Do the migration in narrow PRs:
    `hl7v2 bundle ... --schema-version 2` and Python
    `bundle(..., schema_version=2)` can opt into the v2 summary. Defaults
    remain v1-compatible, and server `/hl7/bundle` keeps its v1 response shape
-   until a request-level opt-in is added.
+   while allowing v2 bundle-internal artifacts with
+   `bundle_artifact_schema_version: 2`.
    `EvidenceReplayReport` now has an explicit v2 conversion helper.
    `hl7v2 replay ... --format json --schema-version 2` and Python
    `replay(..., schema_version=2)` can opt into the v2 replay report. Defaults
    remain v1-compatible.
-   Bundle-internal `manifest.json`, `environment.json`, and `field-paths.json`
-   now have target v2 schemas and fixtures. Producers still write v1 artifact
-   shapes until a later compatibility PR migrates bundle writers and replay
-   verification together.
+   Bundle-internal `manifest.json`, `environment.json`, `field-paths.json`,
+   and `redaction-receipt.json` now have opt-in v2 producer paths in CLI,
+   Python, and server bundle writers. Default bundle artifacts remain
+   v1-compatible.
 3. Update CLI JSON/YAML output to choose the v2 shape only when the command or
    release notes explicitly say so. If a compatibility flag is needed, document
    it before exposing it.

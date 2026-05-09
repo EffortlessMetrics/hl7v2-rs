@@ -297,6 +297,13 @@ pub struct BundleRequest {
     /// Whether the message is MLLP framed.
     #[serde(default)]
     pub mllp_framed: bool,
+    /// Optional bundle-internal artifact schema version.
+    ///
+    /// Version 1 preserves the default bundle artifact shapes. Version 2 writes
+    /// `manifest.json`, `environment.json`, `field-paths.json`, and
+    /// `redaction-receipt.json` with embedded evidence provenance.
+    #[serde(default)]
+    pub bundle_artifact_schema_version: Option<u8>,
 }
 
 /// Evidence bundle summary response body.
@@ -435,6 +442,34 @@ pub struct EvidenceBundleManifest {
     pub artifacts: Vec<EvidenceBundleManifestArtifact>,
 }
 
+impl EvidenceBundleManifest {
+    /// Convert this manifest to the v2 evidence contract with server provenance.
+    pub fn to_v2(&self) -> EvidenceBundleManifestV2 {
+        EvidenceBundleManifestV2 {
+            schema_version: "2".to_string(),
+            bundle_version: self.bundle_version.clone(),
+            tool_name: self.tool_name.clone(),
+            tool_version: self.tool_version.clone(),
+            artifacts: self.artifacts.clone(),
+        }
+    }
+}
+
+/// Evidence bundle manifest v2 with embedded schema provenance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceBundleManifestV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Evidence bundle contract version.
+    pub bundle_version: String,
+    /// Tool that generated this bundle.
+    pub tool_name: String,
+    /// Tool version that generated this bundle.
+    pub tool_version: String,
+    /// Bundle-relative artifact entries.
+    pub artifacts: Vec<EvidenceBundleManifestArtifact>,
+}
+
 /// Evidence bundle manifest artifact entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvidenceBundleManifestArtifact {
@@ -471,9 +506,86 @@ pub struct EvidenceBundleEnvironment {
     pub replay_command: String,
 }
 
+impl EvidenceBundleEnvironment {
+    /// Convert this environment artifact to the v2 evidence contract.
+    pub fn to_v2(&self) -> EvidenceBundleEnvironmentV2 {
+        EvidenceBundleEnvironmentV2 {
+            schema_version: "2".to_string(),
+            bundle_version: self.bundle_version.clone(),
+            tool_name: self.tool_name.clone(),
+            tool_version: self.tool_version.clone(),
+            message_type: self.message_type.clone(),
+            input_sha256: self.input_sha256.clone(),
+            profile_sha256: self.profile_sha256.clone(),
+            redaction_policy_sha256: self.redaction_policy_sha256.clone(),
+            validation_valid: self.validation_valid,
+            validation_issue_count: self.validation_issue_count,
+            replay_command: self.replay_command.clone(),
+        }
+    }
+}
+
+/// Evidence bundle environment v2 with embedded schema provenance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceBundleEnvironmentV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Evidence bundle contract version.
+    pub bundle_version: String,
+    /// Tool that generated this bundle.
+    pub tool_name: String,
+    /// Tool version that generated this bundle.
+    pub tool_version: String,
+    /// Message type from the raw message.
+    pub message_type: String,
+    /// SHA-256 digest of the raw input message.
+    pub input_sha256: String,
+    /// SHA-256 digest of the profile YAML.
+    pub profile_sha256: String,
+    /// SHA-256 digest of the redaction policy TOML.
+    pub redaction_policy_sha256: String,
+    /// Whether validation passed after redaction.
+    pub validation_valid: bool,
+    /// Number of validation issues generated from the redacted message.
+    pub validation_issue_count: usize,
+    /// Replay command for validating the bundled artifacts.
+    pub replay_command: String,
+}
+
 /// Field-path trace written inside an evidence bundle.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FieldPathTraceReport {
+    /// HL7 trigger event from `MSH.9`, such as `ADT^A01`.
+    pub message_type: String,
+    /// Number of field entries included in the trace.
+    pub field_count: usize,
+    /// Field path trace records.
+    pub fields: Vec<FieldPathTrace>,
+}
+
+impl FieldPathTraceReport {
+    /// Convert this field-path trace to the v2 evidence contract.
+    pub fn to_v2(&self) -> FieldPathTraceReportV2 {
+        FieldPathTraceReportV2 {
+            schema_version: "2".to_string(),
+            tool_name: "hl7v2-server".to_string(),
+            tool_version: env!("CARGO_PKG_VERSION").to_string(),
+            message_type: self.message_type.clone(),
+            field_count: self.field_count,
+            fields: self.fields.clone(),
+        }
+    }
+}
+
+/// Field-path trace v2 with embedded schema and tool provenance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldPathTraceReportV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Tool that generated this trace.
+    pub tool_name: String,
+    /// Tool version that generated this trace.
+    pub tool_version: String,
     /// HL7 trigger event from `MSH.9`, such as `ADT^A01`.
     pub message_type: String,
     /// Number of field entries included in the trace.

@@ -198,6 +198,8 @@ pub async fn bundle_handler(
     State(state): State<Arc<AppState>>,
     Json(request): Json<BundleRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    let artifact_schema_version =
+        requested_bundle_artifact_schema_version(request.bundle_artifact_schema_version)?;
     let bundle_output_root = state
         .bundle_output_root
         .as_deref()
@@ -227,6 +229,7 @@ pub async fn bundle_handler(
             redacted_hl7: &redacted_hl7,
             redaction_receipt: &receipt,
             validation_report: &validation_report,
+            artifact_schema_version,
         })
         .map_err(AppError::from)?;
 
@@ -397,6 +400,16 @@ fn requested_quarantine_schema_version(version: Option<u8>) -> Result<u8, AppErr
         2 => Ok(2),
         other => Err(AppError::Validation(format!(
             "unsupported quarantine output schema version {other}; expected 1 or 2"
+        ))),
+    }
+}
+
+fn requested_bundle_artifact_schema_version(version: Option<u8>) -> Result<u8, AppError> {
+    match version.unwrap_or(1) {
+        1 => Ok(1),
+        2 => Ok(2),
+        other => Err(AppError::Validation(format!(
+            "unsupported bundle artifact schema version {other}; expected 1 or 2"
         ))),
     }
 }

@@ -72,6 +72,8 @@ pub struct EvidenceBundleWriteRequest<'a> {
     pub redaction_receipt: &'a RedactionReceipt,
     /// Validation report written to the bundle.
     pub validation_report: &'a ValidationReport,
+    /// Bundle-internal artifact schema version.
+    pub artifact_schema_version: u8,
 }
 
 /// Inputs needed to write configured quarantine output.
@@ -112,7 +114,14 @@ pub fn write_evidence_bundle(
         redacted_hl7,
         redaction_receipt,
         validation_report,
+        artifact_schema_version,
     } = request;
+
+    if !matches!(artifact_schema_version, 1 | 2) {
+        return Err(EvidenceBundleError::InvalidRequest(
+            "evidence bundle artifact schema version must be 1 or 2".to_string(),
+        ));
+    }
 
     validate_bundle_id(bundle_id)?;
 
@@ -156,12 +165,21 @@ pub fn write_evidence_bundle(
         &bundle_dir.join("validation-report.json"),
         validation_report,
     )?;
-    write_json_file(
-        &bundle_dir.join("redaction-receipt.json"),
-        redaction_receipt,
-    )?;
-    write_json_file(&bundle_dir.join("field-paths.json"), &field_trace)?;
-    write_json_file(&bundle_dir.join("environment.json"), &environment)?;
+    if artifact_schema_version == 2 {
+        write_json_file(
+            &bundle_dir.join("redaction-receipt.json"),
+            &redaction_receipt.to_v2(),
+        )?;
+        write_json_file(&bundle_dir.join("field-paths.json"), &field_trace.to_v2())?;
+        write_json_file(&bundle_dir.join("environment.json"), &environment.to_v2())?;
+    } else {
+        write_json_file(
+            &bundle_dir.join("redaction-receipt.json"),
+            redaction_receipt,
+        )?;
+        write_json_file(&bundle_dir.join("field-paths.json"), &field_trace)?;
+        write_json_file(&bundle_dir.join("environment.json"), &environment)?;
+    }
     fs::write(bundle_dir.join("replay.sh"), replay_shell_script()).map_err(|error| {
         EvidenceBundleError::Io(format!("could not write replay shell script: {error}"))
     })?;
@@ -181,7 +199,11 @@ pub fn write_evidence_bundle(
             .map(|(path, role)| bundle_manifest_artifact(&bundle_dir, path, role))
             .collect::<Result<_, _>>()?,
     };
-    write_json_file(&bundle_dir.join("manifest.json"), &manifest)?;
+    if artifact_schema_version == 2 {
+        write_json_file(&bundle_dir.join("manifest.json"), &manifest.to_v2())?;
+    } else {
+        write_json_file(&bundle_dir.join("manifest.json"), &manifest)?;
+    }
 
     let mut artifacts = BUNDLE_ARTIFACT_SPECS
         .iter()
@@ -234,6 +256,7 @@ pub fn write_quarantine_output(
             redacted_hl7,
             redaction_receipt,
             validation_report,
+            artifact_schema_version: 1,
         })?;
 
         return Ok(QuarantineOutputSummary {
