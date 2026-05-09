@@ -6,6 +6,9 @@ This package is intentionally outside the crates.io Rust publish graph. Build
 and validate it through the Python/maturin lane before any PyPI or TestPyPI
 release.
 
+The Python distribution name is `hl7v2-python`; the import module is `hl7v2`.
+Treat that split as public package identity for TestPyPI/PyPI proofs.
+
 ## Build
 
 ```bash
@@ -126,3 +129,14 @@ print(replay_v2["schema_version"])
 The current Python surface intentionally starts with the minimum evidence loop:
 parse, JSON export, normalize, validate, corpus summary/fingerprint/diff,
 safe-analysis redaction, evidence bundle creation, and replay verification.
+
+## TestPyPI Proof
+
+Use the manual **Python TestPyPI Proof** GitHub Actions workflow when proving an
+external Python package upload. It defaults to a non-publishing wheel build and
+smoke test. With `publish_to_testpypi=true`, it publishes to TestPyPI through
+Trusted Publishing and installs the same version back from TestPyPI before
+running `tests/python_smoke/smoke.py`.
+
+Setup and stop conditions are documented in
+[`docs/guides/python-testpypi-release-proof.md`](../../docs/guides/python-testpypi-release-proof.md).

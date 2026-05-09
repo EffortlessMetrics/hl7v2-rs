@@ -1,0 +1,149 @@
+name: Python TestPyPI Proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_testpypi:
+        description: "Publish the built wheel to TestPyPI and install it back"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-testpypi-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+
+jobs:
+  wheel_proof:
+    name: Build and smoke wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      package_version: ${{ steps.package.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: python-testpypi-ubuntu-py3.13
+
+      - name: Install maturin
+        run: python -m pip install --upgrade pip "maturin==1.13.1"
+
+      - name: Resolve package version
+        id: package
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import subprocess
+
+          metadata = json.loads(
+              subprocess.check_output(
+                  ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+                  text=True,
+              )
+          )
+          package = next(
+              pkg for pkg in metadata["packages"] if pkg["name"] == "hl7v2-python"
+          )
+          print(f"version={package['version']}")
+          PY
+
+      - name: Build wheel
+        run: maturin build --release --out dist
+
+      - name: Install built wheel in fresh venv
+        shell: bash
+        run: |
+          python -m venv .venv-local-wheel
+          . .venv-local-wheel/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install --force-reinstall dist/*.whl
+          python tests/python_smoke/smoke.py
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-testpypi-wheel
+          path: dist/*.whl
+          retention-days: 7
+
+  publish_testpypi:
+    name: Publish to TestPyPI
+    needs: wheel_proof
+    if: ${{ inputs.publish_to_testpypi }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/hl7v2-python/${{ needs.wheel_proof.outputs.package_version }}/
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: python-testpypi-wheel
+          path: dist
+
+      - name: Publish package distributions to TestPyPI
+        uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+
+  install_from_testpypi:
+    name: Install from TestPyPI and smoke
+    needs:
+      - wheel_proof
+      - publish_testpypi
+    if: ${{ inputs.publish_to_testpypi }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install published wheel from TestPyPI
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ needs.wheel_proof.outputs.package_version }}
+        run: |
+          python -m venv .venv-testpypi
+          . .venv-testpypi/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --no-deps \
+            --force-reinstall \
+            "hl7v2-python==${PACKAGE_VERSION}"
+          python tests/python_smoke/smoke.py
