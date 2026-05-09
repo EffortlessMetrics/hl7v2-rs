@@ -3190,6 +3190,28 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_doctor_report_matches_golden_fixture() {
+        let mut report = command_json(
+            &[
+                "doctor".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+
+        set(&mut report, "/version", "1.3.0");
+        set(&mut report, "/checks/0/message", "hl7v2-cli 1.3.0");
+        set(&mut report, "/checks/5/status", "warn");
+        set(
+            &mut report,
+            "/checks/5/message",
+            "python binding check normalized",
+        );
+        assert_fixture("doctor-report", report);
+    }
+
+    #[test]
     fn test_validation_report_matches_golden_fixture() {
         let dir = create_temp_dir();
         let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);

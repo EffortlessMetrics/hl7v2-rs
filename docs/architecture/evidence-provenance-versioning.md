@@ -89,6 +89,7 @@ Rules:
 
 | Artifact | V1 state | V2 direction |
 | --- | --- | --- |
+| `DoctorReport` | Has tool `version` plus diagnostic checks; no embedded `schema_version`. | A v1 schema exists for the current CLI output. Keep v1-compatible unless a future PR adds an explicit v2 producer path. |
 | `ValidationReport` | Shared Rust/CLI/server/Python type with no embedded `schema_version` or `tool_version`. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI/Python validation can emit v2 when requested. Server validation keeps its v1 response shape by default and can include nested `validation_report_v2` when requests set `report_schema_version` to `2`. |
 | `ProfileLintReport` | Shared Rust type with no embedded version fields by default. | A target v2 schema exists, Rust exposes an explicit v2 conversion helper, and CLI lint output can emit v2 when requested. |
 | `ProfileTestReport` | CLI-local type with embedded validation reports. | A target v2 schema exists, and CLI test output can emit v2 when requested. Promote to a shared type only if server/Python need it. |
