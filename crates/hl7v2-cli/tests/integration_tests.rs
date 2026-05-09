@@ -22,6 +22,13 @@ use common::{
     truncated_hl7_message,
 };
 
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 // =========================================================================
 // Help and Version Tests
 // =========================================================================
@@ -1883,6 +1890,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "environment.json",
             "replay.sh",
             "replay.ps1",
+            "manifest.json",
         ] {
             assert!(
                 bundle_dir.join(artifact).exists(),
@@ -1905,6 +1913,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "environment.json",
             "replay.sh",
             "replay.ps1",
+            "manifest.json",
         ] {
             let content = std::fs::read_to_string(bundle_dir.join(artifact)).unwrap();
             assert!(
@@ -1953,6 +1962,25 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             environment["replay_command"],
             "hl7v2 val message.redacted.hl7 --profile profile.yaml --report json"
         );
+
+        let manifest: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("manifest.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(manifest["bundle_version"], "1");
+        assert_eq!(manifest["tool_name"], "hl7v2-cli");
+        let artifacts = manifest["artifacts"].as_array().unwrap();
+        assert_eq!(artifacts.len(), 8);
+        assert!(artifacts.iter().any(|artifact| {
+            artifact["path"] == "message.redacted.hl7"
+                && artifact["role"] == "redacted_message"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
+        }));
+        assert!(artifacts.iter().any(|artifact| {
+            artifact["path"] == "validation-report.json"
+                && artifact["role"] == "validation_report"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
+        }));
     }
 
     #[test]
@@ -2508,6 +2536,22 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         )
         .expect("bundle redaction receipt should be JSON");
         assert_fixture("redaction-receipt", receipt);
+
+        let mut manifest: Value = serde_json::from_slice(
+            &std::fs::read(bundle.join("manifest.json"))
+                .expect("bundle manifest should be readable"),
+        )
+        .expect("bundle manifest should be JSON");
+        set(&mut manifest, "/tool_version", "1.2.1");
+        for artifact in manifest
+            .get_mut("artifacts")
+            .and_then(Value::as_array_mut)
+            .expect("manifest artifacts should be an array")
+        {
+            artifact["sha256"] =
+                "0000000000000000000000000000000000000000000000000000000000000000".into();
+        }
+        assert_fixture("evidence-bundle-manifest", manifest);
 
         let mut replay = command_json(
             &[
