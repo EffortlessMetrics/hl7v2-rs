@@ -2770,7 +2770,12 @@ fn parse_ci_exceptions(text: &str) -> Result<Vec<CiException>> {
         let allowed = top_level_quoted_value(raw, "allowed")
             .map(|v| v == "true")
             .unwrap_or(false);
-        out.push(CiException { id, lane, allowed, expires });
+        out.push(CiException {
+            id,
+            lane,
+            allowed,
+            expires,
+        });
     }
     Ok(out)
 }
@@ -2790,12 +2795,10 @@ fn check_ci_lane_whitelist() -> Result<()> {
     println!("🔎 Checking CI lane whitelist...");
     let root = env::current_dir()?;
 
-    let whitelist_text =
-        fs::read_to_string(root.join("policy/ci-lane-whitelist.toml"))
-            .map_err(|e| anyhow!("Cannot read policy/ci-lane-whitelist.toml: {e}"))?;
-    let exceptions_text =
-        fs::read_to_string(root.join("policy/ci-whitelist-exceptions.toml"))
-            .map_err(|e| anyhow!("Cannot read policy/ci-whitelist-exceptions.toml: {e}"))?;
+    let whitelist_text = fs::read_to_string(root.join("policy/ci-lane-whitelist.toml"))
+        .map_err(|e| anyhow!("Cannot read policy/ci-lane-whitelist.toml: {e}"))?;
+    let exceptions_text = fs::read_to_string(root.join("policy/ci-whitelist-exceptions.toml"))
+        .map_err(|e| anyhow!("Cannot read policy/ci-whitelist-exceptions.toml: {e}"))?;
 
     let lanes = parse_ci_lane_whitelist(&whitelist_text)?;
     let exceptions = parse_ci_exceptions(&exceptions_text)?;
@@ -2840,7 +2843,10 @@ fn check_ci_lane_whitelist() -> Result<()> {
             ("job", lane.job.as_str()),
         ] {
             if fval.is_empty() {
-                errors.push(format!("lane '{}' has empty required field `{fname}`", lane.id));
+                errors.push(format!(
+                    "lane '{}' has empty required field `{fname}`",
+                    lane.id
+                ));
             }
         }
 
