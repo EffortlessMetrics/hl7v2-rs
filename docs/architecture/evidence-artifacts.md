@@ -50,7 +50,7 @@ failed, what changed, what was redacted, and how to replay the result.
 | --- | --- |
 | Rust library | Owns the shared `ValidationReport`, `ProfileLintReport`, and corpus summary/fingerprint/diff types. Bundle, replay, profile test, and profile explain report types are currently CLI-local. |
 | CLI | Produces the complete evidence loop today. Most commands support JSON/YAML/text. `redact` supports JSON or HL7 output. `bundle` currently emits JSON summary only. |
-| Server | `/hl7/validate` exposes the shared validation issue fields and preserves legacy `errors` / `warnings`; `/hl7/validate-redacted` applies safe-analysis redaction and returns a validation report plus redaction receipt; `/hl7/bundle` writes redacted evidence bundles under a configured server root. Replay endpoints, corpus artifacts, ACK policy, and quarantine hooks remain follow-up work. |
+| Server | `/hl7/validate` exposes the shared validation issue fields and preserves legacy `errors` / `warnings`; `/hl7/validate-redacted` applies safe-analysis redaction and returns a validation report plus redaction receipt; `/hl7/bundle` writes redacted evidence bundles under a configured server root; `/hl7/ack-policy` returns policy-driven ACK/NAK decisions backed by validation reports. Replay endpoints, corpus artifacts, and quarantine hooks remain follow-up work. |
 | Python | Exposes parse, JSON conversion, normalize, and validation report dict/JSON parity. It does not yet expose corpus, redaction, bundle, or replay artifacts. |
 
 One current validation-report parity wrinkle is the profile label. The CLI uses

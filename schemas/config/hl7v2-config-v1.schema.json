@@ -36,6 +36,39 @@
         }
       }
     },
+    "ack": {
+      "type": "object",
+      "description": "Policy used by the standalone HTTP server policy-driven ACK endpoint",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["original", "enhanced"],
+          "default": "original",
+          "description": "ACK mode used when choosing generated ACK/NAK codes"
+        },
+        "accept_on": {
+          "type": "string",
+          "enum": ["valid"],
+          "default": "valid",
+          "description": "Condition that causes an accept ACK"
+        },
+        "reject_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["parse_error", "validation_error"]
+          },
+          "default": ["parse_error", "validation_error"],
+          "description": "Conditions that cause reject ACKs"
+        },
+        "include_error_text": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether generated NAKs include non-PHI error text in ERR"
+        }
+      }
+    },
     "cli": {
       "type": "object",
       "description": "Command-line defaults",
@@ -85,6 +118,12 @@
         "host": "0.0.0.0",
         "port": 8080,
         "bundle_output_root": "bundles"
+      },
+      "ack": {
+        "mode": "original",
+        "accept_on": "valid",
+        "reject_on": ["parse_error", "validation_error"],
+        "include_error_text": true
       },
       "cli": {
         "default_version": "2.5.1",

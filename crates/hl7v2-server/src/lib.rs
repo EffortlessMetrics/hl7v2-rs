@@ -57,6 +57,7 @@ pub mod redaction;
 pub mod routes;
 pub mod server;
 
+pub use models::{AckPolicyAcceptOn, AckPolicyConfig, AckPolicyMode, AckPolicyRejectCondition};
 pub use routes::build_router;
 pub use server::{AppState, CorsAllowedOrigins, Server, ServerBuilder, ServerConfig};
 

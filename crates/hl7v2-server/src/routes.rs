@@ -16,8 +16,8 @@ use tower_http::{
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::handlers::{
-    ack_handler, bundle_handler, health_handler, normalize_handler, parse_handler, ready_handler,
-    validate_handler, validate_redacted_handler,
+    ack_handler, ack_policy_handler, bundle_handler, health_handler, normalize_handler,
+    parse_handler, ready_handler, validate_handler, validate_redacted_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
 use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
@@ -44,6 +44,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/validate-redacted", post(validate_redacted_handler))
         .route("/bundle", post(bundle_handler))
         .route("/ack", post(ack_handler))
+        .route("/ack-policy", post(ack_policy_handler))
         .route("/normalize", post(normalize_handler));
 
     // Apply authentication if API key is configured in state
@@ -127,6 +128,7 @@ mod tests {
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
+            ack_policy: Default::default(),
         });
         (build_router(state), api_key)
     }
@@ -178,6 +180,7 @@ mod tests {
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
+            ack_policy: Default::default(),
         });
 
         let app = build_router(state);
@@ -213,6 +216,7 @@ mod tests {
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
+            ack_policy: Default::default(),
         });
 
         let app = build_router(state);

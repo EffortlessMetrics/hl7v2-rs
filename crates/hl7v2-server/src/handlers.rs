@@ -231,6 +231,65 @@ pub async fn ack_handler(
     Ok((StatusCode::OK, Json(response)))
 }
 
+/// Handler for POST /hl7/ack-policy
+pub async fn ack_policy_handler(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<AckPolicyRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let raw_input = request.message.into_bytes();
+    let policy = &state.ack_policy;
+
+    let (message, validation_report, decision) =
+        match parse_request_message(&raw_input, request.mllp_framed) {
+            Ok(message) => {
+                let profile = hl7v2::load_profile_checked(&request.profile)
+                    .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
+                let issues = hl7v2::validate(&message, &profile);
+                let report = hl7v2::ValidationReport::from_issues(
+                    &message,
+                    Some(profile.message_structure.clone()),
+                    issues,
+                );
+                let decision = ack_policy_decision_for_validation(policy, &report)?;
+                (message, Some(report), decision)
+            }
+            Err(error) if policy.rejects(AckPolicyRejectCondition::ParseError) => {
+                let message = parse_msh_for_ack_policy(&raw_input, request.mllp_framed)
+                    .map_err(|_fallback_error| error)?;
+                let decision = ack_policy_reject_decision(policy, AckPolicyReason::ParseError, 0);
+                (message, None, decision)
+            }
+            Err(error) => return Err(error),
+        };
+
+    let ack_code = ack_code_from_policy_decision(&decision)?;
+    let ack_message = if let Some(error_text) = decision.error_text.as_deref() {
+        hl7v2::ack_with_error(&message, ack_code, Some(error_text))
+    } else {
+        hl7v2::ack(&message, ack_code)
+    }
+    .map_err(|e| AppError::Internal(format!("Failed to generate policy ACK: {}", e)))?;
+
+    let metadata = extract_metadata(&ack_message)?;
+    let ack_bytes = hl7v2::write(&ack_message);
+    let ack_bytes = if request.mllp_frame {
+        hl7v2::wrap_mllp(&ack_bytes)
+    } else {
+        ack_bytes
+    };
+
+    let response = AckPolicyResponse {
+        ack_message: String::from_utf8(ack_bytes)
+            .map_err(|e| AppError::Internal(format!("ACK was not UTF-8: {}", e)))?,
+        ack_code: decision.ack_code.clone(),
+        decision,
+        validation_report,
+        metadata,
+    };
+
+    Ok((StatusCode::OK, Json(response)))
+}
+
 /// Handler for POST /hl7/normalize
 pub async fn normalize_handler(
     State(_state): State<Arc<AppState>>,
@@ -277,6 +336,34 @@ fn parse_request_message(
     }
 }
 
+fn parse_msh_for_ack_policy(
+    message_bytes: &[u8],
+    mllp_framed: bool,
+) -> Result<hl7v2::Message, AppError> {
+    let input = if mllp_framed {
+        hl7v2::unwrap_mllp(message_bytes)
+            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
+    } else {
+        message_bytes
+    };
+
+    let first_segment_end = input
+        .iter()
+        .position(|byte| matches!(byte, b'\r' | b'\n'))
+        .unwrap_or(input.len());
+    let msh = &input[..first_segment_end];
+    if !msh.starts_with(b"MSH") {
+        return Err(AppError::Parse(
+            "Parse error: message did not contain a usable MSH segment".to_string(),
+        ));
+    }
+
+    let mut buffer = msh.to_vec();
+    buffer.push(b'\r');
+    hl7v2::parse(&buffer)
+        .map_err(|e| AppError::Parse(format!("MSH parse error for ACK policy: {}", e)))
+}
+
 fn map_ack_code(code: AckRequestCode) -> hl7v2::AckCode {
     match code {
         AckRequestCode::Aa => hl7v2::AckCode::AA,
@@ -285,6 +372,83 @@ fn map_ack_code(code: AckRequestCode) -> hl7v2::AckCode {
         AckRequestCode::Ca => hl7v2::AckCode::CA,
         AckRequestCode::Ce => hl7v2::AckCode::CE,
         AckRequestCode::Cr => hl7v2::AckCode::CR,
+    }
+}
+
+fn ack_policy_decision_for_validation(
+    policy: &AckPolicyConfig,
+    report: &hl7v2::ValidationReport,
+) -> Result<AckPolicyDecision, AppError> {
+    if report.valid && policy.accept_on == AckPolicyAcceptOn::Valid {
+        let ack_code = match policy.mode {
+            AckPolicyMode::Original => AckRequestCode::Aa,
+            AckPolicyMode::Enhanced => AckRequestCode::Ca,
+        };
+        return Ok(AckPolicyDecision {
+            mode: policy.mode,
+            outcome: AckPolicyOutcome::Accepted,
+            reason: AckPolicyReason::Valid,
+            ack_code: ack_code.as_str().to_string(),
+            include_error_text: false,
+            error_text: None,
+        });
+    }
+
+    if policy.rejects(AckPolicyRejectCondition::ValidationError) {
+        return Ok(ack_policy_reject_decision(
+            policy,
+            AckPolicyReason::ValidationError,
+            report.issue_count,
+        ));
+    }
+
+    Err(AppError::Validation(
+        "ACK policy did not define a decision for validation failure".to_string(),
+    ))
+}
+
+fn ack_policy_reject_decision(
+    policy: &AckPolicyConfig,
+    reason: AckPolicyReason,
+    issue_count: usize,
+) -> AckPolicyDecision {
+    let ack_code = match policy.mode {
+        AckPolicyMode::Original => AckRequestCode::Ar,
+        AckPolicyMode::Enhanced => AckRequestCode::Cr,
+    };
+    let error_text = policy
+        .include_error_text
+        .then(|| ack_policy_error_text(reason, issue_count));
+
+    AckPolicyDecision {
+        mode: policy.mode,
+        outcome: AckPolicyOutcome::Rejected,
+        reason,
+        ack_code: ack_code.as_str().to_string(),
+        include_error_text: policy.include_error_text,
+        error_text,
+    }
+}
+
+fn ack_policy_error_text(reason: AckPolicyReason, issue_count: usize) -> String {
+    match reason {
+        AckPolicyReason::Valid => "message accepted".to_string(),
+        AckPolicyReason::ParseError => "message parsing failed".to_string(),
+        AckPolicyReason::ValidationError => {
+            format!("message validation failed with {issue_count} issue(s)")
+        }
+    }
+}
+
+fn ack_code_from_policy_decision(decision: &AckPolicyDecision) -> Result<hl7v2::AckCode, AppError> {
+    match decision.ack_code.as_str() {
+        "AA" => Ok(hl7v2::AckCode::AA),
+        "AR" => Ok(hl7v2::AckCode::AR),
+        "CA" => Ok(hl7v2::AckCode::CA),
+        "CR" => Ok(hl7v2::AckCode::CR),
+        code => Err(AppError::Internal(format!(
+            "ACK policy produced unsupported ACK code: {code}"
+        ))),
     }
 }
 

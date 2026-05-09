@@ -121,6 +121,17 @@ curl -X POST http://localhost:8080/hl7/validate-redacted \
   }'
 ```
 
+**Generate a policy-driven ACK/NAK:**
+```bash
+curl -X POST http://localhost:8080/hl7/ack-policy \
+  -H "X-API-Key: your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "MSH|^~\\&|...",
+    "profile": "..."
+  }'
+```
+
 **Create a redacted evidence bundle:**
 ```bash
 # Requires HL7V2_BUNDLE_OUTPUT_ROOT to point at an existing writable directory.

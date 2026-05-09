@@ -1,6 +1,6 @@
 //! HTTP server implementation.
 
-use crate::models::{ReadinessCheck, ReadyResponse};
+use crate::models::{AckPolicyConfig, ReadinessCheck, ReadyResponse};
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
@@ -30,6 +30,8 @@ pub struct AppState {
     pub readiness_checks: Vec<ReadinessCheck>,
     /// Configured root for server-generated evidence bundles.
     pub bundle_output_root: Option<PathBuf>,
+    /// Policy used by the policy-driven ACK endpoint.
+    pub ack_policy: AckPolicyConfig,
 }
 
 impl AppState {
@@ -98,6 +100,8 @@ pub struct ServerConfig {
     pub config_source: Option<String>,
     /// Optional filesystem root for server-generated evidence bundles.
     pub bundle_output_root: Option<PathBuf>,
+    /// Policy used by the policy-driven ACK endpoint.
+    pub ack_policy: AckPolicyConfig,
 }
 
 impl Default for ServerConfig {
@@ -110,6 +114,7 @@ impl Default for ServerConfig {
             profile_paths: Vec::new(),
             config_source: None,
             bundle_output_root: None,
+            ack_policy: AckPolicyConfig::default(),
         }
     }
 }
@@ -132,6 +137,8 @@ pub struct PublicServerConfig {
     pub config_source: Option<String>,
     /// Whether server-side evidence bundle output is configured.
     pub bundle_output_root_configured: bool,
+    /// Policy used by the policy-driven ACK endpoint.
+    pub ack_policy: AckPolicyConfig,
 }
 
 /// Sanitized CORS origin policy for printed config.
@@ -147,6 +154,8 @@ pub struct PublicCorsAllowedOrigins {
 struct FileConfig {
     #[serde(default)]
     server: FileServerConfig,
+    #[serde(default)]
+    ack: AckPolicyConfig,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -237,6 +246,7 @@ impl ServerConfig {
         if let Some(bundle_output_root) = file_config.server.bundle_output_root {
             config.bundle_output_root = Some(bundle_output_root);
         }
+        config.ack_policy = file_config.ack;
 
         Ok(config)
     }
@@ -251,6 +261,7 @@ impl ServerConfig {
             profile_paths: self.profile_paths.clone(),
             config_source: self.config_source.clone(),
             bundle_output_root_configured: self.bundle_output_root.is_some(),
+            ack_policy: self.ack_policy.clone(),
         }
     }
 
@@ -433,6 +444,7 @@ impl Server {
             cors_allowed_origins: config.cors_allowed_origins.clone(),
             readiness_checks: config.readiness_checks(),
             bundle_output_root: config.bundle_output_root.clone(),
+            ack_policy: config.ack_policy.clone(),
         });
 
         Self { config, state }
@@ -523,6 +535,12 @@ impl ServerBuilder {
         self
     }
 
+    /// Set the policy used by the policy-driven ACK endpoint.
+    pub fn ack_policy(mut self, policy: AckPolicyConfig) -> Self {
+        self.config.ack_policy = policy;
+        self
+    }
+
     /// Build the server
     pub fn build(self) -> Server {
         Server::new(self.config)
@@ -582,6 +600,12 @@ mod tests {
 host = "127.0.0.1"
 port = 18080
 api_key = "file-secret"
+
+[ack]
+mode = "enhanced"
+accept_on = "valid"
+reject_on = ["validation_error"]
+include_error_text = false
 "#,
         )
         .expect("config fixture should be written");
@@ -599,6 +623,15 @@ api_key = "file-secret"
         assert_eq!(config.bind_address, "0.0.0.0:19090");
         assert_eq!(config.api_key.as_deref(), Some("env-secret"));
         assert_eq!(config.bundle_output_root, Some(PathBuf::from("bundles")));
+        assert_eq!(
+            config.ack_policy.mode,
+            crate::models::AckPolicyMode::Enhanced
+        );
+        assert_eq!(
+            config.ack_policy.reject_on,
+            vec![crate::models::AckPolicyRejectCondition::ValidationError]
+        );
+        assert!(!config.ack_policy.include_error_text);
         assert_eq!(
             config.cors_allowed_origins,
             CorsAllowedOrigins::List(vec![
@@ -623,6 +656,16 @@ api_key = "file-secret"
 
         assert!(printed.contains("\"api_key_configured\":true"));
         assert!(!printed.contains("super-secret"));
+    }
+
+    #[test]
+    fn public_config_includes_ack_policy_without_secret_material() {
+        let printed = serde_json::to_string(&ServerConfig::default().to_public_config())
+            .expect("public config should serialize");
+
+        assert!(printed.contains("\"ack_policy\""));
+        assert!(printed.contains("\"mode\":\"original\""));
+        assert!(printed.contains("\"reject_on\":[\"parse_error\",\"validation_error\"]"));
     }
 
     #[test]

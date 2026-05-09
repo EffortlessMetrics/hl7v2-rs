@@ -6,6 +6,12 @@ port = 8080
 # api_key = "secret-key"
 # bundle_output_root = "bundles"
 
+[ack]
+mode = "original" # original|enhanced
+accept_on = "valid"
+reject_on = ["parse_error", "validation_error"]
+include_error_text = true
+
 [cli]
 default_version = "2.5.1"
 output_format = "text"

@@ -32,10 +32,10 @@ hl7v2 replay <bundle/> --format json
 ```
 
 The server exposes validation report parity through `/hl7/validate`, safe
-redacted validation through `/hl7/validate-redacted`, and server-side evidence
-bundle creation through `/hl7/bundle` when a bundle output root is configured.
-Python exposes parse, JSON conversion, normalization, and validation report
-dict/JSON parity.
+redacted validation through `/hl7/validate-redacted`, server-side evidence
+bundle creation through `/hl7/bundle` when a bundle output root is configured,
+and policy-driven ACK/NAK decisions through `/hl7/ack-policy`. Python exposes
+parse, JSON conversion, normalization, and validation report dict/JSON parity.
 
 ## Artifact Status
 
@@ -61,7 +61,7 @@ dict/JSON parity.
 | --- | --- |
 | Rust | Shared validation, profile lint, corpus summary/fingerprint/diff, parse, normalize, write, ACK, and redaction module APIs. Several evidence packet reports remain CLI-local. |
 | CLI | Complete current loop: doctor, profile lint/test/explain, validation, corpus summarize/fingerprint/diff, redact, bundle, and replay. |
-| Server | Validation report parity for `/hl7/validate`; redacted validation parity for `/hl7/validate-redacted`; configured-root bundle creation for `/hl7/bundle`; replay endpoint, corpus artifacts, ACK policy, and quarantine hooks remain follow-up work. |
+| Server | Validation report parity for `/hl7/validate`; redacted validation parity for `/hl7/validate-redacted`; configured-root bundle creation for `/hl7/bundle`; policy-driven ACK/NAK decisions for `/hl7/ack-policy`; replay endpoint, corpus artifacts, and quarantine hooks remain follow-up work. |
 | Python | Minimum API parity for parse, `to_json`, normalize, and validation reports. Corpus, redaction, bundle, and replay APIs remain follow-up work. |
 
 One known validation parity detail remains: the CLI report `profile` value is
