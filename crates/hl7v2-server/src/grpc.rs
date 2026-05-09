@@ -44,53 +44,10 @@ impl Hl7Service for Hl7ServiceImpl {
         request: Request<ParseRequest>,
     ) -> Result<Response<ParseResponse>, Status> {
         let req = request.into_inner();
-
-        let parse_result = if req.mllp_framed {
-            match hl7v2::unwrap_mllp(&req.message) {
-                Ok(hl7) => rust_parse(hl7),
-                Err(e) => {
-                    return Ok(Response::new(ParseResponse {
-                        success: false,
-                        message: None,
-                        errors: vec![Error {
-                            code: "MLLP_ERROR".to_string(),
-                            message: format!("Failed to unwrap MLLP: {}", e),
-                            details: std::collections::HashMap::new(),
-                            trace_id: String::new(),
-                        }],
-                        metadata: None,
-                    }));
-                }
-            }
-        } else {
-            rust_parse(&req.message)
-        };
-
-        match parse_result {
-            Ok(msg) => {
-                let metadata = extract_grpc_metadata(&msg);
-
-                let proto_msg = proto::Message::from(msg);
-
-                Ok(Response::new(ParseResponse {
-                    success: true,
-                    message: Some(proto_msg),
-                    errors: Vec::new(),
-                    metadata: Some(metadata),
-                }))
-            }
-            Err(e) => Ok(Response::new(ParseResponse {
-                success: false,
-                message: None,
-                errors: vec![Error {
-                    code: "PARSE_ERROR".to_string(),
-                    message: format!("Failed to parse HL7: {}", e),
-                    details: std::collections::HashMap::new(),
-                    trace_id: String::new(),
-                }],
-                metadata: None,
-            })),
-        }
+        Ok(Response::new(parse_grpc_message_response(
+            &req.message,
+            req.mllp_framed,
+        )))
     }
 
     type ParseStreamStream =
@@ -98,9 +55,36 @@ impl Hl7Service for Hl7ServiceImpl {
 
     async fn parse_stream(
         &self,
-        _request: Request<tonic::Streaming<ParseStreamRequest>>,
+        request: Request<tonic::Streaming<ParseStreamRequest>>,
     ) -> Result<Response<Self::ParseStreamStream>, Status> {
-        Err(Status::unimplemented("Streaming parse not yet implemented"))
+        let mut stream = request.into_inner();
+        let (sender, receiver) = tokio::sync::mpsc::channel(8);
+
+        tokio::spawn(async move {
+            loop {
+                match stream.message().await {
+                    Ok(Some(request)) => {
+                        let response = parse_stream_response_from_parse_response(
+                            parse_grpc_message_response(&request.message, request.mllp_framed),
+                        );
+                        if sender.send(Ok(response)).await.is_err() {
+                            break;
+                        }
+                    }
+                    Ok(None) => break,
+                    Err(status) => {
+                        if sender.send(Err(status)).await.is_err() {
+                            break;
+                        }
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(Response::new(tokio_stream::wrappers::ReceiverStream::new(
+            receiver,
+        )))
     }
 
     async fn validate(
@@ -264,6 +248,63 @@ impl Hl7Service for Hl7ServiceImpl {
 // ============================================================================
 // Conversions
 // ============================================================================
+
+fn parse_grpc_message_response(message: &[u8], mllp_framed: bool) -> ParseResponse {
+    let parse_result = if mllp_framed {
+        match hl7v2::unwrap_mllp(message) {
+            Ok(hl7) => rust_parse(hl7),
+            Err(e) => {
+                return ParseResponse {
+                    success: false,
+                    message: None,
+                    errors: vec![Error {
+                        code: "MLLP_ERROR".to_string(),
+                        message: format!("Failed to unwrap MLLP: {}", e),
+                        details: std::collections::HashMap::new(),
+                        trace_id: String::new(),
+                    }],
+                    metadata: None,
+                };
+            }
+        }
+    } else {
+        rust_parse(message)
+    };
+
+    match parse_result {
+        Ok(msg) => {
+            let metadata = extract_grpc_metadata(&msg);
+            let proto_msg = proto::Message::from(msg);
+
+            ParseResponse {
+                success: true,
+                message: Some(proto_msg),
+                errors: Vec::new(),
+                metadata: Some(metadata),
+            }
+        }
+        Err(e) => ParseResponse {
+            success: false,
+            message: None,
+            errors: vec![Error {
+                code: "PARSE_ERROR".to_string(),
+                message: format!("Failed to parse HL7: {}", e),
+                details: std::collections::HashMap::new(),
+                trace_id: String::new(),
+            }],
+            metadata: None,
+        },
+    }
+}
+
+fn parse_stream_response_from_parse_response(response: ParseResponse) -> ParseStreamResponse {
+    ParseStreamResponse {
+        success: response.success,
+        message: response.message,
+        errors: response.errors,
+        metadata: response.metadata,
+    }
+}
 
 fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
     MessageMetadata {

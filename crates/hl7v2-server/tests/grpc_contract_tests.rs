@@ -18,10 +18,12 @@ mod tests {
         health_check_response, validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
-    use http_body_util::Empty;
+    use http_body_util::Full;
     use metrics_exporter_prometheus::PrometheusBuilder;
+    use prost::Message as ProstMessage;
     use std::sync::Arc;
     use std::time::Instant;
+    use tokio_stream::StreamExt;
     use tonic::codec::{Codec, ProstCodec, Streaming};
     use tonic::codegen::Bytes;
     use tonic::{Code, Request};
@@ -57,6 +59,19 @@ constraints:
 
     fn service() -> Hl7ServiceImpl {
         Hl7ServiceImpl::new(mock_state())
+    }
+
+    fn grpc_request_body<T: ProstMessage>(messages: &[T]) -> Full<Bytes> {
+        let mut body = Vec::new();
+        for message in messages {
+            let encoded = message.encode_to_vec();
+            let encoded_len =
+                u32::try_from(encoded.len()).expect("gRPC test fixture should fit in u32");
+            body.push(0);
+            body.extend_from_slice(&encoded_len.to_be_bytes());
+            body.extend_from_slice(&encoded);
+        }
+        Full::new(Bytes::from(body))
     }
 
     async fn normalize(
@@ -369,17 +384,105 @@ constraints:
     }
 
     #[tokio::test]
-    async fn test_grpc_parse_stream_is_explicitly_unsupported() {
+    async fn test_grpc_parse_stream_parses_each_message() {
         let service = service();
         let mut codec = ProstCodec::<ParseStreamResponse, ParseStreamRequest>::default();
-        let stream = Streaming::new_request(codec.decoder(), Empty::<Bytes>::new(), None, None);
+        let requests = vec![
+            ParseStreamRequest {
+                message: SAMPLE_MSG.to_vec(),
+                mllp_framed: false,
+                options: None,
+            },
+            ParseStreamRequest {
+                message: b"not an HL7 message".to_vec(),
+                mllp_framed: false,
+                options: None,
+            },
+            ParseStreamRequest {
+                message: SAMPLE_MSG.to_vec(),
+                mllp_framed: true,
+                options: None,
+            },
+            ParseStreamRequest {
+                message: hl7v2::wrap_mllp(SAMPLE_MSG),
+                mllp_framed: true,
+                options: None,
+            },
+        ];
+        let stream =
+            Streaming::new_request(codec.decoder(), grpc_request_body(&requests), None, None);
 
-        let err = service
+        let response = service
             .parse_stream(Request::new(stream))
             .await
-            .expect_err("ParseStream should be explicitly unsupported");
+            .expect("ParseStream should start");
+        let mut output = response.into_inner();
 
-        assert_eq!(err.code(), Code::Unimplemented);
-        assert_eq!(err.message(), "Streaming parse not yet implemented");
+        let first = output
+            .next()
+            .await
+            .expect("first response should exist")
+            .expect("first response should be OK");
+        assert!(first.success);
+        assert_eq!(
+            first.metadata.expect("metadata should exist").control_id,
+            "CTRL123"
+        );
+
+        let second = output
+            .next()
+            .await
+            .expect("second response should exist")
+            .expect("second response should be OK");
+        assert!(!second.success);
+        assert_eq!(second.errors[0].code, "PARSE_ERROR");
+
+        let third = output
+            .next()
+            .await
+            .expect("third response should exist")
+            .expect("third response should be OK");
+        assert!(!third.success);
+        assert_eq!(third.errors[0].code, "MLLP_ERROR");
+
+        let fourth = output
+            .next()
+            .await
+            .expect("fourth response should exist")
+            .expect("fourth response should be OK");
+        assert!(fourth.success);
+        assert_eq!(
+            fourth.metadata.expect("metadata should exist").control_id,
+            "CTRL123"
+        );
+
+        assert!(output.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_parse_stream_reports_malformed_frames_as_status() {
+        let service = service();
+        let mut codec = ProstCodec::<ParseStreamResponse, ParseStreamRequest>::default();
+        let stream = Streaming::new_request(
+            codec.decoder(),
+            Full::new(Bytes::from_static(&[0, 0, 0, 0, 10, b'x'])),
+            None,
+            None,
+        );
+
+        let response = service
+            .parse_stream(Request::new(stream))
+            .await
+            .expect("ParseStream should start before decode errors");
+        let mut output = response.into_inner();
+
+        let err = output
+            .next()
+            .await
+            .expect("malformed frame should emit a status")
+            .expect_err("malformed frame should fail stream decoding");
+        assert_eq!(err.code(), Code::Internal);
+
+        assert!(output.next().await.is_none());
     }
 }
