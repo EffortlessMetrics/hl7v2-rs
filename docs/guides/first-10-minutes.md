@@ -66,7 +66,28 @@ Expected output includes local diagnostics:
 If this fails, fix the local install before testing real feeds. If Python is not
 installed, the Python binding check can warn without blocking the Rust CLI.
 
-## 2. Lint and Explain the Profile
+## 2. Generate and Validate a Built-In Sample
+
+```bash
+hl7v2 sample --type ADT_A01 --output target/hl7v2-first-10-minutes/sample.hl7
+hl7v2 validate-sample --type ADT_A01 --profile profiles/generic.yaml --report json --schema-version 2
+```
+
+Expected validation output includes:
+
+```json
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "valid": true,
+  "message_type": "ADT^A01"
+}
+```
+
+If this fails, the local profile is not aligned with the built-in ADT_A01
+sample. Fix that before moving to site-specific messages.
+
+## 3. Lint and Explain the Profile
 
 ```bash
 hl7v2 profile lint profiles/generic.yaml --report json
@@ -109,7 +130,7 @@ Expected fields include:
 If lint fails, treat that as a profile input error. Fix the profile before
 trusting validation, corpus fingerprints, or evidence bundles built from it.
 
-## 3. Validate One Message
+## 4. Validate One Message
 
 ```bash
 hl7v2 val test_data/valid_message.hl7 --profile profiles/generic.yaml --report json
@@ -142,7 +163,7 @@ Expected behavior:
 This is the automation contract: pipelines can keep the evidence report while
 still failing the job.
 
-## 4. Test the Profile Fixtures
+## 5. Test the Profile Fixtures
 
 ```bash
 hl7v2 profile test profiles/generic.yaml target/hl7v2-first-10-minutes/fixtures --report json
@@ -163,7 +184,7 @@ The `valid/` fixture must validate. The `invalid/` fixture must fail validation.
 If either expectation is wrong, the profile test command exits `1` and reports
 the case-level failure.
 
-## 5. Summarize and Fingerprint the Corpus
+## 6. Summarize and Fingerprint the Corpus
 
 ```bash
 hl7v2 corpus summarize target/hl7v2-first-10-minutes/fixtures --format json
@@ -213,7 +234,7 @@ If `parse_error_count` is not zero for files you expected to parse, inspect
 line endings first. HL7 segment separators are carriage returns (`\r`);
 LF-only samples can be rejected.
 
-## 6. Diff Before and After
+## 7. Diff Before and After
 
 Use the valid fixture as `before` and the invalid fixture as `after`:
 
@@ -251,7 +272,7 @@ Expected fields:
 This is the vendor-upgrade and migration workflow in miniature: same message
 type, same parser status, but field presence and validation evidence changed.
 
-## 7. Redact, Bundle, and Replay
+## 8. Redact, Bundle, and Replay
 
 Create a safe-analysis policy:
 

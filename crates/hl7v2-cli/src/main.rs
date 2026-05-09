@@ -256,6 +256,56 @@ enum Commands {
         no_color: bool,
     },
 
+    /// Print a built-in synthetic HL7 sample message
+    Sample {
+        /// Built-in sample message type
+        #[arg(long = "type", value_enum)]
+        sample_type: SampleType,
+
+        /// Write the sample HL7 message to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
+    },
+
+    /// Validate a built-in synthetic sample against a profile
+    ValidateSample {
+        /// Built-in sample message type
+        #[arg(long = "type", value_enum)]
+        sample_type: SampleType,
+
+        /// Profile YAML file
+        #[arg(long)]
+        profile: PathBuf,
+
+        /// Output validation report format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        report: ReportFormat,
+
+        /// Evidence schema version for machine-readable validation reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the validation report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
+    },
+
     /// Inspect and lint validation profiles
     Profile {
         #[command(subcommand)]
@@ -649,6 +699,23 @@ enum RedactFormat {
     Hl7,
 }
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+enum SampleType {
+    #[value(name = "ADT_A01", alias = "adt_a01", alias = "adt-a01")]
+    AdtA01,
+    #[value(name = "ORU_R01", alias = "oru_r01", alias = "oru-r01")]
+    OruR01,
+}
+
+impl SampleType {
+    const fn message(self) -> &'static str {
+        match self {
+            Self::AdtA01 => SAMPLE_ADT_A01,
+            Self::OruR01 => SAMPLE_ORU_R01,
+        }
+    }
+}
+
 struct OutputOptions<'a> {
     output: Option<&'a PathBuf>,
     quiet: bool,
@@ -700,7 +767,9 @@ struct ValCommandOptions<'a> {
     summary: bool,
 }
 
-const DOCTOR_BUILTIN_SAMPLE: &[u8] = b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
+const SAMPLE_ADT_A01: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01^ADT_A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
+const SAMPLE_ORU_R01: &str = "MSH|^~\\&|LAB|LAB|EHR|HOSP|202605030101||ORU^R01^ORU_R01|CTRL456|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\rOBR|1|ORD1|FILL1|CBC^Complete Blood Count\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+const DOCTOR_BUILTIN_SAMPLE: &[u8] = SAMPLE_ADT_A01.as_bytes();
 
 #[derive(serde::Serialize)]
 struct DoctorReport {
@@ -1336,6 +1405,30 @@ async fn main() {
             *schema_version,
             &OutputOptions::new(output.as_ref(), *quiet, *no_color),
         ),
+        Commands::Sample {
+            sample_type,
+            output,
+            quiet,
+            no_color,
+        } => sample_command(
+            *sample_type,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
+        Commands::ValidateSample {
+            sample_type,
+            profile,
+            report,
+            schema_version,
+            output,
+            quiet,
+            no_color,
+        } => validate_sample_command(
+            *sample_type,
+            profile,
+            report,
+            *schema_version,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
         Commands::Profile { command } => match command {
             ProfileCommands::Lint {
                 profile,
@@ -1576,6 +1669,78 @@ fn doctor_command(
 
     if report.has_errors() {
         return Err(CliFailure::check_failed("doctor reported failed checks"));
+    }
+
+    Ok(())
+}
+
+fn sample_command(
+    sample_type: SampleType,
+    output_options: &OutputOptions<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    output_options.emit(sample_type.message())
+}
+
+fn validate_sample_command(
+    sample_type: SampleType,
+    profile: &PathBuf,
+    report: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *report == ReportFormat::Text {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "validation report schema v2 is available only with --report json or --report yaml",
+        )));
+    }
+
+    let message = parse(sample_type.message().as_bytes())?;
+    let profile_yaml = fs::read_to_string(profile)?;
+    let loaded_profile = load_profile(&profile_yaml)?;
+    let issues = validate(&message, &loaded_profile);
+    let validation_report = ValidationReport::from_issues(
+        &message,
+        Some(profile.to_string_lossy().to_string()),
+        issues,
+    );
+
+    let output = match report {
+        ReportFormat::Json if schema_version == 2 => {
+            let report_v2 = validation_report_v2_for_cli(
+                &validation_report,
+                profile,
+                &profile_yaml,
+                &loaded_profile,
+            );
+            serde_json::to_string_pretty(&report_v2)?
+        }
+        ReportFormat::Yaml if schema_version == 2 => {
+            let report_v2 = validation_report_v2_for_cli(
+                &validation_report,
+                profile,
+                &profile_yaml,
+                &loaded_profile,
+            );
+            serde_yaml::to_string(&report_v2)?
+        }
+        ReportFormat::Json => serde_json::to_string_pretty(&validation_report)?,
+        ReportFormat::Yaml => serde_yaml::to_string(&validation_report)?,
+        ReportFormat::Text => {
+            if validation_report.valid {
+                "Validation passed: No issues found".to_string()
+            } else {
+                format!(
+                    "Validation failed: {} issues found",
+                    validation_report.issue_count
+                )
+            }
+        }
+    };
+    output_options.emit(&output)?;
+
+    if !validation_report.valid {
+        return Err(CliFailure::check_failed("sample validation failed"));
     }
 
     Ok(())

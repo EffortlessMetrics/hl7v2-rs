@@ -443,6 +443,118 @@ mod doctor_command {
     }
 }
 
+mod sample_command {
+    use super::*;
+
+    const ADT_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#;
+
+    #[test]
+    fn test_sample_outputs_builtin_adt_message() {
+        let mut cmd = cli_command();
+        cmd.args(["sample", "--type", "ADT_A01"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("ADT^A01^ADT_A01"))
+            .stdout(predicate::str::contains("PID|1||123456^^^HOSP^MR"));
+    }
+
+    #[test]
+    fn test_sample_writes_output_file() {
+        let dir = create_temp_dir();
+        let output_file = dir.path().join("sample.hl7");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "sample",
+                "--type",
+                "ORU_R01",
+                "--output",
+                output_file.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("sample should run");
+
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        let sample = read_file(&output_file);
+        assert!(String::from_utf8_lossy(&sample).contains("ORU^R01^ORU_R01"));
+        assert!(String::from_utf8_lossy(&sample).contains("OBX|1|NM|718-7"));
+    }
+
+    #[test]
+    fn test_validate_sample_json_schema_version_two() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(&dir, "profile.yaml", ADT_PROFILE);
+        let report_file = dir.path().join("sample-validation.json");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "validate-sample",
+                "--type",
+                "ADT_A01",
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+                "--schema-version",
+                "2",
+                "--output",
+                report_file.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("validate-sample should run");
+
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        let report: serde_json::Value =
+            serde_json::from_slice(&read_file(&report_file)).expect("report should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["message_type"], "ADT^A01");
+    }
+
+    #[test]
+    fn test_validate_sample_text_rejects_schema_version_two() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(&dir, "profile.yaml", ADT_PROFILE);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "validate-sample",
+                "--type",
+                "ADT_A01",
+                "--profile",
+                profile.to_str().unwrap(),
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("validate-sample should run");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(String::from_utf8_lossy(&output.stderr).contains(
+            "validation report schema v2 is available only with --report json or --report yaml"
+        ));
+    }
+}
+
 // =========================================================================
 // Parse Command Tests
 // =========================================================================

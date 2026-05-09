@@ -13,6 +13,14 @@ hl7v2 doctor --server-url http://127.0.0.1:8080/health --format json
 hl7v2 doctor --format json --schema-version 2 --output doctor-report.json --quiet --no-color
 ```
 
+Generate and validate built-in synthetic samples:
+
+```bash
+hl7v2 sample --type ADT_A01
+hl7v2 sample --type ORU_R01 --output oru_r01.hl7
+hl7v2 validate-sample --type ADT_A01 --profile profiles/adt_a01.yaml --report json --schema-version 2
+```
+
 Lint a profile before using it as an interface contract:
 
 ```bash
