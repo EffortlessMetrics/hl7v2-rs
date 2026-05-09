@@ -45,12 +45,17 @@ CLI and server configuration (hl7v2.toml):
 - CLI defaults
 - Logging defaults
 
-### Evidence (`evidence/*-v1.schema.json`)
+### Evidence (`evidence/*-v*.schema.json`)
 Machine-readable evidence artifacts emitted by the CLI, library, server, and
 Python lanes:
 - Validation reports and profile lint/test/explain reports
 - Corpus summary, fingerprint, and diff reports
 - Redaction receipts and evidence bundle/replay summaries
+
+`validation-report-v2.schema.json` is the first target evidence schema with
+embedded `schema_version`, `tool_name`, and `tool_version` fields. It is a
+contract artifact for the planned v2 migration; current v1 producers remain
+valid until implementation PRs explicitly move their output shape.
 
 #### Evidence Null And Empty Semantics
 
@@ -172,10 +177,15 @@ evidence fixtures, then compiles every schema:
     Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
     PY
     ajv validate -c ajv-formats -s schemas/config/hl7v2-config-v1.schema.json -d 'target/contracts/config/*.json' --spec=draft7
-    for schema in schemas/evidence/*-v1.schema.json; do
+    for schema in schemas/evidence/*-v*.schema.json; do
       name="$(basename "$schema")"
-      name="${name%-v1.schema.json}"
-      ajv validate -c ajv-formats -s "$schema" -d "fixtures/evidence/${name}.json" --spec=draft7
+      name="${name%.schema.json}"
+      data="fixtures/evidence/${name}.json"
+      if [ ! -f "$data" ]; then
+        legacy_name="${name%-v1}"
+        data="fixtures/evidence/${legacy_name}.json"
+      fi
+      ajv validate -c ajv-formats -s "$schema" -d "$data" --spec=draft7
     done
 ```
 

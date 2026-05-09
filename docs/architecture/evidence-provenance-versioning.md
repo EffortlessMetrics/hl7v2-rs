@@ -111,7 +111,9 @@ Do the migration in narrow PRs:
 
 1. Add v2 schemas and v2 golden fixtures for the highest-value shared reports:
    `ValidationReport`, `CorpusFingerprint`, `CorpusDiffReport`, and
-   `RedactionReceipt`.
+   `RedactionReceipt`. `ValidationReport` now has the first target v2 schema
+   and fixture; producers still emit the current v1 shape until migrated
+   explicitly.
 2. Add additive Rust fields behind explicit v2 serializers or conversion
    helpers. Do not break callers that still expect the v1 shapes.
 3. Update CLI JSON/YAML output to choose the v2 shape only when the command or
