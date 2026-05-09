@@ -47,8 +47,9 @@ parity.
 | `CorpusFingerprint` | Shared Rust fingerprint type with `fingerprint_version`, `tool_version`, optional profile hash, counts, field presence/cardinality, value shapes, and validation issue-code counts. | Needs JSON Schema and golden fixtures. |
 | `CorpusDiffReport` | Shared Rust diff type with `diff_version`, `tool_version`, optional profile hash, totals, new/removed message types and segments, field deltas, value-shape deltas, and validation issue-code deltas. | Needs JSON Schema and golden fixtures. |
 | `RedactionReceipt` | CLI receipt records PHI removal status, hash algorithm, per-path action, reason, match count, optional flag, and status. | CLI-local type; missing version fields, JSON Schema, and dedicated leak-sentinel fixture family. |
-| `EvidenceBundleSummary` | CLI stdout JSON summary includes `bundle_version`, output directory, message type, validation status, redaction status, and artifact list. | No manifest; no artifact hashes in summary. |
-| Bundle artifacts | `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, and `replay.ps1`. | No `manifest.json`; replay does not verify artifact hashes. |
+| `EvidenceBundleSummary` | CLI stdout JSON summary includes `bundle_version`, output directory, message type, validation status, redaction status, and artifact list. | Includes `manifest.json`; no `tool_version` in the summary itself. |
+| Bundle artifacts | `message.redacted.hl7`, `validation-report.json`, `field-paths.json`, `profile.yaml`, `redaction-receipt.json`, `environment.json`, `replay.sh`, `replay.ps1`, and `manifest.json`. | Replay does not yet verify manifest hashes. |
+| `EvidenceBundleManifest` | Bundle `manifest.json` records bundle-relative artifact paths, roles, and SHA-256 hashes. | Hash verification is produced but not enforced until the replay-manifest verification PR. |
 | `EvidenceReplayReport` | CLI report with `replay_version`, `bundle_version`, `tool_name`, `tool_version`, replay checks, reproduction status, and optional regenerated validation report. | No manifest verification yet; report schema not locked. |
 | Python validation report | `report.valid`, `message_type`, `profile`, `segment_count`, `issue_count`, `to_dict()`, and `to_json()` mirror `ValidationReport`. | Python does not yet expose corpus, redaction, bundle, or replay artifact APIs. |
 
@@ -90,18 +91,14 @@ Current behavior is script-grade:
 The evidence loop exists, but it is not yet fully contract-grade. Remaining
 hardening work:
 
-1. Add JSON Schemas for machine-readable evidence artifacts.
-2. Add representative golden fixtures and normalized snapshot comparisons.
-3. Add artifact version and tool version fields consistently.
-4. Document null/empty-list behavior for optional fields.
-5. Add bundle `manifest.json` with artifact SHA-256 values.
-6. Make replay verify artifact integrity, not only validation reproduction.
-7. Add synthetic PHI leak sentinels for redaction, bundle, replay, and later
+1. Add artifact version and tool version fields consistently.
+2. Document null/empty-list behavior for optional fields.
+3. Make replay verify manifest artifact integrity, not only validation
+   reproduction.
+4. Add synthetic PHI leak sentinels for redaction, bundle, replay, and later
    Python wrappers.
-8. Promote shared report types out of CLI-local structs when server or Python
+5. Promote shared report types out of CLI-local structs when server or Python
    parity needs them.
-9. Add consistent `--output`, `--quiet`, and `--no-color` behavior for evidence
-   commands.
 
 ## Verification Performed For This Audit
 

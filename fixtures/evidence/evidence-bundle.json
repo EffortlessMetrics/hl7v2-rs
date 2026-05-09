@@ -13,6 +13,7 @@
     "redaction-receipt.json",
     "environment.json",
     "replay.sh",
-    "replay.ps1"
+    "replay.ps1",
+    "manifest.json"
   ]
 }

@@ -1,0 +1,47 @@
+{
+  "bundle_version": "1",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.2.1",
+  "artifacts": [
+    {
+      "path": "message.redacted.hl7",
+      "role": "redacted_message",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "validation-report.json",
+      "role": "validation_report",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "field-paths.json",
+      "role": "field_path_trace",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "profile.yaml",
+      "role": "profile",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "redaction-receipt.json",
+      "role": "redaction_receipt",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "environment.json",
+      "role": "environment",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "replay.sh",
+      "role": "replay_shell_script",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "replay.ps1",
+      "role": "replay_powershell_script",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ]
+}

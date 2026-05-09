@@ -34,6 +34,7 @@ use hl7v2::{
     load_profile, load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp,
     write, write_mllp,
 };
+use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -911,6 +912,21 @@ struct EvidenceBundleSummary {
     validation_issue_count: usize,
     redaction_phi_removed: bool,
     artifacts: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+struct EvidenceBundleManifest {
+    bundle_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    artifacts: Vec<EvidenceBundleManifestArtifact>,
+}
+
+#[derive(serde::Serialize)]
+struct EvidenceBundleManifestArtifact {
+    path: String,
+    role: &'static str,
+    sha256: String,
 }
 
 #[derive(serde::Serialize)]
@@ -2112,19 +2128,33 @@ fn bundle_command(
     fs::write(out.join("replay.sh"), replay_shell_script())?;
     fs::write(out.join("replay.ps1"), replay_powershell_script())?;
 
-    let artifacts = [
-        "message.redacted.hl7",
-        "validation-report.json",
-        "field-paths.json",
-        "profile.yaml",
-        "redaction-receipt.json",
-        "environment.json",
-        "replay.sh",
-        "replay.ps1",
-    ]
-    .into_iter()
-    .map(String::from)
-    .collect();
+    let artifact_specs = [
+        ("message.redacted.hl7", "redacted_message"),
+        ("validation-report.json", "validation_report"),
+        ("field-paths.json", "field_path_trace"),
+        ("profile.yaml", "profile"),
+        ("redaction-receipt.json", "redaction_receipt"),
+        ("environment.json", "environment"),
+        ("replay.sh", "replay_shell_script"),
+        ("replay.ps1", "replay_powershell_script"),
+    ];
+    let manifest = EvidenceBundleManifest {
+        bundle_version: "1",
+        tool_name: "hl7v2-cli",
+        tool_version: env!("CARGO_PKG_VERSION"),
+        artifacts: artifact_specs
+            .iter()
+            .map(|(path, role)| bundle_manifest_artifact(out, path, role))
+            .collect::<Result<_, _>>()?,
+    };
+    write_json_file(&out.join("manifest.json"), &manifest)?;
+
+    let mut artifacts = artifact_specs
+        .iter()
+        .map(|(path, _)| (*path).to_string())
+        .collect::<Vec<_>>();
+    artifacts.push("manifest.json".to_string());
+
     let summary = EvidenceBundleSummary {
         bundle_version: "1",
         output_dir: ".".to_string(),
@@ -2487,6 +2517,22 @@ fn write_json_file<T: serde::Serialize>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     fs::write(path, serde_json::to_vec_pretty(value)?)?;
     Ok(())
+}
+
+fn bundle_manifest_artifact(
+    bundle_dir: &Path,
+    path: &'static str,
+    role: &'static str,
+) -> Result<EvidenceBundleManifestArtifact, Box<dyn std::error::Error>> {
+    let bytes = fs::read(bundle_dir.join(path))?;
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    let sha256 = format!("{:x}", hasher.finalize());
+    Ok(EvidenceBundleManifestArtifact {
+        path: path.to_string(),
+        role,
+        sha256,
+    })
 }
 
 fn replay_shell_script() -> &'static str {
