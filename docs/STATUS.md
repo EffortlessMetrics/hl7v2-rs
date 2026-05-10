@@ -66,7 +66,7 @@ bundle replay message-type fix.
 | Safe support packets | ✅ Stable | `redact`, `bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. |
 | Evidence contracts | ✅ Stable | v1.4.0 ships opt-in v2 provenance schemas/producers and an `xtask evidence-schema-check` gate. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
-| Server edge guard | ✅ Stable | v1.4.0 ships `/hl7/replay`, inline corpus endpoints, bundle artifact schema opt-in, redacted structured evidence logs, evidence metrics, Docker smoke coverage, and the bundle replay message-type fix. |
+| Server edge guard | ✅ Stable | v1.4.0 ships `/hl7/replay`, inline-message corpus endpoints that do not read request filesystem paths, bundle artifact schema opt-in, redacted structured evidence logs with hashed message-control and bundle identifiers, evidence metrics, Docker smoke coverage, and the bundle replay message-type fix. |
 | Python evidence lane | 🟡 Separate lane | Python wheel proof and minimum API parity cover parse, JSON export, normalize, validation, corpus, redaction, bundle, and replay. v1.4.0 adds v2 parity, PHI sentinel coverage, Python evidence docs, and a manual TestPyPI proof workflow. Python remains outside the crates.io Rust publish graph. |
 
 ## v1.3.0 Readiness Checklist

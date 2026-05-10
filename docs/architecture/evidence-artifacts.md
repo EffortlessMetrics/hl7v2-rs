@@ -3,7 +3,8 @@
 This document maps the current evidence-loop artifacts and their contract
 status. It is a current-state reference for the schema, golden-fixture, CLI
 output-contract, server parity, redacted server logging, and Python parity
-surfaces in the v1.3.0 evidence loop and current post-release hardening line.
+surfaces in the v1.4.0 Evidence Contracts and Server Sidecar release line and
+current main.
 For a compact schema/fixture/producer map, see the
 [Evidence Contract Index](../contracts/evidence-contract-index.md).
 
@@ -96,11 +97,12 @@ The provenance/versioning compatibility rules are maintained in
 
 ## Remaining Contract Hardening Gaps
 
-The v1.3.0 evidence loop and current post-release hardening line have
-schema-backed JSON artifacts, golden fixtures, CLI output semantics, bundle
-manifest verification, server edge-guard routes, redacted structured server
-logs, Python parity, and workflow guides. Remaining hardening work should
-narrow the few places where provenance or identity is still implicit:
+The v1.4.0 release line and current main have schema-backed JSON artifacts,
+golden fixtures, CLI output semantics, bundle manifest verification, server
+edge-guard routes, redacted structured server logs, Python parity, workflow
+guides, and a maintained evidence-schema gate. Remaining hardening work should
+keep provenance and identity explicit as new artifacts or producer surfaces are
+added:
 
 - `schema_version` or artifact-specific version naming for every machine
   artifact. The compatibility plan is documented in
