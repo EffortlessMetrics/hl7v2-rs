@@ -59,6 +59,9 @@ pub mod redaction;
 pub mod routes;
 pub mod server;
 
+pub(crate) const PROFILE_LOAD_SAFE_MESSAGE: &str =
+    "profile could not be loaded; run profile lint for details";
+
 pub use models::{
     AckPolicyAcceptOn, AckPolicyConfig, AckPolicyMode, AckPolicyRejectCondition, QuarantineConfig,
 };

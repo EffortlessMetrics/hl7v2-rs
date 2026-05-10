@@ -112,7 +112,7 @@ impl Hl7Service for Hl7ServiceImpl {
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
 
         let profile = hl7v2::load_profile(&req.profile)
-            .map_err(|e| Status::invalid_argument(format!("Failed to load profile: {}", e)))?;
+            .map_err(|_error| Status::invalid_argument(crate::PROFILE_LOAD_SAFE_MESSAGE))?;
 
         let issues = hl7v2::validate(&message, &profile);
         let report = hl7v2::ValidationReport::from_issues(
@@ -216,7 +216,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let redacted_hl7 = hl7v2::write(&message);
 
         let profile = hl7v2::load_profile_checked(&req.profile)
-            .map_err(|e| Status::invalid_argument(format!("Failed to load profile: {e}")))?;
+            .map_err(|_error| Status::invalid_argument(crate::PROFILE_LOAD_SAFE_MESSAGE))?;
 
         let issues = hl7v2::validate(&message, &profile);
         let report = hl7v2::ValidationReport::from_issues(

@@ -139,6 +139,14 @@ def assert_no_phi(label: str, value: Any) -> None:
         raise SmokeFailure(f"{label} leaked PHI sentinels: {', '.join(leaked)}")
 
 
+def is_sha256_hex(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
 def wait_for_ready() -> dict[str, Any]:
     deadline = time.monotonic() + TIMEOUT_SECONDS
     last_error: Exception | None = None
@@ -209,8 +217,8 @@ def main() -> int:
             "bundle_artifact_schema_version": 2,
         },
     )
-    if bundle.get("output_dir") != bundle_id:
-        raise SmokeFailure(f"bundle output id mismatch: {bundle}")
+    if not is_sha256_hex(bundle.get("output_dir")) or bundle.get("output_dir") == bundle_id:
+        raise SmokeFailure(f"bundle output label was not a redacted hash: {bundle}")
     if bundle.get("validation_valid") is not True:
         raise SmokeFailure(f"bundle validation was not valid: {bundle}")
     assert_no_phi("bundle response", bundle)
@@ -244,7 +252,7 @@ def main() -> int:
 
     print(
         "hl7v2-server smoke ok "
-        f"url={BASE_URL} bundle_id={bundle_id} checks={len(ready.get('checks', []))}"
+        f"url={BASE_URL} bundle_label={bundle.get('output_dir')} checks={len(ready.get('checks', []))}"
     )
     return 0
 

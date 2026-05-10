@@ -257,6 +257,38 @@ async fn test_validate_redacted_report_is_generated_from_redacted_message() {
 }
 
 #[tokio::test]
+async fn test_validate_redacted_invalid_profile_does_not_echo_profile_text() {
+    let app = common::create_test_router();
+    let sensitive_profile =
+        "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+    let request_body = json!({
+        "message": PHI_MESSAGE,
+        "profile": sensitive_profile,
+        "redaction_policy": REDACTION_POLICY
+    });
+
+    let response = app
+        .oneshot(validate_redacted_request(request_body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let body_json: Value = serde_json::from_str(&body_text).unwrap();
+
+    assert_eq!(body_json["code"], "PROFILE_LOAD_ERROR");
+    assert_eq!(
+        body_json["message"],
+        "profile could not be loaded; run profile lint for details"
+    );
+    assert!(!body_text.contains("Jane Secret"));
+    assert!(!body_text.contains("MRN-SECRET-123"));
+    assert!(!body_text.contains(sensitive_profile));
+    assert_no_phi(&body_text);
+}
+
+#[tokio::test]
 async fn test_validate_redacted_fails_closed_when_policy_misses_sensitive_fields() {
     let app = common::create_test_router();
     let incomplete_policy = r#"

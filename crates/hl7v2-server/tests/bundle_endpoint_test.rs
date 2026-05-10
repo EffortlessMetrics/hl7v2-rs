@@ -147,18 +147,23 @@ async fn post_bundle_with_schema_version(
 #[tokio::test]
 async fn test_bundle_endpoint_writes_redacted_evidence_bundle() {
     let root = TempRoot::new("success");
-    let bundle_id = "case-001";
+    let bundle_id = "MRN-SECRET-123";
 
     let (status, summary, body_text) =
         post_bundle(test_router(Some(root.path().to_path_buf())), bundle_id).await;
 
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(summary["bundle_version"], "1");
-    assert_eq!(summary["output_dir"], bundle_id);
+    assert!(
+        summary["output_dir"].as_str().is_some_and(is_sha256_hex),
+        "server bundle response should expose a hash label, not the raw caller bundle id"
+    );
+    assert_ne!(summary["output_dir"], bundle_id);
     assert_eq!(summary["message_type"], "ADT^A01");
     assert_eq!(summary["validation_valid"], true);
     assert_eq!(summary["redaction_phi_removed"], true);
     assert!(!body_text.contains(root.path().to_string_lossy().as_ref()));
+    assert!(!body_text.contains(bundle_id));
     assert_no_phi(&body_text);
 
     let bundle_dir = root.path().join(bundle_id);
@@ -236,7 +241,7 @@ async fn test_bundle_endpoint_writes_redacted_evidence_bundle() {
 #[tokio::test]
 async fn test_bundle_endpoint_schema_version_two_writes_v2_internal_artifacts() {
     let root = TempRoot::new("v2-artifacts");
-    let bundle_id = "case-v2";
+    let bundle_id = "MRN-SECRET-123";
 
     let (status, summary, body_text) =
         post_bundle_with_schema_version(test_router(Some(root.path().to_path_buf())), bundle_id, 2)
@@ -244,7 +249,9 @@ async fn test_bundle_endpoint_schema_version_two_writes_v2_internal_artifacts() 
 
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(summary["bundle_version"], "1");
-    assert_eq!(summary["output_dir"], bundle_id);
+    assert!(summary["output_dir"].as_str().is_some_and(is_sha256_hex));
+    assert_ne!(summary["output_dir"], bundle_id);
+    assert!(!body_text.contains(bundle_id));
     assert_no_phi(&body_text);
 
     let bundle_dir = root.path().join(bundle_id);
@@ -338,14 +345,19 @@ async fn test_bundle_endpoint_rejects_unsafe_bundle_id_without_writing() {
 #[tokio::test]
 async fn test_bundle_endpoint_rejects_existing_bundle_id() {
     let root = TempRoot::new("existing");
-    fs::create_dir(root.path().join("case-001")).unwrap();
+    let sensitive_bundle_id = "MRN-SECRET-123";
+    fs::create_dir(root.path().join(sensitive_bundle_id)).unwrap();
 
-    let (status, body, body_text) =
-        post_bundle(test_router(Some(root.path().to_path_buf())), "case-001").await;
+    let (status, body, body_text) = post_bundle(
+        test_router(Some(root.path().to_path_buf())),
+        sensitive_bundle_id,
+    )
+    .await;
 
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(body["code"], "BUNDLE_EXISTS");
     assert_no_phi(&body_text);
+    assert!(!body_text.contains(sensitive_bundle_id));
 }
 
 fn assert_no_phi(content: &str) {

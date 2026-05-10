@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use crate::PROFILE_LOAD_SAFE_MESSAGE;
 use crate::audit::{self, MessageLogContext};
 use crate::models::*;
 use crate::redaction::redact_message;
@@ -99,8 +100,7 @@ pub async fn validate_handler(
 
     // Load the profile before validation. Profile load failures are client
     // errors, not successful validation results.
-    let profile = hl7v2::load_profile_checked(&request.profile)
-        .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
+    let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
 
     // Perform validation using the profile
     let issues = hl7v2::validate(&message, &profile);
@@ -197,8 +197,7 @@ pub async fn validate_redacted_handler(
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
         .map_err(|error| AppError::Internal(format!("redacted message was not UTF-8: {error}")))?;
 
-    let profile = hl7v2::load_profile_checked(&request.profile)
-        .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
+    let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
     let issues = hl7v2::validate(&message, &profile);
     let validation_report = hl7v2::ValidationReport::from_issues(
         &message,
@@ -293,8 +292,7 @@ pub async fn bundle_handler(
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
         .map_err(|error| AppError::Internal(format!("redacted message was not UTF-8: {error}")))?;
 
-    let profile = hl7v2::load_profile_checked(&request.profile)
-        .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
+    let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
     let issues = hl7v2::validate(&message, &profile);
     let validation_report =
         hl7v2::ValidationReport::from_issues(&message, Some("profile.yaml".to_string()), issues);
@@ -307,6 +305,7 @@ pub async fn bundle_handler(
         crate::evidence::write_evidence_bundle(crate::evidence::EvidenceBundleWriteRequest {
             root: bundle_output_root,
             bundle_id: &request.bundle_id,
+            public_output_dir: Some(&audit::hash_identifier(&request.bundle_id)),
             raw_input: &raw_input,
             profile_yaml: &request.profile,
             policy_text: &request.redaction_policy,
@@ -331,7 +330,7 @@ pub async fn bundle_handler(
         issue_count = summary.validation_issue_count,
         redaction_status = audit::redaction_status(summary.redaction_phi_removed),
         redaction_phi_removed = summary.redaction_phi_removed,
-        bundle_id_hash = %audit::hash_identifier(&summary.output_dir),
+        bundle_id_hash = %audit::hash_identifier(&request.bundle_id),
         artifact_count = summary.artifacts.len(),
         artifact_schema_version,
         "wrote redacted evidence bundle"
@@ -356,10 +355,9 @@ pub async fn replay_handler(
 
     if !bundle_dir.is_dir() {
         crate::metrics::record_replay_result(false);
-        return Err(AppError::BundleNotFound(format!(
-            "bundle_id '{}' was not found",
-            request.bundle_id
-        )));
+        return Err(AppError::BundleNotFound(
+            "bundle id was not found".to_string(),
+        ));
     }
 
     let report = hl7v2::evidence::replay_evidence_bundle(&bundle_dir, "hl7v2-server");
@@ -539,8 +537,7 @@ pub async fn ack_policy_handler(
         crate::metrics::operation::ACK_POLICY,
     ) {
         Ok(message) => {
-            let profile = hl7v2::load_profile_checked(&request.profile)
-                .map_err(|e| AppError::ProfileLoad(e.to_string()))?;
+            let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
             let issues = hl7v2::validate(&message, &profile);
             let report = hl7v2::ValidationReport::from_issues(
                 &message,
@@ -852,8 +849,7 @@ fn attach_profile_to_fingerprint(
     profile_yaml: &str,
     messages: &[CorpusMessageInput],
 ) -> Result<hl7v2::synthetic::corpus::CorpusFingerprintProfile, AppError> {
-    let profile = hl7v2::load_profile_checked(profile_yaml)
-        .map_err(|error| AppError::ProfileLoad(error.to_string()))?;
+    let profile = hl7v2::load_profile_checked(profile_yaml).map_err(AppError::from)?;
     let metadata = hl7v2::synthetic::corpus::CorpusFingerprintProfile {
         path: "<inline-profile>".to_string(),
         sha256: compute_sha256(profile_yaml),
@@ -870,8 +866,7 @@ fn validation_issue_counts_for_messages(
     messages: &[CorpusMessageInput],
     profile_yaml: &str,
 ) -> Result<Vec<hl7v2::synthetic::corpus::CorpusCount>, AppError> {
-    let profile = hl7v2::load_profile_checked(profile_yaml)
-        .map_err(|error| AppError::ProfileLoad(error.to_string()))?;
+    let profile = hl7v2::load_profile_checked(profile_yaml).map_err(AppError::from)?;
     Ok(validation_issue_counts_for_loaded_profile(
         messages, &profile,
     ))
@@ -1244,8 +1239,13 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, code, message) = match self {
             AppError::Parse(msg) => (StatusCode::BAD_REQUEST, "PARSE_ERROR", msg),
-            // Profile load error is a client error since the profile is provided in the request
-            AppError::ProfileLoad(msg) => (StatusCode::BAD_REQUEST, "PROFILE_LOAD_ERROR", msg),
+            // Profile load error is a client error since the profile is provided in the request.
+            // Keep the public message stable and avoid echoing parser detail derived from profile YAML.
+            AppError::ProfileLoad(_) => (
+                StatusCode::BAD_REQUEST,
+                "PROFILE_LOAD_ERROR",
+                PROFILE_LOAD_SAFE_MESSAGE.to_string(),
+            ),
             AppError::Validation(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
             AppError::Redaction(msg) => (StatusCode::BAD_REQUEST, "REDACTION_ERROR", msg),
             AppError::BundleOutputNotConfigured => (
@@ -1293,7 +1293,9 @@ impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AppError::Parse(msg) => write!(f, "Parse error: {}", msg),
-            AppError::ProfileLoad(msg) => write!(f, "Profile load error: {}", msg),
+            AppError::ProfileLoad(_) => {
+                write!(f, "Profile load error: {PROFILE_LOAD_SAFE_MESSAGE}")
+            }
             AppError::Validation(msg) => write!(f, "Validation error: {}", msg),
             AppError::Redaction(msg) => write!(f, "Redaction error: {}", msg),
             AppError::BundleOutputNotConfigured => {
@@ -1325,8 +1327,8 @@ impl From<hl7v2::Error> for AppError {
 }
 
 impl From<hl7v2::conformance::profile::ProfileLoadError> for AppError {
-    fn from(err: hl7v2::conformance::profile::ProfileLoadError) -> Self {
-        AppError::ProfileLoad(err.to_string())
+    fn from(_err: hl7v2::conformance::profile::ProfileLoadError) -> Self {
+        AppError::ProfileLoad(PROFILE_LOAD_SAFE_MESSAGE.to_string())
     }
 }
 

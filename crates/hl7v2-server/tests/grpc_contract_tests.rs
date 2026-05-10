@@ -294,10 +294,12 @@ constraints:
     #[tokio::test]
     async fn test_grpc_validate_invalid_profile_returns_invalid_argument() {
         let service = service();
+        let sensitive_profile =
+            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
 
         let request = Request::new(ValidateRequest {
             message: SAMPLE_MSG.to_vec(),
-            profile: "invalid: yaml: structure:".to_string(),
+            profile: sensitive_profile.to_string(),
             mllp_framed: false,
             options: None,
             report_schema_version: 0,
@@ -309,7 +311,13 @@ constraints:
             .expect_err("Malformed profile should fail the RPC");
 
         assert_eq!(err.code(), Code::InvalidArgument);
-        assert!(err.message().contains("Failed to load profile"));
+        assert_eq!(
+            err.message(),
+            "profile could not be loaded; run profile lint for details"
+        );
+        assert!(!err.message().contains("Jane Secret"));
+        assert!(!err.message().contains("MRN-SECRET-123"));
+        assert!(!err.message().contains(sensitive_profile));
     }
 
     #[tokio::test]
@@ -453,6 +461,36 @@ constraints:
 
         assert!(inner.validation_report.expect("report should exist").valid);
         assert!(inner.redacted_hl7.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_invalid_profile_does_not_echo_profile_text() {
+        let service = service();
+        let sensitive_profile =
+            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: sensitive_profile.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: false,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+        });
+
+        let err = service
+            .validate_redacted(request)
+            .await
+            .expect_err("Malformed profile should fail the RPC");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "profile could not be loaded; run profile lint for details"
+        );
+        assert!(!err.message().contains("Jane Secret"));
+        assert!(!err.message().contains("MRN-SECRET-123"));
+        assert!(!err.message().contains(sensitive_profile));
     }
 
     #[tokio::test]

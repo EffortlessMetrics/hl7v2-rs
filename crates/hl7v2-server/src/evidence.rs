@@ -58,6 +58,8 @@ pub struct EvidenceBundleWriteRequest<'a> {
     pub root: &'a Path,
     /// Caller-supplied safe bundle identifier.
     pub bundle_id: &'a str,
+    /// Public output label returned in response summaries.
+    pub public_output_dir: Option<&'a str>,
     /// Original request message bytes.
     pub raw_input: &'a [u8],
     /// Profile YAML included in the bundle.
@@ -107,6 +109,7 @@ pub fn write_evidence_bundle(
     let EvidenceBundleWriteRequest {
         root,
         bundle_id,
+        public_output_dir,
         raw_input,
         profile_yaml,
         policy_text,
@@ -128,13 +131,9 @@ pub fn write_evidence_bundle(
     let bundle_dir = bundle_path_for_id(root, bundle_id)?;
     fs::create_dir(&bundle_dir).map_err(|error| {
         if error.kind() == std::io::ErrorKind::AlreadyExists {
-            EvidenceBundleError::Conflict(format!(
-                "bundle output directory already exists for bundle_id '{bundle_id}'"
-            ))
+            EvidenceBundleError::Conflict("bundle output directory already exists".to_string())
         } else {
-            EvidenceBundleError::Io(format!(
-                "could not create bundle output directory for bundle_id '{bundle_id}': {error}"
-            ))
+            EvidenceBundleError::Io(format!("could not create bundle output directory: {error}"))
         }
     })?;
 
@@ -213,7 +212,7 @@ pub fn write_evidence_bundle(
 
     Ok(EvidenceBundleSummary {
         bundle_version: BUNDLE_VERSION.to_string(),
-        output_dir: bundle_id.to_string(),
+        output_dir: public_output_dir.unwrap_or(bundle_id).to_string(),
         message_type,
         validation_valid: validation_report.valid,
         validation_issue_count: validation_report.issue_count,
@@ -249,6 +248,7 @@ pub fn write_quarantine_output(
         let bundle = write_evidence_bundle(EvidenceBundleWriteRequest {
             root,
             bundle_id: output_id,
+            public_output_dir: None,
             raw_input,
             profile_yaml,
             policy_text,
