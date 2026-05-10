@@ -377,9 +377,10 @@ pub fn write_safe_analysis_bundle(
 /// Write a safe-analysis evidence bundle with an explicit internal artifact schema version.
 ///
 /// `artifact_schema_version = 1` preserves the original bundle-internal
-/// artifact shapes. `artifact_schema_version = 2` writes v2 `manifest.json`,
-/// `environment.json`, `field-paths.json`, and `redaction-receipt.json`
-/// artifacts with embedded schema/tool provenance.
+/// artifact shapes. `artifact_schema_version = 2` writes v2
+/// `validation-report.json`, `manifest.json`, `environment.json`,
+/// `field-paths.json`, and `redaction-receipt.json` artifacts with embedded
+/// schema/tool provenance.
 ///
 /// # Errors
 ///
@@ -439,8 +440,15 @@ pub fn write_safe_analysis_bundle_with_schema_version(
     .map_err(|error| EvidenceError::Io(error.to_string()))?;
     fs::write(out.join("profile.yaml"), profile_yaml)
         .map_err(|error| EvidenceError::Io(error.to_string()))?;
-    write_json_file(&out.join("validation-report.json"), &validation_report)?;
     if artifact_schema_version == 2 {
+        write_json_file(
+            &out.join("validation-report.json"),
+            &validation_report.to_v2(
+                tool_name.to_string(),
+                env!("CARGO_PKG_VERSION").to_string(),
+                None,
+            ),
+        )?;
         write_json_file(
             &out.join("redaction-receipt.json"),
             &redaction_output
@@ -457,6 +465,7 @@ pub fn write_safe_analysis_bundle_with_schema_version(
             &out.join("redaction-receipt.json"),
             &redaction_output.receipt,
         )?;
+        write_json_file(&out.join("validation-report.json"), &validation_report)?;
         write_json_file(&out.join("field-paths.json"), &field_trace)?;
         write_json_file(&out.join("environment.json"), &environment)?;
     }
@@ -1275,6 +1284,7 @@ reason = "Date of birth"
             "expected bundle summary v1 fields",
         )?;
         for artifact in [
+            "validation-report.json",
             "manifest.json",
             "field-paths.json",
             "redaction-receipt.json",
