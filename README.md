@@ -25,7 +25,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; not published to crates.io |
 | **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.4.0 are published to crates.io; Python remains a separate binding lane |
-| **Evidence Loop** | Stable | v1.4.0 is the published Evidence Contracts and Server Sidecar release with opt-in v2 provenance, schema gates, server sidecar hardening, Python/TestPyPI proof, PHI sentinels, and replay fixes |
+| **Evidence Loop** | Stable | v1.4.0 is the published Evidence Contracts and Server Sidecar release with opt-in v2 provenance, schema gates, server sidecar hardening, non-publishing Python/TestPyPI proof, PHI sentinels, and replay fixes |
 
 ## Features
 
@@ -83,6 +83,8 @@ For support escalation without raw message PHI, see the
 [Safe Support Bundle guide](docs/guides/safe-support-bundle.md).
 For sidecar deployment, see the
 [Deploy Validation Sidecar guide](docs/guides/deploy-validation-sidecar.md).
+For the full documentation map, including current sources of truth and
+historical receipts, see [docs/README.md](docs/README.md).
 
 ### HTTP/REST API Server
 
