@@ -12,8 +12,7 @@ This design follows a normative approach with specific implementation requiremen
 > and that status document disagree, **docs/STATUS.md wins**.
 
 **Quick Links**:
-- [ROADMAP.md](../ROADMAP.md) - Complete v1.2.0 - v2.0.0 roadmap with timelines
-- [ROADMAP.md](../../ROADMAP.md) - Detailed task breakdown and sprint planning
+- [ROADMAP.md](../../ROADMAP.md) - Complete roadmap and historical planning context
 - [docs/STATUS.md](../../docs/STATUS.md) - Current implementation status of all features
 
 ## 1.1 Current Implementation Status

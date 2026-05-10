@@ -68,6 +68,6 @@ Planned for v2.0.0:
 
 ## References
 
-- [ADR-006: Rate Limiting and Backpressure Strategy](ADR-006-rate-limiting-and-backpressure.md)
+- [ADR-012: Rate Limiting and Backpressure Strategy](0012-rate-limiting-and-backpressure.md)
 - [Axum Middleware Documentation](https://docs.rs/axum/latest/axum/middleware/index.html)
 - [HIPAA Security Rule: Technical Safeguards](https://www.hhs.gov/hipaa/for-professionals/security/guidance/index.html)

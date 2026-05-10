@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] I agree to the [Contributor License Agreement](CLA.md) for this contribution.
+- [ ] I agree to the [Contributor License Agreement](../CLA.md) for this contribution.
 - [ ] `cargo run -p xtask -- gate --check` passes locally.
 - [ ] `cargo run -p xtask -- check-lint-policy` passes.
 - [ ] `cargo run -p xtask -- check-no-panic-family` passes.
