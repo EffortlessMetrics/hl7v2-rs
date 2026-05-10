@@ -57,12 +57,13 @@ publish-plan:
 
 # --- Policy stack ---
 
-# Verify lint, no-panic-family, and non-Rust file policies (CI parity)
+# Verify lint, no-panic-family, non-Rust file, doc-link, and Python publish policies (CI parity)
 policy-check:
     cargo run -p xtask -- check-lint-policy
     cargo run -p xtask -- check-no-panic-family
     cargo run -p xtask -- check-file-policy
     cargo run -p xtask -- check-doc-links
+    cargo run -p xtask -- check-python-publish-policy
 
 # Print policy rollout, debt, no-panic, and file-policy summary
 policy-report:

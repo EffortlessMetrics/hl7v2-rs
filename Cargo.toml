@@ -180,6 +180,7 @@ bytes = "1.11.1"
 tokio-util = "0.7.18"
 serde_yaml = { package = "serde_yaml_ng", version = "0.10.0" }
 uselesskey = "0.4.0"
+toml = "1.1"
 tonic = "0.12.3"
 prost = "0.13.5"
 tonic-build = "0.12.3"

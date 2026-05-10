@@ -1,0 +1,285 @@
+name: Python PyPI Release Proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_pypi:
+        description: "Publish the built wheel to production PyPI and install it back"
+        required: true
+        type: boolean
+        default: false
+      testpypi_proof_url:
+        description: "Successful Python TestPyPI Proof workflow run URL for this package version"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+
+jobs:
+  wheel_proof:
+    name: Build and smoke wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      package_version: ${{ steps.package.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate publish ref
+        if: ${{ inputs.publish_to_pypi && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "::error::Production PyPI publishing proof must run from refs/heads/main"
+          exit 1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: python-pypi-ubuntu-py3.13
+
+      - name: Install maturin
+        run: python -m pip install --upgrade pip "maturin==1.13.1"
+
+      - name: Resolve package version
+        id: package
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import subprocess
+
+          metadata = json.loads(
+              subprocess.check_output(
+                  ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+                  text=True,
+              )
+          )
+          package = next(
+              pkg for pkg in metadata["packages"] if pkg["name"] == "hl7v2-python"
+          )
+          print(f"version={package['version']}")
+          PY
+
+      - name: Validate production PyPI preconditions
+        if: ${{ inputs.publish_to_pypi }}
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+          TESTPYPI_PROOF_URL: ${{ inputs.testpypi_proof_url }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          import urllib.error
+          import urllib.request
+
+          package = "hl7v2-python"
+          version = os.environ["PACKAGE_VERSION"]
+          proof_url = os.environ.get("TESTPYPI_PROOF_URL", "").strip()
+          match = re.fullmatch(
+              r"https://github\.com/EffortlessMetrics/hl7v2-rs/actions/runs/([0-9]+)",
+              proof_url,
+          )
+          if match is None:
+              print(
+                  "::error::publish_to_pypi=true requires testpypi_proof_url pointing at the successful Python TestPyPI Proof run",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          run_id = match.group(1)
+
+          token = os.environ["GITHUB_TOKEN"]
+          source_sha = os.environ["GITHUB_SHA"]
+
+          def github_json(url: str) -> dict:
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  return json.load(response)
+
+          run = github_json(
+              f"https://api.github.com/repos/EffortlessMetrics/hl7v2-rs/actions/runs/{run_id}"
+          )
+
+          if run.get("name") != "Python TestPyPI Proof":
+              print("::error::testpypi_proof_url must point to the Python TestPyPI Proof workflow", file=sys.stderr)
+              sys.exit(1)
+          if run.get("event") != "workflow_dispatch":
+              print("::error::TestPyPI proof must be a manual workflow_dispatch run", file=sys.stderr)
+              sys.exit(1)
+          if run.get("head_branch") != "main":
+              print("::error::TestPyPI proof must run from main", file=sys.stderr)
+              sys.exit(1)
+          if run.get("head_sha") != source_sha:
+              print(
+                  "::error::TestPyPI proof must run from the same source commit as this production release proof",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          if run.get("conclusion") != "success":
+              print("::error::TestPyPI proof run did not conclude successfully", file=sys.stderr)
+              sys.exit(1)
+
+          jobs_payload = github_json(
+              f"https://api.github.com/repos/EffortlessMetrics/hl7v2-rs/actions/runs/{run_id}/jobs?per_page=100"
+          )
+          jobs = jobs_payload.get("jobs", [])
+          if not isinstance(jobs, list):
+              print("::error::TestPyPI proof jobs response did not contain a jobs list", file=sys.stderr)
+              sys.exit(1)
+          job_conclusions = {job.get("name"): job.get("conclusion") for job in jobs}
+          for job_name in ["Publish to TestPyPI", "Install from TestPyPI and smoke"]:
+              if job_conclusions.get(job_name) != "success":
+                  print(
+                      f"::error::TestPyPI proof job {job_name!r} did not conclude successfully",
+                      file=sys.stderr,
+                  )
+                  sys.exit(1)
+
+          def versions(index_url: str) -> set[str]:
+              request = urllib.request.Request(index_url, headers={"Accept": "application/json"})
+              try:
+                  with urllib.request.urlopen(request, timeout=20) as response:
+                      payload = json.load(response)
+              except urllib.error.HTTPError as error:
+                  if error.code == 404:
+                      return set()
+                  raise
+              releases = payload.get("releases", {})
+              if not isinstance(releases, dict):
+                  print(f"::error::{index_url} did not return a releases mapping", file=sys.stderr)
+                  sys.exit(1)
+              return set(releases)
+
+          testpypi_versions = versions(f"https://test.pypi.org/pypi/{package}/json")
+          pypi_versions = versions(f"https://pypi.org/pypi/{package}/json")
+
+          if version not in testpypi_versions:
+              print(
+                  f"::error::{package}=={version} is not visible on TestPyPI; run the TestPyPI upload/install-back proof first",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          if version in pypi_versions:
+              print(
+                  f"::error::{package}=={version} is already present on production PyPI; bump the version before publishing",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          print(f"{package}=={version} preflight passed with TestPyPI proof {proof_url}")
+          PY
+
+      - name: Build wheel
+        run: maturin build --release --out dist
+
+      - name: Install built wheel in fresh venv
+        shell: bash
+        run: |
+          python -m venv .venv-local-wheel
+          . .venv-local-wheel/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install --force-reinstall dist/*.whl
+          python tests/python_smoke/smoke.py
+          python tests/python_smoke/evidence_workflow_guide.py
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-pypi-wheel
+          path: dist/*.whl
+          retention-days: 7
+
+  publish_pypi:
+    name: Publish to PyPI
+    needs: wheel_proof
+    if: ${{ inputs.publish_to_pypi }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/hl7v2-python/${{ needs.wheel_proof.outputs.package_version }}/
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: python-pypi-wheel
+          path: dist
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.14.0
+        with:
+          packages-dir: dist/
+
+  install_from_pypi:
+    name: Install from PyPI and smoke
+    needs:
+      - wheel_proof
+      - publish_pypi
+    if: ${{ inputs.publish_to_pypi }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install published wheel from PyPI
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ needs.wheel_proof.outputs.package_version }}
+        run: |
+          python -m venv .venv-pypi
+          . .venv-pypi/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --index-url https://pypi.org/simple/ \
+            --no-deps \
+            --force-reinstall \
+            "hl7v2-python==${PACKAGE_VERSION}"
+          python tests/python_smoke/smoke.py
+          python tests/python_smoke/evidence_workflow_guide.py

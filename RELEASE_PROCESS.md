@@ -91,6 +91,7 @@ $env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
 maturin build --release --out dist
 python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
 python tests\python_smoke\smoke.py
+python tests\python_smoke\evidence_workflow_guide.py
 ```
 
 Then use the manual `Python TestPyPI Proof` workflow. Run it first with
@@ -101,6 +102,14 @@ same version back from TestPyPI.
 The workflow uses Trusted Publishing from the `testpypi` GitHub environment and
 does not require a repository PyPI token. See
 [`docs/guides/python-testpypi-release-proof.md`](docs/guides/python-testpypi-release-proof.md).
+
+After the TestPyPI upload/install-back proof passes for the same source commit,
+use the manual `Python PyPI Release Proof` workflow for production PyPI. Run it
+first with `publish_to_pypi=false`. Production publishing mode requires
+`publish_to_pypi=true`, a successful same-commit `Python TestPyPI Proof` run
+URL, the `pypi` GitHub environment, and Trusted Publishing. It does not use a
+repository PyPI token and must not use `skip-existing`. See
+[`docs/guides/python-pypi-release.md`](docs/guides/python-pypi-release.md).
 
 ### 6. Create GitHub Release
 

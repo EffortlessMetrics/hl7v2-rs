@@ -5561,6 +5561,8 @@ dependencies = [
  "anyhow",
  "cargo_metadata",
  "clap",
+ "serde_yaml_ng",
+ "toml",
 ]
 
 [[package]]

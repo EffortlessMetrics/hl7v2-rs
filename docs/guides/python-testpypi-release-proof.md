@@ -38,7 +38,13 @@ you want a second human confirmation before upload.
 
 ## Local Wheel Proof
 
-Run this before the manual TestPyPI workflow:
+Run the policy rail before the manual TestPyPI workflow:
+
+```powershell
+cargo +1.93.0 run -p xtask -- check-python-publish-policy
+```
+
+Then run the local wheel proof:
 
 ```powershell
 python -m pip install --upgrade pip "maturin==1.13.1"
@@ -46,6 +52,7 @@ $env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
 maturin build --release --out dist
 python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
 python tests\python_smoke\smoke.py
+python tests\python_smoke\evidence_workflow_guide.py
 ```
 
 Expected result:
@@ -65,8 +72,8 @@ publish_to_testpypi = false
 ```
 
 This builds the wheel, installs it into a fresh virtual environment, runs the
-Python smoke test, and uploads the wheel as a short-retention artifact. It does
-not publish.
+Python smoke test plus the evidence workflow guide, and uploads the wheel as a
+short-retention artifact. It does not publish.
 
 The 2026-05-09 run of this non-publishing mode passed on `main`; see
 [`docs/audits/python-testpypi-nonpublish-proof-2026-05-09.md`](../audits/python-testpypi-nonpublish-proof-2026-05-09.md).
@@ -77,12 +84,16 @@ After the local wheel proof and non-publishing workflow pass, rerun with:
 publish_to_testpypi = true
 ```
 
+Run publishing mode from `main`. The workflow fails early if
+`publish_to_testpypi=true` is selected from any other ref.
+
 This does three things:
 
 1. Builds and smoke-tests the wheel.
 2. Publishes the wheel to TestPyPI using Trusted Publishing.
 3. Installs `hl7v2-python==<workspace version>` back from TestPyPI in a fresh
-   virtual environment and reruns `tests/python_smoke/smoke.py`.
+   virtual environment and reruns `tests/python_smoke/smoke.py` plus
+   `tests/python_smoke/evidence_workflow_guide.py`.
 
 TestPyPI does not allow overwriting an existing file for the same version. If
 the upload fails because the version already exists, stop and choose a new
@@ -98,10 +109,15 @@ A TestPyPI proof is complete only when all of these are true:
 - The manual workflow with `publish_to_testpypi=true` uploads the current
   version to TestPyPI.
 - The install-back job installs from `https://test.pypi.org/simple/` and runs
-  `tests/python_smoke/smoke.py` successfully.
+  `tests/python_smoke/smoke.py` plus
+  `tests/python_smoke/evidence_workflow_guide.py` successfully.
 
 This is still not a production PyPI release. Treat it as packaging evidence for
 the separate Python lane.
+
+After the upload/install-back proof passes, use
+[Python PyPI Release](python-pypi-release.md) for the guarded production PyPI
+release path.
 
 Current status: the non-publishing proof is complete for current `main`; the
 TestPyPI upload/install-back mode remains intentionally unrun until a separate
