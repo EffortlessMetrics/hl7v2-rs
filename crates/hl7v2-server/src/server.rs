@@ -563,10 +563,12 @@ impl Server {
         let service = Hl7ServiceServer::new(Hl7ServiceImpl::new(self.state))
             .max_decoding_message_size(max_message_size)
             .max_encoding_message_size(max_message_size);
-        let service =
-            tonic::service::interceptor::InterceptedService::new(service, move |request| {
-                grpc_auth_interceptor(request, api_key.as_deref())
-            });
+        let service = tonic::service::interceptor::InterceptedService::new(
+            service,
+            GrpcAuthInterceptor {
+                expected_key: api_key,
+            },
+        );
 
         TonicServer::builder()
             .add_service(service)
@@ -575,6 +577,20 @@ impl Server {
             .map_err(|error| crate::Error::Internal(format!("gRPC server error: {error}")))?;
 
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct GrpcAuthInterceptor {
+    expected_key: Option<String>,
+}
+
+impl tonic::service::Interceptor for GrpcAuthInterceptor {
+    fn call(
+        &mut self,
+        request: tonic::Request<()>,
+    ) -> std::result::Result<tonic::Request<()>, tonic::Status> {
+        grpc_auth_interceptor(request, self.expected_key.as_deref())
     }
 }
 
