@@ -103,7 +103,9 @@ Publisher configuration for project `hl7v2-python`.
 
 ## Next Step
 
-Configure the TestPyPI Trusted Publisher for project `hl7v2-python` with:
+Configure the TestPyPI Trusted Publisher for project `hl7v2-python` with the
+fields below. The external setup work is tracked in
+[#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563).
 
 | TestPyPI field | Value |
 | --- | --- |
