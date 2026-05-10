@@ -103,6 +103,8 @@ enum Commands {
     CheckFilePolicy,
     /// Verify explicit local Markdown links point at checked-in repository targets
     CheckDocLinks,
+    /// Verify Python TestPyPI/PyPI release workflow safety controls
+    CheckPythonPublishPolicy,
     /// Verify CI lane whitelist: coverage, required fields, expensive-default exceptions
     CheckCiLaneWhitelist,
     /// Validate checked-in evidence fixtures against their JSON schemas
@@ -157,6 +159,7 @@ fn main() -> Result<()> {
         },
         Commands::CheckFilePolicy => check_file_policy()?,
         Commands::CheckDocLinks => check_doc_links()?,
+        Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
         Commands::EvidenceSchemaCheck => evidence_schema_check()?,
     }
@@ -199,6 +202,8 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
         check_file_policy()?;
         println!("Checking Markdown local links...");
         check_doc_links()?;
+        println!("Checking Python publish policy...");
+        check_python_publish_policy()?;
     } else if changed_docs_require_link_check {
         println!("Checking Markdown local links for crate-scoped doc changes...");
         check_doc_links()?;
@@ -3325,6 +3330,803 @@ fn string_array_after_root(text: &str, key: &str) -> Option<Vec<String>> {
     )
 }
 
+// ---------------------------------------------------------------------------
+// Python publish policy checker
+// ---------------------------------------------------------------------------
+
+struct PythonPublishWorkflowPolicy {
+    path: &'static str,
+    workflow_name: &'static str,
+    input_name: &'static str,
+    testpypi_proof_input: Option<&'static str>,
+    publish_job: &'static str,
+    install_job: &'static str,
+    environment_name: &'static str,
+    artifact_name: &'static str,
+    package_index_url: &'static str,
+    publish_repository_url: Option<&'static str>,
+    publish_step_name: &'static str,
+}
+
+const PYTHON_PUBLISH_WORKFLOWS: &[PythonPublishWorkflowPolicy] = &[
+    PythonPublishWorkflowPolicy {
+        path: ".github/workflows/python-testpypi.yml",
+        workflow_name: "Python TestPyPI Proof",
+        input_name: "publish_to_testpypi",
+        testpypi_proof_input: None,
+        publish_job: "publish_testpypi",
+        install_job: "install_from_testpypi",
+        environment_name: "testpypi",
+        artifact_name: "python-testpypi-wheel",
+        package_index_url: "https://test.pypi.org/simple/",
+        publish_repository_url: Some("https://test.pypi.org/legacy/"),
+        publish_step_name: "Publish package distributions to TestPyPI",
+    },
+    PythonPublishWorkflowPolicy {
+        path: ".github/workflows/python-pypi.yml",
+        workflow_name: "Python PyPI Release Proof",
+        input_name: "publish_to_pypi",
+        testpypi_proof_input: Some("testpypi_proof_url"),
+        publish_job: "publish_pypi",
+        install_job: "install_from_pypi",
+        environment_name: "pypi",
+        artifact_name: "python-pypi-wheel",
+        package_index_url: "https://pypi.org/simple/",
+        publish_repository_url: None,
+        publish_step_name: "Publish package distributions to PyPI",
+    },
+];
+
+fn check_python_publish_policy() -> Result<()> {
+    println!("🔎 Checking Python publish policy...");
+    let root = env::current_dir()?;
+
+    ensure_hl7v2_python_not_crates_io_published(&root)?;
+    check_python_pyproject_policy(&root)?;
+    for policy in PYTHON_PUBLISH_WORKFLOWS {
+        check_python_publish_workflow(&root, policy)?;
+    }
+
+    println!(
+        "✅ python publish policy: pyproject.toml and {} workflow(s) checked; hl7v2-python remains outside crates.io",
+        PYTHON_PUBLISH_WORKFLOWS.len()
+    );
+    Ok(())
+}
+
+fn ensure_hl7v2_python_not_crates_io_published(root: &Path) -> Result<()> {
+    let metadata = MetadataCommand::new().current_dir(root).no_deps().exec()?;
+    let package = metadata
+        .packages
+        .iter()
+        .find(|package| package.name.as_str() == "hl7v2-python")
+        .ok_or_else(|| anyhow!("cargo metadata did not include hl7v2-python"))?;
+
+    if package.publish.as_ref().is_some_and(Vec::is_empty) {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "crates/hl7v2-python/Cargo.toml must keep publish = false so Python stays outside the Rust crates.io graph"
+        ))
+    }
+}
+
+fn check_python_pyproject_policy(root: &Path) -> Result<()> {
+    let text = fs::read_to_string(root.join("pyproject.toml"))?;
+    check_python_pyproject_policy_text(&text)
+}
+
+fn check_python_pyproject_policy_text(text: &str) -> Result<()> {
+    let pyproject: toml::Value = toml::from_str(text)
+        .map_err(|error| anyhow!("pyproject.toml is not valid TOML: {error}"))?;
+
+    ensure_pyproject_array_contains(
+        &pyproject,
+        "[build-system]",
+        "requires",
+        "maturin>=1.13.1,<2",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &pyproject,
+        "[build-system]",
+        "build-backend",
+        "maturin",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &pyproject,
+        "[project]",
+        "name",
+        "hl7v2-python",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_array_contains(
+        &pyproject,
+        "[project]",
+        "dynamic",
+        "version",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &pyproject,
+        "[project]",
+        "readme",
+        "crates/hl7v2-python/README.md",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &pyproject,
+        "[project]",
+        "requires-python",
+        ">=3.10",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_value_contains(
+        &pyproject,
+        "[project]",
+        "license",
+        "AGPL-3.0-or-later",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &pyproject,
+        "[tool.maturin]",
+        "manifest-path",
+        "crates/hl7v2-python/Cargo.toml",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &pyproject,
+        "[tool.maturin]",
+        "module-name",
+        "hl7v2",
+        "pyproject.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &pyproject,
+        "[tool.maturin]",
+        "bindings",
+        "pyo3",
+        "pyproject.toml",
+    )?;
+    Ok(())
+}
+
+fn pyproject_value<'a>(
+    pyproject: &'a toml::Value,
+    section: &str,
+    key: &str,
+    context: &str,
+) -> Result<&'a toml::Value> {
+    let section_name = section
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .ok_or_else(|| anyhow!("invalid TOML section marker `{section}`"))?;
+    let mut current = pyproject;
+    for part in section_name.split('.') {
+        current = current
+            .as_table()
+            .and_then(|table| table.get(part))
+            .ok_or_else(|| anyhow!("{context} {section} is missing"))?;
+    }
+    current
+        .as_table()
+        .and_then(|table| table.get(key))
+        .ok_or_else(|| anyhow!("{context} {section}.{key} is missing"))
+}
+
+fn ensure_pyproject_string_value(
+    pyproject: &toml::Value,
+    section: &str,
+    key: &str,
+    expected: &str,
+    context: &str,
+) -> Result<()> {
+    let actual = pyproject_value(pyproject, section, key, context)?
+        .as_str()
+        .ok_or_else(|| anyhow!("{context} {section}.{key} must be a string"))?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} {section}.{key} must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn ensure_pyproject_array_contains(
+    pyproject: &toml::Value,
+    section: &str,
+    key: &str,
+    expected: &str,
+    context: &str,
+) -> Result<()> {
+    let values = pyproject_value(pyproject, section, key, context)?
+        .as_array()
+        .ok_or_else(|| anyhow!("{context} {section}.{key} must be an array"))?;
+    if values
+        .iter()
+        .any(|value| value.as_str().is_some_and(|value| value == expected))
+    {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} {section}.{key} must include `{expected}`"
+        ))
+    }
+}
+
+fn ensure_pyproject_value_contains(
+    pyproject: &toml::Value,
+    section: &str,
+    key: &str,
+    expected: &str,
+    context: &str,
+) -> Result<()> {
+    let value = pyproject_value(pyproject, section, key, context)?;
+    let contains_expected = value.as_str().is_some_and(|value| value.contains(expected))
+        || value.as_table().is_some_and(|table| {
+            table
+                .values()
+                .any(|value| value.as_str().is_some_and(|value| value.contains(expected)))
+        });
+    if contains_expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} {section}.{key} must contain `{expected}`"
+        ))
+    }
+}
+
+fn check_python_publish_workflow(root: &Path, policy: &PythonPublishWorkflowPolicy) -> Result<()> {
+    let text = fs::read_to_string(root.join(policy.path))?;
+    check_python_publish_workflow_text(policy, &text)
+}
+
+fn check_python_publish_workflow_text(
+    policy: &PythonPublishWorkflowPolicy,
+    text: &str,
+) -> Result<()> {
+    let workflow: serde_yaml::Value = serde_yaml::from_str(text)
+        .map_err(|error| anyhow!("{} is not valid YAML: {error}", policy.path))?;
+    let root_map = yaml_mapping(&workflow, policy.path)?;
+
+    ensure_yaml_string(root_map, policy.path, "name", policy.workflow_name)?;
+    ensure_workflow_dispatch_input(policy, root_map)?;
+
+    let permissions = yaml_child_mapping(root_map, policy.path, "permissions")?;
+    ensure_yaml_permission(permissions, policy.path, "contents", "read")?;
+    ensure_yaml_missing(permissions, policy.path, "id-token")?;
+
+    let jobs = yaml_child_mapping(root_map, policy.path, "jobs")?;
+    let wheel_job = yaml_mapping_child(jobs, policy.path, "jobs", "wheel_proof")?;
+    ensure_python_non_publish_job_permissions(policy, wheel_job, "wheel_proof")?;
+    ensure_python_publish_ref_guard(policy, wheel_job)?;
+    ensure_python_production_preflight(policy, wheel_job)?;
+    ensure_python_wheel_proof_job(policy, wheel_job)?;
+    ensure_python_publish_artifact(policy, wheel_job)?;
+
+    let publish_job = yaml_mapping_child(jobs, policy.path, "jobs", policy.publish_job)?;
+    ensure_python_publish_job(policy, publish_job)?;
+
+    let install_job = yaml_mapping_child(jobs, policy.path, "jobs", policy.install_job)?;
+    ensure_python_non_publish_job_permissions(policy, install_job, policy.install_job)?;
+    ensure_python_install_back_job(policy, install_job)?;
+
+    Ok(())
+}
+
+fn ensure_workflow_dispatch_input(
+    policy: &PythonPublishWorkflowPolicy,
+    root_map: &serde_yaml::Mapping,
+) -> Result<()> {
+    let on_value = yaml_mapping_value_with_yaml11_bool_alias(root_map, policy.path, "on")?;
+    let on_mapping = on_value
+        .as_mapping()
+        .ok_or_else(|| anyhow!("{} `on` must be a mapping", policy.path))?;
+    let workflow_dispatch_key = serde_yaml::Value::String("workflow_dispatch".to_string());
+    if on_mapping.len() != 1 || !on_mapping.contains_key(&workflow_dispatch_key) {
+        return Err(anyhow!(
+            "{} must be manual-only and define only `workflow_dispatch`",
+            policy.path
+        ));
+    }
+
+    let workflow_dispatch = on_mapping
+        .get(&workflow_dispatch_key)
+        .ok_or_else(|| anyhow!("{} is missing `workflow_dispatch`", policy.path))?
+        .as_mapping()
+        .ok_or_else(|| anyhow!("{} `workflow_dispatch` must be a mapping", policy.path))?;
+    let inputs = yaml_child_mapping(workflow_dispatch, policy.path, "inputs")?;
+    let input = yaml_mapping_child(
+        inputs,
+        policy.path,
+        "workflow_dispatch.inputs",
+        policy.input_name,
+    )?;
+
+    ensure_yaml_string(input, policy.path, "type", "boolean")?;
+    ensure_yaml_bool(input, policy.path, "required", true)?;
+    ensure_yaml_bool(input, policy.path, "default", false)?;
+    if let Some(testpypi_proof_input) = policy.testpypi_proof_input {
+        let input = yaml_mapping_child(
+            inputs,
+            policy.path,
+            "workflow_dispatch.inputs",
+            testpypi_proof_input,
+        )?;
+        ensure_yaml_string(input, policy.path, "type", "string")?;
+        ensure_yaml_bool(input, policy.path, "required", false)?;
+        ensure_yaml_string(input, policy.path, "default", "")?;
+    }
+    Ok(())
+}
+
+fn ensure_python_publish_ref_guard(
+    policy: &PythonPublishWorkflowPolicy,
+    wheel_job: &serde_yaml::Mapping,
+) -> Result<()> {
+    let steps = yaml_child_sequence(wheel_job, policy.path, "steps")?;
+    let guard = yaml_step_named(steps, policy.path, "Validate publish ref")?;
+    let condition = yaml_mapping_string(guard, policy.path, "if")?;
+    if !condition.contains(policy.input_name) || !condition.contains("refs/heads/main") {
+        return Err(anyhow!(
+            "{} Validate publish ref condition must require `{}` and refs/heads/main",
+            policy.path,
+            policy.input_name
+        ));
+    }
+    let run = yaml_mapping_string(guard, policy.path, "run")?;
+    if !run.contains("refs/heads/main") || !run.contains("exit 1") {
+        return Err(anyhow!(
+            "{} Validate publish ref step must fail closed outside main",
+            policy.path
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_python_production_preflight(
+    policy: &PythonPublishWorkflowPolicy,
+    wheel_job: &serde_yaml::Mapping,
+) -> Result<()> {
+    let Some(testpypi_proof_input) = policy.testpypi_proof_input else {
+        return Ok(());
+    };
+
+    let permissions = yaml_child_mapping(wheel_job, policy.path, "permissions")?;
+    ensure_yaml_permission(permissions, policy.path, "contents", "read")?;
+    ensure_yaml_permission(permissions, policy.path, "actions", "read")?;
+    ensure_yaml_missing(permissions, policy.path, "id-token")?;
+
+    let steps = yaml_child_sequence(wheel_job, policy.path, "steps")?;
+    let preflight = yaml_step_named(steps, policy.path, "Validate production PyPI preconditions")?;
+    let condition = yaml_mapping_string(preflight, policy.path, "if")?;
+    if !condition.contains(policy.input_name) {
+        return Err(anyhow!(
+            "{} production PyPI preflight must be gated by `{}`",
+            policy.path,
+            policy.input_name
+        ));
+    }
+    let env = yaml_child_mapping(preflight, policy.path, "env")?;
+    ensure_yaml_string(
+        env,
+        policy.path,
+        "PACKAGE_VERSION",
+        "${{ steps.package.outputs.version }}",
+    )?;
+    ensure_yaml_string(
+        env,
+        policy.path,
+        "TESTPYPI_PROOF_URL",
+        "${{ inputs.testpypi_proof_url }}",
+    )?;
+    ensure_yaml_string(env, policy.path, "GITHUB_TOKEN", "${{ github.token }}")?;
+    ensure_yaml_string(env, policy.path, "GITHUB_SHA", "${{ github.sha }}")?;
+    let run = yaml_mapping_string(preflight, policy.path, "run")?;
+    for expected in [
+        testpypi_proof_input,
+        "https://github\\.com/EffortlessMetrics/hl7v2-rs/actions/runs/",
+        "https://api.github.com/repos/EffortlessMetrics/hl7v2-rs/actions/runs/",
+        "https://api.github.com/repos/EffortlessMetrics/hl7v2-rs/actions/runs/{run_id}/jobs?per_page=100",
+        "Python TestPyPI Proof",
+        "Publish to TestPyPI",
+        "Install from TestPyPI and smoke",
+        "workflow_dispatch",
+        "head_branch",
+        "head_sha",
+        "conclusion",
+        "success",
+        "job_conclusions",
+        "https://test.pypi.org/pypi/{package}/json",
+        "https://pypi.org/pypi/{package}/json",
+        "version not in testpypi_versions",
+        "version in pypi_versions",
+        "sys.exit(1)",
+    ] {
+        if !run.contains(expected) {
+            return Err(anyhow!(
+                "{} production PyPI preflight step must contain `{expected}`",
+                policy.path
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_python_non_publish_job_permissions(
+    policy: &PythonPublishWorkflowPolicy,
+    job: &serde_yaml::Mapping,
+    job_name: &str,
+) -> Result<()> {
+    if let Some(permissions) = job.get(serde_yaml::Value::String("permissions".to_string())) {
+        let permissions = permissions
+            .as_mapping()
+            .ok_or_else(|| anyhow!("{} `{job_name}.permissions` must be a mapping", policy.path))?;
+        ensure_yaml_missing(permissions, policy.path, "id-token")?;
+    }
+    Ok(())
+}
+
+fn ensure_python_wheel_proof_job(
+    policy: &PythonPublishWorkflowPolicy,
+    wheel_job: &serde_yaml::Mapping,
+) -> Result<()> {
+    let steps = yaml_child_sequence(wheel_job, policy.path, "steps")?;
+    let install_maturin = yaml_step_named(steps, policy.path, "Install maturin")?;
+    let install_maturin_run = yaml_mapping_string(install_maturin, policy.path, "run")?;
+    if !install_maturin_run.contains("maturin==1.13.1") {
+        return Err(anyhow!(
+            "{} Install maturin step must pin maturin==1.13.1",
+            policy.path
+        ));
+    }
+
+    let build = yaml_step_named(steps, policy.path, "Build wheel")?;
+    let build_run = yaml_mapping_string(build, policy.path, "run")?;
+    if !build_run.contains("maturin build --release --out dist") {
+        return Err(anyhow!(
+            "{} Build wheel step must run `maturin build --release --out dist`",
+            policy.path
+        ));
+    }
+
+    let smoke = yaml_step_named(steps, policy.path, "Install built wheel in fresh venv")?;
+    let smoke_run = yaml_mapping_string(smoke, policy.path, "run")?;
+    for expected in [
+        "python -m venv",
+        "python -m pip install --force-reinstall dist/*.whl",
+        "tests/python_smoke/smoke.py",
+        "tests/python_smoke/evidence_workflow_guide.py",
+    ] {
+        if !smoke_run.contains(expected) {
+            return Err(anyhow!(
+                "{} local wheel proof step must contain `{expected}`",
+                policy.path
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_python_publish_artifact(
+    policy: &PythonPublishWorkflowPolicy,
+    wheel_job: &serde_yaml::Mapping,
+) -> Result<()> {
+    let steps = yaml_child_sequence(wheel_job, policy.path, "steps")?;
+    let upload = yaml_step_named(steps, policy.path, "Upload wheel artifact")?;
+    ensure_yaml_string(upload, policy.path, "uses", "actions/upload-artifact@v7")?;
+    let with = yaml_child_mapping(upload, policy.path, "with")?;
+    ensure_yaml_string(with, policy.path, "name", policy.artifact_name)?;
+    ensure_yaml_string(with, policy.path, "path", "dist/*.whl")?;
+    Ok(())
+}
+
+fn ensure_python_publish_job(
+    policy: &PythonPublishWorkflowPolicy,
+    publish_job: &serde_yaml::Mapping,
+) -> Result<()> {
+    let condition = yaml_mapping_string(publish_job, policy.path, "if")?;
+    if !condition.contains(policy.input_name) {
+        return Err(anyhow!(
+            "{} publish job must be gated by `{}`",
+            policy.path,
+            policy.input_name
+        ));
+    }
+
+    let environment = yaml_child_mapping(publish_job, policy.path, "environment")?;
+    ensure_yaml_string(environment, policy.path, "name", policy.environment_name)?;
+    let permissions = yaml_child_mapping(publish_job, policy.path, "permissions")?;
+    ensure_yaml_permission(permissions, policy.path, "contents", "read")?;
+    ensure_yaml_permission(permissions, policy.path, "id-token", "write")?;
+    ensure_yaml_mapping_has_no_forbidden_text(
+        publish_job,
+        policy.path,
+        "publish job",
+        &[
+            "secrets.",
+            "PYPI_API_TOKEN",
+            "TEST_PYPI_API_TOKEN",
+            "TWINE_PASSWORD",
+            "TWINE_USERNAME",
+        ],
+    )?;
+
+    let steps = yaml_child_sequence(publish_job, policy.path, "steps")?;
+    let download = yaml_step_named(steps, policy.path, "Download wheel artifact")?;
+    ensure_yaml_string(
+        download,
+        policy.path,
+        "uses",
+        "actions/download-artifact@v7",
+    )?;
+    let download_with = yaml_child_mapping(download, policy.path, "with")?;
+    ensure_yaml_string(download_with, policy.path, "name", policy.artifact_name)?;
+    ensure_yaml_string(download_with, policy.path, "path", "dist")?;
+
+    let publish = yaml_step_named(steps, policy.path, policy.publish_step_name)?;
+    ensure_yaml_string(
+        publish,
+        policy.path,
+        "uses",
+        "pypa/gh-action-pypi-publish@v1.14.0",
+    )?;
+    let publish_with = yaml_child_mapping(publish, policy.path, "with")?;
+    ensure_yaml_string(publish_with, policy.path, "packages-dir", "dist/")?;
+    match policy.publish_repository_url {
+        Some(expected) => {
+            ensure_yaml_string(publish_with, policy.path, "repository-url", expected)?
+        }
+        None => ensure_yaml_missing(publish_with, policy.path, "repository-url")?,
+    }
+    for forbidden in ["password", "user", "skip-existing"] {
+        ensure_yaml_missing(publish_with, policy.path, forbidden)?;
+    }
+    Ok(())
+}
+
+fn ensure_python_install_back_job(
+    policy: &PythonPublishWorkflowPolicy,
+    install_job: &serde_yaml::Mapping,
+) -> Result<()> {
+    let condition = yaml_mapping_string(install_job, policy.path, "if")?;
+    if !condition.contains(policy.input_name) {
+        return Err(anyhow!(
+            "{} install-back job must be gated by `{}`",
+            policy.path,
+            policy.input_name
+        ));
+    }
+
+    let needs = yaml_child_sequence(install_job, policy.path, "needs")?;
+    ensure_yaml_sequence_contains(needs, policy.path, "needs", "wheel_proof")?;
+    ensure_yaml_sequence_contains(needs, policy.path, "needs", policy.publish_job)?;
+
+    let steps = yaml_child_sequence(install_job, policy.path, "steps")?;
+    let install = steps
+        .iter()
+        .filter_map(serde_yaml::Value::as_mapping)
+        .find(|step| {
+            yaml_mapping_string(step, policy.path, "name")
+                .is_ok_and(|name| name.contains("Install published wheel from"))
+        })
+        .ok_or_else(|| anyhow!("{} is missing install-back step", policy.path))?;
+    let run = yaml_mapping_string(install, policy.path, "run")?;
+    for expected in [
+        policy.package_index_url,
+        "--no-deps",
+        "--force-reinstall",
+        "hl7v2-python==${PACKAGE_VERSION}",
+        "tests/python_smoke/smoke.py",
+        "tests/python_smoke/evidence_workflow_guide.py",
+    ] {
+        if !run.contains(expected) {
+            return Err(anyhow!(
+                "{} install-back step must contain `{expected}`",
+                policy.path
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn yaml_mapping<'a>(
+    value: &'a serde_yaml::Value,
+    context: &str,
+) -> Result<&'a serde_yaml::Mapping> {
+    value
+        .as_mapping()
+        .ok_or_else(|| anyhow!("{context} must be a YAML mapping"))
+}
+
+fn yaml_child_mapping<'a>(
+    mapping: &'a serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+) -> Result<&'a serde_yaml::Mapping> {
+    yaml_mapping_value(mapping, context, key)?
+        .as_mapping()
+        .ok_or_else(|| anyhow!("{context} `{key}` must be a mapping"))
+}
+
+fn yaml_mapping_child<'a>(
+    mapping: &'a serde_yaml::Mapping,
+    context: &str,
+    parent: &str,
+    key: &str,
+) -> Result<&'a serde_yaml::Mapping> {
+    yaml_mapping_value(mapping, context, key)?
+        .as_mapping()
+        .ok_or_else(|| anyhow!("{context} `{parent}.{key}` must be a mapping"))
+}
+
+fn yaml_child_sequence<'a>(
+    mapping: &'a serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+) -> Result<&'a Vec<serde_yaml::Value>> {
+    yaml_mapping_value(mapping, context, key)?
+        .as_sequence()
+        .ok_or_else(|| anyhow!("{context} `{key}` must be a sequence"))
+}
+
+fn yaml_mapping_value<'a>(
+    mapping: &'a serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+) -> Result<&'a serde_yaml::Value> {
+    mapping
+        .get(serde_yaml::Value::String(key.to_string()))
+        .ok_or_else(|| anyhow!("{context} is missing `{key}`"))
+}
+
+fn yaml_mapping_value_with_yaml11_bool_alias<'a>(
+    mapping: &'a serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+) -> Result<&'a serde_yaml::Value> {
+    mapping
+        .get(serde_yaml::Value::String(key.to_string()))
+        .or_else(|| match key {
+            "on" => mapping.get(serde_yaml::Value::Bool(true)),
+            "off" => mapping.get(serde_yaml::Value::Bool(false)),
+            _ => None,
+        })
+        .ok_or_else(|| anyhow!("{context} is missing `{key}`"))
+}
+
+fn yaml_mapping_string<'a>(
+    mapping: &'a serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+) -> Result<&'a str> {
+    yaml_mapping_value(mapping, context, key)?
+        .as_str()
+        .ok_or_else(|| anyhow!("{context} `{key}` must be a string"))
+}
+
+fn ensure_yaml_string(
+    mapping: &serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+    expected: &str,
+) -> Result<()> {
+    let actual = yaml_mapping_string(mapping, context, key)?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} `{key}` must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn ensure_yaml_bool(
+    mapping: &serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+    expected: bool,
+) -> Result<()> {
+    let actual = yaml_mapping_value(mapping, context, key)?
+        .as_bool()
+        .ok_or_else(|| anyhow!("{context} `{key}` must be a boolean"))?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} `{key}` must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn ensure_yaml_permission(
+    mapping: &serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+    expected: &str,
+) -> Result<()> {
+    ensure_yaml_string(mapping, context, key, expected)
+}
+
+fn ensure_yaml_missing(mapping: &serde_yaml::Mapping, context: &str, key: &str) -> Result<()> {
+    if mapping
+        .get(serde_yaml::Value::String(key.to_string()))
+        .is_some()
+    {
+        Err(anyhow!("{context} must not set `{key}` at this scope"))
+    } else {
+        Ok(())
+    }
+}
+
+fn yaml_step_named<'a>(
+    steps: &'a [serde_yaml::Value],
+    context: &str,
+    name: &str,
+) -> Result<&'a serde_yaml::Mapping> {
+    steps
+        .iter()
+        .filter_map(serde_yaml::Value::as_mapping)
+        .find(|step| yaml_mapping_string(step, context, "name").is_ok_and(|value| value == name))
+        .ok_or_else(|| anyhow!("{context} is missing step `{name}`"))
+}
+
+fn ensure_yaml_sequence_contains(
+    sequence: &[serde_yaml::Value],
+    context: &str,
+    key: &str,
+    expected: &str,
+) -> Result<()> {
+    if sequence
+        .iter()
+        .any(|value| value.as_str().is_some_and(|actual| actual == expected))
+    {
+        Ok(())
+    } else {
+        Err(anyhow!("{context} `{key}` must include `{expected}`"))
+    }
+}
+
+fn ensure_yaml_mapping_has_no_forbidden_text(
+    mapping: &serde_yaml::Mapping,
+    context: &str,
+    label: &str,
+    forbidden_values: &[&str],
+) -> Result<()> {
+    let value = serde_yaml::Value::Mapping(mapping.clone());
+    if let Some(forbidden) = yaml_value_forbidden_text(&value, forbidden_values) {
+        Err(anyhow!(
+            "{context} {label} must not reference `{forbidden}`; use Trusted Publishing instead"
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn yaml_value_forbidden_text<'a>(
+    value: &serde_yaml::Value,
+    forbidden_values: &'a [&'a str],
+) -> Option<&'a str> {
+    match value {
+        serde_yaml::Value::String(text) => forbidden_values
+            .iter()
+            .copied()
+            .find(|forbidden| text.contains(forbidden)),
+        serde_yaml::Value::Sequence(sequence) => sequence
+            .iter()
+            .find_map(|item| yaml_value_forbidden_text(item, forbidden_values)),
+        serde_yaml::Value::Mapping(mapping) => mapping.iter().find_map(|(key, value)| {
+            yaml_value_forbidden_text(key, forbidden_values)
+                .or_else(|| yaml_value_forbidden_text(value, forbidden_values))
+        }),
+        _ => None,
+    }
+}
+
 // ============================================================================
 // CI Lane Whitelist
 // ============================================================================
@@ -3956,6 +4758,292 @@ mod tests {
             Err(anyhow!(
                 "supplemental receipt fixture should be schema-validated"
             ))
+        }
+    }
+
+    // ---- Python publish policy -----------------------------------------
+
+    #[test]
+    fn python_publish_policy_covers_checked_in_workflows() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+
+        ensure_hl7v2_python_not_crates_io_published(&root)?;
+        check_python_pyproject_policy(&root)?;
+        for policy in PYTHON_PUBLISH_WORKFLOWS {
+            check_python_publish_workflow(&root, policy)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn python_pyproject_policy_accepts_expected_metadata() -> Result<()> {
+        let pyproject = r#"
+[build-system]
+requires = ["maturin>=1.13.1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "hl7v2-python"
+dynamic = ["version"]
+readme = "crates/hl7v2-python/README.md"
+requires-python = ">=3.10"
+license = { text = "AGPL-3.0-or-later" }
+
+[tool.maturin]
+manifest-path = "crates/hl7v2-python/Cargo.toml"
+module-name = "hl7v2"
+bindings = "pyo3"
+"#;
+
+        check_python_pyproject_policy_text(pyproject)
+    }
+
+    #[test]
+    fn python_pyproject_policy_rejects_wrong_maturin_manifest_path() -> Result<()> {
+        let pyproject = r#"
+[build-system]
+requires = ["maturin>=1.13.1,<2"]
+build-backend = "maturin"
+
+[project]
+name = "hl7v2-python"
+dynamic = ["version"]
+readme = "crates/hl7v2-python/README.md"
+requires-python = ">=3.10"
+license = { text = "AGPL-3.0-or-later" }
+
+[tool.maturin]
+manifest-path = "Cargo.toml"
+module-name = "hl7v2"
+bindings = "pyo3"
+"#;
+
+        match check_python_pyproject_policy_text(pyproject) {
+            Ok(()) => Err(anyhow!(
+                "pyproject policy should reject a maturin manifest outside crates/hl7v2-python"
+            )),
+            Err(err) if err.to_string().contains("[tool.maturin].manifest-path") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected pyproject policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_automatic_workflow_triggers() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let broken = workflow.replace(
+            "on:\n  workflow_dispatch:",
+            "on:\n  push:\n  workflow_dispatch:",
+        );
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject automatic workflow triggers"
+            )),
+            Err(err)
+                if err.to_string().contains("manual-only")
+                    && err.to_string().contains("workflow_dispatch") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_missing_local_evidence_guide_smoke() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let broken = workflow.replace("python tests/python_smoke/evidence_workflow_guide.py", "");
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject workflows without local evidence guide smoke"
+            )),
+            Err(err)
+                if err.to_string().contains("local wheel proof step")
+                    && err.to_string().contains("evidence_workflow_guide.py") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_skip_existing_uploads() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let broken = workflow.replace(
+            "packages-dir: dist/",
+            "packages-dir: dist/\n          skip-existing: true",
+        );
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject skip-existing uploads"
+            )),
+            Err(err) if err.to_string().contains("skip-existing") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_secret_token_uploads() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let broken = workflow.replace(
+            "timeout-minutes: 15\n    environment:",
+            "timeout-minutes: 15\n    env:\n      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}\n    environment:",
+        );
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject secret-backed upload tokens"
+            )),
+            Err(err)
+                if err.to_string().contains("Trusted Publishing")
+                    && err.to_string().contains("PYPI_API_TOKEN") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_oidc_on_non_publish_jobs() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let broken = workflow.replace(
+            "    timeout-minutes: 30\n    outputs:",
+            "    timeout-minutes: 30\n    permissions:\n      contents: read\n      id-token: write\n    outputs:",
+        );
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject OIDC on non-publish jobs"
+            )),
+            Err(err) if err.to_string().contains("must not set `id-token`") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_production_workflow_without_testpypi_proof_input() -> Result<()>
+    {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .iter()
+            .find(|policy| policy.path == ".github/workflows/python-pypi.yml")
+            .ok_or_else(|| anyhow!("expected production PyPI workflow policy"))?;
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let broken = workflow.replace(
+            r#"      testpypi_proof_url:
+        description: "Successful Python TestPyPI Proof workflow run URL for this package version"
+        required: false
+        type: string
+        default: ""
+"#,
+            "",
+        );
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject production workflow without TestPyPI proof URL input"
+            )),
+            Err(err) if err.to_string().contains("testpypi_proof_url") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_production_workflow_without_preflight_step() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .iter()
+            .find(|policy| policy.path == ".github/workflows/python-pypi.yml")
+            .ok_or_else(|| anyhow!("expected production PyPI workflow policy"))?;
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let broken = workflow.replace(
+            "Validate production PyPI preconditions",
+            "Validate production PyPI preconditions removed",
+        );
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject production workflow without package-index preflight"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("Validate production PyPI preconditions") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_production_workflow_without_testpypi_job_checks() -> Result<()>
+    {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .iter()
+            .find(|policy| policy.path == ".github/workflows/python-pypi.yml")
+            .ok_or_else(|| anyhow!("expected production PyPI workflow policy"))?;
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let broken = workflow.replace("Install from TestPyPI and smoke", "Install from TestPyPI");
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject production workflow without TestPyPI install-back job verification"
+            )),
+            Err(err) if err.to_string().contains("Install from TestPyPI and smoke") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
         }
     }
 

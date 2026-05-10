@@ -32,6 +32,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Validate publish ref
+        if: ${{ inputs.publish_to_testpypi && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "::error::TestPyPI publishing proof must run from refs/heads/main"
+          exit 1
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
