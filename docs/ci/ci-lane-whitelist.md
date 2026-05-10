@@ -19,7 +19,7 @@ Each `[[lane]]` entry in `ci-lane-whitelist.toml` must provide:
 | --------------------- | :------: | ---------------------------------------------------------- |
 | `id`                  | yes      | Unique identifier; matches xtask check output              |
 | `workflow`            | yes      | Relative path to the `.github/workflows/*.yml` file        |
-| `job`                 | yes      | GitHub Actions job id (must match the workflow)            |
+| `job`                 | yes      | GitHub Actions job id, or `*` for a governed aggregate workflow lane |
 | `display_name`        | yes      | Human-readable name                                        |
 | `kind`                | yes      | One of: `rust-policy`, `rust-integration`, `platform`, `property`, `performance`, `summary`, `coverage`, `security`, `python`, `api-contract`, `release`, `rust-nightly` |
 | `tier`                | yes      | One of: `frontdoor`, `compatibility`, `deep`, `release`    |
@@ -47,7 +47,7 @@ cargo run -p xtask -- check-ci-lane-whitelist
 ```
 
 The checker verifies:
-- Every workflow job is listed in the whitelist.
+- Every governed lane points at an existing workflow and job id, or uses `*` for an aggregate workflow lane.
 - `default_pr = true` + `expensive = true` requires a valid exception.
 - No expired exceptions remain.
 - Required fields are present.

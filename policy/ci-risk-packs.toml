@@ -15,7 +15,7 @@ paths = [
   "crates/hl7v2/src/writer/**",
   "crates/hl7v2/src/normalize/**",
 ]
-lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+lanes = ["fast_checks", "standard_tests", "ci_success"]
 deep_lanes = ["extended_property_tests"]
 labels = ["property-tests", "full-ci"]
 
@@ -26,7 +26,7 @@ paths = [
   "profiles/**",
   "fixtures/**",
 ]
-lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+lanes = ["fast_checks", "standard_tests", "ci_success"]
 deep_lanes = ["extended_property_tests"]
 labels = ["profile", "property-tests", "full-ci"]
 
@@ -37,7 +37,7 @@ paths = [
   "crates/hl7v2/src/stream/**",
   "crates/hl7v2/src/batch/**",
 ]
-lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+lanes = ["fast_checks", "standard_tests", "ci_success"]
 deep_lanes = ["matrix_tests"]
 labels = ["network", "full-ci"]
 
@@ -50,7 +50,7 @@ paths = [
   "metadata.json",
   "buf.gen.yaml",
 ]
-lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+lanes = ["fast_checks", "standard_tests", "ci_success"]
 deep_lanes = ["contracts"]
 labels = ["api-contract", "full-ci"]
 
@@ -60,7 +60,7 @@ paths = [
   "crates/hl7v2-cli/**",
   "fixtures/evidence/**",
 ]
-lanes = ["fast_checks", "standard_tests", "ripr_advisory"]
+lanes = ["fast_checks", "standard_tests", "ci_success"]
 deep_lanes = []
 labels = ["evidence", "full-ci"]
 
@@ -86,7 +86,20 @@ paths = [
 ]
 lanes = ["fast_checks", "security"]
 deep_lanes = ["publish"]
-labels = ["release-check", "security-audit", "full-ci"]
+labels = ["release-check", "security-audit"]
+
+[risk_pack.ci_governance]
+description = "GitHub Actions, CI policy, CI planning scripts, and pull request governance."
+paths = [
+  ".github/workflows/**",
+  ".github/pull_request_template.md",
+  "policy/ci-*.toml",
+  "scripts/ci/**",
+  "docs/ci/**",
+]
+lanes = ["fast_checks", "standard_tests", "msrv_smoke", "ci_success"]
+deep_lanes = ["matrix_tests"]
+labels = ["ci", "platform-matrix", "full-ci"]
 
 [risk_pack.docs_only]
 description = "Documentation-only changes."

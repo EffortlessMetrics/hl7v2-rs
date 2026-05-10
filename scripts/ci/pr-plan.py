@@ -46,21 +46,32 @@ def changed_files(base: str, head: str) -> list[str]:
         return []
 
 
+def path_matches(path: str, patterns: list[str]) -> bool:
+    for pat in patterns:
+        if fnmatch.fnmatch(path, pat):
+            return True
+        # Also match as prefix
+        if pat.endswith("/**") and path.startswith(pat[:-3]):
+            return True
+    return False
+
+
 def match_paths(changed: list[str], patterns: list[str]) -> bool:
     for fpath in changed:
-        for pat in patterns:
-            if fnmatch.fnmatch(fpath, pat):
-                return True
-            # Also match as prefix
-            if pat.endswith("/**") and fpath.startswith(pat[:-3]):
-                return True
+        if path_matches(fpath, patterns):
+            return True
     return False
+
+
+def all_paths_match(changed: list[str], patterns: list[str]) -> bool:
+    return bool(changed) and all(path_matches(fpath, patterns) for fpath in changed)
 
 
 def classify_diff(
     changed: list[str],
     risk_packs: dict[str, Any],
     labels: list[str],
+    lane_whitelist: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """
     Returns:
@@ -76,6 +87,7 @@ def classify_diff(
     label_triggered: set[str] = set()
 
     packs = risk_packs.get("risk_pack", {})
+    docs_patterns = packs.get("docs_only", {}).get("paths", [])
 
     for pack_name, pack in packs.items():
         paths = pack.get("paths", [])
@@ -86,12 +98,13 @@ def classify_diff(
             for lane in pack.get("deep_lanes", []):
                 triggered_deep.add(lane)
 
-    # docs_only: only matched docs_only pack or no pack matched
-    non_doc_packs = [p for p in matched_packs if p != "docs_only"]
-    docs_only = len(matched_packs) > 0 and len(non_doc_packs) == 0
+    # docs_only must be computed from every changed path. A mixed docs +
+    # governance/script diff must not be allowed to skip the Rust gate just
+    # because it also touched markdown.
+    docs_only = all_paths_match(changed, docs_patterns)
 
     # If nothing matched, treat as ordinary Rust
-    if not matched_packs:
+    if not matched_packs or (not docs_only and not triggered_lanes and not triggered_deep):
         triggered_lanes.update(["fast_checks", "standard_tests", "ci_success"])
 
     # Labels override
@@ -103,8 +116,20 @@ def classify_diff(
             for lane in pack.get("lanes", []):
                 triggered_lanes.add(lane)
             for lane in pack.get("deep_lanes", []):
+                triggered_lanes.add(lane)
                 triggered_deep.add(lane)
                 label_triggered.add(lane)
+
+    for lane in lane_whitelist:
+        lane_labels = set(lane.get("labels", []))
+        if lane_labels & label_set:
+            lane_id = lane.get("id")
+            if lane_id:
+                triggered_lanes.add(lane_id)
+                label_triggered.add(lane_id)
+
+    if label_triggered:
+        docs_only = False
 
     return {
         "matched_packs": matched_packs,
@@ -217,7 +242,7 @@ def write_github_summary(
         )
 
     content = "\n".join(lines) + "\n"
-    with open(path, "a") as f:
+    with open(path, "a", encoding="utf-8") as f:
         f.write(content)
 
 
@@ -239,12 +264,17 @@ def main() -> None:
     runner_multipliers = budget.get("runner_multipliers", {})
 
     changed = changed_files(args.base, args.head)
-    classification = classify_diff(changed, risk_packs, labels)
+    classification = classify_diff(changed, risk_packs, labels, lane_list)
     estimate = estimate_lem(
         classification["triggered_lanes"],
         lane_list,
         runner_multipliers,
     )
+    known_lanes = {lane["id"] for lane in lane_list}
+    referenced_lanes = set(classification["triggered_lanes"]) | set(classification["triggered_deep"])
+    unknown_lanes = sorted(referenced_lanes - known_lanes)
+    for lane_id in unknown_lanes:
+        print(f"warning: risk pack references unknown CI lane `{lane_id}`", file=sys.stderr)
 
     result = {
         "schema_version": 1,
@@ -255,12 +285,13 @@ def main() -> None:
         "classification": classification,
         "estimate": estimate,
         "tier": lem_tier(estimate["total_lem"], budget),
+        "unknown_lanes": unknown_lanes,
     }
 
     if args.json_out:
         out_path = Path(args.json_out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w") as f:
+        with open(out_path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2)
         print(f"ci-plan: wrote {out_path}", file=sys.stderr)
 
@@ -276,10 +307,9 @@ def main() -> None:
 
     # Print compact summary to stdout
     tier = result["tier"]
-    icon = {"green": "✅", "ok": "🟡", "warning": "⚠️", "high-warning": "🔴", "over-ceiling": "⛔"}.get(tier, "ℹ️")
     docs = " [docs-only]" if classification["docs_only"] else ""
     packs = ",".join(classification["matched_packs"]) or "unclassified"
-    print(f"{icon} PR Plan: {estimate['total_lem']} LEM | packs={packs}{docs} | tier={tier}")
+    print(f"PR Plan: {estimate['total_lem']} LEM | packs={packs}{docs} | tier={tier}")
 
     # Set GitHub Actions output variables
     ga_output = os.environ.get("GITHUB_OUTPUT", "")

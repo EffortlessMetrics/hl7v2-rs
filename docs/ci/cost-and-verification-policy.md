@@ -67,7 +67,7 @@ They are never default for ordinary PRs unless the diff explicitly touches the s
 | Benchmarks                    | `benchmarks`, `full-ci`, main        |
 | Python wheel smoke            | `python`, `full-ci`, Python paths    |
 | Full API/gRPC contract suite  | `api-contract`, `full-ci`, API paths |
-| Publish dry-run               | `release-check`, `full-ci`, main     |
+| Publish dry-run               | `release-check`, release branches, manual dispatch |
 | Coverage                      | `coverage`, `full-ci`, main          |
 | ripr soft-gate                | After calibration period             |
 

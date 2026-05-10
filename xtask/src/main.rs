@@ -2907,6 +2907,12 @@ struct CiException {
     expires: String,
 }
 
+struct CiRiskPack {
+    name: String,
+    lanes: Vec<String>,
+    deep_lanes: Vec<String>,
+}
+
 fn parse_ci_lane_whitelist(text: &str) -> Result<Vec<CiLaneEntry>> {
     let raw_entries = table_array_entries(text, "[[lane]]");
     let mut out = Vec::with_capacity(raw_entries.len());
@@ -2995,15 +3001,96 @@ fn parse_ci_exceptions(text: &str) -> Result<Vec<CiException>> {
     Ok(out)
 }
 
+fn parse_ci_risk_packs(text: &str) -> Vec<CiRiskPack> {
+    let mut packs = Vec::new();
+    let mut current_name: Option<String> = None;
+    let mut current_lines: Vec<String> = Vec::new();
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("[risk_pack.") && trimmed.ends_with(']') {
+            if let Some(name) = current_name.take() {
+                let raw = current_lines.join("\n");
+                packs.push(CiRiskPack {
+                    name,
+                    lanes: string_array_after_root(&raw, "lanes").unwrap_or_default(),
+                    deep_lanes: string_array_after_root(&raw, "deep_lanes").unwrap_or_default(),
+                });
+                current_lines.clear();
+            }
+            let name = trimmed
+                .trim_start_matches("[risk_pack.")
+                .trim_end_matches(']')
+                .to_string();
+            current_name = Some(name);
+            continue;
+        }
+
+        if current_name.is_some() {
+            current_lines.push(line.to_string());
+        }
+    }
+
+    if let Some(name) = current_name {
+        let raw = current_lines.join("\n");
+        packs.push(CiRiskPack {
+            name,
+            lanes: string_array_after_root(&raw, "lanes").unwrap_or_default(),
+            deep_lanes: string_array_after_root(&raw, "deep_lanes").unwrap_or_default(),
+        });
+    }
+
+    packs
+}
+
+fn workflow_declares_job(workflow_text: &str, job: &str) -> bool {
+    let mut in_jobs = false;
+    for line in workflow_text.lines() {
+        let trimmed = line.trim_end();
+        if trimmed == "jobs:" {
+            in_jobs = true;
+            continue;
+        }
+
+        if !in_jobs {
+            continue;
+        }
+
+        if !line.starts_with(' ') && !trimmed.is_empty() {
+            break;
+        }
+
+        if line.starts_with("  ") && !line.starts_with("    ") {
+            let candidate = trimmed.trim().trim_end_matches(':');
+            if candidate == job {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn today_iso() -> String {
     if let Ok(d) = env::var("CI_TODAY") {
         return d;
     }
-    Command::new("date")
-        .arg("+%Y-%m-%d")
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_else(|_| "9999-12-31".to_string())
+    for (cmd, args) in [
+        ("date", vec!["+%Y-%m-%d"]),
+        (
+            "powershell",
+            vec!["-NoProfile", "-Command", "Get-Date -Format yyyy-MM-dd"],
+        ),
+    ] {
+        if let Ok(output) = Command::new(cmd).args(args).output()
+            && output.status.success()
+        {
+            let date = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !date.is_empty() {
+                return date;
+            }
+        }
+    }
+    "0000-00-00".to_string()
 }
 
 fn check_ci_lane_whitelist() -> Result<()> {
@@ -3014,9 +3101,12 @@ fn check_ci_lane_whitelist() -> Result<()> {
         .map_err(|e| anyhow!("Cannot read policy/ci-lane-whitelist.toml: {e}"))?;
     let exceptions_text = fs::read_to_string(root.join("policy/ci-whitelist-exceptions.toml"))
         .map_err(|e| anyhow!("Cannot read policy/ci-whitelist-exceptions.toml: {e}"))?;
+    let risk_pack_text = fs::read_to_string(root.join("policy/ci-risk-packs.toml"))
+        .map_err(|e| anyhow!("Cannot read policy/ci-risk-packs.toml: {e}"))?;
 
     let lanes = parse_ci_lane_whitelist(&whitelist_text)?;
     let exceptions = parse_ci_exceptions(&exceptions_text)?;
+    let risk_packs = parse_ci_risk_packs(&risk_pack_text);
 
     let today = today_iso();
     let lane_ids: HashSet<String> = lanes.iter().map(|l| l.id.clone()).collect();
@@ -3072,6 +3162,22 @@ fn check_ci_lane_whitelist() -> Result<()> {
             ));
         }
 
+        let workflow_path = root.join(&lane.workflow);
+        match fs::read_to_string(&workflow_path) {
+            Ok(workflow_text) => {
+                if lane.job != "*" && !workflow_declares_job(&workflow_text, &lane.job) {
+                    errors.push(format!(
+                        "lane '{}' declares job '{}' but {} does not contain that job id",
+                        lane.id, lane.job, lane.workflow
+                    ));
+                }
+            }
+            Err(e) => errors.push(format!(
+                "lane '{}' declares workflow '{}' but it cannot be read: {e}",
+                lane.id, lane.workflow
+            )),
+        }
+
         for dep in &lane.duplicate_of {
             if !lane_ids.contains(dep) {
                 warnings.push(format!(
@@ -3111,6 +3217,17 @@ fn check_ci_lane_whitelist() -> Result<()> {
                         }
                     }
                 },
+            }
+        }
+    }
+
+    for pack in &risk_packs {
+        for lane in pack.lanes.iter().chain(pack.deep_lanes.iter()) {
+            if !lane_ids.contains(lane) {
+                errors.push(format!(
+                    "risk pack '{}' references unknown lane '{}'",
+                    pack.name, lane
+                ));
             }
         }
     }

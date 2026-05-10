@@ -16,10 +16,10 @@ Last updated: 2026-05-09 (PR 07: platform matrix routed off ordinary PRs)
 | `benchmarks`              | `ci.yml`              | `benchmarks`     | deep          | no          | no        |       15 | performance     |
 | `ci_success`              | `ci.yml`              | `ci-success`     | frontdoor     | yes         | yes       |        1 | release/ci      |
 | `coverage`                | `coverage.yml`        | `coverage`       | deep          | no          | no        |       20 | release/ci      |
-| `security`                | `security.yml`        | `security`       | deep          | no          | no        |        5 | release/ci      |
-| `python_wheels`           | `python-wheels.yml`   | `build`          | deep          | no          | no        |       20 | binding/python  |
-| `nightly`                 | `nightly.yml`         | `nightly`        | deep          | no          | no        |       25 | core/build      |
-| `contracts`               | `contracts.yml`       | `contracts`      | deep          | no          | no        |       15 | api/contracts   |
+| `security`                | `security.yml`        | `*`              | deep          | no          | no        |        5 | release/ci      |
+| `python_wheels`           | `python-wheels.yml`   | `wheel-smoke`    | deep          | no          | no        |       20 | binding/python  |
+| `nightly`                 | `nightly.yml`         | `*`              | deep          | no          | no        |       25 | core/build      |
+| `contracts`               | `contracts.yml`       | `*`              | deep          | no          | no        |       15 | api/contracts   |
 | `publish`                 | `publish.yml`         | `publish`        | release       | no          | no        |       20 | release/ci      |
 
 ## Default PR LEM Estimate (after PR 07)
