@@ -130,4 +130,5 @@ publishing-mode run from `main` built and smoke-tested the wheel, then failed
 during Trusted Publishing token exchange with `invalid-publisher`; see
 [docs/audits/python-testpypi-publish-attempt-2026-05-10.md](../audits/python-testpypi-publish-attempt-2026-05-10.md).
 The TestPyPI upload/install-back proof remains incomplete until the TestPyPI
-Trusted Publisher is configured and a rerun passes.
+Trusted Publisher is configured and a rerun passes. Track the external setup
+blocker in [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563).
