@@ -4869,11 +4869,19 @@ mod serve_command {
     }
 
     #[test]
-    fn test_serve_grpc_not_implemented() {
+    fn test_serve_grpc_rejects_invalid_bind_address() {
         let mut cmd = cli_command();
-        cmd.args(["serve", "--mode", "grpc", "--port", "50051"])
-            .assert()
-            .failure()
-            .stderr(predicate::str::contains("not yet implemented"));
+        cmd.args([
+            "serve",
+            "--mode",
+            "grpc",
+            "--host",
+            "not-a-bind-address",
+            "--port",
+            "50051",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Invalid bind address"));
     }
 }
