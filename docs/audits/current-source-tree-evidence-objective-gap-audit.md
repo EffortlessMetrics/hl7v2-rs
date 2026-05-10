@@ -1,30 +1,30 @@
-# Current Source Tree Evidence Objective Gap Audit
+# Final Source Tree Evidence Objective Gap Audit
 
 Date: 2026-05-10
 
-This audit records the current durable repository state and the boundary around
-the broad local evidence-lane workbench that still needs to be split. It is not
-a release receipt, does not replace `docs/STATUS.md`, and does not claim
+This audit records the durable source-tree state after the broad local
+evidence-lane workbench was split into focused PRs and merged. It is not a
+release receipt, does not replace `docs/STATUS.md`, and does not claim
 TestPyPI or production PyPI publication.
 
-## Durability Boundary
+## Durable State
 
-The default branch is the durable source of truth. A large local workbench
-contains useful validated work across docs, xtask rails, Python publishing
-policy, gRPC auth/config, sensitive-output sanitization, and Python evidence
-schema smoke coverage, but it is not durable until it is split into focused PRs
-and merged.
+The default branch is now the durable source of truth for the split workbench
+items that were previously local-only.
 
-The audit distinction is:
+| Area | Durable state |
+| --- | --- |
+| Source-tree truth audit | Merged in #553. |
+| File and doc policy rails | Merged in #554. |
+| Python publish policy rails | Merged in #555. |
+| gRPC auth and CLI config path | Merged in #556. |
+| Sensitive evidence error sanitization | Merged in #557. |
+| Python evidence schema smoke | Merged in #558. |
+| CI economics | Merged separately in #471 and remains an infrastructure lane. |
 
-- **Published release state**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.4.0
-  are published to crates.io.
-- **Separate Python lane**: `hl7v2-python` remains outside the Rust crates.io
-  graph.
-- **Current local workbench**: broad, dirty, and intentionally not reviewable as
-  one PR.
-- **External Python package state**: no visible TestPyPI or production PyPI
-  `hl7v2-python` package was found during this audit.
+The previous broad workbench should no longer be treated as a reviewable
+source of truth. Future changes should start from current `main` and open
+narrow PRs.
 
 ## Package-State Receipt
 
@@ -36,44 +36,46 @@ The audit distinction is:
 | `https://pypi.org/pypi/hl7v2-python/json` | Returned `404`. |
 | `https://test.pypi.org/pypi/hl7v2-python/json` | Returned `404`. |
 
-## Split Plan
+## Current Product Boundary
 
-The local workbench should be retired through narrow PRs, not merged as a
-single patch:
-
-| Order | Branch | Scope |
-| ---: | --- | --- |
-| 1 | `docs/source-tree-truth-audit` | Source-tree audit, status wording, docs navigation, and external package-state receipts. |
-| 2 | `xtask/file-doc-policy-rails` | Untracked file policy, doc-link changed-gate behavior, and generated/vendor skip coverage. |
-| 3 | `xtask/python-publish-policy` | PyPI/TestPyPI policy hardening, TOML-backed `pyproject.toml`, and Trusted Publishing guards. |
-| 4 | `server/grpc-auth-config` | gRPC `x-api-key`, CLI `serve --mode grpc` shared config path, and transport auth tests. |
-| 5 | `server/sensitive-error-sanitization` | Profile-load/lint sanitization plus bundle/replay ID no-echo behavior. |
-| 6 | `python/evidence-schema-smoke` | Python guide validates generated v2 artifacts and bundle internals against checked-in schemas. |
-| 7 | `docs/final-source-tree-gap-audit` | Final audit refresh after PRs 1-6 land. |
-
-## Stop Conditions
-
-- Do not publish `hl7v2-python` to crates.io.
-- Do not run production PyPI without explicit release approval.
-- Do not claim TestPyPI upload/install-back proof until the publishing mode
-  uploads the current package and installs it back from TestPyPI.
-- Keep the Rust publish graph as `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
-- Keep CI-economics work separate from evidence-product behavior.
+- The Rust crates.io product graph remains `hl7v2`, `hl7v2-server`, and
+  `hl7v2-cli`.
+- `hl7v2-python` remains a separate Python/maturin lane and is not part of the
+  Rust crates.io graph.
+- The repository now has policy rails for Python publishing, including manual
+  TestPyPI proof controls and production PyPI guardrails.
+- TestPyPI upload/install-back proof has not been run from current `main`.
+- Production PyPI publication has not been run and still requires explicit
+  release approval.
+- Old microcrate package names remain historical artifacts, not the current
+  product surface.
 
 ## Verification Performed For This Audit
 
 | Check | Result |
 | --- | --- |
-| `gh pr list --state open --limit 20 --json number,title,headRefName,isDraft,mergeStateStatus,statusCheckRollup` | Returned `[]` before this PR was opened. |
+| `gh pr list --state open --limit 20 --json number,title,headRefName,isDraft,mergeStateStatus` | Returned `[]` before this PR was opened. |
 | `cargo +1.93.0 info hl7v2@1.4.0 --registry crates-io` | Passed. |
 | `cargo +1.93.0 info hl7v2-server@1.4.0 --registry crates-io` | Passed. |
 | `cargo +1.93.0 info hl7v2-cli@1.4.0 --registry crates-io` | Passed. |
 | `Invoke-WebRequest https://pypi.org/pypi/hl7v2-python/json` | Returned `404`. |
 | `Invoke-WebRequest https://test.pypi.org/pypi/hl7v2-python/json` | Returned `404`. |
+| `cargo +1.93.0 run -p xtask -- publish-plan` | Reported `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. |
+| `cargo +1.93.0 run -p xtask -- evidence-schema-check` | Passed; 33 evidence fixtures validated. |
+
+## Remaining Gaps
+
+The source-tree split is complete. Remaining gaps are release-process actions,
+not hidden local code:
+
+1. Run the guarded TestPyPI upload/install-back proof from clean `main` when
+   the Python lane is ready for an external package rehearsal.
+2. Keep production PyPI blocked until an explicit release decision approves it.
+3. Keep future evidence, server, Python, and policy work in separate PR lanes.
 
 ## Conclusion
 
-The repo is in a good post-release state, but the next durable work is
-disposition, not more feature construction. The broad local workbench should be
-split and reviewed in the PR sequence above before any TestPyPI publishing
-proof is attempted from `main`.
+The prior local workbench has been disposed into durable PRs. Current `main`
+contains the source-tree, policy, server-security, and Python evidence-smoke
+rails needed before the next Python packaging proof. The repo should now be
+operated from `main`, not from the old broad workbench branch.

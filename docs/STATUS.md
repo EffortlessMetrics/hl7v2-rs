@@ -59,7 +59,7 @@ bundle replay message-type fix.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
-source-tree truth audit and local workbench split boundary, see
+final source-tree gap audit after the local workbench split, see
 [`docs/audits/current-source-tree-evidence-objective-gap-audit.md`](audits/current-source-tree-evidence-objective-gap-audit.md).
 
 | Area | Status | Notes |
