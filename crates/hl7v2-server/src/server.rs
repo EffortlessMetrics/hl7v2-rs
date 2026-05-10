@@ -3,6 +3,11 @@
 use crate::models::{
     AckPolicyConfig, PublicQuarantineConfig, QuarantineConfig, ReadinessCheck, ReadyResponse,
 };
+use crate::{
+    Result,
+    grpc::{Hl7ServiceImpl, proto::hl7_service_server::Hl7ServiceServer},
+    routes::build_router,
+};
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
@@ -11,11 +16,11 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
+use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
+use tokio_stream::wrappers::TcpListenerStream;
+use tonic::transport::Server as TonicServer;
 use tracing::info;
-
-use crate::Result;
-use crate::routes::build_router;
 
 /// Application state shared across handlers
 #[derive(Clone)]
@@ -532,6 +537,76 @@ impl Server {
         .await?;
 
         Ok(())
+    }
+
+    /// Run the gRPC server.
+    pub async fn serve_grpc(self) -> Result<()> {
+        let addr: SocketAddr = self
+            .config
+            .bind_address
+            .parse()
+            .map_err(|error| crate::Error::Config(format!("Invalid bind address: {error}")))?;
+
+        let listener = TcpListener::bind(&addr).await?;
+        self.serve_grpc_with_listener(listener).await
+    }
+
+    /// Run the gRPC server using an already-bound listener.
+    ///
+    /// This is primarily useful for tests that need an OS-assigned port.
+    pub async fn serve_grpc_with_listener(self, listener: TcpListener) -> Result<()> {
+        let addr = listener.local_addr()?;
+        info!("gRPC server listening on {}", addr);
+
+        let max_message_size = self.config.max_body_size;
+        let api_key = self.state.api_key.clone();
+        let service = Hl7ServiceServer::new(Hl7ServiceImpl::new(self.state))
+            .max_decoding_message_size(max_message_size)
+            .max_encoding_message_size(max_message_size);
+        let service =
+            tonic::service::interceptor::InterceptedService::new(service, move |request| {
+                grpc_auth_interceptor(request, api_key.as_deref())
+            });
+
+        TonicServer::builder()
+            .add_service(service)
+            .serve_with_incoming(TcpListenerStream::new(listener))
+            .await
+            .map_err(|error| crate::Error::Internal(format!("gRPC server error: {error}")))?;
+
+        Ok(())
+    }
+}
+
+#[expect(
+    clippy::result_large_err,
+    reason = "tonic interceptor callbacks must return tonic::Status on authentication failures"
+)]
+fn grpc_auth_interceptor(
+    request: tonic::Request<()>,
+    expected_key: Option<&str>,
+) -> std::result::Result<tonic::Request<()>, tonic::Status> {
+    const API_KEY_METADATA: &str = "x-api-key";
+
+    let Some(expected_key) = expected_key else {
+        return Ok(request);
+    };
+
+    let provided_key = request
+        .metadata()
+        .get(API_KEY_METADATA)
+        .and_then(|value| value.to_str().ok());
+
+    match provided_key {
+        Some(key) if key.as_bytes().ct_eq(expected_key.as_bytes()).into() => Ok(request),
+        Some(_) => {
+            tracing::warn!("Invalid gRPC API key provided");
+            Err(tonic::Status::unauthenticated("valid API key required"))
+        }
+        None => {
+            tracing::warn!("No gRPC API key provided");
+            Err(tonic::Status::unauthenticated("valid API key required"))
+        }
     }
 }
 

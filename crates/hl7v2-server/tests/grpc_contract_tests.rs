@@ -11,6 +11,7 @@
 #[cfg(test)]
 mod tests {
     use hl7v2_server::grpc::Hl7ServiceImpl;
+    use hl7v2_server::grpc::proto::hl7_service_client::Hl7ServiceClient;
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
     use hl7v2_server::grpc::proto::{
         GenerateAckRequest, HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest,
@@ -26,10 +27,14 @@ mod tests {
     use metrics_exporter_prometheus::PrometheusBuilder;
     use prost::Message as ProstMessage;
     use std::sync::Arc;
+    use std::time::Duration;
     use std::time::Instant;
+    use tokio::net::TcpListener;
+    use tokio::time::sleep;
     use tokio_stream::StreamExt;
     use tonic::codec::{Codec, ProstCodec, Streaming};
     use tonic::codegen::Bytes;
+    use tonic::metadata::MetadataValue;
     use tonic::{Code, Request};
 
     /// Helper to create a mock AppState
@@ -627,6 +632,148 @@ reason = "hash patient identifier"
             health_check_response::ServingStatus::Serving as i32
         );
         assert_eq!(inner.version, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_transport_server_serves_health_check() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test listener should bind");
+        let addr = listener
+            .local_addr()
+            .expect("test listener should have a local address");
+        let server = hl7v2_server::Server::builder()
+            .bind(addr.to_string())
+            .build();
+        let server_task =
+            tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
+
+        let endpoint = format!("http://{addr}");
+        let mut client = None;
+        for _ in 0..20 {
+            match Hl7ServiceClient::connect(endpoint.clone()).await {
+                Ok(value) => {
+                    client = Some(value);
+                    break;
+                }
+                Err(_) => sleep(Duration::from_millis(25)).await,
+            }
+        }
+        let mut client = client.expect("gRPC transport server should accept connections");
+
+        let response = client
+            .health_check(Request::new(HealthCheckRequest {}))
+            .await
+            .expect("HealthCheck should succeed")
+            .into_inner();
+
+        assert_eq!(
+            response.status,
+            health_check_response::ServingStatus::Serving as i32
+        );
+        assert_eq!(response.version, env!("CARGO_PKG_VERSION"));
+
+        server_task.abort();
+    }
+
+    #[tokio::test]
+    async fn test_grpc_transport_rejects_missing_api_key_when_configured() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test listener should bind");
+        let addr = listener
+            .local_addr()
+            .expect("test listener should have a local address");
+        let server = hl7v2_server::Server::builder()
+            .bind(addr.to_string())
+            .api_key(Some("grpc-secret".to_string()))
+            .build();
+        let server_task =
+            tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
+
+        let endpoint = format!("http://{addr}");
+        let mut client = None;
+        for _ in 0..20 {
+            match Hl7ServiceClient::connect(endpoint.clone()).await {
+                Ok(value) => {
+                    client = Some(value);
+                    break;
+                }
+                Err(_) => sleep(Duration::from_millis(25)).await,
+            }
+        }
+        let mut client = client.expect("gRPC transport server should accept connections");
+
+        let err = client
+            .parse(Request::new(ParseRequest {
+                message: SAMPLE_MSG.to_vec(),
+                mllp_framed: false,
+                options: None,
+            }))
+            .await
+            .expect_err("missing gRPC API key should be rejected");
+
+        assert_eq!(err.code(), Code::Unauthenticated);
+        assert!(err.message().contains("API key"));
+        assert_no_phi(err.message());
+
+        server_task.abort();
+    }
+
+    #[tokio::test]
+    async fn test_grpc_transport_accepts_valid_api_key_when_configured() {
+        let api_key = "grpc-secret";
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test listener should bind");
+        let addr = listener
+            .local_addr()
+            .expect("test listener should have a local address");
+        let server = hl7v2_server::Server::builder()
+            .bind(addr.to_string())
+            .api_key(Some(api_key.to_string()))
+            .build();
+        let server_task =
+            tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
+
+        let endpoint = format!("http://{addr}");
+        let mut client = None;
+        for _ in 0..20 {
+            match Hl7ServiceClient::connect(endpoint.clone()).await {
+                Ok(value) => {
+                    client = Some(value);
+                    break;
+                }
+                Err(_) => sleep(Duration::from_millis(25)).await,
+            }
+        }
+        let mut client = client.expect("gRPC transport server should accept connections");
+        let mut request = Request::new(ParseRequest {
+            message: SAMPLE_MSG.to_vec(),
+            mllp_framed: false,
+            options: None,
+        });
+        request.metadata_mut().insert(
+            "x-api-key",
+            MetadataValue::try_from(api_key).expect("test API key metadata should be valid"),
+        );
+
+        let response = client
+            .parse(request)
+            .await
+            .expect("valid gRPC API key should be accepted")
+            .into_inner();
+
+        assert!(response.success);
+        assert_eq!(
+            response
+                .metadata
+                .expect("metadata should exist")
+                .message_type,
+            "ADT^A01"
+        );
+
+        server_task.abort();
     }
 
     #[tokio::test]
