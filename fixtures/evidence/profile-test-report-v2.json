@@ -1,0 +1,53 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.4.0",
+  "profile": "profile.yaml",
+  "fixtures": "fixtures",
+  "valid": true,
+  "case_count": 2,
+  "passed_count": 2,
+  "failed_count": 0,
+  "cases": [
+    {
+      "name": "valid/valid.hl7",
+      "path": "fixtures/valid/valid.hl7",
+      "expectation": "valid",
+      "passed": true,
+      "message": "expected valid and report was valid",
+      "validation_report": {
+        "valid": true,
+        "message_type": "ADT^A01",
+        "profile": "profile.yaml",
+        "segment_count": 2,
+        "issue_count": 0,
+        "issues": []
+      }
+    },
+    {
+      "name": "invalid/missing_pid3.hl7",
+      "path": "fixtures/invalid/missing_pid3.hl7",
+      "expectation": "invalid",
+      "passed": true,
+      "message": "expected invalid and report was invalid",
+      "validation_report": {
+        "valid": false,
+        "message_type": "ADT^A01",
+        "profile": "profile.yaml",
+        "segment_count": 2,
+        "issue_count": 1,
+        "issues": [
+          {
+            "code": "missing_required_field",
+            "severity": "error",
+            "path": "PID.3",
+            "rule_id": "missing_required_field",
+            "message": "Required field PID.3 is missing",
+            "segment_index": 1,
+            "field_index": 3
+          }
+        ]
+      }
+    }
+  ]
+}

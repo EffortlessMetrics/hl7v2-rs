@@ -68,6 +68,9 @@ pub mod synthetic;
 #[cfg(feature = "redact")]
 pub mod redact;
 
+#[cfg(all(feature = "profile", feature = "redact"))]
+pub mod evidence;
+
 #[cfg(feature = "lifecycle")]
 pub mod lifecycle;
 
@@ -99,13 +102,14 @@ pub use ack::{AckCode, ack, ack_with_error};
 
 #[cfg(feature = "profile")]
 pub use conformance::profile::{
-    Profile, ProfileLintIssue, ProfileLintReport, ProfileLintSeverity, lint_profile_yaml,
-    load_profile, load_profile_checked, validate,
+    Profile, ProfileLintIssue, ProfileLintReport, ProfileLintReportV2, ProfileLintSeverity,
+    lint_profile_yaml, load_profile, load_profile_checked, validate,
 };
 
 #[cfg(feature = "profile")]
 pub use conformance::validation::{
-    Issue, Severity, ValidationReport, ValidationReportIssue, ValidationReportSeverity,
+    Issue, Severity, ValidationReport, ValidationReportIssue, ValidationReportProfileIdentity,
+    ValidationReportSeverity, ValidationReportV2,
 };
 
 #[cfg(feature = "stream")]

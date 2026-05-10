@@ -61,6 +61,15 @@ reason = "Spectral linting rules for the OpenAPI definition."
 covered_by = [".github/workflows/contracts.yml"]
 
 [[allow]]
+path = ".dockerignore"
+kind = "repo_config"
+owner = "platform"
+surface = "deployment"
+classification = "config"
+reason = "Docker build-context ignore list keeps local artifacts and generated outputs out of sidecar image builds."
+covered_by = ["docker compose -f infrastructure/docker/docker-compose.yml config"]
+
+[[allow]]
 path = ".tokeignore"
 kind = "repo_config"
 owner = "EffortlessMetrics"
@@ -118,7 +127,10 @@ owner = "hl7v2-python"
 surface = "python-binding"
 classification = "production"
 reason = "Maturin build metadata for the hl7v2-python wheel lane; the binding stays outside the Rust crates.io graph."
-covered_by = [".github/workflows/python-wheels.yml"]
+covered_by = [
+    ".github/workflows/python-wheels.yml",
+    ".github/workflows/python-testpypi.yml",
+]
 
 [[allow]]
 path = "justfile"
@@ -260,7 +272,10 @@ owner = "api"
 surface = "tests"
 classification = "test"
 reason = "Representative evidence artifact fixtures validated against public JSON schemas."
-covered_by = [".github/workflows/contracts.yml"]
+covered_by = [
+    ".github/workflows/contracts.yml",
+    "cargo run -p xtask -- evidence-schema-check",
+]
 
 # ---------------------------------------------------------------------------
 # Profiles (HL7 message profile YAML)
@@ -294,7 +309,10 @@ owner = "api"
 surface = "production"
 classification = "production"
 reason = "Public JSON schemas for messages, profiles, configuration, and errors."
-covered_by = [".github/workflows/contracts.yml"]
+covered_by = [
+    ".github/workflows/contracts.yml",
+    "cargo run -p xtask -- evidence-schema-check",
+]
 
 # ---------------------------------------------------------------------------
 # Infrastructure (deployment-only; not built by cargo)
@@ -329,7 +347,20 @@ owner = "hl7v2-python"
 surface = "tests"
 classification = "test"
 reason = "Python binding smoke tests verify wheel install, import, parse, and JSON conversion."
-covered_by = [".github/workflows/python-wheels.yml", "python tests/python_smoke/smoke.py"]
+covered_by = [
+    ".github/workflows/python-wheels.yml",
+    ".github/workflows/python-testpypi.yml",
+    "python tests/python_smoke/smoke.py",
+]
+
+[[allow]]
+glob = "tests/server_smoke/**"
+kind = "server_smoke_test"
+owner = "hl7v2-server"
+surface = "tests"
+classification = "test"
+reason = "Stdlib Python smoke harness verifies the deployed sidecar evidence loop over HTTP."
+covered_by = ["python tests/server_smoke/smoke.py"]
 
 # ---------------------------------------------------------------------------
 # Governance receipts (docs/ subtree)

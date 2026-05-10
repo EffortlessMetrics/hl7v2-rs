@@ -35,6 +35,10 @@ fn create_test_router() -> axum::Router {
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
         cors_allowed_origins: Default::default(),
+        readiness_checks: ServerConfig::default().readiness_checks(),
+        bundle_output_root: None,
+        ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     build_router(state)
 }
@@ -890,6 +894,11 @@ mod server_integration {
             max_body_size: 10 * 1024 * 1024,
             api_key: None,
             cors_allowed_origins: Default::default(),
+            profile_paths: Vec::new(),
+            config_source: None,
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
         };
 
         // Build server

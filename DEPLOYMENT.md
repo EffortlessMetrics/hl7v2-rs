@@ -33,8 +33,7 @@ cargo run --bin hl7v2-server
 ### Environment Variables
 
 ```bash
-export HL7V2_HOST="0.0.0.0"              # Bind address (default: 127.0.0.1)
-export HL7V2_PORT="8080"                  # Port (default: 8080)
+export BIND_ADDRESS="0.0.0.0:8080"        # Bind address (default: 127.0.0.1:8080)
 export HL7V2_MAX_CONCURRENT="100"         # Max concurrent requests (default: 100)
 export HL7V2_MAX_BODY_SIZE="1048576"      # Max body size in bytes (default: 1MB)
 export HL7V2_API_KEY="your-secret-key"    # API key for authentication (optional)
@@ -51,8 +50,7 @@ docker build -t hl7v2-server:latest .
 
 # Run container
 docker run -p 8080:8080 \
-  -e HL7V2_HOST=0.0.0.0 \
-  -e HL7V2_PORT=8080 \
+  -e BIND_ADDRESS=0.0.0.0:8080 \
   -e RUST_LOG=info \
   hl7v2-server:latest
 ```
@@ -70,71 +68,19 @@ docker run -p 8080:8080 hl7v2-rs:latest
 
 ### Docker Compose
 
-Create `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  hl7v2-server:
-    image: hl7v2-server:latest
-    ports:
-      - "8080:8080"
-    environment:
-      HL7V2_HOST: "0.0.0.0"
-      HL7V2_PORT: "8080"
-      HL7V2_MAX_CONCURRENT: "200"
-      RUST_LOG: "info"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 128M
-
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    depends_on:
-      - hl7v2-server
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-changeme}
-    depends_on:
-      - prometheus
-
-volumes:
-  prometheus_data:
-  grafana_data:
-```
-
-Start the stack:
+The checked-in Compose file runs the standalone `hl7v2-server` sidecar with
+configured bundle and quarantine roots:
 
 ```bash
-docker-compose up -d
+docker compose -f infrastructure/docker/docker-compose.yml up --build -d
+python tests/server_smoke/smoke.py
+docker compose -f infrastructure/docker/docker-compose.yml down -v
 ```
+
+The smoke script checks `/health`, `/ready`, `/hl7/validate-redacted`,
+`/hl7/bundle`, `/hl7/replay`, and `/hl7/corpus/diff` against the running
+sidecar. It uses `HL7V2_SERVER_URL` and `HL7V2_API_KEY` when set, defaulting to
+the local Compose values in `infrastructure/docker/sidecar.env.example`.
 
 ## Kubernetes Deployment
 
@@ -275,8 +221,7 @@ For NixOS deployments, see [NIX_USAGE.md](NIX_USAGE.md) for complete guide.
 
 **Bind Address and Port:**
 ```bash
-HL7V2_HOST="0.0.0.0"  # Listen on all interfaces
-HL7V2_PORT="8080"      # HTTP port
+BIND_ADDRESS="0.0.0.0:8080"  # Listen on all interfaces
 ```
 
 **Concurrency Limiting:**
@@ -313,25 +258,35 @@ export RUST_LOG="hl7v2_server=debug,hl7v2_prof=info"
 export RUST_LOG_FORMAT="json"
 ```
 
+`RUST_LOG_FORMAT=json` emits tracing fields as JSON records. The server's HL7
+evidence workflow logs include message type, validation status, issue counts,
+redaction status, hashed control/correlation identifiers, and hashed caller
+bundle IDs. Raw HL7 payloads, raw `MSH.10` control IDs, profile YAML, redaction
+policies, bundle output roots, and quarantine roots are not logged by default.
+
 ### Configuration File
 
-Create `config.yaml`:
+Set `HL7V2_CONFIG` to a TOML or YAML file. The server consumes the `[server]`
+section from the same checked config shape as `config.example.toml`.
 
-```yaml
-server:
-  bind_address: "0.0.0.0:8080"
-  max_body_size: 1048576
-  max_concurrent: 100
+Create `config.toml`:
 
-logging:
-  level: "info"
-  format: "json"
+```toml
+[server]
+host = "0.0.0.0"
+port = 8080
+# api_key = "your-secret-api-key-here"
 
-security:
-  api_key_required: true
-  cors_allowed_origins:
-    - "https://app.example.com"
-    - "https://dashboard.example.com"
+[logging]
+level = "info"
+log_to_file = false
+```
+
+Then run:
+
+```bash
+HL7V2_CONFIG=/etc/hl7v2/config.toml hl7v2-server --print-config
+HL7V2_CONFIG=/etc/hl7v2/config.toml hl7v2-server
 ```
 
 ## Monitoring
@@ -341,11 +296,22 @@ security:
 The server exposes metrics at `/metrics`:
 
 **Key Metrics:**
-- `hl7v2_requests_total` - Total request count by endpoint and status
-- `hl7v2_request_duration_seconds` - Request latency histogram
-- `hl7v2_active_connections` - Current active connections
-- `hl7v2_parse_errors_total` - Parse error count
-- `hl7v2_validation_errors_total` - Validation error count
+- `hl7v2_requests_total` - HTTP request count by endpoint and status.
+- `hl7v2_request_duration_seconds` - HTTP request latency histogram by endpoint.
+- `hl7v2_messages_parsed_total` - Messages parsed by bounded evidence operation.
+- `hl7v2_messages_validated_total` - Messages validated by bounded evidence operation.
+- `hl7v2_message_size_bytes` - Input HL7 message size histogram.
+- `hl7v2_parse_failures_total` - Parse failures by bounded evidence operation.
+- `hl7v2_validation_failures_total` - Validation failures by bounded evidence operation.
+- `hl7v2_redaction_failures_total` - Redaction failures by bounded evidence operation.
+- `hl7v2_bundles_created_total` - Evidence bundles created by the server.
+- `hl7v2_replays_total` - Evidence replay attempts.
+- `hl7v2_replay_failures_total` - Replay attempts that did not reproduce.
+- `hl7v2_corpus_diffs_total` - Inline corpus diff requests completed by the server.
+
+Metric labels are intentionally low-cardinality. The server does not use raw
+HL7 payloads, profile YAML, redaction policies, local paths, raw message control
+IDs, raw bundle IDs, or patient identifiers as metric labels.
 
 **Prometheus Configuration:**
 
@@ -368,7 +334,7 @@ scrape_configs:
 Import dashboards from `infrastructure/grafana/`:
 
 1. **HL7v2 Server Overview**: Request rates, latencies, error rates
-2. **HL7v2 Validation**: Validation success/failure rates, profile usage
+2. **HL7v2 Validation**: Validation success/failure rates by bounded operation
 3. **HL7v2 Performance**: P50/P95/P99 latencies, throughput
 
 ### Health Checks

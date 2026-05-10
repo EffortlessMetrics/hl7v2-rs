@@ -14,14 +14,20 @@ mod tests {
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
     use hl7v2_server::grpc::proto::{
         GenerateAckRequest, HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest,
-        ParseStreamRequest, ParseStreamResponse, ValidateRequest, generate_ack_request,
-        health_check_response, validation_issue,
+        ParseStreamRequest, ParseStreamResponse, ValidateRedactedRequest, ValidateRequest,
+        generate_ack_request, health_check_response, validation_issue,
     };
-    use hl7v2_server::server::AppState;
-    use http_body_util::Empty;
+    use hl7v2_server::server::{AppState, ServerConfig};
+    use hl7v2_test_utils::{
+        PHI_LEAK_SENTINEL_MESSAGE as PHI_MESSAGE, PHI_LEAK_SENTINEL_POLICY as REDACTION_POLICY,
+        assert_no_phi_leak_sentinels,
+    };
+    use http_body_util::Full;
     use metrics_exporter_prometheus::PrometheusBuilder;
+    use prost::Message as ProstMessage;
     use std::sync::Arc;
     use std::time::Instant;
+    use tokio_stream::StreamExt;
     use tonic::codec::{Codec, ProstCodec, Streaming};
     use tonic::codegen::Bytes;
     use tonic::{Code, Request};
@@ -35,6 +41,10 @@ mod tests {
             metrics_handle: Arc::new(handle),
             api_key: None,
             cors_allowed_origins: Default::default(),
+            readiness_checks: ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
         })
     }
 
@@ -51,8 +61,32 @@ constraints:
     required: true
 "#;
 
+    const PROFILE_REQUIRES_DROPPED_NAME: &str = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "PID"
+constraints:
+  - path: "PID.5"
+    required: true
+"#;
+
     fn service() -> Hl7ServiceImpl {
         Hl7ServiceImpl::new(mock_state())
+    }
+
+    fn grpc_request_body<T: ProstMessage>(messages: &[T]) -> Full<Bytes> {
+        let mut body = Vec::new();
+        for message in messages {
+            let encoded = message.encode_to_vec();
+            let encoded_len =
+                u32::try_from(encoded.len()).expect("gRPC test fixture should fit in u32");
+            body.push(0);
+            body.extend_from_slice(&encoded_len.to_be_bytes());
+            body.extend_from_slice(&encoded);
+        }
+        Full::new(Bytes::from(body))
     }
 
     async fn normalize(
@@ -205,6 +239,7 @@ constraints:
             profile: PROFILE.to_string(),
             mllp_framed: false,
             options: None,
+            report_schema_version: 0,
         });
 
         let response = service.validate(request).await.expect("RPC should succeed");
@@ -216,6 +251,39 @@ constraints:
         let summary = inner.summary.expect("Summary should exist");
         assert_eq!(summary.error_count, 0);
         assert_eq!(summary.warning_count, 0);
+
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        assert!(report.valid);
+        assert_eq!(report.message_type, "ADT^A01");
+        assert_eq!(report.profile.as_deref(), Some("ADT_A01"));
+        assert_eq!(report.segment_count, 2);
+        assert_eq!(report.issue_count, 0);
+        assert!(report.issues.is_empty());
+        assert!(inner.validation_report_v2.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_mllp_framed_message() {
+        let service = service();
+        let request = Request::new(ValidateRequest {
+            message: hl7v2::wrap_mllp(SAMPLE_MSG),
+            profile: PROFILE.to_string(),
+            mllp_framed: true,
+            options: None,
+            report_schema_version: 0,
+        });
+
+        let response = service.validate(request).await.expect("RPC should succeed");
+        let inner = response.into_inner();
+
+        assert!(inner.valid);
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        assert_eq!(report.message_type, "ADT^A01");
+        assert_eq!(report.profile.as_deref(), Some("ADT_A01"));
     }
 
     #[tokio::test]
@@ -227,6 +295,7 @@ constraints:
             profile: "invalid: yaml: structure:".to_string(),
             mllp_framed: false,
             options: None,
+            report_schema_version: 0,
         });
 
         let err = service
@@ -256,6 +325,7 @@ constraints:
             profile: profile.to_string(),
             mllp_framed: false,
             options: None,
+            report_schema_version: 2,
         });
 
         let response = service.validate(request).await.expect("RPC should succeed");
@@ -273,6 +343,273 @@ constraints:
         let summary = inner.summary.expect("Summary should exist");
         assert_eq!(summary.error_count, 1);
         assert_eq!(summary.warning_count, 0);
+
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        assert!(!report.valid);
+        assert_eq!(report.message_type, "ADT^A01");
+        assert_eq!(report.profile.as_deref(), Some("ADT_A01"));
+        assert_eq!(report.segment_count, 2);
+        assert_eq!(report.issue_count, 1);
+        assert_eq!(report.issues.len(), 1);
+        assert_eq!(report.issues[0].code, "missing_required_field");
+        assert_eq!(report.issues[0].severity, "error");
+        assert_eq!(report.issues[0].path.as_deref(), Some("PID.99"));
+        assert_eq!(
+            report.issues[0].rule_id.as_deref(),
+            Some("missing_required_field")
+        );
+        assert_eq!(report.issues[0].segment_index, Some(1));
+        assert_eq!(report.issues[0].field_index, Some(99));
+
+        let report_v2 = inner
+            .validation_report_v2
+            .expect("Validation report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+        assert_eq!(report_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        assert!(!report_v2.valid);
+        assert_eq!(report_v2.message_type, "ADT^A01");
+        assert_eq!(report_v2.profile.as_deref(), Some("ADT_A01"));
+        let identity = report_v2
+            .profile_identity
+            .expect("Profile identity should exist");
+        assert_eq!(identity.label, "ADT_A01");
+        assert_eq!(identity.message_structure.as_deref(), Some("ADT_A01"));
+        assert_eq!(identity.version.as_deref(), Some("2.5"));
+        assert_eq!(report_v2.issues[0].code, "missing_required_field");
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi() {
+        let service = service();
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: true,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+        });
+
+        let response = service
+            .validate_redacted(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+        let response_debug = format!("{inner:?}");
+
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        assert!(report.valid);
+        assert_eq!(report.message_type, "ADT^A01");
+        assert_eq!(report.profile.as_deref(), Some("ADT_A01"));
+        assert!(inner.validation_report_v2.is_none());
+
+        let receipt = inner
+            .redaction_receipt
+            .expect("Redaction receipt should exist");
+        assert!(receipt.phi_removed);
+        assert_eq!(receipt.hash_algorithm, "sha256");
+        assert!(receipt.actions.iter().any(|action| {
+            action.path == "PID.3" && action.action == "hash" && action.status == "applied"
+        }));
+        assert!(inner.redaction_receipt_v2.is_none());
+
+        let redacted_hl7 =
+            String::from_utf8(inner.redacted_hl7.expect("Redacted HL7 should be included"))
+                .expect("Redacted HL7 should be UTF-8");
+        assert!(redacted_hl7.contains("hash:sha256:"));
+        assert_no_phi(&response_debug);
+        assert_no_phi(&redacted_hl7);
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_omits_redacted_hl7_unless_requested() {
+        let service = service();
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: false,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+        });
+
+        let response = service
+            .validate_redacted(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+
+        assert!(inner.validation_report.expect("report should exist").valid);
+        assert!(inner.redacted_hl7.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_accepts_mllp_framed_message() {
+        let service = service();
+        let request = Request::new(ValidateRedactedRequest {
+            message: hl7v2::wrap_mllp(PHI_MESSAGE.as_bytes()),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: true,
+            include_redacted_hl7: true,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+        });
+
+        let response = service
+            .validate_redacted(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+
+        assert!(inner.validation_report.expect("report should exist").valid);
+        let redacted_hl7 =
+            String::from_utf8(inner.redacted_hl7.expect("Redacted HL7 should be included"))
+                .expect("Redacted HL7 should be UTF-8");
+        assert!(redacted_hl7.contains("hash:sha256:"));
+        assert_no_phi(&redacted_hl7);
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_v2_returns_provenance_without_phi() {
+        let service = service();
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE_REQUIRES_DROPPED_NAME.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: true,
+            report_schema_version: 2,
+            redaction_receipt_schema_version: 2,
+        });
+
+        let response = service
+            .validate_redacted(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+        let response_debug = format!("{inner:?}");
+
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        assert!(!report.valid);
+        assert_eq!(report.issues[0].path.as_deref(), Some("PID.5"));
+
+        let report_v2 = inner
+            .validation_report_v2
+            .expect("Validation report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+        assert_eq!(report_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        assert!(!report_v2.valid);
+        let identity = report_v2
+            .profile_identity
+            .expect("Profile identity should exist");
+        assert_eq!(identity.label, "ADT_A01");
+        assert_eq!(identity.message_structure.as_deref(), Some("ADT_A01"));
+        assert_eq!(identity.version.as_deref(), Some("2.5"));
+        assert_eq!(identity.sha256.as_deref().unwrap().len(), 64);
+
+        let receipt_v2 = inner
+            .redaction_receipt_v2
+            .expect("Redaction receipt v2 should exist");
+        assert_eq!(receipt_v2.schema_version, "2");
+        assert_eq!(receipt_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(receipt_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        assert!(receipt_v2.phi_removed);
+        assert_eq!(receipt_v2.hash_algorithm, "sha256");
+        assert!(receipt_v2.actions.iter().any(|action| {
+            action.path == "PID.3" && action.action == "hash" && action.status == "applied"
+        }));
+        assert_no_phi(&response_debug);
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_fails_closed_when_policy_misses_sensitive_fields() {
+        let service = service();
+        let incomplete_policy = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "hash patient identifier"
+"#;
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: incomplete_policy.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: true,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+        });
+
+        let err = service
+            .validate_redacted(request)
+            .await
+            .expect_err("Incomplete policy should fail closed");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert!(err.message().contains("Failed to redact HL7"));
+        assert!(err.message().contains("PID.5"));
+        assert_no_phi(err.message());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_rejects_unsupported_schema_versions() {
+        let service = service();
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: false,
+            report_schema_version: 3,
+            redaction_receipt_schema_version: 0,
+        });
+
+        let err = service
+            .validate_redacted(request)
+            .await
+            .expect_err("Unsupported schema version should fail the RPC");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported validation report schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_rejects_unsupported_receipt_schema_versions() {
+        let service = service();
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: false,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 3,
+        });
+
+        let err = service
+            .validate_redacted(request)
+            .await
+            .expect_err("Unsupported schema version should fail the RPC");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported redaction receipt schema version 3; expected 1 or 2"
+        );
     }
 
     #[tokio::test]
@@ -293,17 +630,109 @@ constraints:
     }
 
     #[tokio::test]
-    async fn test_grpc_parse_stream_is_explicitly_unsupported() {
+    async fn test_grpc_parse_stream_parses_each_message() {
         let service = service();
         let mut codec = ProstCodec::<ParseStreamResponse, ParseStreamRequest>::default();
-        let stream = Streaming::new_request(codec.decoder(), Empty::<Bytes>::new(), None, None);
+        let requests = vec![
+            ParseStreamRequest {
+                message: SAMPLE_MSG.to_vec(),
+                mllp_framed: false,
+                options: None,
+            },
+            ParseStreamRequest {
+                message: b"not an HL7 message".to_vec(),
+                mllp_framed: false,
+                options: None,
+            },
+            ParseStreamRequest {
+                message: SAMPLE_MSG.to_vec(),
+                mllp_framed: true,
+                options: None,
+            },
+            ParseStreamRequest {
+                message: hl7v2::wrap_mllp(SAMPLE_MSG),
+                mllp_framed: true,
+                options: None,
+            },
+        ];
+        let stream =
+            Streaming::new_request(codec.decoder(), grpc_request_body(&requests), None, None);
 
-        let err = service
+        let response = service
             .parse_stream(Request::new(stream))
             .await
-            .expect_err("ParseStream should be explicitly unsupported");
+            .expect("ParseStream should start");
+        let mut output = response.into_inner();
 
-        assert_eq!(err.code(), Code::Unimplemented);
-        assert_eq!(err.message(), "Streaming parse not yet implemented");
+        let first = output
+            .next()
+            .await
+            .expect("first response should exist")
+            .expect("first response should be OK");
+        assert!(first.success);
+        assert_eq!(
+            first.metadata.expect("metadata should exist").control_id,
+            "CTRL123"
+        );
+
+        let second = output
+            .next()
+            .await
+            .expect("second response should exist")
+            .expect("second response should be OK");
+        assert!(!second.success);
+        assert_eq!(second.errors[0].code, "PARSE_ERROR");
+
+        let third = output
+            .next()
+            .await
+            .expect("third response should exist")
+            .expect("third response should be OK");
+        assert!(!third.success);
+        assert_eq!(third.errors[0].code, "MLLP_ERROR");
+
+        let fourth = output
+            .next()
+            .await
+            .expect("fourth response should exist")
+            .expect("fourth response should be OK");
+        assert!(fourth.success);
+        assert_eq!(
+            fourth.metadata.expect("metadata should exist").control_id,
+            "CTRL123"
+        );
+
+        assert!(output.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_parse_stream_reports_malformed_frames_as_status() {
+        let service = service();
+        let mut codec = ProstCodec::<ParseStreamResponse, ParseStreamRequest>::default();
+        let stream = Streaming::new_request(
+            codec.decoder(),
+            Full::new(Bytes::from_static(&[0, 0, 0, 0, 10, b'x'])),
+            None,
+            None,
+        );
+
+        let response = service
+            .parse_stream(Request::new(stream))
+            .await
+            .expect("ParseStream should start before decode errors");
+        let mut output = response.into_inner();
+
+        let err = output
+            .next()
+            .await
+            .expect("malformed frame should emit a status")
+            .expect_err("malformed frame should fail stream decoding");
+        assert_eq!(err.code(), Code::Internal);
+
+        assert!(output.next().await.is_none());
+    }
+
+    fn assert_no_phi(content: &str) {
+        assert_no_phi_leak_sentinels("gRPC validate-redacted response", content);
     }
 }

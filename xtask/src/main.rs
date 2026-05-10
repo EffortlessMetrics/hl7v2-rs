@@ -103,6 +103,8 @@ enum Commands {
     CheckFilePolicy,
     /// Verify CI lane whitelist: coverage, required fields, expensive-default exceptions
     CheckCiLaneWhitelist,
+    /// Validate checked-in evidence fixtures against their JSON schemas
+    EvidenceSchemaCheck,
 }
 
 #[derive(Subcommand)]
@@ -153,6 +155,7 @@ fn main() -> Result<()> {
         },
         Commands::CheckFilePolicy => check_file_policy()?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
+        Commands::EvidenceSchemaCheck => evidence_schema_check()?,
     }
 
     Ok(())
@@ -1268,6 +1271,218 @@ fn command_exists(cmd: &str) -> bool {
             .map(|s| s.success())
             .unwrap_or(false)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Evidence schema checker
+// ---------------------------------------------------------------------------
+
+struct EvidenceSchemaTarget {
+    schema: PathBuf,
+    data: PathBuf,
+}
+
+const SUPPLEMENTAL_EVIDENCE_FIXTURES: &[(&str, &str)] = &[(
+    "safe-analysis-redaction-output-receipt-v2.json",
+    "safe-analysis-redaction-output-v1.schema.json",
+)];
+
+fn evidence_schema_check() -> Result<()> {
+    println!("🔎 Checking evidence JSON schemas...");
+
+    let root = env::current_dir()?;
+    let targets = evidence_schema_targets(&root)?;
+    if targets.is_empty() {
+        return Err(anyhow!("no evidence schema targets found"));
+    }
+
+    for target in &targets {
+        println!(
+            "Validating {} against {}",
+            display_repo_path(&target.data, &root),
+            display_repo_path(&target.schema, &root)
+        );
+        run_ajv_validate(&target.schema, &target.data)?;
+    }
+
+    println!(
+        "✅ evidence schemas: {} fixture(s) validated",
+        targets.len()
+    );
+    Ok(())
+}
+
+fn evidence_schema_targets(root: &Path) -> Result<Vec<EvidenceSchemaTarget>> {
+    let schema_dir = root.join("schemas/evidence");
+    let fixture_dir = root.join("fixtures/evidence");
+
+    let schema_names = evidence_json_schema_names(&schema_dir)?;
+    let fixture_names = evidence_json_file_names(&fixture_dir)?;
+    let mut covered_fixtures = BTreeSet::new();
+    let mut targets = Vec::new();
+
+    for schema_name in &schema_names {
+        let fixture_name = evidence_fixture_name_for_schema(schema_name, &fixture_names)?;
+        covered_fixtures.insert(fixture_name.clone());
+        targets.push(EvidenceSchemaTarget {
+            schema: schema_dir.join(schema_name),
+            data: fixture_dir.join(fixture_name),
+        });
+    }
+
+    for (fixture_name, schema_name) in SUPPLEMENTAL_EVIDENCE_FIXTURES {
+        if fixture_names.contains(*fixture_name) {
+            if !schema_names.contains(*schema_name) {
+                return Err(anyhow!(
+                    "supplemental evidence fixture {fixture_name} maps to missing schema {schema_name}"
+                ));
+            }
+            covered_fixtures.insert((*fixture_name).to_string());
+            targets.push(EvidenceSchemaTarget {
+                schema: schema_dir.join(schema_name),
+                data: fixture_dir.join(fixture_name),
+            });
+        }
+    }
+
+    let uncovered: Vec<&String> = fixture_names.difference(&covered_fixtures).collect();
+    if !uncovered.is_empty() {
+        for fixture_name in &uncovered {
+            eprintln!("evidence-schema-check: fixture has no schema mapping: {fixture_name}");
+        }
+        return Err(anyhow!(
+            "{} evidence fixture(s) have no schema mapping",
+            uncovered.len()
+        ));
+    }
+
+    targets.sort_by(|a, b| a.schema.cmp(&b.schema).then_with(|| a.data.cmp(&b.data)));
+    Ok(targets)
+}
+
+fn evidence_json_schema_names(schema_dir: &Path) -> Result<BTreeSet<String>> {
+    let mut names = BTreeSet::new();
+    for entry in fs::read_dir(schema_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if name.ends_with(".schema.json") && name.contains("-v") {
+            names.insert(name.to_string());
+        }
+    }
+    Ok(names)
+}
+
+fn evidence_json_file_names(fixture_dir: &Path) -> Result<BTreeSet<String>> {
+    let mut names = BTreeSet::new();
+    for entry in fs::read_dir(fixture_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if name.ends_with(".json") {
+            names.insert(name.to_string());
+        }
+    }
+    Ok(names)
+}
+
+fn evidence_fixture_name_for_schema(
+    schema_file_name: &str,
+    fixture_names: &BTreeSet<String>,
+) -> Result<String> {
+    let schema_name = schema_file_name
+        .strip_suffix(".schema.json")
+        .ok_or_else(|| {
+            anyhow!("evidence schema file must end with .schema.json: {schema_file_name}")
+        })?;
+    let direct = format!("{schema_name}.json");
+    if fixture_names.contains(&direct) {
+        return Ok(direct);
+    }
+
+    let mut tried = vec![direct];
+    if let Some(legacy_name) = schema_name.strip_suffix("-v1") {
+        let legacy = format!("{legacy_name}.json");
+        if fixture_names.contains(&legacy) {
+            return Ok(legacy);
+        }
+        tried.push(legacy);
+    }
+
+    Err(anyhow!(
+        "no evidence fixture found for schema {schema_file_name}; tried {}",
+        tried.join(", ")
+    ))
+}
+
+fn run_ajv_validate(schema: &Path, data: &Path) -> Result<()> {
+    let mut command = if command_exists("ajv") {
+        let mut command = Command::new(command_program("ajv"));
+        command.arg("validate");
+        command
+    } else if command_exists("npx") {
+        let mut command = Command::new(command_program("npx"));
+        command.args([
+            "-y",
+            "-p",
+            "ajv-cli",
+            "-p",
+            "ajv-formats",
+            "ajv",
+            "validate",
+        ]);
+        command
+    } else {
+        return Err(anyhow!(
+            "evidence schema check requires ajv-cli and ajv-formats; install with `npm install -g ajv-cli ajv-formats` or make npx available"
+        ));
+    };
+
+    let status = command
+        .args(["-c", "ajv-formats", "-s"])
+        .arg(schema)
+        .arg("-d")
+        .arg(data)
+        .arg("--spec=draft7")
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "AJV validation failed for {} against {} with exit code: {:?}",
+            data.display(),
+            schema.display(),
+            status.code()
+        ));
+    }
+
+    Ok(())
+}
+
+fn command_program(cmd: &str) -> String {
+    if cfg!(windows) {
+        format!("{cmd}.cmd")
+    } else {
+        cmd.to_string()
+    }
+}
+
+fn display_repo_path(path: &Path, root: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 enum ChangedScope {
@@ -3052,6 +3267,70 @@ mod tests {
             return Ok(());
         }
         Err(anyhow!("{crate_name} should be present in publish order"))
+    }
+
+    // ---- evidence schema mapping ----------------------------------------
+
+    #[test]
+    fn evidence_schema_mapping_uses_legacy_v1_fixture_name() -> Result<()> {
+        let fixtures = BTreeSet::from(["validation-report.json".to_string()]);
+
+        let fixture =
+            evidence_fixture_name_for_schema("validation-report-v1.schema.json", &fixtures)?;
+
+        if fixture == "validation-report.json" {
+            Ok(())
+        } else {
+            Err(anyhow!("expected validation-report.json, got {fixture}"))
+        }
+    }
+
+    #[test]
+    fn evidence_schema_mapping_uses_versioned_v2_fixture_name() -> Result<()> {
+        let fixtures = BTreeSet::from(["validation-report-v2.json".to_string()]);
+
+        let fixture =
+            evidence_fixture_name_for_schema("validation-report-v2.schema.json", &fixtures)?;
+
+        if fixture == "validation-report-v2.json" {
+            Ok(())
+        } else {
+            Err(anyhow!("expected validation-report-v2.json, got {fixture}"))
+        }
+    }
+
+    #[test]
+    fn evidence_schema_mapping_reports_missing_fixture() -> Result<()> {
+        let fixtures = BTreeSet::new();
+
+        match evidence_fixture_name_for_schema("validation-report-v1.schema.json", &fixtures) {
+            Ok(fixture) => Err(anyhow!("missing fixture should fail, got {fixture}")),
+            Err(err) if err.to_string().contains("validation-report.json") => Ok(()),
+            Err(err) => Err(anyhow!(
+                "error should list the legacy fixture candidate, got {err}"
+            )),
+        }
+    }
+
+    #[test]
+    fn evidence_schema_targets_cover_supplemental_receipt_fixture() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let targets = evidence_schema_targets(&root)?;
+
+        if targets.iter().any(|target| {
+            target
+                .data
+                .ends_with("safe-analysis-redaction-output-receipt-v2.json")
+        }) {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "supplemental receipt fixture should be schema-validated"
+            ))
+        }
     }
 
     // ---- glob_match ------------------------------------------------------

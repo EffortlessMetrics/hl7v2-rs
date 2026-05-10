@@ -1490,7 +1490,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
  "async-lock",
  "bytes",
@@ -1512,13 +1512,14 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tokio-util",
+ "toml",
  "uuid",
  "wiremock",
 ]
 
 [[package]]
 name = "hl7v2-bench"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
  "criterion",
  "futures",
@@ -1530,7 +1531,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-cli"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -1543,6 +1544,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml_ng",
+ "sha2",
  "sysinfo",
  "tempfile",
  "tokio",
@@ -1553,7 +1555,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-e2e-tests"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
  "assert_cmd",
  "axum 0.8.9",
@@ -1581,7 +1583,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-examples"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
  "chrono",
  "hl7v2",
@@ -1591,17 +1593,19 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-python"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
  "hl7v2",
  "pyo3",
+ "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "hl7v2-server"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
+ "assert_cmd",
  "axum 0.8.9",
  "cucumber",
  "governor 0.8.1",
@@ -1619,10 +1623,12 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml_ng",
+ "sha2",
  "subtle",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
+ "toml",
  "tonic 0.12.3",
  "tonic-build",
  "tower 0.5.3",
@@ -1636,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "hl7v2-test-utils"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
  "hl7v2",
  "insta",
@@ -5550,7 +5556,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xtask"
-version = "1.2.1"
+version = "1.4.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",

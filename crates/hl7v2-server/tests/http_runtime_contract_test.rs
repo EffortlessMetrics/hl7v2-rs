@@ -19,6 +19,13 @@ use tower::ServiceExt;
 
 const SAMPLE_MSG: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
 const CUSTOM_DELIMS_MSG: &str = "MSH*%$!?*SENDAPP*SENDFAC*RECVAPP*RECVFAC*202605030101**ADT%A01*CTRL123*P*2.5\rPID*1**123456%%%HOSP%MR**Doe%John**19700101*M\r";
+const MINIMAL_PROFILE: &str = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+    required: true
+"#;
 
 fn test_router(api_key: Option<&str>, cors_allowed_origins: CorsAllowedOrigins) -> axum::Router {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
@@ -27,6 +34,10 @@ fn test_router(api_key: Option<&str>, cors_allowed_origins: CorsAllowedOrigins) 
         metrics_handle: Arc::new(metrics_handle),
         api_key: api_key.map(str::to_string),
         cors_allowed_origins,
+        readiness_checks: hl7v2_server::ServerConfig::default().readiness_checks(),
+        bundle_output_root: None,
+        ack_policy: Default::default(),
+        quarantine: Default::default(),
     });
     build_router(state)
 }
@@ -178,6 +189,81 @@ async fn test_new_hl7_routes_require_api_key_when_configured() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 
     let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/hl7/ack-policy")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "message": SAMPLE_MSG,
+                        "profile": MINIMAL_PROFILE
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/hl7/bundle")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "message": SAMPLE_MSG,
+                        "profile": MINIMAL_PROFILE,
+                        "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n",
+                        "bundle_id": "case-001"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/hl7/validate-redacted")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "message": SAMPLE_MSG,
+                        "profile": MINIMAL_PROFILE,
+                        "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    let response = app
         .oneshot(
             Request::builder()
                 .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
@@ -209,6 +295,26 @@ async fn test_metrics_stays_public_when_api_key_is_configured() {
                     8080,
                 ))))
                 .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_ready_stays_public_when_api_key_is_configured() {
+    let app = test_router(Some("secret-key"), CorsAllowedOrigins::default());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/ready")
                 .body(Body::empty())
                 .unwrap(),
         )

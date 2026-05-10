@@ -16,7 +16,9 @@ use tower_http::{
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::handlers::{
-    ack_handler, health_handler, normalize_handler, parse_handler, validate_handler,
+    ack_handler, ack_policy_handler, bundle_handler, corpus_diff_handler,
+    corpus_fingerprint_handler, corpus_summarize_handler, health_handler, normalize_handler,
+    parse_handler, ready_handler, replay_handler, validate_handler, validate_redacted_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
 use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
@@ -40,7 +42,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let mut api_routes = Router::new()
         .route("/parse", post(parse_handler))
         .route("/validate", post(validate_handler))
+        .route("/validate-redacted", post(validate_redacted_handler))
+        .route("/bundle", post(bundle_handler))
+        .route("/replay", post(replay_handler))
+        .route("/corpus/summarize", post(corpus_summarize_handler))
+        .route("/corpus/fingerprint", post(corpus_fingerprint_handler))
+        .route("/corpus/diff", post(corpus_diff_handler))
         .route("/ack", post(ack_handler))
+        .route("/ack-policy", post(ack_policy_handler))
         .route("/normalize", post(normalize_handler));
 
     // Apply authentication if API key is configured in state
@@ -80,13 +89,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(TraceLayer::new_for_http())
         .layer(GovernorLayer::new(governor_conf))
         .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
-}
-
-/// Handler for GET /ready
-async fn ready_handler() -> &'static str {
-    // Simple readiness check - if we can respond, we're ready
-    // In production, you might want to check database connections, etc.
-    "{\"ready\":true}"
 }
 
 /// Build CORS layer
@@ -129,6 +131,10 @@ mod tests {
             metrics_handle: Arc::new(metrics_handle),
             api_key: Some(api_key.clone()),
             cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
         });
         (build_router(state), api_key)
     }
@@ -178,6 +184,10 @@ mod tests {
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
             cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
         });
 
         let app = build_router(state);
@@ -211,6 +221,10 @@ mod tests {
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
             cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
         });
 
         let app = build_router(state);

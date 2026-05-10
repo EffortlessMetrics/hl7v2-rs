@@ -11,6 +11,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-05-09
+
+### Added
+
+- Added opt-in v2 provenance contracts and producer paths across validation,
+  profile, corpus, redaction, bundle, replay, quarantine, and doctor evidence
+  artifacts while keeping v1 defaults compatible.
+- Added server sidecar hardening after v1.3.0: inline corpus evidence
+  endpoints, server replay, bundle artifact schema opt-in, readiness path-leak
+  protection, redacted structured evidence logs, evidence metrics, and Docker
+  Compose smoke coverage.
+- Added Python evidence hardening: validation/corpus/redaction/bundle/replay
+  v2 parity, cross-surface PHI sentinel coverage, a manual TestPyPI proof
+  workflow, and a Python evidence workflow guide.
+- Added `cargo run -p xtask -- evidence-schema-check` as the maintained local
+  evidence fixture/schema validation rail.
+
+### Fixed
+
+- Fixed server evidence bundles so replay reproduces messages whose `MSH.9`
+  includes a third message-structure component such as `ADT^A01^ADT_A01`.
+
+### Documentation
+
+- Prepared the v1.4.0 package line and publish dry-run receipt for the final
+  Rust crates.io graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+- Verified and refreshed the validation sidecar guide with live server replay
+  output and the current inline corpus diff response shape.
+- Added current-state and contract-index documentation for the post-v1.3.0
+  evidence-contract line.
+
+---
+
+## [1.3.0] - 2026-05-09
+
+### Added
+
+- Released the v1.3.0 Evidence Loop around deterministic
+  HL7 interface evidence: first-run diagnostics, typed validation reports,
+  profile lint/test/explain, corpus summarize/fingerprint/diff,
+  safe-analysis redaction, evidence bundle/replay, and Python binding parity.
+- Added schema-backed evidence artifacts and golden fixtures for
+  validation reports, profile reports, corpus reports, redaction receipts,
+  bundle summaries, and replay reports.
+- Added CLI automation semantics for evidence commands: stable exit codes,
+  machine-readable stdout, diagnostic stderr, `--output`, `--quiet`, and
+  `--no-color` support.
+- Added server-side edge-guard workflows: sanitized `--print-config`,
+  readiness checks, redacted validation, evidence bundle creation,
+  policy-driven ACK/NAK decisions, and quarantine output hooks.
+- Added Python binding APIs for parse, JSON export, normalize, validation
+  reports, corpus summary/fingerprint/diff, safe-analysis redaction,
+  evidence bundle creation, and replay verification.
+- Added workflow guides for first-use evidence, vendor upgrade diffs,
+  safe support bundles, and validation sidecar deployment.
+
+### Changed
+
+- Evidence bundles now include manifest and README artifacts, and replay
+  verifies manifest hashes before comparing regenerated evidence.
+- Current release documentation positions v1.3.0 as the published Evidence
+  Loop release for the final Rust package graph.
+
+---
+
 ## [1.2.1] - 2026-05-08
 
 ### Release
@@ -34,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.0] - 2026-05-03
+## Historical pre-v1.2.1 recovery notes - 2026-05-03
 
 ### Added
 
@@ -192,29 +257,9 @@ See [docs/STATUS.md](docs/STATUS.md) for complete status.
 
 ## Future Releases
 
-### v1.2.0 (Planned - 8 weeks)
-- Server mode with HTTP/gRPC
-- Remote profile loading
-- Streaming backpressure
-- CLI enhancements
-- Corpus manifest
-- Expression engine improvements
-
-**See**: [ROADMAP.md](ROADMAP.md) and [docs/STATUS.md](docs/STATUS.md)
-
-### v1.3.0 (Planned - 12 weeks after v1.2)
-- Language bindings (C, Python, JavaScript, Java)
-- Database integration (PostgreSQL, Snowflake)
-- Message queue integration (Kafka, RabbitMQ)
-- Cloud storage integration (S3, GCS, Azure Blob)
-- Advanced analytics
-
-### v2.0.0 (Planned - 24 weeks after v1.3)
-- Security & compliance (HIPAA, TLS, encryption)
-- Audit logging with integrity
-- High availability & clustering
-- Advanced analytics & dashboards
-- GUI interface
+- Continue server sidecar hardening, Python distribution proof, profile
+  conformance quality, and compatibility-shim policy cleanup as separate
+  release trains.
 
 ---
 

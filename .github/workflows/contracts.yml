@@ -12,6 +12,7 @@ on:
       - 'config/**'
       - '.spectral.yml'
       - 'buf.gen.yaml'
+      - 'xtask/**'
       - '.github/workflows/contracts.yml'
   pull_request:
     paths:
@@ -23,6 +24,7 @@ on:
       - 'config/**'
       - '.spectral.yml'
       - 'buf.gen.yaml'
+      - 'xtask/**'
       - '.github/workflows/contracts.yml'
 
 jobs:
@@ -101,6 +103,11 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Install ajv-cli
         run: npm install -g ajv-cli ajv-formats
 
@@ -144,17 +151,7 @@ jobs:
             --spec=draft7
 
       - name: Validate Evidence Fixtures
-        run: |
-          for schema in schemas/evidence/*-v1.schema.json; do
-            name="$(basename "$schema")"
-            name="${name%-v1.schema.json}"
-            data="fixtures/evidence/${name}.json"
-            echo "Validating $data against $schema"
-            ajv validate -c ajv-formats \
-              -s "$schema" \
-              -d "$data" \
-              --spec=draft7
-          done
+        run: cargo run -p xtask -- evidence-schema-check
 
       - name: Validate Test Data
         run: |

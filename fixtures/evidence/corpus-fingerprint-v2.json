@@ -1,0 +1,104 @@
+{
+  "schema_version": "2",
+  "fingerprint_version": "1",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.4.0",
+  "root": "site-a",
+  "profile": null,
+  "file_count": 1,
+  "message_count": 1,
+  "parse_error_count": 0,
+  "message_type_counts": [
+    {"value": "ADT^A01", "count": 1}
+  ],
+  "segment_counts": [
+    {"value": "MSH", "count": 1}
+  ],
+  "field_presence": [
+    {"path": "MSH.2", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.9", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.10", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.11", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.12", "message_count": 1, "occurrence_count": 1}
+  ],
+  "field_cardinality": [
+    {
+      "path": "MSH.2",
+      "min_per_message": 1,
+      "max_per_message": 1,
+      "total_occurrences": 1,
+      "message_count": 1
+    },
+    {
+      "path": "MSH.9",
+      "min_per_message": 1,
+      "max_per_message": 1,
+      "total_occurrences": 1,
+      "message_count": 1
+    },
+    {
+      "path": "MSH.10",
+      "min_per_message": 1,
+      "max_per_message": 1,
+      "total_occurrences": 1,
+      "message_count": 1
+    },
+    {
+      "path": "MSH.11",
+      "min_per_message": 1,
+      "max_per_message": 1,
+      "total_occurrences": 1,
+      "message_count": 1
+    },
+    {
+      "path": "MSH.12",
+      "min_per_message": 1,
+      "max_per_message": 1,
+      "total_occurrences": 1,
+      "message_count": 1
+    }
+  ],
+  "value_shape_stats": [
+    {
+      "path": "MSH.2",
+      "coded_count": 0,
+      "timestamp_count": 0,
+      "numeric_count": 0,
+      "null_count": 0,
+      "text_count": 1
+    },
+    {
+      "path": "MSH.9",
+      "coded_count": 1,
+      "timestamp_count": 0,
+      "numeric_count": 0,
+      "null_count": 0,
+      "text_count": 0
+    },
+    {
+      "path": "MSH.10",
+      "coded_count": 0,
+      "timestamp_count": 0,
+      "numeric_count": 0,
+      "null_count": 0,
+      "text_count": 1
+    },
+    {
+      "path": "MSH.11",
+      "coded_count": 0,
+      "timestamp_count": 0,
+      "numeric_count": 0,
+      "null_count": 0,
+      "text_count": 1
+    },
+    {
+      "path": "MSH.12",
+      "coded_count": 0,
+      "timestamp_count": 0,
+      "numeric_count": 1,
+      "null_count": 0,
+      "text_count": 0
+    }
+  ],
+  "validation_issue_code_counts": []
+}

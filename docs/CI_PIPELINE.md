@@ -114,7 +114,34 @@ installed and imported. This workflow does not publish to PyPI.
    - Builds a wheel with maturin
    - Installs the built wheel
    - Runs `tests/python_smoke/smoke.py`
+   - Runs `tests/python_smoke/evidence_workflow_guide.py`
    - Uploads the wheel as a short-retention smoke artifact
+
+### `.github/workflows/python-testpypi.yml` - Python TestPyPI Proof
+
+Manual-only workflow for the separate `hl7v2-python` distribution lane. The
+default dispatch builds the wheel, installs it into a fresh virtual
+environment, runs `tests/python_smoke/smoke.py` plus the Python evidence guide
+smoke, and uploads the wheel as a short-retention artifact without publishing.
+
+When `publish_to_testpypi=true` is selected, the workflow publishes to TestPyPI
+using Trusted Publishing from the `testpypi` GitHub environment, then installs
+`hl7v2-python==<workspace version>` back from TestPyPI and reruns both smoke
+tests. The workflow uses `id-token: write` only for the publish job and does
+not use repository PyPI tokens.
+
+### `.github/workflows/server-smoke.yml` - Server Docker Smoke
+
+Path-scoped and manual workflow for the deployable validation sidecar. It
+validates `infrastructure/docker/docker-compose.yml`, starts the checked-in
+Compose stack, runs `tests/server_smoke/smoke.py`, prints container logs on
+failure, and tears the stack down with volumes removed.
+
+The smoke script exercises `/health`, `/ready`, `/hl7/validate-redacted`,
+`/hl7/bundle`, `/hl7/replay`, and `/hl7/corpus/diff` against the running
+container. It uses the local `dev-secret` API key from
+`infrastructure/docker/sidecar.env.example`; do not replace that with a real
+deployment secret.
 
 ## Viewing CI Results
 
@@ -143,6 +170,7 @@ The following artifacts are generated and available for download:
 | coverage.yml | tarpaulin-coverage | Tarpaulin coverage reports |
 | coverage.yml | llvm-coverage | LLVM coverage reports |
 | python-wheels.yml | python-wheel-* | Smoke-test wheels for the Python binding lane |
+| python-testpypi.yml | python-testpypi-wheel | Manual TestPyPI proof wheel artifact |
 
 ## Manual Triggers
 
@@ -169,6 +197,20 @@ The coverage workflow can be manually triggered:
 2. Click **Run workflow**
 3. Choose whether to upload to Codecov
 4. Click **Run workflow**
+
+### Server Docker Smoke
+
+The server smoke workflow can be manually triggered when validating sidecar
+deployment behavior:
+
+1. Go to **Actions** > **Server Docker Smoke**
+2. Click **Run workflow**
+3. Select the branch to test
+4. Click **Run workflow**
+
+The same workflow also runs on PRs and `main` pushes that change the server,
+canonical library, Docker sidecar files, profiles, smoke script, or sidecar
+deployment guide.
 
 ## Caching Strategy
 

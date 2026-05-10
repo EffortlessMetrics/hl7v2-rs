@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.2.1 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Some historical implementation microcrate artifacts already exist on crates.io; they are compatibility artifacts, not the product surface for new code. `hl7v2-python` remains a separate Python/maturin binding lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Some historical implementation microcrate artifacts already exist on crates.io; they are compatibility artifacts, not the product surface for new code. `hl7v2-python` remains a separate Python/maturin binding lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -18,13 +18,14 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Parser / Core** | Stable | Main CI, workspace tests, and contract checks green after the `hl7v2` facade and foundation-module collapse |
 | **Writer / Normalize** | Stable | Writer tests plus HTTP/gRPC normalization contract coverage |
 | **MLLP / Network** | Stable | MLLP parse/framing tests and CI matrix coverage |
-| **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, ACK, and normalize routes |
-| **gRPC Service** | Beta | Contract tests cover Parse, Validate, GenerateAck, Normalize, and HealthCheck; ParseStream is explicitly unsupported |
+| **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, redacted validation, bundle/replay, ACK, normalize, inline corpus evidence, readiness, and redacted structured logs |
+| **gRPC Service** | Beta | v1.4.0 contract tests cover Parse, Validate, GenerateAck, Normalize, and HealthCheck; current main also covers ParseStream as one request message into one response message and ValidateRedacted with opt-in v2 evidence |
 | **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; not published to crates.io |
-| **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.2.1 are published to crates.io; Python remains a separate binding lane |
+| **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.4.0 are published to crates.io; Python remains a separate binding lane |
+| **Evidence Loop** | Stable | v1.4.0 is the published Evidence Contracts and Server Sidecar release with opt-in v2 provenance, schema gates, server sidecar hardening, Python/TestPyPI proof, PHI sentinels, and replay fixes |
 
 ## Features
 
@@ -73,6 +74,16 @@ cargo install hl7v2-cli
 
 ## Quick Start
 
+For a task-focused walkthrough from local diagnostics to validation reports,
+corpus fingerprint/diff output, and replayable redacted bundles, start with the
+[First 10 Minutes guide](docs/guides/first-10-minutes.md).
+For migration and vendor-change review, see the
+[Vendor Upgrade Diff guide](docs/guides/vendor-upgrade-diff.md).
+For support escalation without raw message PHI, see the
+[Safe Support Bundle guide](docs/guides/safe-support-bundle.md).
+For sidecar deployment, see the
+[Deploy Validation Sidecar guide](docs/guides/deploy-validation-sidecar.md).
+
 ### HTTP/REST API Server
 
 The fastest way to get started is with the HTTP API server:
@@ -82,7 +93,10 @@ The fastest way to get started is with the HTTP API server:
 cargo run --bin hl7v2-server
 
 # Or with custom configuration
-HL7V2_HOST=0.0.0.0 HL7V2_PORT=8080 cargo run --bin hl7v2-server
+BIND_ADDRESS=0.0.0.0:8080 cargo run --bin hl7v2-server
+
+# Inspect sanitized effective configuration and exit
+cargo run --bin hl7v2-server -- --print-config
 ```
 
 **Parse a message via HTTP:**
@@ -106,6 +120,48 @@ curl -X POST http://localhost:8080/hl7/validate \
   }'
 ```
 
+**Validate after safe-analysis redaction:**
+```bash
+curl -X POST http://localhost:8080/hl7/validate-redacted \
+  -H "X-API-Key: your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "MSH|^~\\&|...",
+    "profile": "...",
+    "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n"
+  }'
+```
+
+If `[quarantine]` is enabled in `HL7V2_CONFIG`, failed
+`/hl7/validate-redacted` requests write configured quarantine artifacts under
+the server-controlled quarantine root and include a root-relative `quarantine`
+summary in the response.
+
+**Generate a policy-driven ACK/NAK:**
+```bash
+curl -X POST http://localhost:8080/hl7/ack-policy \
+  -H "X-API-Key: your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "MSH|^~\\&|...",
+    "profile": "..."
+  }'
+```
+
+**Create a redacted evidence bundle:**
+```bash
+# Requires HL7V2_BUNDLE_OUTPUT_ROOT to point at an existing writable directory.
+curl -X POST http://localhost:8080/hl7/bundle \
+  -H "X-API-Key: your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bundle_id": "case-001",
+    "message": "MSH|^~\\&|...",
+    "profile": "...",
+    "redaction_policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"hash patient identifier\"\n"
+  }'
+```
+
 **Check server health:**
 ```bash
 curl http://localhost:8080/health
@@ -114,6 +170,10 @@ curl http://localhost:8080/metrics  # Prometheus metrics
 ```
 
 See the [OpenAPI specification](api/openapi/hl7v2-api-v1.yaml) for complete API documentation.
+Server evidence workflow logs are structured and PHI-conscious. Set
+`RUST_LOG_FORMAT=json` for JSON records; logged identifiers such as message
+control IDs and bundle IDs are hashed, and raw HL7, profile YAML, redaction
+policy TOML, and configured filesystem roots are not logged by default.
 
 ### CLI Tools
 
@@ -254,9 +314,10 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 
 ### HTTP/REST API Server (`hl7v2-server`)
 
-- **RESTful API**: Parse, validate, acknowledge, and normalize HL7 messages over HTTP
+- **RESTful API**: Parse, validate, redact, bundle, replay, acknowledge, normalize, and inspect inline corpus evidence over HTTP
 - **Health & Readiness**: Production-ready health checks
 - **Prometheus metrics**: Request counts, latencies, error rates
+- **Redacted structured logs**: Evidence workflow logs hash message control IDs and bundle IDs while avoiding raw HL7, profile YAML, redaction policy TOML, and configured filesystem roots by default
 - **Concurrency limiting**: Built-in backpressure (100 concurrent requests default)
 - **CORS support**: Configurable allowed origins, with permissive local default
 - **Compression**: Gzip compression for responses
@@ -303,7 +364,15 @@ python tests/python_smoke/smoke.py
 ```
 
 The current binding proof covers wheel build, install, import, version
-metadata, parse, segment count, and JSON conversion.
+metadata, parse, segment count, JSON conversion, validation report parity,
+corpus summary/fingerprint/diff dict outputs, safe-analysis redaction, evidence
+bundle creation, and replay verification. Validation, corpus, redaction,
+bundle, and replay APIs also support the same opt-in v2 evidence shapes used by
+the CLI/server contracts where those surfaces expose v2 output.
+
+TestPyPI proof is manual-first through the `Python TestPyPI Proof` workflow and
+does not change the Rust publish graph. See
+[`docs/guides/python-testpypi-release-proof.md`](docs/guides/python-testpypi-release-proof.md).
 
 ## Performance Characteristics
 

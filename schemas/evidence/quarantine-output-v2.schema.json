@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/quarantine-output-v2.schema.json",
+  "title": "HL7v2 Quarantine Output Summary v2",
+  "description": "Summary emitted when the server writes configured quarantine output for failed redacted validation, with embedded evidence provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_name",
+    "tool_version",
+    "quarantine_version",
+    "output_dir",
+    "reason",
+    "validation_issue_count",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2"
+    },
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2-server"]
+    },
+    "tool_version": {
+      "type": "string"
+    },
+    "quarantine_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "output_dir": {
+      "type": "string",
+      "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9_.-]{1,128}$",
+      "description": "Quarantine output id relative to the configured server quarantine root."
+    },
+    "reason": {
+      "type": "string",
+      "enum": ["validation_error"]
+    },
+    "validation_issue_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

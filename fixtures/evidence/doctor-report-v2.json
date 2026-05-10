@@ -1,0 +1,38 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.4.0",
+  "version": "1.4.0",
+  "checks": [
+    {
+      "name": "cli-version",
+      "status": "ok",
+      "message": "hl7v2-cli 1.4.0"
+    },
+    {
+      "name": "sample-parse",
+      "status": "ok",
+      "message": "built-in ADT_A01 sample parsed as ADT with 2 segment(s)"
+    },
+    {
+      "name": "mllp-roundtrip",
+      "status": "ok",
+      "message": "built-in MLLP framing parsed with 2 segment(s)"
+    },
+    {
+      "name": "profile",
+      "status": "warn",
+      "message": "no --profile provided; skipping profile load diagnostics"
+    },
+    {
+      "name": "server",
+      "status": "warn",
+      "message": "no --server-url provided; skipping HTTP health reachability"
+    },
+    {
+      "name": "python-binding",
+      "status": "warn",
+      "message": "python binding check normalized"
+    }
+  ]
+}

@@ -14,7 +14,7 @@ categories = ["development-tools", "parsing"]
 
 [dependencies]
 # Library surface under benchmark
-hl7v2 = { version = "1.2.1", path = "../hl7v2", features = [
+hl7v2 = { version = "1.4.0", path = "../hl7v2", features = [
     "profile",
     "ack",
     "normalize",
@@ -73,4 +73,3 @@ harness = false
 [[bench]]
 name = "template"
 harness = false
-

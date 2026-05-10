@@ -21,6 +21,17 @@ use common::{
     is_valid_json, minimal_profile, read_file, simple_template, strict_profile,
     truncated_hl7_message,
 };
+use hl7v2_test_utils::{
+    PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, RAW_INPUT_FILE_SENTINEL,
+    RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels_or_paths,
+};
+
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
 
 // =========================================================================
 // Help and Version Tests
@@ -244,6 +255,40 @@ mod doctor_command {
     }
 
     #[test]
+    fn test_doctor_json_schema_version_two_has_provenance() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["doctor", "--format", "json", "--schema-version", "2"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("Doctor output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["version"], env!("CARGO_PKG_VERSION"));
+        assert!(report["checks"].is_array());
+    }
+
+    #[test]
+    fn test_doctor_text_rejects_schema_version_two() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["doctor", "--schema-version", "2"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(String::from_utf8_lossy(&output.stderr).contains(
+            "doctor report schema v2 is available only with --format json or --format yaml"
+        ));
+    }
+
+    #[test]
     fn test_doctor_checks_profile_when_supplied() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
@@ -287,6 +332,118 @@ mod doctor_command {
             .assert()
             .failure()
             .stdout(predicate::str::contains("[error] server"));
+    }
+}
+
+mod sample_command {
+    use super::*;
+
+    const ADT_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#;
+
+    #[test]
+    fn test_sample_outputs_builtin_adt_message() {
+        let mut cmd = cli_command();
+        cmd.args(["sample", "--type", "ADT_A01"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("ADT^A01^ADT_A01"))
+            .stdout(predicate::str::contains("PID|1||123456^^^HOSP^MR"));
+    }
+
+    #[test]
+    fn test_sample_writes_output_file() {
+        let dir = create_temp_dir();
+        let output_file = dir.path().join("sample.hl7");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "sample",
+                "--type",
+                "ORU_R01",
+                "--output",
+                output_file.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("sample should run");
+
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        let sample = read_file(&output_file);
+        assert!(String::from_utf8_lossy(&sample).contains("ORU^R01^ORU_R01"));
+        assert!(String::from_utf8_lossy(&sample).contains("OBX|1|NM|718-7"));
+    }
+
+    #[test]
+    fn test_validate_sample_json_schema_version_two() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(&dir, "profile.yaml", ADT_PROFILE);
+        let report_file = dir.path().join("sample-validation.json");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "validate-sample",
+                "--type",
+                "ADT_A01",
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+                "--schema-version",
+                "2",
+                "--output",
+                report_file.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("validate-sample should run");
+
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        let report: serde_json::Value =
+            serde_json::from_slice(&read_file(&report_file)).expect("report should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["message_type"], "ADT^A01");
+    }
+
+    #[test]
+    fn test_validate_sample_text_rejects_schema_version_two() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(&dir, "profile.yaml", ADT_PROFILE);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "validate-sample",
+                "--type",
+                "ADT_A01",
+                "--profile",
+                profile.to_str().unwrap(),
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("validate-sample should run");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(String::from_utf8_lossy(&output.stderr).contains(
+            "validation report schema v2 is available only with --report json or --report yaml"
+        ));
     }
 }
 
@@ -599,6 +756,68 @@ rules: []
     }
 
     #[test]
+    fn test_profile_lint_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+rules: []
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "lint",
+                profile_file.to_str().unwrap(),
+                "--report",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute profile lint");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile lint output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["warning_count"], 1);
+        assert_eq!(report["issues"][0]["code"], "unknown_top_level_key");
+    }
+
+    #[test]
+    fn test_profile_lint_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "profile",
+            "lint",
+            profile_file.to_str().unwrap(),
+            "--report",
+            "text",
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "profile lint schema version is only available",
+        ));
+    }
+
+    #[test]
     fn test_profile_lint_json_reports_errors_and_fails() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(
@@ -719,6 +938,57 @@ hl7_tables:
         assert_eq!(report["value_sets"][0]["inline_code_count"], 3);
         assert_eq!(report["hl7_tables"][0]["code_count"], 2);
         assert_eq!(report["lint"]["valid"], true);
+    }
+
+    #[test]
+    fn test_profile_explain_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile_file.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute profile explain");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile explain output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["message_structure"], "ADT_A01");
+        assert_eq!(report["summary"]["required_field_count"], 1);
+    }
+
+    #[test]
+    fn test_profile_explain_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "profile",
+            "explain",
+            profile_file.to_str().unwrap(),
+            "--format",
+            "text",
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "profile explain schema version is only available",
+        ));
     }
 
     #[test]
@@ -924,6 +1194,83 @@ rules: []
     }
 
     #[test]
+    fn test_profile_test_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/adt.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::adt_a01().as_bytes(),
+        );
+        create_temp_hl7_with_content(
+            &dir,
+            "fixtures/invalid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "test",
+                profile_file.to_str().unwrap(),
+                fixtures.to_str().unwrap(),
+                "--report",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute profile test");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile test output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["case_count"], 2);
+        assert!(
+            report["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|case| case["expectation"] == "invalid"
+                    && case["validation_report"]["issues"][0]["code"] == "missing_required_field")
+        );
+    }
+
+    #[test]
+    fn test_profile_test_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "profile",
+            "test",
+            profile_file.to_str().unwrap(),
+            fixtures.to_str().unwrap(),
+            "--report",
+            "text",
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "profile test schema version is only available",
+        ));
+    }
+
+    #[test]
     fn test_profile_test_fails_when_invalid_fixture_validates() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
@@ -1029,6 +1376,59 @@ mod corpus_command {
     }
 
     #[test]
+    fn test_corpus_summarize_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "summarize",
+                dir.path().to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute corpus summarize");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("summary output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["file_count"], 1);
+        assert_eq!(report["message_count"], 1);
+    }
+
+    #[test]
+    fn test_corpus_summarize_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "corpus",
+            "summarize",
+            dir.path().to_str().unwrap(),
+            "--format",
+            "text",
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "corpus summary schema version is only available",
+        ));
+    }
+
+    #[test]
     fn test_corpus_diff_text_reports_deltas() {
         let before = create_temp_dir();
         let after = create_temp_dir();
@@ -1097,6 +1497,51 @@ mod corpus_command {
                     && entry["after"] == 1
                     && entry["delta"] == 1)
         );
+        assert!(
+            report["new_message_types"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry == "ORU^R01")
+        );
+    }
+
+    #[test]
+    fn test_corpus_diff_json_schema_version_2_adds_provenance() {
+        let before = create_temp_dir();
+        let after = create_temp_dir();
+        create_temp_hl7_file(&before, "adt.hl7");
+        create_temp_hl7_file(&after, "adt.hl7");
+        create_temp_file(
+            &after,
+            "oru.hl7",
+            hl7v2_test_utils::fixtures::SampleMessages::oru_r01().as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "diff",
+                before.path().to_str().unwrap(),
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute corpus diff");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("diff output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["diff_version"], "1");
+        assert_eq!(report["file_count"]["delta"], 1);
         assert!(
             report["new_message_types"]
                 .as_array()
@@ -1236,6 +1681,37 @@ constraints:
                 .iter()
                 .any(|entry| entry["value"] == "missing_required_field" && entry["count"] == 1)
         );
+    }
+
+    #[test]
+    fn test_corpus_fingerprint_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        create_temp_hl7_file(&dir, "adt.hl7");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "fingerprint",
+                dir.path().to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute corpus fingerprint");
+
+        assert!(output.status.success());
+        assert!(is_valid_json(&output.stdout));
+
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("fingerprint output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["fingerprint_version"], "1");
+        assert_eq!(report["file_count"], 1);
+        assert_eq!(report["message_count"], 1);
     }
 }
 
@@ -1542,6 +2018,120 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_redact_json_schema_v2_returns_provenance_output_without_raw_phi() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(!stdout.contains("Doe^John"));
+        assert!(!stdout.contains("123456^^^HOSP^MR"));
+        assert!(!stdout.contains("19700101"));
+
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("redact output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["receipt"]["schema_version"], "2");
+        assert_eq!(report["receipt"]["tool_name"], "hl7v2-cli");
+        assert_eq!(report["receipt"]["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["receipt"]["phi_removed"], true);
+        assert_eq!(report["receipt"]["hash_algorithm"], "sha256");
+        assert!(report["receipt"]["actions"].as_array().unwrap().iter().any(
+            |action| action["path"] == "PID.3"
+                && action["action"] == "hash"
+                && action["matched_count"] == 1
+                && action["status"] == "applied"
+        ));
+    }
+
+    #[test]
+    fn test_redact_rejects_output_schema_v2_for_hl7_output() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "hl7",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(!output.status.success());
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains("redaction output schema version is only available"));
+    }
+
+    #[test]
+    fn test_redact_json_does_not_emit_phi_leak_sentinels_or_paths() {
+        let dir = create_temp_dir();
+        let message_file =
+            create_temp_hl7_with_content(&dir, RAW_INPUT_FILE_SENTINEL, PHI_LEAK_SENTINEL_MESSAGE);
+        let policy_file = create_temp_file(
+            &dir,
+            RAW_POLICY_FILE_SENTINEL,
+            PHI_LEAK_SENTINEL_POLICY.as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_no_phi_leak_sentinels_or_paths(
+            "redact stdout",
+            &stdout,
+            &message_file,
+            &policy_file,
+        );
+        assert_no_phi_leak_sentinels_or_paths(
+            "redact stderr",
+            &stderr,
+            &message_file,
+            &policy_file,
+        );
+    }
+
+    #[test]
     fn test_redact_hl7_outputs_message_and_receipt_to_stderr() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
@@ -1784,7 +2374,7 @@ action = "drop"
 mod bundle_command {
     use super::*;
 
-    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01^ADT_A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
     const PID5_CONSTRAINT_PROFILE: &str = r#"
 message_structure: ADT_A01
 version: "2.5.1"
@@ -1883,6 +2473,8 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "environment.json",
             "replay.sh",
             "replay.ps1",
+            "README.md",
+            "manifest.json",
         ] {
             assert!(
                 bundle_dir.join(artifact).exists(),
@@ -1905,6 +2497,8 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "environment.json",
             "replay.sh",
             "replay.ps1",
+            "README.md",
+            "manifest.json",
         ] {
             let content = std::fs::read_to_string(bundle_dir.join(artifact)).unwrap();
             assert!(
@@ -1953,6 +2547,134 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             environment["replay_command"],
             "hl7v2 val message.redacted.hl7 --profile profile.yaml --report json"
         );
+
+        let readme = std::fs::read_to_string(bundle_dir.join("README.md")).unwrap();
+        assert!(readme.contains("HL7v2 Evidence Bundle"));
+        assert!(readme.contains("hl7v2 replay . --format json"));
+        assert!(!readme.contains(dir.path().to_string_lossy().as_ref()));
+
+        let manifest: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("manifest.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(manifest["bundle_version"], "1");
+        assert_eq!(manifest["tool_name"], "hl7v2-cli");
+        let artifacts = manifest["artifacts"].as_array().unwrap();
+        assert_eq!(artifacts.len(), 9);
+        assert!(artifacts.iter().any(|artifact| {
+            artifact["path"] == "message.redacted.hl7"
+                && artifact["role"] == "redacted_message"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
+        }));
+        assert!(artifacts.iter().any(|artifact| {
+            artifact["path"] == "validation-report.json"
+                && artifact["role"] == "validation_report"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
+        }));
+        assert!(artifacts.iter().any(|artifact| {
+            artifact["path"] == "README.md"
+                && artifact["role"] == "bundle_readme"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
+        }));
+    }
+
+    #[test]
+    fn test_bundle_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+        let bundle_dir = dir.path().join("issue-bundle");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "bundle",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--redact-policy",
+                policy_file.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute bundle");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("bundle summary should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["bundle_version"], "1");
+        assert_eq!(report["output_dir"], ".");
+        assert_eq!(report["message_type"], "ADT^A01");
+        assert_eq!(report["validation_valid"], true);
+    }
+
+    #[test]
+    fn test_bundle_artifacts_do_not_emit_phi_leak_sentinels_or_paths() {
+        let dir = create_temp_dir();
+        let message_file =
+            create_temp_hl7_with_content(&dir, RAW_INPUT_FILE_SENTINEL, PHI_LEAK_SENTINEL_MESSAGE);
+        let profile_file = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+        let policy_file = create_temp_file(
+            &dir,
+            RAW_POLICY_FILE_SENTINEL,
+            PHI_LEAK_SENTINEL_POLICY.as_bytes(),
+        );
+        let bundle_dir = dir.path().join("issue-bundle");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "bundle",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--redact-policy",
+                policy_file.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+            ])
+            .output()
+            .expect("Failed to execute bundle");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_no_phi_leak_sentinels_or_paths(
+            "bundle stdout",
+            &stdout,
+            &message_file,
+            &policy_file,
+        );
+        assert_no_phi_leak_sentinels_or_paths(
+            "bundle stderr",
+            &stderr,
+            &message_file,
+            &policy_file,
+        );
+
+        for artifact in [
+            "message.redacted.hl7",
+            "validation-report.json",
+            "field-paths.json",
+            "profile.yaml",
+            "redaction-receipt.json",
+            "environment.json",
+            "replay.sh",
+            "replay.ps1",
+            "README.md",
+            "manifest.json",
+        ] {
+            let content = std::fs::read_to_string(bundle_dir.join(artifact)).unwrap();
+            assert_no_phi_leak_sentinels_or_paths(artifact, &content, &message_file, &policy_file);
+        }
     }
 
     #[test]
@@ -2028,7 +2750,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 mod replay_command {
     use super::*;
 
-    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01^ADT_A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
     const SAFE_ANALYSIS_POLICY: &str = r#"
 [[rules]]
 path = "PID.3"
@@ -2072,10 +2794,26 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 "#;
 
     fn create_replayable_bundle(dir: &tempfile::TempDir) -> std::path::PathBuf {
-        let message_file = create_temp_hl7_with_content(dir, "message.hl7", PHI_MESSAGE);
+        create_replayable_bundle_with_inputs(
+            dir,
+            "message.hl7",
+            PHI_MESSAGE,
+            "safe-analysis.toml",
+            SAFE_ANALYSIS_POLICY,
+        )
+        .0
+    }
+
+    fn create_replayable_bundle_with_inputs(
+        dir: &tempfile::TempDir,
+        message_name: &str,
+        message: &str,
+        policy_name: &str,
+        policy: &str,
+    ) -> (std::path::PathBuf, std::path::PathBuf, std::path::PathBuf) {
+        let message_file = create_temp_hl7_with_content(dir, message_name, message);
         let profile_file = create_temp_profile(dir, "profile.yaml", minimal_profile());
-        let policy_file =
-            create_temp_file(dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+        let policy_file = create_temp_file(dir, policy_name, policy.as_bytes());
         let bundle_dir = dir.path().join("issue-bundle");
 
         let mut cmd = cli_command();
@@ -2092,7 +2830,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         .assert()
         .success();
 
-        bundle_dir
+        (bundle_dir, message_file, policy_file)
     }
 
     #[test]
@@ -2132,7 +2870,55 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
-    fn test_replay_fails_when_stored_validation_report_drifts() {
+    fn test_replay_json_schema_version_2_adds_provenance() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "replay",
+                bundle_dir.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("replay output should be JSON");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["replay_version"], "1");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["tool_version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(report["reproduced"], true);
+    }
+
+    #[test]
+    fn test_replay_text_rejects_schema_version_2() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "replay",
+            bundle_dir.to_str().unwrap(),
+            "--schema-version",
+            "2",
+        ])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "replay report schema v2 is available only",
+        ));
+    }
+
+    #[test]
+    fn test_replay_fails_when_stored_validation_report_is_tampered() {
         let dir = create_temp_dir();
         let bundle_dir = create_replayable_bundle(&dir);
         let report_path = bundle_dir.join("validation-report.json");
@@ -2156,12 +2942,140 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         let report: serde_json::Value =
             serde_json::from_str(&stdout).expect("replay failure output should be JSON");
         assert_eq!(report["reproduced"], false);
+        assert!(report["checks"].as_array().unwrap().iter().any(|check| {
+            check["name"] == "manifest-hashes"
+                && check["status"] == "fail"
+                && check["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("validation-report.json")
+        }));
+    }
+
+    #[test]
+    fn test_replay_fails_when_redacted_message_is_tampered() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        let message_path = bundle_dir.join("message.redacted.hl7");
+        let mut message = std::fs::read_to_string(&message_path).unwrap();
+        message.push_str("OBX|2|ST|LEAK^SENTINEL^L||not-phi\r");
+        std::fs::write(&message_path, message).unwrap();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay failure output should be JSON");
+        assert_eq!(report["reproduced"], false);
+        assert!(report["checks"].as_array().unwrap().iter().any(|check| {
+            check["name"] == "manifest-hashes"
+                && check["status"] == "fail"
+                && check["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("message.redacted.hl7")
+        }));
+    }
+
+    #[test]
+    fn test_replay_fails_when_manifest_is_malformed() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        std::fs::write(bundle_dir.join("manifest.json"), b"{not-json").unwrap();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay failure output should be JSON");
+        assert_eq!(report["reproduced"], false);
         assert!(
             report["checks"]
                 .as_array()
                 .unwrap()
                 .iter()
-                .any(|check| check["name"] == "report-match" && check["status"] == "fail")
+                .any(|check| check["name"] == "manifest" && check["status"] == "fail")
+        );
+    }
+
+    #[test]
+    fn test_replay_fails_when_manifest_hash_is_wrong() {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        let manifest_path = bundle_dir.join("manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+        manifest["artifacts"][0]["sha256"] =
+            serde_json::json!("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        std::fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("replay failure output should be JSON");
+        assert_eq!(report["reproduced"], false);
+        assert!(
+            report["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|check| check["name"] == "manifest-hashes"
+                    && check["status"] == "fail"
+                    && check["message"].as_str().unwrap().contains("hash mismatch"))
+        );
+    }
+
+    #[test]
+    fn test_replay_report_does_not_emit_phi_leak_sentinels_or_paths() {
+        let dir = create_temp_dir();
+        let (bundle_dir, message_file, policy_file) = create_replayable_bundle_with_inputs(
+            &dir,
+            RAW_INPUT_FILE_SENTINEL,
+            PHI_LEAK_SENTINEL_MESSAGE,
+            RAW_POLICY_FILE_SENTINEL,
+            PHI_LEAK_SENTINEL_POLICY,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_dir.to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("Failed to execute replay");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_no_phi_leak_sentinels_or_paths(
+            "replay stdout",
+            &stdout,
+            &message_file,
+            &policy_file,
+        );
+        assert_no_phi_leak_sentinels_or_paths(
+            "replay stderr",
+            &stderr,
+            &message_file,
+            &policy_file,
         );
     }
 
@@ -2190,6 +3104,614 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
                     .unwrap()
                     .contains("field-paths.json")
         }));
+    }
+}
+
+// =========================================================================
+// Evidence Golden Fixture Tests
+// =========================================================================
+
+mod evidence_golden_fixtures {
+    use super::*;
+    use serde_json::Value;
+    use std::path::Path;
+
+    const PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#;
+
+    const LINT_WARNING_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+rules: []
+"#;
+
+    const MISSING_PID3_MESSAGE: &str = "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\rPID|1\r";
+    const VALID_ADT_MESSAGE: &str =
+        "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR\r";
+    const CORPUS_ADT_MESSAGE: &str = "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\r";
+    const CORPUS_ORU_MESSAGE: &str = "MSH|^~\\&|||||||ORU^R01|CTRL124|P|2.5\r";
+    const PHI_MESSAGE: &str = "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M|||123 Main St\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+    const SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "PID.11"
+action = "drop"
+reason = "patient address"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "OBX.3"
+action = "retain"
+reason = "observation identifier is needed for analysis"
+
+[[rules]]
+path = "OBX.5"
+action = "retain"
+reason = "non-PHI synthetic observation value shape is needed for analysis"
+"#;
+
+    fn fixture(name: &str) -> Value {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("fixtures")
+            .join("evidence")
+            .join(format!("{name}.json"));
+        serde_json::from_slice(&std::fs::read(&path).expect("evidence fixture should be readable"))
+            .expect("evidence fixture should be valid JSON")
+    }
+
+    fn set(value: &mut Value, pointer: &str, replacement: impl Into<Value>) {
+        *value
+            .pointer_mut(pointer)
+            .expect("fixture normalization pointer should exist") = replacement.into();
+    }
+
+    fn command_json(args: &[String], expect_success: bool) -> Value {
+        let mut cmd = cli_command();
+        let output = cmd.args(args).output().expect("CLI command should run");
+        assert_eq!(
+            output.status.success(),
+            expect_success,
+            "stdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice(&output.stdout).expect("CLI stdout should be JSON")
+    }
+
+    fn assert_fixture(name: &str, actual: Value) {
+        assert_eq!(
+            actual,
+            fixture(name),
+            "evidence fixture {name}.json drifted"
+        );
+    }
+
+    #[test]
+    fn test_doctor_report_matches_golden_fixture() {
+        let mut report = command_json(
+            &[
+                "doctor".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+
+        set(&mut report, "/version", "1.3.0");
+        set(&mut report, "/checks/0/message", "hl7v2-cli 1.3.0");
+        set(&mut report, "/checks/5/status", "warn");
+        set(
+            &mut report,
+            "/checks/5/message",
+            "python binding check normalized",
+        );
+        assert_fixture("doctor-report", report);
+
+        let mut report_v2 = command_json(
+            &[
+                "doctor".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut report_v2, "/tool_version", "1.4.0");
+        set(&mut report_v2, "/version", "1.4.0");
+        set(&mut report_v2, "/checks/0/message", "hl7v2-cli 1.4.0");
+        set(&mut report_v2, "/checks/5/status", "warn");
+        set(
+            &mut report_v2,
+            "/checks/5/message",
+            "python binding check normalized",
+        );
+        assert_fixture("doctor-report-v2", report_v2);
+    }
+
+    #[test]
+    fn test_validation_report_matches_golden_fixture() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE);
+        let mut report = command_json(
+            &[
+                "val".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+            ],
+            false,
+        );
+        set(&mut report, "/profile", "profile.yaml");
+
+        assert_fixture("validation-report", report);
+    }
+
+    #[test]
+    fn test_profile_reports_match_golden_fixtures() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE);
+        let lint_profile = create_temp_profile(&dir, "lint.yaml", LINT_WARNING_PROFILE);
+
+        let lint_report = command_json(
+            &[
+                "profile".to_string(),
+                "lint".to_string(),
+                lint_profile.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        assert_fixture("profile-lint-report", lint_report);
+
+        let mut lint_report_v2 = command_json(
+            &[
+                "profile".to_string(),
+                "lint".to_string(),
+                lint_profile.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut lint_report_v2, "/tool_version", "1.4.0");
+        assert_fixture("profile-lint-report-v2", lint_report_v2);
+
+        let mut explain_report = command_json(
+            &[
+                "profile".to_string(),
+                "explain".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut explain_report, "/profile", "profile.yaml");
+        assert_fixture("profile-explain-report", explain_report);
+
+        let mut explain_report_v2 = command_json(
+            &[
+                "profile".to_string(),
+                "explain".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut explain_report_v2, "/tool_version", "1.4.0");
+        set(&mut explain_report_v2, "/profile", "profile.yaml");
+        assert_fixture("profile-explain-report-v2", explain_report_v2);
+
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/valid.hl7",
+            VALID_ADT_MESSAGE.as_bytes(),
+        );
+        create_temp_hl7_with_content(
+            &dir,
+            "fixtures/invalid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE,
+        );
+
+        let mut test_report = command_json(
+            &[
+                "profile".to_string(),
+                "test".to_string(),
+                profile.to_string_lossy().into_owned(),
+                fixtures.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut test_report, "/profile", "profile.yaml");
+        set(&mut test_report, "/fixtures", "fixtures");
+        set(
+            &mut test_report,
+            "/cases/0/path",
+            "fixtures/valid/valid.hl7",
+        );
+        set(
+            &mut test_report,
+            "/cases/0/validation_report/profile",
+            "profile.yaml",
+        );
+        set(
+            &mut test_report,
+            "/cases/1/path",
+            "fixtures/invalid/missing_pid3.hl7",
+        );
+        set(
+            &mut test_report,
+            "/cases/1/validation_report/profile",
+            "profile.yaml",
+        );
+        assert_fixture("profile-test-report", test_report);
+
+        let mut test_report_v2 = command_json(
+            &[
+                "profile".to_string(),
+                "test".to_string(),
+                profile.to_string_lossy().into_owned(),
+                fixtures.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut test_report_v2, "/tool_version", "1.4.0");
+        set(&mut test_report_v2, "/profile", "profile.yaml");
+        set(&mut test_report_v2, "/fixtures", "fixtures");
+        set(
+            &mut test_report_v2,
+            "/cases/0/path",
+            "fixtures/valid/valid.hl7",
+        );
+        set(
+            &mut test_report_v2,
+            "/cases/0/validation_report/profile",
+            "profile.yaml",
+        );
+        set(
+            &mut test_report_v2,
+            "/cases/1/path",
+            "fixtures/invalid/missing_pid3.hl7",
+        );
+        set(
+            &mut test_report_v2,
+            "/cases/1/validation_report/profile",
+            "profile.yaml",
+        );
+        assert_fixture("profile-test-report-v2", test_report_v2);
+    }
+
+    #[test]
+    fn test_corpus_reports_match_golden_fixtures() {
+        let dir = create_temp_dir();
+        let site = dir.path().join("site-a");
+        let before = dir.path().join("before");
+        let after = dir.path().join("after");
+        std::fs::create_dir_all(&site).unwrap();
+        std::fs::create_dir_all(&before).unwrap();
+        std::fs::create_dir_all(&after).unwrap();
+        create_temp_file(&dir, "site-a/adt.hl7", CORPUS_ADT_MESSAGE.as_bytes());
+        create_temp_file(&dir, "before/adt.hl7", CORPUS_ADT_MESSAGE.as_bytes());
+        create_temp_file(&dir, "after/oru.hl7", CORPUS_ORU_MESSAGE.as_bytes());
+
+        let mut summary = command_json(
+            &[
+                "corpus".to_string(),
+                "summarize".to_string(),
+                site.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut summary, "/root", "site-a");
+        assert_fixture("corpus-summary", summary);
+
+        let mut summary_v2 = command_json(
+            &[
+                "corpus".to_string(),
+                "summarize".to_string(),
+                site.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut summary_v2, "/tool_version", "1.4.0");
+        set(&mut summary_v2, "/root", "site-a");
+        assert_fixture("corpus-summary-v2", summary_v2);
+
+        let mut fingerprint = command_json(
+            &[
+                "corpus".to_string(),
+                "fingerprint".to_string(),
+                site.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut fingerprint, "/tool_version", "1.3.0");
+        set(&mut fingerprint, "/root", "site-a");
+        assert_fixture("corpus-fingerprint", fingerprint);
+
+        let mut diff = command_json(
+            &[
+                "corpus".to_string(),
+                "diff".to_string(),
+                before.to_string_lossy().into_owned(),
+                after.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut diff, "/tool_version", "1.3.0");
+        set(&mut diff, "/before_root", "before");
+        set(&mut diff, "/after_root", "after");
+        assert_fixture("corpus-diff", diff);
+    }
+
+    #[test]
+    fn test_redaction_bundle_and_replay_reports_match_golden_fixtures() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", minimal_profile());
+        let policy = create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let redact_output = command_json(
+            &[
+                "redact".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        assert_fixture("redaction-receipt", redact_output["receipt"].clone());
+
+        let mut redact_v2_output = command_json(
+            &[
+                "redact".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut redact_v2_output, "/receipt/tool_version", "1.4.0");
+        assert_fixture("redaction-receipt-v2", redact_v2_output["receipt"].clone());
+
+        let bundle = dir.path().join("issue-bundle");
+        let bundle_summary = command_json(
+            &[
+                "bundle".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--redact-policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--out".to_string(),
+                bundle.to_string_lossy().into_owned(),
+            ],
+            true,
+        );
+        assert_fixture("evidence-bundle", bundle_summary);
+
+        let bundle_v2 = dir.path().join("issue-bundle-v2");
+        let mut bundle_summary_v2 = command_json(
+            &[
+                "bundle".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--redact-policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--out".to_string(),
+                bundle_v2.to_string_lossy().into_owned(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut bundle_summary_v2, "/tool_version", "1.3.0");
+        assert_fixture("evidence-bundle-v2", bundle_summary_v2);
+
+        let mut receipt_v2: Value = serde_json::from_slice(
+            &std::fs::read(bundle_v2.join("redaction-receipt.json"))
+                .expect("bundle v2 redaction receipt should be readable"),
+        )
+        .expect("bundle v2 redaction receipt should be JSON");
+        set(&mut receipt_v2, "/tool_version", "1.4.0");
+        assert_fixture("redaction-receipt-v2", receipt_v2);
+
+        let mut field_paths_v2: Value = serde_json::from_slice(
+            &std::fs::read(bundle_v2.join("field-paths.json"))
+                .expect("bundle v2 field-path trace should be readable"),
+        )
+        .expect("bundle v2 field-path trace should be JSON");
+        set(&mut field_paths_v2, "/tool_version", "1.3.0");
+        assert_fixture("field-path-trace-v2", field_paths_v2);
+
+        let mut environment_v2: Value = serde_json::from_slice(
+            &std::fs::read(bundle_v2.join("environment.json"))
+                .expect("bundle v2 environment should be readable"),
+        )
+        .expect("bundle v2 environment should be JSON");
+        set(&mut environment_v2, "/tool_version", "1.3.0");
+        set(
+            &mut environment_v2,
+            "/input_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        set(
+            &mut environment_v2,
+            "/profile_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        set(
+            &mut environment_v2,
+            "/redaction_policy_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        assert_fixture("evidence-bundle-environment-v2", environment_v2);
+
+        let mut manifest_v2: Value = serde_json::from_slice(
+            &std::fs::read(bundle_v2.join("manifest.json"))
+                .expect("bundle v2 manifest should be readable"),
+        )
+        .expect("bundle v2 manifest should be JSON");
+        set(&mut manifest_v2, "/tool_version", "1.3.0");
+        for artifact in manifest_v2
+            .get_mut("artifacts")
+            .and_then(Value::as_array_mut)
+            .expect("manifest v2 artifacts should be an array")
+        {
+            artifact["sha256"] =
+                "0000000000000000000000000000000000000000000000000000000000000000".into();
+        }
+        assert_fixture("evidence-bundle-manifest-v2", manifest_v2);
+
+        let receipt: Value = serde_json::from_slice(
+            &std::fs::read(bundle.join("redaction-receipt.json"))
+                .expect("bundle redaction receipt should be readable"),
+        )
+        .expect("bundle redaction receipt should be JSON");
+        assert_fixture("redaction-receipt", receipt);
+
+        let field_paths: Value = serde_json::from_slice(
+            &std::fs::read(bundle.join("field-paths.json"))
+                .expect("bundle field-path trace should be readable"),
+        )
+        .expect("bundle field-path trace should be JSON");
+        assert_fixture("field-path-trace", field_paths);
+
+        let mut environment: Value = serde_json::from_slice(
+            &std::fs::read(bundle.join("environment.json"))
+                .expect("bundle environment should be readable"),
+        )
+        .expect("bundle environment should be JSON");
+        set(&mut environment, "/tool_version", "1.3.0");
+        set(
+            &mut environment,
+            "/input_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        set(
+            &mut environment,
+            "/profile_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        set(
+            &mut environment,
+            "/redaction_policy_sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        assert_fixture("evidence-bundle-environment", environment);
+
+        let mut manifest: Value = serde_json::from_slice(
+            &std::fs::read(bundle.join("manifest.json"))
+                .expect("bundle manifest should be readable"),
+        )
+        .expect("bundle manifest should be JSON");
+        set(&mut manifest, "/tool_version", "1.3.0");
+        for artifact in manifest
+            .get_mut("artifacts")
+            .and_then(Value::as_array_mut)
+            .expect("manifest artifacts should be an array")
+        {
+            artifact["sha256"] =
+                "0000000000000000000000000000000000000000000000000000000000000000".into();
+        }
+        assert_fixture("evidence-bundle-manifest", manifest);
+
+        let mut replay = command_json(
+            &[
+                "replay".to_string(),
+                bundle.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+            true,
+        );
+        set(&mut replay, "/tool_version", "1.3.0");
+        assert_fixture("evidence-replay", replay);
+
+        let mut replay_v2 = command_json(
+            &[
+                "replay".to_string(),
+                bundle.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            true,
+        );
+        set(&mut replay_v2, "/tool_version", "1.3.0");
+        assert_fixture("evidence-replay-v2", replay_v2);
     }
 }
 
@@ -2521,7 +4043,7 @@ mod exit_codes {
         let mut cmd = cli_command();
         cmd.args(["parse", invalid_file.to_str().unwrap()])
             .assert()
-            .code(predicate::ne(0));
+            .code(2);
     }
 
     #[test]
@@ -2529,7 +4051,640 @@ mod exit_codes {
         let mut cmd = cli_command();
         cmd.args(["parse", "/nonexistent/file.hl7"])
             .assert()
-            .code(predicate::ne(0));
+            .code(3);
+    }
+}
+
+// =========================================================================
+// CLI Output Contract Tests
+// =========================================================================
+
+mod output_contract {
+    use super::*;
+
+    const PROFILE_REQUIRING_PID3: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#;
+
+    const MISSING_PID3_MESSAGE: &str = "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\rPID|1\r";
+    const VALID_ADT_MESSAGE: &str =
+        "MSH|^~\\&|||||||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR\r";
+    const SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+"#;
+
+    fn output_text(bytes: &[u8]) -> String {
+        String::from_utf8_lossy(bytes).to_string()
+    }
+
+    #[test]
+    fn test_machine_readable_success_uses_stdout_and_exit_zero() {
+        let dir = create_temp_dir();
+        let corpus = dir.path().join("corpus");
+        std::fs::create_dir_all(&corpus).unwrap();
+        create_temp_file(&dir, "corpus/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "summarize",
+                corpus.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("corpus summarize should run");
+
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stderr.is_empty());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON");
+        assert_eq!(report["message_count"], 1);
+    }
+
+    #[test]
+    fn test_validation_failure_returns_one_with_report_on_stdout() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("validation command should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["valid"], false);
+        assert!(output_text(&output.stderr).contains("Error: validation failed"));
+    }
+
+    #[test]
+    fn test_validation_report_schema_v2_includes_provenance() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("validation command should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["tool_name"], "hl7v2-cli");
+        assert_eq!(report["profile"], "profile.yaml");
+        assert_eq!(report["profile_identity"]["label"], "profile.yaml");
+        assert_eq!(report["profile_identity"]["message_structure"], "ADT_A01");
+        assert_eq!(report["profile_identity"]["version"], "2.5");
+        assert_eq!(
+            report["profile_identity"]["sha256"]
+                .as_str()
+                .unwrap_or_default()
+                .len(),
+            64
+        );
+        assert_eq!(report["issues"][0]["code"], "missing_required_field");
+        assert!(output_text(&output.stderr).contains("Error: validation failed"));
+    }
+
+    #[test]
+    fn test_validation_report_schema_v2_rejects_text_output() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "missing_pid3.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("validation command should run");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("schema v2"));
+    }
+
+    #[test]
+    fn test_profile_check_failure_returns_one_with_report_on_stdout() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ""
+version: "2.5"
+segments:
+  - id: ""
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "lint",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("profile lint should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["valid"], false);
+        assert!(output_text(&output.stderr).contains("profile lint reported errors"));
+    }
+
+    #[test]
+    fn test_profile_fixture_failure_returns_one_with_report_on_stdout() {
+        let dir = create_temp_dir();
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE.as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "test",
+                profile.to_str().unwrap(),
+                fixtures.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("profile test should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["valid"], false);
+        assert!(output_text(&output.stderr).contains("profile test reported failures"));
+    }
+
+    #[test]
+    fn test_replay_failure_returns_one_with_report_on_stdout() {
+        let dir = create_temp_dir();
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", dir.path().to_str().unwrap(), "--format", "json"])
+            .output()
+            .expect("replay should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("stdout should be JSON report");
+        assert_eq!(report["reproduced"], false);
+        assert!(output_text(&output.stderr).contains("bundle replay did not reproduce"));
+    }
+
+    #[test]
+    fn test_parse_input_error_returns_two_with_diagnostic_on_stderr() {
+        let dir = create_temp_dir();
+        let invalid = create_temp_file(&dir, "invalid.hl7", invalid_hl7_message().as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["parse", invalid.to_str().unwrap()])
+            .output()
+            .expect("parse should run");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("Error:"));
+    }
+
+    #[test]
+    fn test_policy_input_error_returns_two_without_primary_output() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", VALID_ADT_MESSAGE);
+        let policy = create_temp_profile(
+            &dir,
+            "policy.toml",
+            r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message.to_str().unwrap(),
+                "--policy",
+                policy.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("redact should run");
+
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("must include a reason"));
+    }
+
+    #[test]
+    fn test_io_runtime_error_returns_three_with_diagnostic_on_stderr() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["parse", "/nonexistent/file.hl7"])
+            .output()
+            .expect("parse should run");
+
+        assert_eq!(output.status.code(), Some(3));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("Error:"));
+    }
+
+    #[test]
+    fn test_doctor_failed_check_returns_one_with_report_on_stdout() {
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["doctor", "--server-url", "https://example.com/health"])
+            .output()
+            .expect("doctor should run");
+
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output_text(&output.stdout).contains("[error] server"));
+        assert!(output_text(&output.stderr).contains("doctor reported failed checks"));
+    }
+
+    #[test]
+    fn test_redact_hl7_keeps_primary_output_on_stdout_and_receipt_on_stderr() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", VALID_ADT_MESSAGE);
+        let policy = create_temp_profile(&dir, "policy.toml", SAFE_ANALYSIS_POLICY);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message.to_str().unwrap(),
+                "--policy",
+                policy.to_str().unwrap(),
+                "--format",
+                "hl7",
+            ])
+            .output()
+            .expect("redact should run");
+
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output_text(&output.stdout).contains("hash:sha256:"));
+        assert!(output_text(&output.stderr).contains("Redaction receipt"));
+    }
+
+    fn json_from_file(path: &std::path::Path) -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(path).expect("output file should be readable"))
+            .expect("output file should contain JSON")
+    }
+
+    #[test]
+    fn test_report_commands_write_output_file_and_keep_stdout_quiet() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", MISSING_PID3_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+        let corpus = dir.path().join("corpus");
+        let before = dir.path().join("before");
+        let after = dir.path().join("after");
+        std::fs::create_dir_all(&corpus).unwrap();
+        std::fs::create_dir_all(&before).unwrap();
+        std::fs::create_dir_all(&after).unwrap();
+        create_temp_file(&dir, "corpus/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
+        create_temp_file(&dir, "before/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
+        create_temp_file(&dir, "after/adt.hl7", VALID_ADT_MESSAGE.as_bytes());
+
+        let doctor_report = dir.path().join("doctor-report.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "doctor",
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+                "--output",
+                doctor_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("doctor should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&doctor_report)["schema_version"], "2");
+
+        let val_report = dir.path().join("validation-report.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+                "--output",
+                val_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("validation command should run");
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&val_report)["valid"], false);
+
+        let val_text_report = dir.path().join("validation-report.txt");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "val",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--report",
+                "text",
+                "--summary",
+                "--output",
+                val_text_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("text validation command should run");
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty());
+        assert!(output_text(&output.stderr).contains("validation failed"));
+        let val_text_output = std::fs::read_to_string(&val_text_report).unwrap();
+        assert!(val_text_output.contains("Validation failed"));
+        assert!(!val_text_output.contains("Validation Summary"));
+
+        let lint_report = dir.path().join("profile-lint.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "lint",
+                profile.to_str().unwrap(),
+                "--report",
+                "json",
+                "--output",
+                lint_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("profile lint should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&lint_report)["valid"], true);
+
+        let explain_report = dir.path().join("profile-explain.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                explain_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("profile explain should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(
+            json_from_file(&explain_report)["message_structure"],
+            "ADT_A01"
+        );
+
+        let fixtures = dir.path().join("fixtures");
+        std::fs::create_dir_all(fixtures.join("valid")).unwrap();
+        std::fs::create_dir_all(fixtures.join("invalid")).unwrap();
+        create_temp_file(
+            &dir,
+            "fixtures/valid/valid.hl7",
+            VALID_ADT_MESSAGE.as_bytes(),
+        );
+        create_temp_file(
+            &dir,
+            "fixtures/invalid/missing_pid3.hl7",
+            MISSING_PID3_MESSAGE.as_bytes(),
+        );
+        let test_report = dir.path().join("profile-test.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "test",
+                profile.to_str().unwrap(),
+                fixtures.to_str().unwrap(),
+                "--report",
+                "json",
+                "--output",
+                test_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("profile test should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&test_report)["valid"], true);
+
+        let summary_report = dir.path().join("corpus-summary.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "summarize",
+                corpus.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                summary_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("corpus summarize should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&summary_report)["message_count"], 1);
+
+        let fingerprint_report = dir.path().join("corpus-fingerprint.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "fingerprint",
+                corpus.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                fingerprint_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("corpus fingerprint should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&fingerprint_report)["message_count"], 1);
+
+        let diff_report = dir.path().join("corpus-diff.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "corpus",
+                "diff",
+                before.to_str().unwrap(),
+                after.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                diff_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("corpus diff should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&diff_report)["diff_version"], "1");
+    }
+
+    #[test]
+    fn test_redact_bundle_and_replay_write_output_files_and_keep_stdout_quiet() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", VALID_ADT_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+        let policy = create_temp_profile(&dir, "policy.toml", SAFE_ANALYSIS_POLICY);
+
+        let redacted = dir.path().join("message.redacted.hl7");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message.to_str().unwrap(),
+                "--policy",
+                policy.to_str().unwrap(),
+                "--format",
+                "hl7",
+                "--output",
+                redacted.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("redact should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert!(output.stderr.is_empty());
+        assert!(
+            std::fs::read_to_string(&redacted)
+                .unwrap()
+                .contains("hash:sha256:")
+        );
+
+        let bundle_dir = dir.path().join("bundle");
+        let bundle_summary = dir.path().join("bundle-summary.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "bundle",
+                message.to_str().unwrap(),
+                "--profile",
+                profile.to_str().unwrap(),
+                "--redact-policy",
+                policy.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+                "--output",
+                bundle_summary.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("bundle should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&bundle_summary)["bundle_version"], "1");
+
+        let replay_report = dir.path().join("replay-report.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "replay",
+                bundle_dir.to_str().unwrap(),
+                "--format",
+                "json",
+                "--output",
+                replay_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("replay should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+        assert_eq!(json_from_file(&replay_report)["reproduced"], true);
     }
 }
 

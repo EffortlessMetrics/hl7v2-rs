@@ -1,0 +1,37 @@
+{
+  "schema_version": "2",
+  "diff_version": "1",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.4.0",
+  "before_root": "before",
+  "after_root": "after",
+  "profile": null,
+  "file_count": {
+    "before": 1,
+    "after": 1,
+    "delta": 0
+  },
+  "message_count": {
+    "before": 1,
+    "after": 1,
+    "delta": 0
+  },
+  "parse_error_count": {
+    "before": 0,
+    "after": 0,
+    "delta": 0
+  },
+  "new_message_types": ["ORU^R01"],
+  "removed_message_types": ["ADT^A01"],
+  "new_segments": [],
+  "removed_segments": [],
+  "message_type_counts": [
+    {"value": "ADT^A01", "before": 1, "after": 0, "delta": -1},
+    {"value": "ORU^R01", "before": 0, "after": 1, "delta": 1}
+  ],
+  "segment_counts": [],
+  "field_presence": [],
+  "field_cardinality": [],
+  "value_shape_stats": [],
+  "validation_issue_code_counts": []
+}

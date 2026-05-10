@@ -5,7 +5,6 @@
     clippy::allow_attributes,
     clippy::allow_attributes_without_reason,
     clippy::cast_precision_loss,
-    clippy::exit,
     clippy::indexing_slicing,
     clippy::unchecked_time_subtraction,
     clippy::uninlined_format_args,
@@ -31,16 +30,19 @@ use hl7v2::synthetic::corpus::{
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
     AckCode as GenAckCode, Atom, Event, Field, Message, Profile, ProfileLintIssue,
-    ProfileLintReport, StreamParser, ValidationReport, ack, get, is_mllp_framed, lint_profile_yaml,
-    load_profile, load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp,
-    write, write_mllp,
+    ProfileLintReport, StreamParser, ValidationReport, ValidationReportProfileIdentity,
+    ValidationReportV2, ack, get, is_mllp_framed, lint_profile_yaml, load_profile,
+    load_profile_checked, normalize, parse, parse_mllp, to_json, validate, wrap_mllp, write,
+    write_mllp,
 };
+use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process;
 use std::time::Duration;
 mod config;
@@ -49,6 +51,46 @@ mod monitor;
 mod serve;
 #[cfg(test)]
 mod tests;
+
+const EXIT_CHECK_FAILED: i32 = 1;
+const EXIT_INPUT_ERROR: i32 = 2;
+const EXIT_RUNTIME_ERROR: i32 = 3;
+
+#[derive(Debug)]
+struct CliFailure {
+    code: i32,
+    message: String,
+}
+
+impl CliFailure {
+    fn check_failed(message: impl Into<String>) -> Box<dyn std::error::Error> {
+        Box::new(Self {
+            code: EXIT_CHECK_FAILED,
+            message: message.into(),
+        })
+    }
+}
+
+impl fmt::Display for CliFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for CliFailure {}
+
+fn classify_cli_error(error: &(dyn std::error::Error + 'static)) -> i32 {
+    if let Some(failure) = error.downcast_ref::<CliFailure>() {
+        failure.code
+    } else if let Some(error) = error.downcast_ref::<std::io::Error>() {
+        match error.kind() {
+            std::io::ErrorKind::InvalidInput | std::io::ErrorKind::Other => EXIT_INPUT_ERROR,
+            _ => EXIT_RUNTIME_ERROR,
+        }
+    } else {
+        EXIT_INPUT_ERROR
+    }
+}
 
 #[derive(Parser)]
 #[command(
@@ -140,9 +182,25 @@ enum Commands {
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
 
+        /// Evidence schema version for machine-readable validation reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
         /// Show summary statistics
         #[arg(long)]
         summary: bool,
+
+        /// Write the validation report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Show statistics for HL7 v2 message
@@ -180,6 +238,72 @@ enum Commands {
         /// Output report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Evidence schema version for machine-readable doctor reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the doctor report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
+    },
+
+    /// Print a built-in synthetic HL7 sample message
+    Sample {
+        /// Built-in sample message type
+        #[arg(long = "type", value_enum)]
+        sample_type: SampleType,
+
+        /// Write the sample HL7 message to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
+    },
+
+    /// Validate a built-in synthetic sample against a profile
+    ValidateSample {
+        /// Built-in sample message type
+        #[arg(long = "type", value_enum)]
+        sample_type: SampleType,
+
+        /// Profile YAML file
+        #[arg(long)]
+        profile: PathBuf,
+
+        /// Output validation report format (json, yaml, text)
+        #[arg(long, value_enum, default_value = "text")]
+        report: ReportFormat,
+
+        /// Evidence schema version for machine-readable validation reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the validation report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Inspect and lint validation profiles
@@ -206,6 +330,22 @@ enum Commands {
         /// Output format (json or hl7)
         #[arg(long, value_enum, default_value = "json")]
         format: RedactFormat,
+
+        /// Evidence schema version for redaction JSON output
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the redaction output to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Create a redacted support/debug evidence bundle
@@ -224,6 +364,22 @@ enum Commands {
         /// Output bundle directory, which must not already exist
         #[arg(long)]
         out: PathBuf,
+
+        /// Evidence schema version for the bundle summary JSON
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the bundle summary JSON to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Replay a redacted evidence bundle and verify it reproduces
@@ -234,6 +390,22 @@ enum Commands {
         /// Output replay report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Evidence schema version for machine-readable replay reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the replay report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Generate ACK for HL7 v2 message
@@ -318,6 +490,22 @@ enum ProfileCommands {
         /// Output lint report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
+
+        /// Evidence schema version for machine-readable lint reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the lint report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Explain the loaded profile contract
@@ -328,6 +516,22 @@ enum ProfileCommands {
         /// Output explain report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Evidence schema version for machine-readable explain reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the explain report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Test a profile against valid/invalid HL7 fixture directories
@@ -341,6 +545,22 @@ enum ProfileCommands {
         /// Output test report format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         report: ReportFormat,
+
+        /// Evidence schema version for machine-readable test reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the test report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 }
 
@@ -354,6 +574,22 @@ enum CorpusCommands {
         /// Output summary format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Evidence schema version for machine-readable summary reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the summary report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Create a deterministic feed fingerprint
@@ -368,6 +604,22 @@ enum CorpusCommands {
         /// Output fingerprint format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Evidence schema version for machine-readable fingerprint reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the fingerprint report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 
     /// Diff two directory or file corpora of HL7 messages
@@ -385,6 +637,22 @@ enum CorpusCommands {
         /// Output diff format (json, yaml, text)
         #[arg(long, value_enum, default_value = "text")]
         format: ReportFormat,
+
+        /// Evidence schema version for machine-readable diff reports
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
+        schema_version: u8,
+
+        /// Write the diff report to a file instead of stdout
+        #[arg(long)]
+        output: Option<PathBuf>,
+
+        /// Suppress non-error diagnostics
+        #[arg(long)]
+        quiet: bool,
+
+        /// Disable colored diagnostics
+        #[arg(long)]
+        no_color: bool,
     },
 }
 
@@ -431,7 +699,77 @@ enum RedactFormat {
     Hl7,
 }
 
-const DOCTOR_BUILTIN_SAMPLE: &[u8] = b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+enum SampleType {
+    #[value(name = "ADT_A01", alias = "adt_a01", alias = "adt-a01")]
+    AdtA01,
+    #[value(name = "ORU_R01", alias = "oru_r01", alias = "oru-r01")]
+    OruR01,
+}
+
+impl SampleType {
+    const fn message(self) -> &'static str {
+        match self {
+            Self::AdtA01 => SAMPLE_ADT_A01,
+            Self::OruR01 => SAMPLE_ORU_R01,
+        }
+    }
+}
+
+struct OutputOptions<'a> {
+    output: Option<&'a PathBuf>,
+    quiet: bool,
+    no_color: bool,
+}
+
+impl<'a> OutputOptions<'a> {
+    const fn new(output: Option<&'a PathBuf>, quiet: bool, no_color: bool) -> Self {
+        Self {
+            output,
+            quiet,
+            no_color,
+        }
+    }
+
+    fn emit(&self, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let _colors_enabled = !self.no_color;
+        if let Some(path) = self.output {
+            fs::write(path, output)?;
+        } else {
+            println!("{}", output);
+        }
+        Ok(())
+    }
+
+    fn emit_raw(&self, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let _colors_enabled = !self.no_color;
+        if let Some(path) = self.output {
+            fs::write(path, output)?;
+        } else {
+            print!("{output}");
+        }
+        Ok(())
+    }
+
+    fn diagnostic(&self, message: impl fmt::Display) {
+        let _colors_enabled = !self.no_color;
+        if !self.quiet {
+            eprintln!("{message}");
+        }
+    }
+}
+
+struct ValCommandOptions<'a> {
+    mllp: bool,
+    detailed: bool,
+    report: &'a ReportFormat,
+    schema_version: u8,
+    summary: bool,
+}
+
+const SAMPLE_ADT_A01: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01^ADT_A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
+const SAMPLE_ORU_R01: &str = "MSH|^~\\&|LAB|LAB|EHR|HOSP|202605030101||ORU^R01^ORU_R01|CTRL456|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\rOBR|1|ORD1|FILL1|CBC^Complete Blood Count\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r";
+const DOCTOR_BUILTIN_SAMPLE: &[u8] = SAMPLE_ADT_A01.as_bytes();
 
 #[derive(serde::Serialize)]
 struct DoctorReport {
@@ -445,6 +783,24 @@ impl DoctorReport {
             .iter()
             .any(|check| check.status == DoctorStatus::Error)
     }
+
+    fn to_v2(&self) -> DoctorReportV2<'_> {
+        DoctorReportV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            report: self,
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct DoctorReportV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    report: &'a DoctorReport,
 }
 
 #[derive(serde::Serialize)]
@@ -482,6 +838,26 @@ struct ProfileExplainReport {
     table_precedence: Vec<String>,
     expression_guardrails: ProfileExplainExpressionGuardrails,
     lint: ProfileExplainLintSummary,
+}
+
+#[derive(serde::Serialize)]
+struct ProfileExplainReportV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    report: &'a ProfileExplainReport,
+}
+
+impl ProfileExplainReport {
+    fn to_v2(&self) -> ProfileExplainReportV2<'_> {
+        ProfileExplainReportV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            report: self,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -601,6 +977,26 @@ struct ProfileTestReport {
 }
 
 #[derive(serde::Serialize)]
+struct ProfileTestReportV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    report: &'a ProfileTestReport,
+}
+
+impl ProfileTestReport {
+    fn to_v2(&self) -> ProfileTestReportV2<'_> {
+        ProfileTestReportV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            report: self,
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
 struct ProfileTestCaseReport {
     name: String,
     path: String,
@@ -675,10 +1071,45 @@ struct RedactionOutput {
 }
 
 #[derive(serde::Serialize)]
+struct RedactionOutputWithReceiptV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    input_sha256: String,
+    policy_sha256: String,
+    message_type: String,
+    redacted_hl7: String,
+    receipt: RedactionReceiptV2<'a>,
+}
+
+#[derive(serde::Serialize)]
 struct RedactionReceipt {
     phi_removed: bool,
     hash_algorithm: &'static str,
     actions: Vec<RedactionActionReceipt>,
+}
+
+#[derive(serde::Serialize)]
+struct RedactionReceiptV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    phi_removed: bool,
+    hash_algorithm: &'static str,
+    actions: &'a [RedactionActionReceipt],
+}
+
+impl RedactionReceipt {
+    fn to_v2(&self) -> RedactionReceiptV2<'_> {
+        RedactionReceiptV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            phi_removed: self.phi_removed,
+            hash_algorithm: self.hash_algorithm,
+            actions: &self.actions,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -711,6 +1142,57 @@ struct EvidenceBundleSummary {
 }
 
 #[derive(serde::Serialize)]
+struct EvidenceBundleSummaryV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    summary: &'a EvidenceBundleSummary,
+}
+
+impl EvidenceBundleSummary {
+    fn to_v2(&self) -> EvidenceBundleSummaryV2<'_> {
+        EvidenceBundleSummaryV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            summary: self,
+        }
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct EvidenceBundleManifest {
+    bundle_version: String,
+    tool_name: String,
+    tool_version: String,
+    artifacts: Vec<EvidenceBundleManifestArtifact>,
+}
+
+#[derive(serde::Serialize)]
+struct EvidenceBundleManifestV2<'a> {
+    schema_version: &'static str,
+    #[serde(flatten)]
+    manifest: &'a EvidenceBundleManifest,
+}
+
+impl EvidenceBundleManifest {
+    fn to_v2(&self) -> EvidenceBundleManifestV2<'_> {
+        EvidenceBundleManifestV2 {
+            schema_version: "2",
+            manifest: self,
+        }
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct EvidenceBundleManifestArtifact {
+    path: String,
+    role: String,
+    sha256: String,
+}
+
+#[derive(serde::Serialize)]
 struct EvidenceBundleEnvironment {
     bundle_version: &'static str,
     tool_name: &'static str,
@@ -722,6 +1204,22 @@ struct EvidenceBundleEnvironment {
     validation_valid: bool,
     validation_issue_count: usize,
     replay_command: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct EvidenceBundleEnvironmentV2<'a> {
+    schema_version: &'static str,
+    #[serde(flatten)]
+    environment: &'a EvidenceBundleEnvironment,
+}
+
+impl EvidenceBundleEnvironment {
+    fn to_v2(&self) -> EvidenceBundleEnvironmentV2<'_> {
+        EvidenceBundleEnvironmentV2 {
+            schema_version: "2",
+            environment: self,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -737,6 +1235,22 @@ struct EvidenceReplayReport {
     checks: Vec<EvidenceReplayCheck>,
     #[serde(skip_serializing_if = "Option::is_none")]
     validation_report: Option<ValidationReport>,
+}
+
+#[derive(serde::Serialize)]
+struct EvidenceReplayReportV2<'a> {
+    schema_version: &'static str,
+    #[serde(flatten)]
+    report: &'a EvidenceReplayReport,
+}
+
+impl EvidenceReplayReport {
+    fn to_v2(&self) -> EvidenceReplayReportV2<'_> {
+        EvidenceReplayReportV2 {
+            schema_version: "2",
+            report: self,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -758,6 +1272,26 @@ struct FieldPathTraceReport {
     message_type: String,
     field_count: usize,
     fields: Vec<FieldPathTrace>,
+}
+
+#[derive(serde::Serialize)]
+struct FieldPathTraceReportV2<'a> {
+    schema_version: &'static str,
+    tool_name: &'static str,
+    tool_version: &'static str,
+    #[serde(flatten)]
+    trace: &'a FieldPathTraceReport,
+}
+
+impl FieldPathTraceReport {
+    fn to_v2(&self) -> FieldPathTraceReportV2<'_> {
+        FieldPathTraceReportV2 {
+            schema_version: "2",
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            trace: self,
+        }
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -831,8 +1365,23 @@ async fn main() {
             mllp,
             detailed,
             report,
+            schema_version,
             summary,
-        } => val_command(input, profile, *mllp, *detailed, report, *summary),
+            output,
+            quiet,
+            no_color,
+        } => val_command(
+            input,
+            profile,
+            &ValCommandOptions {
+                mllp: *mllp,
+                detailed: *detailed,
+                report,
+                schema_version: *schema_version,
+                summary: *summary,
+            },
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
         Commands::Stats {
             input,
             mllp,
@@ -844,49 +1393,177 @@ async fn main() {
             profile,
             server_url,
             format,
+            schema_version,
+            output,
+            quiet,
+            no_color,
         } => doctor_command(
             sample.as_ref(),
             profile.as_ref(),
             server_url.as_deref(),
             format,
+            *schema_version,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
+        Commands::Sample {
+            sample_type,
+            output,
+            quiet,
+            no_color,
+        } => sample_command(
+            *sample_type,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
+        Commands::ValidateSample {
+            sample_type,
+            profile,
+            report,
+            schema_version,
+            output,
+            quiet,
+            no_color,
+        } => validate_sample_command(
+            *sample_type,
+            profile,
+            report,
+            *schema_version,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
         ),
         Commands::Profile { command } => match command {
-            ProfileCommands::Lint { profile, report } => profile_lint_command(profile, report),
-            ProfileCommands::Explain { profile, format } => {
-                profile_explain_command(profile, format)
-            }
+            ProfileCommands::Lint {
+                profile,
+                report,
+                schema_version,
+                output,
+                quiet,
+                no_color,
+            } => profile_lint_command(
+                profile,
+                report,
+                *schema_version,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
+            ProfileCommands::Explain {
+                profile,
+                format,
+                schema_version,
+                output,
+                quiet,
+                no_color,
+            } => profile_explain_command(
+                profile,
+                format,
+                *schema_version,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
             ProfileCommands::Test {
                 profile,
                 fixtures,
                 report,
-            } => profile_test_command(profile, fixtures, report),
+                schema_version,
+                output,
+                quiet,
+                no_color,
+            } => profile_test_command(
+                profile,
+                fixtures,
+                report,
+                *schema_version,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
         },
         Commands::Corpus { command } => match command {
-            CorpusCommands::Summarize { path, format } => corpus_summarize_command(path, format),
+            CorpusCommands::Summarize {
+                path,
+                format,
+                schema_version,
+                output,
+                quiet,
+                no_color,
+            } => corpus_summarize_command(
+                path,
+                format,
+                *schema_version,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
             CorpusCommands::Fingerprint {
                 path,
                 profile,
                 format,
-            } => corpus_fingerprint_command(path, profile.as_ref(), format),
+                schema_version,
+                output,
+                quiet,
+                no_color,
+            } => corpus_fingerprint_command(
+                path,
+                profile.as_ref(),
+                format,
+                *schema_version,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
             CorpusCommands::Diff {
                 before,
                 after,
                 profile,
                 format,
-            } => corpus_diff_command(before, after, profile.as_ref(), format),
+                schema_version,
+                output,
+                quiet,
+                no_color,
+            } => corpus_diff_command(
+                before,
+                after,
+                profile.as_ref(),
+                format,
+                *schema_version,
+                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+            ),
         },
         Commands::Redact {
             input,
             policy,
             format,
-        } => redact_command(input, policy, format),
+            schema_version,
+            output,
+            quiet,
+            no_color,
+        } => redact_command(
+            input,
+            policy,
+            format,
+            *schema_version,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
         Commands::Bundle {
             input,
             profile,
             redact_policy,
             out,
-        } => bundle_command(input, profile, redact_policy, out),
-        Commands::Replay { bundle, format } => replay_command(bundle, format),
+            schema_version,
+            output,
+            quiet,
+            no_color,
+        } => bundle_command(
+            input,
+            profile,
+            redact_policy,
+            out,
+            *schema_version,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
+        Commands::Replay {
+            bundle,
+            format,
+            schema_version,
+            output,
+            quiet,
+            no_color,
+        } => replay_command(
+            bundle,
+            format,
+            *schema_version,
+            &OutputOptions::new(output.as_ref(), *quiet, *no_color),
+        ),
         Commands::Ack {
             input,
             mode,
@@ -913,38 +1590,54 @@ async fn main() {
 
     if let Err(e) = result {
         eprintln!("Error: {}", e);
-        process::exit(1);
+        process::exit(classify_cli_error(e.as_ref()));
     }
 }
 
 /// Display performance statistics
 fn display_performance_stats(monitor: &monitor::PerformanceMonitor) {
-    println!();
-    println!("Performance Statistics:");
-    println!("  Total execution time: {:?}", monitor.elapsed());
+    print!("{}", format_performance_stats(monitor));
+}
+
+fn format_performance_stats(monitor: &monitor::PerformanceMonitor) -> String {
+    let mut output = String::new();
+    output.push('\n');
+    output.push_str("Performance Statistics:\n");
+    output.push_str(&format!(
+        "  Total execution time: {:?}\n",
+        monitor.elapsed()
+    ));
 
     let metrics = monitor.get_metrics();
     if !metrics.is_empty() {
-        println!("  Detailed metrics:");
+        output.push_str("  Detailed metrics:\n");
         for (name, duration) in metrics {
-            println!("    {}: {:?}", name, duration);
+            output.push_str(&format!("    {name}: {duration:?}\n"));
         }
     }
 
     // System information
     let system_info = monitor::get_system_info();
-    println!("  System information:");
+    output.push_str("  System information:\n");
     if let Some(cpu_usage) = system_info.cpu.cpu_usage_percent {
-        println!("    CPU usage: {:.2}%", cpu_usage);
+        output.push_str(&format!("    CPU usage: {cpu_usage:.2}%\n"));
     }
-    println!("    Total memory: {} bytes", system_info.total_memory);
-    println!("    Used memory: {} bytes", system_info.used_memory);
+    output.push_str(&format!(
+        "    Total memory: {} bytes\n",
+        system_info.total_memory
+    ));
+    output.push_str(&format!(
+        "    Used memory: {} bytes\n",
+        system_info.used_memory
+    ));
     if let Some(rss) = system_info.memory.resident_set_size {
-        println!("    Process memory (RSS): {} bytes", rss);
+        output.push_str(&format!("    Process memory (RSS): {rss} bytes\n"));
     }
     if let Some(vms) = system_info.memory.virtual_memory_size {
-        println!("    Process memory (VMS): {} bytes", vms);
+        output.push_str(&format!("    Process memory (VMS): {vms} bytes\n"));
     }
+
+    output
 }
 
 fn doctor_command(
@@ -952,6 +1645,8 @@ fn doctor_command(
     profile: Option<&PathBuf>,
     server_url: Option<&str>,
     format: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut report = DoctorReport {
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -969,11 +1664,83 @@ fn doctor_command(
     add_server_check(&mut report, server_url);
     add_python_check(&mut report);
 
-    let output = format_doctor_report(&report, format)?;
-    println!("{}", output);
+    let output = format_doctor_report(&report, format, schema_version)?;
+    output_options.emit(&output)?;
 
     if report.has_errors() {
-        return Err(std::io::Error::other("doctor reported failed checks").into());
+        return Err(CliFailure::check_failed("doctor reported failed checks"));
+    }
+
+    Ok(())
+}
+
+fn sample_command(
+    sample_type: SampleType,
+    output_options: &OutputOptions<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    output_options.emit(sample_type.message())
+}
+
+fn validate_sample_command(
+    sample_type: SampleType,
+    profile: &PathBuf,
+    report: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *report == ReportFormat::Text {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "validation report schema v2 is available only with --report json or --report yaml",
+        )));
+    }
+
+    let message = parse(sample_type.message().as_bytes())?;
+    let profile_yaml = fs::read_to_string(profile)?;
+    let loaded_profile = load_profile(&profile_yaml)?;
+    let issues = validate(&message, &loaded_profile);
+    let validation_report = ValidationReport::from_issues(
+        &message,
+        Some(profile.to_string_lossy().to_string()),
+        issues,
+    );
+
+    let output = match report {
+        ReportFormat::Json if schema_version == 2 => {
+            let report_v2 = validation_report_v2_for_cli(
+                &validation_report,
+                profile,
+                &profile_yaml,
+                &loaded_profile,
+            );
+            serde_json::to_string_pretty(&report_v2)?
+        }
+        ReportFormat::Yaml if schema_version == 2 => {
+            let report_v2 = validation_report_v2_for_cli(
+                &validation_report,
+                profile,
+                &profile_yaml,
+                &loaded_profile,
+            );
+            serde_yaml::to_string(&report_v2)?
+        }
+        ReportFormat::Json => serde_json::to_string_pretty(&validation_report)?,
+        ReportFormat::Yaml => serde_yaml::to_string(&validation_report)?,
+        ReportFormat::Text => {
+            if validation_report.valid {
+                "Validation passed: No issues found".to_string()
+            } else {
+                format!(
+                    "Validation failed: {} issues found",
+                    validation_report.issue_count
+                )
+            }
+        }
+    };
+    output_options.emit(&output)?;
+
+    if !validation_report.valid {
+        return Err(CliFailure::check_failed("sample validation failed"));
     }
 
     Ok(())
@@ -1314,8 +2081,18 @@ fn add_python_check(report: &mut DoctorReport) {
 fn format_doctor_report(
     report: &DoctorReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            Ok(serde_json::to_string_pretty(&report.to_v2())?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(&report.to_v2())?),
+        ReportFormat::Text if schema_version == 2 => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "doctor report schema v2 is available only with --format json or --format yaml",
+        )
+        .into()),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {
@@ -1595,11 +2372,16 @@ fn norm_command(
 fn val_command(
     input: &PathBuf,
     profile: &PathBuf,
-    mllp: bool,
-    detailed: bool,
-    report: &ReportFormat,
-    summary: bool,
+    options: &ValCommandOptions<'_>,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if options.schema_version == 2 && *options.report == ReportFormat::Text {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "validation report schema v2 is available only with --report json or --report yaml",
+        )));
+    }
+
     let mut monitor = monitor::PerformanceMonitor::new();
 
     // Read the HL7 message file
@@ -1610,7 +2392,7 @@ fn val_command(
     monitor.record_metric("File read", read_time);
 
     // Parse the HL7 message
-    let message = if mllp {
+    let message = if options.mllp {
         parse_mllp(&contents)?
     } else {
         parse(&contents)?
@@ -1645,66 +2427,130 @@ fn val_command(
         results,
     );
 
-    // Output based on report format
-    match report {
-        ReportFormat::Json => {
-            let json_output = serde_json::to_string_pretty(&validation_report)?;
-            println!("{}", json_output);
+    let output = match options.report {
+        ReportFormat::Json if options.schema_version == 2 => {
+            let report_v2 = validation_report_v2_for_cli(
+                &validation_report,
+                profile,
+                &profile_yaml,
+                &loaded_profile,
+            );
+            serde_json::to_string_pretty(&report_v2)?
         }
-        ReportFormat::Yaml => {
-            let yaml_output = serde_yaml::to_string(&validation_report)?;
-            println!("{}", yaml_output);
+        ReportFormat::Yaml if options.schema_version == 2 => {
+            let report_v2 = validation_report_v2_for_cli(
+                &validation_report,
+                profile,
+                &profile_yaml,
+                &loaded_profile,
+            );
+            serde_yaml::to_string(&report_v2)?
         }
+        ReportFormat::Json => serde_json::to_string_pretty(&validation_report)?,
+        ReportFormat::Yaml => serde_yaml::to_string(&validation_report)?,
         ReportFormat::Text => {
             // Print validation results in text format
             if validation_report.valid {
-                println!("Validation passed: No issues found");
-            } else if detailed {
-                println!("Validation issues found:");
+                "Validation passed: No issues found".to_string()
+            } else if options.detailed {
+                let mut output = String::from("Validation issues found:");
                 for issue in &validation_report.issues {
                     let path = issue.path.as_deref().unwrap_or("message");
-                    println!(
-                        "  - {} {} {}: {}",
+                    output.push_str(&format!(
+                        "\n  - {} {} {}: {}",
                         issue.severity.as_str(),
                         issue.code,
                         path,
                         issue.message
-                    );
+                    ));
                 }
+                output
             } else {
-                println!(
+                format!(
                     "Validation failed: {} issues found",
                     validation_report.issue_count
-                );
+                )
             }
         }
-    }
+    };
+    output_options.emit(&output)?;
 
     // Show summary if requested (only for text format to avoid mixing output)
-    if summary && *report == ReportFormat::Text {
-        println!();
-        println!("Validation Summary:");
-        println!("  Input file: {:?}", input);
-        println!("  Profile file: {:?}", profile);
-        println!("  File size: {} bytes", file_size);
-        println!("  Segments: {}", validation_report.segment_count);
-        println!("  Issues found: {}", validation_report.issue_count);
-        display_performance_stats(&monitor);
+    if options.summary && *options.report == ReportFormat::Text {
+        let mut summary_output = String::new();
+        summary_output.push('\n');
+        summary_output.push_str("Validation Summary:\n");
+        summary_output.push_str(&format!("  Input file: {:?}\n", input));
+        summary_output.push_str(&format!("  Profile file: {:?}\n", profile));
+        summary_output.push_str(&format!("  File size: {file_size} bytes\n"));
+        summary_output.push_str(&format!(
+            "  Segments: {}\n",
+            validation_report.segment_count
+        ));
+        summary_output.push_str(&format!(
+            "  Issues found: {}\n",
+            validation_report.issue_count
+        ));
+        summary_output.push_str(&format_performance_stats(&monitor));
+
+        if output_options.output.is_some() || output_options.quiet {
+            output_options.diagnostic(summary_output.trim_end());
+        } else {
+            print!("{summary_output}");
+        }
     }
 
     // Exit with error code if validation failed
     if !validation_report.valid {
-        std::process::exit(1);
+        return Err(CliFailure::check_failed("validation failed"));
     }
 
     Ok(())
+}
+
+fn validation_report_v2_for_cli(
+    report: &ValidationReport,
+    profile_path: &Path,
+    profile_yaml: &str,
+    loaded_profile: &Profile,
+) -> ValidationReportV2 {
+    let profile_label = profile_display_label(profile_path);
+    let mut report_v2 = report.to_v2(
+        "hl7v2-cli",
+        env!("CARGO_PKG_VERSION"),
+        Some(ValidationReportProfileIdentity {
+            label: profile_label.clone(),
+            message_structure: Some(loaded_profile.message_structure.clone()),
+            version: Some(loaded_profile.version.clone()),
+            sha256: Some(compute_sha256(profile_yaml)),
+        }),
+    );
+    report_v2.profile = Some(profile_label);
+    report_v2
+}
+
+fn profile_display_label(profile_path: &Path) -> String {
+    profile_path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| "profile".to_string())
 }
 
 fn redact_command(
     input: &Path,
     policy: &Path,
     format: &RedactFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if *format == RedactFormat::Hl7 && schema_version != 1 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "redaction output schema version is only available with --format json",
+        )
+        .into());
+    }
+
     let contents = fs::read(input)?;
     let mut message = parse(&contents)?;
     let policy_text = fs::read_to_string(policy)?;
@@ -1714,23 +2560,50 @@ fn redact_command(
 
     match format {
         RedactFormat::Json => {
-            let output = RedactionOutput {
-                input_sha256: compute_sha256(&String::from_utf8_lossy(&contents)),
-                policy_sha256: compute_sha256(&policy_text),
-                message_type: message_field_text(&message, "MSH", 9)
-                    .unwrap_or_else(|| "unknown".to_string()),
-                redacted_hl7,
-                receipt,
-            };
-            println!("{}", serde_json::to_string_pretty(&output)?);
+            let input_sha256 = compute_sha256(&String::from_utf8_lossy(&contents));
+            let policy_sha256 = compute_sha256(&policy_text);
+            let message_type =
+                message_field_text(&message, "MSH", 9).unwrap_or_else(|| "unknown".to_string());
+            match schema_version {
+                1 => {
+                    let output = RedactionOutput {
+                        input_sha256,
+                        policy_sha256,
+                        message_type,
+                        redacted_hl7,
+                        receipt,
+                    };
+                    output_options.emit(&serde_json::to_string_pretty(&output)?)?;
+                }
+                2 => {
+                    let output = RedactionOutputWithReceiptV2 {
+                        schema_version: "2",
+                        tool_name: "hl7v2-cli",
+                        tool_version: env!("CARGO_PKG_VERSION"),
+                        input_sha256,
+                        policy_sha256,
+                        message_type,
+                        redacted_hl7,
+                        receipt: receipt.to_v2(),
+                    };
+                    output_options.emit(&serde_json::to_string_pretty(&output)?)?;
+                }
+                _ => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "redaction output schema version must be 1 or 2",
+                    )
+                    .into());
+                }
+            }
         }
         RedactFormat::Hl7 => {
-            eprintln!(
+            output_options.diagnostic(format!(
                 "Redaction receipt: {} action(s), PHI removed: {}",
                 receipt.actions.len(),
                 receipt.phi_removed
-            );
-            print!("{redacted_hl7}");
+            ));
+            output_options.emit_raw(&redacted_hl7)?;
         }
     }
 
@@ -1742,6 +2615,8 @@ fn bundle_command(
     profile: &Path,
     redact_policy: &Path,
     out: &Path,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if out.exists() {
         return Err(std::io::Error::new(
@@ -1767,7 +2642,7 @@ fn bundle_command(
         Some("profile.yaml".to_string()),
         validate(&redacted_message, &loaded_profile),
     );
-    let message_type = message_field_text(&message, "MSH", 9).unwrap_or_else(|| "unknown".into());
+    let message_type = validation_report.message_type.clone();
     let environment = EvidenceBundleEnvironment {
         bundle_version: "1",
         tool_name: "hl7v2-cli",
@@ -1785,25 +2660,44 @@ fn bundle_command(
     fs::write(out.join("message.redacted.hl7"), redacted_hl7)?;
     fs::write(out.join("profile.yaml"), profile_yaml)?;
     write_json_file(&out.join("validation-report.json"), &validation_report)?;
-    write_json_file(&out.join("redaction-receipt.json"), &redaction_receipt)?;
-    write_json_file(&out.join("field-paths.json"), &field_trace)?;
-    write_json_file(&out.join("environment.json"), &environment)?;
+    if schema_version == 2 {
+        write_json_file(
+            &out.join("redaction-receipt.json"),
+            &redaction_receipt.to_v2(),
+        )?;
+        write_json_file(&out.join("field-paths.json"), &field_trace.to_v2())?;
+        write_json_file(&out.join("environment.json"), &environment.to_v2())?;
+    } else {
+        write_json_file(&out.join("redaction-receipt.json"), &redaction_receipt)?;
+        write_json_file(&out.join("field-paths.json"), &field_trace)?;
+        write_json_file(&out.join("environment.json"), &environment)?;
+    }
     fs::write(out.join("replay.sh"), replay_shell_script())?;
     fs::write(out.join("replay.ps1"), replay_powershell_script())?;
+    fs::write(out.join("README.md"), bundle_readme())?;
 
-    let artifacts = [
-        "message.redacted.hl7",
-        "validation-report.json",
-        "field-paths.json",
-        "profile.yaml",
-        "redaction-receipt.json",
-        "environment.json",
-        "replay.sh",
-        "replay.ps1",
-    ]
-    .into_iter()
-    .map(String::from)
-    .collect();
+    let artifact_specs = bundle_artifact_specs();
+    let manifest = EvidenceBundleManifest {
+        bundle_version: "1".to_string(),
+        tool_name: "hl7v2-cli".to_string(),
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        artifacts: artifact_specs
+            .iter()
+            .map(|(path, role)| bundle_manifest_artifact(out, path, role))
+            .collect::<Result<_, _>>()?,
+    };
+    if schema_version == 2 {
+        write_json_file(&out.join("manifest.json"), &manifest.to_v2())?;
+    } else {
+        write_json_file(&out.join("manifest.json"), &manifest)?;
+    }
+
+    let mut artifacts = artifact_specs
+        .iter()
+        .map(|(path, _)| (*path).to_string())
+        .collect::<Vec<_>>();
+    artifacts.push("manifest.json".to_string());
+
     let summary = EvidenceBundleSummary {
         bundle_version: "1",
         output_dir: ".".to_string(),
@@ -1813,25 +2707,44 @@ fn bundle_command(
         redaction_phi_removed: redaction_receipt.phi_removed,
         artifacts,
     };
-    println!("{}", serde_json::to_string_pretty(&summary)?);
+    let output = match schema_version {
+        1 => serde_json::to_string_pretty(&summary)?,
+        2 => serde_json::to_string_pretty(&summary.to_v2())?,
+        _ => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "bundle summary schema_version must be 1 or 2",
+            )
+            .into());
+        }
+    };
+    output_options.emit(&output)?;
 
     Ok(())
 }
 
-fn replay_command(bundle: &Path, format: &ReportFormat) -> Result<(), Box<dyn std::error::Error>> {
+fn replay_command(
+    bundle: &Path,
+    format: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let report = build_replay_report(bundle);
-    println!("{}", render_replay_report(&report, format)?);
+    output_options.emit(&render_replay_report(&report, format, schema_version)?)?;
 
     if report.reproduced {
         Ok(())
     } else {
-        Err(std::io::Error::other("bundle replay did not reproduce stored evidence").into())
+        Err(CliFailure::check_failed(
+            "bundle replay did not reproduce stored evidence",
+        ))
     }
 }
 
 fn build_replay_report(bundle: &Path) -> EvidenceReplayReport {
     let mut checks = Vec::new();
     let required_artifacts = [
+        "manifest.json",
         "message.redacted.hl7",
         "validation-report.json",
         "field-paths.json",
@@ -1862,6 +2775,50 @@ fn build_replay_report(bundle: &Path) -> EvidenceReplayReport {
                 missing_artifacts.join(", ")
             ),
         ));
+    }
+
+    let manifest = match read_bundle_manifest(bundle) {
+        Ok(manifest) => {
+            checks.push(replay_check(
+                "manifest",
+                EvidenceReplayCheckStatus::Pass,
+                "manifest.json parsed",
+            ));
+            Some(manifest)
+        }
+        Err(error) => {
+            checks.push(replay_check(
+                "manifest",
+                EvidenceReplayCheckStatus::Fail,
+                error,
+            ));
+            None
+        }
+    };
+    let manifest_bundle_version = manifest
+        .as_ref()
+        .map(|manifest| manifest.bundle_version.clone());
+    let manifest_catalog_ok = manifest
+        .as_ref()
+        .is_some_and(|manifest| verify_bundle_manifest_catalog(manifest, &mut checks));
+    let manifest_hashes_ok = manifest_catalog_ok
+        && manifest
+            .as_ref()
+            .is_some_and(|manifest| verify_bundle_manifest_hashes(bundle, manifest, &mut checks));
+
+    if !manifest_hashes_ok {
+        return EvidenceReplayReport {
+            replay_version: "1",
+            bundle_version: manifest_bundle_version,
+            tool_name: "hl7v2-cli",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            message_type: None,
+            reproduced: false,
+            validation_valid: None,
+            validation_issue_count: None,
+            checks,
+            validation_report: None,
+        };
     }
 
     let environment = match read_bundle_json_value(bundle, "environment.json") {
@@ -2041,7 +2998,8 @@ fn build_replay_report(bundle: &Path) -> EvidenceReplayReport {
         .all(|check| check.status == EvidenceReplayCheckStatus::Pass);
     let bundle_version = environment
         .as_ref()
-        .and_then(|value| json_string(value, "bundle_version"));
+        .and_then(|value| json_string(value, "bundle_version"))
+        .or(manifest_bundle_version);
     let message_type = actual_report
         .as_ref()
         .map(|report| report.message_type.clone())
@@ -2084,6 +3042,155 @@ fn replay_check(
     }
 }
 
+fn bundle_artifact_specs() -> [(&'static str, &'static str); 9] {
+    [
+        ("message.redacted.hl7", "redacted_message"),
+        ("validation-report.json", "validation_report"),
+        ("field-paths.json", "field_path_trace"),
+        ("profile.yaml", "profile"),
+        ("redaction-receipt.json", "redaction_receipt"),
+        ("environment.json", "environment"),
+        ("replay.sh", "replay_shell_script"),
+        ("replay.ps1", "replay_powershell_script"),
+        ("README.md", "bundle_readme"),
+    ]
+}
+
+fn read_bundle_manifest(bundle: &Path) -> Result<EvidenceBundleManifest, String> {
+    let contents = read_bundle_string(bundle, "manifest.json")?;
+    serde_json::from_str(&contents)
+        .map_err(|error| format!("manifest.json is invalid JSON: {error}"))
+}
+
+fn verify_bundle_manifest_catalog(
+    manifest: &EvidenceBundleManifest,
+    checks: &mut Vec<EvidenceReplayCheck>,
+) -> bool {
+    let expected = bundle_artifact_specs();
+    let mut errors = Vec::new();
+    let mut seen_paths = BTreeSet::new();
+
+    for artifact in &manifest.artifacts {
+        if !seen_paths.insert(artifact.path.clone()) {
+            errors.push("duplicate artifact path".to_string());
+        }
+        if safe_bundle_relative_path(&artifact.path).is_err() {
+            errors.push("unsafe artifact path".to_string());
+            continue;
+        }
+        if !is_lower_sha256_hex(&artifact.sha256) {
+            errors.push(format!("{} has invalid sha256", artifact.path));
+        }
+        if !expected
+            .iter()
+            .any(|(path, role)| *path == artifact.path.as_str() && *role == artifact.role.as_str())
+        {
+            errors.push(format!(
+                "{} has unexpected role {}",
+                artifact.path, artifact.role
+            ));
+        }
+    }
+
+    for (expected_path, expected_role) in expected {
+        if !manifest
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.path == expected_path && artifact.role == expected_role)
+        {
+            errors.push(format!("missing manifest entry for {expected_path}"));
+        }
+    }
+
+    if errors.is_empty() {
+        checks.push(replay_check(
+            "manifest-artifacts",
+            EvidenceReplayCheckStatus::Pass,
+            "manifest lists expected bundle artifacts",
+        ));
+        true
+    } else {
+        checks.push(replay_check(
+            "manifest-artifacts",
+            EvidenceReplayCheckStatus::Fail,
+            format!("manifest artifact catalog invalid: {}", errors.join(", ")),
+        ));
+        false
+    }
+}
+
+fn verify_bundle_manifest_hashes(
+    bundle: &Path,
+    manifest: &EvidenceBundleManifest,
+    checks: &mut Vec<EvidenceReplayCheck>,
+) -> bool {
+    let mut errors = Vec::new();
+
+    for artifact in &manifest.artifacts {
+        let relative_path = match safe_bundle_relative_path(&artifact.path) {
+            Ok(relative_path) => relative_path,
+            Err(error) => {
+                errors.push(error);
+                continue;
+            }
+        };
+        match fs::read(bundle.join(relative_path)) {
+            Ok(bytes) => {
+                let actual = compute_sha256_bytes(&bytes);
+                if actual != artifact.sha256 {
+                    errors.push(format!("{} hash mismatch", artifact.path));
+                }
+            }
+            Err(error) => {
+                errors.push(format!("could not read {}: {error}", artifact.path));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        checks.push(replay_check(
+            "manifest-hashes",
+            EvidenceReplayCheckStatus::Pass,
+            "manifest artifact hashes match bundle contents",
+        ));
+        true
+    } else {
+        checks.push(replay_check(
+            "manifest-hashes",
+            EvidenceReplayCheckStatus::Fail,
+            format!("manifest hash verification failed: {}", errors.join(", ")),
+        ));
+        false
+    }
+}
+
+fn safe_bundle_relative_path(path: &str) -> Result<PathBuf, String> {
+    if path.is_empty() || path.contains('\\') {
+        return Err("manifest artifact path must be bundle-relative".to_string());
+    }
+
+    let relative_path = Path::new(path);
+    if relative_path.is_absolute()
+        || relative_path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::Prefix(_) | Component::RootDir
+            )
+        })
+    {
+        return Err("manifest artifact path must be bundle-relative".to_string());
+    }
+
+    Ok(relative_path.to_path_buf())
+}
+
+fn is_lower_sha256_hex(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 fn read_bundle_artifact(bundle: &Path, artifact: &str) -> Result<Vec<u8>, String> {
     fs::read(bundle.join(artifact)).map_err(|error| format!("could not read {artifact}: {error}"))
 }
@@ -2124,8 +3231,18 @@ fn json_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
 fn render_replay_report(
     report: &EvidenceReplayReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            Ok(serde_json::to_string_pretty(&report.to_v2())?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(&report.to_v2())?),
+        ReportFormat::Text if schema_version == 2 => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "replay report schema v2 is available only with --format json or --format yaml",
+        )
+        .into()),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {
@@ -2162,12 +3279,49 @@ fn write_json_file<T: serde::Serialize>(
     Ok(())
 }
 
+fn bundle_manifest_artifact(
+    bundle_dir: &Path,
+    path: &'static str,
+    role: &'static str,
+) -> Result<EvidenceBundleManifestArtifact, Box<dyn std::error::Error>> {
+    let bytes = fs::read(bundle_dir.join(path))?;
+    Ok(EvidenceBundleManifestArtifact {
+        path: path.to_string(),
+        role: role.to_string(),
+        sha256: compute_sha256_bytes(&bytes),
+    })
+}
+
+fn compute_sha256_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
+}
+
 fn replay_shell_script() -> &'static str {
     "#!/usr/bin/env sh\nset -eu\ncd \"$(dirname \"$0\")\"\nhl7v2 val message.redacted.hl7 --profile profile.yaml --report json > validation-report.replayed.json\n"
 }
 
 fn replay_powershell_script() -> &'static str {
     "$ErrorActionPreference = 'Stop'\nSet-Location $PSScriptRoot\nhl7v2 val .\\message.redacted.hl7 --profile .\\profile.yaml --report json > .\\validation-report.replayed.json\n"
+}
+
+fn bundle_readme() -> &'static str {
+    "# HL7v2 Evidence Bundle\n\n\
+This directory contains a redacted, replayable evidence packet generated by `hl7v2-cli`.\n\n\
+## Contents\n\n\
+- `message.redacted.hl7`: redacted HL7 message used for replay.\n\
+- `validation-report.json`: validation report generated from the redacted message.\n\
+- `field-paths.json`: field-path trace and redaction action metadata.\n\
+- `profile.yaml`: profile used for replay validation.\n\
+- `redaction-receipt.json`: receipt describing retained, hashed, dropped, or missing fields.\n\
+- `environment.json`: tool version, bundle metadata, and input/profile/policy hashes.\n\
+- `manifest.json`: bundle-relative artifact paths, roles, and SHA-256 hashes.\n\
+- `replay.sh` and `replay.ps1`: shell helpers that regenerate the validation report.\n\n\
+## Replay\n\n\
+Run `hl7v2 replay . --format json` from this directory, or run the generated script for your shell.\n\n\
+## Safety Notes\n\n\
+This bundle is intended for support and debugging after safe-analysis redaction. It should not contain raw message PHI in reports, receipts, traces, manifests, or replay output. The profile is user-authored and included as supplied; review it before sharing. Redaction receipts prove configured actions were applied, but they are not a general PHI detector.\n"
 }
 
 fn load_safe_analysis_policy(
@@ -2491,14 +3645,24 @@ fn field_to_text(field: &Field, delims: &hl7v2::Delims) -> String {
 fn profile_lint_command(
     profile: &Path,
     report: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *report == ReportFormat::Text {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "profile lint schema version is only available with --report json or --report yaml",
+        )
+        .into());
+    }
+
     let profile_yaml = fs::read_to_string(profile)?;
     let lint_report = lint_profile_yaml(&profile_yaml);
-    let output = format_profile_lint_report(profile, &lint_report, report)?;
-    println!("{}", output);
+    let output = format_profile_lint_report(profile, &lint_report, report, schema_version)?;
+    output_options.emit(&output)?;
 
     if !lint_report.valid {
-        return Err(std::io::Error::other("profile lint reported errors").into());
+        return Err(CliFailure::check_failed("profile lint reported errors"));
     }
 
     Ok(())
@@ -2507,14 +3671,24 @@ fn profile_lint_command(
 fn profile_explain_command(
     profile: &Path,
     format: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "profile explain schema version is only available with --format json or --format yaml",
+        )
+        .into());
+    }
+
     let profile_yaml = fs::read_to_string(profile)?;
     let loaded_profile = load_profile_checked(&profile_yaml)?;
     let lint_report = lint_profile_yaml(&profile_yaml);
     let explain_report =
         build_profile_explain_report(profile, &profile_yaml, &loaded_profile, &lint_report);
-    let output = format_profile_explain_report(&explain_report, format)?;
-    println!("{}", output);
+    let output = format_profile_explain_report(&explain_report, format, schema_version)?;
+    output_options.emit(&output)?;
     Ok(())
 }
 
@@ -2730,15 +3904,25 @@ fn profile_test_command(
     profile: &Path,
     fixtures: &Path,
     report: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *report == ReportFormat::Text {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "profile test schema version is only available with --report json or --report yaml",
+        )
+        .into());
+    }
+
     let profile_yaml = fs::read_to_string(profile)?;
     let loaded_profile = load_profile_checked(&profile_yaml)?;
     let test_report = run_profile_fixture_tests(profile, fixtures, &loaded_profile)?;
-    let output = format_profile_test_report(&test_report, report)?;
-    println!("{}", output);
+    let output = format_profile_test_report(&test_report, report, schema_version)?;
+    output_options.emit(&output)?;
 
     if !test_report.valid {
-        return Err(std::io::Error::other("profile test reported failures").into());
+        return Err(CliFailure::check_failed("profile test reported failures"));
     }
 
     Ok(())
@@ -3148,8 +4332,13 @@ fn relative_display_path(root: &Path, path: &Path) -> String {
 fn format_profile_test_report(
     report: &ProfileTestReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            Ok(serde_json::to_string_pretty(&report.to_v2())?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(&report.to_v2())?),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {
@@ -3189,8 +4378,13 @@ fn format_profile_test_report(
 fn format_profile_explain_report(
     report: &ProfileExplainReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            Ok(serde_json::to_string_pretty(&report.to_v2())?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(&report.to_v2())?),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {
@@ -3292,8 +4486,15 @@ fn format_profile_lint_report(
     profile: &Path,
     report: &ProfileLintReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => Ok(serde_json::to_string_pretty(
+            &report.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
+        )?),
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(
+            &report.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
+        )?),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {
@@ -3508,18 +4709,35 @@ fn stats_command(
 fn corpus_summarize_command(
     path: &PathBuf,
     format: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "corpus summary schema version is only available with --format json or --format yaml",
+        )
+        .into());
+    }
+
     let summary = summarize_corpus_path(path)?;
-    let output = format_corpus_summary(&summary, format)?;
-    println!("{}", output);
+    let output = format_corpus_summary(&summary, format, schema_version)?;
+    output_options.emit(&output)?;
     Ok(())
 }
 
 fn format_corpus_summary(
     summary: &CorpusSummary,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => Ok(serde_json::to_string_pretty(
+            &summary.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
+        )?),
+        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(
+            &summary.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
+        )?),
         ReportFormat::Json => Ok(serde_json::to_string_pretty(summary)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(summary)?),
         ReportFormat::Text => {
@@ -3581,7 +4799,16 @@ fn corpus_diff_command(
     after: &PathBuf,
     profile: Option<&PathBuf>,
     format: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "corpus diff schema v2 is available only with --format json or --format yaml",
+        )));
+    }
+
     let diff = if let Some(profile_path) = profile {
         let mut before_fingerprint = fingerprint_corpus_path(before)?;
         let mut after_fingerprint = fingerprint_corpus_path(after)?;
@@ -3596,8 +4823,8 @@ fn corpus_diff_command(
     } else {
         diff_corpus_paths(before, after)?
     };
-    let output = format_corpus_diff(&diff, format)?;
-    println!("{}", output);
+    let output = format_corpus_diff(&diff, format, schema_version)?;
+    output_options.emit(&output)?;
     Ok(())
 }
 
@@ -3605,7 +4832,16 @@ fn corpus_fingerprint_command(
     path: &PathBuf,
     profile: Option<&PathBuf>,
     format: &ReportFormat,
+    schema_version: u8,
+    output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "corpus fingerprint schema v2 is available only with --format json or --format yaml",
+        )));
+    }
+
     let mut fingerprint = fingerprint_corpus_path(path)?;
 
     if let Some(profile_path) = profile {
@@ -3615,16 +4851,25 @@ fn corpus_fingerprint_command(
         fingerprint.validation_issue_code_counts = issue_counts;
     }
 
-    let output = format_corpus_fingerprint(&fingerprint, format)?;
-    println!("{}", output);
+    let output = format_corpus_fingerprint(&fingerprint, format, schema_version)?;
+    output_options.emit(&output)?;
     Ok(())
 }
 
 fn format_corpus_diff(
     diff: &CorpusDiffReport,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            let diff_v2 = diff.to_v2("hl7v2-cli");
+            Ok(serde_json::to_string_pretty(&diff_v2)?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => {
+            let diff_v2 = diff.to_v2("hl7v2-cli");
+            Ok(serde_yaml::to_string(&diff_v2)?)
+        }
         ReportFormat::Json => Ok(serde_json::to_string_pretty(diff)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(diff)?),
         ReportFormat::Text => {
@@ -3797,8 +5042,17 @@ fn counts_to_corpus_counts(counts: std::collections::BTreeMap<String, usize>) ->
 fn format_corpus_fingerprint(
     fingerprint: &CorpusFingerprint,
     format: &ReportFormat,
+    schema_version: u8,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
+        ReportFormat::Json if schema_version == 2 => {
+            let fingerprint_v2 = fingerprint.to_v2("hl7v2-cli");
+            Ok(serde_json::to_string_pretty(&fingerprint_v2)?)
+        }
+        ReportFormat::Yaml if schema_version == 2 => {
+            let fingerprint_v2 = fingerprint.to_v2("hl7v2-cli");
+            Ok(serde_yaml::to_string(&fingerprint_v2)?)
+        }
         ReportFormat::Json => Ok(serde_json::to_string_pretty(fingerprint)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(fingerprint)?),
         ReportFormat::Text => {
@@ -4268,7 +5522,18 @@ fn handle_val_command(input: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    val_command(&file_path, &profile_path, mllp, detailed, &report, summary)
+    val_command(
+        &file_path,
+        &profile_path,
+        &ValCommandOptions {
+            mllp,
+            detailed,
+            report: &report,
+            schema_version: 1,
+            summary,
+        },
+        &OutputOptions::new(None, false, false),
+    )
 }
 
 /// Handle ack command in interactive mode

@@ -1,72 +1,34 @@
-# Multi-stage Dockerfile for optimized hl7v2-rs builds
+# Multi-stage Dockerfile for the standalone HL7v2 validation sidecar.
 
-# Stage 1: Build
-FROM rust:1.93-alpine AS builder
+FROM rust:1.93-bookworm AS builder
 
-# Install build dependencies
-RUN apk add --no-cache \
-    musl-dev \
-    openssl-dev \
-    pkgconfig
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy manifest files only (for better caching)
-COPY Cargo.toml Cargo.lock ./
-COPY crates/hl7v2/Cargo.toml ./crates/hl7v2/Cargo.toml
-COPY crates/hl7v2-bench/Cargo.toml ./crates/hl7v2-bench/Cargo.toml
-COPY crates/hl7v2-python/Cargo.toml ./crates/hl7v2-python/Cargo.toml
-COPY crates/hl7v2-cli/Cargo.toml ./crates/hl7v2-cli/Cargo.toml
-COPY crates/hl7v2-server/Cargo.toml ./crates/hl7v2-server/Cargo.toml
-COPY crates/hl7v2-e2e-tests/Cargo.toml ./crates/hl7v2-e2e-tests/Cargo.toml
-COPY crates/hl7v2-test-utils/Cargo.toml ./crates/hl7v2-test-utils/Cargo.toml
-COPY xtask/Cargo.toml ./xtask/Cargo.toml
+COPY . .
 
-# Fetch dependencies (cached layer)
-RUN cargo fetch --locked
+RUN cargo build --release --locked -p hl7v2-server
 
-# Copy source code
-COPY crates/ ./crates/
-COPY examples/ ./examples/
-COPY xtask/ ./xtask/
+FROM debian:bookworm-slim AS runtime
 
-# Build release binary
-RUN cargo build --release --locked -p hl7v2-cli
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 hl7v2 \
+    && useradd --uid 1000 --gid hl7v2 --create-home --shell /usr/sbin/nologin hl7v2 \
+    && mkdir -p /etc/hl7v2 /var/lib/hl7v2/bundles /var/lib/hl7v2/quarantine /var/lib/hl7v2/profiles \
+    && chown -R hl7v2:hl7v2 /etc/hl7v2 /var/lib/hl7v2
 
-# Stage 2: Runtime
-FROM alpine:latest
+COPY --from=builder /app/target/release/hl7v2-server /usr/local/bin/hl7v2-server
 
-# Install runtime dependencies
-RUN apk add --no-cache \
-    ca-certificates \
-    libgcc \
-    openssl
-
-# Create non-root user
-RUN addgroup -g 1000 hl7v2 && \
-    adduser -D -u 1000 -G hl7v2 hl7v2
-
-# Copy binary from builder
-COPY --from=builder /app/target/release/hl7v2-cli /usr/local/bin/hl7v2
-
-# Copy configuration and profiles
-COPY profiles/ /var/lib/hl7v2/profiles/
-COPY schemas/ /var/lib/hl7v2/schemas/
-
-# Set up directories
-RUN mkdir -p /etc/hl7v2 /var/log/hl7v2 && \
-    chown -R hl7v2:hl7v2 /var/lib/hl7v2 /var/log/hl7v2
-
-# Switch to non-root user
 USER hl7v2
 
-# Expose ports
-EXPOSE 8080 2575
+EXPOSE 8080
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/usr/local/bin/hl7v2", "health"] || exit 1
+    CMD curl -fsS http://localhost:8080/ready >/dev/null || exit 1
 
-# Default command
-ENTRYPOINT ["/usr/local/bin/hl7v2"]
-CMD ["server", "--config", "/etc/hl7v2/config.toml"]
+ENTRYPOINT ["hl7v2-server"]

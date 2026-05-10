@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/evidence-bundle-environment/v2",
+  "title": "HL7v2 Evidence Bundle Environment v2",
+  "description": "Machine-readable environment metadata written inside redacted evidence bundles, with explicit schema provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_version",
+    "tool_name",
+    "tool_version",
+    "message_type",
+    "input_sha256",
+    "profile_sha256",
+    "redaction_policy_sha256",
+    "validation_valid",
+    "validation_issue_count",
+    "replay_command"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2"
+    },
+    "bundle_version": {
+      "type": "string",
+      "enum": ["1"]
+    },
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2-cli", "hl7v2-server", "hl7v2-python"]
+    },
+    "tool_version": {
+      "type": "string"
+    },
+    "message_type": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "profile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "redaction_policy_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "validation_valid": {
+      "type": "boolean"
+    },
+    "validation_issue_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "replay_command": {
+      "type": "string"
+    }
+  }
+}

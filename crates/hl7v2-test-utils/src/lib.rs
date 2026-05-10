@@ -43,7 +43,11 @@ pub use assertions::{
 pub use builders::{MessageBuilder, SegmentBuilder};
 pub use fixtures::SampleMessages;
 pub use mocks::{MockMessageHandler, MockMllpServer};
-pub use security_fixtures::deterministic_api_key;
+pub use security_fixtures::{
+    PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, PHI_LEAK_SENTINELS,
+    RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels,
+    assert_no_phi_leak_sentinels_or_paths, deterministic_api_key,
+};
 
 /// Prelude module for convenient imports
 pub mod prelude {
@@ -54,7 +58,11 @@ pub mod prelude {
     pub use crate::builders::{MessageBuilder, SegmentBuilder};
     pub use crate::fixtures::SampleMessages;
     pub use crate::mocks::{MockMessageHandler, MockMllpServer};
-    pub use crate::security_fixtures::deterministic_api_key;
+    pub use crate::security_fixtures::{
+        PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, PHI_LEAK_SENTINELS,
+        RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels,
+        assert_no_phi_leak_sentinels_or_paths, deterministic_api_key,
+    };
 }
 
 #[cfg(test)]

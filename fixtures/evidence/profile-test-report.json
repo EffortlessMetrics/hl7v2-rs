@@ -1,54 +1,49 @@
 {
-  "profile": "profiles/adt_a01.yaml",
-  "fixtures": "fixtures/profile/adt_a01",
-  "valid": false,
+  "profile": "profile.yaml",
+  "fixtures": "fixtures",
+  "valid": true,
   "case_count": 2,
-  "passed_count": 1,
-  "failed_count": 1,
+  "passed_count": 2,
+  "failed_count": 0,
   "cases": [
     {
-      "name": "valid/minimal.hl7",
-      "path": "fixtures/profile/adt_a01/valid/minimal.hl7",
+      "name": "valid/valid.hl7",
+      "path": "fixtures/valid/valid.hl7",
       "expectation": "valid",
       "passed": true,
-      "message": "Fixture passed as expected.",
+      "message": "expected valid and report was valid",
       "validation_report": {
         "valid": true,
         "message_type": "ADT^A01",
-        "profile": "profiles/adt_a01.yaml",
-        "segment_count": 3,
+        "profile": "profile.yaml",
+        "segment_count": 2,
         "issue_count": 0,
         "issues": []
       }
     },
     {
       "name": "invalid/missing_pid3.hl7",
-      "path": "fixtures/profile/adt_a01/invalid/missing_pid3.hl7",
+      "path": "fixtures/invalid/missing_pid3.hl7",
       "expectation": "invalid",
-      "passed": false,
-      "message": "Expected report did not match actual validation issues.",
+      "passed": true,
+      "message": "expected invalid and report was invalid",
       "validation_report": {
         "valid": false,
         "message_type": "ADT^A01",
-        "profile": "profiles/adt_a01.yaml",
-        "segment_count": 3,
+        "profile": "profile.yaml",
+        "segment_count": 2,
         "issue_count": 1,
         "issues": [
           {
-            "code": "required_field_missing",
+            "code": "missing_required_field",
             "severity": "error",
             "path": "PID.3",
-            "rule_id": "patient_identifier_required",
-            "message": "PID.3 is required by profile ADT_A01.",
+            "rule_id": "missing_required_field",
+            "message": "Required field PID.3 is missing",
             "segment_index": 1,
             "field_index": 3
           }
         ]
-      },
-      "expected_report": {
-        "path": "fixtures/profile/adt_a01/expected/missing_pid3.report.json",
-        "matched": false,
-        "message": "Expected report was missing required_field_missing at PID.3."
       }
     }
   ]

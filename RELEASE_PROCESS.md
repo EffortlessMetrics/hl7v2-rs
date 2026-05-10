@@ -80,6 +80,28 @@ release is approved.
 
 For GitHub Actions based releases, use the manual `Publish to crates.io` workflow. It prints the derived order first and only publishes when `execute=true` is selected and the `CARGO_REGISTRY_TOKEN` secret is configured.
 
+### Python TestPyPI Proof
+
+`hl7v2-python` is not part of the Rust crates.io publish graph. Prove the
+Python package separately before any PyPI release:
+
+```powershell
+python -m pip install --upgrade pip "maturin==1.13.1"
+$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
+maturin build --release --out dist
+python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
+python tests\python_smoke\smoke.py
+```
+
+Then use the manual `Python TestPyPI Proof` workflow. Run it first with
+`publish_to_testpypi=false`; if that passes and the TestPyPI Trusted Publisher
+is configured, rerun with `publish_to_testpypi=true` to upload and install the
+same version back from TestPyPI.
+
+The workflow uses Trusted Publishing from the `testpypi` GitHub environment and
+does not require a repository PyPI token. See
+[`docs/guides/python-testpypi-release-proof.md`](docs/guides/python-testpypi-release-proof.md).
+
 ### 6. Create GitHub Release
 
 Create a release on GitHub based on the tag, copying the relevant entries from `CHANGELOG.md`. Attach the CLI binaries for major platforms.

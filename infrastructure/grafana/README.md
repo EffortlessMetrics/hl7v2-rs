@@ -10,10 +10,10 @@ Production-ready Grafana dashboards for monitoring HL7v2 message processing, val
 
 **Key Metrics**:
 - **Request Rate**: Requests per second by endpoint and status code
-- **Active Connections**: Current concurrent connections with thresholds
+- **Evidence Failures**: Parse, validation, and redaction failure rate
 - **Request Latency**: P50/P95/P99 latency percentiles by endpoint
 - **HTTP Status Codes**: 2xx (success), 4xx (client error), 5xx (server error) breakdown
-- **Parse Errors**: Count of message parsing failures (last hour)
+- **Parse Failures**: Count of message parsing failures (last hour)
 - **Memory Usage**: Resident memory (RSS) over time
 - **CPU Usage**: CPU utilization percentage
 
@@ -32,9 +32,9 @@ Production-ready Grafana dashboards for monitoring HL7v2 message processing, val
 **Key Metrics**:
 - **Validation Results**: Valid vs invalid message counts (5-minute window)
 - **Validation Success Rate**: Percentage gauge with color-coded thresholds
-- **Top Profiles by Validation Rate**: Most frequently used conformance profiles
-- **Validation Errors by Type**: Error categorization over time
-- **Top 20 Validation Errors**: Table of most common errors with counts
+- **Top Operations by Validation Rate**: Bounded evidence workflow validation rates
+- **Validation Failures by Operation**: Failure categorization over time
+- **Top Validation Failure Series**: Table of common failure series with counts
 
 **Use Cases**:
 - Data quality monitoring
@@ -233,19 +233,25 @@ Place dashboard JSON files in the configured path.
 |--------|------|-------------|--------|
 | `hl7v2_requests_total` | Counter | Total HTTP requests | endpoint, status |
 | `hl7v2_request_duration_seconds` | Histogram | Request latency | endpoint |
-| `hl7v2_active_connections` | Gauge | Current active connections | - |
-| `hl7v2_parse_errors_total` | Counter | Parse error count | error_type |
-| `hl7v2_validation_errors_total` | Counter | Validation error count | error_type |
-| `process_resident_memory_bytes` | Gauge | Memory usage (RSS) | - |
-| `process_cpu_seconds_total` | Counter | CPU time | - |
+| `hl7v2_messages_parsed_total` | Counter | Messages parsed by evidence workflow | operation |
+| `hl7v2_messages_validated_total` | Counter | Messages validated by evidence workflow | operation |
+| `hl7v2_message_size_bytes` | Summary | Input HL7 message size | - |
+| `hl7v2_parse_failures_total` | Counter | Parse failures by evidence workflow | operation |
+| `hl7v2_validation_failures_total` | Counter | Validation failures by evidence workflow | operation |
+| `hl7v2_redaction_failures_total` | Counter | Redaction failures by evidence workflow | operation |
 
-### Validation Metrics
+### Evidence Workflow Metrics
 
 | Metric | Type | Description | Labels |
 |--------|------|-------------|--------|
-| `hl7v2_validation_total` | Counter | Validation attempts | profile, result |
-| `hl7v2_validation_errors_total` | Counter | Validation errors | profile, error_type |
-| `hl7v2_profile_load_time_seconds` | Histogram | Profile load time | profile |
+| `hl7v2_bundles_created_total` | Counter | Evidence bundles created by the server | - |
+| `hl7v2_replays_total` | Counter | Evidence replay attempts | - |
+| `hl7v2_replay_failures_total` | Counter | Replay attempts that did not reproduce | - |
+| `hl7v2_corpus_diffs_total` | Counter | Inline corpus diff requests completed by the server | - |
+
+Labels must stay low-cardinality. Do not add raw HL7 payloads, profile YAML,
+redaction policy TOML, local filesystem roots, raw message control IDs, raw
+bundle IDs, or patient identifiers as labels.
 
 ## Alerting
 
@@ -303,9 +309,9 @@ groups:
       - alert: HL7v2LowValidationSuccessRate
         expr: |
           (
-            sum(rate(hl7v2_validation_total{result="valid"}[10m]))
+            sum(rate(hl7v2_messages_validated_total[10m])) - sum(rate(hl7v2_validation_failures_total[10m]))
             /
-            sum(rate(hl7v2_validation_total[10m]))
+            sum(rate(hl7v2_messages_validated_total[10m]))
           ) < 0.90
         for: 10m
         labels:

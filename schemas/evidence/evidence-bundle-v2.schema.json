@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/evidence-bundle/v2",
+  "title": "HL7v2 Evidence Bundle Summary v2",
+  "description": "Machine-readable evidence bundle creation summary with embedded producer provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_name",
+    "tool_version",
+    "bundle_version",
+    "output_dir",
+    "message_type",
+    "validation_valid",
+    "validation_issue_count",
+    "redaction_phi_removed",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": "2"},
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2", "hl7v2-cli", "hl7v2-server", "hl7v2-python"]
+    },
+    "tool_version": {"type": "string"},
+    "bundle_version": {"type": "string"},
+    "output_dir": {
+      "type": "string",
+      "description": "Bundle output directory or configured-root-relative bundle id reported by the producer."
+    },
+    "message_type": {"type": "string"},
+    "validation_valid": {"type": "boolean"},
+    "validation_issue_count": {"type": "integer", "minimum": 0},
+    "redaction_phi_removed": {"type": "boolean"},
+    "artifacts": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

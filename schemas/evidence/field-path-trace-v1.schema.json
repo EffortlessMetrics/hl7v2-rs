@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/field-path-trace/v1",
+  "title": "HL7v2 Field Path Trace",
+  "description": "Machine-readable field-path trace written inside redacted evidence bundles.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["message_type", "field_count", "fields"],
+  "properties": {
+    "message_type": {
+      "type": "string"
+    },
+    "field_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/field_path_trace"
+      }
+    }
+  },
+  "definitions": {
+    "field_path_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "canonical_path",
+        "segment_index",
+        "field_index",
+        "present",
+        "value_shape"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "canonical_path": {
+          "type": "string"
+        },
+        "segment_index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "field_index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "value_shape": {
+          "type": "string",
+          "enum": ["empty", "present", "hashed_sha256"]
+        },
+        "redaction_action": {
+          "type": "string",
+          "enum": ["hash", "drop", "retain"]
+        }
+      }
+    }
+  }
+}

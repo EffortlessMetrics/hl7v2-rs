@@ -1,0 +1,27 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.4.0",
+  "valid": false,
+  "message_type": "ADT^A01",
+  "profile": "profile.yaml",
+  "profile_identity": {
+    "label": "profile.yaml",
+    "message_structure": "ADT_A01",
+    "version": "2.5.1",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "segment_count": 2,
+  "issue_count": 1,
+  "issues": [
+    {
+      "code": "missing_required_field",
+      "severity": "error",
+      "path": "PID.3",
+      "rule_id": "missing_required_field",
+      "message": "Required field PID.3 is missing",
+      "segment_index": 1,
+      "field_index": 3
+    }
+  ]
+}

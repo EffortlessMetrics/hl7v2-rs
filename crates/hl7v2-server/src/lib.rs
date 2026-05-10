@@ -47,14 +47,21 @@
     reason = "pre-existing server runtime lint debt is tracked in policy/clippy-debt.toml"
 )]
 
+mod audit;
+
+pub mod evidence;
 pub mod grpc;
 pub mod handlers;
 pub mod metrics;
 pub mod middleware;
 pub mod models;
+pub mod redaction;
 pub mod routes;
 pub mod server;
 
+pub use models::{
+    AckPolicyAcceptOn, AckPolicyConfig, AckPolicyMode, AckPolicyRejectCondition, QuarantineConfig,
+};
 pub use routes::build_router;
 pub use server::{AppState, CorsAllowedOrigins, Server, ServerBuilder, ServerConfig};
 

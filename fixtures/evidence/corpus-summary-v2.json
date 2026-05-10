@@ -1,0 +1,24 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-cli",
+  "tool_version": "1.4.0",
+  "root": "site-a",
+  "file_count": 1,
+  "message_count": 1,
+  "parse_error_count": 0,
+  "total_bytes": 37,
+  "message_types": [
+    {"value": "ADT^A01", "count": 1}
+  ],
+  "segments": [
+    {"value": "MSH", "count": 1}
+  ],
+  "field_presence": [
+    {"path": "MSH.2", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.9", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.10", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.11", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.12", "message_count": 1, "occurrence_count": 1}
+  ],
+  "parse_errors": []
+}

@@ -45,12 +45,133 @@ CLI and server configuration (hl7v2.toml):
 - CLI defaults
 - Logging defaults
 
-### Evidence (`evidence/*-v1.schema.json`)
+### Evidence (`evidence/*-v*.schema.json`)
 Machine-readable evidence artifacts emitted by the CLI, library, server, and
 Python lanes:
-- Validation reports and profile lint/test/explain reports
+- Doctor reports, validation reports, and profile lint/test/explain reports
 - Corpus summary, fingerprint, and diff reports
-- Redaction receipts and evidence bundle/replay summaries
+- Redaction receipts, field-path traces, bundle environment metadata, and
+  evidence bundle/replay summaries
+
+For the producer/fixture/opt-in matrix, see
+[`docs/contracts/evidence-contract-index.md`](../docs/contracts/evidence-contract-index.md).
+
+`doctor-report-v1.schema.json` validates the default `hl7v2 doctor --format
+json` output. `doctor-report-v2.schema.json` validates the opt-in
+`hl7v2 doctor --format json --schema-version 2` output with embedded
+`schema_version`, `tool_name`, and `tool_version`; v1 remains the default
+compatible shape.
+
+The first target v2 evidence schemas are `doctor-report-v2.schema.json`,
+`validation-report-v2.schema.json`,
+`profile-lint-report-v2.schema.json`,
+`profile-test-report-v2.schema.json`,
+`profile-explain-report-v2.schema.json`, `corpus-summary-v2.schema.json`,
+`corpus-fingerprint-v2.schema.json`, `corpus-diff-v2.schema.json`, and
+`redaction-receipt-v2.schema.json`,
+`safe-analysis-redaction-output-v2.schema.json`,
+`quarantine-output-v2.schema.json`, `evidence-bundle-v2.schema.json`,
+`evidence-bundle-manifest-v2.schema.json`,
+`evidence-bundle-environment-v2.schema.json`, `field-path-trace-v2.schema.json`,
+and `evidence-replay-v2.schema.json`. They add embedded `schema_version`,
+`tool_name`, and `tool_version` fields where the artifact did not already carry
+tool provenance. Producer paths use explicit v2 opt-ins as documented below,
+while v1 counterparts remain the default compatible shapes.
+Doctor reports can opt into their target v2 shape with
+`hl7v2 doctor --format json --schema-version 2`; defaults remain v1.
+Validation reports can opt into their target v2 shape with
+`hl7v2 val --report json --schema-version 2`; defaults remain v1. Python
+validation reports expose the same opt-in shape through `report.to_dict(2)`
+and `report.to_json(2)`. Server validation
+endpoints keep their existing v1-compatible response fields by default and add
+`validation_report_v2` when requests include `"report_schema_version": 2`.
+Profile lint reports can opt into their target v2 shape with
+`hl7v2 profile lint --report json --schema-version 2`; defaults remain v1.
+Profile explain reports can opt into their target v2 shape with
+`hl7v2 profile explain --format json --schema-version 2`; defaults remain v1.
+Profile test reports can opt into their target v2 shape with
+`hl7v2 profile test --report json --schema-version 2`; defaults remain v1 and
+the nested validation reports preserve their current serialized shape.
+Corpus summary, fingerprint, and diff reports can opt into their target v2
+shapes with `hl7v2 corpus summarize --format json --schema-version 2`,
+`hl7v2 corpus fingerprint --format json --schema-version 2`, and `hl7v2 corpus
+diff --format json --schema-version 2`. Python exposes the same opt-in shapes
+with `corpus_summary(..., schema_version=2)`,
+`corpus_fingerprint(..., schema_version=2)`, and
+`corpus_diff(..., schema_version=2)`. Server inline corpus endpoints expose the
+same opt-in shapes through `summary_schema_version`, `fingerprint_schema_version`,
+and `diff_schema_version` request fields; defaults remain v1.
+Redaction receipts can opt into their target v2 shape with
+`hl7v2 redact --format json --schema-version 2`, Python
+`redact(..., schema_version=2)`, or server `/hl7/validate-redacted` requests
+that set `"redaction_receipt_schema_version": 2`; defaults remain v1.
+Safe-analysis redaction output has a v1 schema that validates the default CLI
+and Python output form with a nested receipt v1, plus the transitional
+v1-compatible outer form with a nested receipt v2. CLI and Python can opt into
+the target `safe-analysis-redaction-output-v2.schema.json` shape with
+`hl7v2 redact --format json --schema-version 2` and
+`redact(..., schema_version=2)`.
+Server quarantine output summaries can opt into their target v2 shape with
+`/hl7/validate-redacted` requests that set `"quarantine_schema_version": 2`;
+defaults remain v1.
+Evidence bundle summaries can opt into their target v2 shape with
+`hl7v2 bundle ... --schema-version 2`, and Python exposes the same shape with
+`bundle(..., schema_version=2)`. Server `/hl7/bundle` responses remain v1 by
+default.
+Evidence replay reports can opt into their target v2 shape with
+`hl7v2 replay ... --format json --schema-version 2`, and Python exposes the
+same shape with `replay(..., schema_version=2)`. Server `/hl7/replay`
+responses can include the same v2 shape when requests set
+`"replay_report_schema_version": 2`.
+Bundle-internal `manifest.json`, `environment.json`, `field-paths.json`, and
+`redaction-receipt.json` can opt into their v2 shapes when CLI bundles are
+created with `hl7v2 bundle ... --schema-version 2` or Python bundles are
+created with `bundle(..., schema_version=2)`, or when server `/hl7/bundle`
+requests set `"bundle_artifact_schema_version": 2`. Default bundle artifacts
+remain v1-compatible.
+
+#### Evidence Null And Empty Semantics
+
+Evidence schemas use a small set of conventions so CI jobs and data pipelines
+can distinguish "not applicable" from "not evaluated":
+
+- Required fields are always present, even when their value is empty.
+- Empty arrays mean the category was evaluated and no entries were found. For
+  example, `issues: []`, `parse_errors: []`, `new_segments: []`, and
+  `validation_issue_code_counts: []` are successful empty results, not missing
+  scans.
+- Explicit `null` means the field is known but not applicable or not available
+  for this artifact. For example, corpus `profile: null` means no profile was
+  supplied, replay `message_type: null` means replay could not recover a message
+  type, and replay `validation_valid: null` means validation was not regenerated.
+- Optional fields that are absent are additive context fields, not failed
+  checks. For example, `validation_report` is absent from replay reports when
+  replay fails before a report can be regenerated.
+- Numeric counters use `0` when the category was evaluated and empty. Consumers
+  should prefer the explicit status fields, such as `valid`, `reproduced`, and
+  replay check statuses, when deciding whether work succeeded.
+- Profile explain fields such as `message_type`, `parent`, component bounds,
+  datatype bounds, patterns, and expression guardrail limits use `null` for
+  unspecified profile configuration.
+
+These conventions are part of the evidence contract for the `*-v1` schemas.
+Changing a field from absent to required, from empty array to omitted, or from
+`null` to a sentinel string is a contract change.
+
+#### Evidence Profile Labels
+
+`ValidationReport.profile` is a display label for the profile used by that
+surface, not a canonical cross-surface profile identity:
+
+- CLI validation reports use the profile path supplied by the user.
+- Server validation reports use the loaded profile `message_structure`.
+- Python validation reports use the loaded profile `message_structure`.
+
+Consumers that need reproducible profile identity should use artifacts that
+carry `profile_sha256` or profile metadata, such as profile explain reports,
+corpus fingerprints/diffs with a profile, or evidence bundle environment and
+manifest files. Do not compare `ValidationReport.profile` across CLI, server,
+and Python as if it were a stable hash or normalized profile id.
 
 ## Usage
 
@@ -129,11 +250,7 @@ evidence fixtures, then compiles every schema:
     Path("target/contracts/config/config.example.json").write_text(json.dumps(data), encoding="utf-8")
     PY
     ajv validate -c ajv-formats -s schemas/config/hl7v2-config-v1.schema.json -d 'target/contracts/config/*.json' --spec=draft7
-    for schema in schemas/evidence/*-v1.schema.json; do
-      name="$(basename "$schema")"
-      name="${name%-v1.schema.json}"
-      ajv validate -c ajv-formats -s "$schema" -d "fixtures/evidence/${name}.json" --spec=draft7
-    done
+    cargo run -p xtask -- evidence-schema-check
 ```
 
 ## Schema Versioning
@@ -143,6 +260,14 @@ Schemas are versioned with `-v1`, `-v2` suffixes. Breaking changes require:
 2. Update `$id` field
 3. Maintain backward compatibility for 2 versions
 4. Document migration path
+
+Evidence artifacts also have a dedicated provenance/versioning plan in
+[`docs/architecture/evidence-provenance-versioning.md`](../docs/architecture/evidence-provenance-versioning.md).
+For evidence contracts, adding embedded `schema_version`, `tool_name`, or
+`tool_version` fields to an already published `*-v1` JSON shape is a contract
+change because evidence schemas use `additionalProperties: false`. Add those
+fields through explicit v2 schemas and golden fixtures unless a PR documents a
+different compatibility path.
 
 ## References
 

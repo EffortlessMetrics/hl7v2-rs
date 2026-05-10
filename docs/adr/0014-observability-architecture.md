@@ -26,9 +26,8 @@ We will adopt a **Prometheus-first** metrics strategy combined with **Structured
 We use `metrics` and `metrics-exporter-prometheus` to expose a `/metrics` endpoint.
 
 **Core Metrics Categories:**
-- **HTTP Metrics**: `hl7v2_requests_total` (labels: method, path, status), `hl7v2_request_duration_seconds`.
-- **HL7 Logic Metrics**: `hl7v2_parse_errors_total`, `hl7v2_validation_errors_total`.
-- **System Metrics**: `hl7v2_active_connections`, `hl7v2_uptime_seconds`.
+- **HTTP Metrics**: `hl7v2_requests_total` (labels: endpoint, status), `hl7v2_request_duration_seconds`.
+- **Evidence Workflow Metrics**: `hl7v2_parse_failures_total`, `hl7v2_validation_failures_total`, `hl7v2_redaction_failures_total`, `hl7v2_bundles_created_total`, `hl7v2_replays_total`, `hl7v2_replay_failures_total`, `hl7v2_corpus_diffs_total`.
 - **Resource Metrics**: `hl7v2_message_size_bytes`.
 
 ### 2. Logging (Tracing)

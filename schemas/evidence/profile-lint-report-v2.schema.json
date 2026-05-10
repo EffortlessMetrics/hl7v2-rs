@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/profile-lint-report/v2",
+  "title": "HL7v2 Profile Lint Report v2",
+  "description": "Machine-readable profile lint report with embedded evidence provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_name",
+    "tool_version",
+    "valid",
+    "error_count",
+    "warning_count",
+    "issue_count",
+    "issues"
+  ],
+  "properties": {
+    "schema_version": {"const": "2"},
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2", "hl7v2-cli"]
+    },
+    "tool_version": {"type": "string"},
+    "valid": {"type": "boolean"},
+    "error_count": {"type": "integer", "minimum": 0},
+    "warning_count": {"type": "integer", "minimum": 0},
+    "issue_count": {"type": "integer", "minimum": 0},
+    "issues": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/profile_lint_issue"}
+    }
+  },
+  "definitions": {
+    "profile_lint_issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning"]
+        },
+        "path": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    }
+  }
+}

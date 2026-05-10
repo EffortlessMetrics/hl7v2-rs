@@ -40,12 +40,19 @@ rules:
       functionOptions:
         schema:
           type: object
-          required: ['200']
+          anyOf:
+            - required: ['200']
+            - required: ['201']
+            - required: ['204']
           properties:
             '200': true
+            '201': true
+            '204': true
             '400': true
             '401': true
             '403': true
             '404': true
+            '409': true
             '429': true
+            '503': true
             '500': true

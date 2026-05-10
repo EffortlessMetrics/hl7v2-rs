@@ -1,10 +1,18 @@
 //! gRPC service implementation for HL7v2.
 
+use crate::models::{
+    RedactionAction as ServerRedactionAction,
+    RedactionActionReceipt as ServerRedactionActionReceipt,
+    RedactionActionStatus as ServerRedactionActionStatus,
+    RedactionReceipt as ServerRedactionReceipt,
+};
+use crate::redaction::redact_message;
 use crate::server::AppState;
 use hl7v2::{
     Comp as RustComp, Field as RustField, Message as RustMessage, Rep as RustRep,
     Segment as RustSegment, parse as rust_parse,
 };
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -44,53 +52,10 @@ impl Hl7Service for Hl7ServiceImpl {
         request: Request<ParseRequest>,
     ) -> Result<Response<ParseResponse>, Status> {
         let req = request.into_inner();
-
-        let parse_result = if req.mllp_framed {
-            match hl7v2::unwrap_mllp(&req.message) {
-                Ok(hl7) => rust_parse(hl7),
-                Err(e) => {
-                    return Ok(Response::new(ParseResponse {
-                        success: false,
-                        message: None,
-                        errors: vec![Error {
-                            code: "MLLP_ERROR".to_string(),
-                            message: format!("Failed to unwrap MLLP: {}", e),
-                            details: std::collections::HashMap::new(),
-                            trace_id: String::new(),
-                        }],
-                        metadata: None,
-                    }));
-                }
-            }
-        } else {
-            rust_parse(&req.message)
-        };
-
-        match parse_result {
-            Ok(msg) => {
-                let metadata = extract_grpc_metadata(&msg);
-
-                let proto_msg = proto::Message::from(msg);
-
-                Ok(Response::new(ParseResponse {
-                    success: true,
-                    message: Some(proto_msg),
-                    errors: Vec::new(),
-                    metadata: Some(metadata),
-                }))
-            }
-            Err(e) => Ok(Response::new(ParseResponse {
-                success: false,
-                message: None,
-                errors: vec![Error {
-                    code: "PARSE_ERROR".to_string(),
-                    message: format!("Failed to parse HL7: {}", e),
-                    details: std::collections::HashMap::new(),
-                    trace_id: String::new(),
-                }],
-                metadata: None,
-            })),
-        }
+        Ok(Response::new(parse_grpc_message_response(
+            &req.message,
+            req.mllp_framed,
+        )))
     }
 
     type ParseStreamStream =
@@ -98,9 +63,36 @@ impl Hl7Service for Hl7ServiceImpl {
 
     async fn parse_stream(
         &self,
-        _request: Request<tonic::Streaming<ParseStreamRequest>>,
+        request: Request<tonic::Streaming<ParseStreamRequest>>,
     ) -> Result<Response<Self::ParseStreamStream>, Status> {
-        Err(Status::unimplemented("Streaming parse not yet implemented"))
+        let mut stream = request.into_inner();
+        let (sender, receiver) = tokio::sync::mpsc::channel(8);
+
+        tokio::spawn(async move {
+            loop {
+                match stream.message().await {
+                    Ok(Some(request)) => {
+                        let response = parse_stream_response_from_parse_response(
+                            parse_grpc_message_response(&request.message, request.mllp_framed),
+                        );
+                        if sender.send(Ok(response)).await.is_err() {
+                            break;
+                        }
+                    }
+                    Ok(None) => break,
+                    Err(status) => {
+                        if sender.send(Err(status)).await.is_err() {
+                            break;
+                        }
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(Response::new(tokio_stream::wrappers::ReceiverStream::new(
+            receiver,
+        )))
     }
 
     async fn validate(
@@ -109,14 +101,26 @@ impl Hl7Service for Hl7ServiceImpl {
     ) -> Result<Response<ValidateResponse>, Status> {
         let req = request.into_inner();
 
-        let message = rust_parse(&req.message)
+        let message_bytes = if req.mllp_framed {
+            hl7v2::unwrap_mllp(&req.message)
+                .map_err(|e| Status::invalid_argument(format!("Failed to unwrap MLLP: {}", e)))?
+        } else {
+            req.message.as_slice()
+        };
+
+        let message = rust_parse(message_bytes)
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
 
         let profile = hl7v2::load_profile(&req.profile)
             .map_err(|e| Status::invalid_argument(format!("Failed to load profile: {}", e)))?;
 
         let issues = hl7v2::validate(&message, &profile);
-        let valid = issues.iter().all(|i| i.severity != hl7v2::Severity::Error);
+        let report = hl7v2::ValidationReport::from_issues(
+            &message,
+            Some(profile.message_structure.clone()),
+            issues.clone(),
+        );
+        let valid = report.valid;
 
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
@@ -166,6 +170,84 @@ impl Hl7Service for Hl7ServiceImpl {
             errors,
             warnings,
             summary,
+            validation_report: Some(proto_validation_report_from_rust(&report)),
+            validation_report_v2: (req.report_schema_version == 2).then(|| {
+                let profile_identity = Some(hl7v2::ValidationReportProfileIdentity {
+                    label: profile.message_structure.clone(),
+                    message_structure: Some(profile.message_structure.clone()),
+                    version: Some(profile.version.clone()),
+                    sha256: None,
+                });
+                proto_validation_report_v2_from_rust(&report.to_v2(
+                    "hl7v2-server-grpc",
+                    env!("CARGO_PKG_VERSION"),
+                    profile_identity,
+                ))
+            }),
+        }))
+    }
+
+    async fn validate_redacted(
+        &self,
+        request: Request<ValidateRedactedRequest>,
+    ) -> Result<Response<ValidateRedactedResponse>, Status> {
+        let req = request.into_inner();
+        let report_schema_version =
+            grpc_requested_schema_version(req.report_schema_version, "validation report")
+                .map_err(Status::invalid_argument)?;
+        let redaction_receipt_schema_version = grpc_requested_schema_version(
+            req.redaction_receipt_schema_version,
+            "redaction receipt",
+        )
+        .map_err(Status::invalid_argument)?;
+
+        let message_bytes = if req.mllp_framed {
+            hl7v2::unwrap_mllp(&req.message)
+                .map_err(|e| Status::invalid_argument(format!("Failed to unwrap MLLP: {e}")))?
+        } else {
+            req.message.as_slice()
+        };
+
+        let mut message = rust_parse(message_bytes)
+            .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {e}")))?;
+
+        let receipt = redact_message(&mut message, &req.redaction_policy)
+            .map_err(|e| Status::invalid_argument(format!("Failed to redact HL7: {e}")))?;
+        let redacted_hl7 = hl7v2::write(&message);
+
+        let profile = hl7v2::load_profile_checked(&req.profile)
+            .map_err(|e| Status::invalid_argument(format!("Failed to load profile: {e}")))?;
+
+        let issues = hl7v2::validate(&message, &profile);
+        let report = hl7v2::ValidationReport::from_issues(
+            &message,
+            Some(profile.message_structure.clone()),
+            issues,
+        );
+
+        let validation_report_v2 = (report_schema_version == 2).then(|| {
+            let profile_identity = Some(hl7v2::ValidationReportProfileIdentity {
+                label: profile.message_structure.clone(),
+                message_structure: Some(profile.message_structure.clone()),
+                version: Some(profile.version.clone()),
+                sha256: Some(compute_sha256(&req.profile)),
+            });
+            proto_validation_report_v2_from_rust(&report.to_v2(
+                "hl7v2-server-grpc",
+                env!("CARGO_PKG_VERSION"),
+                profile_identity,
+            ))
+        });
+
+        let redaction_receipt_v2 = (redaction_receipt_schema_version == 2)
+            .then(|| proto_redaction_receipt_v2_from_server(&receipt, "hl7v2-server-grpc"));
+
+        Ok(Response::new(ValidateRedactedResponse {
+            validation_report: Some(proto_validation_report_from_rust(&report)),
+            validation_report_v2,
+            redaction_receipt: Some(proto_redaction_receipt_from_server(&receipt)),
+            redaction_receipt_v2,
+            redacted_hl7: req.include_redacted_hl7.then_some(redacted_hl7),
         }))
     }
 
@@ -239,6 +321,79 @@ impl Hl7Service for Hl7ServiceImpl {
 // Conversions
 // ============================================================================
 
+fn parse_grpc_message_response(message: &[u8], mllp_framed: bool) -> ParseResponse {
+    let parse_result = if mllp_framed {
+        match hl7v2::unwrap_mllp(message) {
+            Ok(hl7) => rust_parse(hl7),
+            Err(e) => {
+                return ParseResponse {
+                    success: false,
+                    message: None,
+                    errors: vec![Error {
+                        code: "MLLP_ERROR".to_string(),
+                        message: format!("Failed to unwrap MLLP: {}", e),
+                        details: std::collections::HashMap::new(),
+                        trace_id: String::new(),
+                    }],
+                    metadata: None,
+                };
+            }
+        }
+    } else {
+        rust_parse(message)
+    };
+
+    match parse_result {
+        Ok(msg) => {
+            let metadata = extract_grpc_metadata(&msg);
+            let proto_msg = proto::Message::from(msg);
+
+            ParseResponse {
+                success: true,
+                message: Some(proto_msg),
+                errors: Vec::new(),
+                metadata: Some(metadata),
+            }
+        }
+        Err(e) => ParseResponse {
+            success: false,
+            message: None,
+            errors: vec![Error {
+                code: "PARSE_ERROR".to_string(),
+                message: format!("Failed to parse HL7: {}", e),
+                details: std::collections::HashMap::new(),
+                trace_id: String::new(),
+            }],
+            metadata: None,
+        },
+    }
+}
+
+fn parse_stream_response_from_parse_response(response: ParseResponse) -> ParseStreamResponse {
+    ParseStreamResponse {
+        success: response.success,
+        message: response.message,
+        errors: response.errors,
+        metadata: response.metadata,
+    }
+}
+
+fn grpc_requested_schema_version(version: i32, artifact: &str) -> Result<i32, String> {
+    match version {
+        0 | 1 => Ok(1),
+        2 => Ok(2),
+        other => Err(format!(
+            "unsupported {artifact} schema version {other}; expected 1 or 2"
+        )),
+    }
+}
+
+fn compute_sha256(input: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
 fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
     MessageMetadata {
         message_type: joined_components(msg, "MSH.9").unwrap_or_else(|| "UNKNOWN".to_string()),
@@ -246,6 +401,127 @@ fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
         control_id: hl7v2::get(msg, "MSH.10").unwrap_or("UNKNOWN").to_string(),
         sending_facility: hl7v2::get(msg, "MSH.4").unwrap_or("").to_string(),
         receiving_facility: hl7v2::get(msg, "MSH.6").unwrap_or("").to_string(),
+    }
+}
+
+fn proto_validation_report_from_rust(report: &hl7v2::ValidationReport) -> ValidationReport {
+    ValidationReport {
+        valid: report.valid,
+        message_type: report.message_type.clone(),
+        profile: report.profile.clone(),
+        segment_count: report.segment_count as i32,
+        issue_count: report.issue_count as i32,
+        issues: report
+            .issues
+            .iter()
+            .map(proto_validation_report_issue_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_validation_report_v2_from_rust(report: &hl7v2::ValidationReportV2) -> ValidationReportV2 {
+    ValidationReportV2 {
+        schema_version: report.schema_version.clone(),
+        tool_name: report.tool_name.clone(),
+        tool_version: report.tool_version.clone(),
+        valid: report.valid,
+        message_type: report.message_type.clone(),
+        profile: report.profile.clone(),
+        profile_identity: report
+            .profile_identity
+            .as_ref()
+            .map(proto_validation_report_profile_identity_from_rust),
+        segment_count: report.segment_count as i32,
+        issue_count: report.issue_count as i32,
+        issues: report
+            .issues
+            .iter()
+            .map(proto_validation_report_issue_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_validation_report_profile_identity_from_rust(
+    profile: &hl7v2::ValidationReportProfileIdentity,
+) -> ValidationReportProfileIdentity {
+    ValidationReportProfileIdentity {
+        label: profile.label.clone(),
+        message_structure: profile.message_structure.clone(),
+        version: profile.version.clone(),
+        sha256: profile.sha256.clone(),
+    }
+}
+
+fn proto_validation_report_issue_from_rust(
+    issue: &hl7v2::ValidationReportIssue,
+) -> ValidationReportIssue {
+    ValidationReportIssue {
+        code: issue.code.clone(),
+        severity: issue.severity.as_str().to_string(),
+        path: issue.path.clone(),
+        rule_id: issue.rule_id.clone(),
+        message: issue.message.clone(),
+        segment_index: issue.segment_index.map(|value| value as u32),
+        field_index: issue.field_index.map(|value| value as u32),
+    }
+}
+
+fn proto_redaction_receipt_from_server(receipt: &ServerRedactionReceipt) -> RedactionReceipt {
+    RedactionReceipt {
+        phi_removed: receipt.phi_removed,
+        hash_algorithm: receipt.hash_algorithm.clone(),
+        actions: receipt
+            .actions
+            .iter()
+            .map(proto_redaction_action_receipt_from_server)
+            .collect(),
+    }
+}
+
+fn proto_redaction_receipt_v2_from_server(
+    receipt: &ServerRedactionReceipt,
+    tool_name: &str,
+) -> RedactionReceiptV2 {
+    RedactionReceiptV2 {
+        schema_version: "2".to_string(),
+        tool_name: tool_name.to_string(),
+        tool_version: env!("CARGO_PKG_VERSION").to_string(),
+        phi_removed: receipt.phi_removed,
+        hash_algorithm: receipt.hash_algorithm.clone(),
+        actions: receipt
+            .actions
+            .iter()
+            .map(proto_redaction_action_receipt_from_server)
+            .collect(),
+    }
+}
+
+fn proto_redaction_action_receipt_from_server(
+    action: &ServerRedactionActionReceipt,
+) -> RedactionActionReceipt {
+    RedactionActionReceipt {
+        path: action.path.clone(),
+        action: server_redaction_action_name(action.action).to_string(),
+        reason: action.reason.clone(),
+        matched_count: u32::try_from(action.matched_count).unwrap_or(u32::MAX),
+        optional: action.optional,
+        status: server_redaction_action_status_name(action.status).to_string(),
+    }
+}
+
+fn server_redaction_action_name(action: ServerRedactionAction) -> &'static str {
+    match action {
+        ServerRedactionAction::Hash => "hash",
+        ServerRedactionAction::Drop => "drop",
+        ServerRedactionAction::Retain => "retain",
+    }
+}
+
+fn server_redaction_action_status_name(status: ServerRedactionActionStatus) -> &'static str {
+    match status {
+        ServerRedactionActionStatus::Applied => "applied",
+        ServerRedactionActionStatus::Retained => "retained",
+        ServerRedactionActionStatus::NotFound => "not_found",
     }
 }
 

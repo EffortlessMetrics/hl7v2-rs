@@ -1,21 +1,21 @@
 {
-  "root": "fixtures/corpus/site-a",
-  "file_count": 2,
-  "message_count": 2,
+  "root": "site-a",
+  "file_count": 1,
+  "message_count": 1,
   "parse_error_count": 0,
-  "total_bytes": 512,
+  "total_bytes": 37,
   "message_types": [
-    {"value": "ADT^A01", "count": 1},
-    {"value": "ORU^R01", "count": 1}
+    {"value": "ADT^A01", "count": 1}
   ],
   "segments": [
-    {"value": "MSH", "count": 2},
-    {"value": "PID", "count": 2},
-    {"value": "OBX", "count": 1}
+    {"value": "MSH", "count": 1}
   ],
   "field_presence": [
-    {"path": "PID.3", "message_count": 2, "occurrence_count": 2},
-    {"path": "OBX.3", "message_count": 1, "occurrence_count": 1}
+    {"path": "MSH.2", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.9", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.10", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.11", "message_count": 1, "occurrence_count": 1},
+    {"path": "MSH.12", "message_count": 1, "occurrence_count": 1}
   ],
   "parse_errors": []
 }

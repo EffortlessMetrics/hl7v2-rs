@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.hl7v2-rs.org/evidence/validation-report/v2",
+  "title": "HL7v2 Validation Report v2",
+  "description": "Machine-readable validation report with embedded evidence provenance. This is the v2 target contract; v1 producers remain valid until migrated explicitly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_name",
+    "tool_version",
+    "valid",
+    "message_type",
+    "segment_count",
+    "issue_count",
+    "issues"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2",
+      "description": "Evidence artifact schema version."
+    },
+    "tool_name": {
+      "type": "string",
+      "enum": ["hl7v2", "hl7v2-cli", "hl7v2-server", "hl7v2-python"],
+      "description": "Producer surface that generated this report."
+    },
+    "tool_version": {
+      "type": "string",
+      "description": "Semantic version of the producing crate or binding package."
+    },
+    "valid": {
+      "type": "boolean",
+      "description": "Whether the message passed validation without error-level issues."
+    },
+    "message_type": {
+      "type": "string",
+      "description": "HL7 trigger event from MSH.9, such as ADT^A01."
+    },
+    "profile": {
+      "type": "string",
+      "description": "Surface-local profile display label. Use profile_identity for reproducible identity."
+    },
+    "profile_identity": {
+      "$ref": "#/definitions/profile_identity"
+    },
+    "segment_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of parsed message segments."
+    },
+    "issue_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of validation issues in this report."
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/validation_issue"
+      }
+    }
+  },
+  "definitions": {
+    "profile_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Display label for the profile source. This is not a canonical identity by itself."
+        },
+        "message_structure": {
+          "type": "string",
+          "description": "Loaded profile message structure when known."
+        },
+        "version": {
+          "type": "string",
+          "description": "Loaded profile HL7 version when known."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 digest of the profile bytes when available."
+        }
+      }
+    },
+    "validation_issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Stable snake_case issue code."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning"]
+        },
+        "path": {
+          "type": "string",
+          "description": "HL7 path associated with the issue, such as PID.3."
+        },
+        "rule_id": {
+          "type": "string",
+          "description": "Stable validation rule identifier."
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable issue message."
+        },
+        "segment_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based segment index when known."
+        },
+        "field_index": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "One-based HL7 field index when known."
+        }
+      }
+    }
+  }
+}

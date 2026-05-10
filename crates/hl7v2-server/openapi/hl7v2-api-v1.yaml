@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: HL7v2-rs HTTP API
-  version: 1.2.1
+  version: 1.4.0
   description: |
     RESTful API for HL7 v2 message parsing, validation, and processing.
 
@@ -67,7 +67,7 @@ paths:
   /ready:
     get:
       summary: Readiness check
-      description: Returns JSON ready status
+      description: Returns startup readiness checks and typed evidence self-check status
       tags: [health]
       operationId: readinessCheck
       responses:
@@ -76,10 +76,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ready:
-                    type: boolean
+                $ref: '#/components/schemas/ReadyResponse'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyResponse'
 
   /metrics:
     get:
@@ -159,11 +162,235 @@ paths:
         '401':
           description: Unauthorized
 
+  /hl7/validate-redacted:
+    post:
+      summary: Validate redacted HL7 message
+      description: |
+        Apply a safe-analysis redaction policy to an HL7 message, then validate the redacted message against a conformance profile. When server quarantine output is enabled, failed validation writes configured quarantine artifacts under the server-controlled quarantine root.
+      tags: [hl7]
+      operationId: validateRedactedMessage
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRedactedRequest'
+      responses:
+        '200':
+          description: Redaction and validation complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateRedactedResponse'
+        '400':
+          description: Invalid request, profile, message, or redaction policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '503':
+          description: Server quarantine output is enabled but not configured or not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hl7/bundle:
+    post:
+      summary: Create redacted evidence bundle
+      description: |
+        Apply safe-analysis redaction, validate the redacted message, and write a replayable evidence bundle under the server's configured bundle output root. The request supplies a bundle_id, not a filesystem path.
+      tags: [hl7]
+      operationId: createEvidenceBundle
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BundleRequest'
+      responses:
+        '201':
+          description: Evidence bundle created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceBundleSummary'
+        '400':
+          description: Invalid request, profile, message, redaction policy, or bundle id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '409':
+          description: Bundle id already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Server bundle output root is not configured or not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hl7/replay:
+    post:
+      summary: Replay evidence bundle
+      description: |
+        Replay and verify a previously written evidence bundle under the server's configured bundle output root. The request supplies a bundle_id, not a filesystem path.
+      tags: [hl7]
+      operationId: replayEvidenceBundle
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayRequest'
+      responses:
+        '200':
+          description: Replay verification complete
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/EvidenceReplayReport'
+                  - $ref: '#/components/schemas/EvidenceReplayReportV2'
+        '400':
+          description: Invalid replay request or bundle id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Bundle id was not found under the configured output root
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Server bundle output root is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hl7/corpus/summarize:
+    post:
+      summary: Summarize inline HL7 corpus
+      description: |
+        Summarize caller-supplied HL7 messages without reading filesystem paths from the request. Message ids are safe labels used only for parse-error attribution.
+      tags: [hl7]
+      operationId: summarizeInlineCorpus
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorpusSummaryRequest'
+      responses:
+        '200':
+          description: Corpus summary generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CorpusSummary'
+                  - $ref: '#/components/schemas/CorpusSummaryV2'
+        '400':
+          description: Invalid corpus request or schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
+  /hl7/corpus/fingerprint:
+    post:
+      summary: Fingerprint inline HL7 corpus
+      description: |
+        Generate a deterministic compact signature for caller-supplied HL7 messages. Optional inline profile content adds profile identity metadata and validation issue-code counts.
+      tags: [hl7]
+      operationId: fingerprintInlineCorpus
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorpusFingerprintRequest'
+      responses:
+        '200':
+          description: Corpus fingerprint generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CorpusFingerprint'
+                  - $ref: '#/components/schemas/CorpusFingerprintV2'
+        '400':
+          description: Invalid corpus request, profile, or schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
+  /hl7/corpus/diff:
+    post:
+      summary: Diff inline HL7 corpora
+      description: |
+        Compare before and after sets of caller-supplied HL7 messages. Optional inline profile content adds profile identity metadata and validation issue-code deltas.
+      tags: [hl7]
+      operationId: diffInlineCorpus
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorpusDiffRequest'
+      responses:
+        '200':
+          description: Corpus diff generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CorpusDiffReport'
+                  - $ref: '#/components/schemas/CorpusDiffReportV2'
+        '400':
+          description: Invalid corpus request, profile, or schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
   /hl7/ack:
     post:
       summary: Generate HL7 ACK
       description: |
-        Generate an HL7 v2 ACK message for a parsed inbound message.
+        Generate an HL7 v2 ACK message with an explicit caller-supplied ACK code.
       tags: [hl7]
       operationId: generateAck
       security:
@@ -183,6 +410,39 @@ paths:
                 $ref: '#/components/schemas/AckResponse'
         '400':
           description: Invalid message format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+  /hl7/ack-policy:
+    post:
+      summary: Generate policy-driven HL7 ACK
+      description: |
+        Parse and validate an inbound HL7 v2 message, then choose an ACK or NAK code using the server's configured ACK policy.
+      tags: [hl7]
+      operationId: generatePolicyAck
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckPolicyRequest'
+      responses:
+        '200':
+          description: Policy-driven ACK generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckPolicyResponse'
+        '400':
+          description: Invalid message or profile
           content:
             application/json:
               schema:
@@ -245,6 +505,34 @@ components:
           type: string
         uptime_seconds:
           type: integer
+
+    ReadyResponse:
+      type: object
+      required: [ready, status, version, checks]
+      properties:
+        ready:
+          type: boolean
+        status:
+          type: string
+          enum: [ready, not_ready]
+        version:
+          type: string
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessCheck'
+
+    ReadinessCheck:
+      type: object
+      required: [name, status, message]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pass, fail]
+        message:
+          type: string
 
     ParseRequest:
       type: object
@@ -316,6 +604,11 @@ components:
         mllp_framed:
           type: boolean
           default: false
+        report_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional validation report schema version. Version 2 adds validation_report_v2 with embedded evidence provenance while preserving the existing response fields.
 
     ValidateResponse:
       type: object
@@ -343,6 +636,11 @@ components:
           description: Stable validation issue records shared with CLI reports
           items:
             $ref: '#/components/schemas/ValidationReportIssue'
+        validation_report_v2:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReportV2'
+          nullable: true
+          description: Opt-in validation report v2 artifact returned when report_schema_version is 2
         errors:
           type: array
           deprecated: true
@@ -357,6 +655,980 @@ components:
             $ref: '#/components/schemas/ValidationWarning'
         metadata:
           $ref: '#/components/schemas/MessageMetadata'
+
+    ValidateRedactedRequest:
+      type: object
+      required: [message, profile, redaction_policy]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        profile:
+          type: string
+          description: Profile content (YAML)
+        redaction_policy:
+          type: string
+          description: Safe-analysis redaction policy content (TOML)
+        mllp_framed:
+          type: boolean
+          default: false
+        include_redacted_hl7:
+          type: boolean
+          default: false
+          description: Whether to include the redacted HL7 payload in the response
+        report_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional validation report schema version. Version 2 adds validation_report_v2 with embedded evidence provenance while preserving the existing response fields.
+        redaction_receipt_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional redaction receipt schema version. Version 2 adds redaction_receipt_v2 with embedded evidence provenance while preserving the existing response fields.
+        quarantine_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Optional quarantine output summary schema version. Version 2 adds quarantine_v2 with embedded evidence provenance while preserving the existing quarantine field.
+
+    ValidateRedactedResponse:
+      type: object
+      required: [validation_report, redaction_receipt]
+      properties:
+        validation_report:
+          $ref: '#/components/schemas/ValidationReport'
+        validation_report_v2:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReportV2'
+          nullable: true
+          description: Opt-in validation report v2 artifact returned when report_schema_version is 2
+        redaction_receipt:
+          $ref: '#/components/schemas/RedactionReceipt'
+        redaction_receipt_v2:
+          allOf:
+            - $ref: '#/components/schemas/RedactionReceiptV2'
+          nullable: true
+          description: Opt-in redaction receipt v2 artifact returned when redaction_receipt_schema_version is 2
+        quarantine:
+          allOf:
+            - $ref: '#/components/schemas/QuarantineOutputSummary'
+          nullable: true
+          description: Quarantine output summary when configured and validation failed
+        quarantine_v2:
+          allOf:
+            - $ref: '#/components/schemas/QuarantineOutputSummaryV2'
+          nullable: true
+          description: Opt-in quarantine output v2 artifact returned when quarantine_schema_version is 2 and quarantine output is written
+        redacted_hl7:
+          type: string
+          nullable: true
+          description: Redacted HL7 payload, returned only when requested
+
+    BundleRequest:
+      type: object
+      required: [message, profile, redaction_policy, bundle_id]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        profile:
+          type: string
+          description: Profile content (YAML)
+        redaction_policy:
+          type: string
+          description: Safe-analysis redaction policy content (TOML)
+        bundle_id:
+          type: string
+          pattern: '^(?!\.{1,2}$)[A-Za-z0-9_.-]{1,128}$'
+          description: Single safe path segment relative to the configured server bundle output root
+        mllp_framed:
+          type: boolean
+          default: false
+        bundle_artifact_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into v2 bundle-internal artifacts for manifest.json, environment.json, field-paths.json, and redaction-receipt.json
+
+    EvidenceBundleSummary:
+      type: object
+      required:
+        - bundle_version
+        - output_dir
+        - message_type
+        - validation_valid
+        - validation_issue_count
+        - redaction_phi_removed
+        - artifacts
+      properties:
+        bundle_version:
+          type: string
+          enum: ['1']
+        output_dir:
+          type: string
+          description: Bundle id relative to the configured server bundle output root
+        message_type:
+          type: string
+        validation_valid:
+          type: boolean
+        validation_issue_count:
+          type: integer
+          minimum: 0
+        redaction_phi_removed:
+          type: boolean
+        artifacts:
+          type: array
+          items:
+            type: string
+
+    ReplayRequest:
+      type: object
+      required: [bundle_id]
+      properties:
+        bundle_id:
+          type: string
+          pattern: '^(?!\.{1,2}$)[A-Za-z0-9_.-]{1,128}$'
+          description: Single safe path segment relative to the configured server bundle output root
+        replay_report_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 evidence replay report response shape
+
+    EvidenceReplayReport:
+      type: object
+      required:
+        - replay_version
+        - bundle_version
+        - tool_name
+        - tool_version
+        - message_type
+        - reproduced
+        - validation_valid
+        - validation_issue_count
+        - checks
+      properties:
+        replay_version:
+          type: string
+          enum: ['1']
+        bundle_version:
+          type: string
+          nullable: true
+        tool_name:
+          type: string
+          enum: [hl7v2-server]
+        tool_version:
+          type: string
+        message_type:
+          type: string
+          nullable: true
+        reproduced:
+          type: boolean
+        validation_valid:
+          type: boolean
+          nullable: true
+        validation_issue_count:
+          type: integer
+          minimum: 0
+          nullable: true
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceReplayCheck'
+        validation_report:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReport'
+          nullable: true
+
+    EvidenceReplayReportV2:
+      type: object
+      required:
+        - schema_version
+        - replay_version
+        - bundle_version
+        - tool_name
+        - tool_version
+        - message_type
+        - reproduced
+        - validation_valid
+        - validation_issue_count
+        - checks
+      properties:
+        schema_version:
+          type: string
+          enum: ['2']
+        replay_version:
+          type: string
+          enum: ['1']
+        bundle_version:
+          type: string
+          nullable: true
+        tool_name:
+          type: string
+          enum: [hl7v2-server]
+        tool_version:
+          type: string
+        message_type:
+          type: string
+          nullable: true
+        reproduced:
+          type: boolean
+        validation_valid:
+          type: boolean
+          nullable: true
+        validation_issue_count:
+          type: integer
+          minimum: 0
+          nullable: true
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceReplayCheck'
+        validation_report:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReport'
+          nullable: true
+
+    CorpusMessageInput:
+      type: object
+      required: [message]
+      properties:
+        id:
+          type: string
+          pattern: '^(?!\.{1,2}$)[A-Za-z0-9_.-]{1,128}$'
+          description: Safe label used for parse-error attribution; not interpreted as a filesystem path
+        message:
+          type: string
+          description: Raw HL7 message content; MLLP framing is detected automatically
+
+    CorpusSummaryRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CorpusMessageInput'
+        summary_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 corpus summary response shape
+
+    CorpusFingerprintRequest:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CorpusMessageInput'
+        profile:
+          type: string
+          description: Optional inline profile YAML used for validation issue-code counts
+        fingerprint_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 corpus fingerprint response shape
+
+    CorpusDiffRequest:
+      type: object
+      required: [before, after]
+      properties:
+        before:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CorpusMessageInput'
+        after:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CorpusMessageInput'
+        profile:
+          type: string
+          description: Optional inline profile YAML used for validation issue-code deltas
+        diff_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 corpus diff response shape
+
+    CorpusCount:
+      type: object
+      required: [value, count]
+      properties:
+        value:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+
+    CorpusFieldPresence:
+      type: object
+      required: [path, message_count, occurrence_count]
+      properties:
+        path:
+          type: string
+          description: HL7 field path such as PID.3
+        message_count:
+          type: integer
+          minimum: 0
+        occurrence_count:
+          type: integer
+          minimum: 0
+
+    CorpusParseFailure:
+      type: object
+      required: [path, error]
+      properties:
+        path:
+          type: string
+          description: Safe message id supplied by the caller or generated by the server
+        error:
+          type: string
+          description: Parser error string; raw message content is not echoed
+
+    CorpusSummary:
+      type: object
+      required:
+        - root
+        - file_count
+        - message_count
+        - parse_error_count
+        - total_bytes
+        - message_types
+        - segments
+        - field_presence
+        - parse_errors
+      properties:
+        root:
+          type: string
+          enum: ['<inline-corpus>']
+        file_count:
+          type: integer
+          minimum: 0
+        message_count:
+          type: integer
+          minimum: 0
+        parse_error_count:
+          type: integer
+          minimum: 0
+        total_bytes:
+          type: integer
+          minimum: 0
+        message_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+        field_presence:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldPresence'
+        parse_errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusParseFailure'
+
+    CorpusSummaryV2:
+      allOf:
+        - $ref: '#/components/schemas/CorpusSummary'
+        - type: object
+          required: [schema_version, tool_name, tool_version]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
+            tool_version:
+              type: string
+
+    CorpusFingerprintProfile:
+      type: object
+      required: [path, sha256, version, message_structure]
+      properties:
+        path:
+          type: string
+          enum: ['<inline-profile>']
+        sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        version:
+          type: string
+        message_structure:
+          type: string
+
+    CorpusFieldCardinality:
+      type: object
+      required: [path, min_per_message, max_per_message, total_occurrences, message_count]
+      properties:
+        path:
+          type: string
+        min_per_message:
+          type: integer
+          minimum: 0
+        max_per_message:
+          type: integer
+          minimum: 0
+        total_occurrences:
+          type: integer
+          minimum: 0
+        message_count:
+          type: integer
+          minimum: 0
+
+    CorpusValueShapeStats:
+      type: object
+      required: [path, coded_count, timestamp_count, numeric_count, null_count, text_count]
+      properties:
+        path:
+          type: string
+        coded_count:
+          type: integer
+          minimum: 0
+        timestamp_count:
+          type: integer
+          minimum: 0
+        numeric_count:
+          type: integer
+          minimum: 0
+        null_count:
+          type: integer
+          minimum: 0
+        text_count:
+          type: integer
+          minimum: 0
+
+    CorpusFingerprint:
+      type: object
+      required:
+        - fingerprint_version
+        - tool_version
+        - root
+        - profile
+        - file_count
+        - message_count
+        - parse_error_count
+        - message_type_counts
+        - segment_counts
+        - field_presence
+        - field_cardinality
+        - value_shape_stats
+        - validation_issue_code_counts
+      properties:
+        fingerprint_version:
+          type: string
+          enum: ['1']
+        tool_version:
+          type: string
+        root:
+          type: string
+          enum: ['<inline-corpus>', '<inline-before>', '<inline-after>']
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/CorpusFingerprintProfile'
+          nullable: true
+        file_count:
+          type: integer
+          minimum: 0
+        message_count:
+          type: integer
+          minimum: 0
+        parse_error_count:
+          type: integer
+          minimum: 0
+        message_type_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+        segment_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+        field_presence:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldPresence'
+        field_cardinality:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldCardinality'
+        value_shape_stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusValueShapeStats'
+        validation_issue_code_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCount'
+
+    CorpusFingerprintV2:
+      allOf:
+        - $ref: '#/components/schemas/CorpusFingerprint'
+        - type: object
+          required: [schema_version, tool_name]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
+
+    CorpusTotalDiff:
+      type: object
+      required: [before, after, delta]
+      properties:
+        before:
+          type: integer
+          minimum: 0
+        after:
+          type: integer
+          minimum: 0
+        delta:
+          type: integer
+
+    CorpusCountDiff:
+      type: object
+      required: [value, before, after, delta]
+      properties:
+        value:
+          type: string
+        before:
+          type: integer
+          minimum: 0
+        after:
+          type: integer
+          minimum: 0
+        delta:
+          type: integer
+
+    CorpusFieldPresenceDiff:
+      type: object
+      required:
+        - path
+        - before_message_count
+        - after_message_count
+        - message_count_delta
+        - before_occurrence_count
+        - after_occurrence_count
+        - occurrence_count_delta
+      properties:
+        path:
+          type: string
+        before_message_count:
+          type: integer
+          minimum: 0
+        after_message_count:
+          type: integer
+          minimum: 0
+        message_count_delta:
+          type: integer
+        before_occurrence_count:
+          type: integer
+          minimum: 0
+        after_occurrence_count:
+          type: integer
+          minimum: 0
+        occurrence_count_delta:
+          type: integer
+
+    CorpusFieldCardinalityDiff:
+      type: object
+      required:
+        - path
+        - before_min_per_message
+        - after_min_per_message
+        - min_per_message_delta
+        - before_max_per_message
+        - after_max_per_message
+        - max_per_message_delta
+        - before_total_occurrences
+        - after_total_occurrences
+        - total_occurrences_delta
+        - before_message_count
+        - after_message_count
+        - message_count_delta
+      properties:
+        path:
+          type: string
+        before_min_per_message:
+          type: integer
+          minimum: 0
+        after_min_per_message:
+          type: integer
+          minimum: 0
+        min_per_message_delta:
+          type: integer
+        before_max_per_message:
+          type: integer
+          minimum: 0
+        after_max_per_message:
+          type: integer
+          minimum: 0
+        max_per_message_delta:
+          type: integer
+        before_total_occurrences:
+          type: integer
+          minimum: 0
+        after_total_occurrences:
+          type: integer
+          minimum: 0
+        total_occurrences_delta:
+          type: integer
+        before_message_count:
+          type: integer
+          minimum: 0
+        after_message_count:
+          type: integer
+          minimum: 0
+        message_count_delta:
+          type: integer
+
+    CorpusValueShapeStatsDiff:
+      type: object
+      required: [path, coded_count, timestamp_count, numeric_count, null_count, text_count]
+      properties:
+        path:
+          type: string
+        coded_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        timestamp_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        numeric_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        null_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        text_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+
+    CorpusDiffReport:
+      type: object
+      required:
+        - diff_version
+        - tool_version
+        - before_root
+        - after_root
+        - profile
+        - file_count
+        - message_count
+        - parse_error_count
+        - new_message_types
+        - removed_message_types
+        - new_segments
+        - removed_segments
+        - message_type_counts
+        - segment_counts
+        - field_presence
+        - field_cardinality
+        - value_shape_stats
+        - validation_issue_code_counts
+      properties:
+        diff_version:
+          type: string
+          enum: ['1']
+        tool_version:
+          type: string
+        before_root:
+          type: string
+          enum: ['<inline-before>']
+        after_root:
+          type: string
+          enum: ['<inline-after>']
+        profile:
+          allOf:
+            - $ref: '#/components/schemas/CorpusFingerprintProfile'
+          nullable: true
+        file_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        message_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        parse_error_count:
+          $ref: '#/components/schemas/CorpusTotalDiff'
+        new_message_types:
+          type: array
+          items:
+            type: string
+        removed_message_types:
+          type: array
+          items:
+            type: string
+        new_segments:
+          type: array
+          items:
+            type: string
+        removed_segments:
+          type: array
+          items:
+            type: string
+        message_type_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCountDiff'
+        segment_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCountDiff'
+        field_presence:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldPresenceDiff'
+        field_cardinality:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusFieldCardinalityDiff'
+        value_shape_stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusValueShapeStatsDiff'
+        validation_issue_code_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorpusCountDiff'
+
+    CorpusDiffReportV2:
+      allOf:
+        - $ref: '#/components/schemas/CorpusDiffReport'
+        - type: object
+          required: [schema_version, tool_name]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
+
+    EvidenceReplayCheck:
+      type: object
+      required: [name, status, message]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pass, fail]
+        message:
+          type: string
+
+    QuarantineOutputSummary:
+      type: object
+      required:
+        - quarantine_version
+        - output_dir
+        - reason
+        - validation_issue_count
+        - artifacts
+      properties:
+        quarantine_version:
+          type: string
+          enum: ['1']
+        output_dir:
+          type: string
+          description: Quarantine output id relative to the configured server quarantine root
+        reason:
+          type: string
+          enum: [validation_error]
+        validation_issue_count:
+          type: integer
+          minimum: 0
+        artifacts:
+          type: array
+          items:
+            type: string
+
+    QuarantineOutputSummaryV2:
+      type: object
+      required:
+        - schema_version
+        - tool_name
+        - tool_version
+        - quarantine_version
+        - output_dir
+        - reason
+        - validation_issue_count
+        - artifacts
+      properties:
+        schema_version:
+          type: string
+          enum: ['2']
+        tool_name:
+          type: string
+          enum: [hl7v2-server]
+        tool_version:
+          type: string
+        quarantine_version:
+          type: string
+          enum: ['1']
+        output_dir:
+          type: string
+          description: Quarantine output id relative to the configured server quarantine root
+        reason:
+          type: string
+          enum: [validation_error]
+        validation_issue_count:
+          type: integer
+          minimum: 0
+        artifacts:
+          type: array
+          items:
+            type: string
+
+    ValidationReport:
+      type: object
+      required: [valid, message_type, segment_count, issue_count, issues]
+      properties:
+        valid:
+          type: boolean
+        message_type:
+          type: string
+          description: HL7 trigger event from MSH.9, such as ADT^A01
+        profile:
+          type: string
+          nullable: true
+          description: Profile identifier used for validation
+        segment_count:
+          type: integer
+          minimum: 0
+          description: Number of parsed message segments
+        issue_count:
+          type: integer
+          minimum: 0
+          description: Number of reported validation issues
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationReportIssue'
+
+    ValidationReportV2:
+      type: object
+      required: [schema_version, tool_name, tool_version, valid, message_type, segment_count, issue_count, issues]
+      properties:
+        schema_version:
+          type: string
+          enum: ['2']
+        tool_name:
+          type: string
+          enum: [hl7v2-server]
+        tool_version:
+          type: string
+          description: Semantic version of the server crate that generated the report
+        valid:
+          type: boolean
+        message_type:
+          type: string
+          description: HL7 trigger event from MSH.9, such as ADT^A01
+        profile:
+          type: string
+          nullable: true
+          description: Profile identifier used for validation
+        profile_identity:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReportProfileIdentity'
+          nullable: true
+          description: Reproducible profile identity metadata for the inline profile
+        segment_count:
+          type: integer
+          minimum: 0
+          description: Number of parsed message segments
+        issue_count:
+          type: integer
+          minimum: 0
+          description: Number of reported validation issues
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationReportIssue'
+
+    ValidationReportProfileIdentity:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          description: Display label for the inline profile; the server uses the loaded profile message structure
+        message_structure:
+          type: string
+          nullable: true
+          description: Loaded profile message structure when known
+        version:
+          type: string
+          nullable: true
+          description: Loaded profile HL7 version when known
+        sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          nullable: true
+          description: SHA-256 digest of the supplied inline profile YAML
+
+    RedactionReceipt:
+      type: object
+      required: [phi_removed, hash_algorithm, actions]
+      properties:
+        phi_removed:
+          type: boolean
+          description: Whether any configured PHI-bearing path was removed or hashed
+        hash_algorithm:
+          type: string
+          enum: [sha256]
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedactionActionReceipt'
+
+    RedactionReceiptV2:
+      type: object
+      required: [schema_version, tool_name, tool_version, phi_removed, hash_algorithm, actions]
+      properties:
+        schema_version:
+          type: string
+          enum: ['2']
+        tool_name:
+          type: string
+          enum: [hl7v2-server]
+        tool_version:
+          type: string
+          description: Semantic version of the server crate that generated the receipt
+        phi_removed:
+          type: boolean
+          description: Whether any configured PHI-bearing path was removed or hashed
+        hash_algorithm:
+          type: string
+          enum: [sha256]
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedactionActionReceipt'
+
+    RedactionActionReceipt:
+      type: object
+      required: [path, action, reason, matched_count, optional, status]
+      properties:
+        path:
+          type: string
+        action:
+          type: string
+          enum: [hash, drop, retain]
+        reason:
+          type: string
+        matched_count:
+          type: integer
+          minimum: 0
+        optional:
+          type: boolean
+        status:
+          type: string
+          enum: [applied, retained, not_found]
 
     AckRequest:
       type: object
@@ -394,6 +1666,68 @@ components:
           enum: [AA, AE, AR, CA, CE, CR]
         metadata:
           $ref: '#/components/schemas/MessageMetadata'
+
+    AckPolicyRequest:
+      type: object
+      required: [message, profile]
+      properties:
+        message:
+          type: string
+          description: Raw HL7 message content
+        profile:
+          type: string
+          description: Profile content (YAML) used to validate before choosing ACK or NAK
+        mllp_framed:
+          type: boolean
+          default: false
+          description: Whether the input message is MLLP framed
+        mllp_frame:
+          type: boolean
+          default: false
+          description: Whether to MLLP frame the ACK response
+
+    AckPolicyResponse:
+      type: object
+      required: [ack_message, ack_code, decision, metadata]
+      properties:
+        ack_message:
+          type: string
+          description: Generated ACK or NAK message
+        ack_code:
+          type: string
+          enum: [AA, AR, CA, CR]
+        decision:
+          $ref: '#/components/schemas/AckPolicyDecision'
+        validation_report:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReport'
+          nullable: true
+          description: Validation report used for the decision, absent when the message could not be parsed
+        metadata:
+          $ref: '#/components/schemas/MessageMetadata'
+
+    AckPolicyDecision:
+      type: object
+      required: [mode, outcome, reason, ack_code, include_error_text]
+      properties:
+        mode:
+          type: string
+          enum: [original, enhanced]
+        outcome:
+          type: string
+          enum: [accepted, rejected]
+        reason:
+          type: string
+          enum: [valid, parse_error, validation_error]
+        ack_code:
+          type: string
+          enum: [AA, AR, CA, CR]
+        include_error_text:
+          type: boolean
+        error_text:
+          type: string
+          nullable: true
+          description: Non-PHI error text included in ERR when configured
 
     NormalizeRequest:
       type: object

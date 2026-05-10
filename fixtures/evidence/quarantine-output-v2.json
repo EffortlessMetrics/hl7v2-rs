@@ -1,0 +1,21 @@
+{
+  "schema_version": "2",
+  "tool_name": "hl7v2-server",
+  "tool_version": "1.3.0",
+  "quarantine_version": "1",
+  "output_dir": "quarantine-123-456789",
+  "reason": "validation_error",
+  "validation_issue_count": 1,
+  "artifacts": [
+    "message.redacted.hl7",
+    "validation-report.json",
+    "field-paths.json",
+    "profile.yaml",
+    "redaction-receipt.json",
+    "environment.json",
+    "replay.sh",
+    "replay.ps1",
+    "README.md",
+    "manifest.json"
+  ]
+}
