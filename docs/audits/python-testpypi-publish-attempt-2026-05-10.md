@@ -55,6 +55,43 @@ The workflow and repository claims match the intended setup documented in
 The remaining action is to configure the corresponding TestPyPI pending
 publisher for `hl7v2-python`.
 
+## Follow-up Preflight Run
+
+After `ci: summarize TestPyPI publisher setup (#561)` merged, the guarded
+workflow was rerun from current `main` to prove the new preflight step and the
+external boundary.
+
+| Field | Value |
+| --- | --- |
+| Commit | `14f2c767654935e594eb02ea47bddc037e07ab03` |
+| Run ID | `25628479479` |
+| Run URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25628479479> |
+| Result | `failure` |
+
+| Job | Result | Evidence |
+| --- | --- | --- |
+| `Build and smoke wheel` | `success` | Built the wheel, installed it into a fresh virtual environment, and uploaded the wheel artifact. |
+| `Publish to TestPyPI` | `failure` | The new `Record trusted publisher setup` step completed, then `pypa/gh-action-pypi-publish@v1.14.0` failed during Trusted Publishing token exchange with `invalid-publisher`. |
+| `Install from TestPyPI and smoke` | `skipped` | Expected after the publish job failed; no install-back proof was completed. |
+
+Observed job IDs:
+
+```text
+Build and smoke wheel: 75227714888
+Publish to TestPyPI: 75227768867
+Install from TestPyPI and smoke: 75227784755
+```
+
+The publish action reported the same trusted-publisher subject:
+
+```text
+repo:EffortlessMetrics/hl7v2-rs:environment:testpypi
+```
+
+This confirms the repository-side workflow now records the setup fields before
+attempting upload. The remaining blocker is still external TestPyPI Trusted
+Publisher configuration for project `hl7v2-python`.
+
 ## Boundaries
 
 - `hl7v2-python` remains `publish = false` for crates.io.
