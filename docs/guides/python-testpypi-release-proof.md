@@ -87,6 +87,12 @@ publish_to_testpypi = true
 Run publishing mode from `main`. The workflow fails early if
 `publish_to_testpypi=true` is selected from any other ref.
 
+Before upload, the publish job writes the expected TestPyPI Trusted Publisher
+fields to the GitHub Actions job summary. If the upload fails with
+`invalid-publisher`, compare the summary fields to the TestPyPI pending
+publisher configuration and fix TestPyPI before rerunning. Do not switch to a
+repository token or `skip-existing` as a shortcut around Trusted Publishing.
+
 This does three things:
 
 1. Builds and smoke-tests the wheel.
