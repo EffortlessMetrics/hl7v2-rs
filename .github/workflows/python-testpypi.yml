@@ -116,6 +116,34 @@ jobs:
           name: python-testpypi-wheel
           path: dist
 
+      - name: Record trusted publisher setup
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ needs.wheel_proof.outputs.package_version }}
+        run: |
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error::TestPyPI publishing proof must run from refs/heads/main"
+            exit 1
+          fi
+
+          {
+            echo "## TestPyPI Trusted Publisher"
+            echo
+            echo "This job publishes \`hl7v2-python==${PACKAGE_VERSION}\` to TestPyPI using OIDC Trusted Publishing."
+            echo
+            echo "| Field | Expected value |"
+            echo "| --- | --- |"
+            echo "| Project name | \`hl7v2-python\` |"
+            echo "| Owner | \`EffortlessMetrics\` |"
+            echo "| Repository name | \`hl7v2-rs\` |"
+            echo "| Workflow filename | \`python-testpypi.yml\` |"
+            echo "| Environment name | \`testpypi\` |"
+            echo "| Ref | \`${GITHUB_REF}\` |"
+            echo "| Trusted publisher subject | \`repo:${GITHUB_REPOSITORY}:environment:testpypi\` |"
+            echo
+            echo "If upload fails with \`invalid-publisher\`, configure the pending publisher on TestPyPI with these values and rerun this workflow."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Publish package distributions to TestPyPI
         uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
