@@ -1,9 +1,10 @@
 # HL7 v2 Rust Workspace - CI Pipeline
 # Implements the 4-stage pipeline design from docs/TESTING_ARCHITECTURE.md
 #
-# Stage 1 (Fast - 2 min): Format, Clippy, Unit tests, Doc tests
-# Stage 2 (Standard - 5 min): Integration tests, BDD tests, Limited property tests
-# Stage 3 (Extended - 10 min): Full property tests, Benchmarks (main branch only)
+# Stage 1 (Fast - ~12 LEM): Format, Clippy, lint policy, unit tests, doc tests
+# Stage 2 (Standard - ~15 LEM): Integration tests, BDD tests, limited property tests
+# Stage 2 (Matrix - ~85 LEM): Multi-OS/toolchain tests (see PR 07 for routing)
+# Stage 3 (Extended - ~20 LEM): Full property tests + benchmarks (main only)
 
 name: CI
 
@@ -12,11 +13,16 @@ on:
     branches: [main, 'release/**', 'claude/**']
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   merge_group:
+  workflow_dispatch:
 
+# Cancellation policy:
+# - PR synchronize events cancel stale runs for the same PR.
+# - Push, label, merge_group events do NOT cancel in-progress runs.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,31 +33,28 @@ env:
 
 jobs:
   # ============================================================================
-  # Stage 1: Fast Feedback (~2 minutes)
+  # Stage 1: Fast Feedback (~12 LEM)
   # Runs on every PR and push
   # ============================================================================
   fast:
     name: Fast Checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: true
-      matrix:
-        rust: [stable]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           components: rustfmt, clippy
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: fast-${{ matrix.rust }}
+          shared-key: hl7v2-fast-stable-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Check formatting (xtask)
         run: cargo run -p xtask -- gate --check --only fmt
@@ -77,7 +80,7 @@ jobs:
         timeout-minutes: 2
 
   # ============================================================================
-  # Stage 2: Standard Tests (~5 minutes)
+  # Stage 2: Standard Tests (~15 LEM)
   # Runs on every PR and push after fast stage passes
   # ============================================================================
   standard:
@@ -85,23 +88,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: fast
     timeout-minutes: 15
-    strategy:
-      fail-fast: true
-      matrix:
-        rust: [stable]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: standard-${{ matrix.rust }}
+          shared-key: hl7v2-standard-stable-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run integration tests
         run: cargo test --test '*' --workspace --all-features
@@ -122,12 +122,55 @@ jobs:
         timeout-minutes: 5
 
   # ============================================================================
-  # Stage 2 (Parallel): Multi-Rust Version Tests
+  # Stage 2 (Parallel): MSRV smoke (~12 LEM)
+  # Runs on every PR: verifies the minimum supported Rust version compiles.
+  # ============================================================================
+  msrv-smoke:
+    name: MSRV Smoke (1.93)
+    runs-on: ubuntu-latest
+    needs: fast
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MSRV toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: '1.93'
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: hl7v2-msrv-1.93-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Check workspace compiles on MSRV
+        run: cargo check --workspace --all-features
+        timeout-minutes: 10
+
+  # ============================================================================
+  # Stage 2 (Parallel): Full Multi-OS/Toolchain Matrix (~85 LEM)
+  # Runs on: main push, merge_group, platform-matrix label, full-ci label,
+  #           release-check label, workflow_dispatch.
+  # NOT the default for ordinary PRs (see msrv-smoke above).
   # ============================================================================
   matrix-test:
     name: Matrix Tests
     runs-on: ${{ matrix.os }}
     needs: fast
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'merge_group' ||
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request' &&
+        (
+          contains(github.event.pull_request.labels.*.name, 'platform-matrix') ||
+          contains(github.event.pull_request.labels.*.name, 'full-ci') ||
+          contains(github.event.pull_request.labels.*.name, 'release-check')
+        )
+      )
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -146,7 +189,7 @@ jobs:
             rust: '1.93'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
@@ -156,25 +199,37 @@ jobs:
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: matrix-${{ matrix.os }}-${{ matrix.rust }}
+          shared-key: hl7v2-matrix-${{ runner.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.lock') }}
+          # Only save the canonical ubuntu+stable cache from main
+          save-if: ${{ github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-latest' && matrix.rust == 'stable' }}
 
       - name: Run tests
         run: cargo test --workspace --all-features
         timeout-minutes: 10
 
   # ============================================================================
-  # Stage 3: Extended Tests (~10 minutes)
+  # Stage 3: Extended Tests (~20 LEM)
   # Runs only on main branch after standard stage passes
   # ============================================================================
   extended:
     name: Extended Tests
     runs-on: ubuntu-latest
     needs: [fast, standard]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request' &&
+        (
+          contains(github.event.pull_request.labels.*.name, 'property-tests') ||
+          contains(github.event.pull_request.labels.*.name, 'full-ci') ||
+          contains(github.event.pull_request.labels.*.name, 'release-check')
+        )
+      )
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
@@ -184,7 +239,8 @@ jobs:
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: extended-stable
+          shared-key: hl7v2-extended-stable-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run full property tests
         env:
@@ -194,18 +250,28 @@ jobs:
         timeout-minutes: 10
 
   # ============================================================================
-  # Stage 3 (Parallel): Benchmarks
+  # Stage 3 (Parallel): Benchmarks (~15 LEM)
   # Non-failing, tracks performance regressions
   # ============================================================================
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-latest
     needs: [fast, standard]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request' &&
+        (
+          contains(github.event.pull_request.labels.*.name, 'benchmarks') ||
+          contains(github.event.pull_request.labels.*.name, 'full-ci') ||
+          contains(github.event.pull_request.labels.*.name, 'release-check')
+        )
+      )
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@v1
@@ -215,7 +281,8 @@ jobs:
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: bench-stable
+          shared-key: hl7v2-bench-stable-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run benchmarks
         run: |
@@ -224,25 +291,52 @@ jobs:
         continue-on-error: true
 
       - name: Upload benchmark artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
           path: benchmark-results.txt
           retention-days: 30
 
   # ============================================================================
-  # Summary Job
-  # Reports overall CI status
+  # Summary Job (~1 LEM)
+  # Reports overall CI status; candidate for branch protection simplification
   # ============================================================================
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [fast, standard, matrix-test]
-    if: always() && !failure()
+    needs: [fast, standard, msrv-smoke, matrix-test]
+    if: always()
     steps:
       - name: Check CI status
         run: |
-          echo "✅ CI Pipeline completed successfully"
+          set -euo pipefail
+
+          FAST='${{ needs.fast.result }}'
+          STANDARD='${{ needs.standard.result }}'
+          MSRV='${{ needs.msrv-smoke.result }}'
+          MATRIX='${{ needs.matrix-test.result }}'
+
+          echo "fast=$FAST standard=$STANDARD msrv=$MSRV matrix=$MATRIX"
+
+          if [ "$FAST" != "success" ]; then
+            echo "::error::Fast checks did not pass: $FAST"
+            exit 1
+          fi
+          if [ "$STANDARD" != "success" ]; then
+            echo "::error::Standard tests did not pass: $STANDARD"
+            exit 1
+          fi
+          if [ "$MSRV" != "success" ]; then
+            echo "::error::MSRV smoke did not pass: $MSRV"
+            exit 1
+          fi
+          if [ "$MATRIX" != "success" ] && [ "$MATRIX" != "skipped" ]; then
+            echo "::error::Matrix tests did not pass or skip cleanly: $MATRIX"
+            exit 1
+          fi
+
+          echo "CI Pipeline completed successfully"
           echo "- Fast checks: passed"
           echo "- Standard tests: passed"
-          echo "- Matrix tests: passed"
+          echo "- MSRV smoke: passed"
+          echo "- Matrix tests: $MATRIX"

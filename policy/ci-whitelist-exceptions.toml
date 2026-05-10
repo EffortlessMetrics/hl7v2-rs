@@ -1,0 +1,13 @@
+schema_version = "1.0"
+policy = "ci-whitelist-exceptions"
+owner = "release/ci"
+status = "active"
+
+# Exceptions record lanes that violate whitelist policy but are temporarily allowed.
+# Each exception must have a reason, a review date, and an expiry.
+# Expired exceptions cause check-ci-lane-whitelist to warn (advisory) or fail (enforcing).
+
+# ci_exception_matrix_tests_default was removed in PR 07.
+# matrix_tests is no longer default_pr=true; it is now label/main-triggered only.
+# Kept as a comment for audit trail.
+

@@ -1,0 +1,327 @@
+schema_version = "1.0"
+policy = "ci-lane-whitelist"
+owner = "release/ci"
+status = "advisory"
+updated = "2026-05-09"
+
+# ---------------------------------------------------------------------------
+# fast_checks — Stage 1 frontdoor (fmt, clippy, policy, unit, doc tests)
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "fast_checks"
+workflow = ".github/workflows/ci.yml"
+job = "fast"
+display_name = "Fast Checks"
+kind = "rust-policy"
+tier = "frontdoor"
+default_pr = true
+blocking = true
+runner = "ubuntu_latest"
+base_lem = 12
+owner = "core/build"
+intent = "Run format, Clippy, lint policy, no-panic policy, file policy, unit tests, and doc tests."
+failure_mode = "Bad Rust shape, governance drift, parser unit failure, or doctest drift reaches main."
+proof_obligation = "Run xtask policy checks plus workspace unit/doc tests."
+evidence = ["job logs"]
+allowed_triggers = ["pull_request", "push", "merge_group"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# standard_tests — Stage 2 integration, BDD, limited property tests
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "standard_tests"
+workflow = ".github/workflows/ci.yml"
+job = "standard"
+display_name = "Standard Tests"
+kind = "rust-integration"
+tier = "frontdoor"
+default_pr = true
+blocking = true
+runner = "ubuntu_latest"
+base_lem = 15
+owner = "core/test"
+intent = "Run integration tests, BDD tests, and limited parser property tests."
+failure_mode = "Runtime integration, BDD, or parser invariant break reaches main."
+proof_obligation = "Run integration tests, BDD tests, and limited property tests."
+evidence = ["job logs"]
+allowed_triggers = ["pull_request", "push", "merge_group"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# msrv_smoke — Stage 2 MSRV compile check on every PR
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "msrv_smoke"
+workflow = ".github/workflows/ci.yml"
+job = "msrv-smoke"
+display_name = "MSRV Smoke (1.93)"
+kind = "platform"
+tier = "compatibility"
+default_pr = true
+blocking = true
+runner = "ubuntu_latest"
+base_lem = 12
+owner = "platform/compat"
+intent = "Verify the workspace compiles on the minimum supported Rust version (1.93)."
+failure_mode = "MSRV regression reaches main undetected."
+proof_obligation = "Run cargo check --workspace --all-features on Rust 1.93."
+evidence = ["job logs"]
+allowed_triggers = ["pull_request", "push", "merge_group"]
+duplicate_of = ["fast_checks"]
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# matrix_tests — Stage 2 multi-OS / multi-toolchain (label/main only)
+# Routed off ordinary PRs by PR 07; label `platform-matrix` or `full-ci`
+# triggers the full fan-out.
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "matrix_tests"
+workflow = ".github/workflows/ci.yml"
+job = "matrix-test"
+display_name = "Matrix Tests"
+kind = "platform"
+tier = "compatibility"
+default_pr = false
+blocking = false
+runner = "mixed"
+base_lem = 85
+owner = "platform/compat"
+intent = "Run full workspace all-features tests across Ubuntu, Windows, macOS, stable, beta, and MSRV."
+failure_mode = "Platform or toolchain-specific failure reaches main undetected."
+proof_obligation = "Run workspace all-features tests on OS/toolchain matrix."
+evidence = ["job logs"]
+allowed_triggers = ["push", "merge_group", "workflow_dispatch", "pull_request:labeled"]
+labels = ["platform-matrix", "full-ci", "release-check"]
+duplicate_of = ["fast_checks", "standard_tests", "msrv_smoke"]
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# extended_property_tests — Stage 3 full property tests (main/label only)
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "extended_property_tests"
+workflow = ".github/workflows/ci.yml"
+job = "extended"
+display_name = "Extended Tests"
+kind = "property"
+tier = "deep"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 20
+owner = "core/parser"
+intent = "Run full property tests with higher case count."
+failure_mode = "Parser/profile invariant fails under randomized input."
+proof_obligation = "Run property tests with PROPTEST_CASES=1000."
+evidence = ["job logs"]
+allowed_triggers = ["push:main", "workflow_dispatch", "pull_request:labeled"]
+labels = ["property-tests", "full-ci"]
+duplicate_of = ["standard_tests"]
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# benchmarks — Stage 3 performance tracking (main/label only)
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "benchmarks"
+workflow = ".github/workflows/ci.yml"
+job = "benchmarks"
+display_name = "Benchmarks"
+kind = "performance"
+tier = "deep"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 15
+owner = "performance"
+intent = "Track performance regressions without blocking ordinary PRs."
+failure_mode = "Parser/service benchmark drift goes unnoticed."
+proof_obligation = "Run benchmark suite and upload artifact."
+evidence = ["benchmark-results.txt"]
+allowed_triggers = ["push:main", "workflow_dispatch", "pull_request:labeled"]
+labels = ["benchmarks", "full-ci"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# ci_success — Summary aggregation job
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "ci_success"
+workflow = ".github/workflows/ci.yml"
+job = "ci-success"
+display_name = "CI Success"
+kind = "summary"
+tier = "frontdoor"
+default_pr = true
+blocking = true
+runner = "ubuntu_latest"
+base_lem = 1
+owner = "release/ci"
+intent = "Provide one stable status for branch protection."
+failure_mode = "Leaf-check churn or skipped optional lanes block merges incorrectly."
+proof_obligation = "Aggregate required lane results."
+evidence = ["job summary"]
+allowed_triggers = ["pull_request", "push", "merge_group"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# coverage — Execution surface evidence (main/label only)
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "coverage"
+workflow = ".github/workflows/coverage.yml"
+job = "coverage"
+display_name = "Coverage"
+kind = "coverage"
+tier = "deep"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 20
+owner = "release/ci"
+intent = "Collect execution surface coverage and upload to Codecov."
+failure_mode = "Coverage surface shrinks without notice."
+proof_obligation = "Run workspace tests under cargo-llvm-cov and upload LCOV."
+evidence = ["coverage.json", "lcov.info"]
+allowed_triggers = ["push:main", "workflow_dispatch", "pull_request:labeled"]
+labels = ["coverage", "full-ci"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# security — Dependency audit (main/label only)
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "security"
+workflow = ".github/workflows/security.yml"
+job = "*"
+display_name = "Security Audit"
+kind = "security"
+tier = "deep"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 5
+owner = "release/ci"
+intent = "Audit dependencies for vulnerabilities and license compliance."
+failure_mode = "Known CVE in dependency ships undetected."
+proof_obligation = "Run cargo-deny check."
+evidence = ["job logs"]
+allowed_triggers = ["push:main", "workflow_dispatch", "pull_request:labeled", "schedule"]
+labels = ["security-audit", "full-ci", "release-check"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# python_wheels — PyO3/maturin wheel build (Python risk/label/main)
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "python_wheels"
+workflow = ".github/workflows/python-wheels.yml"
+job = "wheel-smoke"
+display_name = "Python Wheels"
+kind = "python"
+tier = "deep"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 20
+owner = "binding/python"
+intent = "Build and smoke-test the maturin/PyO3 Python wheel."
+failure_mode = "Python binding API break ships to PyPI undetected."
+proof_obligation = "Build wheel with maturin; run Python smoke tests."
+evidence = ["dist/*.whl", "smoke test logs"]
+allowed_triggers = ["push:main", "workflow_dispatch", "pull_request:labeled"]
+labels = ["python", "full-ci"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# nightly — Nightly toolchain and broader validation
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "nightly"
+workflow = ".github/workflows/nightly.yml"
+job = "*"
+display_name = "Nightly CI"
+kind = "rust-nightly"
+tier = "deep"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 25
+owner = "core/build"
+intent = "Validate on nightly Rust and catch upcoming regressions early."
+failure_mode = "Nightly compatibility break discovered late."
+proof_obligation = "Run workspace tests on nightly toolchain."
+evidence = ["job logs"]
+allowed_triggers = ["push:main", "schedule", "workflow_dispatch"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# contracts — API and evidence artifact schema validation
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "contracts"
+workflow = ".github/workflows/contracts.yml"
+job = "*"
+display_name = "Contract Checks"
+kind = "api-contract"
+tier = "deep"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 15
+owner = "api/contracts"
+intent = "Validate API schemas, evidence artifact schemas, and OpenAPI/gRPC contracts."
+failure_mode = "API schema drift or evidence artifact incompatibility ships undetected."
+proof_obligation = "Run schema validation and contract smoke tests."
+evidence = ["job logs"]
+allowed_triggers = ["push:main", "workflow_dispatch", "pull_request:labeled"]
+labels = ["api-contract", "full-ci"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# publish — Crates.io publish workflow (release only)
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "publish"
+workflow = ".github/workflows/publish.yml"
+job = "publish"
+display_name = "Publish"
+kind = "release"
+tier = "release"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 20
+owner = "release/ci"
+intent = "Publish workspace crates to crates.io in dependency order."
+failure_mode = "Bad publish order or metadata error ships to crates.io."
+proof_obligation = "Run publish plan and dry-run before live publish."
+evidence = ["job logs"]
+allowed_triggers = ["push:release/**", "workflow_dispatch", "pull_request:labeled"]
+labels = ["release-check"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
