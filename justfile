@@ -62,6 +62,7 @@ policy-check:
     cargo run -p xtask -- check-lint-policy
     cargo run -p xtask -- check-no-panic-family
     cargo run -p xtask -- check-file-policy
+    cargo run -p xtask -- check-doc-links
 
 # Print policy rollout, debt, no-panic, and file-policy summary
 policy-report:

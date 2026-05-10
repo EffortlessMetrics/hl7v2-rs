@@ -35,7 +35,7 @@ The following microcrates have been successfully extracted as part of the SRP re
 
 **Status:** Complete
 
-**Location:** [`crates/hl7v2-network/`](../crates/hl7v2-network/)
+**Location:** `crates/hl7v2-network/`
 
 **Extracted from:** `hl7v2-core/src/network/`
 
@@ -61,7 +61,7 @@ async fn send_message() -> Result<(), Box<dyn std::error::Error>> {
         .connect_timeout(Duration::from_secs(5))
         .read_timeout(Duration::from_secs(30))
         .build();
-    
+
     client.connect("127.0.0.1:2575".parse()?).await?;
     let ack = client.send_message(&message).await?;
     client.close().await?;
@@ -77,7 +77,7 @@ async fn send_message() -> Result<(), Box<dyn std::error::Error>> {
 
 **Status:** Complete
 
-**Location:** [`crates/hl7v2-stream/`](../crates/hl7v2-stream/)
+**Location:** `crates/hl7v2-stream/`
 
 **Extracted from:** `hl7v2-core/src/lib.rs` (StreamParser, Event types)
 
@@ -129,7 +129,7 @@ while let Ok(Some(event)) = parser.next_event() {
 
 **Status:** Complete
 
-**Location:** [`crates/hl7v2-validation/`](../crates/hl7v2-validation/)
+**Location:** `crates/hl7v2-validation/`
 
 **Extracted from:** `hl7v2-prof/src/lib.rs`
 
@@ -170,7 +170,7 @@ assert!(is_valid);
 
 **Status:** Complete
 
-**Location:** [`crates/hl7v2-ack/`](../crates/hl7v2-ack/)
+**Location:** `crates/hl7v2-ack/`
 
 **Extracted from:** `hl7v2-gen/src/lib.rs`
 
@@ -219,7 +219,7 @@ let ack_message = ack(&original_message, AckCode::AA).unwrap();
 
 **Status:** Complete
 
-**Location:** [`crates/hl7v2-faker/`](../crates/hl7v2-faker/)
+**Location:** `crates/hl7v2-faker/`
 
 **Extracted from:** `hl7v2-gen/src/lib.rs`
 
@@ -267,6 +267,11 @@ let mrn = faker.mrn();
 ---
 
 ## Migration Guide
+
+> Historical note: this migration guide documents the former microcrate
+> topology. The current implementation lives under the canonical `hl7v2` crate;
+> current module mappings are maintained in
+> [`docs/architecture/module-map.md`](architecture/module-map.md).
 
 ### For Users of `hl7v2-core`
 
@@ -334,15 +339,15 @@ These crates already follow SRP well:
 
 | Crate | Responsibility | Assessment |
 |-------|---------------|------------|
-| [`hl7v2-model`](../crates/hl7v2-model) | Core data types | ✅ Excellent - minimal dependencies |
-| [`hl7v2-parser`](../crates/hl7v2-parser) | Message parsing | ✅ Good - focused on parsing |
-| [`hl7v2-writer`](../crates/hl7v2-writer) | Message serialization | ✅ Good - focused on writing |
-| [`hl7v2-escape`](../crates/hl7v2-escape) | Escape sequence handling | ✅ Excellent - single purpose |
-| [`hl7v2-mllp`](../crates/hl7v2-mllp) | MLLP framing | ✅ Excellent - single purpose |
-| [`hl7v2-path`](../crates/hl7v2-path) | Path parsing | ✅ Excellent - single purpose |
-| [`hl7v2-datetime`](../crates/hl7v2-datetime) | Date/time handling | ✅ Excellent - focused |
-| [`hl7v2-datatype`](../crates/hl7v2-datatype) | Data type validation | ✅ Good - could expand |
-| [`hl7v2-batch`](../crates/hl7v2-batch) | Batch handling | ✅ Good - focused |
+| `hl7v2-model` | Core data types | ✅ Excellent - minimal dependencies |
+| `hl7v2-parser` | Message parsing | ✅ Good - focused on parsing |
+| `hl7v2-writer` | Message serialization | ✅ Good - focused on writing |
+| `hl7v2-escape` | Escape sequence handling | ✅ Excellent - single purpose |
+| `hl7v2-mllp` | MLLP framing | ✅ Excellent - single purpose |
+| `hl7v2-path` | Path parsing | ✅ Excellent - single purpose |
+| `hl7v2-datetime` | Date/time handling | ✅ Excellent - focused |
+| `hl7v2-datatype` | Data type validation | ✅ Good - could expand |
+| `hl7v2-batch` | Batch handling | ✅ Good - focused |
 
 ### Crates Needing Decomposition
 
@@ -988,7 +993,7 @@ The following additional microcrate extraction opportunities have been identifie
 
 #### 8. `hl7v2-query` - Path-Based Field Access
 
-**Extract from:** [`hl7v2-parser/src/lib.rs`](../crates/hl7v2-parser/src/lib.rs) (lines 211-279)
+**Extract from:** `hl7v2-parser/src/lib.rs` (lines 211-279)
 
 **Rationale:**
 - Path-based field access (`get`, `get_presence`) is a distinct concern from parsing
@@ -1020,7 +1025,7 @@ pub fn parse_path(path: &str) -> Result<ParsedPath, PathError>;
 
 #### 9. `hl7v2-json` - JSON Serialization
 
-**Extract from:** [`hl7v2-writer/src/lib.rs`](../crates/hl7v2-writer/src/lib.rs) (lines 245-320)
+**Extract from:** `hl7v2-writer/src/lib.rs` (lines 245-320)
 
 **Rationale:**
 - JSON serialization is a distinct output format from HL7 wire format
@@ -1056,7 +1061,7 @@ pub fn field_to_json(field: &Field) -> serde_json::Value;
 
 #### 10. `hl7v2-template` - Template-Based Generation
 
-**Extract from:** [`hl7v2-gen/src/lib.rs`](../crates/hl7v2-gen/src/lib.rs) (lines 39-405)
+**Extract from:** `hl7v2-gen/src/lib.rs` (lines 39-405)
 
 **Rationale:**
 - Template parsing and message generation is distinct from faker/test data
@@ -1096,7 +1101,7 @@ pub fn generate_single(template: &Template, rng: &mut StdRng) -> Result<Message,
 
 #### 11. `hl7v2-normalize` - Message Normalization
 
-**Extract from:** [`hl7v2-writer/src/lib.rs`](../crates/hl7v2-writer/src/lib.rs) (lines 210-234)
+**Extract from:** `hl7v2-writer/src/lib.rs` (lines 210-234)
 
 **Rationale:**
 - Normalization is a transformation concern, not writing
@@ -1129,7 +1134,7 @@ pub fn is_canonical(msg: &Message) -> bool;
 
 #### 12. `hl7v2-corpus` - Test Corpus Generation
 
-**Extract from:** [`hl7v2-gen/src/lib.rs`](../crates/hl7v2-gen/src/lib.rs) (lines 496-630)
+**Extract from:** `hl7v2-gen/src/lib.rs` (lines 496-630)
 
 **Rationale:**
 - Corpus generation is testing infrastructure, not production code
@@ -1167,7 +1172,7 @@ pub fn generate_golden_hashes(template: &Template, seed: u64, count: usize) -> R
 
 #### 13. `hl7v2-profile-defs` - Profile Type Definitions
 
-**Extract from:** [`hl7v2-prof/src/lib.rs`](../crates/hl7v2-prof/src/lib.rs) (lines 52-254)
+**Extract from:** `hl7v2-prof/src/lib.rs` (lines 52-254)
 
 **Rationale:**
 - Profile type definitions are pure data structures

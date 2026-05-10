@@ -21,8 +21,8 @@ LICENSE, NOTICE         license files
 .gitattributes          git metadata
 ```
 
-Everything else under version control that is a programming or configuration
-surface needs an explicit entry.
+Everything else in the tracked or untracked non-ignored source tree that is a
+programming or configuration surface needs an explicit entry.
 
 ## Allowlist schema
 
@@ -85,9 +85,10 @@ cargo run -p xtask -- check-file-policy
 
 Failure modes:
 
-- **non-Rust file under version control with no matching entry** — fail.
-- **allowlist entry whose glob matches no tracked file** — fail (unless
-  `retired = true`).
+- **tracked or untracked non-ignored non-Rust file with no matching entry** —
+  fail.
+- **allowlist entry whose glob matches no tracked or untracked non-ignored
+  file** — fail (unless `retired = true`).
 - **allowlist entry past `expires`** — fail.
 - **production / test / tooling entry without `covered_by`** — fail.
 

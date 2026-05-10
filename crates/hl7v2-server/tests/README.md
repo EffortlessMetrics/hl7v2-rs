@@ -339,7 +339,7 @@ Planned test additions:
 
 ## Related Documentation
 
-- [OpenAPI Specification](../../../schemas/openapi/hl7v2-api.yaml) - API contract
+- [OpenAPI Specification](../../../api/openapi/hl7v2-api-v1.yaml) - API contract
 - [Example Profiles](../../../examples/profiles/) - Sample conformance profiles
 - [ADR-006](../../../docs/adr/0012-rate-limiting-and-backpressure.md) - Rate limiting strategy
 - [Server Documentation](../README.md) - Server configuration and deployment

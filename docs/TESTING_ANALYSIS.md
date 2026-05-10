@@ -1,11 +1,17 @@
 # HL7 v2 Rust Workspace - Testing Analysis
 
-**Generated:** 2026-02-24  
+**Generated:** 2026-02-24
 **Total Crates Analyzed:** 26
 
 > Historical note: this analysis predates the post-1.2.1 crate-surface collapse
 > and local shim-folder retirement. It is retained as a dated testing receipt;
-> current Rust consumers should use `hl7v2` and its module paths.
+> current Rust consumers should use `hl7v2` and its module paths. Links to
+> retired crate folders are preserved as historical references, not live
+> navigation. Do not use the microcrate test inventory, priority labels, or
+> missing-test findings below as current project status; use
+> [STATUS.md](STATUS.md), [CI_PIPELINE.md](CI_PIPELINE.md), and
+> [audits/current-source-tree-evidence-objective-gap-audit.md](audits/current-source-tree-evidence-objective-gap-audit.md)
+> for the current testing and evidence receipts.
 
 ## Executive Summary
 
@@ -71,7 +77,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 6 | [`lib.rs:385-469`](../crates/hl7v2-ack/src/lib.rs:385) |
+| Unit | 6 | `crates/hl7v2-ack/src/lib.rs:385` |
 
 **Unit Test Coverage:**
 - `test_ack_code_display` - ACK code display formatting
@@ -103,7 +109,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 5 | [`lib.rs:465-511`](../crates/hl7v2-batch/src/lib.rs:465) |
+| Unit | 5 | `crates/hl7v2-batch/src/lib.rs:465` |
 
 **Unit Test Coverage:**
 - `test_parse_simple_messages` - Simple message parsing
@@ -138,7 +144,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Benchmark | 4 | [`benches/`](../crates/hl7v2-bench/benches/) |
+| Benchmark | 4 | `crates/hl7v2-bench/benches/` |
 
 **Benchmark Coverage:**
 - `escape.rs` - Escape/unescape performance
@@ -205,9 +211,9 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 19+ | [`lib.rs:59-160`](../crates/hl7v2-core/src/lib.rs:59), [`tests.rs`](../crates/hl7v2-core/src/tests.rs) |
-| Integration | 1 | [`tests/bdd_tests.rs`](../crates/hl7v2-core/tests/bdd_tests.rs) |
-| BDD | 3 | [`features/`](../crates/hl7v2-core/features/) |
+| Unit | 19+ | `crates/hl7v2-core/src/lib.rs:59`, `crates/hl7v2-core/src/tests.rs` |
+| Integration | 1 | `crates/hl7v2-core/tests/bdd_tests.rs` |
+| BDD | 3 | `crates/hl7v2-core/features/` |
 
 **BDD Feature Files:**
 - `parsing.feature` - Message parsing scenarios
@@ -249,7 +255,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 13 | [`lib.rs:314-481`](../crates/hl7v2-corpus/src/lib.rs:314) |
+| Unit | 13 | `crates/hl7v2-corpus/src/lib.rs:314` |
 
 **Unit Test Coverage:**
 - `test_corpus_config_default` - Default configuration
@@ -288,7 +294,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 12 | [`lib.rs:573-674`](../crates/hl7v2-datatype/src/lib.rs:573) |
+| Unit | 12 | `crates/hl7v2-datatype/src/lib.rs:573` |
 
 **Unit Test Coverage:**
 - `test_validate_datatype_date` - Date validation
@@ -325,7 +331,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 10 | [`lib.rs:388-499`](../crates/hl7v2-datetime/src/lib.rs:388) |
+| Unit | 10 | `crates/hl7v2-datetime/src/lib.rs:388` |
 
 **Unit Test Coverage:**
 - `test_parse_hl7_date` - Date parsing
@@ -357,7 +363,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 17 | [`lib.rs:226-373`](../crates/hl7v2-escape/src/lib.rs:226) |
+| Unit | 17 | `crates/hl7v2-escape/src/lib.rs:226` |
 
 **Unit Test Coverage:**
 - `test_escape_field_separator` - Field separator escaping
@@ -400,7 +406,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 20 | [`lib.rs:497-682`](../crates/hl7v2-faker/src/lib.rs:497) |
+| Unit | 20 | `crates/hl7v2-faker/src/lib.rs:497` |
 
 **Unit Test Coverage:**
 - `test_name_generation_male` - Male name generation
@@ -449,7 +455,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 28 | [`lib.rs:47-688`](../crates/hl7v2-gen/src/lib.rs:47) |
+| Unit | 28 | `crates/hl7v2-gen/src/lib.rs:47` |
 
 **Unit Test Coverage:**
 - Message generation tests
@@ -480,7 +486,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 8 | [`lib.rs:205-371`](../crates/hl7v2-json/src/lib.rs:205) |
+| Unit | 8 | `crates/hl7v2-json/src/lib.rs:205` |
 
 **Unit Test Coverage:**
 - `test_to_json_simple_message` - Simple message JSON
@@ -511,7 +517,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 9 | [`lib.rs:245-361`](../crates/hl7v2-mllp/src/lib.rs:245) |
+| Unit | 9 | `crates/hl7v2-mllp/src/lib.rs:245` |
 
 **Unit Test Coverage:**
 - `test_wrap_mllp` - MLLP wrapping
@@ -543,7 +549,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 10 | [`lib.rs:425-504`](../crates/hl7v2-model/src/lib.rs:425) |
+| Unit | 10 | `crates/hl7v2-model/src/lib.rs:425` |
 
 **Unit Test Coverage:**
 - `test_delims_default` - Default delimiters
@@ -581,7 +587,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 9 | [`lib.rs:80+`](../crates/hl7v2-network/src/lib.rs:80), [`codec.rs:189+`](../crates/hl7v2-network/src/codec.rs:189), [`client.rs:242+`](../crates/hl7v2-network/src/client.rs:242) |
+| Unit | 9 | `crates/hl7v2-network/src/lib.rs:80`, `crates/hl7v2-network/src/codec.rs:189`, `crates/hl7v2-network/src/client.rs:242` |
 
 **Unit Test Coverage:**
 - Codec encode/decode tests
@@ -613,7 +619,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 4 | [`lib.rs:36-80`](../crates/hl7v2-normalize/src/lib.rs:36) |
+| Unit | 4 | `crates/hl7v2-normalize/src/lib.rs:36` |
 
 **Unit Test Coverage:**
 - `normalize_preserves_custom_delimiters_when_not_canonical` - Custom delimiter preservation
@@ -643,7 +649,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 6 | [`lib.rs:583-677`](../crates/hl7v2-parser/src/lib.rs:583) |
+| Unit | 6 | `crates/hl7v2-parser/src/lib.rs:583` |
 
 **Unit Test Coverage:**
 - `test_parse_simple_message` - Simple message parsing
@@ -673,7 +679,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 10 | [`lib.rs:253-331`](../crates/hl7v2-path/src/lib.rs:253) |
+| Unit | 10 | `crates/hl7v2-path/src/lib.rs:253` |
 
 **Unit Test Coverage:**
 - `test_parse_simple_path` - Simple path parsing
@@ -712,8 +718,8 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 7+ | [`tests.rs:1+`](../crates/hl7v2-prof/src/tests.rs:1), [`debug_test.rs`](../crates/hl7v2-prof/src/debug_test.rs), [`simple_test.rs`](../crates/hl7v2-prof/src/simple_test.rs) |
-| Integration | 1 | [`tests/simple_test.rs`](../crates/hl7v2-prof/tests/simple_test.rs) |
+| Unit | 7+ | `crates/hl7v2-prof/src/tests.rs:1`, `crates/hl7v2-prof/src/debug_test.rs`, `crates/hl7v2-prof/src/simple_test.rs` |
+| Integration | 1 | `crates/hl7v2-prof/tests/simple_test.rs` |
 
 **Unit Test Coverage:**
 - `test_load_simple_profile` - Profile loading
@@ -741,7 +747,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 11 | [`lib.rs:425-757`](../crates/hl7v2-query/src/lib.rs:425) |
+| Unit | 11 | `crates/hl7v2-query/src/lib.rs:425` |
 
 **Unit Test Coverage:**
 - `test_parse_field_and_rep` - Field and repetition parsing
@@ -788,7 +794,7 @@ This document provides a comprehensive analysis of the testing status across all
 | Type | Count | Location |
 |------|-------|----------|
 | Unit | 9 | Various source files |
-| Integration | 5 | [`tests/`](../crates/hl7v2-server/tests/) |
+| Integration | 5 | `crates/hl7v2-server/tests/` |
 
 **Integration Test Files:**
 - `health_endpoints_test.rs` - Health/readiness endpoints
@@ -816,7 +822,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 2 | [`lib.rs:275-349`](../crates/hl7v2-stream/src/lib.rs:275) |
+| Unit | 2 | `crates/hl7v2-stream/src/lib.rs:275` |
 
 **Unit Test Coverage:**
 - `test_streaming_parser` - Basic streaming
@@ -849,8 +855,8 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 21 | [`lib.rs:511-952`](../crates/hl7v2-template/src/lib.rs:511) |
-| Integration | 1 | [`tests/generation_integration.rs`](../crates/hl7v2-template/tests/generation_integration.rs) |
+| Unit | 21 | `crates/hl7v2-template/src/lib.rs:511` |
+| Integration | 1 | `crates/hl7v2-template/tests/generation_integration.rs` |
 
 **Unit Test Coverage:**
 - Message generation tests
@@ -883,11 +889,11 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 5 | [`lib.rs:235-308`](../crates/hl7v2-template-values/src/lib.rs:235) |
-| Integration | 1 | [`tests/bdd_tests.rs`](../crates/hl7v2-template-values/tests/bdd_tests.rs) |
-| BDD | 1 | [`features/value_sources.feature`](../crates/hl7v2-template-values/features/value_sources.feature) |
-| Property | 2 | [`lib.rs:283-303`](../crates/hl7v2-template-values/src/lib.rs:283) |
-| Fuzz | 1 | [`fuzz/fuzz_targets/value_source.rs`](../crates/hl7v2-template-values/fuzz/fuzz_targets/value_source.rs) |
+| Unit | 5 | `crates/hl7v2-template-values/src/lib.rs:235` |
+| Integration | 1 | `crates/hl7v2-template-values/tests/bdd_tests.rs` |
+| BDD | 1 | `crates/hl7v2-template-values/features/value_sources.feature` |
+| Property | 2 | `crates/hl7v2-template-values/src/lib.rs:283` |
+| Fuzz | 1 | `crates/hl7v2-template-values/fuzz/fuzz_targets/value_source.rs` |
 
 **Test Coverage:**
 - Fixed value generation
@@ -918,7 +924,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 10 | [`lib.rs:913-994`](../crates/hl7v2-validation/src/lib.rs:913) |
+| Unit | 10 | `crates/hl7v2-validation/src/lib.rs:913` |
 
 **Unit Test Coverage:**
 - `test_is_date` - Date validation
@@ -955,7 +961,7 @@ This document provides a comprehensive analysis of the testing status across all
 **Current Tests:**
 | Type | Count | Location |
 |------|-------|----------|
-| Unit | 6 | [`lib.rs:282-447`](../crates/hl7v2-writer/src/lib.rs:282) |
+| Unit | 6 | `crates/hl7v2-writer/src/lib.rs:282` |
 
 **Unit Test Coverage:**
 - `test_write_simple_message` - Simple message writing

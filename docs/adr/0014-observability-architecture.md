@@ -66,6 +66,6 @@ Separate endpoints are provided to distinguish between "process is alive" and "p
 
 ## References
 
-- [ADR-006: Rate Limiting and Backpressure Strategy](ADR-006-rate-limiting-and-backpressure.md)
+- [ADR-012: Rate Limiting and Backpressure Strategy](0012-rate-limiting-and-backpressure.md)
 - [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
 - [Rust Tracing Ecosystem](https://tracing.rs/tracing/)

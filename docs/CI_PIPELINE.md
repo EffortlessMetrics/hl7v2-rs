@@ -130,6 +130,24 @@ using Trusted Publishing from the `testpypi` GitHub environment, then installs
 tests. The workflow uses `id-token: write` only for the publish job and does
 not use repository PyPI tokens.
 
+### Markdown Local-Link Policy
+
+The local documentation-link rail is:
+
+```powershell
+cargo +1.93.0 run -p xtask -- check-doc-links
+```
+
+It scans tracked and untracked non-ignored Markdown files outside
+generated/vendor directories and fails when explicit relative local links point
+at missing repository targets, escape the workspace, or rely on
+case-insensitive path matching. The full `xtask gate --check` path runs this
+after the non-Rust file policy check, which also scans tracked and untracked
+non-ignored files, so release and audit receipts do not depend on an ad hoc
+local script. `xtask gate --check --changed` also runs this rail for
+crate-scoped Markdown changes so a broken link in a crate README cannot bypass
+the changed-crate shortcut.
+
 ### `.github/workflows/server-smoke.yml` - Server Docker Smoke
 
 Path-scoped and manual workflow for the deployable validation sidecar. It

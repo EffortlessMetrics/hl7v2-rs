@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
@@ -99,8 +99,10 @@ enum Commands {
         #[command(subcommand)]
         action: NoPanicAction,
     },
-    /// Verify the non-Rust file allowlist against tracked files
+    /// Verify the non-Rust file allowlist against tracked and untracked non-ignored files
     CheckFilePolicy,
+    /// Verify explicit local Markdown links point at checked-in repository targets
+    CheckDocLinks,
     /// Verify CI lane whitelist: coverage, required fields, expensive-default exceptions
     CheckCiLaneWhitelist,
     /// Validate checked-in evidence fixtures against their JSON schemas
@@ -154,6 +156,7 @@ fn main() -> Result<()> {
             NoPanicAction::Propose { include_staged } => no_panic_propose(include_staged)?,
         },
         Commands::CheckFilePolicy => check_file_policy()?,
+        Commands::CheckDocLinks => check_doc_links()?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
         Commands::EvidenceSchemaCheck => evidence_schema_check()?,
     }
@@ -164,12 +167,15 @@ fn main() -> Result<()> {
 fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
     println!("🚀 Running gate checks...");
 
-    let (changed_only, crates) = if changed_only {
+    let (changed_only, crates, changed_docs_require_link_check) = if changed_only {
         match get_changed_scope()? {
-            ChangedScope::Crates(c) => (true, c),
+            ChangedScope::Crates {
+                crates,
+                has_markdown,
+            } => (true, crates, has_markdown),
             ChangedScope::Workspace => {
                 println!("Non-crate files changed. Running full workspace gate.");
-                (false, vec![])
+                (false, vec![], false)
             }
             ChangedScope::None => {
                 println!("No files changed. Skipping checks.");
@@ -177,7 +183,7 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
             }
         }
     } else {
-        (false, vec![])
+        (false, vec![], false)
     };
 
     let run_fmt = only.as_deref().is_none_or(|s| s == "fmt");
@@ -191,6 +197,11 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
         check_no_panic_family(false)?;
         println!("Checking non-Rust file policy...");
         check_file_policy()?;
+        println!("Checking Markdown local links...");
+        check_doc_links()?;
+    } else if changed_docs_require_link_check {
+        println!("Checking Markdown local links for crate-scoped doc changes...");
+        check_doc_links()?;
     }
 
     if run_fmt {
@@ -1485,9 +1496,13 @@ fn display_repo_path(path: &Path, root: &Path) -> String {
         .replace('\\', "/")
 }
 
+#[derive(Debug, PartialEq, Eq)]
 enum ChangedScope {
     /// Only `crates/<name>/` files changed — scoped gate possible
-    Crates(Vec<String>),
+    Crates {
+        crates: Vec<String>,
+        has_markdown: bool,
+    },
     /// Non-crate files changed — full workspace gate required
     Workspace,
     /// Nothing changed
@@ -1495,14 +1510,30 @@ enum ChangedScope {
 }
 
 fn get_changed_scope() -> Result<ChangedScope> {
-    let files = git_output(&["diff", "--name-only", "HEAD"])?;
+    let diff_files = git_output(&["diff", "--name-only", "HEAD"])?;
+    let untracked_files = git_output(&["ls-files", "--others", "--exclude-standard"])?;
+    Ok(changed_scope_from_git_listings(
+        &diff_files,
+        &untracked_files,
+    ))
+}
+
+fn changed_scope_from_git_listings(diff_files: &str, untracked_files: &str) -> ChangedScope {
+    changed_scope_from_paths(diff_files.lines().chain(untracked_files.lines()))
+}
+
+fn changed_scope_from_paths<'a>(paths: impl IntoIterator<Item = &'a str>) -> ChangedScope {
     let mut changed_crates = HashSet::new();
     let mut has_non_crate_files = false;
+    let mut has_markdown = false;
 
-    for line in files.lines() {
+    for line in paths {
         let line = line.trim();
         if line.is_empty() {
             continue;
+        }
+        if line.ends_with(".md") {
+            has_markdown = true;
         }
         if line.starts_with("crates/") {
             let parts: Vec<&str> = line.split('/').collect();
@@ -1515,14 +1546,19 @@ fn get_changed_scope() -> Result<ChangedScope> {
     }
 
     if changed_crates.is_empty() && !has_non_crate_files {
-        return Ok(ChangedScope::None);
+        return ChangedScope::None;
     }
 
     if has_non_crate_files {
-        return Ok(ChangedScope::Workspace);
+        return ChangedScope::Workspace;
     }
 
-    Ok(ChangedScope::Crates(changed_crates.into_iter().collect()))
+    let mut crates: Vec<String> = changed_crates.into_iter().collect();
+    crates.sort();
+    ChangedScope::Crates {
+        crates,
+        has_markdown,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2544,12 +2580,8 @@ fn check_file_policy() -> Result<()> {
     let entries = parse_file_policy_allowlist(&allowlist_text)?;
     enforce_file_policy_expirations(&entries)?;
 
-    let tracked = git_output(&["ls-files"])?;
-    let files: Vec<String> = tracked
-        .lines()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect();
+    let tracked = git_output(&["ls-files", "--cached", "--others", "--exclude-standard"])?;
+    let files = file_policy_inventory_from_git_listing(&tracked);
 
     let mut unmatched: Vec<String> = Vec::new();
     let mut entry_hits: Vec<usize> = vec![0; entries.len()];
@@ -2600,7 +2632,7 @@ fn check_file_policy() -> Result<()> {
     if !stale.is_empty() {
         for entry in &stale {
             eprintln!(
-                "file-policy: stale entry pattern={} (no tracked file matched)",
+                "file-policy: stale entry pattern={} (no tracked or untracked non-ignored file matched)",
                 entry.pattern
             );
         }
@@ -2611,11 +2643,19 @@ fn check_file_policy() -> Result<()> {
     }
 
     println!(
-        "✅ file policy: {} tracked file(s) checked, {} allowlist entr(ies)",
+        "✅ file policy: {} tracked/untracked non-ignored file(s) checked, {} allowlist entr(ies)",
         files.len(),
         entries.len()
     );
     Ok(())
+}
+
+fn file_policy_inventory_from_git_listing(listing: &str) -> Vec<String> {
+    listing
+        .lines()
+        .map(|s| s.trim().replace('\\', "/"))
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 fn file_is_auto_allowed(path: &str) -> bool {
@@ -2641,6 +2681,412 @@ fn file_is_auto_allowed(path: &str) -> bool {
         return true;
     }
     false
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct MarkdownLocalLink {
+    line: usize,
+    target: String,
+}
+
+fn check_doc_links() -> Result<()> {
+    println!("🔎 Checking Markdown local links...");
+    let root = env::current_dir()?;
+    let inventory = git_doc_link_inventory(&root)?;
+    let stats = check_doc_links_with_inventory(&root, &inventory)?;
+    println!(
+        "✅ doc links: {} Markdown file(s), {} local link(s) checked",
+        stats.markdown_files, stats.checked_links
+    );
+    Ok(())
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct DocLinkCheckStats {
+    markdown_files: usize,
+    checked_links: usize,
+}
+
+#[derive(Debug)]
+struct DocLinkInventory {
+    markdown_files: Vec<PathBuf>,
+    target_paths: BTreeSet<String>,
+}
+
+#[cfg(test)]
+fn check_doc_links_at(root: &Path) -> Result<DocLinkCheckStats> {
+    let inventory = filesystem_doc_link_inventory(root)?;
+    check_doc_links_with_inventory(root, &inventory)
+}
+
+fn check_doc_links_with_inventory(
+    root: &Path,
+    inventory: &DocLinkInventory,
+) -> Result<DocLinkCheckStats> {
+    let mut missing = Vec::new();
+    let mut checked_links = 0usize;
+
+    for path in &inventory.markdown_files {
+        let text = fs::read_to_string(path)?;
+        let rel = relative_slash_path(root, path)?;
+        for link in markdown_local_links(&text) {
+            checked_links = checked_links.saturating_add(1);
+            match resolve_doc_link_target(root, path, &link.target)? {
+                Some(target) if inventory.target_paths.contains(&target) => {}
+                Some(_) => {
+                    missing.push(format!(
+                        "{}:{} missing local link target `{}`",
+                        rel, link.line, link.target
+                    ));
+                }
+                None => {
+                    missing.push(format!(
+                        "{}:{} local link target escapes the repository `{}`",
+                        rel, link.line, link.target
+                    ));
+                }
+            }
+        }
+    }
+
+    if !missing.is_empty() {
+        for item in missing.iter().take(40) {
+            eprintln!("doc-links: {item}");
+        }
+        if missing.len() > 40 {
+            eprintln!(
+                "doc-links: ... and {} more missing local link(s)",
+                missing.len().saturating_sub(40)
+            );
+        }
+        return Err(anyhow!(
+            "{} Markdown local link(s) point at missing files",
+            missing.len()
+        ));
+    }
+
+    Ok(DocLinkCheckStats {
+        markdown_files: inventory.markdown_files.len(),
+        checked_links,
+    })
+}
+
+fn git_doc_link_inventory(root: &Path) -> Result<DocLinkInventory> {
+    let output = git_output(&["ls-files", "--cached", "--others", "--exclude-standard"])?;
+    doc_link_inventory_from_repo_paths(root, output.lines())
+}
+
+#[cfg(test)]
+fn filesystem_doc_link_inventory(root: &Path) -> Result<DocLinkInventory> {
+    let mut inventory = DocLinkInventory {
+        markdown_files: Vec::new(),
+        target_paths: BTreeSet::new(),
+    };
+    collect_filesystem_doc_link_inventory(root, root, &mut inventory)?;
+    inventory.markdown_files.sort();
+    Ok(inventory)
+}
+
+fn doc_link_inventory_from_repo_paths<'a>(
+    root: &Path,
+    paths: impl IntoIterator<Item = &'a str>,
+) -> Result<DocLinkInventory> {
+    let mut inventory = DocLinkInventory {
+        markdown_files: Vec::new(),
+        target_paths: BTreeSet::new(),
+    };
+
+    for raw in paths {
+        let rel = raw.trim().replace('\\', "/");
+        if rel.is_empty() || should_skip_doc_link_rel(&rel) {
+            continue;
+        }
+        insert_doc_link_target_path(&mut inventory.target_paths, &rel);
+        if rel.ends_with(".md") {
+            inventory.markdown_files.push(root.join(slash_path(&rel)));
+        }
+    }
+
+    inventory.markdown_files.sort();
+    Ok(inventory)
+}
+
+fn insert_doc_link_target_path(targets: &mut BTreeSet<String>, rel: &str) {
+    targets.insert(rel.to_string());
+    let mut parent = Path::new(rel).parent();
+    while let Some(path) = parent {
+        let as_string = path.to_string_lossy().replace('\\', "/");
+        if as_string.is_empty() {
+            break;
+        }
+        targets.insert(as_string);
+        parent = path.parent();
+    }
+}
+
+#[cfg(test)]
+fn collect_filesystem_doc_link_inventory(
+    root: &Path,
+    dir: &Path,
+    inventory: &mut DocLinkInventory,
+) -> Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let Some(name) = file_name.to_str() else {
+            continue;
+        };
+
+        if path.is_dir() {
+            if should_skip_doc_link_dir(name) {
+                continue;
+            }
+            let rel = relative_slash_path(root, &path)?;
+            inventory.target_paths.insert(rel);
+            collect_filesystem_doc_link_inventory(root, &path, inventory)?;
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+            let rel = relative_slash_path(root, &path)?;
+            inventory.target_paths.insert(rel);
+            inventory.markdown_files.push(path);
+        } else {
+            let rel = relative_slash_path(root, &path)?;
+            inventory.target_paths.insert(rel);
+        }
+    }
+    Ok(())
+}
+
+fn should_skip_doc_link_dir(name: &str) -> bool {
+    matches!(
+        name,
+        ".git"
+            | "target"
+            | "node_modules"
+            | ".venv"
+            | "venv"
+            | ".mypy_cache"
+            | ".pytest_cache"
+            | "generated"
+            | "vendor"
+    )
+}
+
+fn should_skip_doc_link_rel(rel: &str) -> bool {
+    rel.split('/').any(should_skip_doc_link_dir)
+}
+
+fn markdown_local_links(text: &str) -> Vec<MarkdownLocalLink> {
+    let mut links = Vec::new();
+    let mut in_fence = false;
+    for (line_index, line) in text.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+
+        if let Some(raw) = markdown_reference_definition_target(line)
+            && let Some(target) = markdown_link_target(raw)
+            && is_local_markdown_target(&target)
+        {
+            links.push(MarkdownLocalLink {
+                line: line_index.saturating_add(1),
+                target,
+            });
+        }
+
+        let mut offset = 0usize;
+        while let Some(search) = line.get(offset..) {
+            let Some(open_rel) = search.find('[') else {
+                break;
+            };
+            let open = offset.saturating_add(open_rel);
+            if open > 0 && line.as_bytes().get(open.saturating_sub(1)) == Some(&b'!') {
+                offset = open.saturating_add(1);
+                continue;
+            }
+            let Some(open_tail) = line.get(open..) else {
+                break;
+            };
+            let Some(close_rel) = open_tail.find("](") else {
+                break;
+            };
+            let target_start = open.saturating_add(close_rel).saturating_add(2);
+            let Some(target_tail) = line.get(target_start..) else {
+                break;
+            };
+            let Some(close_paren_rel) = target_tail.find(')') else {
+                break;
+            };
+            let target_end = target_start.saturating_add(close_paren_rel);
+            let Some(raw) = line.get(target_start..target_end).map(str::trim) else {
+                break;
+            };
+            if let Some(target) = markdown_link_target(raw)
+                && is_local_markdown_target(&target)
+            {
+                links.push(MarkdownLocalLink {
+                    line: line_index.saturating_add(1),
+                    target,
+                });
+            }
+            offset = target_end.saturating_add(1);
+        }
+    }
+    links
+}
+
+fn markdown_reference_definition_target(line: &str) -> Option<&str> {
+    let trimmed = line.trim_start();
+    let rest = trimmed.strip_prefix('[')?;
+    let (_, target) = rest.split_once("]:")?;
+    Some(target.trim())
+}
+
+fn markdown_link_target(raw: &str) -> Option<String> {
+    if raw.is_empty() {
+        return None;
+    }
+    let target = if let Some(rest) = raw.strip_prefix('<') {
+        let end = rest.find('>')?;
+        rest.get(..end)?
+    } else {
+        raw.split_whitespace().next()?
+    };
+    let fragment_index = target.find('#');
+    let query_index = target.find('?');
+    let path_end = match (fragment_index, query_index) {
+        (Some(fragment), Some(query)) => fragment.min(query),
+        (Some(fragment), None) => fragment,
+        (None, Some(query)) => query,
+        (None, None) => target.len(),
+    };
+    let path = target.get(..path_end)?;
+    if path.is_empty() {
+        None
+    } else {
+        Some(path.to_string())
+    }
+}
+
+fn is_local_markdown_target(target: &str) -> bool {
+    if target.starts_with('#') || target.starts_with('/') || target.starts_with('\\') {
+        return false;
+    }
+    let lower = target.to_ascii_lowercase();
+    if lower.starts_with("http://")
+        || lower.starts_with("https://")
+        || lower.starts_with("mailto:")
+        || lower.starts_with("file:")
+        || lower.starts_with("app://")
+    {
+        return false;
+    }
+    if let Some((scheme, _)) = target.split_once(':')
+        && !scheme.is_empty()
+        && scheme
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'))
+    {
+        return false;
+    }
+    true
+}
+
+fn percent_decode_path(path: &str) -> PathBuf {
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0usize;
+    while let Some(&byte) = bytes.get(index) {
+        if byte == b'%'
+            && let (Some(high), Some(low)) = (
+                bytes
+                    .get(index.saturating_add(1))
+                    .and_then(|b| hex_value(*b)),
+                bytes
+                    .get(index.saturating_add(2))
+                    .and_then(|b| hex_value(*b)),
+            )
+        {
+            decoded.push(high.saturating_mul(16).saturating_add(low));
+            index = index.saturating_add(3);
+            continue;
+        }
+        decoded.push(byte);
+        index = index.saturating_add(1);
+    }
+    PathBuf::from(String::from_utf8_lossy(&decoded).replace('/', std::path::MAIN_SEPARATOR_STR))
+}
+
+fn resolve_doc_link_target(root: &Path, source: &Path, target: &str) -> Result<Option<String>> {
+    let base = source
+        .parent()
+        .unwrap_or(root)
+        .strip_prefix(root)
+        .map_err(|err| {
+            anyhow!(
+                "source {} is not under workspace root {}: {err}",
+                source.display(),
+                root.display()
+            )
+        })?;
+    let combined = base.join(percent_decode_path(target));
+    let Some(normalized) = normalize_repo_relative_path(&combined) else {
+        return Ok(None);
+    };
+    if normalized.as_os_str().is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(normalized.to_string_lossy().replace('\\', "/")))
+}
+
+fn normalize_repo_relative_path(path: &Path) -> Option<PathBuf> {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Normal(part) => normalized.push(part),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    return None;
+                }
+            }
+            Component::RootDir | Component::Prefix(_) => return None,
+        }
+    }
+    Some(normalized)
+}
+
+fn slash_path(path: &str) -> PathBuf {
+    PathBuf::from(path.replace('/', std::path::MAIN_SEPARATOR_STR))
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => byte.checked_sub(b'0'),
+        b'a'..=b'f' => byte
+            .checked_sub(b'a')
+            .and_then(|value| value.checked_add(10)),
+        b'A'..=b'F' => byte
+            .checked_sub(b'A')
+            .and_then(|value| value.checked_add(10)),
+        _ => None,
+    }
+}
+
+fn relative_slash_path(root: &Path, path: &Path) -> Result<String> {
+    let rel = path.strip_prefix(root).map_err(|err| {
+        anyhow!(
+            "path {} is not under workspace root {}: {err}",
+            path.display(),
+            root.display()
+        )
+    })?;
+    Ok(rel.to_string_lossy().replace('\\', "/"))
 }
 
 fn parse_file_policy_allowlist(text: &str) -> Result<Vec<FilePolicyEntry>> {
@@ -3320,6 +3766,7 @@ fn check_ci_lane_whitelist() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn publish_order_uses_workspace_dependency_order() -> Result<()> {
@@ -3512,6 +3959,270 @@ mod tests {
         }
     }
 
+    // ---- changed gate scope ---------------------------------------------
+
+    #[test]
+    fn changed_scope_detects_crate_rust_changes_without_doc_links() {
+        let scope =
+            changed_scope_from_paths(["crates/hl7v2/src/lib.rs", "crates/hl7v2-cli/src/main.rs"]);
+
+        assert_eq!(
+            scope,
+            ChangedScope::Crates {
+                crates: vec!["hl7v2".to_string(), "hl7v2-cli".to_string()],
+                has_markdown: false
+            }
+        );
+    }
+
+    #[test]
+    fn changed_scope_marks_crate_markdown_for_doc_link_check() {
+        let scope = changed_scope_from_paths(["crates/hl7v2/README.md"]);
+
+        assert_eq!(
+            scope,
+            ChangedScope::Crates {
+                crates: vec!["hl7v2".to_string()],
+                has_markdown: true
+            }
+        );
+    }
+
+    #[test]
+    fn changed_scope_includes_untracked_git_listing_entries() {
+        let scope = changed_scope_from_git_listings("", "crates/hl7v2/README.md\n");
+
+        assert_eq!(
+            scope,
+            ChangedScope::Crates {
+                crates: vec!["hl7v2".to_string()],
+                has_markdown: true
+            }
+        );
+    }
+
+    #[test]
+    fn changed_scope_promotes_non_crate_files_to_workspace() {
+        let scope = changed_scope_from_paths(["docs/CI_PIPELINE.md"]);
+
+        assert_eq!(scope, ChangedScope::Workspace);
+    }
+
+    #[test]
+    fn changed_scope_reports_none_for_empty_diff() {
+        let scope = changed_scope_from_paths(["", "   "]);
+
+        assert_eq!(scope, ChangedScope::None);
+    }
+
+    // ---- doc links -------------------------------------------------------
+
+    #[test]
+    fn markdown_local_links_extracts_only_local_inline_targets() {
+        let markdown = "\
+[local](docs/guide.md)
+![image](images/logo.png)
+[remote](https://example.com/docs/guide.md)
+[anchor](#section)
+[mail](mailto:team@example.com)
+[with title](docs/titled.md \"Title\")
+[angle](<docs/has space.md>)
+[encoded](docs/space%20file.md#section)
+[query](docs/query.md?plain=1)
+```markdown
+[fenced](docs/fenced.md)
+```
+[ref]: docs/ref.md
+";
+
+        let links = markdown_local_links(markdown);
+
+        assert_eq!(
+            links,
+            vec![
+                MarkdownLocalLink {
+                    line: 1,
+                    target: "docs/guide.md".to_string()
+                },
+                MarkdownLocalLink {
+                    line: 6,
+                    target: "docs/titled.md".to_string()
+                },
+                MarkdownLocalLink {
+                    line: 7,
+                    target: "docs/has space.md".to_string()
+                },
+                MarkdownLocalLink {
+                    line: 8,
+                    target: "docs/space%20file.md".to_string()
+                },
+                MarkdownLocalLink {
+                    line: 9,
+                    target: "docs/query.md".to_string()
+                },
+                MarkdownLocalLink {
+                    line: 13,
+                    target: "docs/ref.md".to_string()
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn check_doc_links_accepts_existing_relative_and_percent_encoded_targets() -> Result<()> {
+        let root = doc_link_temp_root("valid")?;
+        fs::create_dir_all(root.join("docs"))?;
+        fs::write(
+            root.join("README.md"),
+            "[ok](docs/ok.md)\n[encoded](docs/space%20file.md#section)\n",
+        )?;
+        fs::write(root.join("docs/ok.md"), "# OK\n")?;
+        fs::write(root.join("docs/space file.md"), "# Encoded\n")?;
+
+        let stats = check_doc_links_at(&root)?;
+
+        let expected = DocLinkCheckStats {
+            markdown_files: 3,
+            checked_links: 2,
+        };
+        if stats != expected {
+            return Err(anyhow!(
+                "expected doc link stats {expected:?}, got {stats:?}"
+            ));
+        }
+        remove_doc_link_temp_root(&root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_doc_links_reports_missing_relative_targets() -> Result<()> {
+        let root = doc_link_temp_root("missing")?;
+        fs::write(root.join("README.md"), "[missing](docs/missing.md)\n")?;
+
+        let err = check_doc_links_at(&root)
+            .err()
+            .ok_or_else(|| anyhow!("missing doc link should fail"))?;
+
+        if !err
+            .to_string()
+            .contains("1 Markdown local link(s) point at missing files")
+        {
+            return Err(anyhow!("unexpected error: {err}"));
+        }
+        remove_doc_link_temp_root(&root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_doc_links_rejects_repo_escape_targets() -> Result<()> {
+        let root = doc_link_temp_root("escape")?;
+        fs::write(root.join("README.md"), "[escape](../outside.md)\n")?;
+
+        let err = check_doc_links_at(&root)
+            .err()
+            .ok_or_else(|| anyhow!("escaping doc link should fail"))?;
+
+        if !err
+            .to_string()
+            .contains("1 Markdown local link(s) point at missing files")
+        {
+            return Err(anyhow!("unexpected error: {err}"));
+        }
+        remove_doc_link_temp_root(&root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn check_doc_links_requires_case_exact_repo_targets() -> Result<()> {
+        let root = doc_link_temp_root("case")?;
+        fs::create_dir_all(root.join("docs"))?;
+        fs::write(root.join("README.md"), "[case](Docs/ok.md)\n")?;
+        fs::write(root.join("docs/ok.md"), "# OK\n")?;
+
+        let err = check_doc_links_at(&root)
+            .err()
+            .ok_or_else(|| anyhow!("case-mismatched doc link should fail"))?;
+
+        if !err
+            .to_string()
+            .contains("1 Markdown local link(s) point at missing files")
+        {
+            return Err(anyhow!("unexpected error: {err}"));
+        }
+        remove_doc_link_temp_root(&root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn doc_link_inventory_includes_markdown_sources_and_parent_dirs() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let inventory = doc_link_inventory_from_repo_paths(
+            &root,
+            [
+                "README.md",
+                "docs/guides/first.md",
+                "docs/guides/assets/logo.svg",
+                "target/generated.md",
+                "generated/output.md",
+                "vendor/README.md",
+            ],
+        )?;
+
+        let markdown: Vec<String> = inventory
+            .markdown_files
+            .iter()
+            .map(|path| relative_slash_path(&root, path))
+            .collect::<Result<_>>()?;
+
+        if markdown != vec!["README.md", "docs/guides/first.md"] {
+            return Err(anyhow!("unexpected Markdown inventory: {markdown:?}"));
+        }
+        for expected in [
+            "README.md",
+            "docs",
+            "docs/guides",
+            "docs/guides/first.md",
+            "docs/guides/assets",
+            "docs/guides/assets/logo.svg",
+        ] {
+            if !inventory.target_paths.contains(expected) {
+                return Err(anyhow!("missing inventory target: {expected}"));
+            }
+        }
+        if inventory.target_paths.contains("target/generated.md") {
+            return Err(anyhow!("target directory should be skipped"));
+        }
+        if inventory.target_paths.contains("generated/output.md")
+            || inventory.target_paths.contains("vendor/README.md")
+        {
+            return Err(anyhow!("generated/vendor directories should be skipped"));
+        }
+        Ok(())
+    }
+
+    fn doc_link_temp_root(name: &str) -> Result<PathBuf> {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_nanos()
+            .to_string();
+        let root = env::temp_dir().join(format!(
+            "hl7v2-rs-xtask-doc-links-{name}-{}-{nonce}",
+            std::process::id()
+        ));
+        if root.exists() {
+            fs::remove_dir_all(&root)?;
+        }
+        fs::create_dir_all(&root)?;
+        Ok(root)
+    }
+
+    fn remove_doc_link_temp_root(root: &Path) -> Result<()> {
+        if root.exists() {
+            fs::remove_dir_all(root)?;
+        }
+        Ok(())
+    }
+
     // ---- glob_match ------------------------------------------------------
 
     #[test]
@@ -3541,6 +4252,25 @@ mod tests {
     }
 
     // ---- file-policy auto-allow -----------------------------------------
+
+    #[test]
+    fn file_policy_inventory_keeps_untracked_git_listing_entries() {
+        let listing = "\
+Cargo.toml
+docs\\README.md
+.github/workflows/python-pypi.yml
+
+";
+
+        assert_eq!(
+            file_policy_inventory_from_git_listing(listing),
+            vec![
+                "Cargo.toml",
+                "docs/README.md",
+                ".github/workflows/python-pypi.yml"
+            ]
+        );
+    }
 
     #[test]
     fn auto_allow_covers_rust_and_repo_metadata() {
