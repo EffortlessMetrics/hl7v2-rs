@@ -545,7 +545,7 @@ pub fn lint_profile_yaml(yaml: &str) -> ProfileLintReport {
             return ProfileLintReport::from_issues(vec![ProfileLintIssue::error(
                 "yaml_parse_error",
                 None,
-                err.to_string(),
+                profile_lint_yaml_error_message("profile YAML could not be parsed", err.location()),
             )]);
         }
     };
@@ -559,7 +559,10 @@ pub fn lint_profile_yaml(yaml: &str) -> ProfileLintReport {
             issues.push(ProfileLintIssue::error(
                 "profile_load_error",
                 None,
-                err.to_string(),
+                profile_lint_yaml_error_message(
+                    "profile YAML could not be loaded as a profile",
+                    err.location(),
+                ),
             ));
             return ProfileLintReport::from_issues(issues);
         }
@@ -567,6 +570,20 @@ pub fn lint_profile_yaml(yaml: &str) -> ProfileLintReport {
 
     lint_profile(&profile, &mut issues);
     ProfileLintReport::from_issues(issues)
+}
+
+fn profile_lint_yaml_error_message(
+    summary: &'static str,
+    location: Option<serde_yaml::Location>,
+) -> String {
+    match location {
+        Some(location) => format!(
+            "{summary} at line {}, column {}",
+            location.line(),
+            location.column()
+        ),
+        None => summary.to_string(),
+    }
 }
 
 fn lint_unknown_profile_keys(root: &serde_yaml::Value, issues: &mut Vec<ProfileLintIssue>) {

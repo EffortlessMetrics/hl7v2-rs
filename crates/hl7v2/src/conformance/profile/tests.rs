@@ -368,6 +368,25 @@ table_precedence:
     }
 
     #[test]
+    fn test_lint_profile_yaml_sanitizes_yaml_error_messages() {
+        let y = "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+
+        let report = lint_profile_yaml(y);
+
+        assert!(!report.valid);
+        assert_eq!(report.error_count, 1);
+        assert_eq!(report.issues[0].code, "yaml_parse_error");
+        assert!(
+            report.issues[0]
+                .message
+                .contains("profile YAML could not be parsed")
+        );
+        assert!(!report.issues[0].message.contains("Jane Secret"));
+        assert!(!report.issues[0].message.contains("MRN-SECRET-123"));
+        assert!(!report.issues[0].message.contains(y));
+    }
+
+    #[test]
     fn test_lint_profile_yaml_warns_for_ignored_top_level_keys() {
         let y = r#"
 message_structure: "ADT_A01"

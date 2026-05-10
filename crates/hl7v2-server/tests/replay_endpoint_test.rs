@@ -335,17 +335,19 @@ async fn test_replay_endpoint_rejects_unsafe_bundle_id() {
 #[tokio::test]
 async fn test_replay_endpoint_returns_not_found_for_missing_bundle_id() {
     let root = TempRoot::new("missing");
+    let sensitive_bundle_id = "MRN-SECRET-123";
 
     let (status, body, body_text) = post_json(
         test_router(Some(root.path().to_path_buf())),
         "/hl7/replay",
-        replay_body("missing-case"),
+        replay_body(sensitive_bundle_id),
     )
     .await;
 
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(body["code"], "BUNDLE_NOT_FOUND");
     assert_no_phi(&body_text);
+    assert!(!body_text.contains(sensitive_bundle_id));
     assert!(!body_text.contains(root.path().to_string_lossy().as_ref()));
 }
 

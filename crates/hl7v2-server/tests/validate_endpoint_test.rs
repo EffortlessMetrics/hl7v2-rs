@@ -108,10 +108,12 @@ async fn test_validate_malformed_message_returns_error() {
 #[tokio::test]
 async fn test_validate_invalid_profile_yaml_returns_error() {
     let app = common::create_test_router();
+    let sensitive_profile =
+        "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
 
     let request_body = json!({
         "message": common::fixtures::MINIMAL_VALID,
-        "profile": "invalid: yaml: structure:",
+        "profile": sensitive_profile,
         "mllp_framed": false
     });
 
@@ -120,8 +122,16 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let body_json: Value = serde_json::from_str(&body_text).unwrap();
     assert_eq!(body_json["code"], "PROFILE_LOAD_ERROR");
+    assert_eq!(
+        body_json["message"],
+        "profile could not be loaded; run profile lint for details"
+    );
+    assert!(!body_text.contains("Jane Secret"));
+    assert!(!body_text.contains("MRN-SECRET-123"));
+    assert!(!body_text.contains(sensitive_profile));
 }
 
 #[tokio::test]
@@ -143,8 +153,15 @@ segments:
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
-    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let body_json: Value = serde_json::from_str(&body_text).unwrap();
     assert_eq!(body_json["code"], "PROFILE_LOAD_ERROR");
+    assert_eq!(
+        body_json["message"],
+        "profile could not be loaded; run profile lint for details"
+    );
+    assert!(!body_text.contains("missing field"));
+    assert!(!body_text.contains("segments"));
 }
 
 #[tokio::test]
