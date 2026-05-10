@@ -2,7 +2,7 @@
 
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
-> **Last Updated**: 2026-05-09
+> **Last Updated**: 2026-05-10
 > **Project Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 
 ## Core Components
@@ -41,7 +41,7 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Published Rust graph**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.4.0 are published and visible in the crates.io index. See `docs/audits/publish-v1.4.0-2026-05-09.md`.
 - ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See `docs/audits/publish-dry-run-v1.4.0-2026-05-09.md`.
-- 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io. The v1.4.0 binding is verified through a maturin wheel build/install/import smoke lane; current `main` also has a manual TestPyPI proof workflow before any production PyPI release. The non-publishing workflow mode passed on `main`; the TestPyPI upload/install-back mode has not been run.
+- 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io. The v1.4.0 binding is verified through a maturin wheel build/install/import smoke lane; current `main` also has a manual TestPyPI proof workflow before any production PyPI release. The non-publishing workflow mode passed on `main`; the TestPyPI upload/install-back mode and production PyPI release have not been run. A 2026-05-10 package-state check found no visible `hl7v2-python` package on TestPyPI or production PyPI.
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1`, `v1.3.0`, and `v1.4.0` tags point at their release heads.
 
@@ -56,6 +56,11 @@ validation through `xtask evidence-schema-check`, server replay and inline
 corpus endpoints, redacted structured evidence logs, Docker sidecar smoke
 coverage, broader PHI sentinel tests, Python/TestPyPI proof, and the server
 bundle replay message-type fix.
+
+For navigation across current docs, historical receipts, and evidence workflow
+guides, start with [the documentation index](README.md). For the current
+source-tree truth audit and local workbench split boundary, see
+[`docs/audits/current-source-tree-evidence-objective-gap-audit.md`](audits/current-source-tree-evidence-objective-gap-audit.md).
 
 | Area | Status | Notes |
 |------|--------|-------|
@@ -87,6 +92,7 @@ Release notes: [`docs/releases/v1.4.0-evidence-contracts.md`](releases/v1.4.0-ev
 Dry-run receipt: [`docs/audits/publish-dry-run-v1.4.0-2026-05-09.md`](audits/publish-dry-run-v1.4.0-2026-05-09.md).
 Publish receipt: [`docs/audits/publish-v1.4.0-2026-05-09.md`](audits/publish-v1.4.0-2026-05-09.md).
 Objective audit: [`docs/audits/v1.4.0-objective-completion-audit.md`](audits/v1.4.0-objective-completion-audit.md).
+Current source-tree truth audit: [`docs/audits/current-source-tree-evidence-objective-gap-audit.md`](audits/current-source-tree-evidence-objective-gap-audit.md).
 
 - ✅ **Publish plan**: `cargo run -p xtask -- publish-plan` resolves `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Evidence schemas**: `cargo run -p xtask -- evidence-schema-check` passes on the v1.4.0 package line.
