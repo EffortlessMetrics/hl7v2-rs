@@ -2913,6 +2913,39 @@ struct CiRiskPack {
     deep_lanes: Vec<String>,
 }
 
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+struct CiDate {
+    year: u16,
+    month: u8,
+    day: u8,
+}
+
+fn parse_ci_date(value: &str, context: &str) -> Result<CiDate> {
+    let mut parts = value.split('-');
+    let year = parts
+        .next()
+        .and_then(|p| p.parse::<u16>().ok())
+        .ok_or_else(|| anyhow!("{context}: invalid date `{value}`; expected YYYY-MM-DD"))?;
+    let month = parts
+        .next()
+        .and_then(|p| p.parse::<u8>().ok())
+        .ok_or_else(|| anyhow!("{context}: invalid date `{value}`; expected YYYY-MM-DD"))?;
+    let day = parts
+        .next()
+        .and_then(|p| p.parse::<u8>().ok())
+        .ok_or_else(|| anyhow!("{context}: invalid date `{value}`; expected YYYY-MM-DD"))?;
+    if parts.next().is_some()
+        || value.len() != 10
+        || !matches!(month, 1..=12)
+        || !matches!(day, 1..=31)
+    {
+        return Err(anyhow!(
+            "{context}: invalid date `{value}`; expected YYYY-MM-DD"
+        ));
+    }
+    Ok(CiDate { year, month, day })
+}
+
 fn parse_ci_lane_whitelist(text: &str) -> Result<Vec<CiLaneEntry>> {
     let raw_entries = table_array_entries(text, "[[lane]]");
     let mut out = Vec::with_capacity(raw_entries.len());
@@ -2931,6 +2964,10 @@ fn parse_ci_lane_whitelist(text: &str) -> Result<Vec<CiLaneEntry>> {
         let failure_mode = field("failure_mode")?;
         let proof_obligation = field("proof_obligation")?;
         let expires = field("expires")?;
+        parse_ci_date(
+            &expires,
+            &format!("ci-lane-whitelist.toml entry {n} (id={id}) expires"),
+        )?;
         let evidence = string_array_after_root(raw, "evidence").unwrap_or_default();
         let duplicate_of = string_array_after_root(raw, "duplicate_of").unwrap_or_default();
         let default_pr = top_level_quoted_value(raw, "default_pr")
@@ -2988,6 +3025,10 @@ fn parse_ci_exceptions(text: &str) -> Result<Vec<CiException>> {
         let id = field("id")?;
         let lane = field("lane")?;
         let expires = field("expires")?;
+        parse_ci_date(
+            &expires,
+            &format!("ci-whitelist-exceptions.toml entry {n} (id={id}) expires"),
+        )?;
         let allowed = top_level_quoted_value(raw, "allowed")
             .map(|v| v == "true")
             .unwrap_or(false);
@@ -3090,7 +3131,7 @@ fn today_iso() -> String {
             }
         }
     }
-    "0000-00-00".to_string()
+    "1970-01-01".to_string()
 }
 
 fn check_ci_lane_whitelist() -> Result<()> {
@@ -3109,15 +3150,28 @@ fn check_ci_lane_whitelist() -> Result<()> {
     let risk_packs = parse_ci_risk_packs(&risk_pack_text);
 
     let today = today_iso();
-    let lane_ids: HashSet<String> = lanes.iter().map(|l| l.id.clone()).collect();
-    let exception_by_id: HashMap<String, &CiException> =
-        exceptions.iter().map(|e| (e.id.clone(), e)).collect();
+    let today_date = parse_ci_date(&today, "current date")?;
+    let mut lane_ids: HashSet<String> = HashSet::new();
+    let mut exception_by_id: HashMap<String, &CiException> = HashMap::new();
 
     let mut warnings: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
 
+    for lane in &lanes {
+        if !lane_ids.insert(lane.id.clone()) {
+            errors.push(format!("duplicate CI lane id '{}'", lane.id));
+        }
+    }
+
     for ex in &exceptions {
-        if ex.expires.as_str() < today.as_str() {
+        if exception_by_id.insert(ex.id.clone(), ex).is_some() {
+            errors.push(format!("duplicate CI exception id '{}'", ex.id));
+        }
+    }
+
+    for ex in &exceptions {
+        let expires = parse_ci_date(&ex.expires, "exception expires")?;
+        if expires < today_date {
             warnings.push(format!(
                 "exception '{}' for lane '{}' expired on {} (today: {}); update or remove",
                 ex.id, ex.lane, ex.expires, today
@@ -3132,7 +3186,8 @@ fn check_ci_lane_whitelist() -> Result<()> {
     }
 
     for lane in &lanes {
-        if lane.expires.as_str() < today.as_str() {
+        let expires = parse_ci_date(&lane.expires, "lane expires")?;
+        if expires < today_date {
             warnings.push(format!(
                 "lane '{}' `expires` date {} has passed (today: {}); review required",
                 lane.id, lane.expires, today
@@ -3203,13 +3258,20 @@ fn check_ci_lane_whitelist() -> Result<()> {
                         ));
                     }
                     Some(ex) => {
+                        if ex.lane != lane.id {
+                            errors.push(format!(
+                                "lane '{}' default_pr_exception '{}' belongs to lane '{}'",
+                                lane.id, exc_id, ex.lane
+                            ));
+                        }
                         if !ex.allowed {
                             errors.push(format!(
                                 "lane '{}' default_pr_exception '{}' has allowed=false",
                                 lane.id, exc_id
                             ));
                         }
-                        if ex.expires.as_str() < today.as_str() {
+                        let expires = parse_ci_date(&ex.expires, "exception expires")?;
+                        if expires < today_date {
                             errors.push(format!(
                                 "lane '{}' default_pr_exception '{}' expired on {}; remove expensive=true or renew exception",
                                 lane.id, exc_id, ex.expires

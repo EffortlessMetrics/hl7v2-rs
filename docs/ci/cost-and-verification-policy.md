@@ -43,7 +43,7 @@ usually stay below 35 LEM and preferably below $0.50 (≈ 62 LEM at $0.008/LEM).
 
 ### Default PR path (every ordinary PR)
 
-```
+```text
 PR Plan (LEM estimate, risk pack classification)
 CI lane whitelist / policy checks
 Rust Fast Gate

@@ -95,6 +95,7 @@ paths = [
   ".github/pull_request_template.md",
   "policy/ci-*.toml",
   "scripts/ci/**",
+  "xtask/**",
   "docs/ci/**",
 ]
 lanes = ["fast_checks", "standard_tests", "msrv_smoke", "ci_success"]

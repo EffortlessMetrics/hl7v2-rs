@@ -30,7 +30,7 @@ Runner multipliers convert other platform costs:
 The PR Plan job (`pr-plan.yml`) classifies the diff against risk packs defined in
 `policy/ci-risk-packs.toml` and computes a forecast:
 
-```
+```text
 estimated_lem = sum(lane.base_lem × runner_multiplier for each triggered lane)
 ```
 
@@ -38,7 +38,7 @@ Cache hits reduce wall-clock time. The static `base_lem` for each lane is a pess
 estimate assuming no cache hit. Once actuals accumulate (`ci-actuals.json`), the system
 transitions to learned estimates:
 
-```
+```text
 estimate = max(static_floor, p50_recent_actual × 1.15)
 warning  = p90_recent_actual
 hard plan = p95_recent_actual

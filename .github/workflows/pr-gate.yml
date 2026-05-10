@@ -74,7 +74,11 @@ jobs:
       - name: Verify markdown is readable
         run: |
           echo "Docs-only PR: skipping Rust gate"
-          find docs -name '*.md' -print | wc -l
+          if [ -d docs ]; then
+            find docs -name '*.md' -print | wc -l
+          else
+            echo "docs/ directory not present"
+          fi
 
   # ---------------------------------------------------------------------------
   # Summary: PR Gate Success
@@ -114,15 +118,9 @@ jobs:
             exit 0
           fi
 
-          # merge_group: plan skipped, rust must pass
+          # merge_group/workflow_dispatch: plan skipped, rust must pass
           if [ "$PLAN" = "skipped" ] && [ "$RUST" = "success" ]; then
-            echo "✅ Rust gate passed (merge group)"
-            exit 0
-          fi
-
-          # workflow_dispatch: plan skipped, rust must pass
-          if [ "$PLAN" = "skipped" ] && [ "$RUST" = "success" ]; then
-            echo "✅ Rust gate passed (workflow_dispatch)"
+            echo "✅ Rust gate passed (${GITHUB_EVENT_NAME})"
             exit 0
           fi
 

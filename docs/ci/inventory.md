@@ -34,9 +34,8 @@ Ordinary PRs now run:
 | `ci_success`     |        1 |
 | **Total**        |   **40** |
 
-This is within the 35 LEM preferred target for most PRs. The 5 LEM overage
-comes from the MSRV smoke check which verifies the minimum supported Rust
-version on every PR — a cheap compile-only check that prevents MSRV regressions.
+Most PRs target 35 LEM. The MSRV smoke check adds a 5 LEM compile-only overage
+for a 40 LEM default path that prevents minimum-supported-Rust regressions.
 
 ## LEM Savings from PR 07
 
@@ -69,8 +68,11 @@ On `push` to `main`, the following additional lanes run beyond default PRs:
 - `matrix_tests` (full platform fan-out)
 - `extended_property_tests` (PROPTEST_CASES=1000)
 - `benchmarks`
-- `nightly` (via nightly.yml schedule)
 - `coverage` (via coverage.yml)
+
+## Scheduled Lanes
+
+- `nightly` (via the `nightly.yml` schedule)
 
 ## Exceptions
 

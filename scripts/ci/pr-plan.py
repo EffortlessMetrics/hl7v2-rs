@@ -51,7 +51,7 @@ def path_matches(path: str, patterns: list[str]) -> bool:
         if fnmatch.fnmatch(path, pat):
             return True
         # Also match as prefix
-        if pat.endswith("/**") and path.startswith(pat[:-3]):
+        if pat.endswith("/**") and path.startswith(pat[:-2]):
             return True
     return False
 
@@ -95,6 +95,9 @@ def classify_diff(
             matched_packs.append(pack_name)
             for lane in pack.get("lanes", []):
                 triggered_lanes.add(lane)
+            # Path-triggered deep lanes are awareness signals, not paid/default
+            # routing. Label overrides below intentionally promote deep_lanes
+            # into triggered_lanes per docs/ci/cost-and-verification-policy.md.
             for lane in pack.get("deep_lanes", []):
                 triggered_deep.add(lane)
 
@@ -257,11 +260,12 @@ def main() -> None:
 
     labels = [l.strip() for l in args.labels.split(",") if l.strip()]
 
-    budget = load_toml(BUDGET_PATH)
+    budget_doc = load_toml(BUDGET_PATH)
     risk_packs = load_toml(RISK_PACKS_PATH)
     whitelist = load_toml(LANE_WHITELIST_PATH)
     lane_list = whitelist.get("lane", [])
-    runner_multipliers = budget.get("runner_multipliers", {})
+    runner_multipliers = budget_doc.get("runner_multipliers", {})
+    budget = budget_doc.get("budget", budget_doc)
 
     changed = changed_files(args.base, args.head)
     classification = classify_diff(changed, risk_packs, labels, lane_list)
@@ -301,7 +305,7 @@ def main() -> None:
             summary_path,
             classification,
             estimate,
-            budget.get("budget", budget),
+            budget,
             labels,
         )
 
@@ -314,11 +318,13 @@ def main() -> None:
     # Set GitHub Actions output variables
     ga_output = os.environ.get("GITHUB_OUTPUT", "")
     if ga_output:
-        with open(ga_output, "a") as f:
+        with open(ga_output, "a", encoding="utf-8") as f:
             f.write(f"docs_only={'true' if classification['docs_only'] else 'false'}\n")
             f.write(f"estimated_lem={estimate['total_lem']}\n")
             f.write(f"tier={tier}\n")
-            f.write(f"matched_packs={','.join(classification['matched_packs'])}\n")
+            f.write("matched_packs<<CI_PLAN_MATCHED_PACKS\n")
+            f.write(f"{','.join(classification['matched_packs'])}\n")
+            f.write("CI_PLAN_MATCHED_PACKS\n")
 
 
 if __name__ == "__main__":
