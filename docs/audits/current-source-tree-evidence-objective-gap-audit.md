@@ -44,7 +44,9 @@ narrow PRs.
   Rust crates.io graph.
 - The repository now has policy rails for Python publishing, including manual
   TestPyPI proof controls and production PyPI guardrails.
-- TestPyPI upload/install-back proof has not been run from current `main`.
+- A 2026-05-10 TestPyPI upload/install-back attempt was run from current
+  `main`; wheel build and smoke passed, but upload failed with
+  `invalid-publisher` because the TestPyPI Trusted Publisher is not configured.
 - Production PyPI publication has not been run and still requires explicit
   release approval.
 - Old microcrate package names remain historical artifacts, not the current
@@ -68,8 +70,8 @@ narrow PRs.
 The source-tree split is complete. Remaining gaps are release-process actions,
 not hidden local code:
 
-1. Run the guarded TestPyPI upload/install-back proof from clean `main` when
-   the Python lane is ready for an external package rehearsal.
+1. Configure the TestPyPI Trusted Publisher for `hl7v2-python`, then rerun
+   the guarded TestPyPI upload/install-back proof from clean `main`.
 2. Keep production PyPI blocked until an explicit release decision approves it.
 3. Keep future evidence, server, Python, and policy work in separate PR lanes.
 

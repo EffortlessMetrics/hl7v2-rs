@@ -119,6 +119,9 @@ After the upload/install-back proof passes, use
 [Python PyPI Release](python-pypi-release.md) for the guarded production PyPI
 release path.
 
-Current status: the non-publishing proof is complete for current `main`; the
-TestPyPI upload/install-back mode remains intentionally unrun until a separate
-distribution decision confirms the trusted-publisher setup and version.
+Current status: the non-publishing proof is complete. A 2026-05-10
+publishing-mode run from `main` built and smoke-tested the wheel, then failed
+during Trusted Publishing token exchange with `invalid-publisher`; see
+[docs/audits/python-testpypi-publish-attempt-2026-05-10.md](../audits/python-testpypi-publish-attempt-2026-05-10.md).
+The TestPyPI upload/install-back proof remains incomplete until the TestPyPI
+Trusted Publisher is configured and a rerun passes.

@@ -41,6 +41,7 @@ with the current sources below before reading older planning documents.
 | [v1.4.0 publish dry-run receipt](audits/publish-dry-run-v1.4.0-2026-05-09.md) | Package verification before upload. |
 | [v1.4.0 publish receipt](audits/publish-v1.4.0-2026-05-09.md) | Dependency-ordered crates.io publication proof. |
 | [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps `hl7v2-python` outside the Rust crates.io graph. |
+| [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |
 
 ## Current Boundaries
 
