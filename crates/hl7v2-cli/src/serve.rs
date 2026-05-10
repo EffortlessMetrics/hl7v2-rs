@@ -5,13 +5,15 @@
 //! - gRPC server (optional, behind feature flag)
 //! - Graceful shutdown via Ctrl+C
 
+use std::ffi::OsString;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
-use hl7v2_server::Server;
+use hl7v2_server::{Server, ServerConfig};
 
 /// Server mode from CLI
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -46,7 +48,7 @@ pub async fn run_server(
 
     match server_mode {
         ServerMode::Http => run_http_server(&bind_address, max_body_size).await,
-        ServerMode::Grpc => run_grpc_server(&bind_address).await,
+        ServerMode::Grpc => run_grpc_server(&bind_address, max_body_size).await,
     }
 }
 
@@ -60,11 +62,7 @@ async fn run_http_server(
     // Create shutdown signal
     let shutdown = setup_shutdown_signal();
 
-    // Build server configuration
-    let server = Server::builder()
-        .bind(bind_address)
-        .max_body_size(max_body_size)
-        .build();
+    let server = build_server_from_cli_args(bind_address, max_body_size)?;
 
     info!("Server configuration:");
     info!("  Bind address: {}", bind_address);
@@ -99,14 +97,101 @@ async fn run_http_server(
 }
 
 /// Run the gRPC server.
-async fn run_grpc_server(bind_address: &str) -> Result<(), Box<dyn std::error::Error>> {
-    warn!("gRPC server mode is not yet implemented");
-    info!("gRPC server would bind to: {}", bind_address);
+async fn run_grpc_server(
+    bind_address: &str,
+    max_body_size: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    info!("Starting HL7 v2 gRPC server on {}", bind_address);
 
-    // Feature: Implement gRPC server when tonic integration is ready
-    // This would use the hl7v2-server crate's gRPC functionality
+    let shutdown = setup_shutdown_signal();
+    let server = build_server_from_cli_args(bind_address, max_body_size)?;
 
-    Err("gRPC server mode is not yet implemented. Use --mode http for now.".into())
+    info!("Server configuration:");
+    info!("  Bind address: {}", bind_address);
+    info!("  Transport: gRPC");
+    info!("  RPCs:");
+    info!("    Parse, ParseStream, Validate, ValidateRedacted");
+    info!("    GenerateAck, Normalize, HealthCheck");
+    info!("");
+    info!("Press Ctrl+C to shutdown gracefully");
+
+    tokio::select! {
+        result = server.serve_grpc() => {
+            match result {
+                Ok(()) => info!("gRPC server shutdown normally"),
+                Err(e) => {
+                    error!("gRPC server error: {}", e);
+                    return Err(e.into());
+                }
+            }
+        }
+        _ = shutdown => {
+            info!("Shutdown signal received, stopping gRPC server...");
+        }
+    }
+
+    info!("gRPC server stopped");
+    Ok(())
+}
+
+fn build_server_from_cli_args(
+    bind_address: &str,
+    max_body_size: usize,
+) -> Result<Server, Box<dyn std::error::Error>> {
+    let config = server_config_from_cli_args(bind_address, max_body_size)?;
+    Ok(Server::new(config))
+}
+
+fn server_config_from_cli_args(
+    bind_address: &str,
+    max_body_size: usize,
+) -> Result<ServerConfig, Box<dyn std::error::Error>> {
+    let config_path = std::env::var_os("HL7V2_CONFIG").map(std::path::PathBuf::from);
+    server_config_from_cli_sources(
+        CliServerConfigSources {
+            config_path: config_path.as_deref(),
+            api_key: std::env::var("HL7V2_API_KEY").ok(),
+            cors_allowed_origins: std::env::var("HL7V2_CORS_ALLOWED_ORIGINS").ok(),
+            profile_paths: std::env::var_os("HL7V2_PROFILE_PATHS"),
+            bundle_output_root: std::env::var_os("HL7V2_BUNDLE_OUTPUT_ROOT"),
+        },
+        bind_address,
+        max_body_size,
+    )
+}
+
+struct CliServerConfigSources<'a> {
+    config_path: Option<&'a Path>,
+    api_key: Option<String>,
+    cors_allowed_origins: Option<String>,
+    profile_paths: Option<OsString>,
+    bundle_output_root: Option<OsString>,
+}
+
+fn server_config_from_cli_sources(
+    sources: CliServerConfigSources<'_>,
+    bind_address: &str,
+    max_body_size: usize,
+) -> Result<ServerConfig, Box<dyn std::error::Error>> {
+    let config = ServerConfig::from_sources(
+        sources.config_path,
+        None,
+        sources.api_key,
+        sources.cors_allowed_origins,
+        sources.profile_paths,
+        sources.bundle_output_root,
+    )?;
+    Ok(apply_cli_server_args(config, bind_address, max_body_size))
+}
+
+fn apply_cli_server_args(
+    mut config: ServerConfig,
+    bind_address: &str,
+    max_body_size: usize,
+) -> ServerConfig {
+    config.bind_address = bind_address.to_string();
+    config.max_body_size = max_body_size;
+    config
 }
 
 /// Setup Ctrl+C shutdown signal handler.
@@ -154,14 +239,99 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_grpc_not_implemented() {
-        let result = run_grpc_server("127.0.0.1:50051").await;
+    async fn test_grpc_invalid_bind_address_fails_before_serving() {
+        let result = run_grpc_server("not-a-bind-address", 1024).await;
         assert!(result.is_err());
         assert!(
             result
                 .unwrap_err()
                 .to_string()
-                .contains("not yet implemented")
+                .contains("Invalid bind address")
+        );
+    }
+
+    #[test]
+    fn test_cli_server_args_preserve_security_and_evidence_config() {
+        let config = ServerConfig {
+            api_key: Some("grpc-secret".to_string()),
+            bundle_output_root: Some(std::path::PathBuf::from("bundle-root")),
+            quarantine: hl7v2_server::models::QuarantineConfig {
+                enabled: true,
+                path: Some(std::path::PathBuf::from("quarantine-root")),
+                write_redacted: true,
+                write_report: true,
+                write_bundle: true,
+            },
+            ..ServerConfig::default()
+        };
+
+        let config = apply_cli_server_args(config, "127.0.0.1:50051", 65_536);
+
+        assert_eq!(config.bind_address, "127.0.0.1:50051");
+        assert_eq!(config.max_body_size, 65_536);
+        assert_eq!(config.api_key.as_deref(), Some("grpc-secret"));
+        assert_eq!(
+            config.bundle_output_root,
+            Some(std::path::PathBuf::from("bundle-root"))
+        );
+        assert!(config.quarantine.enabled);
+        assert_eq!(
+            config.quarantine.path,
+            Some(std::path::PathBuf::from("quarantine-root"))
+        );
+    }
+
+    #[test]
+    fn test_cli_server_sources_load_security_and_evidence_config_before_cli_bind_override() {
+        let dir = tempfile::tempdir().expect("tempdir should be created");
+        let config_path = dir.path().join("server.toml");
+        std::fs::write(
+            &config_path,
+            r#"
+[server]
+host = "0.0.0.0"
+port = 18080
+api_key = "file-secret"
+bundle_output_root = "file-bundles"
+
+[quarantine]
+enabled = true
+path = "file-quarantine"
+write_redacted = true
+write_report = true
+write_bundle = true
+"#,
+        )
+        .expect("config should be written");
+
+        let config = server_config_from_cli_sources(
+            CliServerConfigSources {
+                config_path: Some(&config_path),
+                api_key: Some("env-secret".to_string()),
+                cors_allowed_origins: Some("https://example.test".to_string()),
+                profile_paths: None,
+                bundle_output_root: Some(OsString::from("env-bundles")),
+            },
+            "127.0.0.1:50051",
+            65_536,
+        )
+        .expect("config sources should load");
+
+        assert_eq!(config.bind_address, "127.0.0.1:50051");
+        assert_eq!(config.max_body_size, 65_536);
+        assert_eq!(config.api_key.as_deref(), Some("env-secret"));
+        assert_eq!(
+            config.bundle_output_root,
+            Some(std::path::PathBuf::from("env-bundles"))
+        );
+        assert!(config.quarantine.enabled);
+        assert_eq!(
+            config.quarantine.path,
+            Some(std::path::PathBuf::from("file-quarantine"))
+        );
+        assert_eq!(
+            config.cors_allowed_origins,
+            hl7v2_server::server::CorsAllowedOrigins::list(["https://example.test"])
         );
     }
 }

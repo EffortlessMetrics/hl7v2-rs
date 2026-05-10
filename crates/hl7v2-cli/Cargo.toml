@@ -41,10 +41,15 @@ tempfile = "3.19"
 hl7v2-test-utils = { path = "../hl7v2-test-utils" }
 cucumber = { version = "0.22", default-features = false, features = ["macros"] }
 futures = "0.3"
+tonic = { workspace = true }
 
 [[test]]
 name = "integration_tests"
 path = "tests/integration_tests.rs"
+
+[[test]]
+name = "serve_grpc_contract_test"
+path = "tests/serve_grpc_contract_test.rs"
 
 [[test]]
 name = "bdd_tests"

@@ -51,7 +51,7 @@ subtle = "2.6.1"
 tonic = { workspace = true }
 prost = { workspace = true }
 prost-types = "0.13"
-tokio-stream = "0.1.18"
+tokio-stream = { version = "0.1.18", features = ["net"] }
 
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }
