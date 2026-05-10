@@ -6,18 +6,25 @@ Updated: 2026-05-09 after the v1.3.0 Evidence Loop release hardening pass,
 the redacted structured server logging pass, and post-v1.4.0 gRPC
 `ParseStream` / `ValidateRedacted` parity work.
 
+Refreshed: 2026-05-10 after the CI economics governance lane merged and the
+evidence loop docs, schemas, guides, sidecar smoke, metrics, and Python
+TestPyPI proof surfaces were inspected as current-main artifacts.
+
 ## Purpose
 
 This audit records the evidence-loop state after the product-usefulness lane
 added first-run diagnostics, typed validation reports, profile commands, corpus
 observability, safe redaction, evidence bundle/replay, Python API parity, and
-the v1.3.0 contract-hardening pass.
+the v1.4.0 evidence-contract hardening pass.
 
 The goal is to keep the next hardening work concrete. The loop now has JSON
 Schemas, golden fixtures, CLI output semantics, bundle manifest verification,
-server parity, redacted structured server logs, Python bundle/replay APIs, and
-gRPC parse-stream plus redacted-validation evidence parity; the remaining gaps
-are narrower deployment-proof and distribution-readiness details.
+server parity, redacted structured server logs, Python bundle/replay APIs, gRPC
+parse-stream plus redacted-validation evidence parity, deployment proof, and
+manual Python distribution-proof rails now exist. Remaining gaps are narrower:
+new evidence surfaces must keep using explicit contract versions, and the
+TestPyPI upload/install-back mode remains a separate manual proof before any
+production PyPI decision.
 
 ## Current Product Loop
 
@@ -114,17 +121,18 @@ Current behavior is script-grade:
 
 ## Known Contract Gaps
 
-The evidence loop is contract-grade enough for the v1.3.0 release and current
-post-release hardening line: schemas, goldens, CLI output semantics, manifest
-verification, server edge-guard routes, redacted structured logs, Python parity,
-user guides, and documented evidence null/empty semantics are in place.
+The evidence loop is contract-grade enough for the v1.4.0 release line and
+current main: schemas, goldens, CLI output semantics, manifest verification,
+server edge-guard routes, redacted structured logs, Python parity, user guides,
+deployment smoke rails, and documented evidence null/empty semantics are in
+place.
 Remaining hardening work:
 
-1. Keep closing the few artifact/version identity gaps that remain.
+1. Keep v2 outputs explicit opt-ins and preserve v1 default compatibility.
    The compatibility plan is documented in
    [`../architecture/evidence-provenance-versioning.md`](../architecture/evidence-provenance-versioning.md);
-   implementation should continue through explicit v2 schema/type PRs, not
-   silent v1 shape changes.
+   new provenance-bearing fields should continue through explicit schema/type
+   work, not silent v1 shape changes.
 2. Expand PHI leak sentinels beyond the current synthetic patient/contact
    fixture family as new evidence surfaces or policy modes are added.
 3. Promote shared report types out of CLI-local structs when server or Python
@@ -137,12 +145,15 @@ Remaining hardening work:
 | Inspected CLI command definitions and formatters | Pass | `doctor`, `profile`, `corpus`, `redact`, `bundle`, and `replay` commands are present. |
 | Inspected shared Rust validation and corpus types | Pass | `ValidationReport`, `ProfileLintReport`, `CorpusSummary`, `CorpusFingerprint`, and `CorpusDiffReport` are library types. |
 | Inspected server validation handlers and response models | Pass | `/hl7/validate` builds `ValidationReport`; `/hl7/validate-redacted` returns a validation report plus redaction receipt. |
+| Inspected server inline corpus handlers and models | Pass | `/hl7/corpus/summarize`, `/hl7/corpus/fingerprint`, and `/hl7/corpus/diff` accept inline message arrays and labels, not request-supplied filesystem paths. |
+| Inspected redacted structured log helpers | Pass | Evidence workflow logs hash message-control, bundle, and fixture identifiers and avoid raw HL7, profile YAML, redaction policy TOML, configured filesystem roots, and raw bundle IDs. |
 | Inspected Python binding API | Pass | Python exposes parse, JSON conversion, normalization, validation report dict/JSON access, corpus summary/fingerprint/diff dict outputs, safe-analysis redaction output, bundle creation, and replay verification. |
 | Checked existing integration tests | Pass | CLI tests cover JSON outputs, redaction no-PHI assertions, bundle artifacts, replay success, replay drift failure, and missing-artifact failure. |
 
 ## Result
 
-The evidence loop is real enough to harden. The next work should not add broad
-new features first; it should make the existing artifacts easier to operate and
-audit with a single contract index, repeatable schema checks, deployment proof,
-and Python distribution proof.
+The evidence loop is real and documented enough to operate as the current trust
+surface. The next work should stay narrow: preserve the contract index and
+`evidence-schema-check` gate, keep deployment and PHI sentinel coverage current
+as server behavior changes, and run the publishing TestPyPI proof before any
+production PyPI decision.

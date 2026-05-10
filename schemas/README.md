@@ -100,7 +100,8 @@ with `corpus_summary(..., schema_version=2)`,
 `corpus_fingerprint(..., schema_version=2)`, and
 `corpus_diff(..., schema_version=2)`. Server inline corpus endpoints expose the
 same opt-in shapes through `summary_schema_version`, `fingerprint_schema_version`,
-and `diff_schema_version` request fields; defaults remain v1.
+and `diff_schema_version` request fields; requests carry inline messages and
+safe labels, not filesystem corpus paths; defaults remain v1.
 Redaction receipts can opt into their target v2 shape with
 `hl7v2 redact --format json --schema-version 2`, Python
 `redact(..., schema_version=2)`, or server `/hl7/validate-redacted` requests

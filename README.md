@@ -170,6 +170,8 @@ curl http://localhost:8080/metrics  # Prometheus metrics
 ```
 
 See the [OpenAPI specification](api/openapi/hl7v2-api-v1.yaml) for complete API documentation.
+Server corpus endpoints take inline message arrays and safe labels; they do not
+read filesystem paths supplied in request bodies.
 Server evidence workflow logs are structured and PHI-conscious. Set
 `RUST_LOG_FORMAT=json` for JSON records; logged identifiers such as message
 control IDs and bundle IDs are hashed, and raw HL7, profile YAML, redaction
@@ -314,7 +316,7 @@ hl7v2 ack <input.hl7> --code AE > error_ack.hl7
 
 ### HTTP/REST API Server (`hl7v2-server`)
 
-- **RESTful API**: Parse, validate, redact, bundle, replay, acknowledge, normalize, and inspect inline corpus evidence over HTTP
+- **RESTful API**: Parse, validate, redact, bundle, replay, acknowledge, normalize, and inspect inline-message corpus evidence over HTTP without request-supplied filesystem paths
 - **Health & Readiness**: Production-ready health checks
 - **Prometheus metrics**: Request counts, latencies, error rates
 - **Redacted structured logs**: Evidence workflow logs hash message control IDs and bundle IDs while avoiding raw HL7, profile YAML, redaction policy TOML, and configured filesystem roots by default

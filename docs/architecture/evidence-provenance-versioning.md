@@ -113,8 +113,8 @@ The migration is intentionally narrow and additive:
    `ValidationReport`, `ProfileLintReport`, `ProfileExplainReport`,
    `CorpusSummary`, `CorpusFingerprint`, `CorpusDiffReport`, and
    `RedactionReceipt`. These artifacts now have target v2 schemas and
-   fixtures; producers still emit the current v1 shapes until migrated
-   explicitly.
+   fixtures; producers expose explicit opt-in v2 paths while defaults remain
+   v1-compatible.
 2. Add additive Rust fields behind explicit v2 serializers or conversion
    helpers. Do not break callers that still expect the v1 shapes.
    `DoctorReport` now has an explicit v2 wrapper, and `hl7v2 doctor` can opt
