@@ -226,7 +226,7 @@ BIND_ADDRESS="0.0.0.0:8080"  # Listen on all interfaces
 
 **Concurrency Limiting:**
 ```bash
-HL7V2_MAX_CONCURRENT="100"  # Max concurrent requests (see ADR-006)
+HL7V2_MAX_CONCURRENT="100"  # Max concurrent requests (see ADR-012)
 ```
 
 **Request Limits:**
@@ -480,7 +480,7 @@ Adjust based on capacity testing:
 export HL7V2_MAX_CONCURRENT="200"
 ```
 
-See [ADR-006](/.qoder/adr/ADR-006-rate-limiting-and-backpressure.md) for guidance.
+See [ADR-012: Rate Limiting and Backpressure Strategy](docs/adr/0012-rate-limiting-and-backpressure.md) for guidance.
 
 ### Resource Limits
 
