@@ -10,6 +10,25 @@ is to stop making every ordinary PR pay for every proof surface.
 
 We optimize for **proof per Linux-equivalent minute (LEM)**.
 
+## Industrialized AI Verification Economics
+
+Industrialized AI changes the cost center. At high PR volume, per-PR verification cost can dominate
+LLM cost, so deep verification and efficient verification are the same design goal. Steven's
+[industrialized-AI framing](https://effortlesssteven.com/assisted-native-industrialized/) explains
+why Suggestions -> Assisted -> Native -> Industrialized changes PR volume, review assumptions, and
+verification load.
+
+`hl7v2-rs` keeps verification layered: cheap static, schema, and contract rails run early, while
+heavier runtime proofs remain scoped to the changes that need them. Evidence schemas, golden
+fixtures, doc-link checks, file-policy rails, Python publish-policy checks, server smoke, gRPC
+contracts, PHI sentinels, and publish-plan receipts are not bureaucracy. They are how the repo keeps
+high-throughput agentic work safe without making every PR pay for every possible proof.
+
+> **CI economics doctrine**: industrialized AI turns per-PR verification cost into a dominant
+> operating cost. We keep verification deep, but scope expensive runtime work with cheaper static,
+> schema, smoke, and contract checks where possible. The goal is not less verification - it is more
+> useful verification per CI dollar.
+
 ## What a LEM Is
 
 One LEM equals one GitHub Actions minute on `ubuntu-latest`. Runner multipliers convert
