@@ -20,6 +20,28 @@ with the current sources below before reading older planning documents.
 | Release process | [../RELEASE_PROCESS.md](../RELEASE_PROCESS.md) |
 | Lint, file, and panic-family policies | [CLIPPY_POLICY.md](CLIPPY_POLICY.md), [FILE_POLICY.md](FILE_POLICY.md), [NO_PANIC_POLICY.md](NO_PANIC_POLICY.md) |
 
+## How Docs Fit Together
+
+Use the smallest document type that owns the claim:
+
+| Document type | Job |
+| --- | --- |
+| Proposal / PRD | Explain why a campaign exists, who it serves, and what success means. |
+| Spec | Define required behavior, contracts, acceptance criteria, and proof. |
+| ADR | Record a durable architecture decision and its consequences. |
+| Implementation plan | Sequence PR-sized work, rollback, and validation commands. |
+| Active goal | Record current agent execution state, blockers, and next work. |
+| Status / support | State current product claims and the proof behind them. |
+| Policy TOML | Hold exception, CI, lint, file, and package ledgers. |
+| Audit / handoff | Preserve what happened, what was validated, and what remains open. |
+
+Start new governance work in [proposals/](proposals/), define durable
+requirements in [specs/](specs/), use [adr/](adr/) only for architecture
+decisions, sequence execution in [../plans/1.4.1/](../plans/1.4.1/), and keep
+the current active state in [../.hl7v2/goals/](../.hl7v2/goals/). Current
+feature status still lives in [STATUS.md](STATUS.md); do not duplicate it in
+proposal, spec, plan, or receipt documents.
+
 ## Evidence Guides
 
 | Guide | Workflow |
