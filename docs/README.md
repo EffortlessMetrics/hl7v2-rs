@@ -9,6 +9,7 @@ with the current sources below before reading older planning documents.
 | Need | Start here |
 | --- | --- |
 | Current release and feature status | [STATUS.md](STATUS.md) |
+| Support tiers and proof commands | [status/SUPPORT_TIERS.md](status/SUPPORT_TIERS.md) |
 | Contributor workflow | [../CONTRIBUTING.md](../CONTRIBUTING.md), [../DEVELOPMENT.md](../DEVELOPMENT.md) |
 | Task-focused evidence workflows | [guides/README.md](guides/README.md) |
 | Machine-readable evidence artifacts | [contracts/evidence-contract-index.md](contracts/evidence-contract-index.md) |
