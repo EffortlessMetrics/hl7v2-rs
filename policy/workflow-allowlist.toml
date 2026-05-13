@@ -76,3 +76,13 @@ workflows = [".github/workflows/ripr.yml"]
 reason = "ripr provides cheap PR-time mutation-exposure signal while runtime mutation remains targeted."
 covered_by = [".github/workflows/ripr.yml", "cargo run -p xtask -- check-file-policy"]
 review_after = "2026-06-30"
+
+[[allow]]
+id = "targeted-runtime-mutation"
+owner = "core/test"
+surface = "ci"
+behavior = "The mutation workflow may plan changed high-risk surfaces and run advisory cargo-mutants proof only when routed by risk, label, or manual dispatch."
+workflows = [".github/workflows/mutation.yml"]
+reason = "Runtime mutation remains useful proof but should be targeted instead of an ordinary PR tax."
+covered_by = [".github/workflows/mutation.yml", "cargo run -p xtask -- check-ci-lane-whitelist"]
+review_after = "2026-06-30"

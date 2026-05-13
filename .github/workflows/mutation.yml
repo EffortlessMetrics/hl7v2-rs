@@ -1,0 +1,279 @@
+name: Targeted Mutation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "xtask/**"
+      - "api/**"
+      - "fixtures/evidence/**"
+      - "profiles/**"
+      - "schemas/evidence/**"
+      - "test_data/**"
+      - "tests/python_smoke/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "pyproject.toml"
+      - "policy/ci-risk-packs.toml"
+      - "policy/ci-lane-whitelist.toml"
+      - ".github/workflows/mutation.yml"
+  workflow_dispatch:
+    inputs:
+      file_glob:
+        description: "cargo-mutants --file glob for manual targeted runs"
+        required: false
+        default: "crates/hl7v2/src/parser/**/*.rs"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+
+jobs:
+  plan:
+    name: Mutation Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_mutation: ${{ steps.plan.outputs.run_mutation }}
+      reason: ${{ steps.plan.outputs.reason }}
+      risk_packs: ${{ steps.plan.outputs.risk_packs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Plan targeted mutation lane
+        id: plan
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p target/mutation
+          BASE_REF="${BASE_REF:-main}"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch origin "$BASE_REF" --depth=100
+            git diff --name-only "origin/$BASE_REF"...HEAD > target/mutation/changed-files.txt
+            git diff --unified=0 "origin/$BASE_REF"...HEAD > target/mutation/changed.diff
+          else
+            : > target/mutation/changed-files.txt
+            : > target/mutation/changed.diff
+          fi
+
+          python3 <<'PY'
+          import fnmatch
+          import json
+          import os
+          from pathlib import Path
+
+          event_name = os.environ["EVENT_NAME"]
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          labels = {
+              label.get("name", "")
+              for label in event.get("pull_request", {}).get("labels", [])
+          }
+          changed = [
+              line.strip().replace("\\", "/")
+              for line in Path("target/mutation/changed-files.txt").read_text().splitlines()
+              if line.strip()
+          ]
+
+          risk_patterns = {
+              "parser-core": [
+                  "crates/hl7v2/src/parser/**",
+                  "crates/hl7v2/src/model/**",
+                  "crates/hl7v2/src/writer/**",
+                  "crates/hl7v2/src/normalize/**",
+              ],
+              "mllp-network": [
+                  "crates/hl7v2/src/transport/**",
+                  "crates/hl7v2/src/stream.rs",
+                  "crates/hl7v2/src/batch.rs",
+              ],
+              "profile-validation": [
+                  "crates/hl7v2/src/conformance/**",
+                  "profiles/**",
+                  "test_data/*profile*",
+              ],
+              "safe-analysis-redaction": [
+                  "crates/hl7v2/src/redact.rs",
+                  "crates/hl7v2-server/src/redaction.rs",
+                  "fixtures/evidence/redaction-*",
+                  "fixtures/evidence/safe-analysis-*",
+              ],
+              "evidence-contracts": [
+                  "crates/hl7v2/src/evidence.rs",
+                  "crates/hl7v2-server/src/evidence.rs",
+                  "fixtures/evidence/**",
+                  "schemas/evidence/**",
+              ],
+              "server-api": [
+                  "crates/hl7v2-server/**",
+                  "api/**",
+                  "schemas/**",
+              ],
+              "python-binding": [
+                  "crates/hl7v2-python/**",
+                  "tests/python_smoke/**",
+                  "pyproject.toml",
+              ],
+          }
+
+          matched = []
+          for pack, patterns in risk_patterns.items():
+              if any(
+                  fnmatch.fnmatch(path, pattern)
+                  for path in changed
+                  for pattern in patterns
+              ):
+                  matched.append(pack)
+
+          forcing_labels = sorted(labels.intersection({"mutation", "full-ci", "release-check"}))
+          manual = event_name == "workflow_dispatch"
+          run_mutation = manual or bool(forcing_labels) or bool(matched)
+
+          if manual:
+              reason = "manual workflow_dispatch"
+          elif forcing_labels:
+              reason = "label:" + ",".join(forcing_labels)
+          elif matched:
+              reason = "risk-pack:" + ",".join(matched)
+          else:
+              reason = "no mutation label or high-risk diff"
+
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as handle:
+              handle.write(f"run_mutation={str(run_mutation).lower()}\n")
+              handle.write(f"reason={reason}\n")
+              handle.write(f"risk_packs={','.join(matched) or 'none'}\n")
+
+          summary = Path("target/mutation/plan.md")
+          summary.write_text(
+              "\n".join(
+                  [
+                      "## Targeted mutation plan",
+                      "",
+                      f"- run mutation: `{str(run_mutation).lower()}`",
+                      f"- reason: `{reason}`",
+                      f"- risk packs: `{','.join(matched) or 'none'}`",
+                      f"- labels: `{','.join(sorted(labels)) or 'none'}`",
+                      f"- changed files considered: `{len(changed)}`",
+                      "",
+                      "Runtime mutation is routed by risk or label. It is not part of the ordinary required PR gate.",
+                  ]
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          cat target/mutation/plan.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload mutation plan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-plan
+          path: |
+            target/mutation/changed-files.txt
+            target/mutation/changed.diff
+            target/mutation/plan.md
+          if-no-files-found: warn
+          retention-days: 14
+
+  targeted-mutation:
+    name: Targeted Mutation
+    runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.run_mutation == 'true'
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: mutation-targeted-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants --version 26.1.2 --locked
+
+      - name: Run targeted mutation
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_FILE_GLOB: ${{ github.event.inputs.file_glob }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p target/mutation
+          BASE_REF="${BASE_REF:-main}"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch origin "$BASE_REF" --depth=100
+            git diff --unified=0 "origin/$BASE_REF"...HEAD > target/mutation/changed.diff
+            mutation_scope=(--in-diff target/mutation/changed.diff)
+          else
+            mutation_scope=(--file "${MANUAL_FILE_GLOB:-crates/hl7v2/src/parser/**/*.rs}")
+          fi
+
+          set +e
+          cargo mutants \
+            --workspace \
+            --all-features \
+            "${mutation_scope[@]}" \
+            --timeout 300 \
+            --jobs 2 \
+            --output target/mutation \
+            --no-shuffle \
+            --test-workspace true
+          mutation_status=$?
+          set -e
+
+          {
+            echo "## Targeted runtime mutation"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| advisory status | $mutation_status |"
+            echo "| trigger reason | ${{ needs.plan.outputs.reason }} |"
+            echo "| risk packs | ${{ needs.plan.outputs.risk_packs }} |"
+            echo
+            echo "This lane is advisory and routed. Mutation findings are review input; broad runtime mutation remains nightly/release proof, not an ordinary PR tax."
+          } > target/mutation/summary.md
+
+          if [ "$mutation_status" -ne 0 ]; then
+            echo "::warning::Targeted mutation completed with findings or a non-zero advisory status: $mutation_status"
+          fi
+
+          cat target/mutation/summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Upload mutation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: targeted-mutation
+          path: |
+            target/mutation/summary.md
+            target/mutation/mutants.out/
+            target/mutation/changed.diff
+          if-no-files-found: warn
+          retention-days: 14

@@ -19,8 +19,8 @@ nightly, release readiness, and high-risk changes.
 | Coverage | no | main, dispatch, `coverage`, or `full-ci` |
 | Contracts | no | OpenAPI, proto, schema, and evidence validation |
 | Python wheels and publish proof | no | Python-lane workflows and receipts |
-| `ripr` static exposure | planned advisory | JSON, SARIF, and markdown advisory artifacts |
-| Runtime mutation | planned targeted | high-risk labels, nightly, and release readiness |
+| `ripr` static exposure | advisory | JSON, SARIF, and markdown advisory artifacts |
+| Runtime mutation | targeted advisory | high-risk path changes, `mutation`, `full-ci`, `release-check`, nightly, and release readiness |
 
 ## Rust 1.95 Target
 
@@ -28,10 +28,21 @@ The Rust 1.95 / 1.5.0 rollout should keep default PR cost bounded while adding
 better receipts:
 
 - Rust 1.95 MSRV smoke remains a default compatibility proof after the MSRV PR.
-- `ripr` becomes a cheap advisory PR-time static mutation-exposure signal.
+- `ripr` is a cheap advisory PR-time static mutation-exposure signal.
 - Runtime mutation remains targeted by risk pack, label, nightly, or release
   readiness.
 - Release readiness owns the broadest proof bundle before `1.5.0`.
+
+## Runtime Mutation Routing
+
+Runtime mutation is not a default required PR tax. The targeted mutation
+workflow plans against changed files, then runs `cargo-mutants` only when a PR
+touches a high-risk HL7 surface, carries the `mutation`, `full-ci`, or
+`release-check` label, or is invoked manually.
+
+The targeted lane uploads the changed-file plan and mutation artifacts. It is
+review input for PRs; nightly and release-readiness lanes remain the broader
+runtime backstop.
 
 ## High-Risk HL7 Surfaces
 

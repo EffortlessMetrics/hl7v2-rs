@@ -73,3 +73,18 @@ commands = [
 reason = "Static mutation-exposure analysis should be cheap, advisory, and separate from runtime mutation."
 covered_by = [".github/workflows/ripr.yml"]
 review_after = "2026-06-30"
+
+[[allow]]
+id = "targeted-runtime-mutation"
+owner = "core/test"
+surface = "ci"
+behavior = "The routed mutation lane may install cargo-mutants, compute a changed-file diff, and run cargo-mutants against only that diff or a manual file glob."
+commands = [
+  "cargo install cargo-mutants --version 26.1.2 --locked",
+  "git diff --unified=0 origin/main...HEAD",
+  "cargo mutants --workspace --all-features --in-diff target/mutation/changed.diff",
+  "cargo mutants --workspace --all-features --file crates/hl7v2/src/parser/**/*.rs",
+]
+reason = "Runtime mutation should remain a targeted risk proof without becoming default PR cost."
+covered_by = [".github/workflows/mutation.yml"]
+review_after = "2026-06-30"
