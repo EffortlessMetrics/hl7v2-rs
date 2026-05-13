@@ -1,92 +1,129 @@
-id = "hl7v2-1-4-1-source-of-truth-and-python-proof"
-title = "HL7v2 1.4.1 source-of-truth and Python proof"
+id = "hl7v2-1-5-0-rust-1-95-quality-ratchet"
+title = "HL7v2 1.5.0 Rust 1.95 quality ratchet"
 status = "active"
 owner = "codex"
-created = "2026-05-12"
+created = "2026-05-13"
 
 objective = """
-Encode the proposal/spec/ADR/plan/goal source-of-truth model in hl7v2-rs,
-close the TestPyPI Trusted Publisher proof boundary for the public hl7v2 Python
-distribution, and
-prepare a patch release only after evidence receipts are durable.
+Carry hl7v2-rs to a Rust 1.95 / v1.5.0 quality-ratchet release with sharper
+verification rails, no extra default CI weight, and durable receipts before any
+publish claim.
 """
 
 must_not_touch = [
-  "Do not change runtime behavior in this campaign.",
-  "Do not change CI workflows unless a later accepted spec says to.",
+  "Do not combine release prep with crates.io publishing.",
   "Do not publish hl7v2-python to crates.io.",
-  "Do not use token fallback.",
+  "Do not publish the hl7v2 Python distribution to TestPyPI or PyPI without the dedicated proof workflows.",
+  "Do not use TestPyPI or PyPI token fallback.",
   "Do not use skip-existing.",
   "Do not claim TestPyPI or PyPI success until upload and install-back pass.",
+  "Do not make ripr branch-protection blocking yet.",
+  "Do not replace runtime mutation with ripr.",
+  "Do not put broad runtime mutation on ordinary PRs.",
 ]
 
 end_state = [
-  "docs/proposals, docs/specs, docs/adr, plans/1.4.1, and .hl7v2/goals are documented.",
-  "The source-of-truth stack spec is accepted.",
-  "Python distribution proof spec is accepted.",
-  "CI verification economics spec is accepted.",
-  "Evidence artifacts as contracts ADR is accepted.",
-  "Python as separate distribution lane ADR is accepted.",
-  "SUPPORT_TIERS maps product claims to proof commands.",
-  "TestPyPI Trusted Publisher issue #563 is either completed or still explicitly blocked.",
-  "No production PyPI claim exists without upload/install-back receipt.",
-  "Rust publish-plan remains hl7v2, hl7v2-server, hl7v2-cli.",
+  "Rust MSRV is 1.95.",
+  "rust-toolchain.toml pins Rust 1.95.0 with rustfmt and clippy.",
+  "Workspace Rust package graph is prepared as version 1.5.0.",
+  "The Rust publish graph remains hl7v2, hl7v2-server, hl7v2-cli.",
+  "Clippy and rustc lint ratchets are active or explicitly receipted.",
+  "Clippy exceptions are governed separately from broad debt.",
+  "No-panic identity is exact and counted.",
+  "No-panic baseline runs in no-new-debt mode.",
+  "File-policy behavior is split into companion ledgers.",
+  "ripr is advisory static mutation-exposure proof.",
+  "Runtime mutation is targeted by risk instead of default PR tax.",
+  "Release-readiness workflow and v1.5.0 dry-run receipts are present.",
+  "No production release claim exists without publish and install-back receipts.",
 ]
 
 canonical_sources = [
   "docs/STATUS.md",
-  "docs/contracts/evidence-contract-index.md",
-  "schemas/evidence/",
-  "docs/ci/cost-and-verification-policy.md",
-  "policy/ci-lane-whitelist.toml",
-  "policy/ci-risk-packs.toml",
   "docs/status/SUPPORT_TIERS.md",
-  "docs/guides/python-testpypi-release-proof.md",
-  "docs/guides/python-pypi-release.md",
+  "docs/development/RUST_1_95_ROLLOUT.md",
+  "docs/release/1.5.0-readiness.md",
+  "docs/releases/v1.5.0-rust-1.95-quality-ratchet.md",
+  "docs/ci/ripr.md",
+  "docs/ci/test-evidence-lanes.md",
+  "policy/clippy-lints.toml",
+  "policy/clippy-debt.toml",
+  "policy/clippy-exceptions.toml",
+  "policy/no-panic-allowlist.toml",
+  "policy/no-panic-baseline.toml",
+  "policy/non-rust-allowlist.toml",
 ]
 
 proof_commands = [
-  "cargo +1.93.0 run -p xtask -- check-doc-links",
-  "cargo +1.93.0 run -p xtask -- publish-plan",
-  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.93.0 run -p xtask -- gate --check --changed",
+  "cargo +1.95.0 run -p xtask -- publish-plan",
+  "cargo +1.95.0 run -p xtask -- publish-dry-run --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check",
+  "cargo +1.95.0 run -p xtask -- policy-report",
 ]
 
 [[work_item]]
-id = "deployment-adr-link-fix"
+id = "rust-1-95-compatibility-probe"
 status = "done"
-pr = "https://github.com/EffortlessMetrics/hl7v2-rs/pull/565"
-goal = "Replace stale deployment ADR references with the current ADR-012 path."
+goal = "Prove the existing repo builds under Rust 1.95 before changing declared MSRV."
 
 [[work_item]]
-id = "source-of-truth-scaffold"
+id = "msrv-toolchain-bump"
 status = "done"
-proposal = "docs/proposals/HL7V2-PROP-0001-source-of-truth-and-release-governance.md"
-spec = "docs/specs/HL7V2-SPEC-0001-source-of-truth-stack.md"
-plan = "plans/1.4.1/source-of-truth-stack.md"
-support_map = "docs/status/SUPPORT_TIERS.md"
+goal = "Declare Rust 1.95, add rust-toolchain.toml, and align CI/tooling pins."
+
+[[work_item]]
+id = "lint-no-panic-file-policy-ratchets"
+status = "done"
+goal = "Activate or receipt Rust 1.95 lint ratchets, Clippy exceptions, exact no-panic identity, no-new-debt baseline, diagnostics, and file-policy companion ledgers."
+
+[[work_item]]
+id = "ripr-advisory-static-exposure"
+status = "done"
+goal = "Add ripr as advisory PR-time static mutation-exposure proof without branch-protection blocking."
+
+[[work_item]]
+id = "targeted-runtime-mutation"
+status = "done"
+goal = "Route runtime mutation by risk, labels, nightly, manual dispatch, or release readiness."
+
+[[work_item]]
+id = "rust-1-95-api-cleanup"
+status = "done"
+goal = "Use Rust 1.95 APIs where they reduce parser, evidence, or tooling complexity."
+
+[[work_item]]
+id = "selected-clippy-debt-cleanup"
+status = "done"
+goal = "Burn down selected CLI monitor and server metrics lint debt without mechanical suppressions."
+
+[[work_item]]
+id = "release-readiness-workflow"
+status = "done"
+goal = "Add the non-publishing Rust 1.95 / v1.5.0 readiness workflow."
+
+[[work_item]]
+id = "v1-5-0-release-prep"
+status = "in_progress"
+goal = "Prepare Cargo versions, current status docs, release notes, changelog, and active goal state for v1.5.0."
 commands = [
-  "cargo +1.93.0 run -p xtask -- check-doc-links",
-  "cargo +1.93.0 run -p xtask -- publish-plan",
-  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.93.0 run -p xtask -- gate --check --changed",
+  "cargo +1.95.0 run -p xtask -- publish-plan",
+  "cargo +1.95.0 run -p xtask -- publish-dry-run --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check --changed",
+  "cargo +1.95.0 run -p xtask -- policy-report",
 ]
 
 [[work_item]]
-id = "ci-verification-economics"
-status = "done"
-spec = "docs/specs/HL7V2-SPEC-0003-ci-verification-economics.md"
-policy = "docs/ci/cost-and-verification-policy.md"
-goal = "Explain why deep and efficient verification are the same design goal at industrialized PR volume."
+id = "v1-5-0-dry-run-proof"
+status = "pending"
+goal = "Record v1.5.0 release-readiness and publish-dry-run receipts after release prep lands."
 
 [[work_item]]
 id = "testpypi-trusted-publisher-proof"
 status = "blocked"
 blocked_by = "https://github.com/EffortlessMetrics/hl7v2-rs/issues/563"
-spec = "docs/specs/HL7V2-SPEC-0002-python-distribution-proof.md"
-adr = "docs/adr/HL7V2-ADR-0002-python-is-separate-distribution-lane.md"
-plan = "plans/1.4.1/testpypi-closure.md"
-commands = [
-  "gh workflow run python-testpypi.yml --ref main -f publish_to_testpypi=true",
-]
+goal = "Configure TestPyPI Trusted Publisher for the public hl7v2 Python distribution, then prove upload and install-back."
 acceptance = [
   "Build and smoke wheel succeeds.",
   "Publish to TestPyPI succeeds.",
@@ -97,19 +134,6 @@ acceptance = [
 ]
 
 [[work_item]]
-id = "active-goal-manifest"
-status = "ready"
-plan = "plans/1.4.1/implementation-plan.md"
-goal = "Land this active manifest after all referenced proposal, spec, ADR, and plan files exist."
-commands = [
-  "cargo +1.93.0 run -p xtask -- check-doc-links",
-  "cargo +1.93.0 run -p xtask -- publish-plan",
-  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.93.0 run -p xtask -- gate --check --changed",
-]
-
-[[work_item]]
-id = "v1-4-1-release-readiness"
-status = "waiting"
-plan = "plans/1.4.1/release-readiness.md"
-goal = "Prepare a patch release candidate only after source-of-truth and Python proof receipts are clean."
-blocked_by = "testpypi-trusted-publisher-proof"
+id = "v1-5-0-publish"
+status = "pending-explicit-approval"
+goal = "Publish the Rust crates.io graph only after readiness and dry-run receipts are clean and explicit release approval is given."

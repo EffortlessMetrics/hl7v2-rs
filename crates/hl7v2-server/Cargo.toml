@@ -14,7 +14,7 @@ categories.workspace = true
 
 [dependencies]
 # Local crates
-hl7v2 = { version = "1.4.0", path = "../hl7v2", features = [
+hl7v2 = { version = "1.5.0", path = "../hl7v2", features = [
     "profile",
     "ack",
     "normalize",

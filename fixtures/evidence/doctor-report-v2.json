@@ -1,13 +1,13 @@
 {
   "schema_version": "2",
   "tool_name": "hl7v2-cli",
-  "tool_version": "1.4.0",
-  "version": "1.4.0",
+  "tool_version": "1.5.0",
+  "version": "1.5.0",
   "checks": [
     {
       "name": "cli-version",
       "status": "ok",
-      "message": "hl7v2-cli 1.4.0"
+      "message": "hl7v2-cli 1.5.0"
     },
     {
       "name": "sample-parse",

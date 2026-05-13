@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Some historical implementation microcrate artifacts already exist on crates.io; they are compatibility artifacts, not the product surface for new code. The public Python distribution is `hl7v2`, built from the internal `hl7v2-python` maturin lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is preparing the v1.5.0 Rust 1.95 quality-ratchet release; v1.5.0 is not published until the release-readiness and dry-run receipts are complete. The public Python distribution is `hl7v2`, built from the internal `hl7v2-python` maturin lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -19,13 +19,13 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Writer / Normalize** | Stable | Writer tests plus HTTP/gRPC normalization contract coverage |
 | **MLLP / Network** | Stable | MLLP parse/framing tests and CI matrix coverage |
 | **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, redacted validation, bundle/replay, ACK, normalize, inline corpus evidence, readiness, and redacted structured logs |
-| **gRPC Service** | Beta | v1.4.0 contract tests cover Parse, Validate, GenerateAck, Normalize, and HealthCheck; current main also covers ParseStream as one request message into one response message and ValidateRedacted with opt-in v2 evidence |
+| **gRPC Service** | Beta | Contract tests cover Parse, Validate, GenerateAck, Normalize, HealthCheck, ParseStream as one request message into one response message, and ValidateRedacted with opt-in v2 evidence |
 | **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
 | **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; not published to crates.io |
-| **Publish Readiness** | Published | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.4.0 are published to crates.io; Python remains a separate binding lane |
-| **Evidence Loop** | Stable | v1.4.0 is the published Evidence Contracts and Server Sidecar release with opt-in v2 provenance, schema gates, server sidecar hardening, non-publishing Python/TestPyPI proof, PHI sentinels, and replay fixes |
+| **Publish Readiness** | Candidate | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` are prepared at v1.5.0; v1.4.0 remains the current published crates.io release until the v1.5.0 release receipt lands |
+| **Evidence Loop** | Stable | v1.4.0 is the published Evidence Contracts and Server Sidecar release; v1.5.0 keeps that surface and adds Rust 1.95, tighter policy rails, advisory ripr, targeted mutation, and release-readiness proof |
 
 ## Features
 

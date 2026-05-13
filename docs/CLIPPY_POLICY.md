@@ -125,7 +125,7 @@ fn lookup_generated_table(index: usize) -> &'static str {
 
 The Rust 1.95 / 1.5.0 rollout is mapped in
 [development/RUST_1_95_ROLLOUT.md](development/RUST_1_95_ROLLOUT.md). The
-current state is Rust 2024, workspace version `1.4.0`, and MSRV `1.95`.
+current state is Rust 2024, workspace version `1.5.0`, and MSRV `1.95`.
 
 During the rollout, planned Rust 1.94/1.95 lints in
 `policy/clippy-lints.toml` should either become active with clean proof or stay

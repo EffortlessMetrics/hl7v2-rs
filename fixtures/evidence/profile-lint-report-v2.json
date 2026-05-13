@@ -1,7 +1,7 @@
 {
   "schema_version": "2",
   "tool_name": "hl7v2-cli",
-  "tool_version": "1.4.0",
+  "tool_version": "1.5.0",
   "valid": true,
   "error_count": 0,
   "warning_count": 1,

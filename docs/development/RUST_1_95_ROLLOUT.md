@@ -29,7 +29,7 @@ self-describing and better receipted.
 | Surface | Current state | Notes |
 | --- | --- | --- |
 | Rust edition | `2024` | No edition migration is planned. |
-| Workspace version | `1.4.0` | The next release target is `1.5.0`. |
+| Workspace version | `1.5.0` candidate | v1.4.0 remains the current published crates.io release until v1.5.0 receipts land. |
 | Workspace MSRV | `1.95` | Declared in the root `Cargo.toml` after the compatibility probe. |
 | Toolchain file | present | `rust-toolchain.toml` pins Rust `1.95.0` with `rustfmt` and `clippy`. |
 | Root lint policy | strict | Rust and Clippy lints are already governed from the workspace root. |
@@ -151,7 +151,7 @@ policy changes, no-panic baseline scope, file-policy scope, CI economics,
 
 ## Current Follow-Ups
 
-- Issue #563 remains the external TestPyPI Trusted Publisher blocker for
-  `hl7v2-python`.
+- Issue #563 remains the external TestPyPI Trusted Publisher blocker for the
+  public `hl7v2` Python distribution.
 - `publish.yml` exists for crates.io publication; `release-readiness.yml` is the
   non-publishing 1.5.0 readiness proof bundle.
