@@ -733,32 +733,28 @@ reason = "Require explicit, reasoned lint suppressions instead of broad silent a
 [[lint]]
 name = "clippy::same_length_and_capacity"
 level = "deny"
-status = "planned"
-activate_when_msrv = "1.94"
+status = "active"
 class = "unsafe-memory"
 reason = "Catch raw-parts reconstruction mistakes."
 
 [[lint]]
 name = "clippy::manual_ilog2"
 level = "warn"
-status = "planned"
-activate_when_msrv = "1.94"
+status = "active"
 class = "numeric-correctness"
 reason = "Prefer the standard integer log helper."
 
 [[lint]]
 name = "clippy::decimal_bitwise_operands"
 level = "warn"
-status = "planned"
-activate_when_msrv = "1.94"
+status = "active"
 class = "numeric-correctness"
 reason = "Make bit masks visually inspectable."
 
 [[lint]]
 name = "clippy::needless_type_cast"
 level = "warn"
-status = "planned"
-activate_when_msrv = "1.94"
+status = "active"
 class = "numeric-correctness"
 reason = "Avoid stale numeric type drift."
 
@@ -773,19 +769,19 @@ reason = "Allow architecture policy to ban direct field access across protected 
 [[lint]]
 name = "clippy::manual_checked_ops"
 level = "warn"
-status = "planned"
-activate_when_msrv = "1.95"
+status = "active"
 class = "numeric-correctness"
 reason = "Prefer checked arithmetic over manual divide-by-zero guards."
 
 [[lint]]
 name = "clippy::manual_take"
 level = "warn"
-status = "planned"
-activate_when_msrv = "1.95"
+status = "active"
 class = "reviewability"
 reason = "Use standard ownership helper instead of local reimplementation."
 
+# Rust 1.95.0's Clippy reports this lint as unknown; keep it planned until the
+# pinned toolchain exposes it.
 [[lint]]
 name = "clippy::manual_pop_if"
 level = "warn"
@@ -797,15 +793,13 @@ reason = "Use collection APIs that encode predicate-and-pop intent directly."
 [[lint]]
 name = "clippy::duration_suboptimal_units"
 level = "warn"
-status = "planned"
-activate_when_msrv = "1.95"
+status = "active"
 class = "reviewability"
 reason = "Make durations legible without mental unit conversion."
 
 [[lint]]
 name = "clippy::unnecessary_trailing_comma"
 level = "warn"
-status = "planned"
-activate_when_msrv = "1.95"
+status = "active"
 class = "reviewability"
 reason = "Keep generated and hand-written format macro calls clean."
