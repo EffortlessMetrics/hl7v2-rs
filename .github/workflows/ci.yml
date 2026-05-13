@@ -71,6 +71,60 @@ jobs:
       - name: Check non-Rust file policy
         run: cargo run -p xtask -- check-file-policy
 
+      - name: Install ripr
+        if: github.event_name == 'pull_request'
+        run: cargo install ripr --locked
+
+      - name: Fetch base branch for RIPR
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: RIPR PR evidence
+        if: github.event_name == 'pull_request'
+        run: cargo xtask ripr-pr
+
+      - name: RIPR review guidance
+        if: github.event_name == 'pull_request'
+        run: cargo xtask ripr-review-comments
+
+      - name: RIPR PR contract
+        if: always() && github.event_name == 'pull_request'
+        run: cargo xtask ripr-pr --check
+
+      - name: RIPR review summary
+        if: always() && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          {
+            echo "## RIPR Review Guidance"
+            echo
+            if [ -f target/ripr/review/comments.md ]; then
+              cat target/ripr/review/comments.md
+            else
+              echo "No RIPR review guidance was produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: RIPR annotations
+        if: always() && github.event_name == 'pull_request'
+        run: python scripts/ripr-annotations.py
+
+      - name: Upload RIPR PR evidence
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ripr-pr
+          path: target/ripr/pr
+          if-no-files-found: warn
+
+      - name: Upload RIPR review guidance
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ripr-review
+          path: target/ripr/review
+          if-no-files-found: warn
+
       - name: Run unit tests
         run: cargo test --lib --workspace --all-features
         timeout-minutes: 3

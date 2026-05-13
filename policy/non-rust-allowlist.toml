@@ -171,6 +171,44 @@ classification = "generated"
 reason = "Snapshot of cargo metadata used by review tooling."
 generated_by = "cargo metadata --format-version=1 --all-features"
 
+
+[[allow]]
+path = ".cargo/config.toml"
+kind = "cargo_alias_config"
+owner = "release/ci"
+surface = "developer-tooling"
+classification = "config"
+reason = "Defines the cargo xtask alias used by repository verification commands."
+covered_by = ["cargo xtask --help"]
+
+[[allow]]
+glob = "badges/*.json"
+kind = "generated_badge_endpoint"
+owner = "release/ci"
+surface = "docs"
+classification = "generated"
+reason = "Generated Shields endpoint JSON for public README badges."
+generated_by = "cargo xtask badges"
+covered_by = ["cargo xtask badges --check"]
+
+[[allow]]
+path = ".github/workflows/badge-endpoints.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "GitHub Actions workflow that refreshes generated public badge endpoints by opening pull requests."
+covered_by = ["cargo xtask badges --check"]
+
+[[allow]]
+path = "scripts/ripr-annotations.py"
+kind = "ci_helper_script"
+owner = "release/ci"
+surface = "ci"
+classification = "tooling"
+reason = "Emits non-blocking GitHub Actions annotations from RIPR changed-line review guidance."
+covered_by = ["python scripts/ripr-annotations.py"]
+
 # ---------------------------------------------------------------------------
 # Agent execution state
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ with the current sources below before reading older planning documents.
 | Evidence artifact semantics and provenance | [architecture/evidence-artifacts.md](architecture/evidence-artifacts.md), [architecture/evidence-provenance-versioning.md](architecture/evidence-provenance-versioning.md) |
 | JSON schemas | [../schemas/README.md](../schemas/README.md) |
 | Current Rust module and package surface | [architecture/module-map.md](architecture/module-map.md) |
+| README badge meanings and PR evidence boundaries | [VERIFICATION.md](VERIFICATION.md) |
 | HTTP and gRPC API usage | [API_GUIDE.md](API_GUIDE.md) |
 | CI and release validation lanes | [CI_PIPELINE.md](CI_PIPELINE.md) |
 | Release process | [../RELEASE_PROCESS.md](../RELEASE_PROCESS.md) |
