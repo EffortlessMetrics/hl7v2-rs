@@ -3,7 +3,7 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-13
-> **Project Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is preparing the v1.5.0 Rust 1.95 quality-ratchet release; v1.5.0 is not published until readiness and dry-run receipts land.
+> **Project Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is prepared as the v1.5.0 Rust 1.95 quality-ratchet candidate; v1.5.0 is not published until explicit crates.io publish and tag receipts land.
 
 ## Core Components
 
@@ -41,7 +41,7 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Published Rust graph**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.4.0 are published and visible in the crates.io index. See `docs/audits/publish-v1.4.0-2026-05-09.md`.
 - ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See `docs/audits/publish-dry-run-v1.4.0-2026-05-09.md`.
-- 🟡 **v1.5.0 candidate**: Current `main` carries the Rust 1.95 MSRV/toolchain ratchet, tighter lint/no-panic/file-policy rails, advisory `ripr`, targeted mutation routing, and a release-readiness workflow. It still needs v1.5.0 dry-run and publish receipts before any crates.io release claim.
+- 🟡 **v1.5.0 candidate**: Current `main` carries the Rust 1.95 MSRV/toolchain ratchet, tighter lint/no-panic/file-policy rails, advisory `ripr`, targeted mutation routing, and release-readiness and dry-run receipts. It still needs explicit crates.io publish and tag receipts before any release claim.
 - 🟡 **Python binding lane**: `hl7v2-python` is `publish = false` for crates.io. The public Python distribution is `hl7v2`. The v1.4.0 binding is verified through a maturin wheel build/install/import smoke lane; current `main` also has a manual TestPyPI proof workflow before any production PyPI release. The non-publishing workflow mode passed on `main`; the 2026-05-10 TestPyPI upload attempt built and smoke-tested the wheel but failed with `invalid-publisher` because the TestPyPI Trusted Publisher is not configured. Production PyPI release has not been run. A 2026-05-13 package-state check found no visible `hl7v2` package on TestPyPI or production PyPI.
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1`, `v1.3.0`, and `v1.4.0` tags point at their release heads.
@@ -107,13 +107,14 @@ Current source-tree truth audit: [`docs/audits/current-source-tree-evidence-obje
 ## v1.5.0 Readiness Checklist
 
 Release notes: [`docs/releases/v1.5.0-rust-1.95-quality-ratchet.md`](releases/v1.5.0-rust-1.95-quality-ratchet.md).
-Readiness receipt home: [`docs/release/1.5.0-readiness.md`](release/1.5.0-readiness.md).
+Readiness receipt: [`docs/release/1.5.0-readiness.md`](release/1.5.0-readiness.md).
+Dry-run receipt: [`docs/audits/publish-dry-run-v1.5.0-2026-05-13.md`](audits/publish-dry-run-v1.5.0-2026-05-13.md).
 
 - 🟡 **Release candidate**: workspace package versions are prepared as `1.5.0` for the Rust package graph.
 - ✅ **Rust floor**: MSRV is Rust 1.95 and `rust-toolchain.toml` pins Rust 1.95.0 with `rustfmt` and `clippy`.
 - ✅ **Verification rails**: lint policy, Clippy exceptions, no-panic exact identity and no-new-debt baseline, file-policy companion ledgers, advisory `ripr`, and targeted mutation routing are present.
 - ✅ **Release readiness workflow**: `.github/workflows/release-readiness.yml` records the non-publishing readiness proof bundle.
-- 🟡 **Dry-run receipt**: v1.5.0 publish dry-run receipt is pending and must land before a release claim.
+- ✅ **Dry-run receipt**: hosted release-readiness dry-run passed on `main` at `38043c62b6684c3bd074661ae6e6089250593132`.
 - 🟡 **Publish receipt**: crates.io upload has not been run for v1.5.0.
 - 🟡 **Python proof**: the public Python distribution is `hl7v2`, remains outside the Rust crates.io graph, and still requires Trusted Publisher upload/install-back proof before any TestPyPI or PyPI success claim.
 
@@ -124,6 +125,6 @@ Old planning documents have been moved to `docs/plans/` for archival reference.
 
 **Current published release**: v1.4.0 is tested, package-verified, tagged, and published to crates.io for the final Rust package graph.
 
-**Current main**: prepares the v1.5.0 Rust 1.95 quality-ratchet candidate.
-v1.4.0 remains the current published crates.io release until v1.5.0 readiness,
-dry-run, publish, and tag receipts land.
+**Current main**: is prepared as the v1.5.0 Rust 1.95 quality-ratchet
+candidate. v1.4.0 remains the current published crates.io release until v1.5.0
+publish and tag receipts land.

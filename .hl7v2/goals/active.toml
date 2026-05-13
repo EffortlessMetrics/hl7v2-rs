@@ -104,7 +104,7 @@ goal = "Add the non-publishing Rust 1.95 / v1.5.0 readiness workflow."
 
 [[work_item]]
 id = "v1-5-0-release-prep"
-status = "in_progress"
+status = "done"
 goal = "Prepare Cargo versions, current status docs, release notes, changelog, and active goal state for v1.5.0."
 commands = [
   "cargo +1.95.0 run -p xtask -- publish-plan",
@@ -116,8 +116,10 @@ commands = [
 
 [[work_item]]
 id = "v1-5-0-dry-run-proof"
-status = "pending"
+status = "done"
 goal = "Record v1.5.0 release-readiness and publish-dry-run receipts after release prep lands."
+run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25810853128"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-13.md"
 
 [[work_item]]
 id = "testpypi-trusted-publisher-proof"
