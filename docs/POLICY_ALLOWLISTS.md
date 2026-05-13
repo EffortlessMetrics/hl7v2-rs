@@ -18,6 +18,11 @@ of truth for exceptions and policy state.
 | `policy/ci-risk-packs.toml` | Risk-pack routing for CI lanes. |
 | `policy/ci-budget.toml` | CI budget policy. |
 
+Generated local diagnostics, such as
+`target/policy/no-panic-report.md` and
+`target/policy/no-panic-report.json`, are operator evidence for the current
+checkout. They are not policy ledgers and should not be committed.
+
 ## Planned Ledgers
 
 The Rust 1.95 / 1.5.0 rollout should add companion ledgers only where they

@@ -142,6 +142,18 @@ cargo run -p xtask -- no-panic baseline --reset
 cargo run -p xtask -- policy-report
 ```
 
+`check-no-panic-family` and `policy-report` also write operator diagnostics to:
+
+```text
+target/policy/no-panic-report.md
+target/policy/no-panic-report.json
+```
+
+Those files summarize strict/advisory finding counts, whether the baseline was
+used, new debt outside receipts, stale allowlist entries, and the first 50
+stale or surplus baseline entries. They are generated local evidence, not
+committed policy state.
+
 Failure modes:
 
 - finding without allowlist entry: fail.
@@ -153,8 +165,14 @@ Failure modes:
 
 `policy/no-panic-baseline.toml` is generated and marked as generated in
 `.gitattributes`. Normal refreshes may drop disappeared entries or reduce
-counts, but they refuse to absorb new debt. `--reset` may absorb all current
+counts, and the refresh output prints the current/baseline count delta for new
+debt. Refreshes refuse to absorb new debt. `--reset` may absorb all current
 findings and is only valid in the dedicated baseline PR.
+
+If the baseline file is missing, the checker prints the setup command and
+reminds normal PRs not to reset the baseline. If the baseline mode is
+`blocking`, baseline entries are parsed for reporting but ignored for matching;
+every unallowlisted panic-family finding blocks the check.
 
 `no-panic propose` emits a candidate TOML at
 `target/policy/no-panic-proposed-allowlist.toml`. It never mutates
