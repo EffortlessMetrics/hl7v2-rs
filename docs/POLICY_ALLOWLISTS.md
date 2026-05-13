@@ -14,6 +14,12 @@ of truth for exceptions and policy state.
 | `policy/no-panic-allowlist.toml` | Panic-family exception ledger; currently empty with exact counted identity semantics. |
 | `policy/no-panic-baseline.toml` | Generated exact counted no-new-debt baseline for current panic-family findings. |
 | `policy/non-rust-allowlist.toml` | Tracked non-Rust file presence ledger. |
+| `policy/generated-allowlist.toml` | Generated artifacts and generators. |
+| `policy/executable-allowlist.toml` | Scripts and executable entrypoints. |
+| `policy/dependency-surface-allowlist.toml` | Non-Rust package manager and tool dependencies. |
+| `policy/workflow-allowlist.toml` | Workflow behavior beyond file presence. |
+| `policy/process-allowlist.toml` | Process execution surfaces. |
+| `policy/network-allowlist.toml` | Network access surfaces. |
 | `policy/ci-lane-whitelist.toml` | Allowed CI lanes, ownership, trigger class, and LEM estimate. |
 | `policy/ci-risk-packs.toml` | Risk-pack routing for CI lanes. |
 | `policy/ci-budget.toml` | CI budget policy. |
@@ -25,17 +31,11 @@ checkout. They are not policy ledgers and should not be committed.
 
 ## Planned Ledgers
 
-The Rust 1.95 / 1.5.0 rollout should add companion ledgers only where they
-govern behavior that does not belong in `policy/non-rust-allowlist.toml`.
+The Rust 1.95 / 1.5.0 rollout should add more companion ledgers only where
+they govern behavior that does not belong in `policy/non-rust-allowlist.toml`.
 
 | Planned ledger | Purpose |
 | --- | --- |
-| `policy/generated-allowlist.toml` | Generated artifacts and generators. |
-| `policy/executable-allowlist.toml` | Scripts and executable entrypoints. |
-| `policy/dependency-surface-allowlist.toml` | Non-Rust package manager and tool dependencies. |
-| `policy/workflow-allowlist.toml` | Workflow behavior beyond file presence. |
-| `policy/process-allowlist.toml` | Process execution surfaces. |
-| `policy/network-allowlist.toml` | Network access surfaces. |
 | `policy/ripr-suppressions.toml` | Advisory static mutation-exposure suppressions after `ripr` lands. |
 
 ## Rules
@@ -44,8 +44,8 @@ govern behavior that does not belong in `policy/non-rust-allowlist.toml`.
 - Broad globs need a concrete reason.
 - Production OpenAPI, protobuf, schema, profile, and publishing surfaces need
   a real `covered_by` command or workflow.
-- Python, Node, Go, Docker, shell, process, and network behavior should move
-  to companion policies when those policies exist.
+- Python, Node, Go, Docker, shell, process, and network behavior belongs in
+  companion policies instead of broad file-presence entries.
 - `policy/non-rust-allowlist.toml` answers "may this file exist?" Companion
   ledgers answer "what behavior may this file perform?"
 - Exceptions must be owned, reviewable, and expiring unless they are permanent

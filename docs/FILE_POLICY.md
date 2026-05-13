@@ -96,9 +96,11 @@ Failure modes:
 
 1. Add the file or directory to the working tree.
 2. Add an `[[allow]]` entry to `policy/non-rust-allowlist.toml`.
-3. If the surface is generated, set `classification = "generated"` and add
-   `generated_by` to the entry.
-4. Run `cargo run -p xtask -- check-file-policy` — it must pass.
+3. If the surface has executable, generated, dependency, workflow, process, or
+   network behavior, add or update the matching companion ledger.
+4. If a companion ledger uses a broad path glob, include
+   `broad_glob_reason`.
+5. Run `cargo run -p xtask -- check-file-policy` - it must pass.
 
 ## Removing a surface
 
@@ -112,11 +114,10 @@ files. The file policy governs **which other files are allowed to exist**.
 Together, they keep the repository's surface area small, owned, and
 expiring.
 
-## Companion ledgers target
+## Companion ledgers
 
-The current non-Rust allowlist answers whether a non-Rust file may exist. The
-Rust 1.95 / 1.5.0 rollout should add companion ledgers for behavior that should
-not be hidden inside a broad file-presence exception:
+The non-Rust allowlist answers whether a non-Rust file may exist. Companion
+ledgers answer what behavior those files may perform:
 
 ```text
 policy/generated-allowlist.toml
@@ -126,6 +127,15 @@ policy/workflow-allowlist.toml
 policy/process-allowlist.toml
 policy/network-allowlist.toml
 ```
+
+Each companion ledger uses schema `1.0`, requires at least one `[[allow]]`
+entry, and each entry must include `id`, `owner`, `surface`, `behavior`,
+`reason`, and non-empty `covered_by`. Generated entries also require
+non-empty `generated_by`. The required locator depends on the ledger:
+generated entries use `paths`; executable entries use `paths` or `commands`;
+dependency entries use `paths` or `dependencies`; workflow entries use
+`workflows`; process entries use `commands`; network entries use
+`destinations`.
 
 Use [POLICY_ALLOWLISTS.md](POLICY_ALLOWLISTS.md) for the map of current and
 planned ledgers. The TOML files remain the source of truth.

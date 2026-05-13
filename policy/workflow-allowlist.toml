@@ -1,0 +1,68 @@
+schema_version = "1.0"
+policy = "workflow-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+updated = "2026-05-13"
+
+# Workflow behavior is governed separately from YAML file presence.
+
+[[allow]]
+id = "default-ci"
+owner = "release/ci"
+surface = "ci"
+behavior = "Default CI may run fast checks, standard checks, MSRV smoke, routed matrix/extended lanes, and the aggregate CI success job."
+workflows = [".github/workflows/ci.yml"]
+reason = "The staged CI layout keeps default PR proof useful without making expensive lanes an unconditional tax."
+covered_by = ["cargo run -p xtask -- check-ci-lane-whitelist", "cargo run -p xtask -- gate --check"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "coverage-and-security"
+owner = "release/ci"
+surface = "ci"
+behavior = "Coverage and security workflows may run routed advisory proof and upload bounded receipts."
+workflows = [".github/workflows/coverage.yml", ".github/workflows/security.yml"]
+reason = "Coverage and security evidence are routed separately from default CI cost."
+covered_by = ["cargo run -p xtask -- check-ci-lane-whitelist", "cargo run -p xtask -- policy-report"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "contract-validation"
+owner = "api"
+surface = "contracts"
+behavior = "Contract workflows may validate OpenAPI, protobuf, JSON Schema, and evidence fixture compatibility."
+workflows = [".github/workflows/contracts.yml"]
+reason = "Server, CLI, Python, and evidence surfaces rely on stable contract artifacts."
+covered_by = [".github/workflows/contracts.yml", "cargo run -p xtask -- evidence-schema-check"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "python-distribution"
+owner = "hl7v2-python"
+surface = "python-binding"
+behavior = "Python workflows may build wheels, run smoke checks, and publish only through guarded TestPyPI/PyPI proof workflows."
+workflows = [
+  ".github/workflows/python-wheels.yml",
+  ".github/workflows/python-testpypi.yml",
+  ".github/workflows/python-pypi.yml",
+]
+reason = "The public Python distribution is separate from the Rust crates.io publish graph."
+covered_by = ["cargo run -p xtask -- check-python-publish-policy"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "release-and-agent-planning"
+owner = "release/ci"
+surface = "release"
+behavior = "Release, PR planning, nightly, and agent workflows may produce readiness or coordination receipts without broadening default CI."
+workflows = [
+  ".github/workflows/publish.yml",
+  ".github/workflows/pr-plan.yml",
+  ".github/workflows/pr-gate.yml",
+  ".github/workflows/nightly.yml",
+  ".github/workflows/droid.yml",
+  ".github/workflows/server-smoke.yml",
+]
+reason = "Release and agent coordination need explicit workflows but should remain routed by intent and policy."
+covered_by = ["cargo run -p xtask -- check-ci-lane-whitelist", "cargo run -p xtask -- policy-report"]
+review_after = "2026-06-30"

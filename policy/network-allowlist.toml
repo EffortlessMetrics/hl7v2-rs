@@ -1,0 +1,63 @@
+schema_version = "1.0"
+policy = "network-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+updated = "2026-05-13"
+
+# Network access is explicit because publish, package-manager, coverage, and
+# contract tooling boundaries are release-sensitive.
+
+[[allow]]
+id = "github-actions-and-api"
+owner = "release/ci"
+surface = "ci"
+behavior = "GitHub Actions jobs may call GitHub APIs and download workflow dependencies for repository-owned checks."
+destinations = ["github.com", "api.github.com", "objects.githubusercontent.com"]
+reason = "CI orchestration, workflow status, and action downloads depend on GitHub network endpoints."
+covered_by = ["cargo run -p xtask -- check-ci-lane-whitelist"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "rust-registry-and-advisories"
+owner = "release/ci"
+surface = "rust-workspace"
+behavior = "Cargo and security checks may access the Rust registry index, crate downloads, and advisory data."
+destinations = ["crates.io", "index.crates.io", "static.crates.io", "github.com/RustSec/advisory-db"]
+reason = "Build, lockfile, and advisory proof need the Rust package ecosystem."
+covered_by = ["cargo run -p xtask -- audit", "cargo run -p xtask -- gate --check"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "python-package-indexes"
+owner = "hl7v2-python"
+surface = "python-binding"
+behavior = "Python proof workflows may publish to and install back from TestPyPI/PyPI using Trusted Publishing only."
+destinations = [
+  "test.pypi.org",
+  "upload.pypi.org",
+  "pypi.org",
+  "files.pythonhosted.org",
+]
+reason = "Python release proof requires upload and install-back receipts for the public `hl7v2` distribution."
+covered_by = ["cargo run -p xtask -- check-python-publish-policy"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "coverage-upload"
+owner = "release/ci"
+surface = "ci"
+behavior = "Coverage workflows may upload bounded coverage receipts to Codecov."
+destinations = ["codecov.io", "uploader.codecov.io"]
+reason = "Coverage evidence is advisory/routed and needs an external dashboard upload."
+covered_by = [".github/workflows/coverage.yml"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "contract-tool-downloads"
+owner = "api"
+surface = "contracts"
+behavior = "Contract validation workflows may download Node, Go, npm, and buf tooling."
+destinations = ["registry.npmjs.org", "proxy.golang.org", "buf.build", "github.com"]
+reason = "OpenAPI, protobuf, and schema validation use external contract tooling."
+covered_by = [".github/workflows/contracts.yml"]
+review_after = "2026-06-30"

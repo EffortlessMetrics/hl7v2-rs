@@ -893,6 +893,7 @@ fn policy_report() -> Result<()> {
     );
     let file_policy_text = fs::read_to_string(root.join("policy/non-rust-allowlist.toml"))?;
     let file_policy_entries = parse_file_policy_allowlist(&file_policy_text)?;
+    let companion_policy_summary = check_companion_policy_ledgers(&root)?;
 
     let metadata = MetadataCommand::new().current_dir(&root).exec()?;
     let strict_units = collect_rust_files_for(&root, &metadata, &required_packages)?;
@@ -970,6 +971,10 @@ fn policy_report() -> Result<()> {
     println!(
         "  Non-Rust allowlist entries: {}",
         file_policy_entries.len()
+    );
+    println!(
+        "  Companion ledgers: {} ledger(s), {} allow entr(ies)",
+        companion_policy_summary.ledgers, companion_policy_summary.entries
     );
     Ok(())
 }
@@ -3650,6 +3655,32 @@ struct FilePolicyEntry {
     retired: bool,
 }
 
+#[derive(Debug)]
+#[expect(
+    dead_code,
+    reason = "companion entries are parsed for schema validation and policy-report counts"
+)]
+struct CompanionPolicyEntry {
+    id: String,
+    owner: String,
+    surface: String,
+    behavior: String,
+    reason: String,
+    covered_by: Vec<String>,
+}
+
+struct CompanionPolicySpec {
+    path: &'static str,
+    policy: &'static str,
+    required_locator: &'static [&'static str],
+}
+
+#[derive(Clone, Copy)]
+struct CompanionPolicyLedgerSummary {
+    ledgers: usize,
+    entries: usize,
+}
+
 const FILE_POLICY_CLASSIFICATIONS: &[&str] = &[
     "production",
     "test",
@@ -3659,12 +3690,46 @@ const FILE_POLICY_CLASSIFICATIONS: &[&str] = &[
     "docs",
 ];
 
+const COMPANION_POLICY_SPECS: &[CompanionPolicySpec] = &[
+    CompanionPolicySpec {
+        path: "policy/generated-allowlist.toml",
+        policy: "generated-allowlist",
+        required_locator: &["paths"],
+    },
+    CompanionPolicySpec {
+        path: "policy/executable-allowlist.toml",
+        policy: "executable-allowlist",
+        required_locator: &["paths", "commands"],
+    },
+    CompanionPolicySpec {
+        path: "policy/dependency-surface-allowlist.toml",
+        policy: "dependency-surface-allowlist",
+        required_locator: &["paths", "dependencies"],
+    },
+    CompanionPolicySpec {
+        path: "policy/workflow-allowlist.toml",
+        policy: "workflow-allowlist",
+        required_locator: &["workflows"],
+    },
+    CompanionPolicySpec {
+        path: "policy/process-allowlist.toml",
+        policy: "process-allowlist",
+        required_locator: &["commands"],
+    },
+    CompanionPolicySpec {
+        path: "policy/network-allowlist.toml",
+        policy: "network-allowlist",
+        required_locator: &["destinations"],
+    },
+];
+
 fn check_file_policy() -> Result<()> {
     println!("🔎 Checking non-Rust file policy...");
     let root = env::current_dir()?;
     let allowlist_text = fs::read_to_string(root.join("policy/non-rust-allowlist.toml"))?;
     let entries = parse_file_policy_allowlist(&allowlist_text)?;
     enforce_file_policy_expirations(&entries)?;
+    let companion_summary = check_companion_policy_ledgers(&root)?;
 
     let tracked = git_output(&["ls-files", "--cached", "--others", "--exclude-standard"])?;
     let files = file_policy_inventory_from_git_listing(&tracked);
@@ -3729,9 +3794,10 @@ fn check_file_policy() -> Result<()> {
     }
 
     println!(
-        "✅ file policy: {} tracked/untracked non-ignored file(s) checked, {} allowlist entr(ies)",
+        "✅ file policy: {} tracked/untracked non-ignored file(s) checked, {} allowlist entr(ies), {} companion ledger entr(ies)",
         files.len(),
-        entries.len()
+        entries.len(),
+        companion_summary.entries
     );
     Ok(())
 }
@@ -4254,6 +4320,148 @@ fn parse_file_policy_allowlist(text: &str) -> Result<Vec<FilePolicyEntry>> {
         });
     }
     Ok(parsed)
+}
+
+fn check_companion_policy_ledgers(root: &Path) -> Result<CompanionPolicyLedgerSummary> {
+    let mut entries = 0usize;
+    for spec in COMPANION_POLICY_SPECS {
+        let text = fs::read_to_string(root.join(spec.path))?;
+        let parsed = parse_companion_policy_ledger(spec, &text)?;
+        entries = entries.saturating_add(parsed.len());
+    }
+    Ok(CompanionPolicyLedgerSummary {
+        ledgers: COMPANION_POLICY_SPECS.len(),
+        entries,
+    })
+}
+
+fn parse_companion_policy_ledger(
+    spec: &CompanionPolicySpec,
+    text: &str,
+) -> Result<Vec<CompanionPolicyEntry>> {
+    let schema_version = top_level_quoted_value(text, "schema_version")
+        .ok_or_else(|| anyhow!("{} is missing `schema_version`", spec.path))?;
+    if schema_version != "1.0" {
+        return Err(anyhow!(
+            "{} schema_version must be `1.0`, found `{schema_version}`",
+            spec.path
+        ));
+    }
+
+    let policy = top_level_quoted_value(text, "policy")
+        .ok_or_else(|| anyhow!("{} is missing `policy`", spec.path))?;
+    if policy != spec.policy {
+        return Err(anyhow!(
+            "{} policy must be `{}`, found `{policy}`",
+            spec.path,
+            spec.policy
+        ));
+    }
+
+    for key in ["owner", "status"] {
+        if top_level_quoted_value(text, key).is_none() {
+            return Err(anyhow!("{} is missing `{key}`", spec.path));
+        }
+    }
+
+    let entries = table_array_entries(text, "[[allow]]");
+    if entries.is_empty() {
+        return Err(anyhow!(
+            "{} must contain at least one [[allow]] entry",
+            spec.path
+        ));
+    }
+
+    let mut parsed = Vec::with_capacity(entries.len());
+    let mut ids = BTreeSet::new();
+    for (index, raw) in entries.iter().enumerate() {
+        let entry_no = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("{} entry index overflow", spec.path))?;
+        let field = |key: &str| -> Result<String> {
+            top_level_quoted_value(raw, key).ok_or_else(|| {
+                anyhow!(
+                    "{} entry {entry_no} is missing required field `{key}`",
+                    spec.path
+                )
+            })
+        };
+        let id = field("id")?;
+        if !ids.insert(id.clone()) {
+            return Err(anyhow!("{} duplicates allow entry id `{id}`", spec.path));
+        }
+        let owner = field("owner")?;
+        let surface = field("surface")?;
+        let behavior = field("behavior")?;
+        let reason = field("reason")?;
+        let covered_by = string_array_after_root(raw, "covered_by").unwrap_or_default();
+        if covered_by.is_empty() {
+            return Err(anyhow!(
+                "{} entry {id} must set non-empty `covered_by`",
+                spec.path
+            ));
+        }
+
+        let mut has_locator = false;
+        for key in spec.required_locator {
+            if !string_array_after_root(raw, key)
+                .unwrap_or_default()
+                .is_empty()
+            {
+                has_locator = true;
+            }
+        }
+        if !has_locator {
+            return Err(anyhow!(
+                "{} entry {id} must set at least one of: {}",
+                spec.path,
+                spec.required_locator.join(", ")
+            ));
+        }
+        if spec.policy == "generated-allowlist"
+            && string_array_after_root(raw, "generated_by")
+                .unwrap_or_default()
+                .is_empty()
+        {
+            return Err(anyhow!(
+                "{} entry {id} must set non-empty `generated_by`",
+                spec.path
+            ));
+        }
+
+        if companion_entry_has_broad_path_glob(raw)
+            && top_level_quoted_value(raw, "broad_glob_reason").is_none()
+        {
+            return Err(anyhow!(
+                "{} entry {id} uses a broad path glob and must set `broad_glob_reason`",
+                spec.path
+            ));
+        }
+
+        for key in ["review_after", "expires"] {
+            if let Some(value) = top_level_quoted_value(raw, key) {
+                parse_ci_date(&value, &format!("{} entry {id} {key}", spec.path))?;
+            }
+        }
+
+        parsed.push(CompanionPolicyEntry {
+            id,
+            owner,
+            surface,
+            behavior,
+            reason,
+            covered_by,
+        });
+    }
+
+    Ok(parsed)
+}
+
+fn companion_entry_has_broad_path_glob(raw: &str) -> bool {
+    string_array_after_root(raw, "paths")
+        .unwrap_or_default()
+        .iter()
+        .any(|path| path.contains('*'))
 }
 
 fn enforce_file_policy_expirations(entries: &[FilePolicyEntry]) -> Result<()> {
@@ -6479,6 +6687,120 @@ docs\\README.md
                 "{path} must require a non-rust-allowlist entry"
             );
         }
+    }
+
+    #[test]
+    fn companion_policy_validates_common_schema() -> Result<()> {
+        let spec = CompanionPolicySpec {
+            path: "policy/generated-allowlist.toml",
+            policy: "generated-allowlist",
+            required_locator: &["paths"],
+        };
+        let text = r#"
+schema_version = "1.0"
+policy = "generated-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+
+[[allow]]
+id = "generated-baseline"
+owner = "release/ci"
+surface = "panic-policy"
+behavior = "Generated no-new-debt baseline may be refreshed only by the dedicated baseline command."
+paths = ["policy/no-panic-baseline.toml"]
+generated_by = ["cargo run -p xtask -- no-panic baseline --reset"]
+reason = "The baseline is a generated policy receipt, not hand-written prose."
+covered_by = ["cargo run -p xtask -- check-no-panic-family"]
+review_after = "2026-06-30"
+"#;
+
+        let entries = parse_companion_policy_ledger(&spec, text)?;
+        if entries.len() != 1 {
+            return Err(anyhow!("expected one companion entry"));
+        }
+        let first = entries
+            .first()
+            .ok_or_else(|| anyhow!("expected first companion entry"))?;
+        if first.id != "generated-baseline" {
+            return Err(anyhow!(
+                "expected generated-baseline entry id, found {}",
+                first.id
+            ));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn companion_policy_rejects_duplicate_ids() -> Result<()> {
+        let spec = CompanionPolicySpec {
+            path: "policy/process-allowlist.toml",
+            policy: "process-allowlist",
+            required_locator: &["commands"],
+        };
+        let text = r#"
+schema_version = "1.0"
+policy = "process-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+
+[[allow]]
+id = "cargo"
+owner = "release/ci"
+surface = "build"
+behavior = "Cargo may run repository checks."
+commands = ["cargo check"]
+reason = "Rust build system."
+covered_by = ["cargo check --workspace"]
+
+[[allow]]
+id = "cargo"
+owner = "release/ci"
+surface = "build"
+behavior = "Cargo may run repository tests."
+commands = ["cargo test"]
+reason = "Rust test system."
+covered_by = ["cargo test --workspace"]
+"#;
+
+        let Err(err) = parse_companion_policy_ledger(&spec, text) else {
+            return Err(anyhow!("duplicate companion policy id should fail"));
+        };
+        if !err.to_string().contains("duplicates allow entry id") {
+            return Err(anyhow!("unexpected duplicate-id error: {err}"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn companion_policy_requires_broad_glob_reason() -> Result<()> {
+        let spec = CompanionPolicySpec {
+            path: "policy/executable-allowlist.toml",
+            policy: "executable-allowlist",
+            required_locator: &["paths"],
+        };
+        let text = r#"
+schema_version = "1.0"
+policy = "executable-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+
+[[allow]]
+id = "scripts"
+owner = "release/ci"
+surface = "developer-tooling"
+behavior = "Scripts may execute local validation helpers."
+paths = ["scripts/**"]
+reason = "Scripts are owned tooling entrypoints."
+covered_by = ["cargo run -p xtask -- check-file-policy"]
+"#;
+
+        let Err(err) = parse_companion_policy_ledger(&spec, text) else {
+            return Err(anyhow!("broad path glob should require a reason"));
+        };
+        if !err.to_string().contains("broad path glob") {
+            return Err(anyhow!("unexpected broad-glob error: {err}"));
+        }
+        Ok(())
     }
 
     // ---- panic-family scanning ------------------------------------------
