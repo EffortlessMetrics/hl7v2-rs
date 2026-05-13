@@ -6,8 +6,9 @@ This package is intentionally outside the crates.io Rust publish graph. Build
 and validate it through the Python/maturin lane before any PyPI or TestPyPI
 release.
 
-The Python distribution name is `hl7v2-python`; the import module is `hl7v2`.
-Treat that split as public package identity for TestPyPI/PyPI proofs.
+The Python distribution name is `hl7v2`; the import module is also `hl7v2`.
+The internal Rust/PyO3 package remains `hl7v2-python` and is not published to
+crates.io.
 
 ## Build
 

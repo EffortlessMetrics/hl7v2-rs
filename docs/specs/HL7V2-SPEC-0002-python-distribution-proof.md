@@ -7,9 +7,9 @@ Source-of-truth stack: [HL7V2-SPEC-0001](HL7V2-SPEC-0001-source-of-truth-stack.m
 
 ## Contract
 
-`hl7v2-python` is a Python/maturin distribution lane. It is not a Rust
-crates.io product crate and must not be treated as part of the Rust publish
-graph.
+`hl7v2` is the public Python/maturin distribution. The internal Rust/PyO3
+package remains `hl7v2-python`; it is not a Rust crates.io product crate and
+must not be treated as part of the Rust publish graph.
 
 Python distribution proof requires:
 
@@ -41,11 +41,12 @@ install-back both pass for the same intended artifact stream.
 
 ## Required Trusted Publisher Boundary
 
-TestPyPI publishing for `hl7v2-python` requires external Trusted Publisher
+TestPyPI publishing for `hl7v2` requires external Trusted Publisher
 configuration:
 
 | Field | Value |
 | --- | --- |
+| Project name | `hl7v2` |
 | Owner | `EffortlessMetrics` |
 | Repository name | `hl7v2-rs` |
 | Workflow filename | `python-testpypi.yml` |

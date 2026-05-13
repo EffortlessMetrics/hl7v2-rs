@@ -3,7 +3,7 @@ requires = ["maturin>=1.13.1,<2"]
 build-backend = "maturin"
 
 [project]
-name = "hl7v2-python"
+name = "hl7v2"
 dynamic = ["version"]
 description = "Python bindings for the hl7v2 Rust toolkit."
 readme = "crates/hl7v2-python/README.md"

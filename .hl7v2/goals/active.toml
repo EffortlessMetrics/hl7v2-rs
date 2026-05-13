@@ -6,7 +6,8 @@ created = "2026-05-12"
 
 objective = """
 Encode the proposal/spec/ADR/plan/goal source-of-truth model in hl7v2-rs,
-close the TestPyPI Trusted Publisher proof boundary for hl7v2-python, and
+close the TestPyPI Trusted Publisher proof boundary for the public hl7v2 Python
+distribution, and
 prepare a patch release only after evidence receipts are durable.
 """
 

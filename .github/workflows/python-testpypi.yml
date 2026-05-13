@@ -104,7 +104,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/hl7v2-python/${{ needs.wheel_proof.outputs.package_version }}/
+      url: https://test.pypi.org/project/hl7v2/${{ needs.wheel_proof.outputs.package_version }}/
     permissions:
       contents: read
       id-token: write
@@ -129,11 +129,11 @@ jobs:
           {
             echo "## TestPyPI Trusted Publisher"
             echo
-            echo "This job publishes \`hl7v2-python==${PACKAGE_VERSION}\` to TestPyPI using OIDC Trusted Publishing."
+            echo "This job publishes \`hl7v2==${PACKAGE_VERSION}\` to TestPyPI using OIDC Trusted Publishing."
             echo
             echo "| Field | Expected value |"
             echo "| --- | --- |"
-            echo "| Project name | \`hl7v2-python\` |"
+            echo "| Project name | \`hl7v2\` |"
             echo "| Owner | \`EffortlessMetrics\` |"
             echo "| Repository name | \`hl7v2-rs\` |"
             echo "| Workflow filename | \`python-testpypi.yml\` |"
@@ -180,6 +180,6 @@ jobs:
             --index-url https://test.pypi.org/simple/ \
             --no-deps \
             --force-reinstall \
-            "hl7v2-python==${PACKAGE_VERSION}"
+            "hl7v2==${PACKAGE_VERSION}"
           python tests/python_smoke/smoke.py
           python tests/python_smoke/evidence_workflow_guide.py

@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Some historical implementation microcrate artifacts already exist on crates.io; they are compatibility artifacts, not the product surface for new code. `hl7v2-python` remains a separate Python/maturin binding lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Some historical implementation microcrate artifacts already exist on crates.io; they are compatibility artifacts, not the product surface for new code. The public Python distribution is `hl7v2`, built from the internal `hl7v2-python` maturin lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -45,7 +45,7 @@ The public Rust package surface is intentionally small:
 | `hl7v2` | Canonical Rust library crate. Normal Rust users should depend on this crate. |
 | `hl7v2-server` | HTTP/gRPC runtime service with Axum, Tonic, metrics, auth, and deployment behavior. |
 | `hl7v2-cli` | Command-line binary distribution. |
-| `hl7v2-python` | PyO3/Python binding package; held out of the crates.io Rust publish graph for the Python packaging lane. |
+| `hl7v2-python` | Internal PyO3/Python binding package for the public `hl7v2` Python distribution; held out of the crates.io Rust publish graph. |
 
 Implementation boundaries live as modules under `hl7v2`, including
 `hl7v2::model`, `hl7v2::parser`, `hl7v2::writer`, `hl7v2::query`,
@@ -348,7 +348,7 @@ hl7v2-cli
   command-line binary
 
 hl7v2-python
-  PyO3 binding package; released through the Python packaging lane
+  Internal PyO3 binding package; builds the public hl7v2 Python distribution
 ```
 
 Retired compatibility crate names should not gain new behavior. See
@@ -357,8 +357,9 @@ Retired compatibility crate names should not gain new behavior. See
 
 ## Python Binding Lane
 
-`hl7v2-python` is built with maturin and installs as the Python module
-`hl7v2`. It is not part of the Rust crates.io publish graph.
+The public Python distribution is `hl7v2` and imports as `hl7v2`. It is built
+from the internal `hl7v2-python` maturin package, which is not part of the Rust
+crates.io publish graph.
 
 ```bash
 python -m pip install "maturin==1.13.1"

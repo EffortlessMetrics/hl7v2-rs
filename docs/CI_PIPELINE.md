@@ -105,8 +105,9 @@ pass because they can create branches and need broader write permissions.
 
 ### `.github/workflows/python-wheels.yml` - Python Wheel Smoke
 
-Builds the separate `hl7v2-python` maturin package and proves the wheel can be
-installed and imported. This workflow does not publish to PyPI.
+Builds the public `hl7v2` Python distribution from the internal
+`hl7v2-python` maturin package and proves the wheel can be installed and
+imported. This workflow does not publish to PyPI.
 
 #### Jobs:
 
@@ -119,28 +120,28 @@ installed and imported. This workflow does not publish to PyPI.
 
 ### `.github/workflows/python-testpypi.yml` - Python TestPyPI Proof
 
-Manual-only workflow for the separate `hl7v2-python` distribution lane. The
+Manual-only workflow for the separate `hl7v2` Python distribution lane. The
 default dispatch builds the wheel, installs it into a fresh virtual
 environment, runs `tests/python_smoke/smoke.py` plus the Python evidence guide
 smoke, and uploads the wheel as a short-retention artifact without publishing.
 
 When `publish_to_testpypi=true` is selected, the workflow publishes to TestPyPI
 using Trusted Publishing from the `testpypi` GitHub environment, then installs
-`hl7v2-python==<workspace version>` back from TestPyPI and reruns both smoke
+`hl7v2==<workspace version>` back from TestPyPI and reruns both smoke
 tests. The workflow uses `id-token: write` only for the publish job and does
 not use repository PyPI tokens. Publishing mode fails early unless the workflow
 is running from `refs/heads/main`.
 
 ### `.github/workflows/python-pypi.yml` - Python PyPI Release Proof
 
-Manual-only workflow for the production `hl7v2-python` distribution lane. The
+Manual-only workflow for the production `hl7v2` Python distribution lane. The
 default dispatch builds the wheel, installs it into a fresh virtual
 environment, runs `tests/python_smoke/smoke.py` plus the Python evidence guide
 smoke, and uploads the wheel as a short-retention artifact without publishing.
 
 When `publish_to_pypi=true` is selected, the workflow publishes to production
 PyPI using Trusted Publishing from the `pypi` GitHub environment, then installs
-`hl7v2-python==<workspace version>` back from PyPI and reruns both smoke tests.
+`hl7v2==<workspace version>` back from PyPI and reruns both smoke tests.
 The workflow uses `id-token: write` only for the publish job and does not use
 repository PyPI tokens. Run the TestPyPI publishing proof first; production PyPI
 is not a substitute for TestPyPI proof. Publishing mode fails early unless the
@@ -154,8 +155,9 @@ The local policy rail is:
 cargo +1.93.0 run -p xtask -- check-python-publish-policy
 ```
 
-It verifies that `pyproject.toml` points maturin at
-`crates/hl7v2-python/Cargo.toml` with the public Python module name `hl7v2`, the
+It verifies that `pyproject.toml` names the public Python distribution `hl7v2`,
+points maturin at `crates/hl7v2-python/Cargo.toml` with the public Python module
+name `hl7v2`, the
 TestPyPI/PyPI workflows remain manual, default to non-publishing mode, publish
 only from `main`, run both Python smoke scripts before upload and during
 install-back, reject `skip-existing`, avoid secret-backed upload credentials,

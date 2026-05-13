@@ -101,7 +101,7 @@ jobs:
           import urllib.error
           import urllib.request
 
-          package = "hl7v2-python"
+          package = "hl7v2"
           version = os.environ["PACKAGE_VERSION"]
           proof_url = os.environ.get("TESTPYPI_PROOF_URL", "").strip()
           match = re.fullmatch(
@@ -233,7 +233,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: pypi
-      url: https://pypi.org/project/hl7v2-python/${{ needs.wheel_proof.outputs.package_version }}/
+      url: https://pypi.org/project/hl7v2/${{ needs.wheel_proof.outputs.package_version }}/
     permissions:
       contents: read
       id-token: write
@@ -280,6 +280,6 @@ jobs:
             --index-url https://pypi.org/simple/ \
             --no-deps \
             --force-reinstall \
-            "hl7v2-python==${PACKAGE_VERSION}"
+            "hl7v2==${PACKAGE_VERSION}"
           python tests/python_smoke/smoke.py
           python tests/python_smoke/evidence_workflow_guide.py

@@ -7,10 +7,10 @@ Spec: [HL7V2-SPEC-0002](../specs/HL7V2-SPEC-0002-python-distribution-proof.md)
 
 ## Context
 
-`hl7v2-python` is built with maturin and distributed as a Python package. It
-shares Rust implementation code with the workspace, but its release proof,
-package index, Trusted Publishing configuration, and install-back receipts are
-Python packaging concerns.
+The public Python package is `hl7v2` and is built with maturin from the
+internal `hl7v2-python` Rust/PyO3 package. It shares Rust implementation code
+with the workspace, but its release proof, package index, Trusted Publishing
+configuration, and install-back receipts are Python packaging concerns.
 
 The Rust crates.io product surface is:
 
@@ -25,8 +25,8 @@ and create false release evidence.
 
 ## Decision
 
-`hl7v2-python` is not a crates.io product crate. It is a Python/maturin
-distribution lane.
+`hl7v2-python` is not a crates.io product crate. It is the internal
+Rust/PyO3 package for the public `hl7v2` Python distribution lane.
 
 `publish = false` remains required for `crates/hl7v2-python`.
 

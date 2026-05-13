@@ -6,7 +6,7 @@ lane focused on deterministic artifacts: validation reports, corpus summaries,
 corpus diffs, redaction receipts, bundles, and replay reports.
 
 The examples use synthetic messages. They are safe to run from a source checkout
-after installing a locally built `hl7v2-python` wheel.
+after installing a locally built `hl7v2` wheel.
 
 ## Install From A Local Wheel
 
@@ -19,7 +19,7 @@ maturin build --release --out dist
 python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
 ```
 
-The Python distribution is `hl7v2-python`; the import module is `hl7v2`.
+The Python distribution is `hl7v2`; the import module is `hl7v2`.
 
 ```python
 import hl7v2

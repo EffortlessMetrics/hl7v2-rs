@@ -4469,7 +4469,7 @@ fn check_python_publish_policy() -> Result<()> {
     }
 
     println!(
-        "✅ python publish policy: pyproject.toml and {} workflow(s) checked; hl7v2-python remains outside crates.io",
+        "✅ python publish policy: pyproject.toml and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python remains outside crates.io",
         PYTHON_PUBLISH_WORKFLOWS.len()
     );
     Ok(())
@@ -4515,13 +4515,7 @@ fn check_python_pyproject_policy_text(text: &str) -> Result<()> {
         "maturin",
         "pyproject.toml",
     )?;
-    ensure_pyproject_string_value(
-        &pyproject,
-        "[project]",
-        "name",
-        "hl7v2-python",
-        "pyproject.toml",
-    )?;
+    ensure_pyproject_string_value(&pyproject, "[project]", "name", "hl7v2", "pyproject.toml")?;
     ensure_pyproject_array_contains(
         &pyproject,
         "[project]",
@@ -5001,7 +4995,7 @@ fn ensure_python_install_back_job(
         policy.package_index_url,
         "--no-deps",
         "--force-reinstall",
-        "hl7v2-python==${PACKAGE_VERSION}",
+        "hl7v2==${PACKAGE_VERSION}",
         "tests/python_smoke/smoke.py",
         "tests/python_smoke/evidence_workflow_guide.py",
     ] {
@@ -5875,7 +5869,7 @@ requires = ["maturin>=1.13.1,<2"]
 build-backend = "maturin"
 
 [project]
-name = "hl7v2-python"
+name = "hl7v2"
 dynamic = ["version"]
 readme = "crates/hl7v2-python/README.md"
 requires-python = ">=3.10"
@@ -5898,7 +5892,7 @@ requires = ["maturin>=1.13.1,<2"]
 build-backend = "maturin"
 
 [project]
-name = "hl7v2-python"
+name = "hl7v2"
 dynamic = ["version"]
 readme = "crates/hl7v2-python/README.md"
 requires-python = ">=3.10"

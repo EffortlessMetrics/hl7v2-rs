@@ -7,7 +7,7 @@ Blocker: [issue #563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563)
 
 ## Goal
 
-Close the `hl7v2-python` TestPyPI proof boundary only after external Trusted
+Close the `hl7v2` TestPyPI proof boundary only after external Trusted
 Publisher setup exists and a guarded upload plus install-back passes.
 
 ## Production Delta
@@ -17,10 +17,11 @@ publish anything.
 
 ## External Setup
 
-Configure TestPyPI Trusted Publisher for project `hl7v2-python`:
+Configure TestPyPI Trusted Publisher for project `hl7v2`:
 
 | Field | Value |
 | --- | --- |
+| Project name | `hl7v2` |
 | Owner | `EffortlessMetrics` |
 | Repository name | `hl7v2-rs` |
 | Workflow filename | `python-testpypi.yml` |
