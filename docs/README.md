@@ -67,6 +67,7 @@ proposal, spec, plan, or receipt documents.
 | [v1.4.0 publish receipt](audits/publish-v1.4.0-2026-05-09.md) | Dependency-ordered crates.io publication proof. |
 | [v1.5.0 Rust 1.95 release candidate notes](releases/v1.5.0-rust-1.95-quality-ratchet.md) | Candidate scope for the Rust 1.95 quality-ratchet release; not a publish receipt. |
 | [v1.5.0 release readiness](release/1.5.0-readiness.md) | Receipt home for Rust 1.95 / 1.5.0 readiness workflow results. |
+| [v1.5.0 publish dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-13.md) | Non-publishing crates.io dry-run proof for the v1.5.0 Rust graph. |
 | [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the internal `hl7v2-python` package outside the Rust crates.io graph. |
 | [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |
 

@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is preparing the v1.5.0 Rust 1.95 quality-ratchet release; v1.5.0 is not published until the release-readiness and dry-run receipts are complete. The public Python distribution is `hl7v2`, built from the internal `hl7v2-python` maturin lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is prepared as the v1.5.0 Rust 1.95 quality-ratchet candidate with readiness and dry-run receipts; v1.5.0 is not published until explicit crates.io publish and tag receipts land. The public Python distribution is `hl7v2`, built from the internal `hl7v2-python` maturin lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
