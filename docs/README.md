@@ -20,6 +20,8 @@ with the current sources below before reading older planning documents.
 | CI and release validation lanes | [CI_PIPELINE.md](CI_PIPELINE.md) |
 | Release process | [../RELEASE_PROCESS.md](../RELEASE_PROCESS.md) |
 | Lint, file, and panic-family policies | [CLIPPY_POLICY.md](CLIPPY_POLICY.md), [FILE_POLICY.md](FILE_POLICY.md), [NO_PANIC_POLICY.md](NO_PANIC_POLICY.md) |
+| Rust 1.95 / 1.5.0 rollout map | [development/RUST_1_95_ROLLOUT.md](development/RUST_1_95_ROLLOUT.md) |
+| Policy allowlist map | [POLICY_ALLOWLISTS.md](POLICY_ALLOWLISTS.md) |
 
 ## How Docs Fit Together
 
@@ -69,6 +71,8 @@ proposal, spec, plan, or receipt documents.
 ## Current Boundaries
 
 - `docs/STATUS.md` is the current-state source of truth.
+- `docs/development/RUST_1_95_ROLLOUT.md` is the current rollout map for the
+  planned Rust 1.95 / 1.5.0 lane; it is not an active MSRV declaration.
 - The v1.4.0 objective audit is a release-snapshot receipt, not proof that the
   full long-range evidence-layer objective is finished.
 - `hl7v2-python` remains a separate Python packaging lane until a production

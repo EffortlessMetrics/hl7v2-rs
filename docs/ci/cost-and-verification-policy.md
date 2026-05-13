@@ -90,6 +90,19 @@ They are never default for ordinary PRs unless the diff explicitly touches the s
 | Coverage                      | `coverage`, `full-ci`, main          |
 | ripr soft-gate                | After calibration period             |
 
+## Rust 1.95 / 1.5.0 Rollout
+
+The Rust 1.95 rollout keeps this policy intact: sharper rails, not heavier
+ordinary PRs. The rollout map lives in
+[../development/RUST_1_95_ROLLOUT.md](../development/RUST_1_95_ROLLOUT.md).
+It plans a Rust 1.95 MSRV ratchet, exact no-panic identity, companion policy
+ledgers, advisory `ripr` static mutation-exposure analysis, targeted mutation
+lanes, and release-readiness proof for `1.5.0`.
+
+`ripr` is static mutation-exposure analysis. It shifts mutation signal left at
+PR time; it does not replace runtime mutation testing. Runtime mutation remains
+the slower backstop for high-risk, nightly, and release lanes.
+
 ## Hard Rules
 
 The following are non-negotiable regardless of cost pressure:

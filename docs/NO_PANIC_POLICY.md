@@ -59,6 +59,21 @@ container = "parses_msh"      # enclosing `fn` name (best-effort)
 callee = "unwrap"             # method or macro name
 ```
 
+## Rust 1.95 hardening target
+
+The current identity is acceptable while `policy/no-panic-allowlist.toml` is
+empty, but it is too broad for future exceptions. The Rust 1.95 / 1.5.0 rollout
+should harden identity before adding any baseline:
+
+```text
+identity = path + family + selector_kind + selector_callee + snippet + count
+```
+
+Matching should consume exact allowlist count slots first, then baseline count
+slots in no-new-debt mode. Duplicate allowlist keys should be rejected. This
+prevents one future `unwrap` or `expect` receipt from covering unrelated calls
+in the same file or function.
+
 ## Allowlist schema
 
 `policy/no-panic-allowlist.toml` uses schema `0.3`:
@@ -130,6 +145,10 @@ Failure modes:
 - **allowlist entry not matched** by any finding — fail (stale receipt).
 - **allowlist entry past `expires`** — fail.
 - **drift in `last_seen`** — warn only; rerun `no-panic propose` to refresh.
+
+The planned no-new-debt baseline should be generated only after exact identity
+lands. Baseline refreshes may drop disappeared entries, but should not absorb
+new debt unless an explicit reset is part of the dedicated baseline PR.
 
 `no-panic propose` emits a candidate TOML at
 `target/policy/no-panic-proposed-allowlist.toml`. It **never** mutates

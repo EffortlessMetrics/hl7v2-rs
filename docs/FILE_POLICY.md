@@ -111,3 +111,21 @@ Clippy and the semantic no-panic checker govern the **inside** of Rust
 files. The file policy governs **which other files are allowed to exist**.
 Together, they keep the repository's surface area small, owned, and
 expiring.
+
+## Companion ledgers target
+
+The current non-Rust allowlist answers whether a non-Rust file may exist. The
+Rust 1.95 / 1.5.0 rollout should add companion ledgers for behavior that should
+not be hidden inside a broad file-presence exception:
+
+```text
+policy/generated-allowlist.toml
+policy/executable-allowlist.toml
+policy/dependency-surface-allowlist.toml
+policy/workflow-allowlist.toml
+policy/process-allowlist.toml
+policy/network-allowlist.toml
+```
+
+Use [POLICY_ALLOWLISTS.md](POLICY_ALLOWLISTS.md) for the map of current and
+planned ledgers. The TOML files remain the source of truth.

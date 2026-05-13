@@ -1,0 +1,56 @@
+# Policy Allowlists
+
+This page explains how the repository policy ledgers fit together. It is a
+map, not a replacement for the TOML files. The TOML ledgers remain the source
+of truth for exceptions and policy state.
+
+## Current Ledgers
+
+| Ledger | Current job |
+| --- | --- |
+| `policy/clippy-lints.toml` | Active Rust and Clippy lint policy, staged packages, and planned Rust 1.94/1.95 lint flips. |
+| `policy/clippy-debt.toml` | Temporary cleanup debt that should expire by 2026-06-30. |
+| `policy/no-panic-allowlist.toml` | Panic-family exception ledger; currently empty with broad identity semantics. |
+| `policy/non-rust-allowlist.toml` | Tracked non-Rust file presence ledger. |
+| `policy/ci-lane-whitelist.toml` | Allowed CI lanes, ownership, trigger class, and LEM estimate. |
+| `policy/ci-risk-packs.toml` | Risk-pack routing for CI lanes. |
+| `policy/ci-budget.toml` | CI budget policy. |
+
+## Planned Ledgers
+
+The Rust 1.95 / 1.5.0 rollout should add companion ledgers only where they
+govern behavior that does not belong in `policy/non-rust-allowlist.toml`.
+
+| Planned ledger | Purpose |
+| --- | --- |
+| `policy/clippy-exceptions.toml` | Retained Clippy suppressions, separate from broad cleanup debt. |
+| `policy/no-panic-baseline.toml` | Exact counted no-panic baseline for no-new-debt mode. |
+| `policy/generated-allowlist.toml` | Generated artifacts and generators. |
+| `policy/executable-allowlist.toml` | Scripts and executable entrypoints. |
+| `policy/dependency-surface-allowlist.toml` | Non-Rust package manager and tool dependencies. |
+| `policy/workflow-allowlist.toml` | Workflow behavior beyond file presence. |
+| `policy/process-allowlist.toml` | Process execution surfaces. |
+| `policy/network-allowlist.toml` | Network access surfaces. |
+| `policy/ripr-suppressions.toml` | Advisory static mutation-exposure suppressions after `ripr` lands. |
+
+## Rules
+
+- Do not duplicate source-of-truth tables from the TOML ledgers.
+- Broad globs need a concrete reason.
+- Production OpenAPI, protobuf, schema, profile, and publishing surfaces need
+  a real `covered_by` command or workflow.
+- Python, Node, Go, Docker, shell, process, and network behavior should move
+  to companion policies when those policies exist.
+- `policy/non-rust-allowlist.toml` answers "may this file exist?" Companion
+  ledgers answer "what behavior may this file perform?"
+- Exceptions must be owned, reviewable, and expiring unless they are permanent
+  platform metadata with a stable proof.
+
+## Local Gates
+
+```bash
+cargo run -p xtask -- check-file-policy
+cargo run -p xtask -- check-lint-policy
+cargo run -p xtask -- check-no-panic-family
+cargo run -p xtask -- policy-report
+```
