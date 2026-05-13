@@ -96,6 +96,18 @@ reason = "Repo-local Clippy configuration paired with policy/clippy-lints.toml."
 covered_by = ["cargo run -p xtask -- check-lint-policy"]
 
 [[allow]]
+path = "rust-toolchain.toml"
+kind = "toolchain_pin"
+owner = "release/ci"
+surface = "developer-tooling"
+classification = "config"
+reason = "Pins the local and CI-compatible Rust toolchain for the Rust 1.95 MSRV lane."
+covered_by = [
+    "cargo check --workspace --all-targets --all-features --locked",
+    "cargo run -p xtask -- gate --check",
+]
+
+[[allow]]
 path = "tokmd.toml"
 kind = "repo_config"
 owner = "EffortlessMetrics"

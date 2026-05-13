@@ -3,8 +3,10 @@
 This document is the rollout map for moving `hl7v2-rs` from Rust 1.93 to
 Rust 1.95 and preparing the next release as `1.5.0`.
 
-This is a planning and operating document. It does not change the active MSRV,
-toolchain, CI behavior, lint policy, package version, or release state.
+This is a planning and operating document. The initial map PR did not change
+the active MSRV, toolchain, CI behavior, lint policy, package version, or
+release state. The dedicated MSRV PR raises the declared Rust floor and
+toolchain pins without activating new lints or changing runtime behavior.
 
 ## Executive Call
 
@@ -28,11 +30,11 @@ self-describing and better receipted.
 | --- | --- | --- |
 | Rust edition | `2024` | No edition migration is planned. |
 | Workspace version | `1.4.0` | The next release target is `1.5.0`. |
-| Workspace MSRV | `1.93` | Declared in the root `Cargo.toml`. |
-| Toolchain file | absent | Add `rust-toolchain.toml` in the MSRV PR, not here. |
+| Workspace MSRV | `1.95` | Declared in the root `Cargo.toml` after the compatibility probe. |
+| Toolchain file | present | `rust-toolchain.toml` pins Rust `1.95.0` with `rustfmt` and `clippy`. |
 | Root lint policy | strict | Rust and Clippy lints are already governed from the workspace root. |
 | Clippy test carveouts | prohibited | `clippy.toml` explicitly rejects test carveouts. |
-| Clippy policy ledger | present | `policy/clippy-lints.toml` records active lints and planned 1.94/1.95 flips. |
+| Clippy policy ledger | present | `policy/clippy-lints.toml` records MSRV `1.95`, active lints, and planned 1.94/1.95 flips. |
 | Clippy debt ledger | present | `policy/clippy-debt.toml` expires current cleanup debt on 2026-06-30. |
 | Clippy exceptions ledger | absent | Add before deeper suppression governance. |
 | No-panic allowlist | present, empty | Current identity is broad: `path + family + selector`. |
@@ -44,11 +46,6 @@ self-describing and better receipted.
 | Publish workflow | present | `publish.yml` handles crates.io publish execution, but not full 1.5.0 readiness proof. |
 | Release readiness workflow | absent | Add a dedicated readiness workflow before the version bump. |
 | Python publishing | externally blocked | TestPyPI publish remains blocked by issue #563 until Trusted Publisher is configured. |
-
-One stale historical compatibility line remains in `CHANGELOG.md`: an older
-section still says MSRV `1.92` even though the workspace is already `1.93`.
-This rollout records the gap here. The MSRV PR should fix it when it raises
-the declared compatibility line to Rust 1.95.
 
 ## Target State
 
@@ -156,7 +153,5 @@ policy changes, no-panic baseline scope, file-policy scope, CI economics,
 
 - Issue #563 remains the external TestPyPI Trusted Publisher blocker for
   `hl7v2-python`.
-- `CHANGELOG.md` still has a historical MSRV `1.92` compatibility line that
-  should be corrected in the MSRV PR.
 - `publish.yml` exists for crates.io publication, but the dedicated 1.5.0
   readiness workflow and release receipt are still planned.
