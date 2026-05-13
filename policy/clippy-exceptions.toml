@@ -1,0 +1,17 @@
+schema_version = "1.0"
+policy = "clippy-exceptions"
+owner = "EffortlessMetrics"
+status = "active"
+
+# Retained Clippy suppressions live here when they are intentional exceptions,
+# not broad cleanup debt. Temporary cleanup belongs in policy/clippy-debt.toml.
+#
+# [[exception]]
+# id = "clippy-exception-0001"
+# lint = "clippy::some_lint"
+# path = "crates/hl7v2-cli/src/main.rs"
+# selector = "fn main"
+# owner = "hl7v2-cli"
+# reason = "Specific retained invariant."
+# covered_by = "cargo test -p hl7v2-cli --all-features"
+# expires = "2026-06-30"
