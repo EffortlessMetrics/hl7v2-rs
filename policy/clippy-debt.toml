@@ -48,7 +48,7 @@ expires = "2026-06-30"
 lint = "clippy::unwrap_used"
 path = "crates/hl7v2-cli"
 owner = "EffortlessMetrics"
-reason = "Pre-existing CLI commands and tests use static fixture unwraps; cleanup is split from policy infrastructure."
+reason = "Pre-existing CLI tests use static fixture unwraps; cleanup is split from policy infrastructure."
 expires = "2026-06-30"
 
 [[debt]]
@@ -84,27 +84,6 @@ lint = "clippy::allow_attributes_without_reason"
 path = "crates/hl7v2-cli/src/config.rs"
 owner = "EffortlessMetrics"
 reason = "Pre-existing CLI config module uses legacy allow attributes for staged config wiring; replace with narrower expectations after policy lands."
-expires = "2026-06-30"
-
-[[debt]]
-lint = "clippy::allow_attributes"
-path = "crates/hl7v2-cli/src/monitor.rs"
-owner = "EffortlessMetrics"
-reason = "Pre-existing CLI monitor module uses a legacy allow attribute for a staged reporting helper; replace with a narrower expectation after policy lands."
-expires = "2026-06-30"
-
-[[debt]]
-lint = "clippy::allow_attributes_without_reason"
-path = "crates/hl7v2-cli/src/monitor.rs"
-owner = "EffortlessMetrics"
-reason = "Pre-existing CLI monitor module uses a legacy allow attribute for a staged reporting helper; replace with a narrower expectation after policy lands."
-expires = "2026-06-30"
-
-[[debt]]
-lint = "clippy::cast_precision_loss"
-path = "crates/hl7v2-cli/src/monitor.rs"
-owner = "EffortlessMetrics"
-reason = "Pre-existing CLI monitor CPU averaging casts should be replaced with checked conversion helpers after policy lands."
 expires = "2026-06-30"
 
 [[debt]]

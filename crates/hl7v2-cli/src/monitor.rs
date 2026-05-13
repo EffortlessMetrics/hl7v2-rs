@@ -31,7 +31,10 @@ impl PerformanceMonitor {
     }
 
     /// Get a specific metric
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "retained for report expansion; debt is tracked in policy/clippy-debt.toml"
+    )]
     pub fn get_metric(&self, name: &str) -> Option<std::time::Duration> {
         self.metrics.get(name).copied()
     }
@@ -65,7 +68,14 @@ pub fn get_memory_info() -> MemoryInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    if let Some(process) = sys.process(sysinfo::get_current_pid().unwrap()) {
+    let Ok(pid) = sysinfo::get_current_pid() else {
+        return MemoryInfo {
+            resident_set_size: None,
+            virtual_memory_size: None,
+        };
+    };
+
+    if let Some(process) = sys.process(pid) {
         MemoryInfo {
             resident_set_size: Some(process.memory()),
             virtual_memory_size: Some(process.virtual_memory()),
@@ -89,8 +99,14 @@ pub fn get_cpu_info() -> CpuInfo {
     let mut sys = System::new_all();
     sys.refresh_all();
 
-    let cpu_usage: f64 = sys.cpus().iter().map(sysinfo::Cpu::cpu_usage).sum::<f32>() as f64
-        / sys.cpus().len() as f64;
+    let cpus = sys.cpus();
+    let Some(cpu_count) = u32::try_from(cpus.len()).ok().filter(|count| *count > 0) else {
+        return CpuInfo {
+            cpu_usage_percent: None,
+        };
+    };
+    let total_usage: f64 = cpus.iter().map(|cpu| f64::from(cpu.cpu_usage())).sum();
+    let cpu_usage = total_usage / f64::from(cpu_count);
 
     CpuInfo {
         cpu_usage_percent: Some(cpu_usage),
