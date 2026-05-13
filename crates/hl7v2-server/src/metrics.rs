@@ -239,7 +239,11 @@ pub fn increment_parse_errors() {
 
 /// Record message size in bytes
 pub fn record_message_size(size_bytes: usize) {
-    metrics::histogram!("hl7v2_message_size_bytes").record(size_bytes as f64);
+    metrics::histogram!("hl7v2_message_size_bytes").record(message_size_for_histogram(size_bytes));
+}
+
+fn message_size_for_histogram(size_bytes: usize) -> f64 {
+    f64::from(u32::try_from(size_bytes).unwrap_or(u32::MAX))
 }
 
 /// Axum handler for GET /metrics
@@ -329,6 +333,18 @@ mod tests {
         // Test recording message size
         record_message_size(1024);
         // No panic means success
+    }
+
+    #[test]
+    fn message_size_histogram_value_is_bounded() {
+        assert_eq!(
+            message_size_for_histogram(1024).to_bits(),
+            1024.0f64.to_bits()
+        );
+        assert_eq!(
+            message_size_for_histogram(usize::MAX).to_bits(),
+            f64::from(u32::MAX).to_bits()
+        );
     }
 
     #[test]

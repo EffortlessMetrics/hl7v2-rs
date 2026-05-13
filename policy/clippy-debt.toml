@@ -171,13 +171,6 @@ reason = "Pre-existing gRPC summary and enum conversions need bounded conversion
 expires = "2026-06-30"
 
 [[debt]]
-lint = "clippy::cast_precision_loss"
-path = "crates/hl7v2-server/src/metrics.rs"
-owner = "EffortlessMetrics"
-reason = "Pre-existing metrics size recording casts should use bounded conversion helpers after policy lands."
-expires = "2026-06-30"
-
-[[debt]]
 lint = "clippy::manual_let_else"
 path = "crates/hl7v2-server/src/middleware.rs"
 owner = "EffortlessMetrics"

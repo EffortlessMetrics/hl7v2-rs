@@ -34,7 +34,6 @@
 #![expect(
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::manual_let_else,
