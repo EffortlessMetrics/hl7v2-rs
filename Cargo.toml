@@ -38,6 +38,7 @@ unused_must_use = "deny"
 unexpected_cfgs = "warn"
 const_item_interior_mutations = "deny"
 function_casts_as_integer = "deny"
+unused_visibilities = "warn"
 
 [workspace.lints.clippy]
 # Panic-free production and tests
