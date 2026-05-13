@@ -5868,6 +5868,20 @@ mod tests {
     }
 
     #[test]
+    fn command_exists_reports_present_and_missing_commands() {
+        assert!(command_exists("cargo"));
+        assert!(!command_exists("__hl7v2_missing_command__"));
+    }
+
+    #[test]
+    fn command_program_uses_platform_runner_suffix() {
+        #[cfg(windows)]
+        assert_eq!(command_program("cargo"), "cargo.cmd");
+        #[cfg(not(windows))]
+        assert_eq!(command_program("cargo"), "cargo");
+    }
+
+    #[test]
     fn publish_order_uses_workspace_dependency_order() -> Result<()> {
         let ordered = publish_order(None)?;
 
