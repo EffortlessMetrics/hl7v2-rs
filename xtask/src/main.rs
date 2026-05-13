@@ -1407,7 +1407,8 @@ fn git_output(args: &[&str]) -> Result<String> {
 }
 
 fn command_exists(cmd: &str) -> bool {
-    if cfg!(windows) {
+    std::cfg_select! {
+        windows => {
         Command::new("where")
             .arg(cmd)
             .stdout(Stdio::null())
@@ -1415,7 +1416,8 @@ fn command_exists(cmd: &str) -> bool {
             .status()
             .map(|s| s.success())
             .unwrap_or(false)
-    } else {
+        }
+        _ => {
         let safe = cmd.replace('\'', r"'\''");
         Command::new("sh")
             .args(["-lc", &format!("command -v '{safe}' >/dev/null 2>&1")])
@@ -1424,6 +1426,7 @@ fn command_exists(cmd: &str) -> bool {
             .status()
             .map(|s| s.success())
             .unwrap_or(false)
+        }
     }
 }
 
@@ -1625,10 +1628,13 @@ fn run_ajv_validate(schema: &Path, data: &Path) -> Result<()> {
 }
 
 fn command_program(cmd: &str) -> String {
-    if cfg!(windows) {
-        format!("{cmd}.cmd")
-    } else {
-        cmd.to_string()
+    std::cfg_select! {
+        windows => {
+            format!("{cmd}.cmd")
+        }
+        _ => {
+            cmd.to_string()
+        }
     }
 }
 

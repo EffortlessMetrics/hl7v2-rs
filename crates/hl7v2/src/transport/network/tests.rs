@@ -814,19 +814,11 @@ mod network_tests {
                     .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
                     + 1;
 
-                // Track max concurrent handlers active
-                let mut max = self.max_active.load(std::sync::atomic::Ordering::SeqCst);
-                while current > max {
-                    match self.max_active.compare_exchange(
-                        max,
-                        current,
-                        std::sync::atomic::Ordering::SeqCst,
-                        std::sync::atomic::Ordering::SeqCst,
-                    ) {
-                        Ok(_) => break,
-                        Err(actual) => max = actual,
-                    }
-                }
+                self.max_active.update(
+                    std::sync::atomic::Ordering::SeqCst,
+                    std::sync::atomic::Ordering::SeqCst,
+                    |max| max.max(current),
+                );
 
                 // Sleep to keep the connection/handler active
                 tokio::time::sleep(Duration::from_millis(200)).await;
