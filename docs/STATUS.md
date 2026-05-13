@@ -114,7 +114,7 @@ Dry-run receipt: [`docs/audits/publish-dry-run-v1.5.0-2026-05-13.md`](audits/pub
 - ✅ **Rust floor**: MSRV is Rust 1.95 and `rust-toolchain.toml` pins Rust 1.95.0 with `rustfmt` and `clippy`.
 - ✅ **Verification rails**: lint policy, Clippy exceptions, no-panic exact identity and no-new-debt baseline, file-policy companion ledgers, advisory `ripr`, and targeted mutation routing are present.
 - ✅ **Release readiness workflow**: `.github/workflows/release-readiness.yml` records the non-publishing readiness proof bundle.
-- ✅ **Dry-run receipt**: hosted release-readiness dry-run passed on `main` at `38043c62b6684c3bd074661ae6e6089250593132`.
+- ✅ **Dry-run receipt**: hosted release-readiness dry-run passed on `main` at `b0bb5b5392354273946f36f797f39d741d318fc1`.
 - 🟡 **Publish receipt**: crates.io upload has not been run for v1.5.0.
 - 🟡 **Python proof**: the public Python distribution is `hl7v2`, remains outside the Rust crates.io graph, and still requires Trusted Publisher upload/install-back proof before any TestPyPI or PyPI success claim.
 
