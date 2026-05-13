@@ -239,15 +239,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_grpc_invalid_bind_address_fails_before_serving() {
+    async fn test_grpc_invalid_bind_address_fails_before_serving()
+    -> Result<(), Box<dyn std::error::Error>> {
         let result = run_grpc_server("not-a-bind-address", 1024).await;
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Invalid bind address")
-        );
+        let Err(error) = result else {
+            return Err("invalid bind address should fail before serving".into());
+        };
+        if error.to_string().contains("Invalid bind address") {
+            Ok(())
+        } else {
+            Err(format!("expected invalid bind address error, got: {error}").into())
+        }
     }
 
     #[test]

@@ -4,12 +4,10 @@
     clippy::arithmetic_side_effects,
     clippy::allow_attributes,
     clippy::allow_attributes_without_reason,
-    clippy::cast_precision_loss,
     clippy::indexing_slicing,
     clippy::unchecked_time_subtraction,
     clippy::uninlined_format_args,
     clippy::unnecessary_debug_formatting,
-    clippy::unwrap_used,
     reason = "pre-existing CLI reporting and table-rendering debt is tracked in policy/clippy-debt.toml"
 )]
 #![cfg_attr(
