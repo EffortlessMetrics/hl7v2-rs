@@ -1,3 +1,4 @@
 .githooks/* text eol=lf
 *.sh text eol=lf
 .envrc text eol=lf
+policy/no-panic-baseline.toml text eol=lf linguist-generated=true

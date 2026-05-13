@@ -38,7 +38,7 @@ self-describing and better receipted.
 | Clippy debt ledger | present | `policy/clippy-debt.toml` expires current cleanup debt on 2026-06-30. |
 | Clippy exceptions ledger | present | `policy/clippy-exceptions.toml` governs retained Clippy suppressions separately from cleanup debt. |
 | No-panic allowlist | present, empty | Exact identity is `path + family + selector_kind + selector_callee + snippet + count`. |
-| No-panic baseline | absent | Add after exact identity hardening. |
+| No-panic baseline | present | Generated no-new-debt baseline follows exact identity. |
 | Non-Rust allowlist | present | File presence is governed; companion behavior ledgers are still planned. |
 | CI | staged and routed | Fast, standard, MSRV, matrix, extended, benchmark, coverage, contract, and security lanes already exist. |
 | Coverage | routed/advisory | Coverage runs on main, dispatch, `coverage`, or `full-ci`. |
@@ -60,7 +60,7 @@ self-describing and better receipted.
 | Clippy ratchets | activate clean 1.94/1.95 lints or defer with expiring debt |
 | Clippy exceptions | retained-suppression ledger separate from debt |
 | No-panic identity | exact counted identity landed before baseline generation |
-| No-panic baseline | generated no-new-debt baseline after exact identity lands |
+| No-panic baseline | generated no-new-debt baseline with reset confined to the baseline PR |
 | File policy | companion ledgers for generated, executable, dependency, workflow, process, and network behavior |
 | ripr | advisory PR-time static mutation-exposure analysis |
 | Mutation testing | targeted runtime backstop, not an ordinary PR tax |

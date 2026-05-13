@@ -1,6 +1,9 @@
 schema_version = "0.4"
 
 # Authoritative ledger of panic-family exceptions.
+# Current non-exception debt is tracked separately in
+# policy/no-panic-baseline.toml; normal baseline refreshes may reduce but not
+# absorb debt.
 #
 # Identity for matching is
 # `path + family + selector_kind + selector_callee + snippet`, with `count`

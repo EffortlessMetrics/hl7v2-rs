@@ -65,8 +65,8 @@ container = "parses_msh"      # enclosing `fn` name (best-effort locator)
 callee = "unwrap"             # method or macro name
 ```
 
-Matching consumes exact allowlist count slots first. The later no-new-debt
-baseline will consume baseline count slots after allowlist slots.
+Matching consumes exact allowlist count slots first. The no-new-debt baseline
+consumes baseline count slots after allowlist slots.
 
 ## Allowlist schema
 
@@ -131,6 +131,13 @@ cargo run -p xtask -- check-no-panic-family
 # Propose new allowlist entries based on current findings.
 cargo run -p xtask -- no-panic propose
 
+# Refresh the generated no-new-debt baseline.
+cargo run -p xtask -- no-panic baseline
+
+# Regenerate the baseline from the current tree. Use only in the dedicated
+# baseline PR.
+cargo run -p xtask -- no-panic baseline --reset
+
 # Combined report alongside clippy lint policy state.
 cargo run -p xtask -- policy-report
 ```
@@ -144,9 +151,10 @@ Failure modes:
 - drift in `container` or `[allow.last_seen]`: advisory only; rerun
   `no-panic propose` to refresh locators.
 
-The planned no-new-debt baseline should be generated only after exact identity
-lands. Baseline refreshes may drop disappeared entries, but should not absorb
-new debt unless an explicit reset is part of the dedicated baseline PR.
+`policy/no-panic-baseline.toml` is generated and marked as generated in
+`.gitattributes`. Normal refreshes may drop disappeared entries or reduce
+counts, but they refuse to absorb new debt. `--reset` may absorb all current
+findings and is only valid in the dedicated baseline PR.
 
 `no-panic propose` emits a candidate TOML at
 `target/policy/no-panic-proposed-allowlist.toml`. It never mutates

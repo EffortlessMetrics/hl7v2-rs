@@ -119,6 +119,12 @@ enum NoPanicAction {
         #[arg(long)]
         include_staged: bool,
     },
+    /// Refresh the no-new-debt baseline
+    Baseline {
+        /// Absorb all current findings into the baseline
+        #[arg(long)]
+        reset: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -156,6 +162,7 @@ fn main() -> Result<()> {
         }
         Commands::NoPanic { action } => match action {
             NoPanicAction::Propose { include_staged } => no_panic_propose(include_staged)?,
+            NoPanicAction::Baseline { reset } => no_panic_baseline(reset)?,
         },
         Commands::CheckFilePolicy => check_file_policy()?,
         Commands::CheckDocLinks => check_doc_links()?,
@@ -877,6 +884,8 @@ fn policy_report() -> Result<()> {
 
     let no_panic_text = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
     let no_panic_entries = parse_no_panic_allowlist(&no_panic_text)?;
+    let no_panic_baseline_text = fs::read_to_string(root.join("policy/no-panic-baseline.toml"))?;
+    let no_panic_baseline_entries = parse_no_panic_baseline(&no_panic_baseline_text)?;
     let file_policy_text = fs::read_to_string(root.join("policy/non-rust-allowlist.toml"))?;
     let file_policy_entries = parse_file_policy_allowlist(&file_policy_text)?;
 
@@ -901,6 +910,11 @@ fn policy_report() -> Result<()> {
     println!();
     println!("No-panic policy");
     println!("  Allowlist entries: {}", no_panic_entries.len());
+    println!("  Baseline entries: {}", no_panic_baseline_entries.len());
+    println!(
+        "  Baseline occurrences: {}",
+        no_panic_baseline_occurrences(&no_panic_baseline_entries)
+    );
     println!(
         "  Strict findings (required-inheriting crates): {}",
         strict_findings.len()
@@ -1814,6 +1828,31 @@ impl NoPanicAllowEntry {
     }
 }
 
+#[derive(Clone, Debug)]
+struct NoPanicBaselineEntry {
+    path: String,
+    family: String,
+    snippet: String,
+    count: usize,
+    selector_kind: String,
+    selector_callee: String,
+    selector_container: Option<String>,
+    last_seen_line: usize,
+    last_seen_column: usize,
+}
+
+impl NoPanicBaselineEntry {
+    fn identity(&self) -> NoPanicIdentity {
+        NoPanicIdentity {
+            path: self.path.clone(),
+            family: self.family.clone(),
+            selector_kind: self.selector_kind.clone(),
+            selector_callee: self.selector_callee.clone(),
+            snippet: self.snippet.clone(),
+        }
+    }
+}
+
 const NO_PANIC_CLASSIFICATIONS: &[&str] = &[
     "production",
     "test_helper",
@@ -1829,8 +1868,15 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
     let root = env::current_dir()?;
     let policy_text = fs::read_to_string(root.join("policy/clippy-lints.toml"))?;
     let allowlist_text = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
+    let baseline_text = fs::read_to_string(root.join("policy/no-panic-baseline.toml"))
+        .map_err(|err| {
+            anyhow!(
+                "failed to read policy/no-panic-baseline.toml: {err}; run `cargo run -p xtask -- no-panic baseline --reset` in the dedicated baseline PR"
+            )
+        })?;
 
     let entries = parse_no_panic_allowlist(&allowlist_text)?;
+    let baseline_entries = parse_no_panic_baseline(&baseline_text)?;
     enforce_no_panic_expirations(&entries)?;
 
     let required = string_array_after(&policy_text, "[rollout]", "required_inheriting_packages")
@@ -1843,8 +1889,9 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
         })?;
 
     let metadata = MetadataCommand::new().current_dir(&root).exec()?;
-    let strict_files = collect_rust_files_for(&root, &metadata, &required)?;
+    let mut strict_files = collect_rust_files_for(&root, &metadata, &required)?;
     let advisory_files = if include_staged_in_strict {
+        strict_files.extend(collect_rust_files_for(&root, &metadata, &staged)?);
         Vec::new()
     } else {
         collect_rust_files_for(&root, &metadata, &staged)?
@@ -1852,12 +1899,14 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
 
     let strict_findings = scan_panic_family(&root, &strict_files)?;
     let advisory_findings = scan_panic_family(&root, &advisory_files)?;
+    let all_findings = combined_no_panic_findings(&strict_findings, &advisory_findings);
 
-    let unmatched = match_findings_against_allowlist(&strict_findings, &entries);
+    let unreceipted = match_findings_against_allowlist(&all_findings, &entries);
+    let unmatched = match_findings_against_baseline(&unreceipted, &baseline_entries);
     if !unmatched.is_empty() {
         for f in unmatched.iter().take(20) {
             eprintln!(
-                "no-panic: {}:{}:{}: unallowlisted {} ({} {})",
+                "no-panic: {}:{}:{}: new {} debt ({} {})",
                 f.path,
                 f.line,
                 f.column,
@@ -1873,13 +1922,13 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
             );
         }
         return Err(anyhow!(
-            "{} unallowlisted panic-family finding(s) in inheriting crates; \
-             receipt them via policy/no-panic-allowlist.toml or remove the call",
+            "{} panic-family finding(s) are outside policy/no-panic-allowlist.toml and the no-new-debt baseline; \
+             remove the call or refresh the baseline with --reset only in the dedicated baseline PR",
             unmatched.len()
         ));
     }
 
-    let stale = stale_no_panic_entries(&entries, &strict_findings);
+    let stale = stale_no_panic_entries(&entries, &all_findings);
     if !stale.is_empty() {
         for entry in &stale {
             eprintln!(
@@ -1895,9 +1944,12 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
 
     println!(
         "✅ no-panic policy: {} required-inheriting source file(s) scanned, \
-         {} allowlist entr(ies), {} advisory finding(s) in staged crates",
+         {} allowlist entr(ies), {} baseline entr(ies), {} baseline occurrence(s), \
+         {} advisory finding(s) in staged crates",
         total_files(&strict_files),
         entries.len(),
+        baseline_entries.len(),
+        no_panic_baseline_occurrences(&baseline_entries),
         advisory_findings.len(),
     );
     Ok(())
@@ -1981,6 +2033,48 @@ fn no_panic_propose(include_staged: bool) -> Result<()> {
         findings.len(),
         grouped.len(),
         report_path.display()
+    );
+    Ok(())
+}
+
+fn no_panic_baseline(reset: bool) -> Result<()> {
+    let root = env::current_dir()?;
+    let policy_text = fs::read_to_string(root.join("policy/clippy-lints.toml"))?;
+    let metadata = MetadataCommand::new().current_dir(&root).exec()?;
+
+    let mut packages =
+        string_array_after(&policy_text, "[rollout]", "required_inheriting_packages")
+            .ok_or_else(|| anyhow!("policy is missing required_inheriting_packages"))?;
+    let staged = string_array_after(&policy_text, "[rollout]", "staged_inheriting_packages")
+        .ok_or_else(|| anyhow!("policy is missing staged_inheriting_packages"))?;
+    packages.extend(staged);
+
+    let files = collect_rust_files_for(&root, &metadata, &packages)?;
+    let findings = scan_panic_family(&root, &files)?;
+    let current = no_panic_baseline_entries_from_findings(&findings);
+
+    let baseline_path = root.join("policy/no-panic-baseline.toml");
+    let entries_to_write = if reset {
+        current
+    } else {
+        let existing_text = fs::read_to_string(&baseline_path).map_err(|err| {
+            anyhow!(
+                "failed to read policy/no-panic-baseline.toml: {err}; use --reset to create the first baseline"
+            )
+        })?;
+        let existing = parse_no_panic_baseline(&existing_text)?;
+        refresh_no_panic_baseline_entries(&current, &existing, false)?
+    };
+
+    let rendered = render_no_panic_baseline(&entries_to_write);
+    fs::write(&baseline_path, rendered)?;
+    let written_text = fs::read_to_string(&baseline_path)?;
+    let written = parse_no_panic_baseline(&written_text)?;
+    println!(
+        "wrote {} no-panic baseline entr(ies) covering {} occurrence(s) to {}",
+        written.len(),
+        no_panic_baseline_occurrences(&written),
+        baseline_path.display()
     );
     Ok(())
 }
@@ -2609,6 +2703,217 @@ fn parse_no_panic_allowlist(text: &str) -> Result<Vec<NoPanicAllowEntry>> {
     Ok(parsed)
 }
 
+fn parse_no_panic_baseline(text: &str) -> Result<Vec<NoPanicBaselineEntry>> {
+    let schema_version = top_level_quoted_value(text, "schema_version")
+        .ok_or_else(|| anyhow!("policy/no-panic-baseline.toml is missing `schema_version`"))?;
+    if schema_version != "1.0" {
+        return Err(anyhow!(
+            "policy/no-panic-baseline.toml schema_version must be `1.0`, found `{schema_version}`"
+        ));
+    }
+    let policy = top_level_quoted_value(text, "policy")
+        .ok_or_else(|| anyhow!("policy/no-panic-baseline.toml is missing `policy`"))?;
+    if policy != "no-panic-baseline" {
+        return Err(anyhow!(
+            "policy/no-panic-baseline.toml policy must be `no-panic-baseline`, found `{policy}`"
+        ));
+    }
+    let mode = top_level_quoted_value(text, "mode")
+        .ok_or_else(|| anyhow!("policy/no-panic-baseline.toml is missing `mode`"))?;
+    if mode != "no-new-debt" {
+        return Err(anyhow!(
+            "policy/no-panic-baseline.toml mode must be `no-new-debt`, found `{mode}`"
+        ));
+    }
+
+    let entries = table_array_entries(text, "[[baseline]]");
+    let mut parsed = Vec::with_capacity(entries.len());
+    let mut identities: BTreeMap<NoPanicIdentity, usize> = BTreeMap::new();
+    for (index, entry) in entries.iter().enumerate() {
+        let entry_no = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("baseline index overflow"))?;
+        let path = top_level_quoted_value(entry, "path").ok_or_else(|| {
+            anyhow!("policy/no-panic-baseline.toml entry {entry_no} is missing `path`")
+        })?;
+        let family = top_level_quoted_value(entry, "family").ok_or_else(|| {
+            anyhow!("policy/no-panic-baseline.toml entry {entry_no} is missing `family`")
+        })?;
+        if PanicFamily::from_str(&family).is_none() {
+            return Err(anyhow!(
+                "policy/no-panic-baseline.toml entry {entry_no} has unknown family `{family}`"
+            ));
+        }
+        let snippet = top_level_quoted_value(entry, "snippet").ok_or_else(|| {
+            anyhow!("policy/no-panic-baseline.toml entry {entry_no} is missing `snippet`")
+        })?;
+        let count = top_level_usize_value(entry, "count").ok_or_else(|| {
+            anyhow!("policy/no-panic-baseline.toml entry {entry_no} is missing numeric `count`")
+        })?;
+        if count == 0 {
+            return Err(anyhow!(
+                "policy/no-panic-baseline.toml entry {entry_no} must set `count` greater than zero"
+            ));
+        }
+        let selector_kind =
+            sub_table_value(entry, "[baseline.selector]", "kind").ok_or_else(|| {
+                anyhow!(
+                    "policy/no-panic-baseline.toml entry {entry_no} is missing `[baseline.selector] kind`"
+                )
+            })?;
+        if !NO_PANIC_SELECTOR_KINDS.contains(&selector_kind.as_str()) {
+            return Err(anyhow!(
+                "policy/no-panic-baseline.toml entry {entry_no} has unknown selector kind `{selector_kind}`"
+            ));
+        }
+        let selector_callee =
+            sub_table_value(entry, "[baseline.selector]", "callee").ok_or_else(|| {
+                anyhow!(
+                    "policy/no-panic-baseline.toml entry {entry_no} is missing `[baseline.selector] callee`"
+                )
+            })?;
+        let selector_container = sub_table_value(entry, "[baseline.selector]", "container");
+        let last_seen_line =
+            sub_table_usize_value(entry, "[baseline.last_seen]", "line").ok_or_else(|| {
+                anyhow!(
+                    "policy/no-panic-baseline.toml entry {entry_no} is missing `[baseline.last_seen] line`"
+                )
+            })?;
+        let last_seen_column =
+            sub_table_usize_value(entry, "[baseline.last_seen]", "column").ok_or_else(|| {
+                anyhow!(
+                    "policy/no-panic-baseline.toml entry {entry_no} is missing `[baseline.last_seen] column`"
+                )
+            })?;
+
+        let parsed_entry = NoPanicBaselineEntry {
+            path,
+            family,
+            snippet,
+            count,
+            selector_kind,
+            selector_callee,
+            selector_container,
+            last_seen_line,
+            last_seen_column,
+        };
+        let identity = parsed_entry.identity();
+        if let Some(existing_entry_no) = identities.insert(identity, entry_no) {
+            return Err(anyhow!(
+                "policy/no-panic-baseline.toml entry {entry_no} duplicates exact identity already used by entry {existing_entry_no}"
+            ));
+        }
+        parsed.push(parsed_entry);
+    }
+    Ok(parsed)
+}
+
+fn no_panic_baseline_entries_from_findings(findings: &[PanicFinding]) -> Vec<NoPanicBaselineEntry> {
+    let mut grouped: BTreeMap<NoPanicIdentity, (PanicFinding, usize)> = BTreeMap::new();
+    for finding in findings {
+        grouped
+            .entry(finding.identity())
+            .and_modify(|(_, count)| *count = count.saturating_add(1))
+            .or_insert((finding.clone(), 1));
+    }
+
+    grouped
+        .into_values()
+        .map(|(finding, count)| NoPanicBaselineEntry {
+            path: finding.path,
+            family: finding.family.as_str().to_string(),
+            snippet: finding.snippet,
+            count,
+            selector_kind: finding.family.selector_kind().to_string(),
+            selector_callee: finding.family.callee().to_string(),
+            selector_container: finding.container,
+            last_seen_line: finding.line,
+            last_seen_column: finding.column,
+        })
+        .collect()
+}
+
+fn refresh_no_panic_baseline_entries(
+    current: &[NoPanicBaselineEntry],
+    existing: &[NoPanicBaselineEntry],
+    reset: bool,
+) -> Result<Vec<NoPanicBaselineEntry>> {
+    if reset {
+        return Ok(current.to_vec());
+    }
+
+    let existing_counts = no_panic_baseline_counts(existing);
+    let mut new_debt = Vec::new();
+    for entry in current {
+        let allowed = existing_counts
+            .get(&entry.identity())
+            .copied()
+            .unwrap_or_default();
+        if entry.count > allowed {
+            new_debt.push(entry);
+        }
+    }
+    if !new_debt.is_empty() {
+        for entry in new_debt.iter().take(20) {
+            eprintln!(
+                "no-panic baseline: new debt {} {} {} count={} snippet={}",
+                entry.path, entry.family, entry.selector_callee, entry.count, entry.snippet
+            );
+        }
+        if new_debt.len() > 20 {
+            eprintln!(
+                "no-panic baseline: ... and {} more new baseline entr(ies)",
+                new_debt.len().saturating_sub(20)
+            );
+        }
+        return Err(anyhow!(
+            "{} no-panic baseline entr(ies) would add new debt; rerun with --reset only in the dedicated baseline PR",
+            new_debt.len()
+        ));
+    }
+
+    Ok(current.to_vec())
+}
+
+fn render_no_panic_baseline(entries: &[NoPanicBaselineEntry]) -> String {
+    let mut out = String::new();
+    out.push_str("schema_version = \"1.0\"\n");
+    out.push_str("policy = \"no-panic-baseline\"\n");
+    out.push_str("mode = \"no-new-debt\"\n\n");
+    out.push_str("# Generated by `cargo run -p xtask -- no-panic baseline --reset`.\n");
+    out.push_str(
+        "# Refresh without --reset may drop disappeared entries but refuses new debt.\n\n",
+    );
+
+    for entry in entries {
+        out.push_str("[[baseline]]\n");
+        out.push_str(&format!(
+            "path = \"{}\"\n",
+            escape_toml_basic_string(&entry.path)
+        ));
+        out.push_str(&format!("family = \"{}\"\n", entry.family));
+        out.push_str(&format!(
+            "snippet = \"{}\"\n",
+            escape_toml_basic_string(&entry.snippet)
+        ));
+        out.push_str(&format!("count = {}\n", entry.count));
+        out.push_str("\n[baseline.selector]\n");
+        out.push_str(&format!("kind = \"{}\"\n", entry.selector_kind));
+        out.push_str(&format!("callee = \"{}\"\n", entry.selector_callee));
+        if let Some(container) = &entry.selector_container {
+            out.push_str(&format!(
+                "container = \"{}\"\n",
+                escape_toml_basic_string(container)
+            ));
+        }
+        out.push_str("\n[baseline.last_seen]\n");
+        out.push_str(&format!("line = {}\n", entry.last_seen_line));
+        out.push_str(&format!("column = {}\n\n", entry.last_seen_column));
+    }
+
+    out
+}
+
 fn enforce_no_panic_expirations(entries: &[NoPanicAllowEntry]) -> Result<()> {
     let today = "2026-05-06"; // CLAUDE.md fixes `today` for the policy ratchet.
     for entry in entries {
@@ -2643,6 +2948,25 @@ fn match_findings_against_allowlist(
     unmatched
 }
 
+fn match_findings_against_baseline(
+    findings: &[PanicFinding],
+    entries: &[NoPanicBaselineEntry],
+) -> Vec<PanicFinding> {
+    let mut remaining = no_panic_baseline_counts(entries);
+    let mut unmatched = Vec::new();
+    for finding in findings {
+        let key = finding.identity();
+        if let Some(count) = remaining.get_mut(&key)
+            && *count > 0
+        {
+            *count = count.saturating_sub(1);
+            continue;
+        }
+        unmatched.push(finding.clone());
+    }
+    unmatched
+}
+
 #[cfg(test)]
 fn no_panic_entry_matches_finding(entry: &NoPanicAllowEntry, finding: &PanicFinding) -> bool {
     entry.identity() == finding.identity()
@@ -2653,6 +2977,39 @@ fn no_panic_allowlist_counts(entries: &[NoPanicAllowEntry]) -> BTreeMap<NoPanicI
         .iter()
         .map(|entry| (entry.identity(), entry.count))
         .collect()
+}
+
+fn no_panic_baseline_counts(entries: &[NoPanicBaselineEntry]) -> BTreeMap<NoPanicIdentity, usize> {
+    entries
+        .iter()
+        .map(|entry| (entry.identity(), entry.count))
+        .collect()
+}
+
+fn no_panic_baseline_occurrences(entries: &[NoPanicBaselineEntry]) -> usize {
+    entries
+        .iter()
+        .fold(0usize, |total, entry| total.saturating_add(entry.count))
+}
+
+fn combined_no_panic_findings(
+    strict_findings: &[PanicFinding],
+    advisory_findings: &[PanicFinding],
+) -> Vec<PanicFinding> {
+    let mut findings = Vec::with_capacity(
+        strict_findings
+            .len()
+            .saturating_add(advisory_findings.len()),
+    );
+    findings.extend(strict_findings.iter().cloned());
+    findings.extend(advisory_findings.iter().cloned());
+    findings.sort_by(|a, b| {
+        a.path
+            .cmp(&b.path)
+            .then(a.line.cmp(&b.line))
+            .then(a.column.cmp(&b.column))
+    });
+    findings
 }
 
 fn stale_no_panic_entries<'a>(
@@ -2689,6 +3046,11 @@ fn top_level_usize_value(text: &str, key: &str) -> Option<usize> {
             .map(str::trim)
             .and_then(|value| value.parse::<usize>().ok())
     })
+}
+
+fn sub_table_usize_value(entry_text: &str, marker: &str, key: &str) -> Option<usize> {
+    let value = sub_table_value(entry_text, marker, key)?;
+    value.parse::<usize>().ok()
 }
 
 fn sub_table_value(entry_text: &str, marker: &str, key: &str) -> Option<String> {
@@ -5684,6 +6046,20 @@ docs\\README.md
         }
     }
 
+    fn test_no_panic_baseline_entry(snippet: &str, count: usize) -> NoPanicBaselineEntry {
+        NoPanicBaselineEntry {
+            path: "crates/x/src/lib.rs".into(),
+            family: "unwrap".into(),
+            snippet: snippet.into(),
+            count,
+            selector_kind: "method_call".into(),
+            selector_callee: "unwrap".into(),
+            selector_container: Some("parse_msh".into()),
+            last_seen_line: 10,
+            last_seen_column: 9,
+        }
+    }
+
     #[test]
     fn allowlist_entry_requires_exact_snippet() {
         let entry = test_no_panic_entry("panic-0001", "let _ = some.unwrap();", 1);
@@ -5776,5 +6152,47 @@ callee = "unwrap"
             err.to_string().contains("duplicates exact identity"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn no_panic_baseline_refresh_refuses_new_debt_without_reset() -> Result<()> {
+        let existing = vec![test_no_panic_baseline_entry("let _ = some.unwrap();", 1)];
+        let current = vec![
+            test_no_panic_baseline_entry("let _ = some.unwrap();", 1),
+            test_no_panic_baseline_entry("let _ = other.unwrap();", 1),
+        ];
+
+        let result = refresh_no_panic_baseline_entries(&current, &existing, false);
+        if result.is_ok() {
+            return Err(anyhow!("baseline refresh should reject new debt"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn no_panic_baseline_refresh_drops_disappeared_entries() -> Result<()> {
+        let existing = vec![
+            test_no_panic_baseline_entry("let _ = some.unwrap();", 1),
+            test_no_panic_baseline_entry("let _ = gone.unwrap();", 1),
+        ];
+        let current = vec![test_no_panic_baseline_entry("let _ = some.unwrap();", 1)];
+
+        let refreshed = match refresh_no_panic_baseline_entries(&current, &existing, false) {
+            Ok(refreshed) => refreshed,
+            Err(err) => return Err(anyhow!("baseline refresh failed unexpectedly: {err}")),
+        };
+        if refreshed.len() != 1 {
+            return Err(anyhow!(
+                "expected one refreshed baseline entry, got {}",
+                refreshed.len()
+            ));
+        }
+        let Some(entry) = refreshed.first() else {
+            return Err(anyhow!("expected refreshed entry"));
+        };
+        if entry.snippet != "let _ = some.unwrap();" {
+            return Err(anyhow!("unexpected refreshed snippet: {}", entry.snippet));
+        }
+        Ok(())
     }
 }
