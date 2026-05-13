@@ -184,6 +184,25 @@ classification = "config"
 reason = "Machine-readable current campaign state for Codex/Droid source-of-truth execution."
 covered_by = ["cargo run -p xtask -- check-file-policy"]
 
+[[allow]]
+glob = "badges/*.json"
+kind = "generated_badge_endpoint"
+owner = "release/ci"
+surface = "docs"
+classification = "generated"
+reason = "Generated Shields endpoint JSON for public README badges."
+generated_by = "cargo xtask badges"
+covered_by = ["cargo xtask badges --check"]
+
+[[allow]]
+path = ".cargo/config.toml"
+kind = "cargo_config"
+owner = "release/ci"
+surface = "developer-tooling"
+classification = "config"
+reason = "Cargo alias exposes the workspace xtask runner as `cargo xtask` for local and CI commands."
+covered_by = ["cargo xtask --help"]
+
 # ---------------------------------------------------------------------------
 # Policy data
 # ---------------------------------------------------------------------------
