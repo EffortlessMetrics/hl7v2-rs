@@ -31,7 +31,8 @@ claim tier or proof expectations.
 | Python binding local wheel lane | Experimental | `python tests/python_smoke/smoke.py`; `python tests/python_smoke/evidence_workflow_guide.py` after a local wheel install |
 | Python TestPyPI distribution (`hl7v2`) | Blocked | Issue [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563); requires TestPyPI upload and install-back receipt |
 | Production PyPI distribution (`hl7v2`) | Not released | Requires same-commit TestPyPI proof, production PyPI upload, install-back from `https://pypi.org/simple/`, smoke proof, and receipt PR |
-| Rust crates.io release graph | Stable | `cargo run -p xtask -- publish-plan`; must report `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. v1.5.0 release claims require readiness, dry-run, publish, and tag receipts. |
+| Primary Rust crates.io product graph | Stable | `cargo run -p xtask -- publish-plan`; must report `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. v1.5.0 release claims require readiness, dry-run, publish, and tag receipts. |
+| Binding backend crates | Planned / governed | ADR [HL7V2-ADR-0003](../adr/HL7V2-ADR-0003-publishable-binding-backend-crates.md); future proof must show surface classification, package metadata, dry-run, and language install/import smoke. |
 
 ## Rules
 
@@ -39,6 +40,8 @@ claim tier or proof expectations.
 - Do not copy current release status here. Link to `docs/STATUS.md`.
 - Do not claim TestPyPI or production PyPI success without upload and
   install-back receipts.
-- Do not add `hl7v2-python` to the Rust crates.io publish graph.
+- Do not add `hl7v2-python` to the primary Rust product graph.
+- If a binding backend crate becomes publishable, record it as binding
+  infrastructure, not as the recommended Rust API.
 - When a surface changes tier, update this map and the relevant proof receipt in
   the same PR.

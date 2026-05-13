@@ -16,7 +16,7 @@ It is not a crates.io publish receipt. It is not a TestPyPI or PyPI receipt.
 | Job URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25814999531/job/75841051085> |
 | Result | Success |
 
-## Rust Publish Graph
+## Primary Rust Product Graph
 
 The publish plan remained:
 
@@ -24,7 +24,9 @@ The publish plan remained:
 2. `hl7v2-server`
 3. `hl7v2-cli`
 
-The internal `hl7v2-python` Rust crate remained outside the crates.io graph.
+The `hl7v2-python` Rust crate remained outside the primary Rust product graph.
+It is a binding backend crate and needs separate binding-backend release
+receipts before any crates.io publish.
 
 ## Hosted Proof
 
@@ -57,8 +59,8 @@ The dry-run packaged and verified `hl7v2`, `hl7v2-server`, and `hl7v2-cli` as
 The workflow confirmed:
 
 - public Python distribution: `hl7v2`;
-- internal Rust binding crate: `hl7v2-python`;
-- Rust crates.io publish graph: `hl7v2`, `hl7v2-server`, `hl7v2-cli`;
+- Rust binding backend crate: `hl7v2-python`;
+- primary Rust crates.io product graph: `hl7v2`, `hl7v2-server`, `hl7v2-cli`;
 - no TestPyPI or PyPI success claim was made.
 
 Issue [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563)

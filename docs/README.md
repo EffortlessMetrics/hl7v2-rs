@@ -54,7 +54,7 @@ proposal, spec, plan, or receipt documents.
 | [Safe Support Bundle](guides/safe-support-bundle.md) | Redact and package replayable support evidence. |
 | [Deploy Validation Sidecar](guides/deploy-validation-sidecar.md) | Run `hl7v2-server` as an edge guard. |
 | [Python Evidence Workflow](guides/python-evidence-workflow.md) | Use the Python binding for validation reports, corpus diffs, redaction, bundles, and replay. |
-| [Python TestPyPI Release Proof](guides/python-testpypi-release-proof.md) | Prove the separate Python packaging lane without changing the Rust crates.io graph. |
+| [Python TestPyPI Release Proof](guides/python-testpypi-release-proof.md) | Prove the separate Python packaging lane without changing the primary Rust product graph. |
 
 ## Release And Proof Receipts
 
@@ -68,7 +68,7 @@ proposal, spec, plan, or receipt documents.
 | [v1.5.0 Rust 1.95 release candidate notes](releases/v1.5.0-rust-1.95-quality-ratchet.md) | Candidate scope for the Rust 1.95 quality-ratchet release; not a publish receipt. |
 | [v1.5.0 release readiness](release/1.5.0-readiness.md) | Receipt home for Rust 1.95 / 1.5.0 readiness workflow results. |
 | [v1.5.0 publish dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-13.md) | Non-publishing crates.io dry-run proof for the v1.5.0 Rust graph. |
-| [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the internal `hl7v2-python` package outside the Rust crates.io graph. |
+| [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the `hl7v2-python` binding backend separate from the primary Rust product graph. |
 | [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |
 
 ## Current Boundaries
@@ -80,9 +80,9 @@ proposal, spec, plan, or receipt documents.
   the remaining 1.5.0 quality-ratchet lane.
 - The v1.4.0 objective audit is a release-snapshot receipt, not proof that the
   full long-range evidence-layer objective is finished.
-- The public Python distribution is `hl7v2`, built from the internal
-  `hl7v2-python` maturin lane, until a production PyPI release is intentionally
-  proven and executed.
+- The public Python distribution is `hl7v2`, built from the `hl7v2-python`
+  binding backend lane, until a production PyPI release is intentionally proven
+  and executed.
 - gRPC coverage is useful but still narrower than the full HTTP evidence
   surface; use `docs/API_GUIDE.md` and `docs/STATUS.md` for current endpoint
   claims.
@@ -109,13 +109,13 @@ for live navigation.
 
 ## Package Surface
 
-The current Rust product surface is:
+The current primary Rust product surface is:
 
 - `hl7v2`
 - `hl7v2-server`
 - `hl7v2-cli`
 
-The public Python distribution is `hl7v2`, built from the internal
-`hl7v2-python` maturin lane. `hl7v2-python` is not part of the Rust crates.io
-publish graph. Historical old microcrate names may exist on crates.io, but they
-are not the product surface for new code.
+The public Python distribution is `hl7v2`, built from the
+`hl7v2-python` maturin backend lane. `hl7v2-python` is a binding backend crate, not the
+recommended Rust API. Historical old microcrate names may exist on crates.io,
+but they are not the product surface for new code.

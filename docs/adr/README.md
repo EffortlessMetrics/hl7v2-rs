@@ -36,6 +36,14 @@ We use the format popularized by Michael Nygard:
 | [0014](0014-observability-architecture.md) | Observability Architecture | Accepted | 2026-03-04 |
 | [0015](0015-collapse-public-crate-surface.md) | Collapse Public Crate Surface | Accepted | 2026-05-06 |
 
+## HL7V2 Governance ADRs
+
+| ADR | Title | Status | Date |
+|-----|-------|--------|------|
+| [HL7V2-ADR-0001](HL7V2-ADR-0001-evidence-artifacts-are-contracts.md) | Evidence Artifacts Are Contracts | Accepted | 2026-05-12 |
+| [HL7V2-ADR-0002](HL7V2-ADR-0002-python-is-separate-distribution-lane.md) | Python Is A Separate Distribution Lane | Accepted, amended by HL7V2-ADR-0003 | 2026-05-12 |
+| [HL7V2-ADR-0003](HL7V2-ADR-0003-publishable-binding-backend-crates.md) | Publishable Binding Backend Crates | Accepted | 2026-05-13 |
+
 ## Creating a New ADR
 
 ```bash

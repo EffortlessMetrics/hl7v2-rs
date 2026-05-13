@@ -8,14 +8,17 @@ surface collapse described by [ADR-015](../adr/0015-collapse-public-crate-surfac
 As of 2026-05-08, the implementation modules have been collapsed into the
 canonical `hl7v2` Rust library crate. Local compatibility shim crate folders
 were retired after the v1.2.1 release. `cargo run -p xtask -- publish-plan`
-resolves the Rust product graph:
+resolves the primary Rust product graph:
 
 1. `hl7v2`
 2. `hl7v2-server`
 3. `hl7v2-cli`
 
-`hl7v2-python` remains in the workspace as a separate PyO3 binding lane with
-`publish = false` for crates.io.
+`hl7v2-python` remains in the workspace as a separate PyO3 binding backend
+crate. Current metadata keeps it at `publish = false`; ADR
+[HL7V2-ADR-0003](../adr/HL7V2-ADR-0003-publishable-binding-backend-crates.md)
+allows binding backend crates to become publishable later when tooling,
+metadata, and receipts make the boundary explicit.
 
 Historical old microcrate package names may exist on crates.io, but those names
 are compatibility artifacts. New Rust code should depend on `hl7v2` and use
@@ -27,14 +30,26 @@ Crates are product and distribution surfaces. SRP implementation units are
 modules unless they require a separate release, package, binary, runtime
 service, or foreign-language binding boundary.
 
-## Public And Internal Crates
+## Crate Classes
+
+| Class | Examples | Audience | Publishable |
+| --- | --- | --- | --- |
+| Primary Rust product | `hl7v2`, `hl7v2-server`, `hl7v2-cli` | Rust users and operators | Yes |
+| Language package | PyPI `hl7v2`, future npm `@effortlessmetrics/hl7v2` | Python and TypeScript users | Yes, through that language registry |
+| Binding backend crate | `hl7v2-python`, future `hl7v2-wasm`, future `hl7v2-node` | Packagers and binding maintainers | Yes, when governed by binding-backend release policy |
+| Internal/dev crate | `hl7v2-e2e-tests`, `hl7v2-test-utils`, `hl7v2-bench`, `xtask`, root examples | Repository implementation | No |
+
+Binding backend crates are real language-boundary APIs. They are not the
+recommended Rust API for normal users.
+
+## Workspace Crates
 
 | Crate | Role | Publish policy |
 | --- | --- | --- |
 | `hl7v2` | Canonical Rust library crate and implementation home. | Public crates.io package. |
 | `hl7v2-server` | HTTP/gRPC runtime service with Axum, Tonic, metrics, auth, CORS, and deployment config. | Public crates.io package. |
 | `hl7v2-cli` | Command-line binary distribution. | Public crates.io package. |
-| `hl7v2-python` | Python binding package that depends on `hl7v2`. | `publish = false`; Python/maturin lane. |
+| `hl7v2-python` | PyO3 binding backend for the public Python `hl7v2` package. Rust users should depend on `hl7v2`. | Currently `publish = false`; may become a governed binding backend crate. |
 | `hl7v2-e2e-tests` | End-to-end tests. | `publish = false`. |
 | `hl7v2-test-utils` | Shared test utilities. | `publish = false`; later candidate for `tests/support`. |
 | `hl7v2-bench` | Benchmark harness. | `publish = false`; later candidate for root `benches/`. |
@@ -119,5 +134,8 @@ describes the active repository shape.
 - Do not reintroduce implementation microcrates for ordinary SRP boundaries.
 - Do not collapse `hl7v2-server`, `hl7v2-cli`, or `hl7v2-python` into `hl7v2`.
 - Do not keep `hl7v2-core` as a second facade.
-- Add new workspace crates only for product, runtime, binary, binding, test,
-  benchmark, or tool boundaries.
+- Add new workspace crates only for product, runtime, binary, language binding,
+  test, benchmark, or tool boundaries.
+- Binding backend crates must stay thin over `hl7v2`; do not use them to split
+  parser, model, redaction, transport, or evidence implementation back into
+  public Rust microcrates.

@@ -9,7 +9,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.4.0 is published to crates.io for the final Rust package graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is prepared as the v1.5.0 Rust 1.95 quality-ratchet candidate with readiness and dry-run receipts; v1.5.0 is not published until explicit crates.io publish and tag receipts land. The public Python distribution is `hl7v2`, built from the internal `hl7v2-python` maturin lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.4.0 is published to crates.io for the primary Rust product graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is prepared as the v1.5.0 Rust 1.95 quality-ratchet candidate with readiness and dry-run receipts; v1.5.0 is not published until explicit crates.io publish and tag receipts land. The public Python distribution is `hl7v2`, built from the `hl7v2-python` binding backend lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -23,8 +23,8 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
-| **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; not published to crates.io |
-| **Publish Readiness** | Candidate | `hl7v2`, `hl7v2-server`, and `hl7v2-cli` are prepared at v1.5.0; v1.4.0 remains the current published crates.io release until the v1.5.0 release receipt lands |
+| **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; backend crate remains unpublished until binding-backend release guardrails land |
+| **Publish Readiness** | Candidate | Primary Rust product crates `hl7v2`, `hl7v2-server`, and `hl7v2-cli` are prepared at v1.5.0; v1.4.0 remains the current published crates.io release until the v1.5.0 release receipt lands |
 | **Evidence Loop** | Stable | v1.4.0 is the published Evidence Contracts and Server Sidecar release; v1.5.0 keeps that surface and adds Rust 1.95, tighter policy rails, advisory ripr, targeted mutation, and release-readiness proof |
 
 ## Features
@@ -38,14 +38,19 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 
 ## Crates
 
-The public Rust package surface is intentionally small:
+The primary Rust product surface is intentionally small:
 
 | Crate | Role |
 | --- | --- |
 | `hl7v2` | Canonical Rust library crate. Normal Rust users should depend on this crate. |
 | `hl7v2-server` | HTTP/gRPC runtime service with Axum, Tonic, metrics, auth, and deployment behavior. |
 | `hl7v2-cli` | Command-line binary distribution. |
-| `hl7v2-python` | Internal PyO3/Python binding package for the public `hl7v2` Python distribution; held out of the crates.io Rust publish graph. |
+| `hl7v2-python` | PyO3 binding backend for the public `hl7v2` Python distribution. It is not the recommended Rust API and is not included in the primary Rust product graph. |
+
+Binding backend crates such as `hl7v2-python`, future `hl7v2-wasm`, and future
+`hl7v2-node` may become publishable implementation surfaces for language
+packages. They are not a reason to split parser/model/redaction/MLLP behavior
+back into public Rust microcrates.
 
 Implementation boundaries live as modules under `hl7v2`, including
 `hl7v2::model`, `hl7v2::parser`, `hl7v2::writer`, `hl7v2::query`,
@@ -348,7 +353,7 @@ hl7v2-cli
   command-line binary
 
 hl7v2-python
-  Internal PyO3 binding package; builds the public hl7v2 Python distribution
+  PyO3 binding backend; builds the public hl7v2 Python distribution
 ```
 
 Retired compatibility crate names should not gain new behavior. See
@@ -358,8 +363,9 @@ Retired compatibility crate names should not gain new behavior. See
 ## Python Binding Lane
 
 The public Python distribution is `hl7v2` and imports as `hl7v2`. It is built
-from the internal `hl7v2-python` maturin package, which is not part of the Rust
-crates.io publish graph.
+from the `hl7v2-python` maturin backend crate. Rust users should depend on
+`hl7v2`; Python users should install `hl7v2` from PyPI once the Python release
+lane is proven.
 
 ```bash
 python -m pip install "maturin==1.13.1"
@@ -376,7 +382,7 @@ bundle, and replay APIs also support the same opt-in v2 evidence shapes used by
 the CLI/server contracts where those surfaces expose v2 output.
 
 TestPyPI proof is manual-first through the `Python TestPyPI Proof` workflow and
-does not change the Rust publish graph. See
+does not change the primary Rust product graph. See
 [`docs/guides/python-testpypi-release-proof.md`](docs/guides/python-testpypi-release-proof.md).
 
 ## Performance Characteristics

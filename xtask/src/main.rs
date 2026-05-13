@@ -41,7 +41,7 @@ enum Commands {
     Audit,
     /// Check for outdated dependencies
     Outdated,
-    /// Print the crates.io publish order for workspace crates
+    /// Print the primary Rust product crates.io publish order
     PublishPlan {
         /// Resume from this crate name
         #[arg(long)]
@@ -390,7 +390,7 @@ fn outdated() -> Result<()> {
 fn publish_plan(from: Option<String>) -> Result<()> {
     let crates = publish_order(from.as_deref())?;
 
-    println!("📋 crates.io publish order");
+    println!("📋 Primary Rust product crates.io publish order");
     for (index, crate_name) in crates.iter().enumerate() {
         let display_index = index
             .checked_add(1)
@@ -398,6 +398,9 @@ fn publish_plan(from: Option<String>) -> Result<()> {
         println!("{display_index:>2}. {crate_name}");
     }
 
+    println!();
+    println!("Binding backend crates are a separate surface and are not included in this plan.");
+    println!("Current binding backend graph: hl7v2-python (publish = false)");
     println!();
     println!("Execute with:");
     if let Some(start) = crates.first() {
@@ -4683,7 +4686,7 @@ fn check_python_publish_policy() -> Result<()> {
     }
 
     println!(
-        "✅ python publish policy: pyproject.toml and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python remains outside crates.io",
+        "✅ python publish policy: pyproject.toml and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python remains a non-published binding backend crate",
         PYTHON_PUBLISH_WORKFLOWS.len()
     );
     Ok(())
@@ -4701,7 +4704,7 @@ fn ensure_hl7v2_python_not_crates_io_published(root: &Path) -> Result<()> {
         Ok(())
     } else {
         Err(anyhow!(
-            "crates/hl7v2-python/Cargo.toml must keep publish = false so Python stays outside the Rust crates.io graph"
+            "crates/hl7v2-python/Cargo.toml must keep publish = false until a binding-backend release PR updates the Python publish policy"
         ))
     }
 }

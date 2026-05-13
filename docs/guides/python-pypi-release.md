@@ -3,7 +3,7 @@
 Use this guide only after the separate `hl7v2` Python distribution has passed the
 local wheel proof and the full TestPyPI upload/install-back proof. This is a
 production package release path for Python users. It does not change the Rust
-crates.io graph.
+primary product graph.
 
 ## Package Identity
 
@@ -11,13 +11,13 @@ crates.io graph.
 | --- | --- |
 | Python distribution | `hl7v2` |
 | Python import module | `hl7v2` |
-| Rust package | `hl7v2-python` |
-| crates.io publish policy | `publish = false` |
+| Rust backend crate | `hl7v2-python` |
+| crates.io publish policy | currently `publish = false`; binding-backend publication requires a separate release PR |
 | Production PyPI workflow | `.github/workflows/python-pypi.yml` |
 | GitHub environment | `pypi` |
 
-Do not publish `hl7v2-python` to crates.io. The Rust release graph remains
-`hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+Do not publish `hl7v2-python` as part of PyPI proof. The primary Rust product
+graph remains `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 
 ## Preconditions
 

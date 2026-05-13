@@ -105,8 +105,8 @@ pass because they can create branches and need broader write permissions.
 
 ### `.github/workflows/python-wheels.yml` - Python Wheel Smoke
 
-Builds the public `hl7v2` Python distribution from the internal
-`hl7v2-python` maturin package and proves the wheel can be installed and
+Builds the public `hl7v2` Python distribution from the `hl7v2-python`
+binding backend crate and proves the wheel can be installed and
 imported. This workflow does not publish to PyPI.
 
 #### Jobs:
@@ -161,8 +161,9 @@ name `hl7v2`, the
 TestPyPI/PyPI workflows remain manual, default to non-publishing mode, publish
 only from `main`, run both Python smoke scripts before upload and during
 install-back, reject `skip-existing`, avoid secret-backed upload credentials,
-grant `id-token: write` only on publish jobs, and keep `hl7v2-python` at
-`publish = false` for crates.io.
+grant `id-token: write` only on publish jobs, and keep the `hl7v2-python`
+binding backend crate at `publish = false` for crates.io until a separate
+binding-backend release PR changes that policy.
 
 ### Markdown Local-Link Policy
 

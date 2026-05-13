@@ -141,12 +141,14 @@ cargo +1.93.0 run -p xtask -- check-doc-links
 Docs-only source-of-truth PRs should run:
 
 ```powershell
-cargo +1.93.0 run -p xtask -- check-doc-links
-cargo +1.93.0 run -p xtask -- publish-plan
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.93.0 run -p xtask -- gate --check --changed
+cargo +1.95.0 run -p xtask -- check-doc-links
+cargo +1.95.0 run -p xtask -- publish-plan
+$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.95.0 run -p xtask -- gate --check --changed
 ```
 
-The publish plan must keep `hl7v2-python` outside the Rust crates.io graph.
+The default publish plan owns the primary Rust product graph. Binding backend
+crates require separate surface classification and release receipts before they
+can be included in a crates.io publish sequence.
 
 ## Non-Goals
 

@@ -58,7 +58,7 @@ git push origin v<version>
 
 ### 5. Publish to Crates.io
 
-Use `xtask` to derive the publish order from the workspace dependency graph so the sequence stays correct as crates are added or dependencies change.
+Use `xtask` to derive the primary Rust product publish order from the workspace dependency graph so the sequence stays correct as crates are added or dependencies change.
 
 ```bash
 # Preview the publish order
@@ -71,19 +71,24 @@ cargo run -p xtask -- publish --yes
 cargo run -p xtask -- publish --yes --from hl7v2-server
 ```
 
-The publish sequence is the Rust product graph: `hl7v2`, then `hl7v2-server`,
+The publish sequence is the primary Rust product graph: `hl7v2`, then `hl7v2-server`,
 then `hl7v2-cli`. It excludes non-published workspace members such as
 `hl7v2-python`, `hl7v2-bench`, `hl7v2-test-utils`, `hl7v2-e2e-tests`, `xtask`,
 and the root `hl7v2-examples` package. Historical old microcrate package names
 are not published again unless a deliberate deprecation-only compatibility
 release is approved.
 
+Binding backend crates such as `hl7v2-python`, future `hl7v2-wasm`, and future
+`hl7v2-node` are a separate package surface. They may become publishable only
+through a binding-backend release PR with explicit metadata, dry-run proof, and
+language install/import smoke receipts. They are not the recommended Rust API.
+
 For GitHub Actions based releases, use the manual `Publish to crates.io` workflow. It prints the derived order first and only publishes when `execute=true` is selected and the `CARGO_REGISTRY_TOKEN` secret is configured.
 
 ### Python TestPyPI Proof
 
-`hl7v2-python` is not part of the Rust crates.io publish graph. Prove the
-Python package separately before any PyPI release:
+`hl7v2-python` is not part of the primary Rust product graph. Prove the Python
+package separately before any PyPI release:
 
 ```powershell
 python -m pip install --upgrade pip "maturin==1.13.1"

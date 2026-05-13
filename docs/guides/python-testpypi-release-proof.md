@@ -2,7 +2,7 @@
 
 Use this guide when you need to prove the `hl7v2` distribution as a Python
 package before any production PyPI release. This lane is separate from the Rust
-crates.io release graph.
+primary product graph.
 
 ## Package Identity
 
@@ -10,13 +10,13 @@ crates.io release graph.
 | --- | --- |
 | Python distribution | `hl7v2` |
 | Python import module | `hl7v2` |
-| Rust package | `hl7v2-python` |
-| crates.io publish policy | `publish = false` |
+| Rust backend crate | `hl7v2-python` |
+| crates.io publish policy | currently `publish = false`; binding-backend publication requires a separate release PR |
 | TestPyPI workflow | `.github/workflows/python-testpypi.yml` |
 | GitHub environment | `testpypi` |
 
-Do not publish `hl7v2-python` to crates.io. The Rust release graph remains
-`hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+Do not publish `hl7v2-python` as part of TestPyPI proof. The primary Rust
+product graph remains `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
 
 ## One-Time TestPyPI Setup
 
@@ -119,7 +119,8 @@ A TestPyPI proof is complete only when all of these are true:
   `tests/python_smoke/evidence_workflow_guide.py` successfully.
 
 This is still not a production PyPI release. Treat it as packaging evidence for
-the separate Python lane.
+the separate Python lane. A crates.io binding-backend publish, if later
+approved, does not replace TestPyPI upload and install-back proof.
 
 After the upload/install-back proof passes, use
 [Python PyPI Release](python-pypi-release.md) for the guarded production PyPI

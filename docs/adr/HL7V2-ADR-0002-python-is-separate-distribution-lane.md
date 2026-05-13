@@ -4,15 +4,17 @@ Status: Accepted
 Date: 2026-05-12
 Proposal: [HL7V2-PROP-0001](../proposals/HL7V2-PROP-0001-source-of-truth-and-release-governance.md)
 Spec: [HL7V2-SPEC-0002](../specs/HL7V2-SPEC-0002-python-distribution-proof.md)
+Amended by:
+[HL7V2-ADR-0003](HL7V2-ADR-0003-publishable-binding-backend-crates.md)
 
 ## Context
 
 The public Python package is `hl7v2` and is built with maturin from the
-internal `hl7v2-python` Rust/PyO3 package. It shares Rust implementation code
+`hl7v2-python` Rust/PyO3 binding backend crate. It shares Rust implementation code
 with the workspace, but its release proof, package index, Trusted Publishing
 configuration, and install-back receipts are Python packaging concerns.
 
-The Rust crates.io product surface is:
+The primary Rust crates.io product surface is:
 
 ```text
 hl7v2
@@ -20,23 +22,29 @@ hl7v2-server
 hl7v2-cli
 ```
 
-Publishing `hl7v2-python` as a Rust crate would blur package manager boundaries
-and create false release evidence.
+Publishing `hl7v2-python` as a primary Rust product crate would blur package
+manager boundaries and create false release evidence. A later ADR allows
+binding backend crates to be published as implementation packaging artifacts
+when they are clearly separated from the primary Rust product graph.
 
 ## Decision
 
-`hl7v2-python` is not a crates.io product crate. It is the internal
-Rust/PyO3 package for the public `hl7v2` Python distribution lane.
+`hl7v2-python` is not a primary crates.io product crate. It is the Rust/PyO3
+package for the public `hl7v2` Python distribution lane.
 
-`publish = false` remains required for `crates/hl7v2-python`.
+Current metadata keeps `crates/hl7v2-python` at `publish = false` until a
+separate binding-backend tooling and metadata PR deliberately changes it.
 
 Python release proof uses TestPyPI and PyPI workflows, not the Rust crates.io
-publish graph.
+primary product graph.
 
 ## Consequences
 
-- `cargo +1.93.0 run -p xtask -- publish-plan` must continue to report only
-  `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+- Default `cargo +1.95.0 run -p xtask -- publish-plan` output continues to
+  report the primary Rust product graph: `hl7v2`, `hl7v2-server`, and
+  `hl7v2-cli`.
+- Binding backend crates require separate release tooling and receipts before
+  they can be published.
 - Python TestPyPI and PyPI receipts are separate from Rust crates.io release
   receipts.
 - TestPyPI proof remains blocked until external Trusted Publisher setup for
@@ -59,7 +67,7 @@ publish graph.
 Docs-only ADR changes use:
 
 ```powershell
-cargo +1.93.0 run -p xtask -- check-doc-links
-cargo +1.93.0 run -p xtask -- publish-plan
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.93.0 run -p xtask -- gate --check --changed
+cargo +1.95.0 run -p xtask -- check-doc-links
+cargo +1.95.0 run -p xtask -- publish-plan
+$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.95.0 run -p xtask -- gate --check --changed
 ```
