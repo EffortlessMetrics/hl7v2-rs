@@ -15,6 +15,16 @@ schema_version = "1.0"
 # CI / repo automation
 # ---------------------------------------------------------------------------
 
+
+[[allow]]
+path = ".cargo/config.toml"
+kind = "cargo_config"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+classification = "config"
+reason = "Defines the cargo xtask alias used by repository automation and documentation."
+covered_by = ["cargo xtask --help"]
+
 [[allow]]
 glob = ".github/workflows/*.yml"
 kind = "ci_declarative"
@@ -22,7 +32,7 @@ owner = "release/ci"
 surface = "ci"
 classification = "config"
 reason = "GitHub Actions workflows are platform-required YAML and own the CI pipeline definition."
-covered_by = ["cargo run -p xtask -- gate --check"]
+covered_by = ["cargo xtask gate --check"]
 
 [[allow]]
 glob = ".githooks/*"
@@ -31,7 +41,7 @@ owner = "EffortlessMetrics"
 surface = "developer-tooling"
 classification = "tooling"
 reason = "Repository git hooks delegate to xtask and enforce the policy stack on commit and push."
-covered_by = ["just setup", "cargo run -p xtask -- hook-pre-commit"]
+covered_by = ["just setup", "cargo xtask hook-pre-commit"]
 
 [[allow]]
 path = "codecov.yml"
@@ -40,7 +50,7 @@ owner = "release/ci"
 surface = "ci"
 classification = "config"
 reason = "Codecov status and reporting configuration for cargo-llvm-cov coverage uploads."
-covered_by = ["cargo run -p xtask -- check-file-policy"]
+covered_by = ["cargo xtask check-file-policy"]
 
 [[allow]]
 path = ".github/workflows/coverage.yml"
@@ -49,7 +59,7 @@ owner = "release/ci"
 surface = "ci"
 classification = "config"
 reason = "GitHub Actions coverage workflow for cargo-llvm-cov and Codecov uploads."
-covered_by = ["cargo run -p xtask -- check-file-policy"]
+covered_by = ["cargo xtask check-file-policy"]
 
 [[allow]]
 path = ".spectral.yml"
@@ -84,7 +94,7 @@ owner = "release/ci"
 surface = "ci"
 classification = "config"
 reason = "cargo-deny advisory and license policy."
-covered_by = ["cargo run -p xtask -- audit"]
+covered_by = ["cargo xtask audit"]
 
 [[allow]]
 path = "clippy.toml"
@@ -93,7 +103,7 @@ owner = "EffortlessMetrics"
 surface = "ci"
 classification = "config"
 reason = "Repo-local Clippy configuration paired with policy/clippy-lints.toml."
-covered_by = ["cargo run -p xtask -- check-lint-policy"]
+covered_by = ["cargo xtask check-lint-policy"]
 
 [[allow]]
 path = "rust-toolchain.toml"
@@ -104,7 +114,7 @@ classification = "config"
 reason = "Pins the local and CI-compatible Rust toolchain for the Rust 1.95 MSRV lane."
 covered_by = [
     "cargo check --workspace --all-targets --all-features --locked",
-    "cargo run -p xtask -- gate --check",
+    "cargo xtask gate --check",
 ]
 
 [[allow]]
@@ -171,6 +181,26 @@ classification = "generated"
 reason = "Snapshot of cargo metadata used by review tooling."
 generated_by = "cargo metadata --format-version=1 --all-features"
 
+
+[[allow]]
+glob = "badges/*.json"
+kind = "generated_badge_endpoint"
+owner = "release/ci"
+surface = "docs"
+classification = "generated"
+reason = "Generated Shields endpoint JSON for public README badges."
+generated_by = "cargo xtask badges"
+covered_by = ["cargo xtask badges --check"]
+
+[[allow]]
+path = "scripts/ripr-annotations.py"
+kind = "ci_annotation_helper"
+owner = "release/ci"
+surface = "ci"
+classification = "tooling"
+reason = "Emits non-blocking GitHub workflow annotations from RIPR comments[] only."
+covered_by = ["python scripts/ripr-annotations.py"]
+
 # ---------------------------------------------------------------------------
 # Agent execution state
 # ---------------------------------------------------------------------------
@@ -182,7 +212,7 @@ owner = "EffortlessMetrics"
 surface = "agent-execution"
 classification = "config"
 reason = "Machine-readable current campaign state for Codex/Droid source-of-truth execution."
-covered_by = ["cargo run -p xtask -- check-file-policy"]
+covered_by = ["cargo xtask check-file-policy"]
 
 # ---------------------------------------------------------------------------
 # Policy data
@@ -196,9 +226,9 @@ surface = "ci"
 classification = "config"
 reason = "Lint policy, debt receipts, panic-family and file-policy allowlists."
 covered_by = [
-  "cargo run -p xtask -- check-lint-policy",
-  "cargo run -p xtask -- check-no-panic-family",
-  "cargo run -p xtask -- check-file-policy",
+  "cargo xtask check-lint-policy",
+  "cargo xtask check-no-panic-family",
+  "cargo xtask check-file-policy",
 ]
 
 # ---------------------------------------------------------------------------
@@ -299,7 +329,7 @@ classification = "test"
 reason = "Representative evidence artifact fixtures validated against public JSON schemas."
 covered_by = [
     ".github/workflows/contracts.yml",
-    "cargo run -p xtask -- evidence-schema-check",
+    "cargo xtask evidence-schema-check",
 ]
 
 # ---------------------------------------------------------------------------
@@ -336,7 +366,7 @@ classification = "production"
 reason = "Public JSON schemas for messages, profiles, configuration, and errors."
 covered_by = [
     ".github/workflows/contracts.yml",
-    "cargo run -p xtask -- evidence-schema-check",
+    "cargo xtask evidence-schema-check",
 ]
 
 # ---------------------------------------------------------------------------
