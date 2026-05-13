@@ -10,10 +10,10 @@ It is not a crates.io publish receipt. It is not a TestPyPI or PyPI receipt.
 | Field | Value |
 | --- | --- |
 | Version | `1.5.0` |
-| Commit SHA | `38043c62b6684c3bd074661ae6e6089250593132` |
+| Commit SHA | `b0bb5b5392354273946f36f797f39d741d318fc1` |
 | Workflow | Rust 1.95 / 1.5.0 Release Readiness |
-| Run URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25810853128> |
-| Job URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25810853128/job/75826420754> |
+| Run URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25814999531> |
+| Job URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25814999531/job/75841051085> |
 | Result | Success |
 
 ## Rust Publish Graph
