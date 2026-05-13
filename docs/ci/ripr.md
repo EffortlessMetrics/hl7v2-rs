@@ -1,7 +1,6 @@
 # ripr Static Mutation-Exposure Lane
 
-`ripr` is planned as an advisory PR-time static mutation-exposure lane for
-`hl7v2-rs`.
+`ripr` is an advisory PR-time static mutation-exposure lane for `hl7v2-rs`.
 
 ## Doctrine
 
@@ -15,9 +14,9 @@ Mutation testing remains the slower runtime backstop for what static analysis
 cannot prove. `ripr` shifts mutation signal left; it does not make mutation
 testing unnecessary.
 
-## Planned Role
+## Current Role
 
-The initial lane should be advisory:
+The initial lane is advisory:
 
 - run on pull requests touching Rust code, `xtask`, Cargo files, `ripr.toml`,
   or the `ripr` policy ledger;
@@ -41,7 +40,7 @@ continues to cover what static analysis cannot prove.
 - Do not hide skipped mutation lanes as passed.
 - Do not add suppressions without ownership and review.
 
-## Planned Artifacts
+## Artifacts
 
 ```text
 .github/workflows/ripr.yml
@@ -51,3 +50,8 @@ target/ripr/ripr.json
 target/ripr/ripr.sarif
 target/ripr/ripr.md
 ```
+
+The workflow installs `ripr` 0.5.0 with Cargo, runs `ripr doctor`, renders
+`ripr check` in `json`, `sarif`, and `github` formats, and wraps the advisory
+status in `target/ripr/ripr.md`. It uploads the artifacts as `ripr-advisory`
+and exits successfully even when the advisory analysis returns findings.

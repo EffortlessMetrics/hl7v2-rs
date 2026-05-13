@@ -1,0 +1,107 @@
+name: ripr
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "xtask/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "ripr.toml"
+      - "policy/ripr-suppressions.toml"
+      - ".github/workflows/ripr.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ripr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+
+jobs:
+  ripr:
+    name: ripr
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install ripr
+        run: cargo install ripr --version 0.5.0 --locked
+
+      - name: Run advisory ripr analysis
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          BASE_REF="${BASE_REF:-main}"
+          mkdir -p target/ripr
+          git fetch origin "$BASE_REF" --depth=50
+
+          set +e
+          ripr doctor --root . > target/ripr/doctor.txt 2>&1
+          doctor_status=$?
+
+          ripr check --root . --base "origin/$BASE_REF" --mode draft --format json \
+            > target/ripr/ripr.json
+          json_status=$?
+
+          ripr check --root . --base "origin/$BASE_REF" --mode draft --format sarif \
+            > target/ripr/ripr.sarif
+          sarif_status=$?
+
+          ripr check --root . --base "origin/$BASE_REF" --mode draft --format github \
+            > target/ripr/ripr.github.txt
+          github_status=$?
+
+          {
+            echo "## ripr advisory static mutation-exposure"
+            echo
+            echo "| Step | Exit status |"
+            echo "| --- | ---: |"
+            echo "| doctor | $doctor_status |"
+            echo "| json | $json_status |"
+            echo "| sarif | $sarif_status |"
+            echo "| github annotation text | $github_status |"
+            echo
+            echo "This lane is advisory. It shifts mutation-exposure signal left but does not replace runtime mutation testing."
+            echo
+            echo "### GitHub annotation output"
+            echo
+            echo '```text'
+            if [ -s target/ripr/ripr.github.txt ]; then
+              sed -n '1,80p' target/ripr/ripr.github.txt
+            else
+              echo "No ripr annotation output was produced."
+            fi
+            echo '```'
+          } > target/ripr/ripr.md
+
+          cat target/ripr/ripr.md >> "$GITHUB_STEP_SUMMARY"
+
+          exit 0
+
+      - name: Upload ripr artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripr-advisory
+          path: |
+            target/ripr/doctor.txt
+            target/ripr/ripr.json
+            target/ripr/ripr.sarif
+            target/ripr/ripr.md
+            target/ripr/ripr.github.txt
+          if-no-files-found: warn
+          retention-days: 14

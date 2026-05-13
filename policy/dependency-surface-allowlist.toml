@@ -50,3 +50,14 @@ dependencies = ["cargo-deny", "RustSec advisory database"]
 reason = "Dependency and license gates require an explicit audit tool surface."
 covered_by = ["cargo run -p xtask -- audit"]
 review_after = "2026-06-30"
+
+[[allow]]
+id = "ripr-static-exposure"
+owner = "release/ci"
+surface = "ci"
+behavior = "The advisory ripr workflow may install ripr 0.5.0 as the PR-time static mutation-exposure tool."
+paths = [".github/workflows/ripr.yml", "ripr.toml", "policy/ripr-suppressions.toml"]
+dependencies = ["ripr 0.5.0"]
+reason = "ripr shifts mutation-exposure signal left without adding runtime mutation to ordinary PRs."
+covered_by = [".github/workflows/ripr.yml"]
+review_after = "2026-06-30"

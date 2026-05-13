@@ -66,3 +66,13 @@ workflows = [
 reason = "Release and agent coordination need explicit workflows but should remain routed by intent and policy."
 covered_by = ["cargo run -p xtask -- check-ci-lane-whitelist", "cargo run -p xtask -- policy-report"]
 review_after = "2026-06-30"
+
+[[allow]]
+id = "ripr-advisory"
+owner = "release/ci"
+surface = "ci"
+behavior = "The ripr workflow may run advisory static mutation-exposure analysis on Rust-relevant PR changes and upload review artifacts."
+workflows = [".github/workflows/ripr.yml"]
+reason = "ripr provides cheap PR-time mutation-exposure signal while runtime mutation remains targeted."
+covered_by = [".github/workflows/ripr.yml", "cargo run -p xtask -- check-file-policy"]
+review_after = "2026-06-30"

@@ -20,6 +20,7 @@ of truth for exceptions and policy state.
 | `policy/workflow-allowlist.toml` | Workflow behavior beyond file presence. |
 | `policy/process-allowlist.toml` | Process execution surfaces. |
 | `policy/network-allowlist.toml` | Network access surfaces. |
+| `policy/ripr-suppressions.toml` | Advisory static mutation-exposure suppressions. |
 | `policy/ci-lane-whitelist.toml` | Allowed CI lanes, ownership, trigger class, and LEM estimate. |
 | `policy/ci-risk-packs.toml` | Risk-pack routing for CI lanes. |
 | `policy/ci-budget.toml` | CI budget policy. |
@@ -36,7 +37,7 @@ they govern behavior that does not belong in `policy/non-rust-allowlist.toml`.
 
 | Planned ledger | Purpose |
 | --- | --- |
-| `policy/ripr-suppressions.toml` | Advisory static mutation-exposure suppressions after `ripr` lands. |
+| None currently. | Add only when a behavior cannot be governed by an existing ledger. |
 
 ## Rules
 
