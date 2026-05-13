@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+
+- Mapped the Rust 1.95 / `1.5.0` rollout as a minor-release MSRV ratchet with
+  policy tightening, advisory static mutation-exposure analysis, targeted
+  mutation lanes, and release-readiness proof. No MSRV, toolchain, workflow, or
+  runtime behavior changes are part of the planning PR.
+
 ---
 
 ## [1.4.0] - 2026-05-09

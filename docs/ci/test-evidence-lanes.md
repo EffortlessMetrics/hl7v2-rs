@@ -1,0 +1,55 @@
+# Test Evidence Lanes
+
+`hl7v2-rs` keeps verification deep by routing proof to the risk surface that
+needs it. Ordinary PRs should get fast policy, lint, unit, doc, and targeted
+test feedback. Expensive runtime lanes remain available for labels, main,
+nightly, release readiness, and high-risk changes.
+
+## Lane Split
+
+| Lane | Default PR? | Evidence |
+| --- | :---: | --- |
+| Format, lint, no-panic, file policy | yes | `xtask gate`, `check-lint-policy`, `check-no-panic-family`, `check-file-policy` |
+| Unit and doc tests | yes | `cargo test --lib`, `cargo test --doc` |
+| Standard integration and BDD tests | yes | CLI/server integration and BDD job logs |
+| MSRV smoke | yes | Current declared MSRV compile check |
+| Platform matrix | no | main, merge queue, `platform-matrix`, `full-ci`, or `release-check` |
+| Extended property tests | no | main, dispatch, `property-tests`, `full-ci`, or `release-check` |
+| Benchmarks | no | main, dispatch, `benchmarks`, `full-ci`, or `release-check` |
+| Coverage | no | main, dispatch, `coverage`, or `full-ci` |
+| Contracts | no | OpenAPI, proto, schema, and evidence validation |
+| Python wheels and publish proof | no | Python-lane workflows and receipts |
+| `ripr` static exposure | planned advisory | JSON, SARIF, and markdown advisory artifacts |
+| Runtime mutation | planned targeted | high-risk labels, nightly, and release readiness |
+
+## Rust 1.95 Target
+
+The Rust 1.95 / 1.5.0 rollout should keep default PR cost bounded while adding
+better receipts:
+
+- Rust 1.95 MSRV smoke remains a default compatibility proof after the MSRV PR.
+- `ripr` becomes a cheap advisory PR-time static mutation-exposure signal.
+- Runtime mutation remains targeted by risk pack, label, nightly, or release
+  readiness.
+- Release readiness owns the broadest proof bundle before `1.5.0`.
+
+## High-Risk HL7 Surfaces
+
+The following surfaces justify targeted deeper proof:
+
+- message parser and delimiter handling;
+- MLLP framing;
+- profile validation;
+- safe-analysis redaction;
+- evidence bundle and replay hashes;
+- schema and evidence artifact contracts;
+- server auth and rate-limit policy;
+- Python binding parity;
+- release and publish behavior.
+
+## Related Docs
+
+- [Cost and Verification Policy](cost-and-verification-policy.md)
+- [Verification Ladder](verification-ladder.md)
+- [CI Lane Inventory](inventory.md)
+- [ripr](ripr.md)

@@ -111,8 +111,25 @@ fn lookup_generated_table(index: usize) -> &'static str {
   selector schema for panic-family exceptions.
 - `policy/non-rust-allowlist.toml` reserves the structured schema for non-Rust
   programming-file exceptions.
+- `policy/clippy-exceptions.toml` is planned for retained suppressions that are
+  not broad cleanup debt.
+- [POLICY_ALLOWLISTS.md](POLICY_ALLOWLISTS.md) maps current and planned policy
+  ledgers without replacing the TOML sources of truth.
 - `clippy.toml` is only for repo-local disallowed methods, types, macros, or
   fields. It must not weaken the test posture.
+
+## Rust 1.95 rollout
+
+The Rust 1.95 / 1.5.0 rollout is mapped in
+[development/RUST_1_95_ROLLOUT.md](development/RUST_1_95_ROLLOUT.md). The
+current state remains Rust 2024, workspace version `1.4.0`, and MSRV `1.93`
+until the dedicated MSRV PR changes the manifest, toolchain file, CI labels,
+and policy ledger together.
+
+During the rollout, planned Rust 1.94/1.95 lints in
+`policy/clippy-lints.toml` should either become active with clean proof or stay
+planned with an expiring debt receipt. Do not use the MSRV bump as a reason to
+add test carveouts or bare `#[allow(clippy::...)]` suppressions.
 
 ## Gate
 
