@@ -21,8 +21,8 @@ Each `[[lane]]` entry in `ci-lane-whitelist.toml` must provide:
 | `workflow`            | yes      | Relative path to the `.github/workflows/*.yml` file        |
 | `job`                 | yes      | GitHub Actions job id, or `*` for a governed aggregate workflow lane |
 | `display_name`        | yes      | Human-readable name                                        |
-| `kind`                | yes      | One of: `rust-policy`, `rust-integration`, `platform`, `property`, `performance`, `summary`, `coverage`, `security`, `python`, `api-contract`, `release`, `rust-nightly` |
-| `tier`                | yes      | One of: `frontdoor`, `compatibility`, `deep`, `release`    |
+| `kind`                | yes      | One of: `rust-policy`, `rust-integration`, `platform`, `property`, `performance`, `summary`, `coverage`, `security`, `python`, `api-contract`, `release`, `rust-nightly`, `static-analysis`, `mutation` |
+| `tier`                | yes      | One of: `frontdoor`, `compatibility`, `advisory`, `deep`, `release` |
 | `default_pr`          | yes      | Whether this lane runs on every PR by default              |
 | `blocking`            | yes      | Whether failure blocks the PR                              |
 | `runner`              | yes      | Runner type from `ci-budget.toml` `[runner_multipliers]`   |

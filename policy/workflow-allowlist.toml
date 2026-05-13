@@ -57,6 +57,7 @@ surface = "release"
 behavior = "Release, PR planning, nightly, and agent workflows may produce readiness or coordination receipts without broadening default CI."
 workflows = [
   ".github/workflows/publish.yml",
+  ".github/workflows/release-readiness.yml",
   ".github/workflows/pr-plan.yml",
   ".github/workflows/pr-gate.yml",
   ".github/workflows/nightly.yml",

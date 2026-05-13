@@ -39,12 +39,12 @@ self-describing and better receipted.
 | Clippy exceptions ledger | present | `policy/clippy-exceptions.toml` governs retained Clippy suppressions separately from cleanup debt. |
 | No-panic allowlist | present, empty | Exact identity is `path + family + selector_kind + selector_callee + snippet + count`. |
 | No-panic baseline | present | Generated no-new-debt baseline follows exact identity. |
-| Non-Rust allowlist | present | File presence is governed; companion behavior ledgers are still planned. |
+| Non-Rust allowlist | present | File presence is governed; companion behavior ledgers split generated, executable, dependency, workflow, process, and network behavior. |
 | CI | staged and routed | Fast, standard, MSRV, matrix, extended, benchmark, coverage, contract, and security lanes already exist. |
 | Coverage | routed/advisory | Coverage runs on main, dispatch, `coverage`, or `full-ci`. |
 | Contracts workflow | present | OpenAPI, proto, schema, and evidence checks already exist. |
 | Publish workflow | present | `publish.yml` handles crates.io publish execution, but not full 1.5.0 readiness proof. |
-| Release readiness workflow | absent | Add a dedicated readiness workflow before the version bump. |
+| Release readiness workflow | present | `release-readiness.yml` owns the manual Rust 1.95 / 1.5.0 readiness proof bundle. |
 | Python publishing | externally blocked | TestPyPI publish remains blocked by issue #563 until Trusted Publisher is configured. |
 
 ## Target State
@@ -153,5 +153,5 @@ policy changes, no-panic baseline scope, file-policy scope, CI economics,
 
 - Issue #563 remains the external TestPyPI Trusted Publisher blocker for
   `hl7v2-python`.
-- `publish.yml` exists for crates.io publication, but the dedicated 1.5.0
-  readiness workflow and release receipt are still planned.
+- `publish.yml` exists for crates.io publication; `release-readiness.yml` is the
+  non-publishing 1.5.0 readiness proof bundle.

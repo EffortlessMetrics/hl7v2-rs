@@ -17,6 +17,11 @@ commands = [
   "cargo clippy",
   "cargo test",
   "cargo run -p xtask -- gate --check",
+  "cargo run -p xtask -- check-ci-lane-whitelist",
+  "cargo run -p xtask -- evidence-schema-check",
+  "cargo run -p xtask -- publish-plan",
+  "cargo run -p xtask -- publish-dry-run --workspace-patches --allow-dirty",
+  "cargo run -p xtask -- check-python-publish-policy",
   "cargo run -p xtask -- policy-report",
 ]
 reason = "Rust/Cargo and xtask are the primary governed process surface."
