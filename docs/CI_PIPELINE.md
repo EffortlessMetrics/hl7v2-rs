@@ -152,7 +152,7 @@ jobs succeeded.
 The local policy rail is:
 
 ```powershell
-cargo +1.93.0 run -p xtask -- check-python-publish-policy
+cargo run -p xtask -- check-python-publish-policy
 ```
 
 It verifies that `pyproject.toml` names the public Python distribution `hl7v2`,
@@ -169,7 +169,7 @@ grant `id-token: write` only on publish jobs, and keep `hl7v2-python` at
 The local documentation-link rail is:
 
 ```powershell
-cargo +1.93.0 run -p xtask -- check-doc-links
+cargo run -p xtask -- check-doc-links
 ```
 
 It scans tracked and untracked non-ignored Markdown files outside
