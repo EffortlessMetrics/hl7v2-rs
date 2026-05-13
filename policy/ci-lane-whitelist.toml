@@ -178,6 +178,30 @@ review_after = "2026-06-09"
 expires = "2026-11-09"
 
 # ---------------------------------------------------------------------------
+# ripr_static_exposure -- advisory static mutation-exposure lane
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "ripr_static_exposure"
+workflow = ".github/workflows/ripr.yml"
+job = "ripr"
+display_name = "ripr"
+kind = "static-analysis"
+tier = "advisory"
+default_pr = true
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 5
+owner = "release/ci"
+intent = "Run advisory static mutation-exposure analysis for Rust-relevant PR changes."
+failure_mode = "Weak test-oracle exposure reaches review without a cheap static signal."
+proof_obligation = "Upload ripr doctor, JSON, SARIF, and markdown artifacts."
+evidence = ["ripr-advisory artifact", "job summary"]
+allowed_triggers = ["pull_request", "workflow_dispatch"]
+duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
 # coverage — Execution surface evidence (main/label only)
 # ---------------------------------------------------------------------------
 [[lane]]

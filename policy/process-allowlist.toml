@@ -57,3 +57,19 @@ commands = ["docker compose -f infrastructure/docker/docker-compose.yml config"]
 reason = "Deployment proof needs container configuration validation without making Docker a default PR tax."
 covered_by = ["docker compose -f infrastructure/docker/docker-compose.yml config"]
 review_after = "2026-06-30"
+
+[[allow]]
+id = "ripr-static-exposure"
+owner = "release/ci"
+surface = "ci"
+behavior = "The advisory ripr lane may install ripr and render doctor, JSON, SARIF, and markdown mutation-exposure artifacts."
+commands = [
+  "cargo install ripr --version 0.5.0 --locked",
+  "ripr doctor --root .",
+  "ripr check --root . --base origin/main --mode draft --format json",
+  "ripr check --root . --base origin/main --mode draft --format sarif",
+  "ripr check --root . --base origin/main --mode draft --format github",
+]
+reason = "Static mutation-exposure analysis should be cheap, advisory, and separate from runtime mutation."
+covered_by = [".github/workflows/ripr.yml"]
+review_after = "2026-06-30"

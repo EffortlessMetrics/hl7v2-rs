@@ -1,0 +1,16 @@
+schema_version = 1
+
+# No suppressions are active for the initial advisory lane.
+#
+# This file intentionally uses ripr's native suppressions schema so
+# `ripr check` can validate it directly. Future entries must be owned,
+# reviewed, and linked to proof. Keep this ledger separate from the runtime
+# mutation backstop; ripr suppressions only affect static mutation-exposure
+# reporting.
+#
+# [[suppressions]]
+# kind = "exposure_gap"
+# finding_id = "finding-id"
+# owner = "core/parser"
+# reason = "Specific reviewed invariant."
+# expires = "2026-06-30"

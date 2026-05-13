@@ -108,6 +108,15 @@ covered_by = [
 ]
 
 [[allow]]
+path = "ripr.toml"
+kind = "static_analysis_config"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "Configuration for the advisory ripr static mutation-exposure lane."
+covered_by = [".github/workflows/ripr.yml", "cargo run -p xtask -- check-file-policy"]
+
+[[allow]]
 path = "tokmd.toml"
 kind = "repo_config"
 owner = "EffortlessMetrics"

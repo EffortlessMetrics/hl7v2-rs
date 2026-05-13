@@ -1,0 +1,41 @@
+[analysis]
+# Keep the first hl7v2-rs ripr lane cheap and review-facing. Runtime mutation
+# remains a targeted/nightly/release backstop, not an ordinary PR tax.
+mode = "draft"
+include_unchanged_tests = true
+
+[oracles]
+snapshot_strength = "medium"
+mock_expectation_strength = "medium"
+broad_error_strength = "weak"
+
+[severity.findings]
+exposed = "info"
+weakly_exposed = "warning"
+reachable_unrevealed = "warning"
+no_static_path = "warning"
+infection_unknown = "warning"
+propagation_unknown = "note"
+static_unknown = "note"
+
+[severity.seams]
+strongly_gripped = "off"
+weakly_gripped = "warning"
+ungripped = "warning"
+reachable_unrevealed = "warning"
+activation_unknown = "info"
+propagation_unknown = "info"
+observation_unknown = "info"
+discrimination_unknown = "info"
+opaque = "info"
+intentional = "off"
+suppressed = "off"
+
+[lsp]
+seam_diagnostics = true
+
+[reports]
+max_related_tests = 5
+
+[suppressions]
+path = "policy/ripr-suppressions.toml"
