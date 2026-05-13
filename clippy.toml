@@ -1,4 +1,5 @@
 # Repo-local Clippy configuration for policy-driven disallowed items only.
+msrv = "1.95"
 #
 # Do not add test carveouts such as `allow-unwrap-in-tests`,
 # `allow-expect-in-tests`, `allow-panic-in-tests`,

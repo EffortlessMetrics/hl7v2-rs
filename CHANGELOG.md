@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Raised MSRV from Rust 1.93 to Rust 1.95 and pinned
+  `rust-toolchain.toml` to Rust 1.95.0 for local and CI consistency.
+
 ### Planned
 
 - Mapped the Rust 1.95 / `1.5.0` rollout as a minor-release MSRV ratchet with
@@ -290,7 +295,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ### Rust Version Support
 
-- **MSRV** (Minimum Supported Rust Version): 1.92
+- **MSRV** (Minimum Supported Rust Version): 1.95
 - **Stable**: Latest stable Rust recommended
 
 ### HL7 Versions Supported
