@@ -16,6 +16,15 @@ schema_version = "1.0"
 # ---------------------------------------------------------------------------
 
 [[allow]]
+path = ".cargo/config.toml"
+kind = "cargo_alias_config"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+classification = "config"
+reason = "Defines the cargo xtask alias used by badge and PR evidence commands."
+covered_by = ["cargo xtask --help"]
+
+[[allow]]
 glob = ".github/workflows/*.yml"
 kind = "ci_declarative"
 owner = "release/ci"
@@ -170,6 +179,20 @@ surface = "tooling"
 classification = "generated"
 reason = "Snapshot of cargo metadata used by review tooling."
 generated_by = "cargo metadata --format-version=1 --all-features"
+
+# ---------------------------------------------------------------------------
+# Generated badge endpoints
+# ---------------------------------------------------------------------------
+
+[[allow]]
+glob = "badges/*.json"
+kind = "generated_badge_endpoint"
+owner = "release/ci"
+surface = "docs"
+classification = "generated"
+reason = "Generated Shields endpoint JSON for public README badges."
+generated_by = "cargo xtask badges"
+covered_by = ["cargo xtask badges --check"]
 
 # ---------------------------------------------------------------------------
 # Agent execution state

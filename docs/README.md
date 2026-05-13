@@ -22,6 +22,7 @@ with the current sources below before reading older planning documents.
 | Lint, file, and panic-family policies | [CLIPPY_POLICY.md](CLIPPY_POLICY.md), [FILE_POLICY.md](FILE_POLICY.md), [NO_PANIC_POLICY.md](NO_PANIC_POLICY.md) |
 | Rust 1.95 / 1.5.0 rollout map | [development/RUST_1_95_ROLLOUT.md](development/RUST_1_95_ROLLOUT.md) |
 | Policy allowlist map | [POLICY_ALLOWLISTS.md](POLICY_ALLOWLISTS.md) |
+| README badge meanings and PR evidence boundaries | [VERIFICATION.md](VERIFICATION.md) |
 
 ## How Docs Fit Together
 
