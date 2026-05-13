@@ -376,12 +376,13 @@ fn extract_mllp_payload(data: &[u8]) -> &[u8] {
 /// // Use with server
 /// // server.run(handler).await;
 /// ```
+type MockResponseQueue = Arc<RwLock<VecDeque<Result<Option<Message>, Error>>>>;
+type MockResponseFn = Arc<dyn Fn(&Message) -> Result<Option<Message>, Error> + Send + Sync>;
+
 pub struct MockMessageHandler {
-    #[allow(clippy::type_complexity)]
-    responses: Arc<RwLock<VecDeque<Result<Option<Message>, Error>>>>,
+    responses: MockResponseQueue,
     received: Arc<RwLock<Vec<Message>>>,
-    #[allow(clippy::type_complexity)]
-    response_fn: Option<Arc<dyn Fn(&Message) -> Result<Option<Message>, Error> + Send + Sync>>,
+    response_fn: Option<MockResponseFn>,
 }
 
 impl Default for MockMessageHandler {
