@@ -1407,7 +1407,8 @@ fn git_output(args: &[&str]) -> Result<String> {
 }
 
 fn command_exists(cmd: &str) -> bool {
-    if cfg!(windows) {
+    std::cfg_select! {
+        windows => {
         Command::new("where")
             .arg(cmd)
             .stdout(Stdio::null())
@@ -1415,7 +1416,8 @@ fn command_exists(cmd: &str) -> bool {
             .status()
             .map(|s| s.success())
             .unwrap_or(false)
-    } else {
+        }
+        _ => {
         let safe = cmd.replace('\'', r"'\''");
         Command::new("sh")
             .args(["-lc", &format!("command -v '{safe}' >/dev/null 2>&1")])
@@ -1424,6 +1426,7 @@ fn command_exists(cmd: &str) -> bool {
             .status()
             .map(|s| s.success())
             .unwrap_or(false)
+        }
     }
 }
 
@@ -1625,10 +1628,13 @@ fn run_ajv_validate(schema: &Path, data: &Path) -> Result<()> {
 }
 
 fn command_program(cmd: &str) -> String {
-    if cfg!(windows) {
-        format!("{cmd}.cmd")
-    } else {
-        cmd.to_string()
+    std::cfg_select! {
+        windows => {
+            format!("{cmd}.cmd")
+        }
+        _ => {
+            cmd.to_string()
+        }
     }
 }
 
@@ -5859,6 +5865,20 @@ mod tests {
     ) -> Result<String> {
         let workflow = fs::read_to_string(root.join(policy.path))?;
         Ok(workflow.replace("\r\n", "\n"))
+    }
+
+    #[test]
+    fn command_exists_reports_present_and_missing_commands() {
+        assert!(command_exists("cargo"));
+        assert!(!command_exists("__hl7v2_missing_command__"));
+    }
+
+    #[test]
+    fn command_program_uses_platform_runner_suffix() {
+        #[cfg(windows)]
+        assert_eq!(command_program("cargo"), "cargo.cmd");
+        #[cfg(not(windows))]
+        assert_eq!(command_program("cargo"), "cargo");
     }
 
     #[test]

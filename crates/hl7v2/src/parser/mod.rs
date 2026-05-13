@@ -76,11 +76,13 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
     let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
 
     if lines.is_empty() {
+        std::hint::cold_path();
         return Err(Error::InvalidSegmentId);
     }
 
     // First segment must be MSH
     if !lines[0].starts_with("MSH") {
+        std::hint::cold_path();
         return Err(Error::InvalidSegmentId);
     }
 
@@ -226,6 +228,7 @@ pub fn parse_file_batch(bytes: &[u8]) -> Result<FileBatch, Error> {
 /// Parse a single segment
 fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     if line.len() < 3 {
+        std::hint::cold_path();
         return Err(Error::InvalidSegmentId);
     }
 
@@ -237,6 +240,7 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     // Ensure segment ID is all uppercase ASCII letters or digits
     for &byte in &id {
         if !(byte.is_ascii_uppercase() || byte.is_ascii_digit()) {
+            std::hint::cold_path();
             return Err(Error::InvalidSegmentId);
         }
     }
@@ -419,15 +423,10 @@ fn extract_charsets(segments: &[Segment]) -> Vec<String> {
 
         let mut charsets = Vec::new();
         for comp in &rep.comps {
-            if !comp.subs.is_empty() {
-                match &comp.subs[0] {
-                    Atom::Text(text) => {
-                        if !text.is_empty() {
-                            charsets.push(text.clone());
-                        }
-                    }
-                    Atom::Null => continue,
-                }
+            if let Some(Atom::Text(text)) = comp.subs.first()
+                && !text.is_empty()
+            {
+                charsets.push(text.clone());
             }
         }
 
