@@ -1850,8 +1850,8 @@ fn no_panic_propose(include_staged: bool) -> Result<()> {
         out.push_str("explanation = \"FILL_ME_IN\"\n");
         out.push_str("expires = \"FILL_ME_IN\"\n");
         out.push_str("\n[allow.selector]\n");
-        out.push_str(&format!("kind = \"{}\"\n", finding.family.selector_kind(),));
-        out.push_str(&format!("callee = \"{}\"\n", finding.family.callee(),));
+        out.push_str(&format!("kind = \"{}\"\n", finding.family.selector_kind()));
+        out.push_str(&format!("callee = \"{}\"\n", finding.family.callee()));
         if let Some(container) = &finding.container {
             out.push_str(&format!(
                 "container = \"{}\"\n",
