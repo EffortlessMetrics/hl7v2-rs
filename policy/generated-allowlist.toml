@@ -1,0 +1,31 @@
+schema_version = "1.0"
+policy = "generated-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+updated = "2026-05-13"
+
+# Generated artifacts are allowed only when the generator and proof command are
+# explicit. This ledger governs generated behavior; non-rust-allowlist governs
+# whether the file may exist.
+
+[[allow]]
+id = "no-panic-baseline"
+owner = "release/ci"
+surface = "panic-policy"
+behavior = "The no-panic no-new-debt baseline is generated from current panic-family findings and refreshed only by the dedicated baseline command."
+paths = ["policy/no-panic-baseline.toml"]
+generated_by = ["cargo run -p xtask -- no-panic baseline --reset"]
+reason = "The baseline is a generated policy receipt, not hand-written source."
+covered_by = ["cargo run -p xtask -- check-no-panic-family"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "cargo-metadata-snapshot"
+owner = "EffortlessMetrics"
+surface = "review-tooling"
+behavior = "Cargo metadata snapshots may be checked in when used as review evidence or tooling input."
+paths = ["metadata.json"]
+generated_by = ["cargo metadata --format-version=1 --all-features"]
+reason = "The snapshot records workspace package metadata for review tooling."
+covered_by = ["cargo metadata --format-version=1 --all-features"]
+review_after = "2026-06-30"

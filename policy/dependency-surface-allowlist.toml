@@ -1,0 +1,52 @@
+schema_version = "1.0"
+policy = "dependency-surface-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+updated = "2026-05-13"
+
+# Dependency surfaces are governed separately from file presence so package
+# managers and external toolchains remain reviewable.
+
+[[allow]]
+id = "rust-toolchain"
+owner = "release/ci"
+surface = "rust-msrv"
+behavior = "The repository may pin Rust 1.95.0 with rustfmt and clippy components."
+paths = ["rust-toolchain.toml", "Cargo.toml", "Cargo.lock"]
+dependencies = ["rustc 1.95.0", "rustfmt", "clippy"]
+reason = "Rust 1.95 is the declared MSRV and release support boundary."
+covered_by = ["cargo run -p xtask -- gate --check"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "python-maturin"
+owner = "hl7v2-python"
+surface = "python-binding"
+behavior = "The Python distribution may use maturin/PyO3 build metadata while keeping the Rust binding crate unpublished to crates.io."
+paths = ["pyproject.toml", "crates/hl7v2-python/Cargo.toml"]
+dependencies = ["maturin", "pyo3"]
+reason = "Python wheels are built from the internal PyO3 crate and published only through Python workflows."
+covered_by = [".github/workflows/python-wheels.yml", ".github/workflows/python-testpypi.yml"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "contract-toolchain"
+owner = "api"
+surface = "contracts"
+behavior = "The contracts workflow may install OpenAPI, schema, and protobuf validation tools."
+paths = [".github/workflows/contracts.yml", ".spectral.yml"]
+dependencies = ["@stoplight/spectral-cli", "@redocly/cli", "ajv-cli", "ajv-formats", "buf"]
+reason = "Contract validation needs external linters for OpenAPI, JSON Schema, and protobuf compatibility."
+covered_by = [".github/workflows/contracts.yml"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "security-audit-tooling"
+owner = "release/ci"
+surface = "security"
+behavior = "Security policy may depend on cargo-deny advisory and license checks."
+paths = ["deny.toml"]
+dependencies = ["cargo-deny", "RustSec advisory database"]
+reason = "Dependency and license gates require an explicit audit tool surface."
+covered_by = ["cargo run -p xtask -- audit"]
+review_after = "2026-06-30"

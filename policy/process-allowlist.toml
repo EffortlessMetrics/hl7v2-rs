@@ -1,0 +1,59 @@
+schema_version = "1.0"
+policy = "process-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+updated = "2026-05-13"
+
+# Process execution is governed separately from script/config file presence.
+
+[[allow]]
+id = "cargo-and-xtask"
+owner = "release/ci"
+surface = "rust-workspace"
+behavior = "Cargo and xtask may run formatting, lint, test, policy, schema, publish-plan, and publish-dry-run checks."
+commands = [
+  "cargo fmt",
+  "cargo check",
+  "cargo clippy",
+  "cargo test",
+  "cargo run -p xtask -- gate --check",
+  "cargo run -p xtask -- policy-report",
+]
+reason = "Rust/Cargo and xtask are the primary governed process surface."
+covered_by = ["cargo run -p xtask -- gate --check"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "python-wheel-proof"
+owner = "hl7v2-python"
+surface = "python-binding"
+behavior = "Python and maturin may build, install, and smoke-test the `hl7v2` distribution."
+commands = [
+  "python -m pip install",
+  "maturin build",
+  "python tests/python_smoke/smoke.py",
+  "python tests/python_smoke/evidence_workflow_guide.py",
+]
+reason = "Python release proof requires wheel build/install/import validation."
+covered_by = [".github/workflows/python-wheels.yml", ".github/workflows/python-testpypi.yml"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "contract-tool-processes"
+owner = "api"
+surface = "contracts"
+behavior = "Node, AJV, Redocly, Spectral, and buf may run contract validation inside the contracts workflow."
+commands = ["npm install -g", "npx", "ajv", "redocly", "spectral", "buf"]
+reason = "OpenAPI, protobuf, and schema contracts need ecosystem-native validators."
+covered_by = [".github/workflows/contracts.yml"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "container-smoke"
+owner = "platform"
+surface = "deployment"
+behavior = "Docker compose may render and smoke-check deployment sidecar configuration."
+commands = ["docker compose -f infrastructure/docker/docker-compose.yml config"]
+reason = "Deployment proof needs container configuration validation without making Docker a default PR tax."
+covered_by = ["docker compose -f infrastructure/docker/docker-compose.yml config"]
+review_after = "2026-06-30"

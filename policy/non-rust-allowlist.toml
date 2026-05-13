@@ -194,7 +194,7 @@ kind = "policy_data"
 owner = "EffortlessMetrics"
 surface = "ci"
 classification = "config"
-reason = "Lint policy, debt receipts, panic-family and file-policy allowlists."
+reason = "Lint policy, debt receipts, panic-family ledgers, file-presence allowlists, and companion behavior ledgers."
 covered_by = [
   "cargo run -p xtask -- check-lint-policy",
   "cargo run -p xtask -- check-no-panic-family",

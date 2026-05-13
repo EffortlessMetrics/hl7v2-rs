@@ -1,0 +1,58 @@
+schema_version = "1.0"
+policy = "executable-allowlist"
+owner = "EffortlessMetrics"
+status = "active"
+updated = "2026-05-13"
+
+# Executable entrypoints must be owned and covered by a proof command. This
+# ledger describes what may execute; non-rust-allowlist describes file presence.
+
+[[allow]]
+id = "git-hooks"
+owner = "release/ci"
+surface = "developer-tooling"
+behavior = "Repository git hooks may delegate pre-commit and pre-push checks to xtask."
+paths = [".githooks/*"]
+commands = ["cargo run -p xtask -- hook-pre-commit", "cargo run -p xtask -- hook-pre-push"]
+broad_glob_reason = "The directory contains the versioned hook entrypoints installed by `just setup`."
+reason = "Hooks keep local policy checks aligned with CI without adding a new language runtime."
+covered_by = ["cargo run -p xtask -- hook-pre-commit", "cargo run -p xtask -- hook-pre-push"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "just-and-cargo-make"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+behavior = "Task-runner files may invoke repository setup and validation commands."
+paths = ["justfile", "Makefile.toml"]
+commands = ["just setup", "cargo make"]
+reason = "These are local convenience entrypoints around governed xtask and Cargo commands."
+covered_by = ["cargo run -p xtask -- check-file-policy"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "python-smoke-scripts"
+owner = "hl7v2-python"
+surface = "python-binding"
+behavior = "Python smoke scripts may import the built `hl7v2` module and verify evidence workflow behavior."
+paths = ["tests/python_smoke/*.py"]
+commands = [
+  "python tests/python_smoke/smoke.py",
+  "python tests/python_smoke/evidence_workflow_guide.py",
+]
+broad_glob_reason = "The smoke directory is intentionally limited to Python proof scripts for the separate Python distribution lane."
+reason = "The Python binding lane needs install-back and workflow smoke scripts outside Rust source."
+covered_by = [".github/workflows/python-wheels.yml", ".github/workflows/python-testpypi.yml"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "script-tree"
+owner = "release/ci"
+surface = "developer-tooling"
+behavior = "Repository scripts may run local CI and test helper commands when routed through reviewed script directories."
+paths = ["scripts/**"]
+commands = ["cargo run -p xtask -- check-file-policy"]
+broad_glob_reason = "The scripts tree is split by reviewed subdirectories and remains covered by file-policy presence checks."
+reason = "Some CI and test helper entrypoints live outside Cargo for platform interoperability."
+covered_by = ["cargo run -p xtask -- check-file-policy"]
+review_after = "2026-06-30"
