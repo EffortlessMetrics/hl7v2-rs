@@ -885,7 +885,12 @@ fn policy_report() -> Result<()> {
     let no_panic_text = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
     let no_panic_entries = parse_no_panic_allowlist(&no_panic_text)?;
     let no_panic_baseline_text = fs::read_to_string(root.join("policy/no-panic-baseline.toml"))?;
-    let no_panic_baseline_entries = parse_no_panic_baseline(&no_panic_baseline_text)?;
+    let no_panic_baseline_mode = no_panic_baseline_mode(&no_panic_baseline_text)?;
+    let parsed_no_panic_baseline_entries = parse_no_panic_baseline(&no_panic_baseline_text)?;
+    let no_panic_baseline_entries = effective_no_panic_baseline_entries(
+        &no_panic_baseline_mode,
+        &parsed_no_panic_baseline_entries,
+    );
     let file_policy_text = fs::read_to_string(root.join("policy/non-rust-allowlist.toml"))?;
     let file_policy_entries = parse_file_policy_allowlist(&file_policy_text)?;
 
@@ -894,6 +899,33 @@ fn policy_report() -> Result<()> {
     let advisory_units = collect_rust_files_for(&root, &metadata, &staged_packages)?;
     let strict_findings = scan_panic_family(&root, &strict_units)?;
     let advisory_findings = scan_panic_family(&root, &advisory_units)?;
+    let all_no_panic_findings = combined_no_panic_findings(&strict_findings, &advisory_findings);
+    let no_panic_unreceipted =
+        match_findings_against_allowlist(&all_no_panic_findings, &no_panic_entries);
+    let no_panic_new_debt =
+        match_findings_against_baseline(&no_panic_unreceipted, &no_panic_baseline_entries);
+    let no_panic_stale_allowlist =
+        stale_no_panic_entries(&no_panic_entries, &all_no_panic_findings);
+    let no_panic_stale_baseline =
+        stale_no_panic_baseline_entries(&no_panic_baseline_entries, &no_panic_unreceipted);
+    write_no_panic_report(
+        &root,
+        &NoPanicReport {
+            baseline_mode: no_panic_baseline_mode.clone(),
+            baseline_ignored: no_panic_baseline_mode == "blocking",
+            allowlist_entries: no_panic_entries.len(),
+            baseline_entries: parsed_no_panic_baseline_entries.len(),
+            baseline_occurrences: no_panic_baseline_occurrences(&parsed_no_panic_baseline_entries),
+            strict_findings: strict_findings.len(),
+            advisory_findings: advisory_findings.len(),
+            new_debt: no_panic_new_debt,
+            stale_allowlist: no_panic_stale_allowlist
+                .iter()
+                .map(|entry| (*entry).clone())
+                .collect(),
+            stale_baseline: no_panic_stale_baseline.clone(),
+        },
+    )?;
 
     println!("Lint policy report");
     println!("  Workspace MSRV: {workspace_msrv}");
@@ -910,10 +942,14 @@ fn policy_report() -> Result<()> {
     println!();
     println!("No-panic policy");
     println!("  Allowlist entries: {}", no_panic_entries.len());
-    println!("  Baseline entries: {}", no_panic_baseline_entries.len());
+    println!("  Baseline mode: {no_panic_baseline_mode}");
+    println!(
+        "  Baseline entries: {}",
+        parsed_no_panic_baseline_entries.len()
+    );
     println!(
         "  Baseline occurrences: {}",
-        no_panic_baseline_occurrences(&no_panic_baseline_entries)
+        no_panic_baseline_occurrences(&parsed_no_panic_baseline_entries)
     );
     println!(
         "  Strict findings (required-inheriting crates): {}",
@@ -923,6 +959,12 @@ fn policy_report() -> Result<()> {
         "  Advisory findings (staged crates):           {}",
         advisory_findings.len()
     );
+    println!(
+        "  Stale baseline entries:                      {}",
+        no_panic_stale_baseline.len()
+    );
+    println!("  Report: target/policy/no-panic-report.md");
+    println!("  Report JSON: target/policy/no-panic-report.json");
     println!();
     println!("File policy");
     println!(
@@ -1853,6 +1895,62 @@ impl NoPanicBaselineEntry {
     }
 }
 
+#[derive(Clone, Debug)]
+struct NoPanicBaselineDelta {
+    path: String,
+    family: String,
+    selector_kind: String,
+    selector_callee: String,
+    selector_container: Option<String>,
+    snippet: String,
+    baseline_count: usize,
+    current_count: usize,
+    last_seen_line: usize,
+    last_seen_column: usize,
+}
+
+impl NoPanicBaselineDelta {
+    fn from_entry(
+        entry: &NoPanicBaselineEntry,
+        baseline_count: usize,
+        current_count: usize,
+    ) -> Self {
+        Self {
+            path: entry.path.clone(),
+            family: entry.family.clone(),
+            selector_kind: entry.selector_kind.clone(),
+            selector_callee: entry.selector_callee.clone(),
+            selector_container: entry.selector_container.clone(),
+            snippet: entry.snippet.clone(),
+            baseline_count,
+            current_count,
+            last_seen_line: entry.last_seen_line,
+            last_seen_column: entry.last_seen_column,
+        }
+    }
+
+    fn surplus_count(&self) -> usize {
+        self.baseline_count.saturating_sub(self.current_count)
+    }
+
+    fn new_debt_count(&self) -> usize {
+        self.current_count.saturating_sub(self.baseline_count)
+    }
+}
+
+struct NoPanicReport {
+    baseline_mode: String,
+    baseline_ignored: bool,
+    allowlist_entries: usize,
+    baseline_entries: usize,
+    baseline_occurrences: usize,
+    strict_findings: usize,
+    advisory_findings: usize,
+    new_debt: Vec<PanicFinding>,
+    stale_allowlist: Vec<NoPanicAllowEntry>,
+    stale_baseline: Vec<NoPanicBaselineDelta>,
+}
+
 const NO_PANIC_CLASSIFICATIONS: &[&str] = &[
     "production",
     "test_helper",
@@ -1862,6 +1960,7 @@ const NO_PANIC_CLASSIFICATIONS: &[&str] = &[
 ];
 
 const NO_PANIC_SELECTOR_KINDS: &[&str] = &["method_call", "macro", "indexing"];
+const NO_PANIC_REPORT_STALE_LIMIT: usize = 50;
 
 fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
     println!("🔎 Checking no-panic-family policy...");
@@ -1869,14 +1968,18 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
     let policy_text = fs::read_to_string(root.join("policy/clippy-lints.toml"))?;
     let allowlist_text = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
     let baseline_text = fs::read_to_string(root.join("policy/no-panic-baseline.toml"))
-        .map_err(|err| {
-            anyhow!(
-                "failed to read policy/no-panic-baseline.toml: {err}; run `cargo run -p xtask -- no-panic baseline --reset` in the dedicated baseline PR"
-            )
-        })?;
+        .map_err(missing_no_panic_baseline_error)?;
 
     let entries = parse_no_panic_allowlist(&allowlist_text)?;
-    let baseline_entries = parse_no_panic_baseline(&baseline_text)?;
+    let baseline_mode = no_panic_baseline_mode(&baseline_text)?;
+    let parsed_baseline_entries = parse_no_panic_baseline(&baseline_text)?;
+    if let Some(message) =
+        no_panic_blocking_mode_message(&baseline_mode, parsed_baseline_entries.len())
+    {
+        eprintln!("{message}");
+    }
+    let baseline_entries =
+        effective_no_panic_baseline_entries(&baseline_mode, &parsed_baseline_entries);
     enforce_no_panic_expirations(&entries)?;
 
     let required = string_array_after(&policy_text, "[rollout]", "required_inheriting_packages")
@@ -1903,6 +2006,23 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
 
     let unreceipted = match_findings_against_allowlist(&all_findings, &entries);
     let unmatched = match_findings_against_baseline(&unreceipted, &baseline_entries);
+    let stale_baseline = stale_no_panic_baseline_entries(&baseline_entries, &unreceipted);
+    let stale = stale_no_panic_entries(&entries, &all_findings);
+    write_no_panic_report(
+        &root,
+        &NoPanicReport {
+            baseline_mode: baseline_mode.clone(),
+            baseline_ignored: baseline_mode == "blocking",
+            allowlist_entries: entries.len(),
+            baseline_entries: parsed_baseline_entries.len(),
+            baseline_occurrences: no_panic_baseline_occurrences(&parsed_baseline_entries),
+            strict_findings: strict_findings.len(),
+            advisory_findings: advisory_findings.len(),
+            new_debt: unmatched.clone(),
+            stale_allowlist: stale.iter().map(|entry| (*entry).clone()).collect(),
+            stale_baseline: stale_baseline.clone(),
+        },
+    )?;
     if !unmatched.is_empty() {
         for f in unmatched.iter().take(20) {
             eprintln!(
@@ -1928,12 +2048,17 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
         ));
     }
 
-    let stale = stale_no_panic_entries(&entries, &all_findings);
     if !stale.is_empty() {
-        for entry in &stale {
+        for entry in stale.iter().take(NO_PANIC_REPORT_STALE_LIMIT) {
             eprintln!(
                 "no-panic: stale entry id={} path={} family={} (no matching finding)",
                 entry.id, entry.path, entry.family
+            );
+        }
+        if stale.len() > NO_PANIC_REPORT_STALE_LIMIT {
+            eprintln!(
+                "no-panic: ... and {} more stale allowlist entr(ies)",
+                stale.len().saturating_sub(NO_PANIC_REPORT_STALE_LIMIT)
             );
         }
         return Err(anyhow!(
@@ -1942,15 +2067,43 @@ fn check_no_panic_family(include_staged_in_strict: bool) -> Result<()> {
         ));
     }
 
+    if !stale_baseline.is_empty() {
+        eprintln!(
+            "no-panic: {} stale/surplus baseline entr(ies); run `cargo run -p xtask -- no-panic baseline` to drop or reduce them",
+            stale_baseline.len()
+        );
+        for entry in stale_baseline.iter().take(NO_PANIC_REPORT_STALE_LIMIT) {
+            eprintln!(
+                "no-panic: stale baseline path={} family={} selector={} baseline={} current={} surplus={} snippet={}",
+                entry.path,
+                entry.family,
+                entry.selector_callee,
+                entry.baseline_count,
+                entry.current_count,
+                entry.surplus_count(),
+                entry.snippet
+            );
+        }
+        if stale_baseline.len() > NO_PANIC_REPORT_STALE_LIMIT {
+            eprintln!(
+                "no-panic: ... and {} more stale baseline entr(ies)",
+                stale_baseline
+                    .len()
+                    .saturating_sub(NO_PANIC_REPORT_STALE_LIMIT)
+            );
+        }
+    }
+
     println!(
         "✅ no-panic policy: {} required-inheriting source file(s) scanned, \
-         {} allowlist entr(ies), {} baseline entr(ies), {} baseline occurrence(s), \
-         {} advisory finding(s) in staged crates",
+          {} allowlist entr(ies), {} baseline entr(ies), {} baseline occurrence(s), \
+          {} advisory finding(s) in staged crates, {} stale baseline entr(ies)",
         total_files(&strict_files),
         entries.len(),
-        baseline_entries.len(),
-        no_panic_baseline_occurrences(&baseline_entries),
+        parsed_baseline_entries.len(),
+        no_panic_baseline_occurrences(&parsed_baseline_entries),
         advisory_findings.len(),
+        stale_baseline.len(),
     );
     Ok(())
 }
@@ -2057,12 +2210,14 @@ fn no_panic_baseline(reset: bool) -> Result<()> {
     let entries_to_write = if reset {
         current
     } else {
-        let existing_text = fs::read_to_string(&baseline_path).map_err(|err| {
-            anyhow!(
-                "failed to read policy/no-panic-baseline.toml: {err}; use --reset to create the first baseline"
-            )
-        })?;
+        let existing_text =
+            fs::read_to_string(&baseline_path).map_err(missing_no_panic_baseline_error)?;
+        let existing_mode = no_panic_baseline_mode(&existing_text)?;
         let existing = parse_no_panic_baseline(&existing_text)?;
+        if let Some(message) = no_panic_blocking_mode_message(&existing_mode, existing.len()) {
+            eprintln!("{message}");
+        }
+        let existing = effective_no_panic_baseline_entries(&existing_mode, &existing);
         refresh_no_panic_baseline_entries(&current, &existing, false)?
     };
 
@@ -2703,6 +2858,47 @@ fn parse_no_panic_allowlist(text: &str) -> Result<Vec<NoPanicAllowEntry>> {
     Ok(parsed)
 }
 
+fn missing_no_panic_baseline_error(err: std::io::Error) -> anyhow::Error {
+    anyhow!(
+        "missing no-panic no-new-debt baseline: failed to read policy/no-panic-baseline.toml: {err}\n\
+         Create it only in the dedicated baseline PR with:\n\
+         cargo run -p xtask -- no-panic baseline --reset\n\
+         Normal PRs must remove new panic-family code or add a reviewed allowlist receipt; they must not reset the baseline."
+    )
+}
+
+fn no_panic_baseline_mode(text: &str) -> Result<String> {
+    let mode = top_level_quoted_value(text, "mode")
+        .ok_or_else(|| anyhow!("policy/no-panic-baseline.toml is missing `mode`"))?;
+    if mode != "no-new-debt" && mode != "blocking" {
+        return Err(anyhow!(
+            "policy/no-panic-baseline.toml mode must be `no-new-debt` or `blocking`, found `{mode}`"
+        ));
+    }
+    Ok(mode)
+}
+
+fn no_panic_blocking_mode_message(mode: &str, ignored_entries: usize) -> Option<String> {
+    if mode == "blocking" {
+        Some(format!(
+            "no-panic: policy/no-panic-baseline.toml mode is `blocking`; ignoring {ignored_entries} baseline entr(ies), so every unallowlisted panic-family finding blocks the check"
+        ))
+    } else {
+        None
+    }
+}
+
+fn effective_no_panic_baseline_entries(
+    mode: &str,
+    entries: &[NoPanicBaselineEntry],
+) -> Vec<NoPanicBaselineEntry> {
+    if mode == "blocking" {
+        Vec::new()
+    } else {
+        entries.to_vec()
+    }
+}
+
 fn parse_no_panic_baseline(text: &str) -> Result<Vec<NoPanicBaselineEntry>> {
     let schema_version = top_level_quoted_value(text, "schema_version")
         .ok_or_else(|| anyhow!("policy/no-panic-baseline.toml is missing `schema_version`"))?;
@@ -2718,13 +2914,7 @@ fn parse_no_panic_baseline(text: &str) -> Result<Vec<NoPanicBaselineEntry>> {
             "policy/no-panic-baseline.toml policy must be `no-panic-baseline`, found `{policy}`"
         ));
     }
-    let mode = top_level_quoted_value(text, "mode")
-        .ok_or_else(|| anyhow!("policy/no-panic-baseline.toml is missing `mode`"))?;
-    if mode != "no-new-debt" {
-        return Err(anyhow!(
-            "policy/no-panic-baseline.toml mode must be `no-new-debt`, found `{mode}`"
-        ));
-    }
+    let _mode = no_panic_baseline_mode(text)?;
 
     let entries = table_array_entries(text, "[[baseline]]");
     let mut parsed = Vec::with_capacity(entries.len());
@@ -2850,14 +3040,24 @@ fn refresh_no_panic_baseline_entries(
             .copied()
             .unwrap_or_default();
         if entry.count > allowed {
-            new_debt.push(entry);
+            new_debt.push(NoPanicBaselineDelta::from_entry(
+                entry,
+                allowed,
+                entry.count,
+            ));
         }
     }
     if !new_debt.is_empty() {
         for entry in new_debt.iter().take(20) {
             eprintln!(
-                "no-panic baseline: new debt {} {} {} count={} snippet={}",
-                entry.path, entry.family, entry.selector_callee, entry.count, entry.snippet
+                "no-panic baseline: new debt {} {} {} current={} baseline={} delta={} snippet={}",
+                entry.path,
+                entry.family,
+                entry.selector_callee,
+                entry.current_count,
+                entry.baseline_count,
+                entry.new_debt_count(),
+                entry.snippet
             );
         }
         if new_debt.len() > 20 {
@@ -2866,10 +3066,51 @@ fn refresh_no_panic_baseline_entries(
                 new_debt.len().saturating_sub(20)
             );
         }
+        let first_delta = new_debt
+            .first()
+            .map(|entry| {
+                format!(
+                    "{} {} {} current={} baseline={} delta={}",
+                    entry.path,
+                    entry.family,
+                    entry.selector_callee,
+                    entry.current_count,
+                    entry.baseline_count,
+                    entry.new_debt_count()
+                )
+            })
+            .unwrap_or_else(|| "no first delta".to_string());
         return Err(anyhow!(
-            "{} no-panic baseline entr(ies) would add new debt; rerun with --reset only in the dedicated baseline PR",
-            new_debt.len()
+            "{} no-panic baseline entr(ies) would add new debt; first delta: {}; rerun with --reset only in the dedicated baseline PR",
+            new_debt.len(),
+            first_delta
         ));
+    }
+
+    let stale = stale_no_panic_baseline_entries(existing, &baseline_entries_to_findings(current));
+    if !stale.is_empty() {
+        eprintln!(
+            "no-panic baseline: refresh will drop or reduce {} stale/surplus entr(ies)",
+            stale.len()
+        );
+        for entry in stale.iter().take(NO_PANIC_REPORT_STALE_LIMIT) {
+            eprintln!(
+                "no-panic baseline: stale {} {} {} baseline={} current={} surplus={} snippet={}",
+                entry.path,
+                entry.family,
+                entry.selector_callee,
+                entry.baseline_count,
+                entry.current_count,
+                entry.surplus_count(),
+                entry.snippet
+            );
+        }
+        if stale.len() > NO_PANIC_REPORT_STALE_LIMIT {
+            eprintln!(
+                "no-panic baseline: ... and {} more stale baseline entr(ies)",
+                stale.len().saturating_sub(NO_PANIC_REPORT_STALE_LIMIT)
+            );
+        }
     }
 
     Ok(current.to_vec())
@@ -2967,6 +3208,31 @@ fn match_findings_against_baseline(
     unmatched
 }
 
+fn stale_no_panic_baseline_entries(
+    entries: &[NoPanicBaselineEntry],
+    findings: &[PanicFinding],
+) -> Vec<NoPanicBaselineDelta> {
+    let current_counts = no_panic_finding_counts(findings);
+    entries
+        .iter()
+        .filter_map(|entry| {
+            let current_count = current_counts
+                .get(&entry.identity())
+                .copied()
+                .unwrap_or_default();
+            if current_count < entry.count {
+                Some(NoPanicBaselineDelta::from_entry(
+                    entry,
+                    entry.count,
+                    current_count,
+                ))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 fn no_panic_entry_matches_finding(entry: &NoPanicAllowEntry, finding: &PanicFinding) -> bool {
     entry.identity() == finding.identity()
@@ -2986,10 +3252,39 @@ fn no_panic_baseline_counts(entries: &[NoPanicBaselineEntry]) -> BTreeMap<NoPani
         .collect()
 }
 
+fn no_panic_finding_counts(findings: &[PanicFinding]) -> BTreeMap<NoPanicIdentity, usize> {
+    let mut counts: BTreeMap<NoPanicIdentity, usize> = BTreeMap::new();
+    for finding in findings {
+        let slot = counts.entry(finding.identity()).or_default();
+        *slot = slot.saturating_add(1);
+    }
+    counts
+}
+
 fn no_panic_baseline_occurrences(entries: &[NoPanicBaselineEntry]) -> usize {
     entries
         .iter()
         .fold(0usize, |total, entry| total.saturating_add(entry.count))
+}
+
+fn baseline_entries_to_findings(entries: &[NoPanicBaselineEntry]) -> Vec<PanicFinding> {
+    let mut findings = Vec::new();
+    for entry in entries {
+        let Some(family) = PanicFamily::from_str(&entry.family) else {
+            continue;
+        };
+        for _ in 0..entry.count {
+            findings.push(PanicFinding {
+                path: entry.path.clone(),
+                family,
+                container: entry.selector_container.clone(),
+                snippet: entry.snippet.clone(),
+                line: entry.last_seen_line,
+                column: entry.last_seen_column,
+            });
+        }
+    }
+    findings
 }
 
 fn combined_no_panic_findings(
@@ -3028,6 +3323,261 @@ fn stale_no_panic_entries<'a>(
             seen < entry.count
         })
         .collect()
+}
+
+fn write_no_panic_report(root: &Path, report: &NoPanicReport) -> Result<()> {
+    let report_dir = root.join("target/policy");
+    fs::create_dir_all(&report_dir)?;
+    fs::write(
+        report_dir.join("no-panic-report.md"),
+        render_no_panic_report_markdown(report),
+    )?;
+    fs::write(
+        report_dir.join("no-panic-report.json"),
+        render_no_panic_report_json(report),
+    )?;
+    Ok(())
+}
+
+fn render_no_panic_report_markdown(report: &NoPanicReport) -> String {
+    let mut out = String::new();
+    out.push_str("# No-panic Policy Report\n\n");
+    out.push_str("| Field | Value |\n");
+    out.push_str("| --- | --- |\n");
+    out.push_str(&format!(
+        "| baseline_mode | `{}` |\n",
+        escape_markdown_table_cell(&report.baseline_mode)
+    ));
+    out.push_str(&format!(
+        "| baseline_ignored | `{}` |\n",
+        report.baseline_ignored
+    ));
+    out.push_str(&format!(
+        "| allowlist_entries | `{}` |\n",
+        report.allowlist_entries
+    ));
+    out.push_str(&format!(
+        "| baseline_entries | `{}` |\n",
+        report.baseline_entries
+    ));
+    out.push_str(&format!(
+        "| baseline_occurrences | `{}` |\n",
+        report.baseline_occurrences
+    ));
+    out.push_str(&format!(
+        "| strict_findings | `{}` |\n",
+        report.strict_findings
+    ));
+    out.push_str(&format!(
+        "| advisory_findings | `{}` |\n",
+        report.advisory_findings
+    ));
+    out.push_str(&format!("| new_debt | `{}` |\n", report.new_debt.len()));
+    out.push_str(&format!(
+        "| stale_allowlist_entries | `{}` |\n",
+        report.stale_allowlist.len()
+    ));
+    out.push_str(&format!(
+        "| stale_baseline_entries | `{}` |\n",
+        report.stale_baseline.len()
+    ));
+
+    render_no_panic_findings_markdown(&mut out, "New Debt", &report.new_debt);
+    render_no_panic_allowlist_markdown(
+        &mut out,
+        "Stale Allowlist Entries",
+        &report.stale_allowlist,
+    );
+    render_no_panic_baseline_deltas_markdown(
+        &mut out,
+        "Stale Baseline Entries",
+        &report.stale_baseline,
+    );
+    out
+}
+
+fn render_no_panic_findings_markdown(out: &mut String, heading: &str, findings: &[PanicFinding]) {
+    out.push_str(&format!("\n## {heading}\n\n"));
+    if findings.is_empty() {
+        out.push_str("None.\n");
+        return;
+    }
+    out.push_str("| path | line | column | family | selector | snippet |\n");
+    out.push_str("| --- | ---: | ---: | --- | --- | --- |\n");
+    for finding in findings.iter().take(NO_PANIC_REPORT_STALE_LIMIT) {
+        out.push_str(&format!(
+            "| {} | {} | {} | {} | {} | {} |\n",
+            escape_markdown_table_cell(&finding.path),
+            finding.line,
+            finding.column,
+            finding.family.as_str(),
+            finding.family.callee(),
+            escape_markdown_table_cell(&finding.snippet),
+        ));
+    }
+    append_markdown_truncation(out, findings.len());
+}
+
+fn render_no_panic_allowlist_markdown(
+    out: &mut String,
+    heading: &str,
+    entries: &[NoPanicAllowEntry],
+) {
+    out.push_str(&format!("\n## {heading}\n\n"));
+    if entries.is_empty() {
+        out.push_str("None.\n");
+        return;
+    }
+    out.push_str("| id | path | family | selector | count | snippet |\n");
+    out.push_str("| --- | --- | --- | --- | ---: | --- |\n");
+    for entry in entries.iter().take(NO_PANIC_REPORT_STALE_LIMIT) {
+        out.push_str(&format!(
+            "| {} | {} | {} | {} | {} | {} |\n",
+            escape_markdown_table_cell(&entry.id),
+            escape_markdown_table_cell(&entry.path),
+            entry.family,
+            entry.selector_callee,
+            entry.count,
+            escape_markdown_table_cell(&entry.snippet),
+        ));
+    }
+    append_markdown_truncation(out, entries.len());
+}
+
+fn render_no_panic_baseline_deltas_markdown(
+    out: &mut String,
+    heading: &str,
+    entries: &[NoPanicBaselineDelta],
+) {
+    out.push_str(&format!("\n## {heading}\n\n"));
+    if entries.is_empty() {
+        out.push_str("None.\n");
+        return;
+    }
+    out.push_str("| path | family | selector | baseline | current | surplus | snippet |\n");
+    out.push_str("| --- | --- | --- | ---: | ---: | ---: | --- |\n");
+    for entry in entries.iter().take(NO_PANIC_REPORT_STALE_LIMIT) {
+        out.push_str(&format!(
+            "| {} | {} | {} | {} | {} | {} | {} |\n",
+            escape_markdown_table_cell(&entry.path),
+            entry.family,
+            entry.selector_callee,
+            entry.baseline_count,
+            entry.current_count,
+            entry.surplus_count(),
+            escape_markdown_table_cell(&entry.snippet),
+        ));
+    }
+    append_markdown_truncation(out, entries.len());
+}
+
+fn append_markdown_truncation(out: &mut String, len: usize) {
+    if len > NO_PANIC_REPORT_STALE_LIMIT {
+        out.push_str(&format!(
+            "\nShowing first {NO_PANIC_REPORT_STALE_LIMIT} of {len} entr(ies).\n"
+        ));
+    }
+}
+
+fn render_no_panic_report_json(report: &NoPanicReport) -> String {
+    let mut out = String::new();
+    out.push_str("{\n");
+    out.push_str(&format!(
+        "  \"baseline_mode\": \"{}\",\n",
+        escape_json_string(&report.baseline_mode)
+    ));
+    out.push_str(&format!(
+        "  \"baseline_ignored\": {},\n",
+        report.baseline_ignored
+    ));
+    out.push_str(&format!(
+        "  \"allowlist_entries\": {},\n",
+        report.allowlist_entries
+    ));
+    out.push_str(&format!(
+        "  \"baseline_entries\": {},\n",
+        report.baseline_entries
+    ));
+    out.push_str(&format!(
+        "  \"baseline_occurrences\": {},\n",
+        report.baseline_occurrences
+    ));
+    out.push_str(&format!(
+        "  \"strict_findings\": {},\n",
+        report.strict_findings
+    ));
+    out.push_str(&format!(
+        "  \"advisory_findings\": {},\n",
+        report.advisory_findings
+    ));
+    out.push_str(&format!("  \"new_debt\": {},\n", report.new_debt.len()));
+    out.push_str(&format!(
+        "  \"stale_allowlist_entries\": {},\n",
+        report.stale_allowlist.len()
+    ));
+    out.push_str(&format!(
+        "  \"stale_baseline_entries\": {},\n",
+        report.stale_baseline.len()
+    ));
+    out.push_str(&format!(
+        "  \"stale_baseline_entries_truncated\": {},\n",
+        report.stale_baseline.len() > NO_PANIC_REPORT_STALE_LIMIT
+    ));
+    out.push_str("  \"stale_baseline_entry_sample\": [\n");
+    for (index, entry) in report
+        .stale_baseline
+        .iter()
+        .take(NO_PANIC_REPORT_STALE_LIMIT)
+        .enumerate()
+    {
+        if index > 0 {
+            out.push_str(",\n");
+        }
+        out.push_str(&format!(
+            "    {{\"path\":\"{}\",\"family\":\"{}\",\"selector_kind\":\"{}\",\"selector_callee\":\"{}\",\"selector_container\":{},\"snippet\":\"{}\",\"baseline_count\":{},\"current_count\":{},\"surplus_count\":{},\"last_seen_line\":{},\"last_seen_column\":{}}}",
+            escape_json_string(&entry.path),
+            escape_json_string(&entry.family),
+            escape_json_string(&entry.selector_kind),
+            escape_json_string(&entry.selector_callee),
+            json_optional_string(entry.selector_container.as_deref()),
+            escape_json_string(&entry.snippet),
+            entry.baseline_count,
+            entry.current_count,
+            entry.surplus_count(),
+            entry.last_seen_line,
+            entry.last_seen_column,
+        ));
+    }
+    out.push_str("\n  ]\n");
+    out.push_str("}\n");
+    out
+}
+
+fn escape_markdown_table_cell(value: &str) -> String {
+    value.replace('|', "\\|").replace(['\r', '\n'], " ")
+}
+
+fn escape_json_string(value: &str) -> String {
+    let mut escaped = String::new();
+    for ch in value.chars() {
+        match ch {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            ch if ch.is_control() => escaped.push_str(&format!("\\u{:04x}", ch as u32)),
+            ch => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+fn json_optional_string(value: Option<&str>) -> String {
+    match value {
+        Some(value) => format!("\"{}\"", escape_json_string(value)),
+        None => "null".to_string(),
+    }
 }
 
 fn top_level_usize_value(text: &str, key: &str) -> Option<usize> {
@@ -6170,6 +6720,21 @@ callee = "unwrap"
     }
 
     #[test]
+    fn no_panic_baseline_refresh_reports_count_delta() -> Result<()> {
+        let existing = vec![test_no_panic_baseline_entry("let _ = some.unwrap();", 1)];
+        let current = vec![test_no_panic_baseline_entry("let _ = some.unwrap();", 3)];
+
+        let Err(err) = refresh_no_panic_baseline_entries(&current, &existing, false) else {
+            return Err(anyhow!("baseline refresh should reject count growth"));
+        };
+        let message = err.to_string();
+        if !message.contains("current=3 baseline=1 delta=2") {
+            return Err(anyhow!("missing count delta in error: {message}"));
+        }
+        Ok(())
+    }
+
+    #[test]
     fn no_panic_baseline_refresh_drops_disappeared_entries() -> Result<()> {
         let existing = vec![
             test_no_panic_baseline_entry("let _ = some.unwrap();", 1),
@@ -6192,6 +6757,78 @@ callee = "unwrap"
         };
         if entry.snippet != "let _ = some.unwrap();" {
             return Err(anyhow!("unexpected refreshed snippet: {}", entry.snippet));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn no_panic_blocking_mode_ignores_baseline_entries() -> Result<()> {
+        let existing = vec![test_no_panic_baseline_entry("let _ = some.unwrap();", 1)];
+        let effective = effective_no_panic_baseline_entries("blocking", &existing);
+        if !effective.is_empty() {
+            return Err(anyhow!("blocking mode should ignore baseline entries"));
+        }
+
+        let Some(message) = no_panic_blocking_mode_message("blocking", existing.len()) else {
+            return Err(anyhow!("blocking mode should produce an operator message"));
+        };
+        if !message.contains("ignoring 1 baseline entr") {
+            return Err(anyhow!("unexpected blocking mode message: {message}"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn no_panic_baseline_parser_accepts_blocking_mode() -> Result<()> {
+        let policy = r#"
+schema_version = "1.0"
+policy = "no-panic-baseline"
+mode = "blocking"
+"#;
+        let entries = parse_no_panic_baseline(policy)?;
+        if !entries.is_empty() {
+            return Err(anyhow!("empty blocking baseline should parse no entries"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn no_panic_report_json_limits_stale_baseline_sample() -> Result<()> {
+        let stale_baseline = (0..51)
+            .map(|index| {
+                let entry =
+                    test_no_panic_baseline_entry(&format!("let _ = gone{index}.unwrap();"), 1);
+                NoPanicBaselineDelta::from_entry(&entry, 1, 0)
+            })
+            .collect();
+        let report = NoPanicReport {
+            baseline_mode: "no-new-debt".into(),
+            baseline_ignored: false,
+            allowlist_entries: 0,
+            baseline_entries: 51,
+            baseline_occurrences: 51,
+            strict_findings: 0,
+            advisory_findings: 0,
+            new_debt: Vec::new(),
+            stale_allowlist: Vec::new(),
+            stale_baseline,
+        };
+
+        let json = render_no_panic_report_json(&report);
+        if !json.contains("\"stale_baseline_entries_truncated\": true") {
+            return Err(anyhow!(
+                "JSON report should mark stale baseline sample truncated"
+            ));
+        }
+        if !json.contains("gone49") {
+            return Err(anyhow!(
+                "JSON report should include the fiftieth stale entry"
+            ));
+        }
+        if json.contains("gone50") {
+            return Err(anyhow!(
+                "JSON report should not include the fifty-first stale entry"
+            ));
         }
         Ok(())
     }
