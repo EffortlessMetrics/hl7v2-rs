@@ -789,6 +789,7 @@ fn check_lint_policy() -> Result<()> {
     let cargo_toml = root.join("Cargo.toml");
     let policy_lints = root.join("policy/clippy-lints.toml");
     let policy_debt = root.join("policy/clippy-debt.toml");
+    let policy_exceptions = root.join("policy/clippy-exceptions.toml");
     let clippy_toml = root.join("clippy.toml");
 
     let cargo_text = fs::read_to_string(&cargo_toml)?;
@@ -844,6 +845,7 @@ fn check_lint_policy() -> Result<()> {
     ensure_no_test_carveouts(&clippy_toml)?;
     ensure_workspace_lint_inheritance(&root, &policy_text)?;
     ensure_debt_receipts(&policy_debt)?;
+    ensure_clippy_exceptions(&policy_exceptions)?;
 
     println!("✅ Lint policy checks passed!");
     Ok(())
@@ -854,6 +856,7 @@ fn policy_report() -> Result<()> {
     let cargo_text = fs::read_to_string(root.join("Cargo.toml"))?;
     let policy_text = fs::read_to_string(root.join("policy/clippy-lints.toml"))?;
     let debt_text = fs::read_to_string(root.join("policy/clippy-debt.toml"))?;
+    let exceptions_text = fs::read_to_string(root.join("policy/clippy-exceptions.toml"))?;
 
     let workspace_msrv = quoted_value_after(&cargo_text, "[workspace.package]", "rust-version")
         .ok_or_else(|| anyhow!("Cargo.toml is missing workspace.package.rust-version"))?;
@@ -870,6 +873,7 @@ fn policy_report() -> Result<()> {
             || anyhow!("policy/clippy-lints.toml is missing rollout.staged_inheriting_packages"),
         )?;
     let debt_count = table_array_entries(&debt_text, "[[debt]]").len();
+    let exception_count = parse_clippy_exceptions(&exceptions_text)?.len();
 
     let no_panic_text = fs::read_to_string(root.join("policy/no-panic-allowlist.toml"))?;
     let no_panic_entries = parse_no_panic_allowlist(&no_panic_text)?;
@@ -893,6 +897,7 @@ fn policy_report() -> Result<()> {
     );
     println!("  Staged packages: {}", staged_packages.join(", "));
     println!("  Debt receipts: {debt_count}");
+    println!("  Retained exceptions: {exception_count}");
     println!();
     println!("No-panic policy");
     println!("  Allowlist entries: {}", no_panic_entries.len());
@@ -1050,6 +1055,78 @@ fn ensure_debt_receipts(policy_debt: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn ensure_clippy_exceptions(policy_exceptions: &Path) -> Result<()> {
+    let text = fs::read_to_string(policy_exceptions)?;
+    for (key, expected) in [
+        ("schema_version", "1.0"),
+        ("policy", "clippy-exceptions"),
+        ("owner", "EffortlessMetrics"),
+        ("status", "active"),
+    ] {
+        let actual = top_level_quoted_value(&text, key)
+            .ok_or_else(|| anyhow!("policy/clippy-exceptions.toml is missing {key}"))?;
+        if actual != expected {
+            return Err(anyhow!(
+                "policy/clippy-exceptions.toml {key} must be {expected}, found {actual}"
+            ));
+        }
+    }
+    parse_clippy_exceptions(&text)?;
+    Ok(())
+}
+
+fn parse_clippy_exceptions(text: &str) -> Result<Vec<String>> {
+    let mut ids = BTreeSet::new();
+    let mut parsed = Vec::new();
+    for (index, entry) in table_array_entries(text, "[[exception]]")
+        .iter()
+        .enumerate()
+    {
+        let entry_number = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("clippy exception entry index overflow"))?;
+        for key in [
+            "id",
+            "lint",
+            "path",
+            "selector",
+            "owner",
+            "reason",
+            "covered_by",
+            "expires",
+        ] {
+            if top_level_quoted_value(entry, key).is_none() {
+                return Err(anyhow!(
+                    "policy/clippy-exceptions.toml exception entry {entry_number} is missing required field `{key}`"
+                ));
+            }
+        }
+
+        let id = top_level_quoted_value(entry, "id").ok_or_else(|| {
+            anyhow!("policy/clippy-exceptions.toml exception entry {entry_number} is missing id")
+        })?;
+        if !ids.insert(id.clone()) {
+            return Err(anyhow!(
+                "policy/clippy-exceptions.toml duplicate exception id `{id}`"
+            ));
+        }
+
+        let expires = top_level_quoted_value(entry, "expires").ok_or_else(|| {
+            anyhow!(
+                "policy/clippy-exceptions.toml exception entry {entry_number} is missing expires"
+            )
+        })?;
+        if expires.as_str() < "2026-05-06" {
+            return Err(anyhow!(
+                "policy/clippy-exceptions.toml exception entry {entry_number} expired on {expires}"
+            ));
+        }
+
+        parsed.push(id);
+    }
+    Ok(parsed)
 }
 
 fn parse_workspace_lints(cargo_text: &str) -> BTreeMap<String, String> {

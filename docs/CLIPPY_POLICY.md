@@ -105,14 +105,16 @@ fn lookup_generated_table(index: usize) -> &'static str {
 
 - `policy/clippy-lints.toml` is the machine-readable source of truth for active
   lints and planned Rust 1.94/1.95 flips.
-- `policy/clippy-debt.toml` records temporary exceptions with `lint`, `path`,
-  `owner`, `reason`, and `expires`.
+- `policy/clippy-debt.toml` records temporary cleanup debt with `lint`,
+  `path`, `owner`, `reason`, and `expires`.
+- `policy/clippy-exceptions.toml` records retained suppressions that are
+  intentional exceptions rather than broad cleanup debt. Entries must carry an
+  `id`, `lint`, `path`, `selector`, `owner`, `reason`, `covered_by`, and
+  `expires`.
 - `policy/no-panic-allowlist.toml` reserves the semantic path + family +
   selector schema for panic-family exceptions.
 - `policy/non-rust-allowlist.toml` reserves the structured schema for non-Rust
   programming-file exceptions.
-- `policy/clippy-exceptions.toml` is planned for retained suppressions that are
-  not broad cleanup debt.
 - [POLICY_ALLOWLISTS.md](POLICY_ALLOWLISTS.md) maps current and planned policy
   ledgers without replacing the TOML sources of truth.
 - `clippy.toml` is only for repo-local disallowed methods, types, macros, or
@@ -122,14 +124,12 @@ fn lookup_generated_table(index: usize) -> &'static str {
 
 The Rust 1.95 / 1.5.0 rollout is mapped in
 [development/RUST_1_95_ROLLOUT.md](development/RUST_1_95_ROLLOUT.md). The
-current state remains Rust 2024, workspace version `1.4.0`, and MSRV `1.93`
-until the dedicated MSRV PR changes the manifest, toolchain file, CI labels,
-and policy ledger together.
+current state is Rust 2024, workspace version `1.4.0`, and MSRV `1.95`.
 
 During the rollout, planned Rust 1.94/1.95 lints in
 `policy/clippy-lints.toml` should either become active with clean proof or stay
-planned with an expiring debt receipt. Do not use the MSRV bump as a reason to
-add test carveouts or bare `#[allow(clippy::...)]` suppressions.
+planned with an expiring receipt. Do not use the MSRV bump as a reason to add
+test carveouts or bare `#[allow(clippy::...)]` suppressions.
 
 ## Gate
 
@@ -149,4 +149,4 @@ The gate checks that the workspace MSRV matches the policy ledger, required
 packages inherit workspace lints, staged package rollout is declared, active
 lints match the root manifest, planned 1.94/1.95 lints are still planned until
 the MSRV bump, Clippy test carveouts are absent, and debt entries are complete
-and unexpired.
+and unexpired. It also validates the retained-exceptions ledger shape.
