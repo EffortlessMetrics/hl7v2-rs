@@ -36,8 +36,8 @@ self-describing and better receipted.
 | Clippy test carveouts | prohibited | `clippy.toml` explicitly rejects test carveouts. |
 | Clippy policy ledger | present | `policy/clippy-lints.toml` records MSRV `1.95`, active lints, and planned 1.94/1.95 flips. |
 | Clippy debt ledger | present | `policy/clippy-debt.toml` expires current cleanup debt on 2026-06-30. |
-| Clippy exceptions ledger | absent | Add before deeper suppression governance. |
-| No-panic allowlist | present, empty | Current identity is broad: `path + family + selector`. |
+| Clippy exceptions ledger | present | `policy/clippy-exceptions.toml` governs retained Clippy suppressions separately from cleanup debt. |
+| No-panic allowlist | present, empty | Exact identity is `path + family + selector_kind + selector_callee + snippet + count`. |
 | No-panic baseline | absent | Add after exact identity hardening. |
 | Non-Rust allowlist | present | File presence is governed; companion behavior ledgers are still planned. |
 | CI | staged and routed | Fast, standard, MSRV, matrix, extended, benchmark, coverage, contract, and security lanes already exist. |
@@ -58,8 +58,8 @@ self-describing and better receipted.
 | `policy/clippy-lints.toml` | `msrv = "1.95"` with 1.94/1.95 lint state resolved |
 | Rust compiler lint floor | add the low-risk Rust 1.95 lint floor where clean |
 | Clippy ratchets | activate clean 1.94/1.95 lints or defer with expiring debt |
-| Clippy exceptions | add a retained-suppression ledger separate from debt |
-| No-panic identity | exact counted identity: `path + family + selector_kind + selector_callee + snippet + count` |
+| Clippy exceptions | retained-suppression ledger separate from debt |
+| No-panic identity | exact counted identity landed before baseline generation |
 | No-panic baseline | generated no-new-debt baseline after exact identity lands |
 | File policy | companion ledgers for generated, executable, dependency, workflow, process, and network behavior |
 | ripr | advisory PR-time static mutation-exposure analysis |

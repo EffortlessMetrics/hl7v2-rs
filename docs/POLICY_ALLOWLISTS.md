@@ -11,7 +11,7 @@ of truth for exceptions and policy state.
 | `policy/clippy-lints.toml` | Active Rust and Clippy lint policy, staged packages, and planned Rust 1.94/1.95 lint flips. |
 | `policy/clippy-debt.toml` | Temporary cleanup debt that should expire by 2026-06-30. |
 | `policy/clippy-exceptions.toml` | Retained Clippy suppressions, separate from broad cleanup debt. |
-| `policy/no-panic-allowlist.toml` | Panic-family exception ledger; currently empty with broad identity semantics. |
+| `policy/no-panic-allowlist.toml` | Panic-family exception ledger; currently empty with exact counted identity semantics. |
 | `policy/non-rust-allowlist.toml` | Tracked non-Rust file presence ledger. |
 | `policy/ci-lane-whitelist.toml` | Allowed CI lanes, ownership, trigger class, and LEM estimate. |
 | `policy/ci-risk-packs.toml` | Risk-pack routing for CI lanes. |
