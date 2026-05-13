@@ -1,15 +1,15 @@
-schema_version = "0.3"
+schema_version = "0.4"
 
 # Authoritative ledger of panic-family exceptions.
 #
-# Identity for matching is `path + family + selector` (see
-# docs/NO_PANIC_POLICY.md). `last_seen.line` and `last_seen.column` are
-# advisory locators only and are never part of the match key — code can move
-# within a file without invalidating the receipt.
+# Identity for matching is
+# `path + family + selector_kind + selector_callee + snippet`, with `count`
+# consumed per occurrence (see docs/NO_PANIC_POLICY.md). `container`,
+# `last_seen.line`, and `last_seen.column` are advisory locators only.
 #
 # Required fields per [[allow]] entry:
 #
-#   id, path, family, classification, owner, explanation, expires
+#   id, path, family, snippet, count, classification, owner, explanation, expires
 #   [allow.selector] kind, callee   (container is optional but recommended)
 #
 # Allowed families:
@@ -28,6 +28,8 @@ schema_version = "0.3"
 #   id = "panic-0001"
 #   path = "crates/hl7v2-parser/src/fixtures.rs"
 #   family = "unwrap"
+#   snippet = "let parsed = parse(sample).unwrap();"
+#   count = 1
 #   classification = "test_helper"
 #   owner = "parser"
 #   explanation = "Fixture builder; migrate to fallible helper."
