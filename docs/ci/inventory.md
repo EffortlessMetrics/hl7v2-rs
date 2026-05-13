@@ -2,7 +2,7 @@
 
 Current lane inventory derived from `policy/ci-lane-whitelist.toml`.
 
-Last updated: 2026-05-09 (PR 07: platform matrix routed off ordinary PRs)
+Last updated: 2026-05-13 (Rust 1.95 / 1.5.0 release-readiness lane)
 
 ## Active Lanes
 
@@ -16,15 +16,18 @@ Last updated: 2026-05-09 (PR 07: platform matrix routed off ordinary PRs)
 | `benchmarks`              | `ci.yml`              | `benchmarks`     | deep          | no          | no        |       15 | performance     |
 | `ci_success`              | `ci.yml`              | `ci-success`     | frontdoor     | yes         | yes       |        1 | release/ci      |
 | `coverage`                | `coverage.yml`        | `coverage`       | deep          | no          | no        |       20 | release/ci      |
+| `ripr_static_exposure`    | `ripr.yml`            | `ripr`           | advisory      | yes         | no        |        5 | release/ci      |
+| `targeted_mutation`       | `mutation.yml`        | `targeted-mutation` | deep       | no          | no        |       45 | core/test       |
 | `security`                | `security.yml`        | `*`              | deep          | no          | no        |        5 | release/ci      |
 | `python_wheels`           | `python-wheels.yml`   | `wheel-smoke`    | deep          | no          | no        |       20 | binding/python  |
 | `nightly`                 | `nightly.yml`         | `*`              | deep          | no          | no        |       25 | core/build      |
 | `contracts`               | `contracts.yml`       | `*`              | deep          | no          | no        |       15 | api/contracts   |
 | `publish`                 | `publish.yml`         | `publish`        | release       | no          | no        |       20 | release/ci      |
+| `release_readiness`       | `release-readiness.yml` | `release-readiness` | release   | no          | no        |      120 | release/ci      |
 
-## Default PR LEM Estimate (after PR 07)
+## Default PR LEM Estimate
 
-Ordinary PRs now run:
+Ordinary PRs now run these blocking lanes:
 
 | Lane             | Base LEM |
 | ---------------- | -------: |
@@ -34,8 +37,12 @@ Ordinary PRs now run:
 | `ci_success`     |        1 |
 | **Total**        |   **40** |
 
+Ordinary Rust-relevant PRs also run advisory `ripr_static_exposure` at roughly
+5 LEM. It is review evidence, not a branch-protection blocker.
+
 Most PRs target 35 LEM. The MSRV smoke check adds a 5 LEM compile-only overage
-for a 40 LEM default path that prevents minimum-supported-Rust regressions.
+for a 40 LEM blocking default path that prevents minimum-supported-Rust
+regressions.
 
 ## LEM Savings from PR 07
 
@@ -54,7 +61,8 @@ now costs approximately $0.32 instead of $0.90.
 | ------------------ | -------------------------------- |
 | `platform-matrix`  | `matrix_tests` (85 LEM)          |
 | `full-ci`          | all deep lanes + `matrix_tests`  |
-| `release-check`    | `matrix_tests`, `security`, `publish` |
+| `release-check`    | `matrix_tests`, `security`, `targeted_mutation`, `publish` |
+| `mutation`         | `targeted_mutation`                 |
 | `property-tests`   | `extended_property_tests`        |
 | `python`           | `python_wheels`                  |
 | `api-contract`     | `contracts`                      |
@@ -73,6 +81,12 @@ On `push` to `main`, the following additional lanes run beyond default PRs:
 ## Scheduled Lanes
 
 - `nightly` (via the `nightly.yml` schedule)
+
+## Manual Release Lanes
+
+- `publish` prints or executes the crates.io publish plan by explicit dispatch.
+- `release_readiness` runs the Rust 1.95 / 1.5.0 readiness proof bundle by
+  explicit dispatch or on `release/**` branches.
 
 ## Exceptions
 

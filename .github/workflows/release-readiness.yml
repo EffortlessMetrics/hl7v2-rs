@@ -1,0 +1,104 @@
+name: Rust 1.95 / 1.5.0 Release Readiness
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "release/**"
+
+concurrency:
+  group: release-readiness-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUSTFLAGS: -Dwarnings
+  RUSTDOCFLAGS: -Dwarnings
+  PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+
+jobs:
+  release-readiness:
+    name: Release Readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust 1.95 toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: "1.95.0"
+          components: rustfmt, clippy
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: hl7v2-release-readiness-1.95-${{ hashFiles('Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Check workspace
+        run: cargo check --workspace --all-targets --all-features --locked
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      - name: Run workspace tests
+        run: cargo test --workspace --all-features --locked
+
+      - name: Run doc tests
+        run: cargo test --doc --workspace --all-features --locked
+
+      - name: Check policy rails
+        run: |
+          cargo run -p xtask -- check-lint-policy
+          cargo run -p xtask -- check-no-panic-family
+          cargo run -p xtask -- check-file-policy
+          cargo run -p xtask -- check-ci-lane-whitelist
+
+      - name: Check evidence schemas
+        run: cargo run -p xtask -- evidence-schema-check
+
+      - name: Check contract workflow coverage
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path(".github/workflows/contracts.yml").read_text(encoding="utf-8")
+          required = [
+              "spectral lint api/openapi/hl7v2-api-v1.yaml",
+              "@bufbuild/buf lint api/proto",
+              "ajv validate",
+              "cargo run -p xtask -- evidence-schema-check",
+          ]
+          missing = [needle for needle in required if needle not in text]
+          if missing:
+              for needle in missing:
+                  print(f"missing contracts workflow proof: {needle}")
+              raise SystemExit(1)
+          PY
+
+      - name: Check Rust publish graph
+        run: cargo run -p xtask -- publish-plan
+
+      - name: Dry-run Rust publish graph
+        run: cargo run -p xtask -- publish-dry-run --workspace-patches --allow-dirty
+
+      - name: Check Python distribution boundary
+        run: |
+          cargo run -p xtask -- check-python-publish-policy
+          {
+            echo "## Python distribution boundary"
+            echo
+            echo "- Public Python distribution: hl7v2"
+            echo "- Internal Rust binding crate: hl7v2-python"
+            echo "- Rust crates.io publish graph remains hl7v2, hl7v2-server, hl7v2-cli"
+            echo "- No TestPyPI/PyPI success is claimed by this Rust readiness workflow"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -59,7 +59,7 @@ expires = "2026-11-09"
 id = "msrv_smoke"
 workflow = ".github/workflows/ci.yml"
 job = "msrv-smoke"
-display_name = "MSRV Smoke (1.93)"
+display_name = "MSRV Smoke (1.95)"
 kind = "platform"
 tier = "compatibility"
 default_pr = true
@@ -67,9 +67,9 @@ blocking = true
 runner = "ubuntu_latest"
 base_lem = 12
 owner = "platform/compat"
-intent = "Verify the workspace compiles on the minimum supported Rust version (1.93)."
+intent = "Verify the workspace compiles on the minimum supported Rust version (1.95)."
 failure_mode = "MSRV regression reaches main undetected."
-proof_obligation = "Run cargo check --workspace --all-features on Rust 1.93."
+proof_obligation = "Run cargo check --workspace --all-features on Rust 1.95."
 evidence = ["job logs"]
 allowed_triggers = ["pull_request", "push", "merge_group"]
 duplicate_of = ["fast_checks"]
@@ -372,5 +372,35 @@ evidence = ["job logs"]
 allowed_triggers = ["push:release/**", "workflow_dispatch", "pull_request:labeled"]
 labels = ["release-check"]
 duplicate_of = []
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
+# release_readiness -- Rust 1.95 / 1.5.0 release-readiness proof
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "release_readiness"
+workflow = ".github/workflows/release-readiness.yml"
+job = "release-readiness"
+display_name = "Release Readiness"
+kind = "release"
+tier = "release"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 120
+owner = "release/ci"
+intent = "Run the Rust 1.95 release-readiness proof bundle before preparing or shipping 1.5.0."
+failure_mode = "MSRV, policy, evidence, contract, or publish dry-run failure reaches a release candidate."
+proof_obligation = "Run formatting, check, Clippy, workspace tests, doc tests, policy checks, evidence-schema-check, publish-plan, publish-dry-run, and Python publish-policy boundary checks."
+evidence = ["job logs", "GitHub step summary"]
+allowed_triggers = ["push:release/**", "workflow_dispatch"]
+duplicate_of = [
+  "fast_checks",
+  "standard_tests",
+  "msrv_smoke",
+  "contracts",
+  "publish",
+]
 review_after = "2026-06-09"
 expires = "2026-11-09"
