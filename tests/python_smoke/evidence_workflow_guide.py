@@ -1,8 +1,7 @@
 """Execute the Python evidence workflow guide's checked example.
 
-This keeps docs/guides/python-evidence-workflow.md tied to the installed
-hl7v2-python wheel instead of letting the long guide script drift from the
-binding API.
+This keeps docs/guides/python-evidence-workflow.md tied to the installed hl7v2
+wheel instead of letting the long guide script drift from the binding API.
 """
 
 from __future__ import annotations

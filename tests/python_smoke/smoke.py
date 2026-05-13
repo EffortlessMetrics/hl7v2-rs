@@ -645,7 +645,7 @@ reason = "Patient identifier"
         print("expected invalid HL7 parse to raise ValueError", file=sys.stderr)
         return 1
 
-    print(f"hl7v2-python smoke ok version={version} segments={segment_count}")
+    print(f"hl7v2 smoke ok version={version} segments={segment_count}")
     return 0
 
 

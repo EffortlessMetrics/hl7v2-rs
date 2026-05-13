@@ -12,7 +12,7 @@ workflow changes.
 | `platform-matrix`      | Run Windows + macOS + MSRV + beta matrix                        |
 | `property-tests`       | Run full property tests (`PROPTEST_CASES=1000`)                 |
 | `benchmarks`           | Run benchmark suite                                             |
-| `python`               | Run Python wheel smoke (`hl7v2-python` / maturin)              |
+| `python`               | Run Python wheel smoke (`hl7v2` distribution / maturin)        |
 | `api-contract`         | Run API / OpenAPI / gRPC contract deep checks                   |
 | `release-check`        | Run publish dry-run and release smoke                           |
 | `security-audit`       | Run `cargo deny` and dependency security audit                  |

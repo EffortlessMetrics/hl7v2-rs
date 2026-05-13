@@ -36,12 +36,17 @@ narrow PRs.
 | `https://pypi.org/pypi/hl7v2-python/json` | Returned `404`. |
 | `https://test.pypi.org/pypi/hl7v2-python/json` | Returned `404`. |
 
+These package-state checks recorded the public distribution name that existed
+in the repository on 2026-05-10. The current public Python distribution target
+is `hl7v2`; the internal Rust/PyO3 package remains `hl7v2-python`.
+
 ## Current Product Boundary
 
 - The Rust crates.io product graph remains `hl7v2`, `hl7v2-server`, and
   `hl7v2-cli`.
-- `hl7v2-python` remains a separate Python/maturin lane and is not part of the
-  Rust crates.io graph.
+- The public Python distribution target is `hl7v2`, built from the internal
+  `hl7v2-python` maturin lane. `hl7v2-python` is not part of the Rust crates.io
+  graph.
 - The repository now has policy rails for Python publishing, including manual
   TestPyPI proof controls and production PyPI guardrails.
 - A 2026-05-10 TestPyPI upload/install-back attempt was run from current
@@ -60,8 +65,8 @@ narrow PRs.
 | `cargo +1.93.0 info hl7v2@1.4.0 --registry crates-io` | Passed. |
 | `cargo +1.93.0 info hl7v2-server@1.4.0 --registry crates-io` | Passed. |
 | `cargo +1.93.0 info hl7v2-cli@1.4.0 --registry crates-io` | Passed. |
-| `Invoke-WebRequest https://pypi.org/pypi/hl7v2-python/json` | Returned `404`. |
-| `Invoke-WebRequest https://test.pypi.org/pypi/hl7v2-python/json` | Returned `404`. |
+| `Invoke-WebRequest https://pypi.org/pypi/hl7v2-python/json` | Returned `404` for the repository's 2026-05-10 public distribution target. |
+| `Invoke-WebRequest https://test.pypi.org/pypi/hl7v2-python/json` | Returned `404` for the repository's 2026-05-10 public distribution target. |
 | `cargo +1.93.0 run -p xtask -- publish-plan` | Reported `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. |
 | `cargo +1.93.0 run -p xtask -- evidence-schema-check` | Passed; 33 evidence fixtures validated. |
 
@@ -70,7 +75,7 @@ narrow PRs.
 The source-tree split is complete. Remaining gaps are release-process actions,
 not hidden local code:
 
-1. Configure the TestPyPI Trusted Publisher for `hl7v2-python`, then rerun
+1. Configure the TestPyPI Trusted Publisher for `hl7v2`, then rerun
    the guarded TestPyPI upload/install-back proof from clean `main`.
 2. Keep production PyPI blocked until an explicit release decision approves it.
 3. Keep future evidence, server, Python, and policy work in separate PR lanes.

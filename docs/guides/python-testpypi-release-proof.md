@@ -1,6 +1,6 @@
 # Python TestPyPI Release Proof
 
-Use this guide when you need to prove the `hl7v2-python` binding as a Python
+Use this guide when you need to prove the `hl7v2` distribution as a Python
 package before any production PyPI release. This lane is separate from the Rust
 crates.io release graph.
 
@@ -8,7 +8,7 @@ crates.io release graph.
 
 | Field | Value |
 | --- | --- |
-| Python distribution | `hl7v2-python` |
+| Python distribution | `hl7v2` |
 | Python import module | `hl7v2` |
 | Rust package | `hl7v2-python` |
 | crates.io publish policy | `publish = false` |
@@ -27,7 +27,7 @@ Configure a pending publisher in TestPyPI with:
 
 | TestPyPI field | Value |
 | --- | --- |
-| Project name | `hl7v2-python` |
+| Project name | `hl7v2` |
 | Owner | `EffortlessMetrics` |
 | Repository name | `hl7v2-rs` |
 | Workflow filename | `python-testpypi.yml` |
@@ -58,7 +58,7 @@ python tests\python_smoke\evidence_workflow_guide.py
 Expected result:
 
 ```text
-hl7v2-python smoke ok version=<version> segments=2
+hl7v2 smoke ok version=<version> segments=2
 ```
 
 ## Manual TestPyPI Proof
@@ -97,7 +97,7 @@ This does three things:
 
 1. Builds and smoke-tests the wheel.
 2. Publishes the wheel to TestPyPI using Trusted Publishing.
-3. Installs `hl7v2-python==<workspace version>` back from TestPyPI in a fresh
+3. Installs `hl7v2==<workspace version>` back from TestPyPI in a fresh
    virtual environment and reruns `tests/python_smoke/smoke.py` plus
    `tests/python_smoke/evidence_workflow_guide.py`.
 
@@ -129,6 +129,8 @@ Current status: the non-publishing proof is complete. A 2026-05-10
 publishing-mode run from `main` built and smoke-tested the wheel, then failed
 during Trusted Publishing token exchange with `invalid-publisher`; see
 [docs/audits/python-testpypi-publish-attempt-2026-05-10.md](../audits/python-testpypi-publish-attempt-2026-05-10.md).
-The TestPyPI upload/install-back proof remains incomplete until the TestPyPI
-Trusted Publisher is configured and a rerun passes. Track the external setup
-blocker in [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563).
+The public distribution has since been retargeted from `hl7v2-python` to
+`hl7v2`. The TestPyPI upload/install-back proof remains incomplete until the
+TestPyPI Trusted Publisher is configured for project `hl7v2` and a rerun
+passes. Track the external setup blocker in
+[#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563).

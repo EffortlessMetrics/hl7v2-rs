@@ -52,8 +52,10 @@ The publish action reported these claims for the failed exchange:
 
 The workflow and repository claims match the intended setup documented in
 [`docs/guides/python-testpypi-release-proof.md`](../guides/python-testpypi-release-proof.md).
-The remaining action is to configure the corresponding TestPyPI pending
-publisher for `hl7v2-python`.
+At the time of this run the workflow still targeted the `hl7v2-python` public
+distribution name. The public distribution has since been retargeted to
+`hl7v2`, so the remaining action is to configure the corresponding TestPyPI
+pending publisher for `hl7v2`.
 
 ## Follow-up Preflight Run
 
@@ -88,9 +90,9 @@ The publish action reported the same trusted-publisher subject:
 repo:EffortlessMetrics/hl7v2-rs:environment:testpypi
 ```
 
-This confirms the repository-side workflow now records the setup fields before
-attempting upload. The remaining blocker is still external TestPyPI Trusted
-Publisher configuration for project `hl7v2-python`.
+This confirms the repository-side workflow records the setup fields before
+attempting upload. The remaining blocker is external TestPyPI Trusted Publisher
+configuration for project `hl7v2`.
 
 ## Boundaries
 
@@ -103,12 +105,13 @@ Publisher configuration for project `hl7v2-python`.
 
 ## Next Step
 
-Configure the TestPyPI Trusted Publisher for project `hl7v2-python` with the
+Configure the TestPyPI Trusted Publisher for project `hl7v2` with the
 fields below. The external setup work is tracked in
 [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563).
 
 | TestPyPI field | Value |
 | --- | --- |
+| Project name | `hl7v2` |
 | Owner | `EffortlessMetrics` |
 | Repository name | `hl7v2-rs` |
 | Workflow filename | `python-testpypi.yml` |

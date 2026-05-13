@@ -65,7 +65,7 @@ proposal, spec, plan, or receipt documents.
 | [Final source-tree gap audit](audits/current-source-tree-evidence-objective-gap-audit.md) | Current package-state receipt after the broad local evidence-lane workbench was split and merged. |
 | [v1.4.0 publish dry-run receipt](audits/publish-dry-run-v1.4.0-2026-05-09.md) | Package verification before upload. |
 | [v1.4.0 publish receipt](audits/publish-v1.4.0-2026-05-09.md) | Dependency-ordered crates.io publication proof. |
-| [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps `hl7v2-python` outside the Rust crates.io graph. |
+| [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the internal `hl7v2-python` package outside the Rust crates.io graph. |
 | [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |
 
 ## Current Boundaries
@@ -75,8 +75,9 @@ proposal, spec, plan, or receipt documents.
   planned Rust 1.95 / 1.5.0 lane; it is not an active MSRV declaration.
 - The v1.4.0 objective audit is a release-snapshot receipt, not proof that the
   full long-range evidence-layer objective is finished.
-- `hl7v2-python` remains a separate Python packaging lane until a production
-  PyPI release is intentionally proven and executed.
+- The public Python distribution is `hl7v2`, built from the internal
+  `hl7v2-python` maturin lane, until a production PyPI release is intentionally
+  proven and executed.
 - gRPC coverage is useful but still narrower than the full HTTP evidence
   surface; use `docs/API_GUIDE.md` and `docs/STATUS.md` for current endpoint
   claims.
@@ -109,6 +110,7 @@ The current Rust product surface is:
 - `hl7v2-server`
 - `hl7v2-cli`
 
-`hl7v2-python` remains a separate Python/maturin lane and is not part of the
-Rust crates.io publish graph. Historical old microcrate names may exist on
-crates.io, but they are not the product surface for new code.
+The public Python distribution is `hl7v2`, built from the internal
+`hl7v2-python` maturin lane. `hl7v2-python` is not part of the Rust crates.io
+publish graph. Historical old microcrate names may exist on crates.io, but they
+are not the product surface for new code.

@@ -1,6 +1,6 @@
 # Python PyPI Release
 
-Use this guide only after the separate `hl7v2-python` package has passed the
+Use this guide only after the separate `hl7v2` Python distribution has passed the
 local wheel proof and the full TestPyPI upload/install-back proof. This is a
 production package release path for Python users. It does not change the Rust
 crates.io graph.
@@ -9,7 +9,7 @@ crates.io graph.
 
 | Field | Value |
 | --- | --- |
-| Python distribution | `hl7v2-python` |
+| Python distribution | `hl7v2` |
 | Python import module | `hl7v2` |
 | Rust package | `hl7v2-python` |
 | crates.io publish policy | `publish = false` |
@@ -31,7 +31,7 @@ Before running the production publish mode, verify all of these are true:
 - The manual **Python TestPyPI Proof** workflow has passed with
   `publish_to_testpypi=true`.
 - The TestPyPI install-back job installed
-  `hl7v2-python==<workspace version>` from `https://test.pypi.org/simple/` and
+  `hl7v2==<workspace version>` from `https://test.pypi.org/simple/` and
   ran `tests/python_smoke/smoke.py` plus
   `tests/python_smoke/evidence_workflow_guide.py`.
 - You have the successful **Python TestPyPI Proof** workflow run URL for this
@@ -51,7 +51,7 @@ Configure a pending publisher in PyPI with:
 
 | PyPI field | Value |
 | --- | --- |
-| Project name | `hl7v2-python` |
+| Project name | `hl7v2` |
 | Owner | `EffortlessMetrics` |
 | Repository name | `hl7v2-rs` |
 | Workflow filename | `python-pypi.yml` |
@@ -100,7 +100,7 @@ This does three things:
 
 1. Builds and smoke-tests the wheel.
 2. Publishes the wheel to production PyPI using Trusted Publishing.
-3. Installs `hl7v2-python==<workspace version>` back from PyPI in a fresh
+3. Installs `hl7v2==<workspace version>` back from PyPI in a fresh
    virtual environment and reruns the Python smoke and evidence workflow guide.
 
 PyPI does not allow overwriting an existing file for the same version. If the
