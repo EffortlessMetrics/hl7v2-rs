@@ -41,7 +41,7 @@ you want a second human confirmation before upload.
 Run the policy rail before the manual TestPyPI workflow:
 
 ```powershell
-cargo +1.93.0 run -p xtask -- check-python-publish-policy
+cargo run -p xtask -- check-python-publish-policy
 ```
 
 Then run the local wheel proof:

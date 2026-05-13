@@ -66,7 +66,7 @@ to the build/smoke job.
 Before using the production workflow, run the local policy rail:
 
 ```powershell
-cargo +1.93.0 run -p xtask -- check-python-publish-policy
+cargo run -p xtask -- check-python-publish-policy
 ```
 
 Run the **Python PyPI Release Proof** workflow manually with:

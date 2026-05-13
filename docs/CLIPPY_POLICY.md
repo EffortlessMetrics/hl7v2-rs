@@ -12,7 +12,8 @@ through explicit package inheritance so lint debt is visible instead of hidden.
 - Make UTF-8, string slicing, indexing, and numeric conversion risks visible in
   review before they can affect healthcare message parsing.
 - Require every suppression to carry a narrow, reviewable reason.
-- Track Rust 1.94 and 1.95 lint flips before the MSRV changes.
+- Resolve Rust 1.94 and 1.95 lint flips after the MSRV ratchet without hiding
+  debt.
 
 ## Workspace baseline
 
@@ -147,6 +148,6 @@ cargo run -p xtask -- policy-report
 
 The gate checks that the workspace MSRV matches the policy ledger, required
 packages inherit workspace lints, staged package rollout is declared, active
-lints match the root manifest, planned 1.94/1.95 lints are still planned until
-the MSRV bump, Clippy test carveouts are absent, and debt entries are complete
-and unexpired. It also validates the retained-exceptions ledger shape.
+lints match the root manifest, deferred 1.94/1.95 lints remain planned with
+receipts, Clippy test carveouts are absent, and debt entries are complete and
+unexpired. It also validates the retained-exceptions ledger shape.

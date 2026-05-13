@@ -21,7 +21,7 @@ claim tier or proof expectations.
 | Surface | Tier | Proof |
 | --- | --- | --- |
 | Rust parse, validate, normalize, ACK, MLLP, and evidence models | Stable | `cargo test -p hl7v2 --all-features` |
-| Evidence schemas | Stable | `cargo +1.93.0 run -p xtask -- evidence-schema-check` |
+| Evidence schemas | Stable | `cargo run -p xtask -- evidence-schema-check` |
 | CLI evidence commands | Stable | `cargo test -p hl7v2-cli --test integration_tests` |
 | CLI BDD workflows | Stable | `cargo test -p hl7v2-cli --test bdd_tests` |
 | REST evidence sidecar | Stable | `cargo test -p hl7v2-server --test validate_endpoint_test`; `cargo test -p hl7v2-server --test bundle_endpoint_test`; `cargo test -p hl7v2-server --test replay_endpoint_test` |
@@ -31,7 +31,7 @@ claim tier or proof expectations.
 | Python binding local wheel lane | Experimental | `python tests/python_smoke/smoke.py`; `python tests/python_smoke/evidence_workflow_guide.py` after a local wheel install |
 | Python TestPyPI distribution (`hl7v2`) | Blocked | Issue [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563); requires TestPyPI upload and install-back receipt |
 | Production PyPI distribution (`hl7v2`) | Not released | Requires same-commit TestPyPI proof, production PyPI upload, install-back from `https://pypi.org/simple/`, smoke proof, and receipt PR |
-| Rust crates.io release graph | Stable | `cargo +1.93.0 run -p xtask -- publish-plan`; must report `hl7v2`, `hl7v2-server`, and `hl7v2-cli` |
+| Rust crates.io release graph | Stable | `cargo run -p xtask -- publish-plan`; must report `hl7v2`, `hl7v2-server`, and `hl7v2-cli` |
 
 ## Rules
 

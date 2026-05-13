@@ -71,8 +71,10 @@ proposal, spec, plan, or receipt documents.
 ## Current Boundaries
 
 - `docs/STATUS.md` is the current-state source of truth.
-- `docs/development/RUST_1_95_ROLLOUT.md` is the current rollout map for the
-  planned Rust 1.95 / 1.5.0 lane; it is not an active MSRV declaration.
+- `Cargo.toml`, `rust-toolchain.toml`, `clippy.toml`, and
+  `policy/clippy-lints.toml` own the active Rust 1.95 MSRV/toolchain state.
+  `docs/development/RUST_1_95_ROLLOUT.md` remains the current rollout map for
+  the remaining 1.5.0 quality-ratchet lane.
 - The v1.4.0 objective audit is a release-snapshot receipt, not proof that the
   full long-range evidence-layer objective is finished.
 - The public Python distribution is `hl7v2`, built from the internal
