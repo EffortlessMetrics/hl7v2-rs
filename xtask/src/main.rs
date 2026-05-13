@@ -4570,6 +4570,14 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    fn read_policy_workflow_for_mutation(
+        root: &Path,
+        policy: &PythonPublishWorkflowPolicy,
+    ) -> Result<String> {
+        let workflow = fs::read_to_string(root.join(policy.path))?;
+        Ok(workflow.replace("\r\n", "\n"))
+    }
+
     #[test]
     fn publish_order_uses_workspace_dependency_order() -> Result<()> {
         let ordered = publish_order(None)?;
@@ -4839,7 +4847,7 @@ bindings = "pyo3"
         let policy = PYTHON_PUBLISH_WORKFLOWS
             .first()
             .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
-        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
         let broken = workflow.replace(
             "on:\n  workflow_dispatch:",
             "on:\n  push:\n  workflow_dispatch:",
@@ -4868,7 +4876,7 @@ bindings = "pyo3"
         let policy = PYTHON_PUBLISH_WORKFLOWS
             .first()
             .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
-        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
         let broken = workflow.replace("python tests/python_smoke/evidence_workflow_guide.py", "");
 
         match check_python_publish_workflow_text(policy, &broken) {
@@ -4894,7 +4902,7 @@ bindings = "pyo3"
         let policy = PYTHON_PUBLISH_WORKFLOWS
             .first()
             .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
-        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
         let broken = workflow.replace(
             "packages-dir: dist/",
             "packages-dir: dist/\n          skip-existing: true",
@@ -4918,7 +4926,7 @@ bindings = "pyo3"
         let policy = PYTHON_PUBLISH_WORKFLOWS
             .first()
             .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
-        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
         let broken = workflow.replace(
             "timeout-minutes: 15\n    environment:",
             "timeout-minutes: 15\n    env:\n      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}\n    environment:",
@@ -4947,7 +4955,7 @@ bindings = "pyo3"
         let policy = PYTHON_PUBLISH_WORKFLOWS
             .first()
             .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
-        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
         let broken = workflow.replace(
             "    timeout-minutes: 30\n    outputs:",
             "    timeout-minutes: 30\n    permissions:\n      contents: read\n      id-token: write\n    outputs:",
@@ -4973,7 +4981,7 @@ bindings = "pyo3"
             .iter()
             .find(|policy| policy.path == ".github/workflows/python-pypi.yml")
             .ok_or_else(|| anyhow!("expected production PyPI workflow policy"))?;
-        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
         let broken = workflow.replace(
             r#"      testpypi_proof_url:
         description: "Successful Python TestPyPI Proof workflow run URL for this package version"
@@ -5003,7 +5011,7 @@ bindings = "pyo3"
             .iter()
             .find(|policy| policy.path == ".github/workflows/python-pypi.yml")
             .ok_or_else(|| anyhow!("expected production PyPI workflow policy"))?;
-        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
         let broken = workflow.replace(
             "Validate production PyPI preconditions",
             "Validate production PyPI preconditions removed",
@@ -5035,7 +5043,7 @@ bindings = "pyo3"
             .iter()
             .find(|policy| policy.path == ".github/workflows/python-pypi.yml")
             .ok_or_else(|| anyhow!("expected production PyPI workflow policy"))?;
-        let workflow = fs::read_to_string(root.join(policy.path))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
         let broken = workflow.replace("Install from TestPyPI and smoke", "Install from TestPyPI");
 
         match check_python_publish_workflow_text(policy, &broken) {
