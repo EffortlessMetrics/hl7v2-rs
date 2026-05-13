@@ -38,15 +38,15 @@ narrow PRs.
 
 These package-state checks recorded the public distribution name that existed
 in the repository on 2026-05-10. The current public Python distribution target
-is `hl7v2`; the internal Rust/PyO3 package remains `hl7v2-python`.
+is `hl7v2`; the Rust/PyO3 binding backend crate remains `hl7v2-python`.
 
 ## Current Product Boundary
 
-- The Rust crates.io product graph remains `hl7v2`, `hl7v2-server`, and
+- The primary Rust product graph remains `hl7v2`, `hl7v2-server`, and
   `hl7v2-cli`.
-- The public Python distribution target is `hl7v2`, built from the internal
-  `hl7v2-python` maturin lane. `hl7v2-python` is not part of the Rust crates.io
-  graph.
+- The public Python distribution target is `hl7v2`, built from the
+  `hl7v2-python` maturin backend lane. `hl7v2-python` is not part of the
+  primary Rust product graph.
 - The repository now has policy rails for Python publishing, including manual
   TestPyPI proof controls and production PyPI guardrails.
 - A 2026-05-10 TestPyPI upload/install-back attempt was run from current

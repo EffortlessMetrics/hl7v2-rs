@@ -2,13 +2,17 @@
 
 Python bindings for the Rust `hl7v2` toolkit.
 
-This package is intentionally outside the crates.io Rust publish graph. Build
-and validate it through the Python/maturin lane before any PyPI or TestPyPI
-release.
+This crate backs the Python `hl7v2` package. Rust users should depend on
+`hl7v2`; Python users should install `hl7v2` from PyPI after the Python release
+lane is proven.
+
+Current metadata keeps this binding backend crate unpublished on crates.io.
+Build and validate it through the Python/maturin lane before any PyPI or
+TestPyPI release. A future binding-backend release may publish this crate as
+packaging infrastructure, but it is not the primary Rust API.
 
 The Python distribution name is `hl7v2`; the import module is also `hl7v2`.
-The internal Rust/PyO3 package remains `hl7v2-python` and is not published to
-crates.io.
+The Rust/PyO3 backend crate remains `hl7v2-python`.
 
 ## Build
 

@@ -7,9 +7,9 @@ Source-of-truth stack: [HL7V2-SPEC-0001](HL7V2-SPEC-0001-source-of-truth-stack.m
 
 ## Contract
 
-`hl7v2` is the public Python/maturin distribution. The internal Rust/PyO3
-package remains `hl7v2-python`; it is not a Rust crates.io product crate and
-must not be treated as part of the Rust publish graph.
+`hl7v2` is the public Python/maturin distribution. The Rust/PyO3 backend crate
+remains `hl7v2-python`; it is not the primary Rust API and must not be treated
+as part of the primary Rust product graph.
 
 Python distribution proof requires:
 
@@ -102,7 +102,9 @@ Production proof must show:
 
 ## Hard Rules
 
-- Do not publish `hl7v2-python` to crates.io.
+- Do not publish `hl7v2-python` as part of Python TestPyPI or PyPI proof.
+- Do not publish `hl7v2-python` to crates.io until binding-backend metadata,
+  tooling, and receipts deliberately promote it.
 - Do not use token fallback.
 - Do not use skip-existing.
 - Do not claim TestPyPI success until upload and install-back pass.
@@ -142,7 +144,7 @@ separate production proof passes.
 
 ### Rust Release Candidate
 
-A Rust release candidate may use the Rust publish graph:
+A Rust release candidate may use the primary Rust product graph:
 
 ```text
 hl7v2
@@ -150,7 +152,9 @@ hl7v2-server
 hl7v2-cli
 ```
 
-It must not include `hl7v2-python` as a crates.io publish target.
+It must not include `hl7v2-python` as a primary Rust product publish target.
+If a future release includes binding backend crates, it must list that graph
+separately and keep Python package proof separate.
 
 ## Non-Goals
 

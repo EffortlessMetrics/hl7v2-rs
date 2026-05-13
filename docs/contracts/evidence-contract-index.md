@@ -79,9 +79,11 @@ message control IDs.
 
 ### Python
 
-The Python binding is outside the crates.io Rust publish graph. It mirrors the
-same evidence shapes for validation, corpus, redaction, bundle, and replay APIs
-with opt-in v2 `schema_version` arguments where the contract exists.
+The Python binding is a separate language package surface backed by the
+`hl7v2-python` binding backend crate. It mirrors the same evidence shapes for
+validation, corpus, redaction, bundle, and replay APIs with opt-in v2
+`schema_version` arguments where the contract exists. Rust users should depend
+on `hl7v2` for the primary Rust API.
 
 ## Related References
 
