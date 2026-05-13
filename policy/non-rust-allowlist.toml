@@ -160,6 +160,19 @@ reason = "Snapshot of cargo metadata used by review tooling."
 generated_by = "cargo metadata --format-version=1 --all-features"
 
 # ---------------------------------------------------------------------------
+# Agent execution state
+# ---------------------------------------------------------------------------
+
+[[allow]]
+path = ".hl7v2/goals/active.toml"
+kind = "active_goal_manifest"
+owner = "EffortlessMetrics"
+surface = "agent-execution"
+classification = "config"
+reason = "Machine-readable current campaign state for Codex/Droid source-of-truth execution."
+covered_by = ["cargo run -p xtask -- check-file-policy"]
+
+# ---------------------------------------------------------------------------
 # Policy data
 # ---------------------------------------------------------------------------
 

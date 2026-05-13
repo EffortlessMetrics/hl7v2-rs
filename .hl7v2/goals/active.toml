@@ -1,0 +1,114 @@
+id = "hl7v2-1-4-1-source-of-truth-and-python-proof"
+title = "HL7v2 1.4.1 source-of-truth and Python proof"
+status = "active"
+owner = "codex"
+created = "2026-05-12"
+
+objective = """
+Encode the proposal/spec/ADR/plan/goal source-of-truth model in hl7v2-rs,
+close the TestPyPI Trusted Publisher proof boundary for hl7v2-python, and
+prepare a patch release only after evidence receipts are durable.
+"""
+
+must_not_touch = [
+  "Do not change runtime behavior in this campaign.",
+  "Do not change CI workflows unless a later accepted spec says to.",
+  "Do not publish hl7v2-python to crates.io.",
+  "Do not use token fallback.",
+  "Do not use skip-existing.",
+  "Do not claim TestPyPI or PyPI success until upload and install-back pass.",
+]
+
+end_state = [
+  "docs/proposals, docs/specs, docs/adr, plans/1.4.1, and .hl7v2/goals are documented.",
+  "The source-of-truth stack spec is accepted.",
+  "Python distribution proof spec is accepted.",
+  "CI verification economics spec is accepted.",
+  "Evidence artifacts as contracts ADR is accepted.",
+  "Python as separate distribution lane ADR is accepted.",
+  "SUPPORT_TIERS maps product claims to proof commands.",
+  "TestPyPI Trusted Publisher issue #563 is either completed or still explicitly blocked.",
+  "No production PyPI claim exists without upload/install-back receipt.",
+  "Rust publish-plan remains hl7v2, hl7v2-server, hl7v2-cli.",
+]
+
+canonical_sources = [
+  "docs/STATUS.md",
+  "docs/contracts/evidence-contract-index.md",
+  "schemas/evidence/",
+  "docs/ci/cost-and-verification-policy.md",
+  "policy/ci-lane-whitelist.toml",
+  "policy/ci-risk-packs.toml",
+  "docs/status/SUPPORT_TIERS.md",
+  "docs/guides/python-testpypi-release-proof.md",
+  "docs/guides/python-pypi-release.md",
+]
+
+proof_commands = [
+  "cargo +1.93.0 run -p xtask -- check-doc-links",
+  "cargo +1.93.0 run -p xtask -- publish-plan",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.93.0 run -p xtask -- gate --check --changed",
+]
+
+[[work_item]]
+id = "deployment-adr-link-fix"
+status = "done"
+pr = "https://github.com/EffortlessMetrics/hl7v2-rs/pull/565"
+goal = "Replace stale deployment ADR references with the current ADR-012 path."
+
+[[work_item]]
+id = "source-of-truth-scaffold"
+status = "done"
+proposal = "docs/proposals/HL7V2-PROP-0001-source-of-truth-and-release-governance.md"
+spec = "docs/specs/HL7V2-SPEC-0001-source-of-truth-stack.md"
+plan = "plans/1.4.1/source-of-truth-stack.md"
+support_map = "docs/status/SUPPORT_TIERS.md"
+commands = [
+  "cargo +1.93.0 run -p xtask -- check-doc-links",
+  "cargo +1.93.0 run -p xtask -- publish-plan",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.93.0 run -p xtask -- gate --check --changed",
+]
+
+[[work_item]]
+id = "ci-verification-economics"
+status = "done"
+spec = "docs/specs/HL7V2-SPEC-0003-ci-verification-economics.md"
+policy = "docs/ci/cost-and-verification-policy.md"
+goal = "Explain why deep and efficient verification are the same design goal at industrialized PR volume."
+
+[[work_item]]
+id = "testpypi-trusted-publisher-proof"
+status = "blocked"
+blocked_by = "https://github.com/EffortlessMetrics/hl7v2-rs/issues/563"
+spec = "docs/specs/HL7V2-SPEC-0002-python-distribution-proof.md"
+adr = "docs/adr/HL7V2-ADR-0002-python-is-separate-distribution-lane.md"
+plan = "plans/1.4.1/testpypi-closure.md"
+commands = [
+  "gh workflow run python-testpypi.yml --ref main -f publish_to_testpypi=true",
+]
+acceptance = [
+  "Build and smoke wheel succeeds.",
+  "Publish to TestPyPI succeeds.",
+  "Install from TestPyPI and smoke succeeds.",
+  "Production PyPI is not attempted.",
+  "No token fallback is used.",
+  "No skip-existing workaround is used.",
+]
+
+[[work_item]]
+id = "active-goal-manifest"
+status = "ready"
+plan = "plans/1.4.1/implementation-plan.md"
+goal = "Land this active manifest after all referenced proposal, spec, ADR, and plan files exist."
+commands = [
+  "cargo +1.93.0 run -p xtask -- check-doc-links",
+  "cargo +1.93.0 run -p xtask -- publish-plan",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.93.0 run -p xtask -- gate --check --changed",
+]
+
+[[work_item]]
+id = "v1-4-1-release-readiness"
+status = "waiting"
+plan = "plans/1.4.1/release-readiness.md"
+goal = "Prepare a patch release candidate only after source-of-truth and Python proof receipts are clean."
+blocked_by = "testpypi-trusted-publisher-proof"
