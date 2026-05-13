@@ -16,8 +16,8 @@ paths = [
   "crates/hl7v2/src/normalize/**",
 ]
 lanes = ["fast_checks", "standard_tests", "ci_success"]
-deep_lanes = ["extended_property_tests"]
-labels = ["property-tests", "full-ci"]
+deep_lanes = ["extended_property_tests", "targeted_mutation"]
+labels = ["property-tests", "mutation", "full-ci"]
 
 [risk_pack.profile_validation]
 description = "Conformance profile loading, inheritance, constraints, validation reports."
@@ -27,8 +27,8 @@ paths = [
   "fixtures/**",
 ]
 lanes = ["fast_checks", "standard_tests", "ci_success"]
-deep_lanes = ["extended_property_tests"]
-labels = ["profile", "property-tests", "full-ci"]
+deep_lanes = ["extended_property_tests", "targeted_mutation"]
+labels = ["profile", "property-tests", "mutation", "full-ci"]
 
 [risk_pack.transport_mllp]
 description = "MLLP/network framing, streaming parser, batch/file transport."
@@ -38,8 +38,8 @@ paths = [
   "crates/hl7v2/src/batch/**",
 ]
 lanes = ["fast_checks", "standard_tests", "ci_success"]
-deep_lanes = ["matrix_tests"]
-labels = ["network", "full-ci"]
+deep_lanes = ["matrix_tests", "targeted_mutation"]
+labels = ["network", "mutation", "full-ci"]
 
 [risk_pack.server_api]
 description = "HTTP/gRPC server, OpenAPI/API schema, auth, metrics, runtime config."
@@ -51,8 +51,33 @@ paths = [
   "buf.gen.yaml",
 ]
 lanes = ["fast_checks", "standard_tests", "ci_success"]
-deep_lanes = ["contracts"]
-labels = ["api-contract", "full-ci"]
+deep_lanes = ["contracts", "targeted_mutation"]
+labels = ["api-contract", "mutation", "full-ci"]
+
+[risk_pack.safe_analysis_redaction]
+description = "PHI redaction, safe support bundle, and redaction receipt behavior."
+paths = [
+  "crates/hl7v2/src/redact.rs",
+  "crates/hl7v2-server/src/redaction.rs",
+  "fixtures/evidence/redaction-*",
+  "fixtures/evidence/safe-analysis-*",
+]
+lanes = ["fast_checks", "standard_tests", "ci_success"]
+deep_lanes = ["contracts", "targeted_mutation"]
+labels = ["evidence", "mutation", "full-ci"]
+
+[risk_pack.evidence_contracts]
+description = "Evidence artifact semantics, bundle/replay hashes, and schema fixtures."
+paths = [
+  "crates/hl7v2/src/evidence.rs",
+  "crates/hl7v2-server/src/evidence.rs",
+  "fixtures/evidence/**",
+  "schemas/evidence/**",
+  "docs/contracts/evidence-contract-index.md",
+]
+lanes = ["fast_checks", "standard_tests", "ci_success"]
+deep_lanes = ["contracts", "targeted_mutation"]
+labels = ["evidence", "mutation", "full-ci"]
 
 [risk_pack.cli]
 description = "Command-line interface, evidence bundle, replay, corpus commands."
@@ -61,8 +86,8 @@ paths = [
   "fixtures/evidence/**",
 ]
 lanes = ["fast_checks", "standard_tests", "ci_success"]
-deep_lanes = []
-labels = ["evidence", "full-ci"]
+deep_lanes = ["targeted_mutation"]
+labels = ["evidence", "mutation", "full-ci"]
 
 [risk_pack.python_binding]
 description = "PyO3/maturin Python binding lane."
@@ -72,8 +97,8 @@ paths = [
   "pyproject.toml",
 ]
 lanes = ["python_wheels"]
-deep_lanes = []
-labels = ["python", "full-ci"]
+deep_lanes = ["targeted_mutation"]
+labels = ["python", "mutation", "full-ci"]
 
 [risk_pack.release]
 description = "Crates publish graph, dependency, release, license, package metadata."

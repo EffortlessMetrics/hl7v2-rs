@@ -227,6 +227,31 @@ review_after = "2026-06-09"
 expires = "2026-11-09"
 
 # ---------------------------------------------------------------------------
+# targeted_mutation -- Routed runtime mutation lane
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "targeted_mutation"
+workflow = ".github/workflows/mutation.yml"
+job = "targeted-mutation"
+display_name = "Targeted Mutation"
+kind = "mutation"
+tier = "deep"
+default_pr = false
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 45
+owner = "core/test"
+intent = "Run cargo-mutants only for high-risk HL7 surfaces, mutation labels, full-ci, release-check, or manual dispatch."
+failure_mode = "Weak runtime oracle coverage on parser, redaction, evidence, server, or Python boundary changes reaches review without targeted mutation feedback."
+proof_obligation = "Upload mutation plan, changed diff, cargo-mutants output, and job summary."
+evidence = ["mutation-plan artifact", "targeted-mutation artifact", "job summary"]
+allowed_triggers = ["pull_request", "workflow_dispatch"]
+labels = ["mutation", "full-ci", "release-check"]
+duplicate_of = ["ripr_static_exposure", "nightly"]
+review_after = "2026-06-09"
+expires = "2026-11-09"
+
+# ---------------------------------------------------------------------------
 # security — Dependency audit (main/label only)
 # ---------------------------------------------------------------------------
 [[lane]]

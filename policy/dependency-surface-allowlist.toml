@@ -61,3 +61,14 @@ dependencies = ["ripr 0.5.0"]
 reason = "ripr shifts mutation-exposure signal left without adding runtime mutation to ordinary PRs."
 covered_by = [".github/workflows/ripr.yml"]
 review_after = "2026-06-30"
+
+[[allow]]
+id = "targeted-runtime-mutation"
+owner = "core/test"
+surface = "ci"
+behavior = "The targeted mutation workflow may install cargo-mutants 26.1.2 for routed runtime mutation proof."
+paths = [".github/workflows/mutation.yml", "policy/ci-risk-packs.toml"]
+dependencies = ["cargo-mutants 26.1.2"]
+reason = "cargo-mutants is the slower runtime backstop that complements ripr static exposure analysis."
+covered_by = [".github/workflows/mutation.yml"]
+review_after = "2026-06-30"
