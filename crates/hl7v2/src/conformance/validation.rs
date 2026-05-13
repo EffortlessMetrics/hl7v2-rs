@@ -1275,7 +1275,7 @@ mod legacy_tests {
         let v1_json = serde_json::to_value(&report).unwrap_or_default();
         let v2 = report.to_v2(
             "hl7v2",
-            "1.4.0",
+            "1.5.0",
             Some(ValidationReportProfileIdentity {
                 label: "adt_a01.yaml".to_string(),
                 message_structure: Some("ADT_A01".to_string()),
@@ -1290,7 +1290,7 @@ mod legacy_tests {
         assert!(v1_json.get("schema_version").is_none());
         assert_eq!(v2.schema_version, "2");
         assert_eq!(v2.tool_name, "hl7v2");
-        assert_eq!(v2.tool_version, "1.4.0");
+        assert_eq!(v2.tool_version, "1.5.0");
         assert_eq!(v2_json["profile_identity"]["message_structure"], "ADT_A01");
         assert_eq!(v2.issue_count, report.issue_count);
         assert_eq!(v2.issues, report.issues);

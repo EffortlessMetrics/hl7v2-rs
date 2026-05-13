@@ -11,7 +11,7 @@ publish = false  # Dev-only crate
 repository.workspace = true
 
 [dependencies]
-hl7v2 = { version = "1.4.0", path = "../hl7v2", default-features = false }
+hl7v2 = { version = "1.5.0", path = "../hl7v2", default-features = false }
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true

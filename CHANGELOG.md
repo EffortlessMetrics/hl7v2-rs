@@ -9,17 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No entries yet.
+
+---
+
+## [1.5.0] - 2026-05-13
+
+### Added
+
+- Added an advisory `ripr` static mutation-exposure workflow and suppression
+  policy, keeping runtime mutation as a targeted backstop rather than a default
+  PR tax.
+- Added targeted mutation lane routing for high-risk parser, MLLP, profile,
+  redaction, bundle/replay, evidence-schema, server, Python, and release
+  surfaces.
+- Added a Rust 1.95 / v1.5.0 release-readiness workflow and receipt home for
+  non-publishing proof before crates.io release.
+
 ### Changed
 
 - Raised MSRV from Rust 1.93 to Rust 1.95 and pinned
   `rust-toolchain.toml` to Rust 1.95.0 for local and CI consistency.
+- Prepared the Rust package graph as version `1.5.0` for `hl7v2`,
+  `hl7v2-server`, and `hl7v2-cli`.
+- Tightened the compiler, Clippy, no-panic, and file-policy rails for
+  high-throughput maintenance without increasing default CI weight.
+- Retargeted the public Python distribution metadata and proof workflows to
+  `hl7v2` while keeping the internal `hl7v2-python` Rust crate unpublished to
+  crates.io.
 
-### Planned
+### Fixed
 
-- Mapped the Rust 1.95 / `1.5.0` rollout as a minor-release MSRV ratchet with
-  policy tightening, advisory static mutation-exposure analysis, targeted
-  mutation lanes, and release-readiness proof. No MSRV, toolchain, workflow, or
-  runtime behavior changes are part of the planning PR.
+- Burned down selected CLI monitor and server metrics Clippy debt with bounded
+  conversions and narrower test assertions.
 
 ---
 

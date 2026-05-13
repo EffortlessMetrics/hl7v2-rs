@@ -3252,9 +3252,9 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut report_v2, "/tool_version", "1.4.0");
-        set(&mut report_v2, "/version", "1.4.0");
-        set(&mut report_v2, "/checks/0/message", "hl7v2-cli 1.4.0");
+        set(&mut report_v2, "/tool_version", "1.5.0");
+        set(&mut report_v2, "/version", "1.5.0");
+        set(&mut report_v2, "/checks/0/message", "hl7v2-cli 1.5.0");
         set(&mut report_v2, "/checks/5/status", "warn");
         set(
             &mut report_v2,
@@ -3315,7 +3315,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut lint_report_v2, "/tool_version", "1.4.0");
+        set(&mut lint_report_v2, "/tool_version", "1.5.0");
         assert_fixture("profile-lint-report-v2", lint_report_v2);
 
         let mut explain_report = command_json(
@@ -3343,7 +3343,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut explain_report_v2, "/tool_version", "1.4.0");
+        set(&mut explain_report_v2, "/tool_version", "1.5.0");
         set(&mut explain_report_v2, "/profile", "profile.yaml");
         assert_fixture("profile-explain-report-v2", explain_report_v2);
 
@@ -3409,7 +3409,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut test_report_v2, "/tool_version", "1.4.0");
+        set(&mut test_report_v2, "/tool_version", "1.5.0");
         set(&mut test_report_v2, "/profile", "profile.yaml");
         set(&mut test_report_v2, "/fixtures", "fixtures");
         set(
@@ -3473,7 +3473,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut summary_v2, "/tool_version", "1.4.0");
+        set(&mut summary_v2, "/tool_version", "1.5.0");
         set(&mut summary_v2, "/root", "site-a");
         assert_fixture("corpus-summary-v2", summary_v2);
 
@@ -3541,7 +3541,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             ],
             true,
         );
-        set(&mut redact_v2_output, "/receipt/tool_version", "1.4.0");
+        set(&mut redact_v2_output, "/receipt/tool_version", "1.5.0");
         assert_fixture("redaction-receipt-v2", redact_v2_output["receipt"].clone());
 
         let bundle = dir.path().join("issue-bundle");
@@ -3584,7 +3584,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
                 .expect("bundle v2 redaction receipt should be readable"),
         )
         .expect("bundle v2 redaction receipt should be JSON");
-        set(&mut receipt_v2, "/tool_version", "1.4.0");
+        set(&mut receipt_v2, "/tool_version", "1.5.0");
         assert_fixture("redaction-receipt-v2", receipt_v2);
 
         let mut field_paths_v2: Value = serde_json::from_slice(

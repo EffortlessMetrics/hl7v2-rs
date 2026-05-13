@@ -198,7 +198,7 @@ Expected output has the same evidence semantics as the CLI and server:
     "value_not_in_set"
   ],
   "validation_valid": false,
-  "version": "1.4.0"
+  "version": "1.5.0"
 }
 ```
 

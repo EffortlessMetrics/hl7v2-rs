@@ -1,7 +1,7 @@
 {
   "schema_version": "2",
   "tool_name": "hl7v2-cli",
-  "tool_version": "1.4.0",
+  "tool_version": "1.5.0",
   "profile": "profile.yaml",
   "profile_sha256": "3fb926fc70cb562412775c4f91f0ee9e9c4405e120057d7c8ab21f6a6d2526bc",
   "message_structure": "ADT_A01",

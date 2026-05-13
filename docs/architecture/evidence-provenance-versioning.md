@@ -45,7 +45,7 @@ exception:
 {
   "schema_version": "2",
   "tool_name": "hl7v2-cli",
-  "tool_version": "1.4.0"
+  "tool_version": "1.5.0"
 }
 ```
 
