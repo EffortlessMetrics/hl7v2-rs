@@ -59,6 +59,13 @@ class = "numeric-correctness"
 reason = "Surface numeric conversion, comparison, and arithmetic hazards in protocol code."
 
 [[lint]]
+name = "unused_visibilities"
+level = "warn"
+status = "active"
+class = "api-trait-correctness"
+reason = "Keep public and crate-visible API boundaries intentional after the Rust 1.95 MSRV ratchet."
+
+[[lint]]
 name = "clippy::dbg_macro"
 level = "deny"
 status = "active"
