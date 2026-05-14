@@ -21,7 +21,7 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **MLLP Over TCP**: Fully implemented async client and server.
 - ✅ **TLS Support**: Secure framing using `rustls`.
 - ✅ **HTTP REST API**: Axum-based JSON endpoints for parse, validate, ACK, and normalize.
-- 🟡 **gRPC Service**: v1.4.0 unary RPCs have contract tests. Current `main` also implements `ParseStream` as one request message into one response message and `ValidateRedacted` with opt-in v2 validation and redaction receipt evidence.
+- 🟡 **gRPC Service**: v1.4.0 unary RPCs have contract tests. Current `main` also implements `ParseStream` as one request message into one response message, `ValidateRedacted` with opt-in v2 validation and redaction receipt evidence, and `CorpusSummarize` for inline corpus summary evidence with opt-in v2 provenance.
 
 ### 🛡️ Security & Observability
 - ✅ **API Authentication**: Constant-time API Key validation.
@@ -82,8 +82,9 @@ validation through `xtask evidence-schema-check`, server replay and inline
 corpus endpoints, redacted structured evidence logs, Docker sidecar smoke
 coverage, broader PHI sentinel tests, Python/TestPyPI proof rails, the server
 bundle replay message-type fix, Rust 1.95 policy ratchets, profile evidence,
-Python profile helpers, advisory `ripr`, RIPR evidence endpoints, targeted
-mutation routing, and the v1.5.0 release-readiness workflow.
+Python profile helpers, gRPC inline corpus summary parity, advisory `ripr`,
+RIPR evidence endpoints, targeted mutation routing, and the v1.5.0
+release-readiness workflow.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
