@@ -43,8 +43,10 @@ primary product graph.
 - Default `cargo +1.95.0 run -p xtask -- publish-plan` output continues to
   report the primary Rust product graph: `hl7v2`, `hl7v2-server`, and
   `hl7v2-cli`.
-- Binding backend crates require separate release tooling and receipts before
-  they can be published.
+- `cargo +1.95.0 run -p xtask -- publish-plan --surface bindings` reports the
+  binding backend graph separately. Binding backend crates still require
+  separate metadata, release tooling, and receipts before they can be
+  published.
 - Python TestPyPI and PyPI receipts are separate from Rust crates.io release
   receipts.
 - TestPyPI proof remains blocked until external Trusted Publisher setup for
@@ -69,5 +71,6 @@ Docs-only ADR changes use:
 ```powershell
 cargo +1.95.0 run -p xtask -- check-doc-links
 cargo +1.95.0 run -p xtask -- publish-plan
+cargo +1.95.0 run -p xtask -- publish-plan --surface bindings
 $env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.95.0 run -p xtask -- gate --check --changed
 ```

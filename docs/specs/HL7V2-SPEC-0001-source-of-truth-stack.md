@@ -147,8 +147,9 @@ $env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.95.0 run -p xtask -- gate
 ```
 
 The default publish plan owns the primary Rust product graph. Binding backend
-crates require separate surface classification and release receipts before they
-can be included in a crates.io publish sequence.
+crates are reported through `publish-plan --surface bindings` and require
+separate metadata, release tooling, and release receipts before they can be
+included in a crates.io publish sequence.
 
 ## Non-Goals
 

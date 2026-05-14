@@ -64,6 +64,11 @@ Use `xtask` to derive the primary Rust product publish order from the workspace 
 # Preview the publish order
 cargo run -p xtask -- publish-plan
 
+# Preview explicit package surfaces
+cargo run -p xtask -- publish-plan --surface primary
+cargo run -p xtask -- publish-plan --surface bindings
+cargo run -p xtask -- publish-plan --surface all-publishable
+
 # Publish the full sequence
 cargo run -p xtask -- publish --yes
 
@@ -82,6 +87,8 @@ Binding backend crates such as `hl7v2-python`, future `hl7v2-wasm`, and future
 `hl7v2-node` are a separate package surface. They may become publishable only
 through a binding-backend release PR with explicit metadata, dry-run proof, and
 language install/import smoke receipts. They are not the recommended Rust API.
+Use `cargo run -p xtask -- publish-plan --surface bindings` to inspect the
+binding backend graph without changing the default primary Rust release plan.
 
 For GitHub Actions based releases, use the manual `Publish to crates.io` workflow. It prints the derived order first and only publishes when `execute=true` is selected and the `CARGO_REGISTRY_TOKEN` secret is configured.
 
