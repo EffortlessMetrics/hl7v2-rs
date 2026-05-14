@@ -31,6 +31,7 @@ claim tier or proof expectations.
 | Python binding local wheel lane | Experimental | `python tests/python_smoke/smoke.py`; `python tests/python_smoke/evidence_workflow_guide.py` after a local wheel install |
 | Python TestPyPI distribution (`hl7v2`) | Blocked | Issue [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563); requires TestPyPI upload and install-back receipt |
 | Production PyPI distribution (`hl7v2`) | Not released | Requires same-commit TestPyPI proof, production PyPI upload, install-back from `https://pypi.org/simple/`, smoke proof, and receipt PR |
+| TypeScript/npm package (`@effortlessmetrics/hl7v2`) | Not released | [HL7V2-SPEC-0005](../specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md); requires future npm package review, install/import smoke, registry proof, and receipt |
 | Primary Rust crates.io product graph | Stable | `cargo run -p xtask -- publish-plan --surface primary`; must report `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. v1.5.0 release claims require readiness, dry-run, publish, and tag receipts. |
 | Binding backend crates | Planned / governed | `cargo run -p xtask -- publish-plan --surface bindings`; ADR [HL7V2-ADR-0003](../adr/HL7V2-ADR-0003-publishable-binding-backend-crates.md); #604-#608 closeout proved classification and metadata framing only. Future publish proof must show package metadata, dry-run, and language install/import smoke. |
 
@@ -44,5 +45,6 @@ claim tier or proof expectations.
 - If a binding backend crate becomes publishable, record it as binding
   infrastructure, not as the recommended Rust API.
 - Do not treat binding-backend closeout receipts as registry publish receipts.
+- Do not use `hl7v2-rs` as the public npm SDK package.
 - When a surface changes tier, update this map and the relevant proof receipt in
   the same PR.

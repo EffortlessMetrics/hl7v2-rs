@@ -6,7 +6,8 @@ Proposal: [HL7V2-PROP-0001](../proposals/HL7V2-PROP-0001-source-of-truth-and-rel
 Specs:
 [HL7V2-SPEC-0001](../specs/HL7V2-SPEC-0001-source-of-truth-stack.md),
 [HL7V2-SPEC-0002](../specs/HL7V2-SPEC-0002-python-distribution-proof.md),
-[HL7V2-SPEC-0004](../specs/HL7V2-SPEC-0004-binding-backend-release-proof.md)
+[HL7V2-SPEC-0004](../specs/HL7V2-SPEC-0004-binding-backend-release-proof.md),
+[HL7V2-SPEC-0005](../specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md)
 Amends:
 [HL7V2-ADR-0002](HL7V2-ADR-0002-python-is-separate-distribution-lane.md)
 
@@ -93,9 +94,11 @@ Binding backend graph:
   crates.io backend publish does not prove Python upload or install-back.
 - Rust users should still be routed to `hl7v2` unless they are working on the
   binding backend itself.
-- Future JS/TS package work should prefer `@effortlessmetrics/hl7v2` as the
-  public npm package and use backend crate names such as `hl7v2-wasm` or
-  `hl7v2-node` only for implementation packaging.
+- Future JS/TS package work must follow
+  [HL7V2-SPEC-0005](../specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md):
+  use `@effortlessmetrics/hl7v2` as the public npm package and use backend
+  crate names such as `hl7v2-wasm` or `hl7v2-node` only for implementation
+  packaging.
 
 ## Non-Goals
 
@@ -113,7 +116,9 @@ Binding backend graph:
   upload claim.
 - Keep `hl7v2-python` out of the primary Rust product graph even when it is
   publishable as binding infrastructure.
-- Define a future npm binding backend spec before adding JS/TS packages.
+- Do not add JS/TS packages until
+  [HL7V2-SPEC-0005](../specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md)
+  is satisfied by the proposed package shape and proof plan.
 
 ## Proof Expectations
 

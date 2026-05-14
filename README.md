@@ -50,7 +50,9 @@ The primary Rust product surface is intentionally small:
 Binding backend crates such as `hl7v2-python`, future `hl7v2-wasm`, and future
 `hl7v2-node` may become publishable implementation surfaces for language
 packages. They are not a reason to split parser/model/redaction/MLLP behavior
-back into public Rust microcrates.
+back into public Rust microcrates. Future TypeScript users should install
+`@effortlessmetrics/hl7v2`, not `hl7v2-rs`; see
+[`HL7V2-SPEC-0005`](docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md).
 
 Implementation boundaries live as modules under `hl7v2`, including
 `hl7v2::model`, `hl7v2::parser`, `hl7v2::writer`, `hl7v2::query`,

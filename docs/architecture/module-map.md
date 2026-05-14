@@ -42,7 +42,9 @@ service, or foreign-language binding boundary.
 | Internal/dev crate | `hl7v2-e2e-tests`, `hl7v2-test-utils`, `hl7v2-bench`, `xtask`, root examples | Repository implementation | No |
 
 Binding backend crates are real language-boundary APIs. They are not the
-recommended Rust API for normal users.
+recommended Rust API for normal users. Future TypeScript package shape is
+defined by
+[HL7V2-SPEC-0005](../specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md).
 
 ## Workspace Crates
 

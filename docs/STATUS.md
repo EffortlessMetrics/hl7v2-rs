@@ -63,6 +63,10 @@ extension crate backing the Python `hl7v2` package and is publishable as binding
 infrastructure only. It still needs binding-backend dry-run proof, language
 install/import smoke receipts, and an explicit release decision before any
 crates.io upload claim.
+Future TypeScript package work is governed by
+[HL7V2-SPEC-0005](specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md):
+the public npm package is `@effortlessmetrics/hl7v2`, while Rust backend crates
+such as `hl7v2-wasm` or `hl7v2-node` remain binding infrastructure.
 
 ## Evidence Contracts Release And Current Main
 
