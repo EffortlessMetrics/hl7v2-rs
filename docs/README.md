@@ -49,6 +49,7 @@ proposal, spec, plan, or receipt documents.
 
 | Guide | Workflow |
 | --- | --- |
+| [First Use By Surface](guides/first-use-by-surface.md) | Choose the first Rust, CLI, server, or Python receipt without learning the workspace layout. |
 | [First 10 Minutes](guides/first-10-minutes.md) | Install, diagnose, validate, summarize, bundle, and replay. |
 | [Vendor Upgrade Diff](guides/vendor-upgrade-diff.md) | Compare before/after corpora and interpret drift. |
 | [Safe Support Bundle](guides/safe-support-bundle.md) | Redact and package replayable support evidence. |

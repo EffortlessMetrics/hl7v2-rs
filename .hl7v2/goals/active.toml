@@ -48,6 +48,7 @@ canonical_sources = [
   "docs/releases/v1.5.0-rust-1.95-quality-ratchet.md",
   "docs/audits/binding-backend-readiness-2026-05-14.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-14-parity-refresh.md",
+  "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
   "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md",
@@ -348,4 +349,21 @@ publish_order = [
   "hl7v2-python",
   "hl7v2-server",
   "hl7v2-cli",
+]
+
+[[work_item]]
+id = "first-use-runtime-paths"
+status = "done"
+goal = "Add a user-facing first-use guide that routes Rust, CLI, server, and Python users to the right install/import surface and first evidence receipt."
+guide = "docs/guides/first-use-by-surface.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
 ]
