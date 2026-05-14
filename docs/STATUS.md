@@ -70,6 +70,11 @@ Future TypeScript package work is governed by
 [HL7V2-SPEC-0005](specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md):
 the public npm package is `@effortlessmetrics/hl7v2`, while Rust backend crates
 such as `hl7v2-wasm` or `hl7v2-node` remain binding infrastructure.
+Cross-surface evidence parity is governed by
+[HL7V2-SPEC-0006](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md):
+Rust, CLI, REST, gRPC, Python, and future TypeScript claims must map to shared
+semantics, safe diagnostics, schema-backed artifacts, and receipts before they
+are described as equivalent.
 
 ## Evidence Contracts Release And Current Main
 
@@ -83,8 +88,8 @@ corpus endpoints, redacted structured evidence logs, Docker sidecar smoke
 coverage, broader PHI sentinel tests, Python/TestPyPI proof rails, the server
 bundle replay message-type fix, Rust 1.95 policy ratchets, profile evidence,
 Python profile helpers, gRPC inline corpus summary parity, advisory `ripr`,
-RIPR evidence endpoints, targeted mutation routing, and the v1.5.0
-release-readiness workflow.
+RIPR evidence endpoints, targeted mutation routing, the cross-surface evidence
+parity spec, and the v1.5.0 release-readiness workflow.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current

@@ -49,6 +49,7 @@ canonical_sources = [
   "docs/audits/binding-backend-readiness-2026-05-14.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
+  "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md",
   "docs/ci/ripr.md",
   "docs/ci/test-evidence-lanes.md",
   "policy/clippy-lints.toml",
@@ -240,6 +241,28 @@ publish_order = [
   "hl7v2-cli",
 ]
 non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "cross-surface-evidence-parity-spec"
+status = "done"
+goal = "Define the parity contract for Rust, CLI, REST, gRPC, Python, and future TypeScript evidence semantics without adding runtime behavior."
+spec = "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md"
+acceptance = [
+  "Parity claims require shared semantics, safe diagnostics, schema-backed artifacts, and proof receipts.",
+  "gRPC, Python, and TypeScript must keep current claims narrower than unimplemented surfaces.",
+  "Python distribution and registry claims remain separate from local binding helper proof.",
+]
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "git diff --check",
+]
+non_claims = [
+  "No runtime implementation.",
   "No crates.io upload.",
   "No TestPyPI or PyPI upload.",
   "No npm package.",
