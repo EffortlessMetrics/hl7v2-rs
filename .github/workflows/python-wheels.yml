@@ -66,6 +66,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: python-wheels-${{ matrix.os }}-${{ matrix.python-version }}
+          cache-bin: "false"
 
       - name: Install maturin
         run: python -m pip install --upgrade pip "maturin==1.13.1"
