@@ -76,17 +76,19 @@ cargo run -p xtask -- publish --yes
 cargo run -p xtask -- publish --yes --from hl7v2-server
 ```
 
-The publish sequence is the primary Rust product graph: `hl7v2`, then `hl7v2-server`,
-then `hl7v2-cli`. It excludes non-published workspace members such as
-`hl7v2-python`, `hl7v2-bench`, `hl7v2-test-utils`, `hl7v2-e2e-tests`, `xtask`,
-and the root `hl7v2-examples` package. Historical old microcrate package names
-are not published again unless a deliberate deprecation-only compatibility
-release is approved.
+The default publish sequence is the primary Rust product graph: `hl7v2`, then
+`hl7v2-server`, then `hl7v2-cli`. It excludes binding backend crates such as
+`hl7v2-python` unless a separate binding-backend release decision deliberately
+selects that surface. It also excludes internal/dev workspace members such as
+`hl7v2-bench`, `hl7v2-test-utils`, `hl7v2-e2e-tests`, `xtask`, and the root
+`hl7v2-examples` package. Historical old microcrate package names are not
+published again unless a deliberate deprecation-only compatibility release is
+approved.
 
 Binding backend crates such as `hl7v2-python`, future `hl7v2-wasm`, and future
-`hl7v2-node` are a separate package surface. They may become publishable only
-through a binding-backend release PR with explicit metadata, dry-run proof, and
-language install/import smoke receipts. They are not the recommended Rust API.
+`hl7v2-node` are a separate package surface. They may publish only through a
+binding-backend release PR with explicit metadata, dry-run proof, and language
+install/import smoke receipts. They are not the recommended Rust API.
 Use `cargo run -p xtask -- publish-plan --surface bindings` to inspect the
 binding backend graph without changing the default primary Rust release plan.
 

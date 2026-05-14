@@ -162,7 +162,7 @@ TestPyPI/PyPI workflows remain manual, default to non-publishing mode, publish
 only from `main`, run both Python smoke scripts before upload and during
 install-back, reject `skip-existing`, avoid secret-backed upload credentials,
 grant `id-token: write` only on publish jobs, and keep the `hl7v2-python`
-binding backend crate at `publish = false` for crates.io until a separate
+binding backend crate outside the primary Rust product graph until a separate
 binding-backend release PR changes that policy.
 
 ### Markdown Local-Link Policy

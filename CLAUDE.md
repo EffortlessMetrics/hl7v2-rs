@@ -76,8 +76,10 @@ implementation boundaries as modules inside that crate.
   normalization, streaming, and generation workflows.
 
 **Separate packaging lane**:
-- `hl7v2-python` — PyO3 binding package. It is `publish = false` for crates.io
-  and should be validated with Python/maturin tooling before any PyPI release.
+- `hl7v2-python` — publishable PyO3 binding backend crate for the public
+  Python `hl7v2` package. It is not the recommended Rust API and should be
+  validated with binding-backend and Python/maturin tooling before any registry
+  release claim.
 
 **Internal crates and packages**:
 - `hl7v2-bench` — benchmark harness.
@@ -96,7 +98,7 @@ All shared dependency versions are declared in the root `[workspace.dependencies
 
 ## Conventions
 
-- **Rust edition 2024**, MSRV 1.93
+- **Rust edition 2024**, MSRV 1.95
 - **Error handling**: Public modules use typed errors with `thiserror` where
   needed. Errors preserve context with `#[source]` chains.
 - **Tests**: Unit tests in `src/tests.rs` modules (`#[cfg(test)]`), integration tests in `tests/` directories.

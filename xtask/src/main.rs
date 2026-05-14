@@ -4936,13 +4936,13 @@ const PYTHON_PUBLISH_WORKFLOWS: &[PythonPublishWorkflowPolicy] = &[
 const PYTHON_DISTRIBUTION_DESCRIPTION: &str =
     "Python package for HL7v2 parsing, validation, and evidence workflows backed by Rust.";
 const HL7V2_PYTHON_CRATE_DESCRIPTION: &str =
-    "PyO3 extension crate backing the Python hl7v2 package.";
+    "PyO3 extension crate backing the Python hl7v2 package. Rust users should depend on hl7v2.";
 
 fn check_python_publish_policy() -> Result<()> {
     println!("🔎 Checking Python publish policy...");
     let root = env::current_dir()?;
 
-    ensure_hl7v2_python_not_crates_io_published(&root)?;
+    ensure_hl7v2_python_binding_backend_publishable(&root)?;
     check_hl7v2_python_manifest_policy(&root)?;
     check_python_pyproject_policy(&root)?;
     for policy in PYTHON_PUBLISH_WORKFLOWS {
@@ -4950,13 +4950,13 @@ fn check_python_publish_policy() -> Result<()> {
     }
 
     println!(
-        "✅ python publish policy: pyproject.toml, hl7v2-python metadata, and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python remains a non-published binding backend crate",
+        "✅ python publish policy: pyproject.toml, hl7v2-python metadata, and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python is a publishable binding backend crate with separate release receipts required",
         PYTHON_PUBLISH_WORKFLOWS.len()
     );
     Ok(())
 }
 
-fn ensure_hl7v2_python_not_crates_io_published(root: &Path) -> Result<()> {
+fn ensure_hl7v2_python_binding_backend_publishable(root: &Path) -> Result<()> {
     let metadata = MetadataCommand::new().current_dir(root).no_deps().exec()?;
     let package = metadata
         .packages
@@ -4964,11 +4964,11 @@ fn ensure_hl7v2_python_not_crates_io_published(root: &Path) -> Result<()> {
         .find(|package| package.name.as_str() == "hl7v2-python")
         .ok_or_else(|| anyhow!("cargo metadata did not include hl7v2-python"))?;
 
-    if package.publish.as_ref().is_some_and(Vec::is_empty) {
+    if package_is_publishable(package) {
         Ok(())
     } else {
         Err(anyhow!(
-            "crates/hl7v2-python/Cargo.toml must keep publish = false until a binding-backend release PR updates the Python publish policy"
+            "crates/hl7v2-python/Cargo.toml must be publishable as a governed binding backend crate"
         ))
     }
 }
@@ -5016,7 +5016,7 @@ fn check_hl7v2_python_manifest_policy_text(text: &str, workspace_version: &str) 
         &manifest,
         "[package]",
         "publish",
-        false,
+        true,
         "crates/hl7v2-python/Cargo.toml",
     )?;
     ensure_pyproject_string_value(
@@ -6342,12 +6342,8 @@ mod tests {
         }
 
         ensure_not_contains(&primary, "hl7v2-python")?;
-        ensure_not_contains(&all_publishable, "hl7v2-python")?;
-        if !bindings.is_empty() {
-            return Err(anyhow!(
-                "hl7v2-python is still publish = false and should not be publishable yet"
-            ));
-        }
+        ensure_contains(&bindings, "hl7v2-python")?;
+        ensure_contains(&all_publishable, "hl7v2-python")?;
         Ok(())
     }
 
@@ -6358,7 +6354,7 @@ mod tests {
 
         let expected = vec![BindingBackendDryRunTarget {
             name: "hl7v2-python".to_string(),
-            publishable: false,
+            publishable: true,
         }];
         if targets != expected {
             return Err(anyhow!(
@@ -6375,7 +6371,7 @@ mod tests {
 
         let expected = vec![BindingBackendDryRunTarget {
             name: "hl7v2-python".to_string(),
-            publishable: false,
+            publishable: true,
         }];
         if targets != expected {
             return Err(anyhow!(
@@ -6539,7 +6535,7 @@ mod tests {
             .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
             .to_path_buf();
 
-        ensure_hl7v2_python_not_crates_io_published(&root)?;
+        ensure_hl7v2_python_binding_backend_publishable(&root)?;
         check_hl7v2_python_manifest_policy(&root)?;
         check_python_pyproject_policy(&root)?;
         for policy in PYTHON_PUBLISH_WORKFLOWS {
@@ -6577,9 +6573,9 @@ bindings = "pyo3"
         let manifest = r#"
 [package]
 name = "hl7v2-python"
-description = "PyO3 extension crate backing the Python hl7v2 package."
+description = "PyO3 extension crate backing the Python hl7v2 package. Rust users should depend on hl7v2."
 readme = "README.md"
-publish = false
+publish = true
 
 [lib]
 name = "hl7v2"

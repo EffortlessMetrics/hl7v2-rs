@@ -72,8 +72,8 @@ binding maintainers rather than ordinary Rust users.
 
 ## Consequences
 
-- `hl7v2-python` may become publishable in a later PR, but this ADR does not
-  change Cargo metadata.
+- `hl7v2-python` may be publishable as governed binding infrastructure, but a
+  crates.io upload still requires a separate release decision and receipt.
 - Default Rust release planning continues to show the primary Rust product
   graph separately from binding backend graphs.
 - `xtask publish-plan --surface primary|bindings|all-publishable` prints
@@ -100,7 +100,7 @@ Binding backend graph:
 ## Non-Goals
 
 - This ADR does not publish any crate.
-- This ADR does not change `crates/hl7v2-python/Cargo.toml`.
+- This ADR does not itself publish `crates/hl7v2-python`.
 - This ADR does not rename the Python PyPI package or import module.
 - This ADR does not reopen retired implementation microcrates such as
   `hl7v2-parser`, `hl7v2-model`, or `hl7v2-redact`.
@@ -109,10 +109,10 @@ Binding backend graph:
 
 ## Follow-Up Work
 
-- Decide whether to make `hl7v2-python` publishable as a binding backend.
-- If `hl7v2-python` becomes publishable, remove `publish = false` only in a
-  dedicated binding-backend release PR and run crates.io dry-run plus language
-  install/import smoke proof before upload.
+- Record dry-run and release receipts before any `hl7v2-python` crates.io
+  upload claim.
+- Keep `hl7v2-python` out of the primary Rust product graph even when it is
+  publishable as binding infrastructure.
 - Define a future npm binding backend spec before adding JS/TS packages.
 
 ## Proof Expectations
