@@ -67,15 +67,21 @@ review_after = "2026-06-30"
 id = "ripr-static-exposure"
 owner = "release/ci"
 surface = "ci"
-behavior = "The advisory ripr lane may install ripr and render doctor, JSON, SARIF, and markdown mutation-exposure artifacts."
+behavior = "The advisory ripr lane may install ripr and render portable PR evidence, review guidance, annotations, impacted-evidence routing receipts, and repo-scoped badge endpoints."
 commands = [
   "cargo install ripr --version 0.5.0 --locked",
-  "ripr doctor --root .",
-  "ripr check --root . --base origin/main --mode draft --format json",
-  "ripr check --root . --base origin/main --mode draft --format sarif",
-  "ripr check --root . --base origin/main --mode draft --format github",
+  "ripr check --root . --format repo-badge-shields",
+  "ripr check --root . --format repo-badge-plus-shields",
+  "ripr check --root . --diff target/ripr/pr/pr.diff --format json",
+  "ripr review-comments --root . --base origin/main --head HEAD --out target/ripr/review/comments.json",
+  "cargo run -p xtask -- badges --check",
+  "cargo run -p xtask -- ripr-pr",
+  "cargo run -p xtask -- ripr-review-comments",
+  "cargo run -p xtask -- ripr-pr-summary",
+  "cargo run -p xtask -- ripr-annotations",
+  "cargo run -p xtask -- impacted-evidence",
 ]
-reason = "Static mutation-exposure analysis should be cheap, advisory, and separate from runtime mutation."
+reason = "Static mutation-exposure analysis should be cheap, advisory, artifact-backed, and separate from runtime mutation."
 covered_by = [".github/workflows/ripr.yml"]
 review_after = "2026-06-30"
 

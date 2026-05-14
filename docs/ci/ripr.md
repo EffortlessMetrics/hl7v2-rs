@@ -20,7 +20,8 @@ The initial lane is advisory:
 
 - run on pull requests touching Rust code, `xtask`, Cargo files, `ripr.toml`,
   or the `ripr` policy ledger;
-- emit JSON, SARIF, and markdown artifacts;
+- emit portable PR evidence, review guidance, annotation, summary, and
+  impacted-evidence artifacts;
 - avoid branch-protection blocking until calibration data exists;
 - use suppressions only through a policy ledger;
 - preserve runtime mutation as targeted or release-time proof.
@@ -46,12 +47,20 @@ continues to cover what static analysis cannot prove.
 .github/workflows/ripr.yml
 ripr.toml
 policy/ripr-suppressions.toml
-target/ripr/ripr.json
-target/ripr/ripr.sarif
-target/ripr/ripr.md
+target/ripr/pr/repo-exposure.json
+target/ripr/pr/repo-exposure.md
+target/ripr/pr/summary.md
+target/ripr/review/comments.json
+target/ripr/review/comments.md
+target/ripr/review/annotations.txt
+target/xtask/badges/ripr.json
+target/xtask/badges/ripr-plus.json
+target/xtask/impacted-evidence/latest.json
+target/xtask/impacted-evidence/latest.md
 ```
 
-The workflow installs `ripr` 0.5.0 with Cargo, runs `ripr doctor`, renders
-`ripr check` in `json`, `sarif`, and `github` formats, and wraps the advisory
-status in `target/ripr/ripr.md`. It uploads the artifacts as `ripr-advisory`
-and exits successfully even when the advisory analysis returns findings.
+The workflow installs `ripr` 0.5.0 with Cargo, runs the repo-local `xtask`
+verification commands, emits a stable PR evidence summary, and uploads the
+artifacts as `ripr-pr-evidence`. The lane remains advisory: findings route
+review and mutation decisions, while contract/tooling drift is the failure mode
+to repair.
