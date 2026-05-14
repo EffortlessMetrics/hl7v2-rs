@@ -6,11 +6,12 @@ This crate backs the Python `hl7v2` package. Rust users should depend on
 `hl7v2`; Python users should install `hl7v2` from PyPI after the Python release
 lane is proven.
 
-This is language-binding infrastructure, not the recommended Rust API. Current
-metadata keeps this binding backend crate unpublished on crates.io.
-Build and validate it through the Python/maturin lane before any PyPI or
-TestPyPI release. A future binding-backend release may publish this crate as
-packaging infrastructure, but it is not the primary Rust API.
+This is language-binding infrastructure, not the recommended Rust API. The
+crate metadata is publishable so release tooling can prove backend packaging
+provenance, but no crates.io publish claim exists until an explicit
+binding-backend release receipt records upload and registry resolution. Build
+and validate it through the Python/maturin lane before any PyPI or TestPyPI
+release.
 
 The Python distribution name is `hl7v2`; the import module is also `hl7v2`.
 The Rust/PyO3 backend crate remains `hl7v2-python`.

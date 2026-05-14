@@ -11,7 +11,7 @@ primary product graph.
 | Python distribution | `hl7v2` |
 | Python import module | `hl7v2` |
 | Rust backend crate | `hl7v2-python` PyO3 backend |
-| crates.io publish policy | currently `publish = false`; binding-backend publication requires a separate release PR and does not make it the recommended Rust API |
+| crates.io publish policy | `hl7v2-python` is publishable only as a governed binding backend; backend publication requires a separate release receipt and does not make it the recommended Rust API |
 | TestPyPI workflow | `.github/workflows/python-testpypi.yml` |
 | GitHub environment | `testpypi` |
 

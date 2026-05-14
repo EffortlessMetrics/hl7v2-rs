@@ -12,7 +12,7 @@ publish claim.
 
 must_not_touch = [
   "Do not combine release prep with crates.io publishing.",
-  "Do not publish hl7v2-python to crates.io until a binding-backend release PR explicitly approves metadata, tooling, and receipts.",
+  "Do not upload hl7v2-python to crates.io until a binding-backend release PR explicitly approves the release and records receipts.",
   "Do not publish the hl7v2 Python distribution to TestPyPI or PyPI without the dedicated proof workflows.",
   "Do not use TestPyPI or PyPI token fallback.",
   "Do not use skip-existing.",
@@ -28,7 +28,7 @@ end_state = [
   "Primary Rust product graph is prepared as version 1.5.0.",
   "The primary Rust product graph remains hl7v2, hl7v2-server, hl7v2-cli.",
   "Binding backend crates are classified separately from the primary Rust product graph.",
-  "hl7v2-python metadata and README frame it as the PyO3 backend for the Python hl7v2 package.",
+  "hl7v2-python metadata and README frame it as the publishable PyO3 backend for the Python hl7v2 package.",
   "Clippy and rustc lint ratchets are active or explicitly receipted.",
   "Clippy exceptions are governed separately from broad debt.",
   "No-panic identity is exact and counted.",
@@ -139,11 +139,24 @@ commands = [
 [[work_item]]
 id = "python-binding-backend-metadata"
 status = "done"
-goal = "Frame hl7v2-python Cargo metadata, README, and Python release docs as PyO3 binding backend infrastructure without making it publishable."
+goal = "Frame hl7v2-python Cargo metadata, README, and Python release docs as PyO3 binding backend infrastructure without publishing it."
 commands = [
   "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
   "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
 ]
+
+[[work_item]]
+id = "python-binding-backend-publishable-metadata"
+status = "done"
+goal = "Make hl7v2-python publishable as governed binding backend metadata while preserving separate release receipts before any upload claim."
+commands = [
+  "cargo +1.95.0 package -p hl7v2-python --list",
+  "cargo +1.95.0 publish -p hl7v2-python --dry-run --config patch.crates-io.hl7v2.path='crates/hl7v2'",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+]
+note = "Unpatched cargo publish --dry-run requires hl7v2 1.5.0 to resolve from crates.io; primary v1.5.0 has not been published yet."
 
 [[work_item]]
 id = "binding-backend-package-boundary-closeout"
@@ -159,7 +172,7 @@ prs = [
 acceptance = [
   "Primary Rust product graph still reports hl7v2, hl7v2-server, and hl7v2-cli.",
   "Binding backend graph reports hl7v2-python separately.",
-  "hl7v2-python remains non-published unless a later binding-backend release PR changes it.",
+  "hl7v2-python remains unpublished unless a later binding-backend release PR records upload proof.",
   "No crates.io, TestPyPI, or PyPI publish claim is made.",
 ]
 

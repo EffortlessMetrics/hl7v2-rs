@@ -15,10 +15,10 @@ defaults to the primary Rust product graph:
 3. `hl7v2-cli`
 
 `hl7v2-python` remains in the workspace as a separate PyO3 binding backend
-crate. Current metadata keeps it at `publish = false`; ADR
+crate. Current metadata makes it publishable as binding infrastructure; ADR
 [HL7V2-ADR-0003](../adr/HL7V2-ADR-0003-publishable-binding-backend-crates.md)
-allows binding backend crates to become publishable later when tooling,
-metadata, and receipts make the boundary explicit.
+keeps it separate from the primary Rust product graph until release receipts
+make any backend upload explicit.
 `cargo run -p xtask -- publish-plan --surface bindings` reports that graph
 separately from the primary Rust release plan.
 
@@ -51,7 +51,7 @@ recommended Rust API for normal users.
 | `hl7v2` | Canonical Rust library crate and implementation home. | Public crates.io package. |
 | `hl7v2-server` | HTTP/gRPC runtime service with Axum, Tonic, metrics, auth, CORS, and deployment config. | Public crates.io package. |
 | `hl7v2-cli` | Command-line binary distribution. | Public crates.io package. |
-| `hl7v2-python` | PyO3 binding backend for the public Python `hl7v2` package. Rust users should depend on `hl7v2`. | Currently `publish = false`; may become a governed binding backend crate. |
+| `hl7v2-python` | PyO3 binding backend for the public Python `hl7v2` package. Rust users should depend on `hl7v2`. | Publishable binding backend crate; not part of the primary Rust product graph and no upload claim exists without a receipt. |
 | `hl7v2-e2e-tests` | End-to-end tests. | `publish = false`. |
 | `hl7v2-test-utils` | Shared test utilities. | `publish = false`; later candidate for `tests/support`. |
 | `hl7v2-bench` | Benchmark harness. | `publish = false`; later candidate for root `benches/`. |

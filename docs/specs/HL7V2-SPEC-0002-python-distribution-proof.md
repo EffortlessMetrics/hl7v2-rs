@@ -103,8 +103,8 @@ Production proof must show:
 ## Hard Rules
 
 - Do not publish `hl7v2-python` as part of Python TestPyPI or PyPI proof.
-- Do not publish `hl7v2-python` to crates.io until binding-backend metadata,
-  tooling, and receipts deliberately promote it.
+- Do not publish `hl7v2-python` to crates.io without a separate
+  binding-backend release decision and receipt.
 - Do not use token fallback.
 - Do not use skip-existing.
 - Do not claim TestPyPI success until upload and install-back pass.

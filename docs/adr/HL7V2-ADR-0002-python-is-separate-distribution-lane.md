@@ -32,8 +32,9 @@ when they are clearly separated from the primary Rust product graph.
 `hl7v2-python` is not a primary crates.io product crate. It is the Rust/PyO3
 package for the public `hl7v2` Python distribution lane.
 
-Current metadata keeps `crates/hl7v2-python` at `publish = false` until a
-separate binding-backend tooling and metadata PR deliberately changes it.
+Current metadata may make `crates/hl7v2-python` publishable as a governed
+binding backend crate. That does not make it part of the primary Rust product
+graph, and it does not prove Python TestPyPI or PyPI publication.
 
 Python release proof uses TestPyPI and PyPI workflows, not the Rust crates.io
 primary product graph.
@@ -45,8 +46,7 @@ primary product graph.
   `hl7v2-cli`.
 - `cargo +1.95.0 run -p xtask -- publish-plan --surface bindings` reports the
   binding backend graph separately. Binding backend crates still require
-  separate metadata, release tooling, and receipts before they can be
-  published.
+  release tooling and receipts before any crates.io upload can be claimed.
 - Python TestPyPI and PyPI receipts are separate from Rust crates.io release
   receipts.
 - TestPyPI proof remains blocked until external Trusted Publisher setup for
@@ -62,7 +62,7 @@ primary product graph.
 - This ADR does not publish to TestPyPI or PyPI.
 - This ADR does not publish to crates.io.
 - This ADR does not change workflow behavior.
-- This ADR does not change package metadata.
+- This ADR does not itself publish or promote binding backend metadata.
 
 ## Proof Expectations
 

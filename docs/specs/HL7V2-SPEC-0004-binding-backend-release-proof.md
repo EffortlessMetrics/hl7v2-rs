@@ -41,8 +41,9 @@ A binding backend crate can be published only when it is:
 - covered by that language package's install/import smoke proof;
 - recorded in a release receipt.
 
-Current `hl7v2-python` remains non-published until a dedicated release PR
-changes its Cargo metadata and records the required proof.
+Current `hl7v2-python` metadata may make the crate publishable as binding
+infrastructure. It remains unpublished until a dedicated release PR records the
+required proof and a crates.io upload plus registry resolution succeeds.
 
 ## Package Classes
 
@@ -69,11 +70,18 @@ cargo +1.95.0 run -p xtask -- publish-plan --surface bindings
 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings
 ```
 
+Before the primary `hl7v2` version has been published to crates.io, local
+candidate proof may use workspace patches:
+
+```powershell
+cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty
+```
+
 The default publish plan must continue to show only the primary Rust product
 graph unless an explicit release decision changes the command or receipt being
-used. While a backend crate still has `publish = false`, the binding dry-run
-must list its package files and stop with a policy error that explains the crate
-is not publishable yet.
+used. If a backend crate has `publish = false`, the binding dry-run must list
+its package files and stop with a policy error that explains the crate is not
+publishable yet.
 
 ### Package Review
 
@@ -94,6 +102,12 @@ The release PR must record a dry-run:
 ```powershell
 cargo +1.95.0 publish -p hl7v2-python --dry-run
 ```
+
+If the backend release is being prepared before the primary `hl7v2` version is
+available from crates.io, the candidate PR records the workspace-patched dry-run
+instead. The final backend release receipt must explain which dependency source
+was used and must not claim upload success until crates.io registry resolution
+passes.
 
 Dry-run success proves crates.io package shape. It does not prove a PyPI, npm,
 or language-package release.

@@ -23,7 +23,7 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
-| **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; backend crate remains unpublished until binding-backend release guardrails land |
+| **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; backend crate is publishable only as binding infrastructure and still needs release receipts before any crates.io claim |
 | **Publish Readiness** | Candidate | Primary Rust product crates `hl7v2`, `hl7v2-server`, and `hl7v2-cli` are prepared at v1.5.0; v1.4.0 remains the current published crates.io release until the v1.5.0 release receipt lands |
 | **Evidence Loop** | Stable | v1.4.0 is the published Evidence Contracts and Server Sidecar release; v1.5.0 keeps that surface and adds Rust 1.95, tighter policy rails, advisory ripr, targeted mutation, and release-readiness proof |
 

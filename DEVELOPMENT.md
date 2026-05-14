@@ -77,8 +77,9 @@ crates:
 1. **Library**: `hl7v2`, which owns parser, writer, query, transport,
    conformance, synthetic, lifecycle, and operational modules.
 2. **Rust products**: `hl7v2-server` and `hl7v2-cli`, which depend on `hl7v2`.
-3. **Python lane**: `hl7v2-python`, kept `publish = false` for crates.io and
-   released through Python packaging tooling.
+3. **Python lane**: `hl7v2-python`, a publishable binding backend crate that
+   remains outside the primary Rust product graph and is released only with
+   separate binding-backend receipts.
 4. **Internal support**: `hl7v2-e2e-tests`, `hl7v2-test-utils`, `hl7v2-bench`,
    `xtask`, and the root examples package.
 

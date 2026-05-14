@@ -4,14 +4,14 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
-description = "PyO3 extension crate backing the Python hl7v2 package."
+description = "PyO3 extension crate backing the Python hl7v2 package. Rust users should depend on hl7v2."
 readme = "README.md"
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
-publish = false
+publish = true
 
 [lib]
 name = "hl7v2"
