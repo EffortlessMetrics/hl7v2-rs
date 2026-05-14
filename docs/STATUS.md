@@ -44,6 +44,7 @@ This document provides a transparent view of which features are fully implemente
 - 🟡 **v1.5.0 candidate**: Current `main` carries the Rust 1.95 MSRV/toolchain ratchet, tighter lint/no-panic/file-policy rails, advisory `ripr`, targeted mutation routing, and release-readiness and dry-run receipts. It still needs explicit crates.io publish and tag receipts before any release claim.
 - 🟡 **Python binding lane**: `hl7v2-python` is publishable as a governed crates.io binding backend, but it is not part of the primary Rust product graph and has not been uploaded. The public Python distribution is `hl7v2`. The v1.4.0 binding is verified through a maturin wheel build/install/import smoke lane; current `main` also has a manual TestPyPI proof workflow before any production PyPI release. The non-publishing workflow mode passed on `main`; the 2026-05-10 TestPyPI upload attempt built and smoke-tested the wheel but failed with `invalid-publisher` because the TestPyPI Trusted Publisher is not configured. Production PyPI release has not been run. A 2026-05-13 package-state check found no visible `hl7v2` package on TestPyPI or production PyPI.
 - ✅ **Binding-backend closeout**: #604 accepted the binding-backend ADR, #605 refreshed the yanked `metrics` lock entry that blocked security checks, #606 added `publish-plan --surface primary|bindings|all-publishable`, #607 framed `hl7v2-python` as the PyO3 backend for the public Python `hl7v2` package, and #608 fixed Python wheel cache behavior. This closeout did not publish `hl7v2-python`, TestPyPI, PyPI, or any v1.5.0 crates.io artifact.
+- ✅ **Binding-backend readiness audit**: #610 added the binding-backend release-proof spec, #611 added the binding backend dry-run surface, #612 prepared `hl7v2-python` as publishable backend metadata, #613 defined the future npm/WASM package model, and #614 added a publish-surface classification guard. See [`docs/audits/binding-backend-readiness-2026-05-14.md`](audits/binding-backend-readiness-2026-05-14.md). This audit does not claim a crates.io backend upload, PyPI/TestPyPI upload, npm package, tag, GitHub release, or v1.5.0 publish.
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
 - ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1`, `v1.3.0`, and `v1.4.0` tags point at their release heads.
 
@@ -60,9 +61,11 @@ Binding backend crates are real language-boundary APIs, but they are not the
 recommended Rust API. `xtask publish-plan --surface bindings` reports this
 separate graph. Current `hl7v2-python` metadata describes it as the PyO3
 extension crate backing the Python `hl7v2` package and is publishable as binding
-infrastructure only. It still needs binding-backend dry-run proof, language
-install/import smoke receipts, and an explicit release decision before any
-crates.io upload claim.
+infrastructure only. #610-#614 added the binding-backend release-proof spec,
+dry-run surface, publishable metadata, npm/WASM package model, and publish
+surface guard. It still needs refreshed release readiness, language install or
+import smoke receipts, registry resolution proof, and an explicit release
+decision before any crates.io upload claim.
 Future TypeScript package work is governed by
 [HL7V2-SPEC-0005](specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md):
 the public npm package is `@effortlessmetrics/hl7v2`, while Rust backend crates
