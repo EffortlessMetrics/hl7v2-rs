@@ -109,8 +109,9 @@ Binding backend graph:
 ## Follow-Up Work
 
 - Decide whether to make `hl7v2-python` publishable as a binding backend.
-- If `hl7v2-python` becomes publishable, update its metadata and README before
-  any crates.io dry-run or upload.
+- If `hl7v2-python` becomes publishable, remove `publish = false` only in a
+  dedicated binding-backend release PR and run crates.io dry-run plus language
+  install/import smoke proof before upload.
 - Define a future npm binding backend spec before adding JS/TS packages.
 
 ## Proof Expectations

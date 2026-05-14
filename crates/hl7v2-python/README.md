@@ -1,12 +1,13 @@
 # hl7v2-python
 
-Python bindings for the Rust `hl7v2` toolkit.
+PyO3 extension crate backing the public Python `hl7v2` package.
 
 This crate backs the Python `hl7v2` package. Rust users should depend on
 `hl7v2`; Python users should install `hl7v2` from PyPI after the Python release
 lane is proven.
 
-Current metadata keeps this binding backend crate unpublished on crates.io.
+This is language-binding infrastructure, not the recommended Rust API. Current
+metadata keeps this binding backend crate unpublished on crates.io.
 Build and validate it through the Python/maturin lane before any PyPI or
 TestPyPI release. A future binding-backend release may publish this crate as
 packaging infrastructure, but it is not the primary Rust API.

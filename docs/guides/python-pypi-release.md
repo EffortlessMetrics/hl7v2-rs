@@ -11,13 +11,14 @@ primary product graph.
 | --- | --- |
 | Python distribution | `hl7v2` |
 | Python import module | `hl7v2` |
-| Rust backend crate | `hl7v2-python` |
-| crates.io publish policy | currently `publish = false`; binding-backend publication requires a separate release PR |
+| Rust backend crate | `hl7v2-python` PyO3 backend |
+| crates.io publish policy | currently `publish = false`; binding-backend publication requires a separate release PR and does not make it the recommended Rust API |
 | Production PyPI workflow | `.github/workflows/python-pypi.yml` |
 | GitHub environment | `pypi` |
 
 Do not publish `hl7v2-python` as part of PyPI proof. The primary Rust product
-graph remains `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+graph remains `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Rust users should
+depend on `hl7v2`; Python users should install/import `hl7v2`.
 
 ## Preconditions
 

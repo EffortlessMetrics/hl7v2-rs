@@ -57,9 +57,10 @@ This document provides a transparent view of which features are fully implemente
 
 Binding backend crates are real language-boundary APIs, but they are not the
 recommended Rust API. `xtask publish-plan --surface bindings` reports this
-separate graph. Current `hl7v2-python` metadata remains `publish = false` until
-a separate binding-backend release PR adds the required metadata, tooling,
-dry-run proof, and language install/import smoke receipts.
+separate graph. Current `hl7v2-python` metadata describes it as the PyO3
+extension crate backing the Python `hl7v2` package and remains `publish = false`
+until a separate binding-backend release PR adds tooling, dry-run proof, and
+language install/import smoke receipts.
 
 ## Evidence Contracts Release And Current Main
 
