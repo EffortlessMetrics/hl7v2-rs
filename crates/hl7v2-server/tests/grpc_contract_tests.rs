@@ -14,9 +14,10 @@ mod tests {
     use hl7v2_server::grpc::proto::hl7_service_client::Hl7ServiceClient;
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
     use hl7v2_server::grpc::proto::{
-        GenerateAckRequest, HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest,
-        ParseStreamRequest, ParseStreamResponse, ValidateRedactedRequest, ValidateRequest,
-        generate_ack_request, health_check_response, validation_issue,
+        CorpusMessageInput, CorpusSummarizeRequest, GenerateAckRequest, HealthCheckRequest,
+        NormalizeOptions, NormalizeRequest, ParseRequest, ParseStreamRequest, ParseStreamResponse,
+        ValidateRedactedRequest, ValidateRequest, generate_ack_request, health_check_response,
+        validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
@@ -652,6 +653,108 @@ reason = "hash patient identifier"
         assert_eq!(
             err.message(),
             "unsupported redaction receipt schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_summarize_reports_counts_and_v2_provenance() {
+        let service = service();
+        let request = Request::new(CorpusSummarizeRequest {
+            messages: vec![
+                CorpusMessageInput {
+                    id: None,
+                    message: SAMPLE_MSG.to_vec(),
+                },
+                CorpusMessageInput {
+                    id: Some("bad-1".to_string()),
+                    message: b"not an HL7 message".to_vec(),
+                },
+            ],
+            summary_schema_version: 2,
+        });
+
+        let response = service
+            .corpus_summarize(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+        let response_debug = format!("{inner:?}");
+
+        let summary = inner.summary.expect("summary should exist");
+        assert_eq!(summary.root, "<inline-corpus>");
+        assert_eq!(summary.file_count, 2);
+        assert_eq!(summary.message_count, 1);
+        assert_eq!(summary.parse_error_count, 1);
+        assert!(summary.total_bytes > 0);
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ADT^A01" && count.count == 1)
+        );
+        assert!(
+            summary
+                .segments
+                .iter()
+                .any(|count| count.value == "PID" && count.count == 1)
+        );
+        assert!(
+            summary
+                .field_presence
+                .iter()
+                .any(|field| field.path == "PID.3" && field.message_count == 1)
+        );
+        assert_eq!(summary.parse_errors[0].path, "bad-1");
+        assert!(!summary.parse_errors[0].error.contains("not an HL7 message"));
+
+        let summary_v2 = inner.summary_v2.expect("summary v2 should exist");
+        assert_eq!(summary_v2.schema_version, "2");
+        assert_eq!(summary_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(summary_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(summary_v2.file_count, summary.file_count);
+        assert_eq!(summary_v2.message_count, summary.message_count);
+        assert_eq!(summary_v2.parse_error_count, summary.parse_error_count);
+        assert_no_phi(&response_debug);
+        assert!(!response_debug.contains("not an HL7 message"));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_summarize_rejects_empty_input() {
+        let service = service();
+        let request = Request::new(CorpusSummarizeRequest {
+            messages: Vec::new(),
+            summary_schema_version: 0,
+        });
+
+        let err = service
+            .corpus_summarize(request)
+            .await
+            .expect_err("empty inline corpus should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(err.message(), "messages must contain at least one message");
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_summarize_rejects_unsupported_schema_versions() {
+        let service = service();
+        let request = Request::new(CorpusSummarizeRequest {
+            messages: vec![CorpusMessageInput {
+                id: Some("adt-1".to_string()),
+                message: SAMPLE_MSG.to_vec(),
+            }],
+            summary_schema_version: 3,
+        });
+
+        let err = service
+            .corpus_summarize(request)
+            .await
+            .expect_err("unsupported schema version should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported corpus summary schema version 3; expected 1 or 2"
         );
     }
 

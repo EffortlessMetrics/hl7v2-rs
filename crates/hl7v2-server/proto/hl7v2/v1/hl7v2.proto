@@ -20,6 +20,9 @@ service HL7Service {
   // Redact a message with a safe-analysis policy, then validate it
   rpc ValidateRedacted(ValidateRedactedRequest) returns (ValidateRedactedResponse);
 
+  // Summarize an inline corpus without reading caller-supplied filesystem paths
+  rpc CorpusSummarize(CorpusSummarizeRequest) returns (CorpusSummarizeResponse);
+
   // Generate an acknowledgment (ACK) message
   rpc GenerateAck(GenerateAckRequest) returns (GenerateAckResponse);
 
@@ -326,6 +329,137 @@ message RedactionActionReceipt {
 
   // Action status: applied, retained, or not_found
   string status = 6;
+}
+
+// Inline corpus summary request.
+message CorpusSummarizeRequest {
+  // Inline HL7 messages to summarize. The service does not read filesystem
+  // paths from this request.
+  repeated CorpusMessageInput messages = 1;
+
+  // Optional corpus summary evidence schema version.
+  //
+  // Omitted or 1 preserves the default summary fields. 2 includes the
+  // summary_v2 field with embedded provenance.
+  int32 summary_schema_version = 2;
+}
+
+// Caller-supplied in-memory corpus message.
+message CorpusMessageInput {
+  // Optional stable label for parse-error reporting. This is not a filesystem
+  // path and must be safe to echo in evidence.
+  optional string id = 1;
+
+  // Raw HL7 message bytes. Plain HL7 and MLLP-framed messages are accepted.
+  bytes message = 2;
+}
+
+// Inline corpus summary response.
+message CorpusSummarizeResponse {
+  // Stable corpus summary fields shared with CLI, REST, Rust, and Python.
+  CorpusSummary summary = 1;
+
+  // Opt-in corpus summary with embedded evidence provenance.
+  CorpusSummaryV2 summary_v2 = 2;
+}
+
+// Stable corpus summary artifact.
+message CorpusSummary {
+  // Caller-independent corpus root label.
+  string root = 1;
+
+  // Number of inline messages inspected.
+  uint32 file_count = 2;
+
+  // Number of messages parsed successfully.
+  uint32 message_count = 3;
+
+  // Number of messages that could not be parsed as HL7 v2.
+  uint32 parse_error_count = 4;
+
+  // Total input bytes across the inline corpus.
+  uint64 total_bytes = 5;
+
+  // Message type counts from parsed MSH-9 values.
+  repeated CorpusCount message_types = 6;
+
+  // Segment ID counts across parsed messages.
+  repeated CorpusCount segments = 7;
+
+  // Field presence counts across parsed messages.
+  repeated CorpusFieldPresence field_presence = 8;
+
+  // Per-message parse failures.
+  repeated CorpusParseFailure parse_errors = 9;
+}
+
+// Corpus summary v2 artifact with embedded evidence provenance.
+message CorpusSummaryV2 {
+  // Evidence artifact schema version.
+  string schema_version = 1;
+
+  // Producer surface that generated this summary.
+  string tool_name = 2;
+
+  // Semantic version of the producing crate or binding package.
+  string tool_version = 3;
+
+  // Caller-independent corpus root label.
+  string root = 4;
+
+  // Number of inline messages inspected.
+  uint32 file_count = 5;
+
+  // Number of messages parsed successfully.
+  uint32 message_count = 6;
+
+  // Number of messages that could not be parsed as HL7 v2.
+  uint32 parse_error_count = 7;
+
+  // Total input bytes across the inline corpus.
+  uint64 total_bytes = 8;
+
+  // Message type counts from parsed MSH-9 values.
+  repeated CorpusCount message_types = 9;
+
+  // Segment ID counts across parsed messages.
+  repeated CorpusCount segments = 10;
+
+  // Field presence counts across parsed messages.
+  repeated CorpusFieldPresence field_presence = 11;
+
+  // Per-message parse failures.
+  repeated CorpusParseFailure parse_errors = 12;
+}
+
+// Count for a corpus dimension.
+message CorpusCount {
+  // Dimension value, such as a message type or segment ID.
+  string value = 1;
+
+  // Number of occurrences.
+  uint32 count = 2;
+}
+
+// Field presence count across an inline corpus.
+message CorpusFieldPresence {
+  // HL7 path, such as PID.3.
+  string path = 1;
+
+  // Number of parsed messages where this path appeared.
+  uint32 message_count = 2;
+
+  // Number of field occurrences across all parsed messages.
+  uint32 occurrence_count = 3;
+}
+
+// Parse failure captured while summarizing an inline corpus.
+message CorpusParseFailure {
+  // Caller-supplied message label or generated inline message label.
+  string path = 1;
+
+  // Parser error string. This must not include raw message content.
+  string error = 2;
 }
 
 // Validation Issue

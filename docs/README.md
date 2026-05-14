@@ -84,8 +84,10 @@ proposal, spec, plan, or receipt documents.
   binding backend lane, until a production PyPI release is intentionally proven
   and executed.
 - gRPC coverage is useful but still narrower than the full HTTP evidence
-  surface; use `docs/API_GUIDE.md` and `docs/STATUS.md` for current endpoint
-  claims.
+  surface. It now includes inline corpus summary parity, while corpus
+  fingerprint/diff, bundle, and replay remain HTTP-first until focused gRPC
+  parity PRs land. Use `docs/API_GUIDE.md` and `docs/STATUS.md` for current
+  endpoint claims.
 
 ## Historical Documents
 

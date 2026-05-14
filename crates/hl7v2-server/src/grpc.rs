@@ -251,6 +251,31 @@ impl Hl7Service for Hl7ServiceImpl {
         }))
     }
 
+    async fn corpus_summarize(
+        &self,
+        request: Request<CorpusSummarizeRequest>,
+    ) -> Result<Response<CorpusSummarizeResponse>, Status> {
+        let req = request.into_inner();
+        let summary_schema_version =
+            grpc_requested_schema_version(req.summary_schema_version, "corpus summary")
+                .map_err(Status::invalid_argument)?;
+        let ids =
+            validated_grpc_corpus_message_ids(&req.messages).map_err(Status::invalid_argument)?;
+        let messages = grpc_corpus_message_refs(&req.messages, &ids);
+        let summary =
+            hl7v2::synthetic::corpus::summarize_corpus_messages("<inline-corpus>", &messages);
+        let summary_v2 = (summary_schema_version == 2).then(|| {
+            proto_corpus_summary_v2_from_rust(
+                &summary.to_v2("hl7v2-server-grpc", env!("CARGO_PKG_VERSION")),
+            )
+        });
+
+        Ok(Response::new(CorpusSummarizeResponse {
+            summary: Some(proto_corpus_summary_from_rust(&summary)),
+            summary_v2,
+        }))
+    }
+
     async fn generate_ack(
         &self,
         request: Request<GenerateAckRequest>,
@@ -394,6 +419,55 @@ fn compute_sha256(input: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+fn validated_grpc_corpus_message_ids(
+    messages: &[CorpusMessageInput],
+) -> Result<Vec<String>, &'static str> {
+    if messages.is_empty() {
+        return Err("messages must contain at least one message");
+    }
+
+    messages
+        .iter()
+        .enumerate()
+        .map(|(index, message)| {
+            let label = message
+                .id
+                .clone()
+                .unwrap_or_else(|| format!("message-{}", index.saturating_add(1)));
+            validate_grpc_corpus_message_id(&label)?;
+            Ok(label)
+        })
+        .collect()
+}
+
+fn validate_grpc_corpus_message_id(label: &str) -> Result<(), &'static str> {
+    if label.is_empty() || label == "." || label == ".." || label.len() > 128 {
+        return Err("corpus message id must be 1-128 characters and cannot be '.' or '..'");
+    }
+
+    if !label
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
+    {
+        return Err("corpus message id must use only ASCII letters, numbers, '.', '_' or '-'");
+    }
+
+    Ok(())
+}
+
+fn grpc_corpus_message_refs<'a>(
+    messages: &'a [CorpusMessageInput],
+    ids: &'a [String],
+) -> Vec<hl7v2::synthetic::corpus::CorpusMessageRef<'a>> {
+    messages
+        .iter()
+        .zip(ids.iter())
+        .map(|(message, id)| {
+            hl7v2::synthetic::corpus::CorpusMessageRef::new(id.as_str(), message.message.as_slice())
+        })
+        .collect()
+}
+
 fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
     MessageMetadata {
         message_type: joined_components(msg, "MSH.9").unwrap_or_else(|| "UNKNOWN".to_string()),
@@ -402,6 +476,111 @@ fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
         sending_facility: hl7v2::get(msg, "MSH.4").unwrap_or("").to_string(),
         receiving_facility: hl7v2::get(msg, "MSH.6").unwrap_or("").to_string(),
     }
+}
+
+fn proto_corpus_summary_from_rust(
+    summary: &hl7v2::synthetic::corpus::CorpusSummary,
+) -> CorpusSummary {
+    CorpusSummary {
+        root: summary.root.clone(),
+        file_count: usize_to_u32(summary.file_count),
+        message_count: usize_to_u32(summary.message_count),
+        parse_error_count: usize_to_u32(summary.parse_error_count),
+        total_bytes: usize_to_u64(summary.total_bytes),
+        message_types: summary
+            .message_types
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+        segments: summary
+            .segments
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+        field_presence: summary
+            .field_presence
+            .iter()
+            .map(proto_corpus_field_presence_from_rust)
+            .collect(),
+        parse_errors: summary
+            .parse_errors
+            .iter()
+            .map(proto_corpus_parse_failure_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_corpus_summary_v2_from_rust(
+    summary: &hl7v2::synthetic::corpus::CorpusSummaryV2,
+) -> CorpusSummaryV2 {
+    CorpusSummaryV2 {
+        schema_version: summary.schema_version.clone(),
+        tool_name: summary.tool_name.clone(),
+        tool_version: summary.tool_version.clone(),
+        root: summary.summary.root.clone(),
+        file_count: usize_to_u32(summary.summary.file_count),
+        message_count: usize_to_u32(summary.summary.message_count),
+        parse_error_count: usize_to_u32(summary.summary.parse_error_count),
+        total_bytes: usize_to_u64(summary.summary.total_bytes),
+        message_types: summary
+            .summary
+            .message_types
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+        segments: summary
+            .summary
+            .segments
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+        field_presence: summary
+            .summary
+            .field_presence
+            .iter()
+            .map(proto_corpus_field_presence_from_rust)
+            .collect(),
+        parse_errors: summary
+            .summary
+            .parse_errors
+            .iter()
+            .map(proto_corpus_parse_failure_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_corpus_count_from_rust(count: &hl7v2::synthetic::corpus::CorpusCount) -> CorpusCount {
+    CorpusCount {
+        value: count.value.clone(),
+        count: usize_to_u32(count.count),
+    }
+}
+
+fn proto_corpus_field_presence_from_rust(
+    field: &hl7v2::synthetic::corpus::CorpusFieldPresence,
+) -> CorpusFieldPresence {
+    CorpusFieldPresence {
+        path: field.path.clone(),
+        message_count: usize_to_u32(field.message_count),
+        occurrence_count: usize_to_u32(field.occurrence_count),
+    }
+}
+
+fn proto_corpus_parse_failure_from_rust(
+    failure: &hl7v2::synthetic::corpus::CorpusParseFailure,
+) -> CorpusParseFailure {
+    CorpusParseFailure {
+        path: failure.path.clone(),
+        error: failure.error.clone(),
+    }
+}
+
+fn usize_to_u32(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn usize_to_u64(value: usize) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
 }
 
 fn proto_validation_report_from_rust(report: &hl7v2::ValidationReport) -> ValidationReport {
