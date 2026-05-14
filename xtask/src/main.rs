@@ -4808,19 +4808,24 @@ const PYTHON_PUBLISH_WORKFLOWS: &[PythonPublishWorkflowPolicy] = &[
         publish_step_name: "Publish package distributions to PyPI",
     },
 ];
+const PYTHON_DISTRIBUTION_DESCRIPTION: &str =
+    "Python package for HL7v2 parsing, validation, and evidence workflows backed by Rust.";
+const HL7V2_PYTHON_CRATE_DESCRIPTION: &str =
+    "PyO3 extension crate backing the Python hl7v2 package.";
 
 fn check_python_publish_policy() -> Result<()> {
     println!("🔎 Checking Python publish policy...");
     let root = env::current_dir()?;
 
     ensure_hl7v2_python_not_crates_io_published(&root)?;
+    check_hl7v2_python_manifest_policy(&root)?;
     check_python_pyproject_policy(&root)?;
     for policy in PYTHON_PUBLISH_WORKFLOWS {
         check_python_publish_workflow(&root, policy)?;
     }
 
     println!(
-        "✅ python publish policy: pyproject.toml and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python remains a non-published binding backend crate",
+        "✅ python publish policy: pyproject.toml, hl7v2-python metadata, and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python remains a non-published binding backend crate",
         PYTHON_PUBLISH_WORKFLOWS.len()
     );
     Ok(())
@@ -4841,6 +4846,93 @@ fn ensure_hl7v2_python_not_crates_io_published(root: &Path) -> Result<()> {
             "crates/hl7v2-python/Cargo.toml must keep publish = false until a binding-backend release PR updates the Python publish policy"
         ))
     }
+}
+
+fn check_hl7v2_python_manifest_policy(root: &Path) -> Result<()> {
+    let workspace_text = fs::read_to_string(root.join("Cargo.toml"))?;
+    let workspace: toml::Value = toml::from_str(&workspace_text)
+        .map_err(|error| anyhow!("Cargo.toml is not valid TOML: {error}"))?;
+    let workspace_version =
+        pyproject_value(&workspace, "[workspace.package]", "version", "Cargo.toml")?
+            .as_str()
+            .ok_or_else(|| anyhow!("Cargo.toml [workspace.package].version must be a string"))?;
+
+    let manifest_path = root.join("crates/hl7v2-python/Cargo.toml");
+    let text = fs::read_to_string(manifest_path)?;
+    check_hl7v2_python_manifest_policy_text(&text, workspace_version)
+}
+
+fn check_hl7v2_python_manifest_policy_text(text: &str, workspace_version: &str) -> Result<()> {
+    let manifest: toml::Value = toml::from_str(text)
+        .map_err(|error| anyhow!("crates/hl7v2-python/Cargo.toml is not valid TOML: {error}"))?;
+
+    ensure_pyproject_string_value(
+        &manifest,
+        "[package]",
+        "name",
+        "hl7v2-python",
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[package]",
+        "description",
+        HL7V2_PYTHON_CRATE_DESCRIPTION,
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[package]",
+        "readme",
+        "README.md",
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+    ensure_toml_bool_value(
+        &manifest,
+        "[package]",
+        "publish",
+        false,
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[lib]",
+        "name",
+        "hl7v2",
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+    ensure_pyproject_array_contains(
+        &manifest,
+        "[lib]",
+        "crate-type",
+        "cdylib",
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+    ensure_toml_bool_value(
+        &manifest,
+        "[lib]",
+        "doc",
+        false,
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+    ensure_toml_table_string_value(
+        &manifest,
+        "[dependencies]",
+        "hl7v2",
+        "path",
+        "../hl7v2",
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+    ensure_toml_table_string_value(
+        &manifest,
+        "[dependencies]",
+        "hl7v2",
+        "version",
+        workspace_version,
+        "crates/hl7v2-python/Cargo.toml",
+    )?;
+
+    Ok(())
 }
 
 fn check_python_pyproject_policy(root: &Path) -> Result<()> {
@@ -4867,6 +4959,13 @@ fn check_python_pyproject_policy_text(text: &str) -> Result<()> {
         "pyproject.toml",
     )?;
     ensure_pyproject_string_value(&pyproject, "[project]", "name", "hl7v2", "pyproject.toml")?;
+    ensure_pyproject_string_value(
+        &pyproject,
+        "[project]",
+        "description",
+        PYTHON_DISTRIBUTION_DESCRIPTION,
+        "pyproject.toml",
+    )?;
     ensure_pyproject_array_contains(
         &pyproject,
         "[project]",
@@ -4957,6 +5056,47 @@ fn ensure_pyproject_string_value(
     } else {
         Err(anyhow!(
             "{context} {section}.{key} must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn ensure_toml_bool_value(
+    document: &toml::Value,
+    section: &str,
+    key: &str,
+    expected: bool,
+    context: &str,
+) -> Result<()> {
+    let actual = pyproject_value(document, section, key, context)?
+        .as_bool()
+        .ok_or_else(|| anyhow!("{context} {section}.{key} must be a boolean"))?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} {section}.{key} must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn ensure_toml_table_string_value(
+    document: &toml::Value,
+    section: &str,
+    key: &str,
+    table_key: &str,
+    expected: &str,
+    context: &str,
+) -> Result<()> {
+    let actual = pyproject_value(document, section, key, context)?
+        .as_table()
+        .and_then(|table| table.get(table_key))
+        .and_then(toml::Value::as_str)
+        .ok_or_else(|| anyhow!("{context} {section}.{key}.{table_key} must be a string"))?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} {section}.{key}.{table_key} must be `{expected}`, found `{actual}`"
         ))
     }
 }
@@ -6241,6 +6381,7 @@ mod tests {
             .to_path_buf();
 
         ensure_hl7v2_python_not_crates_io_published(&root)?;
+        check_hl7v2_python_manifest_policy(&root)?;
         check_python_pyproject_policy(&root)?;
         for policy in PYTHON_PUBLISH_WORKFLOWS {
             check_python_publish_workflow(&root, policy)?;
@@ -6258,6 +6399,7 @@ build-backend = "maturin"
 [project]
 name = "hl7v2"
 dynamic = ["version"]
+description = "Python package for HL7v2 parsing, validation, and evidence workflows backed by Rust."
 readme = "crates/hl7v2-python/README.md"
 requires-python = ">=3.10"
 license = { text = "AGPL-3.0-or-later" }
@@ -6272,6 +6414,56 @@ bindings = "pyo3"
     }
 
     #[test]
+    fn hl7v2_python_manifest_policy_accepts_backend_metadata() -> Result<()> {
+        let manifest = r#"
+[package]
+name = "hl7v2-python"
+description = "PyO3 extension crate backing the Python hl7v2 package."
+readme = "README.md"
+publish = false
+
+[lib]
+name = "hl7v2"
+crate-type = ["cdylib"]
+doc = false
+
+[dependencies]
+hl7v2 = { version = "1.5.0", path = "../hl7v2" }
+"#;
+
+        check_hl7v2_python_manifest_policy_text(manifest, "1.5.0")
+    }
+
+    #[test]
+    fn hl7v2_python_manifest_policy_rejects_generic_description() -> Result<()> {
+        let manifest = r#"
+[package]
+name = "hl7v2-python"
+description = "Python bindings for HL7v2 via PyO3."
+readme = "README.md"
+publish = false
+
+[lib]
+name = "hl7v2"
+crate-type = ["cdylib"]
+doc = false
+
+[dependencies]
+hl7v2 = { version = "1.5.0", path = "../hl7v2" }
+"#;
+
+        match check_hl7v2_python_manifest_policy_text(manifest, "1.5.0") {
+            Ok(()) => Err(anyhow!(
+                "hl7v2-python manifest policy should reject generic binding descriptions"
+            )),
+            Err(err) if err.to_string().contains("[package].description") => Ok(()),
+            Err(err) => Err(anyhow!(
+                "unexpected hl7v2-python manifest policy error: {err}"
+            )),
+        }
+    }
+
+    #[test]
     fn python_pyproject_policy_rejects_wrong_maturin_manifest_path() -> Result<()> {
         let pyproject = r#"
 [build-system]
@@ -6281,6 +6473,7 @@ build-backend = "maturin"
 [project]
 name = "hl7v2"
 dynamic = ["version"]
+description = "Python package for HL7v2 parsing, validation, and evidence workflows backed by Rust."
 readme = "crates/hl7v2-python/README.md"
 requires-python = ">=3.10"
 license = { text = "AGPL-3.0-or-later" }

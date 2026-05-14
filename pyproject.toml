@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "hl7v2"
 dynamic = ["version"]
-description = "Python bindings for the hl7v2 Rust toolkit."
+description = "Python package for HL7v2 parsing, validation, and evidence workflows backed by Rust."
 readme = "crates/hl7v2-python/README.md"
 requires-python = ">=3.10"
 license = { text = "AGPL-3.0-or-later" }
