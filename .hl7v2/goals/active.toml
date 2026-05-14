@@ -47,6 +47,7 @@ canonical_sources = [
   "docs/release/1.5.0-readiness.md",
   "docs/releases/v1.5.0-rust-1.95-quality-ratchet.md",
   "docs/audits/binding-backend-readiness-2026-05-14.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-14-parity-refresh.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
   "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md",
@@ -239,6 +240,32 @@ publish_order = [
   "hl7v2-python",
   "hl7v2-server",
   "hl7v2-cli",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "v1-5-0-parity-readiness-refresh"
+status = "done"
+goal = "Refresh v1.5.0 readiness after gRPC corpus summary parity and the cross-surface evidence parity spec landed."
+commit = "cc1e3046e2496ea0c10a25239b9d077641d01c36"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-14-parity-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "git diff --check",
 ]
 non_claims = [
   "No crates.io upload.",
