@@ -57,9 +57,15 @@ pub use super::validation::{
 };
 
 use crate::model::{Error, Message};
+use crate::parser::parse;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use sha2::{Digest, Sha256};
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 /// Profile loading error types.
 ///
@@ -479,6 +485,369 @@ pub struct ProfileLintReportV2 {
     pub report: ProfileLintReport,
 }
 
+/// Structured explanation of a loaded profile contract.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainReport {
+    /// Profile identifier supplied by the producer, usually a relative path.
+    pub profile: String,
+    /// SHA-256 of the source profile YAML.
+    pub profile_sha256: String,
+    /// HL7 message structure declared by the profile.
+    pub message_structure: String,
+    /// HL7 version declared by the profile.
+    pub version: String,
+    /// Message type declared by the profile, when present.
+    pub message_type: Option<String>,
+    /// Parent profile declared by the profile, when present.
+    pub parent: Option<String>,
+    /// Count summary for the profile contents.
+    pub summary: ProfileExplainSummary,
+    /// Declared segments.
+    pub segments: Vec<ProfileExplainSegment>,
+    /// Required field constraints.
+    pub required_fields: Vec<ProfileExplainRequiredField>,
+    /// Field-level constraints.
+    pub field_constraints: Vec<ProfileExplainConstraint>,
+    /// Length rules.
+    pub length_rules: Vec<ProfileExplainLengthRule>,
+    /// Datatype rules.
+    pub datatype_rules: Vec<ProfileExplainDatatypeRule>,
+    /// Value set references.
+    pub value_sets: Vec<ProfileExplainValueSet>,
+    /// Advanced rule groups.
+    pub rules: ProfileExplainRules,
+    /// Embedded HL7 tables.
+    pub hl7_tables: Vec<ProfileExplainTable>,
+    /// Table precedence configured by the profile.
+    pub table_precedence: Vec<String>,
+    /// Expression guardrail settings.
+    pub expression_guardrails: ProfileExplainExpressionGuardrails,
+    /// Lint summary folded into the explain report.
+    pub lint: ProfileExplainLintSummary,
+}
+
+impl ProfileExplainReport {
+    /// Convert this v1 profile explain report into the explicit v2 evidence
+    /// contract shape.
+    ///
+    /// This preserves the default serialized form of [`ProfileExplainReport`].
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> ProfileExplainReportV2 {
+        ProfileExplainReportV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            report: self.clone(),
+        }
+    }
+}
+
+/// Profile explain report v2 with embedded evidence provenance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainReportV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this profile explain report.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// V1 profile explain report fields.
+    #[serde(flatten)]
+    pub report: ProfileExplainReport,
+}
+
+/// Count summary for a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainSummary {
+    /// Number of declared segments.
+    pub segment_count: usize,
+    /// Number of required field constraints.
+    pub required_field_count: usize,
+    /// Number of field constraints.
+    pub field_constraint_count: usize,
+    /// Number of length rules.
+    pub length_rule_count: usize,
+    /// Number of simple datatype rules.
+    pub datatype_rule_count: usize,
+    /// Number of advanced datatype rules.
+    pub advanced_datatype_rule_count: usize,
+    /// Number of value sets.
+    pub value_set_count: usize,
+    /// Number of cross-field rules.
+    pub cross_field_rule_count: usize,
+    /// Number of temporal rules.
+    pub temporal_rule_count: usize,
+    /// Number of contextual rules.
+    pub contextual_rule_count: usize,
+    /// Number of custom rules.
+    pub custom_rule_count: usize,
+    /// Number of embedded HL7 tables.
+    pub hl7_table_count: usize,
+}
+
+/// A segment declared by a profile.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainSegment {
+    /// Segment identifier, such as `MSH` or `PID`.
+    pub id: String,
+}
+
+/// A required field recorded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainRequiredField {
+    /// HL7 path for the required field.
+    pub path: String,
+    /// Whether the requirement is conditional.
+    pub conditional: bool,
+}
+
+/// A field constraint recorded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainConstraint {
+    /// HL7 path for the constraint.
+    pub path: String,
+    /// Whether the field is required.
+    pub required: bool,
+    /// Whether the constraint is conditional.
+    pub conditional: bool,
+    /// Minimum component cardinality, when configured.
+    pub component_min: Option<usize>,
+    /// Maximum component cardinality, when configured.
+    pub component_max: Option<usize>,
+    /// Count of inline allowed values.
+    pub allowed_value_count: usize,
+    /// Inline allowed values.
+    pub allowed_values: Vec<String>,
+    /// Regex pattern constraint, when configured.
+    pub pattern: Option<String>,
+}
+
+/// A length rule recorded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainLengthRule {
+    /// HL7 path for the length rule.
+    pub path: String,
+    /// Maximum length, when configured.
+    pub max: Option<usize>,
+    /// Enforcement policy, when configured.
+    pub policy: Option<String>,
+}
+
+/// A datatype rule recorded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainDatatypeRule {
+    /// HL7 path for the datatype rule.
+    pub path: String,
+    /// Datatype name.
+    pub datatype: String,
+    /// Rule kind, such as `simple` or `advanced`.
+    pub kind: String,
+    /// Regex pattern, when configured.
+    pub pattern: Option<String>,
+    /// Minimum length, when configured.
+    pub min_length: Option<usize>,
+    /// Maximum length, when configured.
+    pub max_length: Option<usize>,
+    /// Format rule, when configured.
+    pub format: Option<String>,
+    /// Checksum rule, when configured.
+    pub checksum: Option<String>,
+}
+
+/// A value-set reference recorded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainValueSet {
+    /// Value-set name.
+    pub name: String,
+    /// HL7 path constrained by this value set.
+    pub path: String,
+    /// Source category, such as `inline`, `hl7_table`, or `empty`.
+    pub source: String,
+    /// Number of inline codes.
+    pub inline_code_count: usize,
+    /// Number of table codes.
+    pub table_code_count: usize,
+}
+
+/// Advanced rule groups recorded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainRules {
+    /// Cross-field rules.
+    pub cross_field: Vec<ProfileExplainRule>,
+    /// Temporal rules.
+    pub temporal: Vec<ProfileExplainRule>,
+    /// Contextual rules.
+    pub contextual: Vec<ProfileExplainRule>,
+    /// Custom rules.
+    pub custom: Vec<ProfileExplainRule>,
+}
+
+/// A named profile rule.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainRule {
+    /// Rule identifier.
+    pub id: String,
+    /// Human-readable rule description.
+    pub description: String,
+}
+
+/// An embedded HL7 table recorded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainTable {
+    /// Table identifier.
+    pub id: String,
+    /// Table name.
+    pub name: String,
+    /// Table version.
+    pub version: String,
+    /// Number of codes in the table.
+    pub code_count: usize,
+}
+
+/// Expression guardrail settings recorded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainExpressionGuardrails {
+    /// Maximum expression depth, when configured.
+    pub max_depth: Option<usize>,
+    /// Maximum expression length, when configured.
+    pub max_length: Option<usize>,
+    /// Whether custom scripts are allowed.
+    pub allow_custom_scripts: bool,
+}
+
+/// Lint summary embedded in a profile explain report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainLintSummary {
+    /// Whether linting reported no errors.
+    pub valid: bool,
+    /// Number of lint errors.
+    pub error_count: usize,
+    /// Number of lint warnings.
+    pub warning_count: usize,
+    /// Total lint issue count.
+    pub issue_count: usize,
+    /// Ignored or unsupported configuration warnings.
+    pub ignored_or_unsupported: Vec<ProfileLintIssue>,
+}
+
+/// Machine-readable report for profile fixture tests.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileTestReport {
+    /// Profile identifier supplied by the producer, usually a path.
+    pub profile: String,
+    /// Fixture root identifier supplied by the producer, usually a path.
+    pub fixtures: String,
+    /// Whether all fixture cases passed.
+    pub valid: bool,
+    /// Number of fixture cases.
+    pub case_count: usize,
+    /// Number of passing fixture cases.
+    pub passed_count: usize,
+    /// Number of failing fixture cases.
+    pub failed_count: usize,
+    /// Per-fixture results.
+    pub cases: Vec<ProfileTestCaseReport>,
+}
+
+impl ProfileTestReport {
+    /// Convert this v1 profile test report into the explicit v2 evidence
+    /// contract shape.
+    ///
+    /// This preserves the default serialized form of [`ProfileTestReport`].
+    /// Producers opt into v2 when they are ready to emit embedded provenance.
+    #[must_use]
+    pub fn to_v2(
+        &self,
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+    ) -> ProfileTestReportV2 {
+        ProfileTestReportV2 {
+            schema_version: "2".to_string(),
+            tool_name: tool_name.into(),
+            tool_version: tool_version.into(),
+            report: self.clone(),
+        }
+    }
+}
+
+/// Profile test report v2 with embedded evidence provenance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileTestReportV2 {
+    /// Evidence artifact schema version.
+    pub schema_version: String,
+    /// Producer surface that generated this profile test report.
+    pub tool_name: String,
+    /// Producer package version.
+    pub tool_version: String,
+    /// V1 profile test report fields.
+    #[serde(flatten)]
+    pub report: ProfileTestReport,
+}
+
+/// A single profile fixture test result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileTestCaseReport {
+    /// Fixture name, usually relative to the fixture root.
+    pub name: String,
+    /// Fixture path label supplied by the producer.
+    pub path: String,
+    /// Expected fixture outcome.
+    pub expectation: ProfileFixtureExpectation,
+    /// Whether the fixture satisfied its expectation.
+    pub passed: bool,
+    /// Human-readable fixture result.
+    pub message: String,
+    /// Validation report generated for the fixture, when available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation_report: Option<super::validation::ValidationReport>,
+    /// Expected report comparison result, when an expected report was supplied.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_report: Option<ExpectedReportComparison>,
+}
+
+/// Expected fixture outcome.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProfileFixtureExpectation {
+    /// Fixture is expected to validate successfully.
+    Valid,
+    /// Fixture is expected to fail validation.
+    Invalid,
+}
+
+impl ProfileFixtureExpectation {
+    /// Return the lowercase expectation string used by text output.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Valid => "valid",
+            Self::Invalid => "invalid",
+        }
+    }
+}
+
+/// Result of comparing a generated validation report to an expected report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpectedReportComparison {
+    /// Expected report path label supplied by the producer.
+    pub path: String,
+    /// Whether the expected report matched.
+    pub matched: bool,
+    /// Optional mismatch detail.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+enum ExpectedReportCandidate {
+    File(PathBuf),
+    Ambiguous(PathBuf),
+}
+
 /// A single profile lint finding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileLintIssue {
@@ -533,6 +902,416 @@ impl ProfileLintSeverity {
     }
 }
 
+/// Run profile fixture tests from a fixture directory.
+///
+/// The fixture root follows the CLI layout: `valid/*.hl7` fixtures must
+/// validate, `invalid/*.hl7` fixtures must fail validation, and optional
+/// `expected/*.report.json` files are compared as JSON subsets against the
+/// generated validation reports.
+pub fn run_profile_fixture_tests(
+    profile_path: impl AsRef<Path>,
+    fixtures: impl AsRef<Path>,
+    profile: &Profile,
+) -> io::Result<ProfileTestReport> {
+    let profile_path = profile_path.as_ref();
+    let fixtures = fixtures.as_ref();
+    let valid_root = fixtures.join("valid");
+    let invalid_root = fixtures.join("invalid");
+    let expected_root = fixtures.join("expected");
+    let valid_files = collect_hl7_fixture_files(&valid_root)?;
+    let invalid_files = collect_hl7_fixture_files(&invalid_root)?;
+    let expected_reports =
+        build_expected_report_lookup(fixtures, &expected_root, [&valid_files, &invalid_files]);
+
+    let mut cases = Vec::new();
+    cases.extend(run_profile_fixture_group(
+        profile_path,
+        fixtures,
+        &valid_files,
+        &expected_reports,
+        ProfileFixtureExpectation::Valid,
+        profile,
+    ));
+    cases.extend(run_profile_fixture_group(
+        profile_path,
+        fixtures,
+        &invalid_files,
+        &expected_reports,
+        ProfileFixtureExpectation::Invalid,
+        profile,
+    ));
+
+    if cases.is_empty() {
+        return Err(io::Error::other(format!(
+            "no .hl7 fixtures found under {}",
+            fixtures.display()
+        )));
+    }
+
+    let passed_count = cases.iter().filter(|case| case.passed).count();
+    let case_count = cases.len();
+    let failed_count = case_count.saturating_sub(passed_count);
+
+    Ok(ProfileTestReport {
+        profile: profile_path.to_string_lossy().to_string(),
+        fixtures: fixtures.to_string_lossy().to_string(),
+        valid: failed_count == 0,
+        case_count,
+        passed_count,
+        failed_count,
+        cases,
+    })
+}
+
+fn run_profile_fixture_group(
+    profile_path: &Path,
+    fixture_root: &Path,
+    files: &[PathBuf],
+    expected_reports: &BTreeMap<PathBuf, ExpectedReportCandidate>,
+    expectation: ProfileFixtureExpectation,
+    profile: &Profile,
+) -> Vec<ProfileTestCaseReport> {
+    files
+        .iter()
+        .map(|path| {
+            run_profile_fixture_case(
+                profile_path,
+                fixture_root,
+                expected_reports,
+                path,
+                expectation,
+                profile,
+            )
+        })
+        .collect()
+}
+
+fn run_profile_fixture_case(
+    profile_path: &Path,
+    fixture_root: &Path,
+    expected_reports: &BTreeMap<PathBuf, ExpectedReportCandidate>,
+    path: &Path,
+    expectation: ProfileFixtureExpectation,
+    profile: &Profile,
+) -> ProfileTestCaseReport {
+    let name = relative_display_path(fixture_root, path);
+
+    let contents = match fs::read(path) {
+        Ok(contents) => contents,
+        Err(err) => {
+            return ProfileTestCaseReport {
+                name,
+                path: path.to_string_lossy().to_string(),
+                expectation,
+                passed: false,
+                message: format!("fixture could not be read: {err}"),
+                validation_report: None,
+                expected_report: None,
+            };
+        }
+    };
+
+    let message = match parse(&contents) {
+        Ok(message) => message,
+        Err(err) => {
+            return ProfileTestCaseReport {
+                name,
+                path: path.to_string_lossy().to_string(),
+                expectation,
+                passed: false,
+                message: format!("fixture did not parse as HL7: {err}"),
+                validation_report: None,
+                expected_report: None,
+            };
+        }
+    };
+
+    let issues = validate(&message, profile);
+    let validation_report = super::validation::ValidationReport::from_issues(
+        &message,
+        Some(profile_path.to_string_lossy().to_string()),
+        issues,
+    );
+    let expected_valid = expectation == ProfileFixtureExpectation::Valid;
+    let mut passed = validation_report.valid == expected_valid;
+    let mut message = if passed {
+        format!(
+            "expected {} and report was {}",
+            expectation.as_str(),
+            if validation_report.valid {
+                "valid"
+            } else {
+                "invalid"
+            }
+        )
+    } else {
+        format!(
+            "expected {} but report was {}",
+            expectation.as_str(),
+            if validation_report.valid {
+                "valid"
+            } else {
+                "invalid"
+            }
+        )
+    };
+
+    let expected_report = expected_reports
+        .get(path)
+        .map(|candidate| compare_expected_report_candidate(candidate, &validation_report));
+    if let Some(comparison) = &expected_report {
+        if comparison.matched {
+            message.push_str("; expected report matched");
+        } else {
+            passed = false;
+            let detail = comparison
+                .message
+                .as_deref()
+                .unwrap_or("expected report did not match");
+            message.push_str(&format!("; {detail}"));
+        }
+    }
+
+    ProfileTestCaseReport {
+        name,
+        path: path.to_string_lossy().to_string(),
+        expectation,
+        passed,
+        message,
+        validation_report: Some(validation_report),
+        expected_report,
+    }
+}
+
+fn collect_hl7_fixture_files(root: &Path) -> io::Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    if !root.exists() {
+        return Ok(files);
+    }
+
+    collect_hl7_fixture_files_recursive(root, &mut files)?;
+    files.sort_by(|left, right| compare_paths_case_stable(left, right));
+    Ok(files)
+}
+
+fn compare_paths_case_stable(left: &Path, right: &Path) -> Ordering {
+    let left_display = left.to_string_lossy();
+    let right_display = right.to_string_lossy();
+    left_display
+        .to_lowercase()
+        .cmp(&right_display.to_lowercase())
+        .then_with(|| left_display.cmp(&right_display))
+}
+
+fn collect_hl7_fixture_files_recursive(root: &Path, files: &mut Vec<PathBuf>) -> io::Result<()> {
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            collect_hl7_fixture_files_recursive(&path, files)?;
+        } else if file_type.is_file()
+            && path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("hl7"))
+        {
+            files.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn build_expected_report_lookup<'a>(
+    fixture_root: &Path,
+    expected_root: &Path,
+    fixture_groups: impl IntoIterator<Item = &'a Vec<PathBuf>>,
+) -> BTreeMap<PathBuf, ExpectedReportCandidate> {
+    let fixtures: Vec<&PathBuf> = fixture_groups
+        .into_iter()
+        .flat_map(|group| group.iter())
+        .collect();
+    let mut fallback_counts = BTreeMap::new();
+    for fixture_path in &fixtures {
+        let fallback = fallback_expected_report_path(expected_root, fixture_path);
+        if fallback.exists() {
+            let count = fallback_counts.entry(fallback).or_insert(0_usize);
+            *count = count.saturating_add(1);
+        }
+    }
+
+    let mut lookup = BTreeMap::new();
+    for fixture_path in fixtures {
+        let primary = primary_expected_report_path(expected_root, fixture_root, fixture_path);
+        if primary.exists() {
+            lookup.insert(fixture_path.clone(), ExpectedReportCandidate::File(primary));
+            continue;
+        }
+
+        let fallback = fallback_expected_report_path(expected_root, fixture_path);
+        match fallback_counts.get(&fallback).copied() {
+            Some(1) => {
+                lookup.insert(
+                    fixture_path.clone(),
+                    ExpectedReportCandidate::File(fallback),
+                );
+            }
+            Some(_) => {
+                lookup.insert(
+                    fixture_path.clone(),
+                    ExpectedReportCandidate::Ambiguous(fallback),
+                );
+            }
+            None => {}
+        }
+    }
+    lookup
+}
+
+fn primary_expected_report_path(
+    expected_root: &Path,
+    fixture_root: &Path,
+    fixture_path: &Path,
+) -> PathBuf {
+    let relative = fixture_path
+        .strip_prefix(fixture_root)
+        .unwrap_or(fixture_path);
+    let mut path = expected_root.join(relative);
+    path.set_extension("report.json");
+    path
+}
+
+fn fallback_expected_report_path(expected_root: &Path, fixture_path: &Path) -> PathBuf {
+    let stem = fixture_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("fixture");
+    expected_root.join(format!("{stem}.report.json"))
+}
+
+fn compare_expected_report_candidate(
+    candidate: &ExpectedReportCandidate,
+    actual_report: &super::validation::ValidationReport,
+) -> ExpectedReportComparison {
+    match candidate {
+        ExpectedReportCandidate::File(path) => {
+            compare_expected_report(path, actual_report).unwrap_or_else(|| {
+                ExpectedReportComparison {
+                    path: path.to_string_lossy().to_string(),
+                    matched: false,
+                    message: Some(
+                        "expected report path was registered but no longer exists".to_string(),
+                    ),
+                }
+            })
+        }
+        ExpectedReportCandidate::Ambiguous(path) => ExpectedReportComparison {
+            path: path.to_string_lossy().to_string(),
+            matched: false,
+            message: Some(
+                "ambiguous basename expected report; use expected/valid/... or expected/invalid/..."
+                    .to_string(),
+            ),
+        },
+    }
+}
+
+fn compare_expected_report(
+    expected_path: &Path,
+    actual_report: &super::validation::ValidationReport,
+) -> Option<ExpectedReportComparison> {
+    if !expected_path.exists() {
+        return None;
+    }
+
+    let path = expected_path.to_string_lossy().to_string();
+    let expected = match fs::read_to_string(expected_path)
+        .map_err(|err| format!("expected report could not be read: {err}"))
+        .and_then(|contents| {
+            serde_json::from_str::<serde_json::Value>(&contents)
+                .map_err(|err| format!("expected report is not valid JSON: {err}"))
+        }) {
+        Ok(expected) => expected,
+        Err(message) => {
+            return Some(ExpectedReportComparison {
+                path,
+                matched: false,
+                message: Some(message),
+            });
+        }
+    };
+
+    let actual = match serde_json::to_value(actual_report) {
+        Ok(actual) => actual,
+        Err(err) => {
+            return Some(ExpectedReportComparison {
+                path,
+                matched: false,
+                message: Some(format!("actual report could not be serialized: {err}")),
+            });
+        }
+    };
+
+    match json_subset_matches(&expected, &actual, "$") {
+        Ok(()) => Some(ExpectedReportComparison {
+            path,
+            matched: true,
+            message: None,
+        }),
+        Err(message) => Some(ExpectedReportComparison {
+            path,
+            matched: false,
+            message: Some(message),
+        }),
+    }
+}
+
+fn json_subset_matches(
+    expected: &serde_json::Value,
+    actual: &serde_json::Value,
+    path: &str,
+) -> Result<(), String> {
+    match (expected, actual) {
+        (serde_json::Value::Object(expected), serde_json::Value::Object(actual)) => {
+            for (key, expected_value) in expected {
+                let actual_value = actual
+                    .get(key)
+                    .ok_or_else(|| format!("{path}.{key} was missing from actual report"))?;
+                json_subset_matches(expected_value, actual_value, &format!("{path}.{key}"))?;
+            }
+            Ok(())
+        }
+        (serde_json::Value::Array(expected), serde_json::Value::Array(actual)) => {
+            for (index, expected_value) in expected.iter().enumerate() {
+                let matched = actual.iter().any(|actual_value| {
+                    json_subset_matches(expected_value, actual_value, &format!("{path}[{index}]"))
+                        .is_ok()
+                });
+                if !matched {
+                    return Err(format!(
+                        "{path}[{index}] did not match any actual report item"
+                    ));
+                }
+            }
+            Ok(())
+        }
+        _ if expected == actual => Ok(()),
+        _ => Err(format!(
+            "{path} expected {} but actual report had {}",
+            expected, actual
+        )),
+    }
+}
+
+fn relative_display_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 /// Lint a profile YAML document.
 ///
 /// This function is intentionally stricter than `load_profile_checked`: it
@@ -584,6 +1363,226 @@ fn profile_lint_yaml_error_message(
         ),
         None => summary.to_string(),
     }
+}
+
+/// Build a structured explanation report for a loaded profile.
+///
+/// `profile_name` is recorded in the report as producer-supplied identity,
+/// typically a relative path or display name. The source YAML is used only for
+/// the profile hash; raw profile text is not embedded in the report.
+#[must_use]
+pub fn explain_profile(
+    profile_name: impl Into<String>,
+    profile_yaml: &str,
+    profile: &Profile,
+    lint_report: &ProfileLintReport,
+) -> ProfileExplainReport {
+    let required_fields: Vec<ProfileExplainRequiredField> = profile
+        .constraints
+        .iter()
+        .filter(|constraint| constraint.required)
+        .map(|constraint| ProfileExplainRequiredField {
+            path: constraint.path.clone(),
+            conditional: constraint.when.is_some(),
+        })
+        .collect();
+
+    let table_code_counts: HashMap<&str, usize> = profile
+        .hl7_tables
+        .iter()
+        .map(|table| (table.id.as_str(), table.codes.len()))
+        .collect();
+
+    let datatype_rules = profile
+        .datatypes
+        .iter()
+        .map(|datatype| ProfileExplainDatatypeRule {
+            path: datatype.path.clone(),
+            datatype: datatype.r#type.clone(),
+            kind: "simple".to_string(),
+            pattern: None,
+            min_length: None,
+            max_length: None,
+            format: None,
+            checksum: None,
+        })
+        .chain(
+            profile
+                .advanced_datatypes
+                .iter()
+                .map(|datatype| ProfileExplainDatatypeRule {
+                    path: datatype.path.clone(),
+                    datatype: datatype.r#type.clone(),
+                    kind: "advanced".to_string(),
+                    pattern: datatype.pattern.clone(),
+                    min_length: datatype.min_length,
+                    max_length: datatype.max_length,
+                    format: datatype.format.clone(),
+                    checksum: datatype.checksum.clone(),
+                }),
+        )
+        .collect();
+
+    ProfileExplainReport {
+        profile: profile_name.into(),
+        profile_sha256: compute_profile_sha256(profile_yaml),
+        message_structure: profile.message_structure.clone(),
+        version: profile.version.clone(),
+        message_type: profile.message_type.clone(),
+        parent: profile.parent.clone(),
+        summary: ProfileExplainSummary {
+            segment_count: profile.segments.len(),
+            required_field_count: required_fields.len(),
+            field_constraint_count: profile.constraints.len(),
+            length_rule_count: profile.lengths.len(),
+            datatype_rule_count: profile.datatypes.len(),
+            advanced_datatype_rule_count: profile.advanced_datatypes.len(),
+            value_set_count: profile.valuesets.len(),
+            cross_field_rule_count: profile.cross_field_rules.len(),
+            temporal_rule_count: profile.temporal_rules.len(),
+            contextual_rule_count: profile.contextual_rules.len(),
+            custom_rule_count: profile.custom_rules.len(),
+            hl7_table_count: profile.hl7_tables.len(),
+        },
+        segments: profile
+            .segments
+            .iter()
+            .map(|segment| ProfileExplainSegment {
+                id: segment.id.clone(),
+            })
+            .collect(),
+        required_fields,
+        field_constraints: profile
+            .constraints
+            .iter()
+            .map(|constraint| {
+                let (component_min, component_max) = constraint
+                    .components
+                    .as_ref()
+                    .map(|components| (components.min, components.max))
+                    .unwrap_or((None, None));
+                let allowed_values = constraint.r#in.clone().unwrap_or_default();
+                ProfileExplainConstraint {
+                    path: constraint.path.clone(),
+                    required: constraint.required,
+                    conditional: constraint.when.is_some(),
+                    component_min,
+                    component_max,
+                    allowed_value_count: allowed_values.len(),
+                    allowed_values,
+                    pattern: constraint.pattern.clone(),
+                }
+            })
+            .collect(),
+        length_rules: profile
+            .lengths
+            .iter()
+            .map(|length| ProfileExplainLengthRule {
+                path: length.path.clone(),
+                max: length.max,
+                policy: length.policy.clone(),
+            })
+            .collect(),
+        datatype_rules,
+        value_sets: profile
+            .valuesets
+            .iter()
+            .map(|valueset| {
+                let table_code_count = table_code_counts
+                    .get(valueset.name.as_str())
+                    .copied()
+                    .unwrap_or(0);
+                let source = if !valueset.codes.is_empty() {
+                    "inline"
+                } else if table_code_count > 0 {
+                    "hl7_table"
+                } else {
+                    "empty"
+                };
+                ProfileExplainValueSet {
+                    name: valueset.name.clone(),
+                    path: valueset.path.clone(),
+                    source: source.to_string(),
+                    inline_code_count: valueset.codes.len(),
+                    table_code_count,
+                }
+            })
+            .collect(),
+        rules: ProfileExplainRules {
+            cross_field: profile
+                .cross_field_rules
+                .iter()
+                .map(|rule| ProfileExplainRule {
+                    id: rule.id.clone(),
+                    description: rule.description.clone(),
+                })
+                .collect(),
+            temporal: profile
+                .temporal_rules
+                .iter()
+                .map(|rule| ProfileExplainRule {
+                    id: rule.id.clone(),
+                    description: rule.description.clone(),
+                })
+                .collect(),
+            contextual: profile
+                .contextual_rules
+                .iter()
+                .map(|rule| ProfileExplainRule {
+                    id: rule.id.clone(),
+                    description: rule.description.clone(),
+                })
+                .collect(),
+            custom: profile
+                .custom_rules
+                .iter()
+                .map(|rule| ProfileExplainRule {
+                    id: rule.id.clone(),
+                    description: rule.description.clone(),
+                })
+                .collect(),
+        },
+        hl7_tables: profile
+            .hl7_tables
+            .iter()
+            .map(|table| ProfileExplainTable {
+                id: table.id.clone(),
+                name: table.name.clone(),
+                version: table.version.clone(),
+                code_count: table.codes.len(),
+            })
+            .collect(),
+        table_precedence: profile.table_precedence.clone(),
+        expression_guardrails: ProfileExplainExpressionGuardrails {
+            max_depth: profile.expression_guardrails.max_depth,
+            max_length: profile.expression_guardrails.max_length,
+            allow_custom_scripts: profile.expression_guardrails.allow_custom_scripts,
+        },
+        lint: ProfileExplainLintSummary {
+            valid: lint_report.valid,
+            error_count: lint_report.error_count,
+            warning_count: lint_report.warning_count,
+            issue_count: lint_report.issue_count,
+            ignored_or_unsupported: lint_report
+                .issues
+                .iter()
+                .filter(|issue| profile_lint_issue_is_ignored_or_unsupported(issue))
+                .cloned()
+                .collect(),
+        },
+    }
+}
+
+fn profile_lint_issue_is_ignored_or_unsupported(issue: &ProfileLintIssue) -> bool {
+    issue.code.starts_with("unknown_")
+        || issue.code.contains("unsupported")
+        || issue.message.contains("ignored")
+}
+
+fn compute_profile_sha256(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    format!("{:x}", hasher.finalize())
 }
 
 fn lint_unknown_profile_keys(root: &serde_yaml::Value, issues: &mut Vec<ProfileLintIssue>) {

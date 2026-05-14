@@ -102,8 +102,14 @@ pub use ack::{AckCode, ack, ack_with_error};
 
 #[cfg(feature = "profile")]
 pub use conformance::profile::{
-    Profile, ProfileLintIssue, ProfileLintReport, ProfileLintReportV2, ProfileLintSeverity,
-    lint_profile_yaml, load_profile, load_profile_checked, validate,
+    ExpectedReportComparison, Profile, ProfileExplainConstraint, ProfileExplainDatatypeRule,
+    ProfileExplainExpressionGuardrails, ProfileExplainLengthRule, ProfileExplainLintSummary,
+    ProfileExplainReport, ProfileExplainReportV2, ProfileExplainRequiredField, ProfileExplainRule,
+    ProfileExplainRules, ProfileExplainSegment, ProfileExplainSummary, ProfileExplainTable,
+    ProfileExplainValueSet, ProfileFixtureExpectation, ProfileLintIssue, ProfileLintReport,
+    ProfileLintReportV2, ProfileLintSeverity, ProfileTestCaseReport, ProfileTestReport,
+    ProfileTestReportV2, explain_profile, lint_profile_yaml, load_profile, load_profile_checked,
+    run_profile_fixture_tests, validate,
 };
 
 #[cfg(feature = "profile")]
