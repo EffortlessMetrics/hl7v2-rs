@@ -2,8 +2,9 @@
 
 This guide shows the Python binding as an analyst and QA workflow over the same
 evidence contracts used by the Rust crate, CLI, and server. It keeps the Python
-lane focused on deterministic artifacts: validation reports, corpus summaries,
-corpus diffs, redaction receipts, bundles, and replay reports.
+lane focused on deterministic artifacts: generated fixtures, ACKs, profile
+reports, validation reports, corpus summaries, corpus diffs, redaction
+receipts, bundles, and replay reports.
 
 The examples use synthetic messages. They are safe to run from a source checkout
 after installing a locally built `hl7v2` wheel.
@@ -46,6 +47,8 @@ shutil.rmtree(ROOT, ignore_errors=True)
 (ROOT / "before").mkdir(parents=True)
 (ROOT / "after").mkdir(parents=True)
 (ROOT / "reports").mkdir()
+(ROOT / "profile-fixtures" / "valid").mkdir(parents=True)
+(ROOT / "profile-fixtures" / "invalid").mkdir(parents=True)
 
 profile_yaml = """
 message_structure: "GENERIC"
@@ -98,6 +101,15 @@ action = "retain"
 reason = "message control id"
 """
 
+template_yaml = """
+name: "ADT_A01_Template"
+delims: "^~\\\\&"
+segments:
+  - "MSH|^~\\\\&|TestSystem|TestFacility|ReceivingSystem|ReceivingFacility|20250101000000||ADT^A01^ADT_A01|MSG00001|P|2.5.1"
+  - "PID|1||123456^^^HOSP^MR||Doe^Generated^A||19800101|M"
+values: {}
+"""
+
 before_message = (
     "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ADT^A01|CTRL100|P|2.5\r"
     "PID|1||MRN-100^^^HOSP^MR||Example^Valid||19700101|M"
@@ -108,8 +120,37 @@ after_message = (
     "PID|1||MRN-200^^^HOSP^MR||Example^Invalid||19700101|X"
 )
 
+generated_messages = hl7v2.generate(template_yaml, seed=1337, count=2)
+ack_message = hl7v2.ack(after_message, code="AE")
+
 (ROOT / "before" / "site-a-001.hl7").write_text(before_message, encoding="utf-8")
 (ROOT / "after" / "site-a-001.hl7").write_text(after_message, encoding="utf-8")
+(ROOT / "profile-fixtures" / "valid" / "before.hl7").write_text(
+    before_message,
+    encoding="utf-8",
+)
+(ROOT / "profile-fixtures" / "invalid" / "after.hl7").write_text(
+    after_message,
+    encoding="utf-8",
+)
+(ROOT / "reports" / "generated-message-001.hl7").write_text(
+    generated_messages[0],
+    encoding="utf-8",
+)
+(ROOT / "reports" / "ack.hl7").write_text(ack_message, encoding="utf-8")
+
+profile_lint_v2 = hl7v2.profile_lint(profile_yaml, schema_version=2)
+profile_explain_v2 = hl7v2.profile_explain(
+    profile_yaml,
+    profile_name="profiles/generic.yaml",
+    schema_version=2,
+)
+profile_test_v2 = hl7v2.profile_test(
+    profile_yaml,
+    str(ROOT / "profile-fixtures"),
+    profile_name="profiles/generic.yaml",
+    schema_version=2,
+)
 
 report = hl7v2.validate(after_message, profile_yaml)
 report_v2 = report.to_dict(2)
@@ -138,6 +179,9 @@ bundle_v2 = hl7v2.bundle(
 replay_v2 = hl7v2.replay(str(ROOT / "issue-bundle"), schema_version=2)
 
 artifacts = {
+    "profile-lint-v2.json": profile_lint_v2,
+    "profile-explain-v2.json": profile_explain_v2,
+    "profile-test-v2.json": profile_test_v2,
     "validation-report-v2.json": report_v2,
     "corpus-summary-v2.json": summary_v2,
     "corpus-fingerprint-v2.json": fingerprint_v2,
@@ -161,8 +205,13 @@ print(
             "validation_issue_codes": [
                 issue["code"] for issue in report_v2["issues"]
             ],
+            "profile_lint_valid": profile_lint_v2["valid"],
+            "profile_test_valid": profile_test_v2["valid"],
+            "profile_explain_segments": profile_explain_v2["summary"]["segment_count"],
+            "ack_msa": "MSA|AE|CTRL200" in ack_message,
             "after_message_count": summary_v2["message_count"],
             "diff_field_presence_deltas": len(diff_v2["field_presence"]),
+            "generated_message_count": len(generated_messages),
             "redaction_phi_removed": redaction_v2["receipt"]["phi_removed"],
             "bundle_artifacts": len(bundle_v2["artifacts"]),
             "replay_reproduced": replay_v2["reproduced"],
@@ -189,9 +238,14 @@ Expected output has the same evidence semantics as the CLI and server:
 
 ```json
 {
+  "ack_msa": true,
   "after_message_count": 1,
   "bundle_artifacts": 10,
   "diff_field_presence_deltas": 0,
+  "generated_message_count": 2,
+  "profile_explain_segments": 2,
+  "profile_lint_valid": true,
+  "profile_test_valid": true,
   "redaction_phi_removed": true,
   "replay_reproduced": true,
   "validation_issue_codes": [

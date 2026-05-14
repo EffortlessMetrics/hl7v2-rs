@@ -23,6 +23,7 @@ python -m pip install "maturin==1.13.1"
 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin build --release --out dist
 python -m pip install dist/*.whl
 python tests/python_smoke/smoke.py
+python tests/python_smoke/evidence_workflow_guide.py
 ```
 
 On PowerShell:
@@ -33,6 +34,7 @@ $env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
 maturin build --release --out dist
 python -m pip install (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
 python tests\python_smoke\smoke.py
+python tests\python_smoke\evidence_workflow_guide.py
 ```
 
 ## Current API
@@ -63,6 +65,47 @@ print(message.to_json())
 
 print(hl7v2.to_json(raw))
 print(hl7v2.normalize(raw))
+print(hl7v2.ack(raw))
+print(hl7v2.ack(raw, code="AE"))
+
+template_yaml = """
+name: ADT_A01_Template
+delims: "^~\\\\&"
+segments:
+  - "MSH|^~\\\\&|TestSystem|TestFacility|ReceivingSystem|ReceivingFacility|20250101000000||ADT^A01^ADT_A01|MSG00001|P|2.5.1"
+  - "PID|1||123456^^^HOSP^MR||Doe^John^A||19800101|M"
+values: {}
+"""
+print(hl7v2.generate(template_yaml, seed=1337, count=2))
+
+lint = hl7v2.profile_lint(profile_yaml)
+lint_v2 = hl7v2.profile_lint(profile_yaml, schema_version=2)
+explain = hl7v2.profile_explain(
+    profile_yaml,
+    profile_name="profiles/adt_a01.yaml",
+)
+explain_v2 = hl7v2.profile_explain(
+    profile_yaml,
+    profile_name="profiles/adt_a01.yaml",
+    schema_version=2,
+)
+profile_test = hl7v2.profile_test(
+    profile_yaml,
+    "fixtures/adt_a01",
+    profile_name="profiles/adt_a01.yaml",
+)
+profile_test_v2 = hl7v2.profile_test(
+    profile_yaml,
+    "fixtures/adt_a01",
+    profile_name="profiles/adt_a01.yaml",
+    schema_version=2,
+)
+print(lint["valid"])
+print(lint_v2["schema_version"])
+print(explain["summary"]["segment_count"])
+print(explain_v2["schema_version"])
+print(profile_test["valid"])
+print(profile_test_v2["schema_version"])
 
 report = hl7v2.validate(raw, profile_yaml)
 print(report.valid)
@@ -134,16 +177,30 @@ print(replay_v2["schema_version"])
 ```
 
 The current Python surface intentionally starts with the minimum evidence loop:
-parse, JSON export, normalize, validate, corpus summary/fingerprint/diff,
+parse, JSON export, normalize, ACK generation, synthetic template generation,
+profile lint/test/explain reports, validate, corpus summary/fingerprint/diff,
 safe-analysis redaction, evidence bundle creation, and replay verification.
 
 ## TestPyPI Proof
 
 Use the manual **Python TestPyPI Proof** GitHub Actions workflow when proving an
 external Python package upload. It defaults to a non-publishing wheel build and
-smoke test. With `publish_to_testpypi=true`, it publishes to TestPyPI through
+smoke tests. With `publish_to_testpypi=true`, it publishes to TestPyPI through
 Trusted Publishing and installs the same version back from TestPyPI before
-running `tests/python_smoke/smoke.py`.
+running `tests/python_smoke/smoke.py` and
+`tests/python_smoke/evidence_workflow_guide.py`.
 
 Setup and stop conditions are documented in
 [`docs/guides/python-testpypi-release-proof.md`](../../docs/guides/python-testpypi-release-proof.md).
+
+## Production PyPI Release
+
+Use the manual **Python PyPI Release Proof** workflow only after the full
+TestPyPI upload/install-back proof has passed for the current workspace version.
+It defaults to a non-publishing production rehearsal. With
+`publish_to_pypi=true`, it publishes to production PyPI through Trusted
+Publishing and installs the same version back from PyPI before rerunning the
+Python smoke and evidence workflow guide.
+
+Setup and stop conditions are documented in
+[`docs/guides/python-pypi-release.md`](../../docs/guides/python-pypi-release.md).
