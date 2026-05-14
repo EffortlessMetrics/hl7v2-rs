@@ -22,3 +22,4 @@ rollback, and use `docs/STATUS.md` for current feature status.
 | [HL7V2-SPEC-0003](HL7V2-SPEC-0003-ci-verification-economics.md) | CI Verification Economics | Accepted |
 | [HL7V2-SPEC-0004](HL7V2-SPEC-0004-binding-backend-release-proof.md) | Binding Backend Release Proof | Accepted |
 | [HL7V2-SPEC-0005](HL7V2-SPEC-0005-npm-wasm-binding-package-model.md) | npm and WASM Binding Package Model | Accepted |
+| [HL7V2-SPEC-0006](HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Cross-Surface Evidence Parity | Accepted |
