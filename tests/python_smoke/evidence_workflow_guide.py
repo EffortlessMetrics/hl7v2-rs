@@ -19,6 +19,9 @@ SCRIPT_MARKER = 'ROOT = Path("target/hl7v2-python-evidence")'
 SCHEMA_DIR = Path("schemas/evidence")
 ARTIFACT_SCHEMAS = {
     "validation-report-v2.json": "validation-report-v2.schema.json",
+    "profile-lint-v2.json": "profile-lint-report-v2.schema.json",
+    "profile-explain-v2.json": "profile-explain-report-v2.schema.json",
+    "profile-test-v2.json": "profile-test-report-v2.schema.json",
     "corpus-summary-v2.json": "corpus-summary-v2.schema.json",
     "corpus-fingerprint-v2.json": "corpus-fingerprint-v2.schema.json",
     "corpus-diff-v2.json": "corpus-diff-v2.schema.json",
@@ -186,9 +189,14 @@ def main() -> int:
         raise SystemExit(1) from error
 
     expected = {
+        "ack_msa": True,
         "after_message_count": 1,
         "bundle_artifacts": 10,
         "diff_field_presence_deltas": 0,
+        "generated_message_count": 2,
+        "profile_explain_segments": 2,
+        "profile_lint_valid": True,
+        "profile_test_valid": True,
         "redaction_phi_removed": True,
         "replay_reproduced": True,
         "validation_issue_codes": ["value_not_in_set"],
@@ -226,6 +234,11 @@ def main() -> int:
                 f"guide workflow artifact {artifact} failed {schema}: {error}",
                 file=sys.stderr,
             )
+            return 1
+
+    for artifact in ["generated-message-001.hl7", "ack.hl7"]:
+        if not (reports_dir / artifact).is_file():
+            print(f"guide workflow did not write {artifact}", file=sys.stderr)
             return 1
 
     bundle_dir = Path("target/hl7v2-python-evidence/issue-bundle")

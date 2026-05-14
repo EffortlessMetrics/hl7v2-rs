@@ -9,10 +9,14 @@ use ::hl7v2::synthetic::corpus::{
     CorpusCount, CorpusFingerprintProfile, compute_sha256, diff_corpus_fingerprints,
     diff_corpus_paths, fingerprint_corpus_path, summarize_corpus_path,
 };
+use ::hl7v2::synthetic::generate::{Template as RustTemplate, generate as rust_generate};
 use ::hl7v2::{
-    Message, ValidationReport, ValidationReportProfileIdentity, is_mllp_framed,
-    load_profile_checked, normalize as rust_normalize, parse as rust_parse,
-    parse_mllp as rust_parse_mllp, to_json as rust_to_json, validate as rust_validate,
+    AckCode as RustAckCode, Message, ProfileTestReport, ValidationReport,
+    ValidationReportProfileIdentity, ack as rust_ack, explain_profile as rust_explain_profile,
+    is_mllp_framed, lint_profile_yaml as rust_lint_profile_yaml, load_profile_checked,
+    normalize as rust_normalize, parse as rust_parse, parse_mllp as rust_parse_mllp,
+    run_profile_fixture_tests as rust_run_profile_fixture_tests, to_json as rust_to_json,
+    validate as rust_validate, write as rust_write,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -218,6 +222,20 @@ fn counts_to_corpus_counts(counts: BTreeMap<String, usize>) -> Vec<CorpusCount> 
         .collect()
 }
 
+fn parse_ack_code(code: &str) -> PyResult<RustAckCode> {
+    match code.to_ascii_uppercase().as_str() {
+        "AA" => Ok(RustAckCode::AA),
+        "AE" => Ok(RustAckCode::AE),
+        "AR" => Ok(RustAckCode::AR),
+        "CA" => Ok(RustAckCode::CA),
+        "CE" => Ok(RustAckCode::CE),
+        "CR" => Ok(RustAckCode::CR),
+        _ => Err(PyValueError::new_err(
+            "ack code must be one of AA, AE, AR, CA, CE, CR",
+        )),
+    }
+}
+
 /// Parse an HL7 message from a string.
 #[pyfunction]
 pub fn parse(content: &str) -> PyResult<PyMessage> {
@@ -239,6 +257,159 @@ pub fn normalize(content: &str, canonical_delims: bool) -> PyResult<String> {
         .map_err(|e| PyValueError::new_err(format!("Normalize error: {e}")))?;
     String::from_utf8(normalized)
         .map_err(|e| PyValueError::new_err(format!("Normalize UTF-8 error: {e}")))
+}
+
+/// Generate an HL7 ACK message for a raw HL7 message.
+#[pyfunction(signature = (content, code = "AA"))]
+pub fn ack(content: &str, code: &str) -> PyResult<String> {
+    let message = rust_parse(content.as_bytes())
+        .map_err(|e| PyValueError::new_err(format!("Parse error: {e}")))?;
+    let ack_code = parse_ack_code(code)?;
+    let ack_message = rust_ack(&message, ack_code)
+        .map_err(|e| PyValueError::new_err(format!("ACK error: {e}")))?;
+    String::from_utf8(rust_write(&ack_message))
+        .map_err(|e| PyValueError::new_err(format!("ACK UTF-8 error: {e}")))
+}
+
+/// Generate deterministic HL7 messages from a template YAML string.
+#[pyfunction(signature = (template_yaml, seed = 42, count = 1))]
+pub fn generate(template_yaml: &str, seed: u64, count: usize) -> PyResult<Vec<String>> {
+    let template: RustTemplate = serde_yaml::from_str(template_yaml)
+        .map_err(|e| PyValueError::new_err(format!("Template parse error: {e}")))?;
+    let messages = rust_generate(&template, seed, count)
+        .map_err(|e| PyValueError::new_err(format!("Generate error: {e}")))?;
+
+    messages
+        .into_iter()
+        .map(|message| {
+            String::from_utf8(rust_write(&message))
+                .map_err(|e| PyValueError::new_err(format!("Generate UTF-8 error: {e}")))
+        })
+        .collect()
+}
+
+/// Lint a profile YAML string and return a Python dict report.
+#[pyfunction(signature = (profile_yaml, schema_version = 1))]
+pub fn profile_lint<'py>(
+    py: Python<'py>,
+    profile_yaml: &str,
+    schema_version: u8,
+) -> PyResult<Bound<'py, PyAny>> {
+    let report = rust_lint_profile_yaml(profile_yaml);
+    match schema_version {
+        1 => report_to_dict(py, &report, "Profile lint serialization error"),
+        2 => report_to_dict(
+            py,
+            &report.to_v2("hl7v2-python", env!("CARGO_PKG_VERSION")),
+            "Profile lint v2 serialization error",
+        ),
+        _ => Err(PyValueError::new_err(
+            "profile lint schema_version must be 1 or 2",
+        )),
+    }
+}
+
+/// Explain a profile YAML string and return a Python dict report.
+#[pyfunction(signature = (profile_yaml, profile_name = "<inline-profile>", schema_version = 1))]
+pub fn profile_explain<'py>(
+    py: Python<'py>,
+    profile_yaml: &str,
+    profile_name: &str,
+    schema_version: u8,
+) -> PyResult<Bound<'py, PyAny>> {
+    let profile = load_profile_checked(profile_yaml)
+        .map_err(|e| PyValueError::new_err(format!("Profile load error: {e}")))?;
+    let lint_report = rust_lint_profile_yaml(profile_yaml);
+    let report = rust_explain_profile(
+        profile_name.to_string(),
+        profile_yaml,
+        &profile,
+        &lint_report,
+    );
+    match schema_version {
+        1 => report_to_dict(py, &report, "Profile explain serialization error"),
+        2 => report_to_dict(
+            py,
+            &report.to_v2("hl7v2-python", env!("CARGO_PKG_VERSION")),
+            "Profile explain v2 serialization error",
+        ),
+        _ => Err(PyValueError::new_err(
+            "profile explain schema_version must be 1 or 2",
+        )),
+    }
+}
+
+/// Test profile fixtures and return a Python dict report.
+#[pyfunction(signature = (profile_yaml, fixture_dir, profile_name = "<inline-profile>", schema_version = 1))]
+pub fn profile_test<'py>(
+    py: Python<'py>,
+    profile_yaml: &str,
+    fixture_dir: &str,
+    profile_name: &str,
+    schema_version: u8,
+) -> PyResult<Bound<'py, PyAny>> {
+    if !matches!(schema_version, 1 | 2) {
+        return Err(PyValueError::new_err(
+            "profile test schema_version must be 1 or 2",
+        ));
+    }
+
+    let profile = load_profile_checked(profile_yaml)
+        .map_err(|e| PyValueError::new_err(format!("Profile load error: {e}")))?;
+    let mut report =
+        rust_run_profile_fixture_tests(Path::new(profile_name), Path::new(fixture_dir), &profile)
+            .map_err(|e| PyValueError::new_err(format!("Profile test error: {e}")))?;
+    sanitize_profile_test_report(&mut report, Path::new(fixture_dir));
+
+    match schema_version {
+        1 => report_to_dict(py, &report, "Profile test serialization error"),
+        2 => report_to_dict(
+            py,
+            &report.to_v2("hl7v2-python", env!("CARGO_PKG_VERSION")),
+            "Profile test v2 serialization error",
+        ),
+        _ => Err(PyValueError::new_err(
+            "profile test schema_version must be 1 or 2",
+        )),
+    }
+}
+
+fn sanitize_profile_test_report(report: &mut ProfileTestReport, fixture_dir: &Path) {
+    report.profile = public_path_label(&report.profile, "profile.yaml");
+    report.fixtures = "fixtures".to_string();
+
+    for case in &mut report.cases {
+        case.path = case.name.clone();
+        if let Some(validation_report) = &mut case.validation_report {
+            validation_report.profile = Some(report.profile.clone());
+        }
+        if let Some(expected_report) = &mut case.expected_report {
+            expected_report.path = relative_or_redacted_path(fixture_dir, &expected_report.path);
+        }
+    }
+}
+
+fn public_path_label(path: &str, fallback: &str) -> String {
+    Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or(fallback)
+        .to_string()
+}
+
+fn relative_or_redacted_path(root: &Path, path: &str) -> String {
+    let path = Path::new(path);
+    path.strip_prefix(root).map_or_else(
+        |_| "<expected-report>".to_string(),
+        |relative| {
+            relative
+                .components()
+                .map(|component| component.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/")
+        },
+    )
 }
 
 /// Validate an HL7 message against a profile YAML string.
@@ -450,6 +621,11 @@ fn hl7v2(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse, m)?)?;
     m.add_function(wrap_pyfunction!(to_json, m)?)?;
     m.add_function(wrap_pyfunction!(normalize, m)?)?;
+    m.add_function(wrap_pyfunction!(ack, m)?)?;
+    m.add_function(wrap_pyfunction!(generate, m)?)?;
+    m.add_function(wrap_pyfunction!(profile_lint, m)?)?;
+    m.add_function(wrap_pyfunction!(profile_explain, m)?)?;
+    m.add_function(wrap_pyfunction!(profile_test, m)?)?;
     m.add_function(wrap_pyfunction!(validate, m)?)?;
     m.add_function(wrap_pyfunction!(corpus_summary, m)?)?;
     m.add_function(wrap_pyfunction!(corpus_fingerprint, m)?)?;

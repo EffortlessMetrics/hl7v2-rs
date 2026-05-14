@@ -149,6 +149,52 @@ def main() -> int:
         print("normalize did not return expected HL7 content", file=sys.stderr)
         return 1
 
+    ack_message = hl7v2.ack(raw)
+    if "MSA|AA|CTRL123" not in ack_message or "ACK" not in ack_message:
+        print(
+            f"default ACK did not preserve expected status/control id: {ack_message}",
+            file=sys.stderr,
+        )
+        return 1
+    error_ack = hl7v2.ack(raw, code="ae")
+    if "MSA|AE|CTRL123" not in error_ack:
+        print(f"explicit ACK code did not round-trip: {error_ack}", file=sys.stderr)
+        return 1
+    try:
+        hl7v2.ack(raw, code="ZZ")
+    except ValueError as exc:
+        if "ack code must be one of AA, AE, AR, CA, CE, CR" not in str(exc):
+            print(f"unexpected ACK code failure: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print("expected unsupported ACK code to fail", file=sys.stderr)
+        return 1
+
+    template_yaml = """
+name: "ADT_A01_Template"
+delims: "^~\\\\&"
+segments:
+  - "MSH|^~\\\\&|TestSystem|TestFacility|ReceivingSystem|ReceivingFacility|20250101000000||ADT^A01^ADT_A01|MSG00001|P|2.5.1"
+  - "PID|1||123456^^^HOSP^MR||Doe^John^A||19800101|M"
+values: {}
+"""
+    generated = hl7v2.generate(template_yaml, seed=1337, count=2)
+    if len(generated) != 2:
+        print(f"expected two generated messages: {generated}", file=sys.stderr)
+        return 1
+    if not all("MSH|^~\\&" in message and "PID|" in message for message in generated):
+        print(f"generated messages did not look like HL7: {generated}", file=sys.stderr)
+        return 1
+    try:
+        hl7v2.generate("not: [valid", count=1)
+    except ValueError as exc:
+        if "Template parse error" not in str(exc):
+            print(f"unexpected template parse failure: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print("expected invalid template YAML to fail", file=sys.stderr)
+        return 1
+
     profile_yaml = """
 message_structure: ADT_A01
 version: "2.5.1"
@@ -161,6 +207,156 @@ constraints:
   - path: PID.3
     required: true
 """
+    profile_lint = hl7v2.profile_lint(profile_yaml)
+    if profile_lint["valid"] is not True or profile_lint["issue_count"] != 0:
+        print(f"unexpected profile lint report: {profile_lint}", file=sys.stderr)
+        return 1
+    profile_lint_v2 = hl7v2.profile_lint(profile_yaml, schema_version=2)
+    if (
+        profile_lint_v2["schema_version"] != "2"
+        or profile_lint_v2["tool_name"] != "hl7v2-python"
+        or profile_lint_v2["valid"] is not True
+    ):
+        print(f"unexpected profile lint v2 report: {profile_lint_v2}", file=sys.stderr)
+        return 1
+    try:
+        hl7v2.profile_lint(profile_yaml, schema_version=3)
+    except ValueError as exc:
+        if "schema_version must be 1 or 2" not in str(exc):
+            print(f"unexpected profile lint schema failure: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print("expected unsupported profile lint schema version to fail", file=sys.stderr)
+        return 1
+
+    profile_explain = hl7v2.profile_explain(
+        profile_yaml,
+        profile_name="profiles/adt_a01.yaml",
+    )
+    if (
+        profile_explain["profile"] != "profiles/adt_a01.yaml"
+        or profile_explain["message_structure"] != "ADT_A01"
+        or profile_explain["summary"]["segment_count"] != 2
+        or len(profile_explain["profile_sha256"]) != 64
+    ):
+        print(f"unexpected profile explain report: {profile_explain}", file=sys.stderr)
+        return 1
+    profile_explain_v2 = hl7v2.profile_explain(
+        profile_yaml,
+        profile_name="profiles/adt_a01.yaml",
+        schema_version=2,
+    )
+    if (
+        profile_explain_v2["schema_version"] != "2"
+        or profile_explain_v2["tool_name"] != "hl7v2-python"
+        or profile_explain_v2["profile"] != "profiles/adt_a01.yaml"
+    ):
+        print(f"unexpected profile explain v2 report: {profile_explain_v2}", file=sys.stderr)
+        return 1
+    try:
+        hl7v2.profile_explain(profile_yaml, schema_version=3)
+    except ValueError as exc:
+        if "schema_version must be 1 or 2" not in str(exc):
+            print(f"unexpected profile explain schema failure: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print("expected unsupported profile explain schema version to fail", file=sys.stderr)
+        return 1
+
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture_root = Path(tmp) / "profile-fixtures"
+        (fixture_root / "valid").mkdir(parents=True)
+        (fixture_root / "invalid").mkdir(parents=True)
+        (fixture_root / "expected").mkdir(parents=True)
+        (fixture_root / "valid" / "adt.hl7").write_text(raw, encoding="utf-8")
+        (fixture_root / "invalid" / "missing_pid3.hl7").write_text(
+            (
+                "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01|CTRL999|P|2.5\r"
+                "PID|1||||Doe^John||19700101|M"
+            ),
+            encoding="utf-8",
+        )
+        (fixture_root / "expected" / "missing_pid3.report.json").write_text(
+            json.dumps(
+                {
+                    "valid": False,
+                    "issues": [
+                        {
+                            "code": "missing_required_field",
+                            "severity": "error",
+                            "path": "PID.3",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        profile_test = hl7v2.profile_test(
+            profile_yaml,
+            str(fixture_root),
+            profile_name="profiles/adt_a01.yaml",
+        )
+        if (
+            profile_test["valid"] is not True
+            or profile_test["case_count"] != 2
+            or profile_test["passed_count"] != 2
+        ):
+            print(f"unexpected profile test report: {profile_test}", file=sys.stderr)
+            return 1
+        invalid_cases = [
+            case
+            for case in profile_test["cases"]
+            if case["expectation"] == "invalid"
+        ]
+        if not invalid_cases or not invalid_cases[0]["expected_report"]["matched"]:
+            print(f"profile test did not match expected report: {profile_test}", file=sys.stderr)
+            return 1
+        profile_test_json = json.dumps(profile_test, sort_keys=True)
+        fixture_root_text = str(fixture_root)
+        if fixture_root_text in profile_test_json:
+            print("profile test report leaked local fixture root", file=sys.stderr)
+            return 1
+        if "profiles/adt_a01.yaml" in profile_test_json:
+            print("profile test report leaked caller profile path", file=sys.stderr)
+            return 1
+        if "expected/missing_pid3.report.json" not in profile_test_json:
+            print(
+                f"profile test report did not keep relative expected report path: {profile_test}",
+                file=sys.stderr,
+            )
+            return 1
+
+        profile_test_v2 = hl7v2.profile_test(
+            profile_yaml,
+            str(fixture_root),
+            profile_name="profiles/adt_a01.yaml",
+            schema_version=2,
+        )
+        if (
+            profile_test_v2["schema_version"] != "2"
+            or profile_test_v2["tool_name"] != "hl7v2-python"
+            or profile_test_v2["valid"] is not True
+        ):
+            print(f"unexpected profile test v2 report: {profile_test_v2}", file=sys.stderr)
+            return 1
+        profile_test_v2_json = json.dumps(profile_test_v2, sort_keys=True)
+        if fixture_root_text in profile_test_v2_json:
+            print("profile test v2 report leaked local fixture root", file=sys.stderr)
+            return 1
+        if "profiles/adt_a01.yaml" in profile_test_v2_json:
+            print("profile test v2 report leaked caller profile path", file=sys.stderr)
+            return 1
+        try:
+            hl7v2.profile_test(profile_yaml, str(fixture_root), schema_version=3)
+        except ValueError as exc:
+            if "schema_version must be 1 or 2" not in str(exc):
+                print(f"unexpected profile test schema failure: {exc}", file=sys.stderr)
+                return 1
+        else:
+            print("expected unsupported profile test schema version to fail", file=sys.stderr)
+            return 1
+
     report = hl7v2.validate(raw, profile_yaml)
     if not report.valid:
         print("expected validation report to be valid", file=sys.stderr)
