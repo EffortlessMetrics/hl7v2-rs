@@ -9,12 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Prepared `hl7v2-python` as a publishable crates.io binding backend for the
-  public Python `hl7v2` package while keeping it outside the primary Rust
-  product graph and without making a publish claim.
-
 ---
 
 ## [1.5.0] - 2026-05-13
@@ -36,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `rust-toolchain.toml` to Rust 1.95.0 for local and CI consistency.
 - Prepared the Rust package graph as version `1.5.0` for `hl7v2`,
   `hl7v2-server`, and `hl7v2-cli`.
+- Prepared `hl7v2-python` as a publishable crates.io binding backend for the
+  public Python `hl7v2` package, selected it for the v1.5.0 binding-backend
+  release graph, and kept it outside the primary Rust product graph.
 - Tightened the compiler, Clippy, no-panic, and file-policy rails for
   high-throughput maintenance without increasing default CI weight.
 - Retargeted the public Python distribution metadata and proof workflows to
