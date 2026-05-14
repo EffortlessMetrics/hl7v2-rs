@@ -47,6 +47,7 @@ canonical_sources = [
   "docs/release/1.5.0-readiness.md",
   "docs/releases/v1.5.0-rust-1.95-quality-ratchet.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
+  "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
   "docs/ci/ripr.md",
   "docs/ci/test-evidence-lanes.md",
   "policy/clippy-lints.toml",
@@ -157,6 +158,17 @@ commands = [
   "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
 ]
 note = "Unpatched cargo publish --dry-run requires hl7v2 1.5.0 to resolve from crates.io; primary v1.5.0 has not been published yet."
+
+[[work_item]]
+id = "npm-wasm-binding-package-model"
+status = "done"
+goal = "Define the future TypeScript package as @effortlessmetrics/hl7v2 and keep hl7v2-wasm/hl7v2-node as binding backend infrastructure before any JS implementation."
+spec = "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+]
 
 [[work_item]]
 id = "binding-backend-package-boundary-closeout"
