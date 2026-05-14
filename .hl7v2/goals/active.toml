@@ -48,6 +48,7 @@ canonical_sources = [
   "docs/releases/v1.5.0-rust-1.95-quality-ratchet.md",
   "docs/audits/binding-backend-readiness-2026-05-14.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-14-parity-refresh.md",
+  "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
@@ -362,6 +363,28 @@ commands = [
   "git diff --check",
 ]
 non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "dirty-real-world-corpus-proof"
+status = "done"
+goal = "Add a focused core proof that corpus summary, fingerprint, and diff handle dirty real-world interface data safely."
+receipt = "docs/audits/real-world-corpus-proof-2026-05-14.md"
+commands = [
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-real-world-corpus CARGO_INCREMENTAL=0 cargo +1.95.0 test -p hl7v2 --lib --all-features dirty_real_world",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-real-world-corpus CARGO_INCREMENTAL=0 cargo +1.95.0 test -p hl7v2 --lib --all-features summary_tests",
+  "cargo +1.95.0 fmt --all -- --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-real-world-corpus CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2 --lib --all-features -- -D warnings",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "git diff --check",
+]
+non_claims = [
+  "No public compatibility corpus.",
+  "No cross-surface corpus parity claim.",
   "No crates.io upload.",
   "No TestPyPI or PyPI upload.",
   "No npm package.",

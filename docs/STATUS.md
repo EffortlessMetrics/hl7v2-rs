@@ -89,7 +89,8 @@ coverage, broader PHI sentinel tests, Python/TestPyPI proof rails, the server
 bundle replay message-type fix, Rust 1.95 policy ratchets, profile evidence,
 Python profile helpers, gRPC inline corpus summary parity, advisory `ripr`,
 RIPR evidence endpoints, targeted mutation routing, the cross-surface evidence
-parity spec, and the v1.5.0 release-readiness workflow.
+parity spec, dirty real-world corpus proof, and the v1.5.0 release-readiness
+workflow.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
@@ -101,7 +102,7 @@ final source-tree gap audit after the local workbench split, see
 | First-run diagnostics | ✅ Stable | `hl7v2 doctor` verifies CLI version, sample parse, profile loading, JSON output, optional server reachability, and optional Python binding presence. |
 | Typed validation evidence | ✅ Stable | `ValidationReport` is shared by library, CLI, server validation, and Python bindings. |
 | Profiles as code | ✅ Stable | `profile lint`, `profile test`, and `profile explain` produce machine-readable profile evidence. |
-| Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. |
+| Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. Current proof includes dirty-corpus coverage for Z-segments, odd MSH fields, MLLP bytes, large OBX messages, malformed delimiters, and safe parse-error output. |
 | Safe support packets | ✅ Stable | `redact`, `bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. |
 | Evidence contracts | ✅ Stable | v1.4.0 ships opt-in v2 provenance schemas/producers and an `xtask evidence-schema-check` gate. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
