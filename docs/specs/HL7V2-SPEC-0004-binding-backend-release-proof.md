@@ -66,11 +66,14 @@ in the binding backend graph:
 
 ```powershell
 cargo +1.95.0 run -p xtask -- publish-plan --surface bindings
+cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings
 ```
 
 The default publish plan must continue to show only the primary Rust product
 graph unless an explicit release decision changes the command or receipt being
-used.
+used. While a backend crate still has `publish = false`, the binding dry-run
+must list its package files and stop with a policy error that explains the crate
+is not publishable yet.
 
 ### Package Review
 
