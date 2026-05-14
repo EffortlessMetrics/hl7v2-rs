@@ -46,6 +46,7 @@ canonical_sources = [
   "docs/development/RUST_1_95_ROLLOUT.md",
   "docs/release/1.5.0-readiness.md",
   "docs/releases/v1.5.0-rust-1.95-quality-ratchet.md",
+  "docs/audits/binding-backend-readiness-2026-05-14.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
   "docs/ci/ripr.md",
@@ -168,6 +169,33 @@ commands = [
   "cargo +1.95.0 run -p xtask -- check-doc-links",
   "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
   "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+]
+
+[[work_item]]
+id = "binding-backend-readiness-audit"
+status = "done"
+goal = "Record #610-#614 binding-backend release-proof, dry-run tooling, publishable backend metadata, npm/WASM model, and surface guard state without claiming any registry upload."
+receipt = "docs/audits/binding-backend-readiness-2026-05-14.md"
+prs = [
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/610",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/611",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/612",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/613",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/614",
+]
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+]
+non_claims = [
+  "No crates.io backend upload.",
+  "No v1.5.0 crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
 ]
 
 [[work_item]]
