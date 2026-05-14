@@ -44,6 +44,14 @@ We use the format popularized by Michael Nygard:
 | [HL7V2-ADR-0002](HL7V2-ADR-0002-python-is-separate-distribution-lane.md) | Python Is A Separate Distribution Lane | Accepted, amended by HL7V2-ADR-0003 | 2026-05-12 |
 | [HL7V2-ADR-0003](HL7V2-ADR-0003-publishable-binding-backend-crates.md) | Publishable Binding Backend Crates | Accepted | 2026-05-13 |
 
+## Recent Closeouts
+
+- 2026-05-14: #604-#608 closed the package-boundary policy train. The repo now
+  distinguishes the primary Rust product graph from binding backend crates in
+  ADRs, status docs, Python backend metadata, and `xtask publish-plan`
+  surfaces. The closeout did not publish any crates.io, TestPyPI, or PyPI
+  artifact.
+
 ## Creating a New ADR
 
 ```bash

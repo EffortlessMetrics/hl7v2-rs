@@ -145,6 +145,24 @@ commands = [
 ]
 
 [[work_item]]
+id = "binding-backend-package-boundary-closeout"
+status = "done"
+goal = "Record the #604-#608 package-boundary closeout without claiming crates.io, TestPyPI, or PyPI publication."
+prs = [
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/604",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/605",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/606",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/607",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/pull/608",
+]
+acceptance = [
+  "Primary Rust product graph still reports hl7v2, hl7v2-server, and hl7v2-cli.",
+  "Binding backend graph reports hl7v2-python separately.",
+  "hl7v2-python remains non-published unless a later binding-backend release PR changes it.",
+  "No crates.io, TestPyPI, or PyPI publish claim is made.",
+]
+
+[[work_item]]
 id = "testpypi-trusted-publisher-proof"
 status = "blocked"
 blocked_by = "https://github.com/EffortlessMetrics/hl7v2-rs/issues/563"
