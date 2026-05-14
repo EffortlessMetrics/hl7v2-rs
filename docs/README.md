@@ -70,6 +70,7 @@ proposal, spec, plan, or receipt documents.
 | [v1.5.0 release readiness](release/1.5.0-readiness.md) | Receipt home for Rust 1.95 / 1.5.0 readiness workflow results. |
 | [v1.5.0 publish dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-13.md) | Non-publishing crates.io dry-run proof for the v1.5.0 Rust graph. |
 | [v1.5.0 parity refresh dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-14-parity-refresh.md) | Current-main non-publishing proof after gRPC corpus summary parity and the cross-surface evidence parity spec. |
+| [Dirty real-world corpus proof](audits/real-world-corpus-proof-2026-05-14.md) | Focused proof that core corpus summary, fingerprint, and diff handle Z-segments, odd MSH fields, MLLP bytes, large OBX messages, malformed delimiters, and safe parse-error output. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
 | [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the `hl7v2-python` binding backend separate from the primary Rust product graph. |
 | [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |

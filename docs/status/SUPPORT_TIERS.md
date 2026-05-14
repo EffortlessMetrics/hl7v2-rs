@@ -23,6 +23,7 @@ claim tier or proof expectations.
 | Rust parse, validate, normalize, ACK, MLLP, and evidence models | Stable | `cargo test -p hl7v2 --all-features` |
 | Evidence schemas | Stable | `cargo run -p xtask -- evidence-schema-check` |
 | Cross-surface evidence parity contract | Accepted | [HL7V2-SPEC-0006](../specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md); surface-specific claims still require their own tests, schema checks, language install/import proof, or registry receipts |
+| Dirty corpus compatibility proof | Stable core proof | `cargo test -p hl7v2 --lib --all-features dirty_real_world`; [dirty real-world corpus proof](../audits/real-world-corpus-proof-2026-05-14.md) |
 | CLI evidence commands | Stable | `cargo test -p hl7v2-cli --test integration_tests` |
 | CLI BDD workflows | Stable | `cargo test -p hl7v2-cli --test bdd_tests` |
 | REST evidence sidecar | Stable | `cargo test -p hl7v2-server --test validate_endpoint_test`; `cargo test -p hl7v2-server --test bundle_endpoint_test`; `cargo test -p hl7v2-server --test replay_endpoint_test` |

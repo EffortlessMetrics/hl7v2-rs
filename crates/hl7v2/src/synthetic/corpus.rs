@@ -1604,6 +1604,21 @@ mod summary_tests {
         assert!(result.is_ok(), "test message should be written: {result:?}");
     }
 
+    fn write_message_bytes(path: &Path, contents: &[u8]) {
+        let result = fs::write(path, contents);
+        assert!(result.is_ok(), "test message should be written: {result:?}");
+    }
+
+    fn large_obx_message(control_id: &str, obx_count: usize) -> String {
+        let mut message = format!(
+            "MSH|^~\\&|LAB|LEGACY|EHR|HOSP|202605140101||ORU^R01|{control_id}|P|2.3\rPID|1||MRN-LARGE^^^HOSP^MR||Example^Large||19700101|U\rOBR|1|ORD-LARGE|FILL-LARGE|CBC^Complete Blood Count"
+        );
+        for index in 1..=obx_count {
+            message.push_str(&format!("\rOBX|{index}|NM|718-7^Hemoglobin||{index}|g/dL"));
+        }
+        message
+    }
+
     #[test]
     fn summarize_corpus_path_counts_messages_segments_and_fields() {
         let Ok(dir) = tempfile::tempdir() else {
@@ -1699,6 +1714,115 @@ mod summary_tests {
             panic!("parse failure should be recorded");
         };
         assert!(!parse_failure.error.contains("not an hl7 message"));
+    }
+
+    #[test]
+    fn dirty_real_world_corpus_produces_safe_summary_fingerprint_and_diff() {
+        let Ok(before) = tempfile::tempdir() else {
+            panic!("before temp dir should be created");
+        };
+        let Ok(after) = tempfile::tempdir() else {
+            panic!("after temp dir should be created");
+        };
+
+        let z_segment_message = "MSH|^~\\&|INTF|SITE|EHR|HOSP|202605140101||ADT^A01|CTRL-Z|P|2.5\rPID|1||MRN-Z^^^HOSP^MR||Example^Zed||19700101|U\rZPV|legacy-room|dirty interface note";
+        let odd_msh_message = "MSH|^~\\&|LEGACY||EHR||202605140102||ADT^A08|CTRL-ODD|P|2.3\rPID|1||MRN-ODD^^^HOSP^MR||Example^Odd||19600101|";
+        let large_before = large_obx_message("CTRL-LARGE-BEFORE", 5);
+        let large_after = large_obx_message("CTRL-LARGE-AFTER", 20);
+        let malformed_delimiters =
+            b"MSH|^^^^|BROKEN|SITE|EHR|HOSP|202605140103||ADT^A01|MRN-DIRTY|P|2.5\rPID|1";
+        let mllp_after = crate::wrap_mllp(odd_msh_message.as_bytes());
+
+        write_message(&before.path().join("z-segment.hl7"), z_segment_message);
+        write_message(&before.path().join("large-obx.hl7"), &large_before);
+
+        write_message(&after.path().join("z-segment.hl7"), z_segment_message);
+        write_message(&after.path().join("large-obx.hl7"), &large_after);
+        write_message_bytes(&after.path().join("mllp-framed.hl7"), &mllp_after);
+        write_message_bytes(
+            &after.path().join("malformed-delimiters.hl7"),
+            malformed_delimiters,
+        );
+
+        let Ok(summary) = summarize_corpus_path(after.path()) else {
+            panic!("dirty corpus should summarize");
+        };
+        let Ok(fingerprint) = fingerprint_corpus_path(after.path()) else {
+            panic!("dirty corpus should fingerprint");
+        };
+        let Ok(diff) = diff_corpus_paths(before.path(), after.path()) else {
+            panic!("dirty corpus should diff");
+        };
+
+        assert_eq!(summary.file_count, 4);
+        assert_eq!(summary.message_count, 3);
+        assert_eq!(summary.parse_error_count, 1);
+        assert!(summary.total_bytes > large_after.len());
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ADT^A01" && count.count == 1)
+        );
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ADT^A08" && count.count == 1)
+        );
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ORU^R01" && count.count == 1)
+        );
+        assert!(
+            summary
+                .segments
+                .iter()
+                .any(|count| count.value == "ZPV" && count.count == 1)
+        );
+        assert!(
+            summary
+                .segments
+                .iter()
+                .any(|count| count.value == "OBX" && count.count == 20)
+        );
+        let Some(parse_failure) = summary.parse_errors.first() else {
+            panic!("malformed delimiter failure should be recorded");
+        };
+        assert_eq!(parse_failure.path, "malformed-delimiters.hl7");
+        assert!(!parse_failure.error.contains("MRN-DIRTY"));
+
+        assert_eq!(fingerprint.file_count, 4);
+        assert_eq!(fingerprint.message_count, 3);
+        assert_eq!(fingerprint.parse_error_count, 1);
+        assert!(
+            fingerprint
+                .field_cardinality
+                .iter()
+                .any(|field| field.path == "OBX.5"
+                    && field.max_per_message == 20
+                    && field.total_occurrences == 20)
+        );
+        assert!(
+            fingerprint
+                .field_cardinality
+                .iter()
+                .any(|field| field.path == "ZPV.1" && field.total_occurrences == 1)
+        );
+
+        assert_eq!(diff.file_count.before, 2);
+        assert_eq!(diff.file_count.after, 4);
+        assert_eq!(diff.message_count.delta, 1);
+        assert_eq!(diff.parse_error_count.delta, 1);
+        assert!(
+            diff.field_cardinality
+                .iter()
+                .any(|field| field.path == "OBX.5"
+                    && field.max_per_message_delta == 15
+                    && field.total_occurrences_delta == 15)
+        );
     }
 
     #[test]
