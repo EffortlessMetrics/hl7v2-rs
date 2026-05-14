@@ -73,9 +73,10 @@ binding maintainers rather than ordinary Rust users.
 
 - `hl7v2-python` may become publishable in a later PR, but this ADR does not
   change Cargo metadata.
-- Default Rust release planning may continue to show the primary Rust product
+- Default Rust release planning continues to show the primary Rust product
   graph separately from binding backend graphs.
-- Future release tooling should be able to print surfaces such as:
+- `xtask publish-plan --surface primary|bindings|all-publishable` prints
+  package surfaces such as:
 
 ```text
 Primary Rust product graph:
@@ -107,8 +108,6 @@ Binding backend graph:
 
 ## Follow-Up Work
 
-- Add explicit `xtask publish-plan --surface ...` selectors if a later release
-  needs to print primary and binding backend graphs independently.
 - Decide whether to make `hl7v2-python` publishable as a binding backend.
 - If `hl7v2-python` becomes publishable, update its metadata and README before
   any crates.io dry-run or upload.
@@ -121,6 +120,8 @@ Docs-only ADR changes use:
 ```powershell
 cargo +1.95.0 run -p xtask -- check-doc-links
 cargo +1.95.0 run -p xtask -- publish-plan
+cargo +1.95.0 run -p xtask -- publish-plan --surface bindings
+cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable
 cargo +1.95.0 run -p xtask -- check-file-policy
 git diff --check
 ```

@@ -8,7 +8,7 @@ surface collapse described by [ADR-015](../adr/0015-collapse-public-crate-surfac
 As of 2026-05-08, the implementation modules have been collapsed into the
 canonical `hl7v2` Rust library crate. Local compatibility shim crate folders
 were retired after the v1.2.1 release. `cargo run -p xtask -- publish-plan`
-resolves the primary Rust product graph:
+defaults to the primary Rust product graph:
 
 1. `hl7v2`
 2. `hl7v2-server`
@@ -19,6 +19,8 @@ crate. Current metadata keeps it at `publish = false`; ADR
 [HL7V2-ADR-0003](../adr/HL7V2-ADR-0003-publishable-binding-backend-crates.md)
 allows binding backend crates to become publishable later when tooling,
 metadata, and receipts make the boundary explicit.
+`cargo run -p xtask -- publish-plan --surface bindings` reports that graph
+separately from the primary Rust release plan.
 
 Historical old microcrate package names may exist on crates.io, but those names
 are compatibility artifacts. New Rust code should depend on `hl7v2` and use

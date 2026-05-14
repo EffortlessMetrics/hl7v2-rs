@@ -2,7 +2,7 @@
 
 use anyhow::{Result, anyhow};
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fs;
@@ -17,6 +17,20 @@ use std::time::Duration;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+}
+
+const PRIMARY_RUST_PRODUCT_CRATES: &[&str] = &["hl7v2", "hl7v2-server", "hl7v2-cli"];
+const BINDING_BACKEND_CRATES: &[&str] = &["hl7v2-python"];
+const EXCLUDED_PUBLISHABLE_WORKSPACE_PACKAGES: &[&str] = &["xtask", "hl7v2-examples"];
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum PublishSurface {
+    /// Primary Rust API/operator crates.
+    Primary,
+    /// Binding backend crates for foreign-language packages.
+    Bindings,
+    /// Primary Rust product crates plus publishable binding backend crates.
+    AllPublishable,
 }
 
 #[derive(Subcommand)]
@@ -46,6 +60,9 @@ enum Commands {
         /// Resume from this crate name
         #[arg(long)]
         from: Option<String>,
+        /// Package surface to report
+        #[arg(long, value_enum, default_value = "primary")]
+        surface: PublishSurface,
     },
     /// Publish workspace crates to crates.io in dependency order
     Publish {
@@ -140,7 +157,7 @@ fn main() -> Result<()> {
         Commands::Setup => setup()?,
         Commands::Audit => audit()?,
         Commands::Outdated => outdated()?,
-        Commands::PublishPlan { from } => publish_plan(from)?,
+        Commands::PublishPlan { from, surface } => publish_plan(from, surface)?,
         Commands::Publish {
             from,
             yes,
@@ -387,26 +404,36 @@ fn outdated() -> Result<()> {
     Ok(())
 }
 
-fn publish_plan(from: Option<String>) -> Result<()> {
-    let crates = publish_order(from.as_deref())?;
+fn publish_plan(from: Option<String>, surface: PublishSurface) -> Result<()> {
+    let crates = publish_order_for_surface(surface, from.as_deref())?;
+    let metadata = MetadataCommand::new().exec()?;
 
-    println!("📋 Primary Rust product crates.io publish order");
-    for (index, crate_name) in crates.iter().enumerate() {
-        let display_index = index
-            .checked_add(1)
-            .ok_or_else(|| anyhow!("publish-plan index overflow"))?;
-        println!("{display_index:>2}. {crate_name}");
+    if surface == PublishSurface::Primary {
+        println!("📋 Primary Rust product crates.io publish order");
+    } else {
+        println!("{}", surface.publish_plan_heading());
+    }
+    print_numbered_crates(&crates)?;
+
+    if surface != PublishSurface::Bindings {
+        print_binding_backend_status(&metadata)?;
+    } else if crates.is_empty() {
+        println!("No publishable binding backend crates are currently enabled.");
+        print_binding_backend_status(&metadata)?;
     }
 
     println!();
-    println!("Binding backend crates are a separate surface and are not included in this plan.");
-    println!("Current binding backend graph: hl7v2-python (publish = false)");
-    println!();
-    println!("Execute with:");
-    if let Some(start) = crates.first() {
-        println!("  cargo run -p xtask -- publish --yes --from {start}");
+    if surface == PublishSurface::Primary {
+        println!("Execute with:");
+        if let Some(start) = crates.first() {
+            println!("  cargo run -p xtask -- publish --yes --from {start}");
+        } else {
+            println!("  cargo run -p xtask -- publish --yes");
+        }
     } else {
-        println!("  cargo run -p xtask -- publish --yes");
+        println!(
+            "Publishing non-primary surfaces requires an explicit release decision and dedicated tooling."
+        );
     }
 
     Ok(())
@@ -451,7 +478,7 @@ fn publish(
 
 fn publish_dry_run(from: Option<String>, workspace_patches: bool, allow_dirty: bool) -> Result<()> {
     let metadata = MetadataCommand::new().exec()?;
-    let packages = publishable_workspace_packages(&metadata);
+    let packages = publishable_workspace_packages_for_surface(&metadata, PublishSurface::Primary)?;
     let ordered = topological_publish_order(&packages)?;
     let crates = resume_publish_order(&ordered, from.as_deref())?;
 
@@ -641,11 +668,45 @@ fn docs(no_open: bool) -> Result<()> {
 }
 
 fn publish_order(from: Option<&str>) -> Result<Vec<String>> {
+    publish_order_for_surface(PublishSurface::Primary, from)
+}
+
+fn publish_order_for_surface(surface: PublishSurface, from: Option<&str>) -> Result<Vec<String>> {
     let metadata = MetadataCommand::new().exec()?;
-    let packages = publishable_workspace_packages(&metadata);
+    let packages = publishable_workspace_packages_for_surface(&metadata, surface)?;
     let ordered = topological_publish_order(&packages)?;
 
     resume_publish_order(&ordered, from)
+}
+
+fn print_numbered_crates(crates: &[String]) -> Result<()> {
+    for (index, crate_name) in crates.iter().enumerate() {
+        let display_index = index
+            .checked_add(1)
+            .ok_or_else(|| anyhow!("publish-plan index overflow"))?;
+        println!("{display_index:>2}. {crate_name}");
+    }
+    Ok(())
+}
+
+fn print_binding_backend_status(metadata: &Metadata) -> Result<()> {
+    println!();
+    println!("Binding backend graph:");
+    let packages = workspace_member_packages(metadata);
+    for crate_name in BINDING_BACKEND_CRATES {
+        match packages.get(*crate_name) {
+            Some(package) if package_is_publishable(package) => {
+                println!(" - {crate_name} (publishable binding backend)");
+            }
+            Some(_) => {
+                println!(" - {crate_name} (publish = false)");
+            }
+            None => {
+                println!(" - {crate_name} (not present)");
+            }
+        }
+    }
+    Ok(())
 }
 
 fn resume_publish_order(ordered: &[String], from: Option<&str>) -> Result<Vec<String>> {
@@ -664,7 +725,74 @@ fn resume_publish_order(ordered: &[String], from: Option<&str>) -> Result<Vec<St
     }
 }
 
-fn publishable_workspace_packages(metadata: &Metadata) -> HashMap<String, Package> {
+impl PublishSurface {
+    fn publish_plan_heading(self) -> &'static str {
+        match self {
+            Self::Primary => "Primary Rust product crates.io publish order",
+            Self::Bindings => "Binding backend crates.io publish order",
+            Self::AllPublishable => "All publishable crates.io publish order",
+        }
+    }
+}
+
+fn publishable_workspace_packages_for_surface(
+    metadata: &Metadata,
+    surface: PublishSurface,
+) -> Result<HashMap<String, Package>> {
+    let packages = workspace_member_packages(metadata);
+    let classified: BTreeSet<&str> = PRIMARY_RUST_PRODUCT_CRATES
+        .iter()
+        .chain(BINDING_BACKEND_CRATES.iter())
+        .copied()
+        .collect();
+    let unclassified: Vec<_> = packages
+        .values()
+        .filter(|package| package_is_publishable(package))
+        .map(|package| package.name.as_str())
+        .filter(|package_name| !classified.contains(package_name))
+        .collect();
+    if !unclassified.is_empty() {
+        return Err(anyhow!(
+            "publishable workspace package(s) are missing publish surface classification: {}",
+            unclassified.join(", ")
+        ));
+    }
+
+    let selected: BTreeSet<&str> = match surface {
+        PublishSurface::Primary => PRIMARY_RUST_PRODUCT_CRATES.iter().copied().collect(),
+        PublishSurface::Bindings => BINDING_BACKEND_CRATES
+            .iter()
+            .copied()
+            .filter(|name| packages.get(*name).is_some_and(package_is_publishable))
+            .collect(),
+        PublishSurface::AllPublishable => PRIMARY_RUST_PRODUCT_CRATES
+            .iter()
+            .chain(
+                BINDING_BACKEND_CRATES
+                    .iter()
+                    .filter(|name| packages.get(**name).is_some_and(package_is_publishable)),
+            )
+            .copied()
+            .collect(),
+    };
+
+    let mut selected_packages = HashMap::new();
+    for package_name in selected {
+        let package = packages
+            .get(package_name)
+            .ok_or_else(|| anyhow!("workspace package {package_name} is missing"))?;
+        if !package_is_publishable(package) {
+            return Err(anyhow!(
+                "workspace package {package_name} is selected for {surface:?} but is not publishable"
+            ));
+        }
+        selected_packages.insert(package.name.to_string(), package.clone());
+    }
+
+    Ok(selected_packages)
+}
+
+fn workspace_member_packages(metadata: &Metadata) -> HashMap<String, Package> {
     let workspace_members: HashSet<_> = metadata.workspace_members.iter().cloned().collect();
 
     metadata
@@ -672,14 +800,20 @@ fn publishable_workspace_packages(metadata: &Metadata) -> HashMap<String, Packag
         .iter()
         .filter(|pkg| workspace_members.contains(&pkg.id))
         .filter(|pkg| {
-            pkg.publish
-                .as_ref()
-                .is_none_or(|registries| !registries.is_empty())
+            !EXCLUDED_PUBLISHABLE_WORKSPACE_PACKAGES
+                .iter()
+                .any(|excluded| *excluded == pkg.name)
         })
-        .filter(|pkg| pkg.name != "xtask" && pkg.name != "hl7v2-examples")
         .cloned()
         .map(|pkg| (pkg.name.to_string(), pkg))
         .collect()
+}
+
+fn package_is_publishable(package: &Package) -> bool {
+    package
+        .publish
+        .as_ref()
+        .is_none_or(|registries| !registries.is_empty())
 }
 
 fn topological_publish_order(packages: &HashMap<String, Package>) -> Result<Vec<String>> {
@@ -5932,6 +6066,27 @@ mod tests {
     }
 
     #[test]
+    fn publish_order_surfaces_are_separate() -> Result<()> {
+        let primary = publish_order_for_surface(PublishSurface::Primary, None)?;
+        let bindings = publish_order_for_surface(PublishSurface::Bindings, None)?;
+        let all_publishable = publish_order_for_surface(PublishSurface::AllPublishable, None)?;
+
+        for public_surface in PRIMARY_RUST_PRODUCT_CRATES {
+            ensure_contains(&primary, public_surface)?;
+            ensure_contains(&all_publishable, public_surface)?;
+        }
+
+        ensure_not_contains(&primary, "hl7v2-python")?;
+        ensure_not_contains(&all_publishable, "hl7v2-python")?;
+        if !bindings.is_empty() {
+            return Err(anyhow!(
+                "hl7v2-python is still publish = false and should not be publishable yet"
+            ));
+        }
+        Ok(())
+    }
+
+    #[test]
     fn publish_order_can_resume_from_a_named_crate() -> Result<()> {
         let ordered = publish_order(None)?;
         let resumed = publish_order(Some("hl7v2"))?;
@@ -5955,7 +6110,8 @@ mod tests {
     #[test]
     fn workspace_patch_dependencies_exclude_private_shims() -> Result<()> {
         let metadata = MetadataCommand::new().exec()?;
-        let packages = publishable_workspace_packages(&metadata);
+        let packages =
+            publishable_workspace_packages_for_surface(&metadata, PublishSurface::AllPublishable)?;
         let dependencies = internal_workspace_dependency_closure("hl7v2", &packages)?;
 
         for excluded in [

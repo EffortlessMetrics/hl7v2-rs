@@ -27,6 +27,7 @@ end_state = [
   "rust-toolchain.toml pins Rust 1.95.0 with rustfmt and clippy.",
   "Primary Rust product graph is prepared as version 1.5.0.",
   "The primary Rust product graph remains hl7v2, hl7v2-server, hl7v2-cli.",
+  "Binding backend crates are classified separately from the primary Rust product graph.",
   "Clippy and rustc lint ratchets are active or explicitly receipted.",
   "Clippy exceptions are governed separately from broad debt.",
   "No-panic identity is exact and counted.",
@@ -56,6 +57,8 @@ canonical_sources = [
 
 proof_commands = [
   "cargo +1.95.0 run -p xtask -- publish-plan",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
   "cargo +1.95.0 run -p xtask -- publish-dry-run --workspace-patches --allow-dirty",
   "cargo +1.95.0 run -p xtask -- evidence-schema-check",
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check",
@@ -120,6 +123,16 @@ status = "done"
 goal = "Record v1.5.0 release-readiness and publish-dry-run receipts after release prep lands."
 run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25810853128"
 receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-13.md"
+
+[[work_item]]
+id = "publish-plan-surface-classification"
+status = "done"
+goal = "Teach release tooling to report primary Rust product and binding backend publish surfaces separately without changing publish behavior."
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+]
 
 [[work_item]]
 id = "testpypi-trusted-publisher-proof"

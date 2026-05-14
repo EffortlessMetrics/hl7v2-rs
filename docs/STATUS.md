@@ -38,7 +38,7 @@ This document provides a transparent view of which features are fully implemente
 ## Release and Publish Readiness
 
 - ✅ **Main workflows**: required CI success, Security, Python Wheels, and API Contracts are green on the v1.4.0 release head. Coverage is unchanged/skipped for this docs/package release lane. Extended tests and benchmark artifacts remain non-publish performance lanes.
-- ✅ **Publish order**: `cargo run -p xtask -- publish-plan` resolves the primary Rust product graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`.
+- ✅ **Publish order**: `cargo run -p xtask -- publish-plan` defaults to the primary Rust product graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Use `cargo run -p xtask -- publish-plan --surface bindings` to inspect binding backend crates separately.
 - ✅ **Published Rust graph**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.4.0 are published and visible in the crates.io index. See `docs/audits/publish-v1.4.0-2026-05-09.md`.
 - ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See `docs/audits/publish-dry-run-v1.4.0-2026-05-09.md`.
 - 🟡 **v1.5.0 candidate**: Current `main` carries the Rust 1.95 MSRV/toolchain ratchet, tighter lint/no-panic/file-policy rails, advisory `ripr`, targeted mutation routing, and release-readiness and dry-run receipts. It still needs explicit crates.io publish and tag receipts before any release claim.
@@ -56,8 +56,9 @@ This document provides a transparent view of which features are fully implemente
   `xtask`.
 
 Binding backend crates are real language-boundary APIs, but they are not the
-recommended Rust API. Current `hl7v2-python` metadata remains `publish = false`
-until a separate binding-backend release PR adds the required metadata, tooling,
+recommended Rust API. `xtask publish-plan --surface bindings` reports this
+separate graph. Current `hl7v2-python` metadata remains `publish = false` until
+a separate binding-backend release PR adds the required metadata, tooling,
 dry-run proof, and language install/import smoke receipts.
 
 ## Evidence Contracts Release And Current Main
