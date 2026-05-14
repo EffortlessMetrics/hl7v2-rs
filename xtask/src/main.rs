@@ -865,23 +865,7 @@ fn publishable_workspace_packages_for_surface(
     surface: PublishSurface,
 ) -> Result<HashMap<String, Package>> {
     let packages = workspace_member_packages(metadata);
-    let classified: BTreeSet<&str> = PRIMARY_RUST_PRODUCT_CRATES
-        .iter()
-        .chain(BINDING_BACKEND_CRATES.iter())
-        .copied()
-        .collect();
-    let unclassified: Vec<_> = packages
-        .values()
-        .filter(|package| package_is_publishable(package))
-        .map(|package| package.name.as_str())
-        .filter(|package_name| !classified.contains(package_name))
-        .collect();
-    if !unclassified.is_empty() {
-        return Err(anyhow!(
-            "publishable workspace package(s) are missing publish surface classification: {}",
-            unclassified.join(", ")
-        ));
-    }
+    ensure_publishable_workspace_packages_are_classified(&packages)?;
 
     let selected: BTreeSet<&str> = match surface {
         PublishSurface::Primary => PRIMARY_RUST_PRODUCT_CRATES.iter().copied().collect(),
@@ -915,6 +899,30 @@ fn publishable_workspace_packages_for_surface(
     }
 
     Ok(selected_packages)
+}
+
+fn ensure_publishable_workspace_packages_are_classified(
+    packages: &HashMap<String, Package>,
+) -> Result<()> {
+    let classified: BTreeSet<&str> = PRIMARY_RUST_PRODUCT_CRATES
+        .iter()
+        .chain(BINDING_BACKEND_CRATES.iter())
+        .copied()
+        .collect();
+    let unclassified: Vec<_> = packages
+        .values()
+        .filter(|package| package_is_publishable(package))
+        .map(|package| package.name.as_str())
+        .filter(|package_name| !classified.contains(package_name))
+        .collect();
+    if !unclassified.is_empty() {
+        return Err(anyhow!(
+            "publishable workspace package(s) are missing publish surface classification: {}",
+            unclassified.join(", ")
+        ));
+    }
+
+    Ok(())
 }
 
 fn workspace_member_packages(metadata: &Metadata) -> HashMap<String, Package> {
@@ -6344,6 +6352,36 @@ mod tests {
         ensure_not_contains(&primary, "hl7v2-python")?;
         ensure_contains(&bindings, "hl7v2-python")?;
         ensure_contains(&all_publishable, "hl7v2-python")?;
+        Ok(())
+    }
+
+    #[test]
+    fn publish_order_rejects_unclassified_publishable_workspace_package() -> Result<()> {
+        let metadata = MetadataCommand::new().exec()?;
+        let mut packages = workspace_member_packages(&metadata);
+        let mut unclassified = packages
+            .get("hl7v2")
+            .ok_or_else(|| anyhow!("hl7v2 should be present in workspace packages"))?
+            .clone();
+        let unclassified_name = "hl7v2-unclassified-test".to_string();
+        unclassified.name = unclassified_name.clone();
+        packages.insert(unclassified_name.clone(), unclassified);
+
+        let error = match ensure_publishable_workspace_packages_are_classified(&packages) {
+            Ok(()) => {
+                return Err(anyhow!(
+                    "unclassified publishable package should fail surface classification"
+                ));
+            }
+            Err(error) => error.to_string(),
+        };
+
+        if !error
+            .contains("publishable workspace package(s) are missing publish surface classification")
+            || !error.contains(&unclassified_name)
+        {
+            return Err(anyhow!("unexpected surface classification error: {error}"));
+        }
         Ok(())
     }
 
