@@ -4,6 +4,8 @@
 [![Codecov](https://codecov.io/gh/EffortlessMetrics/hl7v2-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/EffortlessMetrics/hl7v2-rs)
 [![MSRV](https://img.shields.io/badge/MSRV-1.95-blue.svg)](https://doc.rust-lang.org/cargo/reference/manifest.html#the-rust-version-field)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
+[![ripr](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/EffortlessMetrics/hl7v2-rs/main/badges/ripr.json)](docs/VERIFICATION.md)
+[![ripr+](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/EffortlessMetrics/hl7v2-rs/main/badges/ripr-plus.json)](docs/VERIFICATION.md)
 
 Modern Rust HL7v2 Processor
 

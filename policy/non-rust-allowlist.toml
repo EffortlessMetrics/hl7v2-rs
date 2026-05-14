@@ -117,6 +117,14 @@ reason = "Configuration for the advisory ripr static mutation-exposure lane."
 covered_by = [".github/workflows/ripr.yml", "cargo run -p xtask -- check-file-policy"]
 
 [[allow]]
+glob = "badges/*.json"
+kind = "generated_badge_endpoint"
+owner = "release/ci"
+surface = "verification"
+classification = "generated"
+reason = "Generated Shields endpoint JSON exposes repo-scoped verification badge state without copying PR evidence."
+
+[[allow]]
 path = "tokmd.toml"
 kind = "repo_config"
 owner = "EffortlessMetrics"

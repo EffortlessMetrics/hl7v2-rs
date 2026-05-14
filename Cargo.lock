@@ -5563,6 +5563,7 @@ dependencies = [
  "anyhow",
  "cargo_metadata",
  "clap",
+ "serde_json",
  "serde_yaml_ng",
  "toml",
 ]

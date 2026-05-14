@@ -1,5 +1,7 @@
 //! Workspace task runner for repository automation and release checks.
 
+mod verification_surface;
+
 use anyhow::{Result, anyhow};
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, Package};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -129,6 +131,75 @@ enum Commands {
     CheckCiLaneWhitelist,
     /// Validate checked-in evidence fixtures against their JSON schemas
     EvidenceSchemaCheck,
+    /// Generate repo-scoped public badge endpoint JSON
+    Badges {
+        /// Verify committed badges are current.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Generate the diff-scoped RIPR PR evidence packet
+    RiprPr {
+        /// Workspace root passed to ripr.
+        #[arg(long, default_value = ".")]
+        root: String,
+        /// Base revision for the PR diff.
+        #[arg(long, default_value = "origin/main")]
+        base: String,
+        /// Head revision for the PR diff.
+        #[arg(long, default_value = "HEAD")]
+        head: String,
+        /// Verify generated artifacts already exist and are contract-valid.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Generate bounded RIPR review guidance without posting to GitHub
+    RiprReviewComments {
+        /// Workspace root passed to ripr.
+        #[arg(long, default_value = ".")]
+        root: String,
+        /// Base revision for the PR diff.
+        #[arg(long, default_value = "origin/main")]
+        base: String,
+        /// Head revision for the PR diff.
+        #[arg(long, default_value = "HEAD")]
+        head: String,
+        /// Verify generated artifacts already exist and are contract-valid.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Generate a stable Markdown summary from PR evidence artifacts
+    RiprPrSummary {
+        /// Verify the summary is current.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Emit non-blocking GitHub warning annotations from review comments
+    RiprAnnotations {
+        /// Review comments JSON input.
+        #[arg(long, default_value = "target/ripr/review/comments.json")]
+        comments: String,
+        /// Annotation command output path.
+        #[arg(long, default_value = "target/ripr/review/annotations.txt")]
+        out: String,
+        /// Verify generated annotations are current.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Generate impacted evidence and mutation routing receipt
+    ImpactedEvidence {
+        /// PR evidence JSON input.
+        #[arg(long, default_value = "target/ripr/pr/repo-exposure.json")]
+        pr_evidence: String,
+        /// Add one PR label.
+        #[arg(long)]
+        label: Vec<String>,
+        /// Add comma, semicolon, or newline separated PR labels.
+        #[arg(long)]
+        labels: Option<String>,
+        /// Verify generated impacted evidence is current.
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -190,6 +261,33 @@ fn main() -> Result<()> {
         Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
         Commands::EvidenceSchemaCheck => evidence_schema_check()?,
+        Commands::Badges { check } => verification_surface::badges(check)?,
+        Commands::RiprPr {
+            root,
+            base,
+            head,
+            check,
+        } => verification_surface::ripr_pr(&root, &base, &head, check)?,
+        Commands::RiprReviewComments {
+            root,
+            base,
+            head,
+            check,
+        } => verification_surface::ripr_review_comments(&root, &base, &head, check)?,
+        Commands::RiprPrSummary { check } => verification_surface::ripr_pr_summary(check)?,
+        Commands::RiprAnnotations {
+            comments,
+            out,
+            check,
+        } => verification_surface::ripr_annotations(&comments, &out, check)?,
+        Commands::ImpactedEvidence {
+            pr_evidence,
+            label,
+            labels,
+            check,
+        } => {
+            verification_surface::impacted_evidence(&pr_evidence, &label, labels.as_deref(), check)?
+        }
     }
 
     Ok(())
