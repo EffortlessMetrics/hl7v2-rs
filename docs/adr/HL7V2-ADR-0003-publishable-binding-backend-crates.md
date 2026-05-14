@@ -5,7 +5,8 @@ Date: 2026-05-13
 Proposal: [HL7V2-PROP-0001](../proposals/HL7V2-PROP-0001-source-of-truth-and-release-governance.md)
 Specs:
 [HL7V2-SPEC-0001](../specs/HL7V2-SPEC-0001-source-of-truth-stack.md),
-[HL7V2-SPEC-0002](../specs/HL7V2-SPEC-0002-python-distribution-proof.md)
+[HL7V2-SPEC-0002](../specs/HL7V2-SPEC-0002-python-distribution-proof.md),
+[HL7V2-SPEC-0004](../specs/HL7V2-SPEC-0004-binding-backend-release-proof.md)
 Amends:
 [HL7V2-ADR-0002](HL7V2-ADR-0002-python-is-separate-distribution-lane.md)
 

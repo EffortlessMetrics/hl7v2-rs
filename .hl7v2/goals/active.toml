@@ -46,6 +46,7 @@ canonical_sources = [
   "docs/development/RUST_1_95_ROLLOUT.md",
   "docs/release/1.5.0-readiness.md",
   "docs/releases/v1.5.0-rust-1.95-quality-ratchet.md",
+  "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/ci/ripr.md",
   "docs/ci/test-evidence-lanes.md",
   "policy/clippy-lints.toml",
@@ -160,6 +161,17 @@ acceptance = [
   "Binding backend graph reports hl7v2-python separately.",
   "hl7v2-python remains non-published unless a later binding-backend release PR changes it.",
   "No crates.io, TestPyPI, or PyPI publish claim is made.",
+]
+
+[[work_item]]
+id = "binding-backend-release-proof-spec"
+status = "done"
+goal = "Define the proof contract for publishing binding backend crates without promoting them as the primary Rust API."
+spec = "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md"
+acceptance = [
+  "Binding backend crates require package review, crates.io dry-run, language install/import smoke, and release receipts.",
+  "A crates.io backend publish does not prove PyPI or npm release success.",
+  "A PyPI or npm release does not require users to depend on the backend crate directly.",
 ]
 
 [[work_item]]
