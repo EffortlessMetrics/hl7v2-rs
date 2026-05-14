@@ -228,6 +228,25 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "v1-5-0-release-graph-decision"
+status = "done"
+goal = "Select the v1.5.0 crates.io graph after primary and binding backend dry-runs passed."
+decision = "primary plus binding backend"
+receipt = "docs/audits/v1.5.0-release-graph-decision-2026-05-14.md"
+publish_order = [
+  "hl7v2",
+  "hl7v2-python",
+  "hl7v2-server",
+  "hl7v2-cli",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
 id = "binding-backend-package-boundary-closeout"
 status = "done"
 goal = "Record the #604-#608 package-boundary closeout without claiming crates.io, TestPyPI, or PyPI publication."
@@ -273,4 +292,10 @@ acceptance = [
 [[work_item]]
 id = "v1-5-0-publish"
 status = "pending-explicit-approval"
-goal = "Publish the primary Rust product graph only after readiness and dry-run receipts are clean and explicit release approval is given."
+goal = "Publish the selected v1.5.0 crates.io graph only after readiness and dry-run receipts are clean and explicit release approval is given."
+publish_order = [
+  "hl7v2",
+  "hl7v2-python",
+  "hl7v2-server",
+  "hl7v2-cli",
+]
