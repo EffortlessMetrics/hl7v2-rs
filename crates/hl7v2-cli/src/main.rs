@@ -659,7 +659,7 @@ enum CorpusCommands {
 enum ServerMode {
     /// HTTP server with REST API
     Http,
-    /// gRPC server (requires grpc feature)
+    /// gRPC server
     Grpc,
 }
 
