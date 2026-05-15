@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Refreshed the v1.5.0 release-readiness receipt after the advisory RIPR
   calibration audit and gRPC profile lint parity landed on `main`.
+- Refreshed the v1.5.0 release-readiness receipt after gRPC profile explain
+  parity landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after the gRPC inline corpus
   fingerprint and diff parity work landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after the nightly property
