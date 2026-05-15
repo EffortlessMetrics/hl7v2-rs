@@ -343,7 +343,7 @@ pub fn is_timestamp(value: &str) -> bool {
 /// Check if value is numeric
 pub fn is_numeric(value: &str) -> bool {
     // Can be integer or decimal
-    value.parse::<f64>().is_ok()
+    value.parse::<f64>().is_ok_and(f64::is_finite)
 }
 
 /// Check if value is a sequence ID (positive integer)
