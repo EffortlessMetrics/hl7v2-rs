@@ -236,6 +236,31 @@ impl Hl7Service for Hl7ServiceImpl {
         }))
     }
 
+    async fn profile_test(
+        &self,
+        request: Request<ProfileTestRequest>,
+    ) -> Result<Response<ProfileTestResponse>, Status> {
+        let req = request.into_inner();
+        let report_schema_version =
+            grpc_requested_schema_version(req.report_schema_version, "profile test report")
+                .map_err(Status::invalid_argument)?;
+
+        let profile = hl7v2::load_profile_checked(&req.profile)
+            .map_err(|_error| Status::invalid_argument(crate::PROFILE_LOAD_SAFE_MESSAGE))?;
+        let report = grpc_profile_test_report_from_inline_fixtures(&req.fixtures, &profile)
+            .map_err(Status::invalid_argument)?;
+        let profile_test_report_v2 = (report_schema_version == 2).then(|| {
+            proto_profile_test_report_v2_from_rust(
+                &report.to_v2("hl7v2-server-grpc", env!("CARGO_PKG_VERSION")),
+            )
+        });
+
+        Ok(Response::new(ProfileTestResponse {
+            profile_test_report: Some(proto_profile_test_report_from_rust(&report)),
+            profile_test_report_v2,
+        }))
+    }
+
     async fn validate_redacted(
         &self,
         request: Request<ValidateRedactedRequest>,
@@ -1417,6 +1442,293 @@ fn proto_profile_explain_lint_summary_from_rust(
             .iter()
             .map(proto_profile_lint_issue_from_rust)
             .collect(),
+    }
+}
+
+fn grpc_profile_test_report_from_inline_fixtures(
+    fixtures: &[ProfileTestFixture],
+    profile: &hl7v2::Profile,
+) -> Result<hl7v2::ProfileTestReport, String> {
+    if fixtures.is_empty() {
+        return Err("fixtures must contain at least one fixture".to_string());
+    }
+
+    let cases = fixtures
+        .iter()
+        .enumerate()
+        .map(|(index, fixture)| grpc_profile_test_case_from_inline_fixture(index, fixture, profile))
+        .collect::<Result<Vec<_>, _>>()?;
+    let passed_count = cases.iter().filter(|case| case.passed).count();
+    let case_count = cases.len();
+    let failed_count = case_count.saturating_sub(passed_count);
+
+    Ok(hl7v2::ProfileTestReport {
+        profile: "<inline-profile>".to_string(),
+        fixtures: "<inline-fixtures>".to_string(),
+        valid: failed_count == 0,
+        case_count,
+        passed_count,
+        failed_count,
+        cases,
+    })
+}
+
+fn grpc_profile_test_case_from_inline_fixture(
+    index: usize,
+    fixture: &ProfileTestFixture,
+    profile: &hl7v2::Profile,
+) -> Result<hl7v2::ProfileTestCaseReport, String> {
+    let name = grpc_profile_test_fixture_label(index, fixture);
+    let expectation = grpc_profile_test_fixture_expectation(fixture.expectation)?;
+    let message_bytes = if fixture.mllp_framed {
+        match hl7v2::unwrap_mllp(&fixture.message) {
+            Ok(message) => message,
+            Err(err) => {
+                return Ok(hl7v2::ProfileTestCaseReport {
+                    name: name.clone(),
+                    path: name,
+                    expectation,
+                    passed: false,
+                    message: format!("fixture did not unwrap as MLLP: {err}"),
+                    validation_report: None,
+                    expected_report: None,
+                });
+            }
+        }
+    } else {
+        fixture.message.as_slice()
+    };
+
+    let message = match rust_parse(message_bytes) {
+        Ok(message) => message,
+        Err(err) => {
+            return Ok(hl7v2::ProfileTestCaseReport {
+                name: name.clone(),
+                path: name,
+                expectation,
+                passed: false,
+                message: format!("fixture did not parse as HL7: {err}"),
+                validation_report: None,
+                expected_report: None,
+            });
+        }
+    };
+
+    let issues = hl7v2::validate(&message, profile);
+    let validation_report = hl7v2::ValidationReport::from_issues(
+        &message,
+        Some("<inline-profile>".to_string()),
+        issues,
+    );
+    let expected_valid = expectation == hl7v2::ProfileFixtureExpectation::Valid;
+    let mut passed = validation_report.valid == expected_valid;
+    let mut case_message = if passed {
+        format!(
+            "expected {} and report was {}",
+            expectation.as_str(),
+            if validation_report.valid {
+                "valid"
+            } else {
+                "invalid"
+            }
+        )
+    } else {
+        format!(
+            "expected {} but report was {}",
+            expectation.as_str(),
+            if validation_report.valid {
+                "valid"
+            } else {
+                "invalid"
+            }
+        )
+    };
+
+    let expected_report = fixture.expected_report_json.as_deref().map(|expected| {
+        grpc_compare_inline_expected_report_json(&name, expected, &validation_report)
+    });
+    if let Some(comparison) = &expected_report {
+        if comparison.matched {
+            case_message.push_str("; expected report matched");
+        } else {
+            passed = false;
+            let detail = comparison
+                .message
+                .as_deref()
+                .unwrap_or("expected report did not match");
+            case_message.push_str(&format!("; {detail}"));
+        }
+    }
+
+    Ok(hl7v2::ProfileTestCaseReport {
+        name: name.clone(),
+        path: name,
+        expectation,
+        passed,
+        message: case_message,
+        validation_report: Some(validation_report),
+        expected_report,
+    })
+}
+
+fn grpc_profile_test_fixture_label(index: usize, fixture: &ProfileTestFixture) -> String {
+    let trimmed = fixture.name.trim();
+    if trimmed.is_empty() {
+        format!("fixture-{}", index.saturating_add(1))
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn grpc_profile_test_fixture_expectation(
+    value: i32,
+) -> Result<hl7v2::ProfileFixtureExpectation, String> {
+    match profile_test_fixture::Expectation::try_from(value)
+        .unwrap_or(profile_test_fixture::Expectation::Unspecified)
+    {
+        profile_test_fixture::Expectation::Valid => Ok(hl7v2::ProfileFixtureExpectation::Valid),
+        profile_test_fixture::Expectation::Invalid => Ok(hl7v2::ProfileFixtureExpectation::Invalid),
+        profile_test_fixture::Expectation::Unspecified => {
+            Err("fixture expectation must be valid or invalid".to_string())
+        }
+    }
+}
+
+fn grpc_compare_inline_expected_report_json(
+    fixture_name: &str,
+    expected_json: &str,
+    actual_report: &hl7v2::ValidationReport,
+) -> hl7v2::ExpectedReportComparison {
+    let path = format!("{fixture_name}.expected-report.json");
+    let expected = match serde_json::from_str::<serde_json::Value>(expected_json) {
+        Ok(expected) => expected,
+        Err(err) => {
+            return hl7v2::ExpectedReportComparison {
+                path,
+                matched: false,
+                message: Some(format!("expected report is not valid JSON: {err}")),
+            };
+        }
+    };
+    let actual = match serde_json::to_value(actual_report) {
+        Ok(actual) => actual,
+        Err(err) => {
+            return hl7v2::ExpectedReportComparison {
+                path,
+                matched: false,
+                message: Some(format!("actual report could not be serialized: {err}")),
+            };
+        }
+    };
+
+    match grpc_json_subset_matches(&expected, &actual, "$") {
+        Ok(()) => hl7v2::ExpectedReportComparison {
+            path,
+            matched: true,
+            message: None,
+        },
+        Err(message) => hl7v2::ExpectedReportComparison {
+            path,
+            matched: false,
+            message: Some(message),
+        },
+    }
+}
+
+fn grpc_json_subset_matches(
+    expected: &serde_json::Value,
+    actual: &serde_json::Value,
+    path: &str,
+) -> Result<(), String> {
+    match (expected, actual) {
+        (serde_json::Value::Object(expected), serde_json::Value::Object(actual)) => {
+            for (key, expected_value) in expected {
+                let actual_value = actual
+                    .get(key)
+                    .ok_or_else(|| format!("{path}.{key} was missing from actual report"))?;
+                grpc_json_subset_matches(expected_value, actual_value, &format!("{path}.{key}"))?;
+            }
+            Ok(())
+        }
+        (serde_json::Value::Array(expected), serde_json::Value::Array(actual)) => {
+            for (index, expected_value) in expected.iter().enumerate() {
+                let matched = actual.iter().any(|actual_value| {
+                    grpc_json_subset_matches(
+                        expected_value,
+                        actual_value,
+                        &format!("{path}[{index}]"),
+                    )
+                    .is_ok()
+                });
+                if !matched {
+                    return Err(format!(
+                        "{path}[{index}] did not match any actual report item"
+                    ));
+                }
+            }
+            Ok(())
+        }
+        _ if expected == actual => Ok(()),
+        _ => Err(format!(
+            "{path} expected {expected} but actual report had {actual}"
+        )),
+    }
+}
+
+fn proto_profile_test_report_from_rust(report: &hl7v2::ProfileTestReport) -> ProfileTestReport {
+    ProfileTestReport {
+        profile: report.profile.clone(),
+        fixtures: report.fixtures.clone(),
+        valid: report.valid,
+        case_count: usize_to_u32(report.case_count),
+        passed_count: usize_to_u32(report.passed_count),
+        failed_count: usize_to_u32(report.failed_count),
+        cases: report
+            .cases
+            .iter()
+            .map(proto_profile_test_case_report_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_profile_test_report_v2_from_rust(
+    report: &hl7v2::ProfileTestReportV2,
+) -> ProfileTestReportV2 {
+    ProfileTestReportV2 {
+        schema_version: report.schema_version.clone(),
+        tool_name: report.tool_name.clone(),
+        tool_version: report.tool_version.clone(),
+        report: Some(proto_profile_test_report_from_rust(&report.report)),
+    }
+}
+
+fn proto_profile_test_case_report_from_rust(
+    case: &hl7v2::ProfileTestCaseReport,
+) -> ProfileTestCaseReport {
+    ProfileTestCaseReport {
+        name: case.name.clone(),
+        path: case.path.clone(),
+        expectation: case.expectation.as_str().to_string(),
+        passed: case.passed,
+        message: case.message.clone(),
+        validation_report: case
+            .validation_report
+            .as_ref()
+            .map(proto_validation_report_from_rust),
+        expected_report: case
+            .expected_report
+            .as_ref()
+            .map(proto_expected_report_comparison_from_rust),
+    }
+}
+
+fn proto_expected_report_comparison_from_rust(
+    comparison: &hl7v2::ExpectedReportComparison,
+) -> ExpectedReportComparison {
+    ExpectedReportComparison {
+        path: comparison.path.clone(),
+        matched: comparison.matched,
+        message: comparison.message.clone(),
     }
 }
 

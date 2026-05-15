@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deltas and opt-in v2 provenance.
 - Added gRPC profile explain parity with shared profile explain reports and
   opt-in v2 provenance.
+- Added gRPC profile fixture-test parity with shared profile test reports,
+  inline fixture inputs, expected-report subset comparisons, and opt-in v2
+  provenance.
 - Added gRPC profile lint parity with shared profile lint reports and opt-in
   v2 provenance.
 

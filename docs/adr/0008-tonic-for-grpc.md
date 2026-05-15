@@ -34,13 +34,14 @@ The current `HL7Service` protobuf contract includes:
 3. `Validate` -- Validate a message against a profile.
 4. `ProfileLint` -- Lint an inline profile and return profile lint evidence.
 5. `ProfileExplain` -- Explain an inline profile and return profile evidence.
-6. `ValidateRedacted` -- Redact and validate with opt-in evidence fields.
-7. `CorpusSummarize` -- Summarize inline corpus messages.
-8. `CorpusFingerprint` -- Fingerprint inline corpus messages.
-9. `CorpusDiff` -- Diff inline before/after corpus messages.
-10. `GenerateAck` -- Generate an ACK/NAK response.
-11. `Normalize` -- Normalize message delimiters and structure.
-12. `HealthCheck` -- Return service health status.
+6. `ProfileTest` -- Test inline fixtures against an inline profile and return profile evidence.
+7. `ValidateRedacted` -- Redact and validate with opt-in evidence fields.
+8. `CorpusSummarize` -- Summarize inline corpus messages.
+9. `CorpusFingerprint` -- Fingerprint inline corpus messages.
+10. `CorpusDiff` -- Diff inline before/after corpus messages.
+11. `GenerateAck` -- Generate an ACK/NAK response.
+12. `Normalize` -- Normalize message delimiters and structure.
+13. `HealthCheck` -- Return service health status.
 
 The gRPC surface remains intentionally narrower than the full HTTP/CLI/Python
 evidence sidecar. Profile test, bundle, replay, and quarantine behavior
@@ -127,8 +128,8 @@ Tonic gives the repo a production-quality Rust path now.
 - **Server wiring**: `crates/hl7v2-server/src/server.rs` exposes `serve_grpc`
   and configures the generated service.
 - **Scope**: gRPC currently covers parse, stream parse, validate, profile lint,
-  profile explain, validate-redacted, corpus summarize, corpus fingerprint,
-  corpus diff, ACK generation, normalize, and health.
+  profile explain, profile fixture test, validate-redacted, corpus summarize,
+  corpus fingerprint, corpus diff, ACK generation, normalize, and health.
 
 ## Remaining Work
 
