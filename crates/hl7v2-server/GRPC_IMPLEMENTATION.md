@@ -2,7 +2,7 @@
 
 This crate implements the `HL7Service` gRPC API for HL7 v2 parsing,
 validation, normalization, ACK generation, streaming parse, and redacted
-validation and corpus evidence workflows.
+validation and inline corpus evidence workflows.
 
 ## Contract Source
 
@@ -31,6 +31,7 @@ copies stay synchronized.
 | `Validate` | Implemented | Validates raw or MLLP-framed HL7 against an inline profile. Preserves legacy `valid`, `errors`, `warnings`, and `summary` fields while also returning `validation_report`; `report_schema_version = 2` adds `validation_report_v2`. |
 | `ValidateRedacted` | Implemented | Applies an inline safe-analysis redaction policy before validation. Always returns v1 `validation_report` and `redaction_receipt`, can include v2 validation and redaction receipt artifacts, and includes `redacted_hl7` only when requested. |
 | `CorpusSummarize` | Implemented | Summarizes caller-supplied inline messages only. The RPC does not read filesystem paths from requests; `summary_schema_version = 2` adds the v2 corpus summary provenance shape. |
+| `CorpusFingerprint` | Implemented | Fingerprints caller-supplied inline messages only. The RPC does not read filesystem paths from requests; optional inline profiles add validation issue-code counts; `fingerprint_schema_version = 2` adds the v2 corpus fingerprint provenance shape. |
 | `GenerateAck` | Implemented | Generates ACK messages using the canonical `hl7v2` ACK facade. |
 | `Normalize` | Implemented | Normalizes delimiter output and can optionally MLLP-frame the response. |
 | `HealthCheck` | Implemented | Reports serving status and crate version. |
@@ -45,11 +46,12 @@ ValidateRequest.report_schema_version = 2
 ValidateRedactedRequest.report_schema_version = 2
 ValidateRedactedRequest.redaction_receipt_schema_version = 2
 CorpusSummarizeRequest.summary_schema_version = 2
+CorpusFingerprintRequest.fingerprint_schema_version = 2
 ```
 
-For `Validate`, `ValidateRedacted`, and `CorpusSummarize`, schema versions `0`
-and `1` use the default v1 shape, `2` returns the requested v2 artifact, and
-other values return
+For `Validate`, `ValidateRedacted`, `CorpusSummarize`, and
+`CorpusFingerprint`, schema versions `0` and `1` use the default v1 shape, `2`
+returns the requested v2 artifact, and other values return
 `InvalidArgument`.
 
 `ValidateRedacted` fails closed when the redaction policy is invalid or misses a

@@ -23,6 +23,9 @@ service HL7Service {
   // Summarize an inline corpus without reading caller-supplied filesystem paths
   rpc CorpusSummarize(CorpusSummarizeRequest) returns (CorpusSummarizeResponse);
 
+  // Fingerprint an inline corpus without reading caller-supplied filesystem paths
+  rpc CorpusFingerprint(CorpusFingerprintRequest) returns (CorpusFingerprintResponse);
+
   // Generate an acknowledgment (ACK) message
   rpc GenerateAck(GenerateAckRequest) returns (GenerateAckResponse);
 
@@ -363,6 +366,31 @@ message CorpusSummarizeResponse {
   CorpusSummaryV2 summary_v2 = 2;
 }
 
+// Inline corpus fingerprint request.
+message CorpusFingerprintRequest {
+  // Inline HL7 messages to fingerprint. The service does not read filesystem
+  // paths from this request.
+  repeated CorpusMessageInput messages = 1;
+
+  // Optional inline HL7v2 profile YAML content for validation issue-code counts.
+  optional string profile = 2;
+
+  // Optional corpus fingerprint evidence schema version.
+  //
+  // Omitted or 1 preserves the default fingerprint fields. 2 includes the
+  // fingerprint_v2 field with embedded provenance.
+  int32 fingerprint_schema_version = 3;
+}
+
+// Inline corpus fingerprint response.
+message CorpusFingerprintResponse {
+  // Stable corpus fingerprint fields shared with CLI, REST, Rust, and Python.
+  CorpusFingerprint fingerprint = 1;
+
+  // Opt-in corpus fingerprint with embedded evidence provenance.
+  CorpusFingerprintV2 fingerprint_v2 = 2;
+}
+
 // Stable corpus summary artifact.
 message CorpusSummary {
   // Caller-independent corpus root label.
@@ -430,6 +458,150 @@ message CorpusSummaryV2 {
 
   // Per-message parse failures.
   repeated CorpusParseFailure parse_errors = 12;
+}
+
+// Stable corpus fingerprint artifact.
+message CorpusFingerprint {
+  // Corpus fingerprint contract version.
+  string fingerprint_version = 1;
+
+  // Producer package version.
+  string tool_version = 2;
+
+  // Caller-independent corpus root label.
+  string root = 3;
+
+  // Optional profile metadata used for validation issue-code counts.
+  CorpusFingerprintProfile profile = 4;
+
+  // Number of inline messages inspected.
+  uint32 file_count = 5;
+
+  // Number of messages parsed successfully.
+  uint32 message_count = 6;
+
+  // Number of messages that could not be parsed as HL7 v2.
+  uint32 parse_error_count = 7;
+
+  // Message type counts from parsed MSH-9 values.
+  repeated CorpusCount message_type_counts = 8;
+
+  // Segment ID counts across parsed messages.
+  repeated CorpusCount segment_counts = 9;
+
+  // Field presence counts across parsed messages.
+  repeated CorpusFieldPresence field_presence = 10;
+
+  // Field cardinality observations across parsed messages.
+  repeated CorpusFieldCardinality field_cardinality = 11;
+
+  // Value shape observations across parsed messages.
+  repeated CorpusValueShapeStats value_shape_stats = 12;
+
+  // Validation issue-code counts when a profile is supplied.
+  repeated CorpusCount validation_issue_code_counts = 13;
+}
+
+// Corpus fingerprint v2 artifact with embedded evidence provenance.
+message CorpusFingerprintV2 {
+  // Evidence artifact schema version.
+  string schema_version = 1;
+
+  // Producer surface that generated this fingerprint.
+  string tool_name = 2;
+
+  // Corpus fingerprint contract version.
+  string fingerprint_version = 3;
+
+  // Producer package version.
+  string tool_version = 4;
+
+  // Caller-independent corpus root label.
+  string root = 5;
+
+  // Optional profile metadata used for validation issue-code counts.
+  CorpusFingerprintProfile profile = 6;
+
+  // Number of inline messages inspected.
+  uint32 file_count = 7;
+
+  // Number of messages parsed successfully.
+  uint32 message_count = 8;
+
+  // Number of messages that could not be parsed as HL7 v2.
+  uint32 parse_error_count = 9;
+
+  // Message type counts from parsed MSH-9 values.
+  repeated CorpusCount message_type_counts = 10;
+
+  // Segment ID counts across parsed messages.
+  repeated CorpusCount segment_counts = 11;
+
+  // Field presence counts across parsed messages.
+  repeated CorpusFieldPresence field_presence = 12;
+
+  // Field cardinality observations across parsed messages.
+  repeated CorpusFieldCardinality field_cardinality = 13;
+
+  // Value shape observations across parsed messages.
+  repeated CorpusValueShapeStats value_shape_stats = 14;
+
+  // Validation issue-code counts when a profile is supplied.
+  repeated CorpusCount validation_issue_code_counts = 15;
+}
+
+// Profile metadata attached to a corpus fingerprint.
+message CorpusFingerprintProfile {
+  // Profile source label. For inline gRPC profiles this is "<inline-profile>".
+  string path = 1;
+
+  // SHA-256 hash of the profile content.
+  string sha256 = 2;
+
+  // Loaded profile version.
+  string version = 3;
+
+  // Loaded profile message structure.
+  string message_structure = 4;
+}
+
+// Field cardinality observed across parsed corpus messages.
+message CorpusFieldCardinality {
+  // HL7 path, such as PID.3.
+  string path = 1;
+
+  // Minimum occurrences observed in any parsed message.
+  uint32 min_per_message = 2;
+
+  // Maximum occurrences observed in any parsed message.
+  uint32 max_per_message = 3;
+
+  // Total occurrences across all parsed messages.
+  uint32 total_occurrences = 4;
+
+  // Number of parsed messages where this path was present.
+  uint32 message_count = 5;
+}
+
+// Value shape counts for one HL7 field path.
+message CorpusValueShapeStats {
+  // HL7 path, such as OBX.5.
+  string path = 1;
+
+  // Count of coded/component values.
+  uint32 coded_count = 2;
+
+  // Count of timestamp-like values.
+  uint32 timestamp_count = 3;
+
+  // Count of numeric values.
+  uint32 numeric_count = 4;
+
+  // Count of explicit HL7 null values.
+  uint32 null_count = 5;
+
+  // Count of other non-empty text values.
+  uint32 text_count = 6;
 }
 
 // Count for a corpus dimension.

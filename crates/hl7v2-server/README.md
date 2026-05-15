@@ -22,12 +22,13 @@ Useful release-candidate workflows include:
 - `/metrics` for Prometheus metrics.
 
 The gRPC service implements `Parse`, `ParseStream`, `Validate`,
-`ValidateRedacted`, `CorpusSummarize`, `GenerateAck`, `Normalize`, and
-`HealthCheck`.
+`ValidateRedacted`, `CorpusSummarize`, `CorpusFingerprint`, `GenerateAck`,
+`Normalize`, and `HealthCheck`.
 `Validate` and `ValidateRedacted` return the shared validation report fields;
 `ValidateRedacted` also returns a redaction receipt and keeps the redacted HL7
-payload opt-in. `CorpusSummarize` accepts inline messages only and can return
-the v2 corpus summary provenance shape with `summary_schema_version = 2`. See
+payload opt-in. `CorpusSummarize` and `CorpusFingerprint` accept inline
+messages only and can return v2 corpus provenance shapes with
+`summary_schema_version = 2` or `fingerprint_schema_version = 2`. See
 [GRPC_IMPLEMENTATION.md](GRPC_IMPLEMENTATION.md) for the current protobuf and
 test contract notes.
 

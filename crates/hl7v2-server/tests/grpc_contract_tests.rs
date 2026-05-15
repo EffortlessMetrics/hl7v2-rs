@@ -14,10 +14,10 @@ mod tests {
     use hl7v2_server::grpc::proto::hl7_service_client::Hl7ServiceClient;
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
     use hl7v2_server::grpc::proto::{
-        CorpusMessageInput, CorpusSummarizeRequest, GenerateAckRequest, HealthCheckRequest,
-        NormalizeOptions, NormalizeRequest, ParseRequest, ParseStreamRequest, ParseStreamResponse,
-        ValidateRedactedRequest, ValidateRequest, generate_ack_request, health_check_response,
-        validation_issue,
+        CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest, GenerateAckRequest,
+        HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest, ParseStreamRequest,
+        ParseStreamResponse, ValidateRedactedRequest, ValidateRequest, generate_ack_request,
+        health_check_response, validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
@@ -756,6 +756,142 @@ reason = "hash patient identifier"
             err.message(),
             "unsupported corpus summary schema version 3; expected 1 or 2"
         );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_fingerprint_reports_shape_profile_counts_and_v2_provenance() {
+        let service = service();
+        let profile = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+constraints:
+  - path: "PID.99"
+    required: true
+"#;
+        let request = Request::new(CorpusFingerprintRequest {
+            messages: vec![
+                CorpusMessageInput {
+                    id: Some("adt-1".to_string()),
+                    message: SAMPLE_MSG.to_vec(),
+                },
+                CorpusMessageInput {
+                    id: Some("bad-1".to_string()),
+                    message: b"not an HL7 message".to_vec(),
+                },
+            ],
+            profile: Some(profile.to_string()),
+            fingerprint_schema_version: 2,
+        });
+
+        let response = service
+            .corpus_fingerprint(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+        let response_debug = format!("{inner:?}");
+
+        let fingerprint = inner.fingerprint.expect("fingerprint should exist");
+        assert_eq!(fingerprint.fingerprint_version, "1");
+        assert_eq!(fingerprint.tool_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(fingerprint.root, "<inline-corpus>");
+        assert_eq!(fingerprint.file_count, 2);
+        assert_eq!(fingerprint.message_count, 1);
+        assert_eq!(fingerprint.parse_error_count, 1);
+        assert!(
+            fingerprint
+                .message_type_counts
+                .iter()
+                .any(|count| count.value == "ADT^A01" && count.count == 1)
+        );
+        assert!(
+            fingerprint
+                .field_cardinality
+                .iter()
+                .any(|field| field.path == "PID.3"
+                    && field.message_count == 1
+                    && field.total_occurrences == 1)
+        );
+        assert!(
+            fingerprint
+                .validation_issue_code_counts
+                .iter()
+                .any(|count| count.value == "missing_required_field" && count.count == 1)
+        );
+        let profile = fingerprint
+            .profile
+            .as_ref()
+            .expect("profile metadata should exist");
+        assert_eq!(profile.path, "<inline-profile>");
+        assert_eq!(profile.message_structure, "ADT_A01");
+        assert_eq!(profile.version, "2.5");
+        assert_eq!(profile.sha256.len(), 64);
+
+        let fingerprint_v2 = inner.fingerprint_v2.expect("fingerprint v2 should exist");
+        assert_eq!(fingerprint_v2.schema_version, "2");
+        assert_eq!(fingerprint_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(
+            fingerprint_v2.fingerprint_version,
+            fingerprint.fingerprint_version
+        );
+        assert_eq!(fingerprint_v2.tool_version, fingerprint.tool_version);
+        assert_eq!(fingerprint_v2.file_count, fingerprint.file_count);
+        assert_no_phi(&response_debug);
+        assert!(!response_debug.contains("not an HL7 message"));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_fingerprint_rejects_unsupported_schema_versions() {
+        let service = service();
+        let request = Request::new(CorpusFingerprintRequest {
+            messages: vec![CorpusMessageInput {
+                id: Some("adt-1".to_string()),
+                message: SAMPLE_MSG.to_vec(),
+            }],
+            profile: None,
+            fingerprint_schema_version: 3,
+        });
+
+        let err = service
+            .corpus_fingerprint(request)
+            .await
+            .expect_err("unsupported schema version should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported corpus fingerprint schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_fingerprint_invalid_profile_does_not_echo_profile_text() {
+        let service = service();
+        let sensitive_profile =
+            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+        let request = Request::new(CorpusFingerprintRequest {
+            messages: vec![CorpusMessageInput {
+                id: Some("adt-1".to_string()),
+                message: SAMPLE_MSG.to_vec(),
+            }],
+            profile: Some(sensitive_profile.to_string()),
+            fingerprint_schema_version: 0,
+        });
+
+        let err = service
+            .corpus_fingerprint(request)
+            .await
+            .expect_err("malformed profile should fail the RPC");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "profile could not be loaded; run profile lint for details"
+        );
+        assert!(!err.message().contains("Jane Secret"));
+        assert!(!err.message().contains("MRN-SECRET-123"));
+        assert!(!err.message().contains(sensitive_profile));
     }
 
     #[tokio::test]

@@ -4,15 +4,15 @@
 
 **Date**: 2025-11-19
 
-**Updated**: 2026-05-14
+**Updated**: 2026-05-15
 
 **Deciders**: Architecture team
 
 **Technical Story**: Healthcare integration engines and high-throughput clinical
 systems often prefer gRPC for typed, binary message exchange. The gRPC surface
 complements the Axum HTTP API and gives integration operators a typed transport
-for parser, validation, redaction, corpus summary, ACK, normalization, and health
-checks.
+for parser, validation, redaction, inline corpus evidence, ACK, normalization,
+and health checks.
 
 ## Context
 
@@ -34,14 +34,17 @@ The current `HL7Service` protobuf contract includes:
 3. `Validate` -- Validate a message against a profile.
 4. `ValidateRedacted` -- Redact and validate with opt-in evidence fields.
 5. `CorpusSummarize` -- Summarize inline corpus messages.
-6. `GenerateAck` -- Generate an ACK/NAK response.
-7. `Normalize` -- Normalize message delimiters and structure.
-8. `HealthCheck` -- Return service health status.
+6. `CorpusFingerprint` -- Fingerprint inline corpus messages.
+7. `GenerateAck` -- Generate an ACK/NAK response.
+8. `Normalize` -- Normalize message delimiters and structure.
+9. `HealthCheck` -- Return service health status.
 
 The gRPC surface remains intentionally narrower than the full HTTP/CLI/Python
-evidence sidecar. Profile lint/test/explain, full corpus fingerprint and diff,
-bundle, replay, and quarantine behavior remain outside the protobuf contract
-unless a later ADR or PR promotes those operations.
+evidence sidecar. Profile lint/test/explain, corpus diff, bundle, replay, and
+quarantine behavior remain outside the protobuf contract unless a later ADR or
+PR promotes those operations. The current corpus summary and fingerprint RPCs
+cover inline caller-supplied messages only; they do not read request filesystem
+paths.
 
 ## Decision
 
@@ -122,13 +125,14 @@ Tonic gives the repo a production-quality Rust path now.
 - **Server wiring**: `crates/hl7v2-server/src/server.rs` exposes `serve_grpc`
   and configures the generated service.
 - **Scope**: gRPC currently covers parse, stream parse, validate,
-  validate-redacted, corpus summarize, ACK generation, normalize, and health.
+  validate-redacted, corpus summarize, corpus fingerprint, ACK generation,
+  normalize, and health.
 
 ## Remaining Work
 
-- Decide whether profile lint/test/explain, corpus fingerprint/diff, bundle,
-  replay, and quarantine should become protobuf RPCs or remain HTTP/CLI/Python
-  evidence surfaces.
+- Decide whether profile lint/test/explain, corpus diff, bundle, replay, and
+  quarantine should become protobuf RPCs or remain HTTP/CLI/Python evidence
+  surfaces.
 - Keep gRPC auth, rate-limit, and deployment behavior aligned with the server
   support-tier claims.
 - Add network-level integration tests with `tonic::transport::Channel` clients

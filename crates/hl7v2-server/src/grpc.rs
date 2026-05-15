@@ -13,6 +13,7 @@ use hl7v2::{
     Segment as RustSegment, parse as rust_parse,
 };
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -276,6 +277,35 @@ impl Hl7Service for Hl7ServiceImpl {
         }))
     }
 
+    async fn corpus_fingerprint(
+        &self,
+        request: Request<CorpusFingerprintRequest>,
+    ) -> Result<Response<CorpusFingerprintResponse>, Status> {
+        let req = request.into_inner();
+        let fingerprint_schema_version =
+            grpc_requested_schema_version(req.fingerprint_schema_version, "corpus fingerprint")
+                .map_err(Status::invalid_argument)?;
+        let ids =
+            validated_grpc_corpus_message_ids(&req.messages).map_err(Status::invalid_argument)?;
+        let messages = grpc_corpus_message_refs(&req.messages, &ids);
+        let mut fingerprint =
+            hl7v2::synthetic::corpus::fingerprint_corpus_messages("<inline-corpus>", &messages);
+
+        if let Some(profile_yaml) = req.profile.as_deref() {
+            attach_grpc_profile_to_fingerprint(&mut fingerprint, profile_yaml, &req.messages)
+                .map_err(Status::invalid_argument)?;
+        }
+
+        let fingerprint_v2 = (fingerprint_schema_version == 2).then(|| {
+            proto_corpus_fingerprint_v2_from_rust(&fingerprint.to_v2("hl7v2-server-grpc"))
+        });
+
+        Ok(Response::new(CorpusFingerprintResponse {
+            fingerprint: Some(proto_corpus_fingerprint_from_rust(&fingerprint)),
+            fingerprint_v2,
+        }))
+    }
+
     async fn generate_ack(
         &self,
         request: Request<GenerateAckRequest>,
@@ -468,6 +498,59 @@ fn grpc_corpus_message_refs<'a>(
         .collect()
 }
 
+fn attach_grpc_profile_to_fingerprint(
+    fingerprint: &mut hl7v2::synthetic::corpus::CorpusFingerprint,
+    profile_yaml: &str,
+    messages: &[CorpusMessageInput],
+) -> Result<hl7v2::synthetic::corpus::CorpusFingerprintProfile, &'static str> {
+    let profile = hl7v2::load_profile_checked(profile_yaml)
+        .map_err(|_error| crate::PROFILE_LOAD_SAFE_MESSAGE)?;
+    let metadata = hl7v2::synthetic::corpus::CorpusFingerprintProfile {
+        path: "<inline-profile>".to_string(),
+        sha256: compute_sha256(profile_yaml),
+        version: profile.version.clone(),
+        message_structure: profile.message_structure.clone(),
+    };
+    fingerprint.profile = Some(metadata.clone());
+    fingerprint.validation_issue_code_counts =
+        grpc_validation_issue_counts_for_loaded_profile(messages, &profile);
+    Ok(metadata)
+}
+
+fn grpc_validation_issue_counts_for_loaded_profile(
+    messages: &[CorpusMessageInput],
+    profile: &hl7v2::Profile,
+) -> Vec<hl7v2::synthetic::corpus::CorpusCount> {
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+
+    for message in messages {
+        let parsed = if hl7v2::is_mllp_framed(message.message.as_slice()) {
+            hl7v2::parse_mllp(message.message.as_slice())
+        } else {
+            hl7v2::parse(message.message.as_slice())
+        };
+        let Ok(parsed) = parsed else {
+            continue;
+        };
+
+        let issues = hl7v2::validate(&parsed, profile);
+        let report = hl7v2::ValidationReport::from_issues(
+            &parsed,
+            Some(profile.message_structure.clone()),
+            issues,
+        );
+        for issue in report.issues {
+            let count = counts.entry(issue.code).or_insert(0);
+            *count = count.saturating_add(1);
+        }
+    }
+
+    counts
+        .into_iter()
+        .map(|(value, count)| hl7v2::synthetic::corpus::CorpusCount { value, count })
+        .collect()
+}
+
 fn extract_grpc_metadata(msg: &RustMessage) -> MessageMetadata {
     MessageMetadata {
         message_type: joined_components(msg, "MSH.9").unwrap_or_else(|| "UNKNOWN".to_string()),
@@ -572,6 +655,139 @@ fn proto_corpus_parse_failure_from_rust(
     CorpusParseFailure {
         path: failure.path.clone(),
         error: failure.error.clone(),
+    }
+}
+
+fn proto_corpus_fingerprint_from_rust(
+    fingerprint: &hl7v2::synthetic::corpus::CorpusFingerprint,
+) -> CorpusFingerprint {
+    CorpusFingerprint {
+        fingerprint_version: fingerprint.fingerprint_version.clone(),
+        tool_version: fingerprint.tool_version.clone(),
+        root: fingerprint.root.clone(),
+        profile: fingerprint
+            .profile
+            .as_ref()
+            .map(proto_corpus_fingerprint_profile_from_rust),
+        file_count: usize_to_u32(fingerprint.file_count),
+        message_count: usize_to_u32(fingerprint.message_count),
+        parse_error_count: usize_to_u32(fingerprint.parse_error_count),
+        message_type_counts: fingerprint
+            .message_type_counts
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+        segment_counts: fingerprint
+            .segment_counts
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+        field_presence: fingerprint
+            .field_presence
+            .iter()
+            .map(proto_corpus_field_presence_from_rust)
+            .collect(),
+        field_cardinality: fingerprint
+            .field_cardinality
+            .iter()
+            .map(proto_corpus_field_cardinality_from_rust)
+            .collect(),
+        value_shape_stats: fingerprint
+            .value_shape_stats
+            .iter()
+            .map(proto_corpus_value_shape_stats_from_rust)
+            .collect(),
+        validation_issue_code_counts: fingerprint
+            .validation_issue_code_counts
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_corpus_fingerprint_v2_from_rust(
+    fingerprint: &hl7v2::synthetic::corpus::CorpusFingerprintV2,
+) -> CorpusFingerprintV2 {
+    let report = &fingerprint.fingerprint;
+    CorpusFingerprintV2 {
+        schema_version: fingerprint.schema_version.clone(),
+        tool_name: fingerprint.tool_name.clone(),
+        fingerprint_version: report.fingerprint_version.clone(),
+        tool_version: report.tool_version.clone(),
+        root: report.root.clone(),
+        profile: report
+            .profile
+            .as_ref()
+            .map(proto_corpus_fingerprint_profile_from_rust),
+        file_count: usize_to_u32(report.file_count),
+        message_count: usize_to_u32(report.message_count),
+        parse_error_count: usize_to_u32(report.parse_error_count),
+        message_type_counts: report
+            .message_type_counts
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+        segment_counts: report
+            .segment_counts
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+        field_presence: report
+            .field_presence
+            .iter()
+            .map(proto_corpus_field_presence_from_rust)
+            .collect(),
+        field_cardinality: report
+            .field_cardinality
+            .iter()
+            .map(proto_corpus_field_cardinality_from_rust)
+            .collect(),
+        value_shape_stats: report
+            .value_shape_stats
+            .iter()
+            .map(proto_corpus_value_shape_stats_from_rust)
+            .collect(),
+        validation_issue_code_counts: report
+            .validation_issue_code_counts
+            .iter()
+            .map(proto_corpus_count_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_corpus_fingerprint_profile_from_rust(
+    profile: &hl7v2::synthetic::corpus::CorpusFingerprintProfile,
+) -> CorpusFingerprintProfile {
+    CorpusFingerprintProfile {
+        path: profile.path.clone(),
+        sha256: profile.sha256.clone(),
+        version: profile.version.clone(),
+        message_structure: profile.message_structure.clone(),
+    }
+}
+
+fn proto_corpus_field_cardinality_from_rust(
+    field: &hl7v2::synthetic::corpus::CorpusFieldCardinality,
+) -> CorpusFieldCardinality {
+    CorpusFieldCardinality {
+        path: field.path.clone(),
+        min_per_message: usize_to_u32(field.min_per_message),
+        max_per_message: usize_to_u32(field.max_per_message),
+        total_occurrences: usize_to_u32(field.total_occurrences),
+        message_count: usize_to_u32(field.message_count),
+    }
+}
+
+fn proto_corpus_value_shape_stats_from_rust(
+    stats: &hl7v2::synthetic::corpus::CorpusValueShapeStats,
+) -> CorpusValueShapeStats {
+    CorpusValueShapeStats {
+        path: stats.path.clone(),
+        coded_count: usize_to_u32(stats.coded_count),
+        timestamp_count: usize_to_u32(stats.timestamp_count),
+        numeric_count: usize_to_u32(stats.numeric_count),
+        null_count: usize_to_u32(stats.null_count),
+        text_count: usize_to_u32(stats.text_count),
     }
 }
 
