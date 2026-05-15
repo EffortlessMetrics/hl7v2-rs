@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added gRPC inline corpus diff parity, including before/after inline corpus
   deltas and opt-in v2 provenance.
 
+### Documentation
+
+- Refreshed the v1.5.0 release-readiness receipt after the gRPC inline corpus
+  fingerprint and diff parity work landed on `main`.
+
 ---
 
 ## [1.5.0] - 2026-05-13
