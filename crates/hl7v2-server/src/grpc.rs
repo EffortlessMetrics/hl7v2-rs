@@ -210,6 +210,32 @@ impl Hl7Service for Hl7ServiceImpl {
         }))
     }
 
+    async fn profile_explain(
+        &self,
+        request: Request<ProfileExplainRequest>,
+    ) -> Result<Response<ProfileExplainResponse>, Status> {
+        let req = request.into_inner();
+        let report_schema_version =
+            grpc_requested_schema_version(req.report_schema_version, "profile explain report")
+                .map_err(Status::invalid_argument)?;
+
+        let profile = hl7v2::load_profile_checked(&req.profile)
+            .map_err(|_error| Status::invalid_argument(crate::PROFILE_LOAD_SAFE_MESSAGE))?;
+        let lint_report = hl7v2::lint_profile_yaml(&req.profile);
+        let report =
+            hl7v2::explain_profile("<inline-profile>", &req.profile, &profile, &lint_report);
+        let profile_explain_report_v2 = (report_schema_version == 2).then(|| {
+            proto_profile_explain_report_v2_from_rust(
+                &report.to_v2("hl7v2-server-grpc", env!("CARGO_PKG_VERSION")),
+            )
+        });
+
+        Ok(Response::new(ProfileExplainResponse {
+            profile_explain_report: Some(proto_profile_explain_report_from_rust(&report)),
+            profile_explain_report_v2,
+        }))
+    }
+
     async fn validate_redacted(
         &self,
         request: Request<ValidateRedactedRequest>,
@@ -1166,6 +1192,231 @@ fn proto_profile_lint_issue_from_rust(issue: &hl7v2::ProfileLintIssue) -> Profil
         severity: issue.severity.as_str().to_string(),
         path: issue.path.clone(),
         message: issue.message.clone(),
+    }
+}
+
+fn proto_profile_explain_report_from_rust(
+    report: &hl7v2::ProfileExplainReport,
+) -> ProfileExplainReport {
+    ProfileExplainReport {
+        profile: report.profile.clone(),
+        profile_sha256: report.profile_sha256.clone(),
+        message_structure: report.message_structure.clone(),
+        version: report.version.clone(),
+        message_type: report.message_type.clone(),
+        parent: report.parent.clone(),
+        summary: Some(proto_profile_explain_summary_from_rust(&report.summary)),
+        segments: report
+            .segments
+            .iter()
+            .map(proto_profile_explain_segment_from_rust)
+            .collect(),
+        required_fields: report
+            .required_fields
+            .iter()
+            .map(proto_profile_explain_required_field_from_rust)
+            .collect(),
+        field_constraints: report
+            .field_constraints
+            .iter()
+            .map(proto_profile_explain_constraint_from_rust)
+            .collect(),
+        length_rules: report
+            .length_rules
+            .iter()
+            .map(proto_profile_explain_length_rule_from_rust)
+            .collect(),
+        datatype_rules: report
+            .datatype_rules
+            .iter()
+            .map(proto_profile_explain_datatype_rule_from_rust)
+            .collect(),
+        value_sets: report
+            .value_sets
+            .iter()
+            .map(proto_profile_explain_value_set_from_rust)
+            .collect(),
+        rules: Some(proto_profile_explain_rules_from_rust(&report.rules)),
+        hl7_tables: report
+            .hl7_tables
+            .iter()
+            .map(proto_profile_explain_table_from_rust)
+            .collect(),
+        table_precedence: report.table_precedence.clone(),
+        expression_guardrails: Some(proto_profile_explain_guardrails_from_rust(
+            &report.expression_guardrails,
+        )),
+        lint: Some(proto_profile_explain_lint_summary_from_rust(&report.lint)),
+    }
+}
+
+fn proto_profile_explain_report_v2_from_rust(
+    report: &hl7v2::ProfileExplainReportV2,
+) -> ProfileExplainReportV2 {
+    ProfileExplainReportV2 {
+        schema_version: report.schema_version.clone(),
+        tool_name: report.tool_name.clone(),
+        tool_version: report.tool_version.clone(),
+        report: Some(proto_profile_explain_report_from_rust(&report.report)),
+    }
+}
+
+fn proto_profile_explain_summary_from_rust(
+    summary: &hl7v2::ProfileExplainSummary,
+) -> ProfileExplainSummary {
+    ProfileExplainSummary {
+        segment_count: usize_to_u32(summary.segment_count),
+        required_field_count: usize_to_u32(summary.required_field_count),
+        field_constraint_count: usize_to_u32(summary.field_constraint_count),
+        length_rule_count: usize_to_u32(summary.length_rule_count),
+        datatype_rule_count: usize_to_u32(summary.datatype_rule_count),
+        advanced_datatype_rule_count: usize_to_u32(summary.advanced_datatype_rule_count),
+        value_set_count: usize_to_u32(summary.value_set_count),
+        cross_field_rule_count: usize_to_u32(summary.cross_field_rule_count),
+        temporal_rule_count: usize_to_u32(summary.temporal_rule_count),
+        contextual_rule_count: usize_to_u32(summary.contextual_rule_count),
+        custom_rule_count: usize_to_u32(summary.custom_rule_count),
+        hl7_table_count: usize_to_u32(summary.hl7_table_count),
+    }
+}
+
+fn proto_profile_explain_segment_from_rust(
+    segment: &hl7v2::ProfileExplainSegment,
+) -> ProfileExplainSegment {
+    ProfileExplainSegment {
+        id: segment.id.clone(),
+    }
+}
+
+fn proto_profile_explain_required_field_from_rust(
+    field: &hl7v2::ProfileExplainRequiredField,
+) -> ProfileExplainRequiredField {
+    ProfileExplainRequiredField {
+        path: field.path.clone(),
+        conditional: field.conditional,
+    }
+}
+
+fn proto_profile_explain_constraint_from_rust(
+    constraint: &hl7v2::ProfileExplainConstraint,
+) -> ProfileExplainConstraint {
+    ProfileExplainConstraint {
+        path: constraint.path.clone(),
+        required: constraint.required,
+        conditional: constraint.conditional,
+        component_min: constraint.component_min.map(usize_to_u32),
+        component_max: constraint.component_max.map(usize_to_u32),
+        allowed_value_count: usize_to_u32(constraint.allowed_value_count),
+        allowed_values: constraint.allowed_values.clone(),
+        pattern: constraint.pattern.clone(),
+    }
+}
+
+fn proto_profile_explain_length_rule_from_rust(
+    rule: &hl7v2::ProfileExplainLengthRule,
+) -> ProfileExplainLengthRule {
+    ProfileExplainLengthRule {
+        path: rule.path.clone(),
+        max: rule.max.map(usize_to_u32),
+        policy: rule.policy.clone(),
+    }
+}
+
+fn proto_profile_explain_datatype_rule_from_rust(
+    rule: &hl7v2::ProfileExplainDatatypeRule,
+) -> ProfileExplainDatatypeRule {
+    ProfileExplainDatatypeRule {
+        path: rule.path.clone(),
+        datatype: rule.datatype.clone(),
+        kind: rule.kind.clone(),
+        pattern: rule.pattern.clone(),
+        min_length: rule.min_length.map(usize_to_u32),
+        max_length: rule.max_length.map(usize_to_u32),
+        format: rule.format.clone(),
+        checksum: rule.checksum.clone(),
+    }
+}
+
+fn proto_profile_explain_value_set_from_rust(
+    value_set: &hl7v2::ProfileExplainValueSet,
+) -> ProfileExplainValueSet {
+    ProfileExplainValueSet {
+        name: value_set.name.clone(),
+        path: value_set.path.clone(),
+        source: value_set.source.clone(),
+        inline_code_count: usize_to_u32(value_set.inline_code_count),
+        table_code_count: usize_to_u32(value_set.table_code_count),
+    }
+}
+
+fn proto_profile_explain_rules_from_rust(
+    rules: &hl7v2::ProfileExplainRules,
+) -> ProfileExplainRules {
+    ProfileExplainRules {
+        cross_field: rules
+            .cross_field
+            .iter()
+            .map(proto_profile_explain_rule_from_rust)
+            .collect(),
+        temporal: rules
+            .temporal
+            .iter()
+            .map(proto_profile_explain_rule_from_rust)
+            .collect(),
+        contextual: rules
+            .contextual
+            .iter()
+            .map(proto_profile_explain_rule_from_rust)
+            .collect(),
+        custom: rules
+            .custom
+            .iter()
+            .map(proto_profile_explain_rule_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_profile_explain_rule_from_rust(rule: &hl7v2::ProfileExplainRule) -> ProfileExplainRule {
+    ProfileExplainRule {
+        id: rule.id.clone(),
+        description: rule.description.clone(),
+    }
+}
+
+fn proto_profile_explain_table_from_rust(
+    table: &hl7v2::ProfileExplainTable,
+) -> ProfileExplainTable {
+    ProfileExplainTable {
+        id: table.id.clone(),
+        name: table.name.clone(),
+        version: table.version.clone(),
+        code_count: usize_to_u32(table.code_count),
+    }
+}
+
+fn proto_profile_explain_guardrails_from_rust(
+    guardrails: &hl7v2::ProfileExplainExpressionGuardrails,
+) -> ProfileExplainExpressionGuardrails {
+    ProfileExplainExpressionGuardrails {
+        max_depth: guardrails.max_depth.map(usize_to_u32),
+        max_length: guardrails.max_length.map(usize_to_u32),
+        allow_custom_scripts: guardrails.allow_custom_scripts,
+    }
+}
+
+fn proto_profile_explain_lint_summary_from_rust(
+    lint: &hl7v2::ProfileExplainLintSummary,
+) -> ProfileExplainLintSummary {
+    ProfileExplainLintSummary {
+        valid: lint.valid,
+        error_count: usize_to_u32(lint.error_count),
+        warning_count: usize_to_u32(lint.warning_count),
+        issue_count: usize_to_u32(lint.issue_count),
+        ignored_or_unsupported: lint
+            .ignored_or_unsupported
+            .iter()
+            .map(proto_profile_lint_issue_from_rust)
+            .collect(),
     }
 }
 

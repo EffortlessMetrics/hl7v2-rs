@@ -35,7 +35,7 @@ fixtures such as the v1 redaction output containing a v2 nested receipt.
 | Doctor report | CLI `hl7v2 doctor` | `schemas/evidence/doctor-report-v1.schema.json` | `schemas/evidence/doctor-report-v2.schema.json` | v1 JSON/YAML/text; includes tool `version` and diagnostic checks | CLI `--schema-version 2` with JSON/YAML output | `fixtures/evidence/doctor-report.json`, `fixtures/evidence/doctor-report-v2.json` | Environment proof only. Do not add hostnames, raw paths, API keys, or raw server response bodies. |
 | Validation report | Rust `ValidationReport`; CLI `hl7v2 val`; Python `validate().to_dict()` / `to_json()`; server REST `/hl7/validate`, `/hl7/validate-redacted`, `/hl7/ack-policy`; gRPC `Validate` and `ValidateRedacted`; bundle/replay artifacts | `schemas/evidence/validation-report-v1.schema.json` | `schemas/evidence/validation-report-v2.schema.json` | v1 report fields by default | CLI `--schema-version 2`; Python `to_dict(2)` / `to_json(2)`; REST request `report_schema_version: 2` adds nested `validation_report_v2`; gRPC `ValidateRequest.report_schema_version = 2` or `ValidateRedactedRequest.report_schema_version = 2` adds `validation_report_v2` | `fixtures/evidence/validation-report.json`, `fixtures/evidence/validation-report-v2.json` | Contains issue paths, codes, severities, rule IDs, and messages. It must not contain raw HL7 payloads. `profile` is a display label, not canonical identity. |
 | Profile lint report | Rust `lint_profile_yaml`; CLI `hl7v2 profile lint`; gRPC `ProfileLint` | `schemas/evidence/profile-lint-report-v1.schema.json` | `schemas/evidence/profile-lint-report-v2.schema.json` | v1 report by default | CLI `--schema-version 2` with JSON/YAML output; gRPC `ProfileLintRequest.report_schema_version = 2` adds `profile_lint_report_v2` | `fixtures/evidence/profile-lint-report.json`, `fixtures/evidence/profile-lint-report-v2.json` | May include profile lint messages and paths from user-authored profile YAML. It should not echo the full profile document. |
-| Profile explain report | CLI `hl7v2 profile explain` | `schemas/evidence/profile-explain-report-v1.schema.json` | `schemas/evidence/profile-explain-report-v2.schema.json` | v1 report by default | CLI `--schema-version 2` with JSON/YAML output | `fixtures/evidence/profile-explain-report.json`, `fixtures/evidence/profile-explain-report-v2.json` | CLI-local report type. Includes profile-derived constraints, rule descriptions, value-set metadata, and profile hash. User-authored profile text is not automatically sanitized. |
+| Profile explain report | CLI `hl7v2 profile explain`; gRPC `ProfileExplain` | `schemas/evidence/profile-explain-report-v1.schema.json` | `schemas/evidence/profile-explain-report-v2.schema.json` | v1 report by default | CLI `--schema-version 2` with JSON/YAML output; gRPC `ProfileExplainRequest.report_schema_version = 2` adds `profile_explain_report_v2` | `fixtures/evidence/profile-explain-report.json`, `fixtures/evidence/profile-explain-report-v2.json` | Includes profile-derived constraints, rule descriptions, value-set metadata, and profile hash. gRPC malformed-profile diagnostics must not echo raw profile YAML. |
 | Profile test report | CLI `hl7v2 profile test` | `schemas/evidence/profile-test-report-v1.schema.json` | `schemas/evidence/profile-test-report-v2.schema.json` | v1 report by default | CLI `--schema-version 2` with JSON/YAML output | `fixtures/evidence/profile-test-report.json`, `fixtures/evidence/profile-test-report-v2.json` | CLI-local report type. Includes fixture paths supplied by the caller and embedded validation reports, but not raw HL7 fixture bodies. |
 | Corpus summary | Rust corpus module; CLI `hl7v2 corpus summarize`; Python `corpus_summary()`; server REST `/hl7/corpus/summarize`; gRPC `CorpusSummarize` | `schemas/evidence/corpus-summary-v1.schema.json` | `schemas/evidence/corpus-summary-v2.schema.json` | v1 report by default | CLI `--schema-version 2`; Python `schema_version=2`; REST `summary_schema_version: 2`; gRPC `CorpusSummarizeRequest.summary_schema_version = 2` | `fixtures/evidence/corpus-summary.json`, `fixtures/evidence/corpus-summary-v2.json` | Reports counts and parse errors. It should not include raw message bodies. Server accepts inline messages, not filesystem paths. |
 | Corpus fingerprint | Rust corpus module; CLI `hl7v2 corpus fingerprint`; Python `corpus_fingerprint()`; server `/hl7/corpus/fingerprint` | `schemas/evidence/corpus-fingerprint-v1.schema.json` | `schemas/evidence/corpus-fingerprint-v2.schema.json` | v1 report by default | CLI `--schema-version 2`; Python `schema_version=2`; server `fingerprint_schema_version: 2` | `fixtures/evidence/corpus-fingerprint.json`, `fixtures/evidence/corpus-fingerprint-v2.json` | Reports deterministic counts, presence/cardinality, value-shape stats, and optional profile hash. It should not expose raw field values. |
@@ -53,9 +53,9 @@ fixtures such as the v1 redaction output containing a v2 nested receipt.
 
 ### Rust
 
-The Rust crate owns the shared validation, profile lint, corpus, redaction, and
-evidence bundle/replay types used by the other surfaces. Profile explain and
-profile test reports are still CLI-local. Promote them only when another
+The Rust crate owns the shared validation, profile lint, profile explain,
+corpus, redaction, and evidence bundle/replay types used by the other surfaces.
+Profile test reports are still CLI-local. Promote them only when another
 surface needs the same contract.
 
 ### CLI
@@ -72,8 +72,9 @@ through explicit request fields. REST `/hl7/validate`, REST
 `/hl7/validate-redacted`, gRPC `Validate`, and gRPC `ValidateRedacted` include
 validation report fields while preserving their legacy response fields where
 those existed before the redacted-validation surface.
-gRPC `ProfileLint` returns the shared profile lint report shape and must not
-echo raw profile YAML in lint-error payloads.
+gRPC `ProfileLint` returns the shared profile lint report shape and gRPC
+`ProfileExplain` returns the shared profile explain report shape. Both must not
+echo raw profile YAML in malformed-profile diagnostics.
 It logs evidence workflow events with hashed message-control and bundle
 identifiers. Logs must not include raw HL7 payloads, profile YAML, redaction
 policy TOML, configured filesystem roots, raw bundle IDs, API keys, or raw

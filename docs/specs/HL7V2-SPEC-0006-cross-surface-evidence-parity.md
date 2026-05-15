@@ -36,7 +36,7 @@ Current and future surfaces are:
 | write / normalize | Stable | Stable | Stable | Stable | Stable local binding | Planned |
 | validate | Stable | Stable | Stable | Stable | Stable local binding | Planned |
 | ACK | Stable | Stable where exposed | Stable where exposed | Stable | Planned or not claimed | Planned |
-| profile lint / explain / test | Stable | Stable | Stable where exposed | Profile lint stable; explain/test planned | Stable local helper | Planned |
+| profile lint / explain / test | Stable | Stable | Stable where exposed | Profile lint/explain stable; test planned | Stable local helper | Planned |
 | redaction receipt | Stable | Stable | Stable | Stable via `ValidateRedacted` | Stable local binding | Planned |
 | corpus summary | Stable | Stable | Stable | Stable for inline messages | Stable local helper | Planned |
 | corpus fingerprint / diff | Stable | Stable | Stable | Stable for inline messages | Stable local helper where exposed | Planned |
@@ -125,8 +125,14 @@ opt-in v2 provenance if claimed, rejects unsupported schema versions, avoids
 raw profile echo in malformed-profile diagnostics, and passes gRPC contract
 tests.
 
-These claims must not imply gRPC profile explain/test, bundle, or replay parity
-until those RPCs and tests land.
+`ProfileExplain` can be described as gRPC profile explain parity when the RPC
+accepts inline profile YAML, returns the shared profile explain report fields,
+supports opt-in v2 provenance if claimed, rejects unsupported schema versions,
+avoids raw profile echo in malformed-profile diagnostics, and passes gRPC
+contract tests.
+
+These claims must not imply gRPC profile test, bundle, or replay parity until
+those RPCs and tests land.
 
 ### Correct Python Claim
 

@@ -20,6 +20,9 @@ service HL7Service {
   // Lint an inline profile without applying it to a message
   rpc ProfileLint(ProfileLintRequest) returns (ProfileLintResponse);
 
+  // Explain an inline profile as structured evidence
+  rpc ProfileExplain(ProfileExplainRequest) returns (ProfileExplainResponse);
+
   // Redact a message with a safe-analysis policy, then validate it
   rpc ValidateRedacted(ValidateRedactedRequest) returns (ValidateRedactedResponse);
 
@@ -296,6 +299,150 @@ message ProfileLintIssue {
 
   // Human-readable explanation. This must not include raw profile text.
   string message = 4;
+}
+
+// Profile explain request.
+message ProfileExplainRequest {
+  // Inline HL7v2 profile YAML content
+  string profile = 1;
+
+  // Optional profile explain evidence schema version.
+  //
+  // Omitted or 1 preserves the default report fields. 2 includes the
+  // profile_explain_report_v2 field with embedded provenance.
+  int32 report_schema_version = 2;
+}
+
+// Profile explain response.
+message ProfileExplainResponse {
+  // Stable profile explain report fields shared with Rust, CLI, and Python.
+  ProfileExplainReport profile_explain_report = 1;
+
+  // Opt-in profile explain report with embedded evidence provenance.
+  ProfileExplainReportV2 profile_explain_report_v2 = 2;
+}
+
+// Stable profile explain report artifact.
+message ProfileExplainReport {
+  string profile = 1;
+  string profile_sha256 = 2;
+  string message_structure = 3;
+  string version = 4;
+  optional string message_type = 5;
+  optional string parent = 6;
+  ProfileExplainSummary summary = 7;
+  repeated ProfileExplainSegment segments = 8;
+  repeated ProfileExplainRequiredField required_fields = 9;
+  repeated ProfileExplainConstraint field_constraints = 10;
+  repeated ProfileExplainLengthRule length_rules = 11;
+  repeated ProfileExplainDatatypeRule datatype_rules = 12;
+  repeated ProfileExplainValueSet value_sets = 13;
+  ProfileExplainRules rules = 14;
+  repeated ProfileExplainTable hl7_tables = 15;
+  repeated string table_precedence = 16;
+  ProfileExplainExpressionGuardrails expression_guardrails = 17;
+  ProfileExplainLintSummary lint = 18;
+}
+
+// Profile explain report v2 artifact with embedded evidence provenance.
+message ProfileExplainReportV2 {
+  string schema_version = 1;
+  string tool_name = 2;
+  string tool_version = 3;
+  ProfileExplainReport report = 4;
+}
+
+message ProfileExplainSummary {
+  uint32 segment_count = 1;
+  uint32 required_field_count = 2;
+  uint32 field_constraint_count = 3;
+  uint32 length_rule_count = 4;
+  uint32 datatype_rule_count = 5;
+  uint32 advanced_datatype_rule_count = 6;
+  uint32 value_set_count = 7;
+  uint32 cross_field_rule_count = 8;
+  uint32 temporal_rule_count = 9;
+  uint32 contextual_rule_count = 10;
+  uint32 custom_rule_count = 11;
+  uint32 hl7_table_count = 12;
+}
+
+message ProfileExplainSegment {
+  string id = 1;
+}
+
+message ProfileExplainRequiredField {
+  string path = 1;
+  bool conditional = 2;
+}
+
+message ProfileExplainConstraint {
+  string path = 1;
+  bool required = 2;
+  bool conditional = 3;
+  optional uint32 component_min = 4;
+  optional uint32 component_max = 5;
+  uint32 allowed_value_count = 6;
+  repeated string allowed_values = 7;
+  optional string pattern = 8;
+}
+
+message ProfileExplainLengthRule {
+  string path = 1;
+  optional uint32 max = 2;
+  optional string policy = 3;
+}
+
+message ProfileExplainDatatypeRule {
+  string path = 1;
+  string datatype = 2;
+  string kind = 3;
+  optional string pattern = 4;
+  optional uint32 min_length = 5;
+  optional uint32 max_length = 6;
+  optional string format = 7;
+  optional string checksum = 8;
+}
+
+message ProfileExplainValueSet {
+  string name = 1;
+  string path = 2;
+  string source = 3;
+  uint32 inline_code_count = 4;
+  uint32 table_code_count = 5;
+}
+
+message ProfileExplainRules {
+  repeated ProfileExplainRule cross_field = 1;
+  repeated ProfileExplainRule temporal = 2;
+  repeated ProfileExplainRule contextual = 3;
+  repeated ProfileExplainRule custom = 4;
+}
+
+message ProfileExplainRule {
+  string id = 1;
+  string description = 2;
+}
+
+message ProfileExplainTable {
+  string id = 1;
+  string name = 2;
+  string version = 3;
+  uint32 code_count = 4;
+}
+
+message ProfileExplainExpressionGuardrails {
+  optional uint32 max_depth = 1;
+  optional uint32 max_length = 2;
+  bool allow_custom_scripts = 3;
+}
+
+message ProfileExplainLintSummary {
+  bool valid = 1;
+  uint32 error_count = 2;
+  uint32 warning_count = 3;
+  uint32 issue_count = 4;
+  repeated ProfileLintIssue ignored_or_unsupported = 5;
 }
 
 // Validate Response

@@ -110,7 +110,8 @@ async fn run_grpc_server(
     info!("  Bind address: {}", bind_address);
     info!("  Transport: gRPC");
     info!("  RPCs:");
-    info!("    Parse, ParseStream, Validate, ProfileLint, ValidateRedacted");
+    info!("    Parse, ParseStream, Validate, ProfileLint, ProfileExplain");
+    info!("    ValidateRedacted");
     info!("    CorpusSummarize, CorpusFingerprint, CorpusDiff");
     info!("    GenerateAck, Normalize, HealthCheck");
     info!("");
