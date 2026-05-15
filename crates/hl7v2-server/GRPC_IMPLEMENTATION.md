@@ -1,8 +1,8 @@
 # gRPC Server Implementation
 
 This crate implements the `HL7Service` gRPC API for HL7 v2 parsing,
-validation, normalization, ACK generation, streaming parse, and redacted
-validation and inline corpus evidence workflows.
+validation, normalization, ACK generation, streaming parse, redacted
+validation, evidence bundle creation, and inline corpus evidence workflows.
 
 ## Contract Source
 
@@ -33,6 +33,7 @@ copies stay synchronized.
 | `ProfileExplain` | Implemented | Explains caller-supplied inline profile YAML without applying it to a message. Always returns v1 `profile_explain_report`; `report_schema_version = 2` adds `profile_explain_report_v2`. |
 | `ProfileTest` | Implemented | Tests caller-supplied inline HL7 fixtures against an inline profile without reading request filesystem paths. Always returns v1 `profile_test_report`; `report_schema_version = 2` adds `profile_test_report_v2`. |
 | `ValidateRedacted` | Implemented | Applies an inline safe-analysis redaction policy before validation. Always returns v1 `validation_report` and `redaction_receipt`, can include v2 validation and redaction receipt artifacts, and includes `redacted_hl7` only when requested. |
+| `CreateEvidenceBundle` | Implemented | Writes a redacted evidence bundle under the configured server bundle output root. The request supplies inline message, profile, policy, and a bundle ID; the response returns the shared summary shape with a hashed public output ID and never exposes the configured root or raw bundle ID. `bundle_artifact_schema_version = 2` writes v2 bundle artifacts. |
 | `CorpusSummarize` | Implemented | Summarizes caller-supplied inline messages only. The RPC does not read filesystem paths from requests; `summary_schema_version = 2` adds the v2 corpus summary provenance shape. |
 | `CorpusFingerprint` | Implemented | Fingerprints caller-supplied inline messages only. The RPC does not read filesystem paths from requests; optional inline profiles add validation issue-code counts; `fingerprint_schema_version = 2` adds the v2 corpus fingerprint provenance shape. |
 | `CorpusDiff` | Implemented | Diffs caller-supplied inline before/after corpora only. The RPC does not read filesystem paths from requests; optional inline profiles add validation issue-code deltas; `diff_schema_version = 2` adds the v2 corpus diff provenance shape. |
@@ -52,20 +53,29 @@ ProfileExplainRequest.report_schema_version = 2
 ProfileTestRequest.report_schema_version = 2
 ValidateRedactedRequest.report_schema_version = 2
 ValidateRedactedRequest.redaction_receipt_schema_version = 2
+CreateEvidenceBundleRequest.bundle_artifact_schema_version = 2
 CorpusSummarizeRequest.summary_schema_version = 2
 CorpusFingerprintRequest.fingerprint_schema_version = 2
 CorpusDiffRequest.diff_schema_version = 2
 ```
 
 For `Validate`, `ProfileLint`, `ProfileExplain`, `ProfileTest`, `ValidateRedacted`,
-`CorpusSummarize`, `CorpusFingerprint`, and `CorpusDiff`, schema versions `0`
-and `1` use the default v1 shape, `2` returns the requested v2 artifact, and
-other values return `InvalidArgument`.
+`CreateEvidenceBundle`, `CorpusSummarize`, `CorpusFingerprint`, and
+`CorpusDiff`, schema versions `0` and `1` use the default v1 shape, `2`
+returns or writes the requested v2 artifact, and other values return
+`InvalidArgument`.
 
 `ValidateRedacted` fails closed when the redaction policy is invalid or misses a
 present built-in sensitive path. The redacted HL7 body is omitted unless
 `include_redacted_hl7` is set. The RPC does not write quarantine output; REST
 `/hl7/validate-redacted` owns configured quarantine behavior.
+
+`CreateEvidenceBundle` writes only beneath `bundle_output_root` from server
+configuration. Request bundle IDs are validated for safe relative output,
+responses expose a hashed public output ID, and diagnostics must not echo raw
+HL7, raw bundle IDs, configured filesystem roots, profile YAML, or redaction
+policy text. gRPC replay is not implemented by this RPC; REST `/hl7/replay`,
+CLI `hl7v2 replay`, and Python `replay()` remain the replay surfaces.
 
 ## Validation
 

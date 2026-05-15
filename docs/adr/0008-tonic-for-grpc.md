@@ -11,8 +11,8 @@
 **Technical Story**: Healthcare integration engines and high-throughput clinical
 systems often prefer gRPC for typed, binary message exchange. The gRPC surface
 complements the Axum HTTP API and gives integration operators a typed transport
-for parser, validation, redaction, inline corpus evidence, ACK, normalization,
-and health checks.
+for parser, validation, redaction, inline corpus evidence, evidence bundle
+creation, ACK, normalization, and health checks.
 
 ## Context
 
@@ -36,18 +36,20 @@ The current `HL7Service` protobuf contract includes:
 5. `ProfileExplain` -- Explain an inline profile and return profile evidence.
 6. `ProfileTest` -- Test inline fixtures against an inline profile and return profile evidence.
 7. `ValidateRedacted` -- Redact and validate with opt-in evidence fields.
-8. `CorpusSummarize` -- Summarize inline corpus messages.
-9. `CorpusFingerprint` -- Fingerprint inline corpus messages.
-10. `CorpusDiff` -- Diff inline before/after corpus messages.
-11. `GenerateAck` -- Generate an ACK/NAK response.
-12. `Normalize` -- Normalize message delimiters and structure.
-13. `HealthCheck` -- Return service health status.
+8. `CreateEvidenceBundle` -- Write a redacted evidence bundle under the configured server root.
+9. `CorpusSummarize` -- Summarize inline corpus messages.
+10. `CorpusFingerprint` -- Fingerprint inline corpus messages.
+11. `CorpusDiff` -- Diff inline before/after corpus messages.
+12. `GenerateAck` -- Generate an ACK/NAK response.
+13. `Normalize` -- Normalize message delimiters and structure.
+14. `HealthCheck` -- Return service health status.
 
 The gRPC surface remains intentionally narrower than the full HTTP/CLI/Python
-evidence sidecar. Profile test, bundle, replay, and quarantine behavior
-remain outside the protobuf contract unless a later ADR or PR promotes those
-operations. The current corpus summary, fingerprint, and diff RPCs cover
-inline caller-supplied messages only; they do not read request filesystem paths.
+evidence sidecar. Replay and quarantine behavior remain outside the protobuf
+contract unless a later ADR or PR promotes those operations. The current corpus
+summary, fingerprint, and diff RPCs cover inline caller-supplied messages only;
+they do not read request filesystem paths. The current bundle RPC writes only
+under the configured server bundle root and returns a root-redacted summary.
 
 ## Decision
 
@@ -71,7 +73,7 @@ stack selected in ADR-0003 and ADR-0007.
   runtimes.
 - **Shared service state**: `Hl7ServiceImpl` maps gRPC requests back to the
   canonical `hl7v2` parser, validation, redaction, ACK, normalization, and
-  corpus evidence code.
+  evidence code.
 
 ### Negative
 
@@ -128,13 +130,14 @@ Tonic gives the repo a production-quality Rust path now.
 - **Server wiring**: `crates/hl7v2-server/src/server.rs` exposes `serve_grpc`
   and configures the generated service.
 - **Scope**: gRPC currently covers parse, stream parse, validate, profile lint,
-  profile explain, profile fixture test, validate-redacted, corpus summarize,
-  corpus fingerprint, corpus diff, ACK generation, normalize, and health.
+  profile explain, profile fixture test, validate-redacted, evidence bundle
+  creation, corpus summarize, corpus fingerprint, corpus diff, ACK generation,
+  normalize, and health.
 
 ## Remaining Work
 
-- Decide whether profile test, bundle, replay, and quarantine should
-  become protobuf RPCs or remain HTTP/CLI/Python evidence surfaces.
+- Decide whether replay and quarantine should become protobuf RPCs or remain
+  HTTP/CLI/Python evidence surfaces.
 - Keep gRPC auth, rate-limit, and deployment behavior aligned with the server
   support-tier claims.
 - Add network-level integration tests with `tonic::transport::Channel` clients

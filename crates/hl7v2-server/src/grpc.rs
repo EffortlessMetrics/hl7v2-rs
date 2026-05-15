@@ -1,7 +1,7 @@
 //! gRPC service implementation for HL7v2.
 
 use crate::models::{
-    RedactionAction as ServerRedactionAction,
+    EvidenceBundleSummary as ServerEvidenceBundleSummary, RedactionAction as ServerRedactionAction,
     RedactionActionReceipt as ServerRedactionActionReceipt,
     RedactionActionStatus as ServerRedactionActionStatus,
     RedactionReceipt as ServerRedactionReceipt,
@@ -32,10 +32,6 @@ use proto::*;
 
 /// Implementation of the HL7Service gRPC trait
 pub struct Hl7ServiceImpl {
-    #[expect(
-        dead_code,
-        reason = "service state is retained for runtime parity and future streaming support"
-    )]
     state: Arc<AppState>,
 }
 
@@ -322,6 +318,73 @@ impl Hl7Service for Hl7ServiceImpl {
             redaction_receipt: Some(proto_redaction_receipt_from_server(&receipt)),
             redaction_receipt_v2,
             redacted_hl7: req.include_redacted_hl7.then_some(redacted_hl7),
+        }))
+    }
+
+    async fn create_evidence_bundle(
+        &self,
+        request: Request<CreateEvidenceBundleRequest>,
+    ) -> Result<Response<CreateEvidenceBundleResponse>, Status> {
+        let req = request.into_inner();
+        let artifact_schema_version: u8 =
+            if grpc_requested_schema_version(req.bundle_artifact_schema_version, "bundle artifact")
+                .map_err(Status::invalid_argument)?
+                == 2
+            {
+                2
+            } else {
+                1
+            };
+        let bundle_output_root =
+            self.state.bundle_output_root.as_deref().ok_or_else(|| {
+                Status::failed_precondition("bundle output root is not configured")
+            })?;
+
+        let raw_input = req.message;
+        let message_bytes = if req.mllp_framed {
+            hl7v2::unwrap_mllp(&raw_input)
+                .map_err(|e| Status::invalid_argument(format!("Failed to unwrap MLLP: {e}")))?
+        } else {
+            raw_input.as_slice()
+        };
+        let mut message = rust_parse(message_bytes)
+            .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {e}")))?;
+
+        let receipt = redact_message(&mut message, &req.redaction_policy)
+            .map_err(|e| Status::invalid_argument(format!("Failed to redact HL7: {e}")))?;
+        let redacted_hl7 = String::from_utf8(hl7v2::write(&message)).map_err(|error| {
+            Status::internal(format!(
+                "redacted message could not be encoded as UTF-8: {error}"
+            ))
+        })?;
+
+        let profile = hl7v2::load_profile_checked(&req.profile)
+            .map_err(|_error| Status::invalid_argument(crate::PROFILE_LOAD_SAFE_MESSAGE))?;
+        let issues = hl7v2::validate(&message, &profile);
+        let validation_report = hl7v2::ValidationReport::from_issues(
+            &message,
+            Some("profile.yaml".to_string()),
+            issues,
+        );
+
+        let summary =
+            crate::evidence::write_evidence_bundle(crate::evidence::EvidenceBundleWriteRequest {
+                root: bundle_output_root,
+                bundle_id: &req.bundle_id,
+                public_output_dir: Some(&crate::audit::hash_identifier(&req.bundle_id)),
+                raw_input: &raw_input,
+                profile_yaml: &req.profile,
+                policy_text: &req.redaction_policy,
+                redacted_message: &message,
+                redacted_hl7: &redacted_hl7,
+                redaction_receipt: &receipt,
+                validation_report: &validation_report,
+                artifact_schema_version,
+            })
+            .map_err(grpc_evidence_bundle_error)?;
+
+        Ok(Response::new(CreateEvidenceBundleResponse {
+            summary: Some(proto_evidence_bundle_summary_from_server(&summary)),
         }))
     }
 
@@ -1759,6 +1822,30 @@ fn proto_redaction_receipt_v2_from_server(
             .iter()
             .map(proto_redaction_action_receipt_from_server)
             .collect(),
+    }
+}
+
+fn proto_evidence_bundle_summary_from_server(
+    summary: &ServerEvidenceBundleSummary,
+) -> EvidenceBundleSummary {
+    EvidenceBundleSummary {
+        bundle_version: summary.bundle_version.clone(),
+        output_dir: summary.output_dir.clone(),
+        message_type: summary.message_type.clone(),
+        validation_valid: summary.validation_valid,
+        validation_issue_count: usize_to_u32(summary.validation_issue_count),
+        redaction_phi_removed: summary.redaction_phi_removed,
+        artifacts: summary.artifacts.clone(),
+    }
+}
+
+fn grpc_evidence_bundle_error(error: crate::evidence::EvidenceBundleError) -> Status {
+    match error {
+        crate::evidence::EvidenceBundleError::InvalidRequest(message) => {
+            Status::invalid_argument(message)
+        }
+        crate::evidence::EvidenceBundleError::Conflict(message) => Status::already_exists(message),
+        crate::evidence::EvidenceBundleError::Io(message) => Status::unavailable(message),
     }
 }
 

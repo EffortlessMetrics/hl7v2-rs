@@ -29,6 +29,9 @@ service HL7Service {
   // Redact a message with a safe-analysis policy, then validate it
   rpc ValidateRedacted(ValidateRedactedRequest) returns (ValidateRedactedResponse);
 
+  // Create a redacted evidence bundle under the configured server bundle root
+  rpc CreateEvidenceBundle(CreateEvidenceBundleRequest) returns (CreateEvidenceBundleResponse);
+
   // Summarize an inline corpus without reading caller-supplied filesystem paths
   rpc CorpusSummarize(CorpusSummarizeRequest) returns (CorpusSummarizeResponse);
 
@@ -654,6 +657,50 @@ message RedactionActionReceipt {
 
   // Action status: applied, retained, or not_found
   string status = 6;
+}
+
+// Server evidence bundle creation request.
+message CreateEvidenceBundleRequest {
+  // HL7 message bytes
+  bytes message = 1;
+
+  // Inline HL7v2 profile YAML content
+  string profile = 2;
+
+  // Inline safe-analysis redaction policy in TOML format
+  string redaction_policy = 3;
+
+  // Caller-supplied bundle identifier relative to the configured server bundle
+  // root. The service validates this as a relative identifier and does not
+  // expose it in the response.
+  string bundle_id = 4;
+
+  // Whether message is MLLP-framed
+  bool mllp_framed = 5;
+
+  // Optional bundle-internal artifact schema version.
+  //
+  // Omitted or 1 writes default bundle artifact shapes. 2 writes bundle
+  // internals with embedded evidence provenance.
+  int32 bundle_artifact_schema_version = 6;
+}
+
+// Server evidence bundle creation response.
+message CreateEvidenceBundleResponse {
+  // Stable evidence bundle summary fields shared with CLI, REST, Rust, and
+  // Python.
+  EvidenceBundleSummary summary = 1;
+}
+
+// Stable evidence bundle summary artifact.
+message EvidenceBundleSummary {
+  string bundle_version = 1;
+  string output_dir = 2;
+  string message_type = 3;
+  bool validation_valid = 4;
+  uint32 validation_issue_count = 5;
+  bool redaction_phi_removed = 6;
+  repeated string artifacts = 7;
 }
 
 // Inline corpus summary request.

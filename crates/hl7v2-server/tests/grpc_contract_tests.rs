@@ -15,10 +15,11 @@ mod tests {
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
     use hl7v2_server::grpc::proto::{
         CorpusDiffRequest, CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest,
-        GenerateAckRequest, HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest,
-        ParseStreamRequest, ParseStreamResponse, ProfileExplainRequest, ProfileLintRequest,
-        ProfileTestFixture, ProfileTestRequest, ValidateRedactedRequest, ValidateRequest,
-        generate_ack_request, health_check_response, profile_test_fixture, validation_issue,
+        CreateEvidenceBundleRequest, GenerateAckRequest, HealthCheckRequest, NormalizeOptions,
+        NormalizeRequest, ParseRequest, ParseStreamRequest, ParseStreamResponse,
+        ProfileExplainRequest, ProfileLintRequest, ProfileTestFixture, ProfileTestRequest,
+        ValidateRedactedRequest, ValidateRequest, generate_ack_request, health_check_response,
+        profile_test_fixture, validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
@@ -28,9 +29,12 @@ mod tests {
     use http_body_util::Full;
     use metrics_exporter_prometheus::PrometheusBuilder;
     use prost::Message as ProstMessage;
+    use std::fs;
+    use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use std::time::Duration;
     use std::time::Instant;
+    use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::net::TcpListener;
     use tokio::time::sleep;
     use tokio_stream::StreamExt;
@@ -41,6 +45,10 @@ mod tests {
 
     /// Helper to create a mock AppState
     fn mock_state() -> Arc<AppState> {
+        mock_state_with_bundle_output_root(None)
+    }
+
+    fn mock_state_with_bundle_output_root(bundle_output_root: Option<PathBuf>) -> Arc<AppState> {
         let recorder = PrometheusBuilder::new().build_recorder();
         let handle = recorder.handle();
         Arc::new(AppState {
@@ -49,10 +57,41 @@ mod tests {
             api_key: None,
             cors_allowed_origins: Default::default(),
             readiness_checks: ServerConfig::default().readiness_checks(),
-            bundle_output_root: None,
+            bundle_output_root,
             ack_policy: Default::default(),
             quarantine: Default::default(),
         })
+    }
+
+    struct TempRoot {
+        path: PathBuf,
+    }
+
+    impl TempRoot {
+        fn new(name: &str) -> Self {
+            let nonce = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after UNIX epoch")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "hl7v2-server-grpc-bundle-{}-{nonce}-{name}",
+                std::process::id()
+            ));
+            fs::create_dir(&path).expect("temp root should be created");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            match fs::remove_dir_all(&self.path) {
+                Ok(()) | Err(_) => {}
+            }
+        }
     }
 
     const SAMPLE_MSG: &[u8] = b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r";
@@ -81,6 +120,10 @@ constraints:
 
     fn service() -> Hl7ServiceImpl {
         Hl7ServiceImpl::new(mock_state())
+    }
+
+    fn service_with_bundle_output_root(root: PathBuf) -> Hl7ServiceImpl {
+        Hl7ServiceImpl::new(mock_state_with_bundle_output_root(Some(root)))
     }
 
     fn grpc_request_body<T: ProstMessage>(messages: &[T]) -> Full<Bytes> {
@@ -1055,6 +1098,180 @@ reason = "hash patient identifier"
     }
 
     #[tokio::test]
+    async fn test_grpc_create_evidence_bundle_writes_redacted_bundle_and_v2_artifacts() {
+        let root = TempRoot::new("bundle-success");
+        let bundle_id = "MRN-SECRET-123";
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        let request = Request::new(CreateEvidenceBundleRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            bundle_id: bundle_id.to_string(),
+            mllp_framed: false,
+            bundle_artifact_schema_version: 2,
+        });
+
+        let response = service
+            .create_evidence_bundle(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+        let response_debug = format!("{inner:?}");
+        let summary = inner.summary.expect("bundle summary should exist");
+
+        assert_eq!(summary.bundle_version, "1");
+        assert!(is_sha256_hex(&summary.output_dir));
+        assert_ne!(summary.output_dir, bundle_id);
+        assert_eq!(summary.message_type, "ADT^A01");
+        assert!(summary.validation_valid);
+        assert!(summary.redaction_phi_removed);
+        assert!(
+            summary
+                .artifacts
+                .iter()
+                .any(|artifact| artifact == "manifest.json")
+        );
+        assert!(!response_debug.contains(root.path().to_string_lossy().as_ref()));
+        assert!(!response_debug.contains(bundle_id));
+        assert_no_phi(&response_debug);
+
+        let bundle_dir = root.path().join(bundle_id);
+        for artifact in [
+            "message.redacted.hl7",
+            "validation-report.json",
+            "field-paths.json",
+            "profile.yaml",
+            "redaction-receipt.json",
+            "environment.json",
+            "replay.sh",
+            "replay.ps1",
+            "README.md",
+            "manifest.json",
+        ] {
+            assert!(
+                bundle_dir.join(artifact).exists(),
+                "missing bundle artifact {artifact}"
+            );
+        }
+
+        let redacted_message = fs::read_to_string(bundle_dir.join("message.redacted.hl7"))
+            .expect("redacted message should be readable");
+        assert!(redacted_message.contains("hash:sha256:"));
+        assert_no_phi(&redacted_message);
+
+        for artifact in [
+            "manifest.json",
+            "field-paths.json",
+            "redaction-receipt.json",
+            "environment.json",
+        ] {
+            let content = fs::read_to_string(bundle_dir.join(artifact))
+                .expect("v2 bundle artifact should be readable");
+            assert_no_phi(&content);
+            assert!(!content.contains(root.path().to_string_lossy().as_ref()));
+            let value: serde_json::Value =
+                serde_json::from_str(&content).expect("artifact should be JSON");
+            assert_eq!(value["schema_version"], "2", "{artifact} was not v2");
+            assert_eq!(value["tool_name"], "hl7v2-server");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_grpc_create_evidence_bundle_fails_without_configured_output_root() {
+        let service = service();
+        let request = Request::new(CreateEvidenceBundleRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            bundle_id: "case-001".to_string(),
+            mllp_framed: false,
+            bundle_artifact_schema_version: 0,
+        });
+
+        let err = service
+            .create_evidence_bundle(request)
+            .await
+            .expect_err("missing bundle root should fail closed");
+
+        assert_eq!(err.code(), Code::FailedPrecondition);
+        assert_eq!(err.message(), "bundle output root is not configured");
+        assert_no_phi(err.message());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_create_evidence_bundle_invalid_profile_does_not_echo_profile_text() {
+        let root = TempRoot::new("invalid-profile");
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        let invalid_profile =
+            "patient: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+        let request = Request::new(CreateEvidenceBundleRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: invalid_profile.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            bundle_id: "case-001".to_string(),
+            mllp_framed: false,
+            bundle_artifact_schema_version: 0,
+        });
+
+        let err = service
+            .create_evidence_bundle(request)
+            .await
+            .expect_err("invalid profile should fail safely");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_no_phi(err.message());
+        assert!(!err.message().contains(invalid_profile));
+        assert!(fs::read_dir(root.path()).unwrap().next().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_create_evidence_bundle_rejects_unsafe_bundle_id_without_writing() {
+        let root = TempRoot::new("unsafe-bundle-id");
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        let request = Request::new(CreateEvidenceBundleRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            bundle_id: "../escape".to_string(),
+            mllp_framed: false,
+            bundle_artifact_schema_version: 0,
+        });
+
+        let err = service
+            .create_evidence_bundle(request)
+            .await
+            .expect_err("unsafe bundle id should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_no_phi(err.message());
+        assert!(fs::read_dir(root.path()).unwrap().next().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_create_evidence_bundle_rejects_unsupported_schema_versions() {
+        let service = service();
+        let request = Request::new(CreateEvidenceBundleRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            bundle_id: "case-001".to_string(),
+            mllp_framed: false,
+            bundle_artifact_schema_version: 3,
+        });
+
+        let err = service
+            .create_evidence_bundle(request)
+            .await
+            .expect_err("unsupported bundle artifact schema version should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported bundle artifact schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
     async fn test_grpc_corpus_summarize_reports_counts_and_v2_provenance() {
         let service = service();
         let request = Request::new(CorpusSummarizeRequest {
@@ -1676,5 +1893,9 @@ constraints:
 
     fn assert_no_phi(content: &str) {
         assert_no_phi_leak_sentinels("gRPC validate-redacted response", content);
+    }
+
+    fn is_sha256_hex(value: &str) -> bool {
+        value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
     }
 }

@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added gRPC profile fixture-test parity with shared profile test reports,
   inline fixture inputs, expected-report subset comparisons, and opt-in v2
   provenance.
+- Added gRPC evidence bundle creation parity with configured-root writes,
+  hashed public output IDs, unsafe bundle ID rejection, and opt-in v2 bundle
+  artifacts.
 - Added gRPC profile lint parity with shared profile lint reports and opt-in
   v2 provenance.
 
