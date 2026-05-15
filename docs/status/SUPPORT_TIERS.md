@@ -23,6 +23,7 @@ claim tier or proof expectations.
 | Rust parse, validate, normalize, ACK, MLLP, and evidence models | Stable | `cargo test -p hl7v2 --all-features` |
 | Evidence schemas | Stable | `cargo run -p xtask -- evidence-schema-check` |
 | Cross-surface evidence parity contract | Accepted | [HL7V2-SPEC-0006](../specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md); surface-specific claims still require their own tests, schema checks, language install/import proof, or registry receipts |
+| First-use user journeys | Stable where released; Python registry blocked | Rust: `cargo test -p hl7v2 --test user_journey --all-features`; CLI: `cargo test -p hl7v2-cli --test integration_tests journey_cli_validate_redact_bundle_replay_produces_shareable_receipts`; server: `tests/server_smoke/smoke.py` against a running sidecar; Python: `tests/python_smoke/smoke.py` and `tests/python_smoke/evidence_workflow_guide.py` after local wheel install. See the [user journey acceptance proof](../audits/user-journey-acceptance-2026-05-15.md). |
 | Dirty corpus compatibility proof | Stable core proof | `cargo test -p hl7v2 --lib --all-features dirty_real_world`; [dirty real-world corpus proof](../audits/real-world-corpus-proof-2026-05-14.md) |
 | CLI evidence commands | Stable | `cargo test -p hl7v2-cli --test integration_tests` |
 | CLI BDD workflows | Stable | `cargo test -p hl7v2-cli --test bdd_tests` |
