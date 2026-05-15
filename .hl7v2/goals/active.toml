@@ -55,6 +55,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-profile-lint-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-profile-explain-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-profile-test-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-bundle-refresh.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
@@ -622,7 +623,36 @@ commands = [
 non_claims = [
   "No gRPC replay parity.",
   "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
-  "No release-readiness refresh after this surface yet.",
+  "Release-readiness refresh is recorded separately in docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-bundle-refresh.md.",
+]
+
+[[work_item]]
+id = "v1-5-0-grpc-bundle-readiness-refresh"
+status = "done"
+goal = "Refresh v1.5.0 readiness after gRPC evidence bundle creation parity landed."
+commit = "47ba93201aaa15c95157d341bb5ec4f5f3871741"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-bundle-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-grpc-bundle-refresh CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-grpc-bundle-refresh CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No production install-back proof.",
+  "No gRPC replay or quarantine parity claim.",
 ]
 
 [[work_item]]
