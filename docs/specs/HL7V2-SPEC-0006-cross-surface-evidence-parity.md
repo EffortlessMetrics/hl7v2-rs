@@ -35,7 +35,7 @@ Current and future surfaces are:
 | parse | Stable | Stable | Stable | Stable | Stable local binding | Planned |
 | write / normalize | Stable | Stable | Stable | Stable | Stable local binding | Planned |
 | validate | Stable | Stable | Stable | Stable | Stable local binding | Planned |
-| ACK | Stable | Stable where exposed | Stable where exposed | Stable | Planned or not claimed | Planned |
+| ACK | Stable | Stable where exposed | Stable where exposed | Stable | Stable local binding | Planned |
 | profile lint / explain / test | Stable | Stable | Stable where exposed | Profile lint/explain/test stable | Stable local helper | Planned |
 | redaction receipt | Stable | Stable | Stable | Stable via `ValidateRedacted` | Stable local binding | Planned |
 | quarantine output | Not applicable | Not applicable | Stable | Stable via `ValidateRedacted` when configured | Planned or not claimed | Planned |
@@ -167,6 +167,12 @@ A local Python helper can be described as locally proven when a wheel install,
 
 It must not be described as TestPyPI-proven or PyPI-released until upload and
 install-back receipts from those registries exist.
+
+The Python ACK helper can be described as local binding parity when the Python
+wheel smoke proves default `AA`, explicit code mapping, control ID
+preservation, and unsupported-code failure. The checked Python evidence
+workflow may also use ACK artifacts as part of the local evidence loop. This
+does not prove TestPyPI or PyPI availability.
 
 ### Correct TypeScript Claim
 
