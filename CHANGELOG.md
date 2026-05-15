@@ -49,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recorded a prompt-to-artifact objective completion audit for the active
   v1.5.0 lane and kept the lane open until publish, Python, and npm receipts
   exist.
+- Recorded the final non-publishing v1.5.0 pre-publish proof for the selected
+  crates.io graph before any upload, tag, or GitHub release action.
 - Refreshed the v1.5.0 release-readiness receipt after the advisory RIPR
   calibration audit and gRPC profile lint parity landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after gRPC profile explain

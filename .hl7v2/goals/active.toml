@@ -61,6 +61,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md",
   "docs/audits/package-registry-state-2026-05-15.md",
   "docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
@@ -977,13 +978,35 @@ acceptance = [
 
 [[work_item]]
 id = "v1-5-0-publish"
-status = "pending-explicit-approval"
+status = "ready-after-final-prepublish-proof"
 goal = "Publish the selected v1.5.0 crates.io graph only after readiness and dry-run receipts are clean and explicit release approval is given."
+prepublish_receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md"
 publish_order = [
   "hl7v2",
   "hl7v2-python",
   "hl7v2-server",
   "hl7v2-cli",
+]
+
+[[work_item]]
+id = "v1-5-0-final-prepublish-proof"
+status = "done"
+goal = "Run the last non-publishing package proof for the selected v1.5.0 crates.io graph from clean main before upload."
+commit = "9fc95604d8950b565b6b6b7941ad275fd5624178"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface all-publishable --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No production install-back proof.",
 ]
 
 [[work_item]]
