@@ -150,6 +150,7 @@ gRPC status refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-14-grpc-status
 gRPC corpus evidence refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-14-grpc-corpus-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-14-grpc-corpus-refresh.md).
 Numeric validation refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-numeric-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-15-numeric-refresh.md).
 Release graph decision: [`docs/audits/v1.5.0-release-graph-decision-2026-05-14.md`](audits/v1.5.0-release-graph-decision-2026-05-14.md).
+RIPR calibration: [`docs/audits/ripr-calibration-2026-05-15.md`](audits/ripr-calibration-2026-05-15.md).
 
 - 🟡 **Release candidate**: workspace package versions are prepared as `1.5.0` for the primary Rust product graph.
 - ✅ **Rust floor**: MSRV is Rust 1.95 and `rust-toolchain.toml` pins Rust 1.95.0 with `rustfmt` and `clippy`.

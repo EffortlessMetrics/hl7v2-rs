@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fingerprint and diff parity work landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after the nightly property
   command repair and finite numeric validation fix landed on `main`.
+- Recorded the first hosted-traffic calibration audit for the advisory `ripr`
+  evidence surface and kept the lane non-blocking.
 
 ---
 
