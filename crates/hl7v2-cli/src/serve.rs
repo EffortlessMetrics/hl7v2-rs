@@ -112,7 +112,7 @@ async fn run_grpc_server(
     info!("  RPCs:");
     info!("    Parse, ParseStream, Validate, ProfileLint, ProfileExplain, ProfileTest");
     info!("    ValidateRedacted");
-    info!("    CreateEvidenceBundle");
+    info!("    CreateEvidenceBundle, ReplayEvidenceBundle");
     info!("    CorpusSummarize, CorpusFingerprint, CorpusDiff");
     info!("    GenerateAck, Normalize, HealthCheck");
     info!("");

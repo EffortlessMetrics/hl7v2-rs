@@ -388,6 +388,37 @@ impl Hl7Service for Hl7ServiceImpl {
         }))
     }
 
+    async fn replay_evidence_bundle(
+        &self,
+        request: Request<ReplayEvidenceBundleRequest>,
+    ) -> Result<Response<ReplayEvidenceBundleResponse>, Status> {
+        let req = request.into_inner();
+        let report_schema_version =
+            grpc_requested_schema_version(req.replay_report_schema_version, "replay report")
+                .map_err(Status::invalid_argument)?;
+        let bundle_output_root =
+            self.state.bundle_output_root.as_deref().ok_or_else(|| {
+                Status::failed_precondition("bundle output root is not configured")
+            })?;
+        let bundle_dir = crate::evidence::bundle_path_for_id(bundle_output_root, &req.bundle_id)
+            .map_err(grpc_evidence_bundle_error)?;
+
+        if !bundle_dir.is_dir() {
+            crate::metrics::record_replay_result(false);
+            return Err(Status::not_found("bundle id was not found"));
+        }
+
+        let report = hl7v2::evidence::replay_evidence_bundle(&bundle_dir, "hl7v2-server-grpc");
+        crate::metrics::record_replay_result(report.reproduced);
+        let replay_report_v2 = (report_schema_version == 2)
+            .then(|| proto_evidence_replay_report_v2_from_rust(&report.to_v2()));
+
+        Ok(Response::new(ReplayEvidenceBundleResponse {
+            replay_report: Some(proto_evidence_replay_report_from_rust(&report)),
+            replay_report_v2,
+        }))
+    }
+
     async fn corpus_summarize(
         &self,
         request: Request<CorpusSummarizeRequest>,
@@ -1836,6 +1867,56 @@ fn proto_evidence_bundle_summary_from_server(
         validation_issue_count: usize_to_u32(summary.validation_issue_count),
         redaction_phi_removed: summary.redaction_phi_removed,
         artifacts: summary.artifacts.clone(),
+    }
+}
+
+fn proto_evidence_replay_report_from_rust(
+    report: &hl7v2::evidence::EvidenceReplayReport,
+) -> EvidenceReplayReport {
+    EvidenceReplayReport {
+        replay_version: report.replay_version.clone(),
+        bundle_version: report.bundle_version.clone(),
+        tool_name: report.tool_name.clone(),
+        tool_version: report.tool_version.clone(),
+        message_type: report.message_type.clone(),
+        reproduced: report.reproduced,
+        validation_valid: report.validation_valid,
+        validation_issue_count: report.validation_issue_count.map(usize_to_u32),
+        checks: report
+            .checks
+            .iter()
+            .map(proto_evidence_replay_check_from_rust)
+            .collect(),
+        validation_report: report
+            .validation_report
+            .as_ref()
+            .map(proto_validation_report_from_rust),
+    }
+}
+
+fn proto_evidence_replay_report_v2_from_rust(
+    report: &hl7v2::evidence::EvidenceReplayReportV2,
+) -> EvidenceReplayReportV2 {
+    EvidenceReplayReportV2 {
+        schema_version: report.schema_version.clone(),
+        report: Some(proto_evidence_replay_report_from_rust(&report.report)),
+    }
+}
+
+fn proto_evidence_replay_check_from_rust(
+    check: &hl7v2::evidence::EvidenceReplayCheck,
+) -> EvidenceReplayCheck {
+    EvidenceReplayCheck {
+        name: check.name.clone(),
+        status: match check.status {
+            hl7v2::evidence::EvidenceReplayCheckStatus::Pass => {
+                evidence_replay_check::Status::Pass as i32
+            }
+            hl7v2::evidence::EvidenceReplayCheckStatus::Fail => {
+                evidence_replay_check::Status::Fail as i32
+            }
+        },
+        message: check.message.clone(),
     }
 }
 

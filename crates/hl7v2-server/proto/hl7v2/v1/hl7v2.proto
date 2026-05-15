@@ -32,6 +32,9 @@ service HL7Service {
   // Create a redacted evidence bundle under the configured server bundle root
   rpc CreateEvidenceBundle(CreateEvidenceBundleRequest) returns (CreateEvidenceBundleResponse);
 
+  // Replay and verify a redacted evidence bundle under the configured server bundle root
+  rpc ReplayEvidenceBundle(ReplayEvidenceBundleRequest) returns (ReplayEvidenceBundleResponse);
+
   // Summarize an inline corpus without reading caller-supplied filesystem paths
   rpc CorpusSummarize(CorpusSummarizeRequest) returns (CorpusSummarizeResponse);
 
@@ -692,6 +695,29 @@ message CreateEvidenceBundleResponse {
   EvidenceBundleSummary summary = 1;
 }
 
+// Server evidence bundle replay request.
+message ReplayEvidenceBundleRequest {
+  // Caller-supplied bundle identifier relative to the configured server bundle
+  // root. The service validates this as a relative identifier and does not
+  // expose it in the response.
+  string bundle_id = 1;
+
+  // Optional replay evidence schema version.
+  //
+  // Omitted or 1 preserves the default replay report fields. 2 includes the
+  // replay_report_v2 field with embedded evidence schema provenance.
+  int32 replay_report_schema_version = 2;
+}
+
+// Server evidence bundle replay response.
+message ReplayEvidenceBundleResponse {
+  // Stable replay report fields shared with CLI, REST, Rust, and Python.
+  EvidenceReplayReport replay_report = 1;
+
+  // Opt-in replay report with embedded evidence schema provenance.
+  EvidenceReplayReportV2 replay_report_v2 = 2;
+}
+
 // Stable evidence bundle summary artifact.
 message EvidenceBundleSummary {
   string bundle_version = 1;
@@ -701,6 +727,39 @@ message EvidenceBundleSummary {
   uint32 validation_issue_count = 5;
   bool redaction_phi_removed = 6;
   repeated string artifacts = 7;
+}
+
+// Stable evidence replay report artifact.
+message EvidenceReplayReport {
+  string replay_version = 1;
+  optional string bundle_version = 2;
+  string tool_name = 3;
+  string tool_version = 4;
+  optional string message_type = 5;
+  bool reproduced = 6;
+  optional bool validation_valid = 7;
+  optional uint32 validation_issue_count = 8;
+  repeated EvidenceReplayCheck checks = 9;
+  optional ValidationReport validation_report = 10;
+}
+
+// Evidence replay report v2 artifact with embedded schema provenance.
+message EvidenceReplayReportV2 {
+  string schema_version = 1;
+  EvidenceReplayReport report = 2;
+}
+
+// One replay verification check.
+message EvidenceReplayCheck {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_PASS = 1;
+    STATUS_FAIL = 2;
+  }
+
+  string name = 1;
+  Status status = 2;
+  string message = 3;
 }
 
 // Inline corpus summary request.

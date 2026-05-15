@@ -37,19 +37,20 @@ The current `HL7Service` protobuf contract includes:
 6. `ProfileTest` -- Test inline fixtures against an inline profile and return profile evidence.
 7. `ValidateRedacted` -- Redact and validate with opt-in evidence fields.
 8. `CreateEvidenceBundle` -- Write a redacted evidence bundle under the configured server root.
-9. `CorpusSummarize` -- Summarize inline corpus messages.
-10. `CorpusFingerprint` -- Fingerprint inline corpus messages.
-11. `CorpusDiff` -- Diff inline before/after corpus messages.
-12. `GenerateAck` -- Generate an ACK/NAK response.
-13. `Normalize` -- Normalize message delimiters and structure.
-14. `HealthCheck` -- Return service health status.
+9. `ReplayEvidenceBundle` -- Replay and verify a configured-root evidence bundle.
+10. `CorpusSummarize` -- Summarize inline corpus messages.
+11. `CorpusFingerprint` -- Fingerprint inline corpus messages.
+12. `CorpusDiff` -- Diff inline before/after corpus messages.
+13. `GenerateAck` -- Generate an ACK/NAK response.
+14. `Normalize` -- Normalize message delimiters and structure.
+15. `HealthCheck` -- Return service health status.
 
 The gRPC surface remains intentionally narrower than the full HTTP/CLI/Python
-evidence sidecar. Replay and quarantine behavior remain outside the protobuf
-contract unless a later ADR or PR promotes those operations. The current corpus
-summary, fingerprint, and diff RPCs cover inline caller-supplied messages only;
-they do not read request filesystem paths. The current bundle RPC writes only
-under the configured server bundle root and returns a root-redacted summary.
+evidence sidecar. Quarantine behavior remains outside the protobuf contract
+unless a later ADR or PR promotes it. The current corpus summary, fingerprint,
+and diff RPCs cover inline caller-supplied messages only; they do not read
+request filesystem paths. The current bundle and replay RPCs operate only under
+the configured server bundle root and return root-redacted responses.
 
 ## Decision
 
@@ -131,13 +132,13 @@ Tonic gives the repo a production-quality Rust path now.
   and configures the generated service.
 - **Scope**: gRPC currently covers parse, stream parse, validate, profile lint,
   profile explain, profile fixture test, validate-redacted, evidence bundle
-  creation, corpus summarize, corpus fingerprint, corpus diff, ACK generation,
-  normalize, and health.
+  creation, evidence bundle replay, corpus summarize, corpus fingerprint,
+  corpus diff, ACK generation, normalize, and health.
 
 ## Remaining Work
 
-- Decide whether replay and quarantine should become protobuf RPCs or remain
-  HTTP/CLI/Python evidence surfaces.
+- Decide whether quarantine should become a protobuf RPC or remain an HTTP
+  evidence surface.
 - Keep gRPC auth, rate-limit, and deployment behavior aligned with the server
   support-tier claims.
 - Add network-level integration tests with `tonic::transport::Channel` clients

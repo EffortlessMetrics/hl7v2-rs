@@ -18,8 +18,9 @@ mod tests {
         CreateEvidenceBundleRequest, GenerateAckRequest, HealthCheckRequest, NormalizeOptions,
         NormalizeRequest, ParseRequest, ParseStreamRequest, ParseStreamResponse,
         ProfileExplainRequest, ProfileLintRequest, ProfileTestFixture, ProfileTestRequest,
-        ValidateRedactedRequest, ValidateRequest, generate_ack_request, health_check_response,
-        profile_test_fixture, validation_issue,
+        ReplayEvidenceBundleRequest, ValidateRedactedRequest, ValidateRequest,
+        evidence_replay_check, generate_ack_request, health_check_response, profile_test_fixture,
+        validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
@@ -1268,6 +1269,136 @@ reason = "hash patient identifier"
         assert_eq!(
             err.message(),
             "unsupported bundle artifact schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_replay_evidence_bundle_reproduces_bundle_and_v2_report() {
+        let root = TempRoot::new("replay-success");
+        let bundle_id = "MRN-SECRET-123";
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        service
+            .create_evidence_bundle(Request::new(CreateEvidenceBundleRequest {
+                message: PHI_MESSAGE.as_bytes().to_vec(),
+                profile: PROFILE.to_string(),
+                redaction_policy: REDACTION_POLICY.to_string(),
+                bundle_id: bundle_id.to_string(),
+                mllp_framed: false,
+                bundle_artifact_schema_version: 2,
+            }))
+            .await
+            .expect("bundle creation should succeed");
+
+        let response = service
+            .replay_evidence_bundle(Request::new(ReplayEvidenceBundleRequest {
+                bundle_id: bundle_id.to_string(),
+                replay_report_schema_version: 2,
+            }))
+            .await
+            .expect("replay should succeed")
+            .into_inner();
+        let response_debug = format!("{response:?}");
+        let report = response
+            .replay_report
+            .as_ref()
+            .expect("replay report should exist");
+
+        assert_eq!(report.replay_version, "1");
+        assert_eq!(report.bundle_version.as_deref(), Some("1"));
+        assert_eq!(report.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report.tool_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(report.message_type.as_deref(), Some("ADT^A01"));
+        assert!(report.reproduced);
+        assert_eq!(report.validation_valid, Some(true));
+        assert_eq!(report.validation_issue_count, Some(0));
+        assert!(
+            report
+                .checks
+                .iter()
+                .all(|check| check.status == evidence_replay_check::Status::Pass as i32)
+        );
+        assert!(report.validation_report.is_some());
+
+        let report_v2 = response
+            .replay_report_v2
+            .as_ref()
+            .expect("replay report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+        let nested = report_v2.report.as_ref().expect("v2 report should exist");
+        assert_eq!(nested.replay_version, report.replay_version);
+        assert!(nested.reproduced);
+
+        assert_no_phi(&response_debug);
+        assert!(!response_debug.contains(root.path().to_string_lossy().as_ref()));
+        assert!(!response_debug.contains(bundle_id));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_replay_evidence_bundle_fails_without_configured_output_root() {
+        let service = service();
+        let err = service
+            .replay_evidence_bundle(Request::new(ReplayEvidenceBundleRequest {
+                bundle_id: "case-001".to_string(),
+                replay_report_schema_version: 0,
+            }))
+            .await
+            .expect_err("missing bundle root should fail closed");
+
+        assert_eq!(err.code(), Code::FailedPrecondition);
+        assert_eq!(err.message(), "bundle output root is not configured");
+        assert_no_phi(err.message());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_replay_evidence_bundle_rejects_unsafe_bundle_id() {
+        let root = TempRoot::new("replay-unsafe-id");
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        let err = service
+            .replay_evidence_bundle(Request::new(ReplayEvidenceBundleRequest {
+                bundle_id: "../escape".to_string(),
+                replay_report_schema_version: 0,
+            }))
+            .await
+            .expect_err("unsafe bundle id should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_no_phi(err.message());
+        assert!(fs::read_dir(root.path()).unwrap().next().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_replay_evidence_bundle_returns_not_found_for_missing_bundle_id() {
+        let root = TempRoot::new("replay-missing");
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        let err = service
+            .replay_evidence_bundle(Request::new(ReplayEvidenceBundleRequest {
+                bundle_id: "missing-case".to_string(),
+                replay_report_schema_version: 0,
+            }))
+            .await
+            .expect_err("missing bundle should fail");
+
+        assert_eq!(err.code(), Code::NotFound);
+        assert_eq!(err.message(), "bundle id was not found");
+        assert_no_phi(err.message());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_replay_evidence_bundle_rejects_unsupported_schema_versions() {
+        let root = TempRoot::new("replay-schema-version");
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        let err = service
+            .replay_evidence_bundle(Request::new(ReplayEvidenceBundleRequest {
+                bundle_id: "case-001".to_string(),
+                replay_report_schema_version: 3,
+            }))
+            .await
+            .expect_err("unsupported replay schema version should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported replay report schema version 3; expected 1 or 2"
         );
     }
 

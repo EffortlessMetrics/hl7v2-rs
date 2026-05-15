@@ -23,7 +23,7 @@ Useful release-candidate workflows include:
 
 The gRPC service implements `Parse`, `ParseStream`, `Validate`, `ProfileLint`,
 `ProfileExplain`, `ProfileTest`, `ValidateRedacted`, `CreateEvidenceBundle`,
-`CorpusSummarize`, `CorpusFingerprint`, `CorpusDiff`, `GenerateAck`,
+`ReplayEvidenceBundle`, `CorpusSummarize`, `CorpusFingerprint`, `CorpusDiff`, `GenerateAck`,
 `Normalize`, and `HealthCheck`.
 `Validate` and `ValidateRedacted` return the shared validation report fields;
 `ProfileLint`, `ProfileExplain`, and `ProfileTest` return the shared profile
@@ -32,6 +32,8 @@ report fields;
 payload opt-in.
 `CreateEvidenceBundle` writes a redacted bundle under the configured server
 bundle root and returns a shared bundle summary with a hashed public output ID.
+`ReplayEvidenceBundle` verifies configured-root bundles and returns the shared
+replay report shape with opt-in v2 replay provenance.
 `CorpusSummarize`, `CorpusFingerprint`, and `CorpusDiff` accept inline messages
 only and can return v2 corpus provenance shapes with
 `summary_schema_version = 2`, `fingerprint_schema_version = 2`, or
