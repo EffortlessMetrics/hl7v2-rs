@@ -16,8 +16,9 @@ mod tests {
     use hl7v2_server::grpc::proto::{
         CorpusDiffRequest, CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest,
         GenerateAckRequest, HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest,
-        ParseStreamRequest, ParseStreamResponse, ProfileLintRequest, ValidateRedactedRequest,
-        ValidateRequest, generate_ack_request, health_check_response, validation_issue,
+        ParseStreamRequest, ParseStreamResponse, ProfileExplainRequest, ProfileLintRequest,
+        ValidateRedactedRequest, ValidateRequest, generate_ack_request, health_check_response,
+        validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
@@ -504,6 +505,129 @@ unknown_top_level: "ignored"
         assert_eq!(
             err.message(),
             "unsupported profile lint report schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_explain_reports_contract_shape() {
+        let service = service();
+        let response = service
+            .profile_explain(Request::new(ProfileExplainRequest {
+                profile: PROFILE.to_string(),
+                report_schema_version: 0,
+            }))
+            .await
+            .expect("ProfileExplain should succeed")
+            .into_inner();
+
+        let report = response
+            .profile_explain_report
+            .expect("profile explain report should exist");
+        assert_eq!(report.profile, "<inline-profile>");
+        assert_eq!(report.profile_sha256.len(), 64);
+        assert_eq!(report.message_structure, "ADT_A01");
+        assert_eq!(report.version, "2.5");
+        let summary = report.summary.expect("summary should exist");
+        assert_eq!(summary.segment_count, 2);
+        assert_eq!(summary.required_field_count, 1);
+        assert_eq!(summary.field_constraint_count, 1);
+        assert_eq!(report.segments[0].id, "MSH");
+        assert_eq!(report.segments[1].id, "PID");
+        assert_eq!(report.required_fields[0].path, "PID.3");
+        assert!(!report.required_fields[0].conditional);
+        assert_eq!(report.field_constraints[0].path, "PID.3");
+        assert!(report.field_constraints[0].required);
+        let lint = report.lint.expect("lint summary should exist");
+        assert!(lint.valid);
+        assert_eq!(lint.issue_count, 0);
+        assert!(response.profile_explain_report_v2.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_explain_reports_warnings_and_v2_provenance() {
+        let service = service();
+        let profile = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "PID"
+unknown_top_level: "ignored"
+"#;
+
+        let response = service
+            .profile_explain(Request::new(ProfileExplainRequest {
+                profile: profile.to_string(),
+                report_schema_version: 2,
+            }))
+            .await
+            .expect("ProfileExplain should succeed")
+            .into_inner();
+
+        let report = response
+            .profile_explain_report
+            .expect("profile explain report should exist");
+        let lint = report.lint.expect("lint summary should exist");
+        assert!(lint.valid);
+        assert_eq!(lint.warning_count, 1);
+        assert_eq!(lint.ignored_or_unsupported[0].code, "unknown_top_level_key");
+        assert_eq!(
+            lint.ignored_or_unsupported[0].path.as_deref(),
+            Some("unknown_top_level")
+        );
+
+        let report_v2 = response
+            .profile_explain_report_v2
+            .expect("profile explain report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+        assert_eq!(report_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        let nested = report_v2
+            .report
+            .expect("v2 report should contain v1 fields");
+        assert_eq!(nested.message_structure, "ADT_A01");
+        assert_eq!(nested.version, "2.5");
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_explain_invalid_yaml_does_not_echo_profile_text() {
+        let service = service();
+        let sensitive_profile =
+            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+
+        let err = service
+            .profile_explain(Request::new(ProfileExplainRequest {
+                profile: sensitive_profile.to_string(),
+                report_schema_version: 0,
+            }))
+            .await
+            .expect_err("malformed profile should fail ProfileExplain");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "profile could not be loaded; run profile lint for details"
+        );
+        assert!(!err.message().contains("Jane Secret"));
+        assert!(!err.message().contains("MRN-SECRET-123"));
+        assert!(!err.message().contains(sensitive_profile));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_explain_rejects_unsupported_schema_versions() {
+        let service = service();
+        let err = service
+            .profile_explain(Request::new(ProfileExplainRequest {
+                profile: PROFILE.to_string(),
+                report_schema_version: 3,
+            }))
+            .await
+            .expect_err("unsupported profile explain schema version should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported profile explain report schema version 3; expected 1 or 2"
         );
     }
 

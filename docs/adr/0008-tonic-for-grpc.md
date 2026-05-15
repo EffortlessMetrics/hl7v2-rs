@@ -33,16 +33,17 @@ The current `HL7Service` protobuf contract includes:
 2. `ParseStream` -- Parse a stream of request messages into response messages.
 3. `Validate` -- Validate a message against a profile.
 4. `ProfileLint` -- Lint an inline profile and return profile lint evidence.
-5. `ValidateRedacted` -- Redact and validate with opt-in evidence fields.
-6. `CorpusSummarize` -- Summarize inline corpus messages.
-7. `CorpusFingerprint` -- Fingerprint inline corpus messages.
-8. `CorpusDiff` -- Diff inline before/after corpus messages.
-9. `GenerateAck` -- Generate an ACK/NAK response.
-10. `Normalize` -- Normalize message delimiters and structure.
-11. `HealthCheck` -- Return service health status.
+5. `ProfileExplain` -- Explain an inline profile and return profile evidence.
+6. `ValidateRedacted` -- Redact and validate with opt-in evidence fields.
+7. `CorpusSummarize` -- Summarize inline corpus messages.
+8. `CorpusFingerprint` -- Fingerprint inline corpus messages.
+9. `CorpusDiff` -- Diff inline before/after corpus messages.
+10. `GenerateAck` -- Generate an ACK/NAK response.
+11. `Normalize` -- Normalize message delimiters and structure.
+12. `HealthCheck` -- Return service health status.
 
 The gRPC surface remains intentionally narrower than the full HTTP/CLI/Python
-evidence sidecar. Profile explain/test, bundle, replay, and quarantine behavior
+evidence sidecar. Profile test, bundle, replay, and quarantine behavior
 remain outside the protobuf contract unless a later ADR or PR promotes those
 operations. The current corpus summary, fingerprint, and diff RPCs cover
 inline caller-supplied messages only; they do not read request filesystem paths.
@@ -126,12 +127,12 @@ Tonic gives the repo a production-quality Rust path now.
 - **Server wiring**: `crates/hl7v2-server/src/server.rs` exposes `serve_grpc`
   and configures the generated service.
 - **Scope**: gRPC currently covers parse, stream parse, validate, profile lint,
-  validate-redacted, corpus summarize, corpus fingerprint, corpus diff, ACK
-  generation, normalize, and health.
+  profile explain, validate-redacted, corpus summarize, corpus fingerprint,
+  corpus diff, ACK generation, normalize, and health.
 
 ## Remaining Work
 
-- Decide whether profile explain/test, bundle, replay, and quarantine should
+- Decide whether profile test, bundle, replay, and quarantine should
   become protobuf RPCs or remain HTTP/CLI/Python evidence surfaces.
 - Keep gRPC auth, rate-limit, and deployment behavior aligned with the server
   support-tier claims.

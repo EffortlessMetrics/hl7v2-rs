@@ -456,7 +456,37 @@ commands = [
   "git diff --check",
 ]
 non_claims = [
-  "No gRPC profile explain/test parity.",
+  "No gRPC profile test parity.",
+  "No gRPC bundle/replay parity.",
+  "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
+]
+
+[[work_item]]
+id = "grpc-profile-explain-parity"
+status = "done"
+goal = "Promote profile explain to the gRPC evidence surface with shared report semantics, v2 provenance, safe malformed-profile diagnostics, and contract tests."
+files = [
+  "api/proto/hl7v2/v1/hl7v2.proto",
+  "crates/hl7v2-server/proto/hl7v2/v1/hl7v2.proto",
+  "crates/hl7v2-server/src/grpc.rs",
+  "crates/hl7v2-server/tests/grpc_contract_tests.rs",
+]
+commands = [
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests profile_explain -- --nocapture",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests",
+  "cargo +1.95.0 test -p hl7v2-server --test proto_packaging_test",
+  "npx -y @bufbuild/buf lint api/proto",
+  "cargo +1.95.0 test -p hl7v2-cli --test serve_grpc_contract_test",
+  "cargo +1.95.0 check -p hl7v2-server -p hl7v2-cli --all-features --all-targets --locked",
+  "cargo +1.95.0 clippy -p hl7v2-server -p hl7v2-cli --all-targets --all-features --locked -- -D warnings",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No gRPC profile test parity.",
   "No gRPC bundle/replay parity.",
   "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
 ]
