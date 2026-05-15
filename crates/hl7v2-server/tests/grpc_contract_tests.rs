@@ -17,8 +17,8 @@ mod tests {
         CorpusDiffRequest, CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest,
         GenerateAckRequest, HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest,
         ParseStreamRequest, ParseStreamResponse, ProfileExplainRequest, ProfileLintRequest,
-        ValidateRedactedRequest, ValidateRequest, generate_ack_request, health_check_response,
-        validation_issue,
+        ProfileTestFixture, ProfileTestRequest, ValidateRedactedRequest, ValidateRequest,
+        generate_ack_request, health_check_response, profile_test_fixture, validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
@@ -628,6 +628,168 @@ unknown_top_level: "ignored"
         assert_eq!(
             err.message(),
             "unsupported profile explain report schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_test_reports_fixture_results_and_v2_provenance() {
+        let service = service();
+        let invalid_missing_pid3 =
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL124|P|2.5\rPID|1\r";
+        let response = service
+            .profile_test(Request::new(ProfileTestRequest {
+                profile: PROFILE.to_string(),
+                fixtures: vec![
+                    ProfileTestFixture {
+                        name: "valid/adt.hl7".to_string(),
+                        message: SAMPLE_MSG.to_vec(),
+                        expectation: profile_test_fixture::Expectation::Valid as i32,
+                        mllp_framed: false,
+                        expected_report_json: None,
+                    },
+                    ProfileTestFixture {
+                        name: "invalid/missing_pid3.hl7".to_string(),
+                        message: invalid_missing_pid3.to_vec(),
+                        expectation: profile_test_fixture::Expectation::Invalid as i32,
+                        mllp_framed: false,
+                        expected_report_json: Some(
+                            r#"{"valid":false,"issue_count":1,"issues":[{"code":"missing_required_field","path":"PID.3"}]}"#
+                                .to_string(),
+                        ),
+                    },
+                ],
+                report_schema_version: 2,
+            }))
+            .await
+            .expect("ProfileTest should succeed")
+            .into_inner();
+
+        let report = response
+            .profile_test_report
+            .expect("profile test report should exist");
+        assert!(report.valid);
+        assert_eq!(report.profile, "<inline-profile>");
+        assert_eq!(report.fixtures, "<inline-fixtures>");
+        assert_eq!(report.case_count, 2);
+        assert_eq!(report.passed_count, 2);
+        assert_eq!(report.failed_count, 0);
+        assert_eq!(report.cases[0].name, "valid/adt.hl7");
+        assert_eq!(report.cases[0].expectation, "valid");
+        assert!(report.cases[0].passed);
+        assert!(
+            report.cases[0]
+                .validation_report
+                .as_ref()
+                .expect("valid fixture should include validation report")
+                .valid
+        );
+
+        let invalid_case = &report.cases[1];
+        assert_eq!(invalid_case.name, "invalid/missing_pid3.hl7");
+        assert_eq!(invalid_case.expectation, "invalid");
+        assert!(invalid_case.passed);
+        let validation_report = invalid_case
+            .validation_report
+            .as_ref()
+            .expect("invalid fixture should include validation report");
+        assert!(!validation_report.valid);
+        assert_eq!(
+            validation_report.profile.as_deref(),
+            Some("<inline-profile>")
+        );
+        assert_eq!(validation_report.issues[0].code, "missing_required_field");
+        assert_eq!(validation_report.issues[0].path.as_deref(), Some("PID.3"));
+        let expected_report = invalid_case
+            .expected_report
+            .as_ref()
+            .expect("expected report comparison should exist");
+        assert!(expected_report.matched);
+        assert!(invalid_case.message.contains("expected report matched"));
+
+        let report_v2 = response
+            .profile_test_report_v2
+            .expect("profile test report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+        assert_eq!(report_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(
+            report_v2
+                .report
+                .expect("v2 report should contain v1 fields")
+                .case_count,
+            report.case_count
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_test_invalid_yaml_does_not_echo_profile_text() {
+        let service = service();
+        let sensitive_profile =
+            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+
+        let err = service
+            .profile_test(Request::new(ProfileTestRequest {
+                profile: sensitive_profile.to_string(),
+                fixtures: vec![ProfileTestFixture {
+                    name: "fixture-1".to_string(),
+                    message: SAMPLE_MSG.to_vec(),
+                    expectation: profile_test_fixture::Expectation::Valid as i32,
+                    mllp_framed: false,
+                    expected_report_json: None,
+                }],
+                report_schema_version: 0,
+            }))
+            .await
+            .expect_err("malformed profile should fail ProfileTest");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "profile could not be loaded; run profile lint for details"
+        );
+        assert!(!err.message().contains("Jane Secret"));
+        assert!(!err.message().contains("MRN-SECRET-123"));
+        assert!(!err.message().contains(sensitive_profile));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_test_rejects_empty_fixtures() {
+        let service = service();
+        let err = service
+            .profile_test(Request::new(ProfileTestRequest {
+                profile: PROFILE.to_string(),
+                fixtures: Vec::new(),
+                report_schema_version: 0,
+            }))
+            .await
+            .expect_err("empty profile test fixtures should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(err.message(), "fixtures must contain at least one fixture");
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_test_rejects_unsupported_schema_versions() {
+        let service = service();
+        let err = service
+            .profile_test(Request::new(ProfileTestRequest {
+                profile: PROFILE.to_string(),
+                fixtures: vec![ProfileTestFixture {
+                    name: "valid/adt.hl7".to_string(),
+                    message: SAMPLE_MSG.to_vec(),
+                    expectation: profile_test_fixture::Expectation::Valid as i32,
+                    mllp_framed: false,
+                    expected_report_json: None,
+                }],
+                report_schema_version: 3,
+            }))
+            .await
+            .expect_err("unsupported profile test schema version should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported profile test report schema version 3; expected 1 or 2"
         );
     }
 

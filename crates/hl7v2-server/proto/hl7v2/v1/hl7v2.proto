@@ -23,6 +23,9 @@ service HL7Service {
   // Explain an inline profile as structured evidence
   rpc ProfileExplain(ProfileExplainRequest) returns (ProfileExplainResponse);
 
+  // Test inline fixtures against an inline profile as structured evidence
+  rpc ProfileTest(ProfileTestRequest) returns (ProfileTestResponse);
+
   // Redact a message with a safe-analysis policy, then validate it
   rpc ValidateRedacted(ValidateRedactedRequest) returns (ValidateRedactedResponse);
 
@@ -443,6 +446,91 @@ message ProfileExplainLintSummary {
   uint32 warning_count = 3;
   uint32 issue_count = 4;
   repeated ProfileLintIssue ignored_or_unsupported = 5;
+}
+
+// Profile fixture test request.
+message ProfileTestRequest {
+  // Inline HL7v2 profile YAML content
+  string profile = 1;
+
+  // Inline fixture messages. The service does not read filesystem paths from
+  // this request.
+  repeated ProfileTestFixture fixtures = 2;
+
+  // Optional profile test evidence schema version.
+  //
+  // Omitted or 1 preserves the default report fields. 2 includes the
+  // profile_test_report_v2 field with embedded provenance.
+  int32 report_schema_version = 3;
+}
+
+// Caller-supplied in-memory profile fixture.
+message ProfileTestFixture {
+  enum Expectation {
+    EXPECTATION_UNSPECIFIED = 0;
+    EXPECTATION_VALID = 1;
+    EXPECTATION_INVALID = 2;
+  }
+
+  // Stable fixture label. This is not a filesystem path and must be safe to
+  // echo in evidence.
+  string name = 1;
+
+  // Raw HL7 message bytes. Plain HL7 and MLLP-framed messages are accepted.
+  bytes message = 2;
+
+  // Whether this fixture is expected to validate or fail validation.
+  Expectation expectation = 3;
+
+  // Whether message is MLLP-framed.
+  bool mllp_framed = 4;
+
+  // Optional expected validation report subset as JSON.
+  optional string expected_report_json = 5;
+}
+
+// Profile fixture test response.
+message ProfileTestResponse {
+  // Stable profile test report fields shared with Rust, CLI, and Python.
+  ProfileTestReport profile_test_report = 1;
+
+  // Opt-in profile test report with embedded evidence provenance.
+  ProfileTestReportV2 profile_test_report_v2 = 2;
+}
+
+// Stable profile test report artifact.
+message ProfileTestReport {
+  string profile = 1;
+  string fixtures = 2;
+  bool valid = 3;
+  uint32 case_count = 4;
+  uint32 passed_count = 5;
+  uint32 failed_count = 6;
+  repeated ProfileTestCaseReport cases = 7;
+}
+
+// Profile test report v2 artifact with embedded evidence provenance.
+message ProfileTestReportV2 {
+  string schema_version = 1;
+  string tool_name = 2;
+  string tool_version = 3;
+  ProfileTestReport report = 4;
+}
+
+message ProfileTestCaseReport {
+  string name = 1;
+  string path = 2;
+  string expectation = 3;
+  bool passed = 4;
+  string message = 5;
+  ValidationReport validation_report = 6;
+  ExpectedReportComparison expected_report = 7;
+}
+
+message ExpectedReportComparison {
+  string path = 1;
+  bool matched = 2;
+  optional string message = 3;
 }
 
 // Validate Response
