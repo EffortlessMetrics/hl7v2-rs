@@ -26,6 +26,13 @@ The initial lane is advisory:
 - use suppressions only through a policy ledger;
 - preserve runtime mutation as targeted or release-time proof.
 
+The first calibration pass over hosted PR artifacts is recorded in
+[`docs/audits/ripr-calibration-2026-05-15.md`](../audits/ripr-calibration-2026-05-15.md).
+That audit keeps `ripr` advisory: severe-gap and impacted-evidence output can
+route review and targeted mutation, but branch protection must not depend on
+`ripr` until artifact counter semantics and traffic patterns are better
+understood.
+
 ## CI Economics
 
 At industrialized PR volume, broad always-on runtime mutation would become an
@@ -64,3 +71,8 @@ verification commands, emits a stable PR evidence summary, and uploads the
 artifacts as `ripr-pr-evidence`. The lane remains advisory: findings route
 review and mutation decisions, while contract/tooling drift is the failure mode
 to repair.
+
+Do not treat any single artifact as the whole truth. The initial calibration
+found that `repo-exposure.json` summary counters and generated Markdown review
+guidance can use different counter semantics. Reviewer decisions should inspect
+the summary, comments, annotations, and impacted-evidence receipt together.

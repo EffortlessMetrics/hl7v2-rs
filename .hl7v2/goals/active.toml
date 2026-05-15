@@ -52,6 +52,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-14-grpc-status-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-14-grpc-corpus-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-numeric-refresh.md",
+  "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
@@ -99,6 +100,31 @@ goal = "Activate or receipt Rust 1.95 lint ratchets, Clippy exceptions, exact no
 id = "ripr-advisory-static-exposure"
 status = "done"
 goal = "Add ripr as advisory PR-time static mutation-exposure proof without branch-protection blocking."
+
+[[work_item]]
+id = "ripr-calibration-after-initial-traffic"
+status = "done"
+goal = "Calibrate the advisory ripr evidence surface against initial hosted PR artifacts without making it branch-protection blocking."
+receipt = "docs/audits/ripr-calibration-2026-05-15.md"
+sampled_runs = [
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25878290885",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25894522063",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25895990745",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25899168227",
+]
+commands = [
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No branch-protection rule changed.",
+  "No required check added.",
+  "No runtime mutation run.",
+  "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
+]
 
 [[work_item]]
 id = "targeted-runtime-mutation"
