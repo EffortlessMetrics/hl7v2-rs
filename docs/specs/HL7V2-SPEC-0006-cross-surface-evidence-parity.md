@@ -24,7 +24,7 @@ Current and future surfaces are:
 | Rust crate `hl7v2` | Canonical parser, validator, normalizer, evidence model, and artifact semantics. |
 | CLI `hl7v2-cli` | Operator and CI interface for evidence commands and support receipts. |
 | REST server | HTTP sidecar for validation, redaction, corpus, bundle, replay, and service integration. |
-| gRPC server | Typed service transport; narrower than REST until focused parity PRs land. |
+| gRPC server | Typed service transport with evidence parity for the implemented RPCs; service lifecycle and operational hardening remain tracked separately from artifact semantics. |
 | Python package `hl7v2` | Python user package backed by `hl7v2-python`; release proof is separate from crates.io backend proof. |
 | TypeScript package `@effortlessmetrics/hl7v2` | Planned package governed by [HL7V2-SPEC-0005](HL7V2-SPEC-0005-npm-wasm-binding-package-model.md). |
 
