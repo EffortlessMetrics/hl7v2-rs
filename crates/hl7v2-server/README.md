@@ -28,8 +28,9 @@ The gRPC service implements `Parse`, `ParseStream`, `Validate`, `ProfileLint`,
 `Validate` and `ValidateRedacted` return the shared validation report fields;
 `ProfileLint`, `ProfileExplain`, and `ProfileTest` return the shared profile
 report fields;
-`ValidateRedacted` also returns a redaction receipt and keeps the redacted HL7
-payload opt-in.
+`ValidateRedacted` also returns a redaction receipt, keeps the redacted HL7
+payload opt-in, and can write configured quarantine output when redacted
+validation fails.
 `CreateEvidenceBundle` writes a redacted bundle under the configured server
 bundle root and returns a shared bundle summary with a hashed public output ID.
 `ReplayEvidenceBundle` verifies configured-root bundles and returns the shared

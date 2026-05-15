@@ -35,7 +35,7 @@ The current `HL7Service` protobuf contract includes:
 4. `ProfileLint` -- Lint an inline profile and return profile lint evidence.
 5. `ProfileExplain` -- Explain an inline profile and return profile evidence.
 6. `ProfileTest` -- Test inline fixtures against an inline profile and return profile evidence.
-7. `ValidateRedacted` -- Redact and validate with opt-in evidence fields.
+7. `ValidateRedacted` -- Redact and validate with opt-in evidence and quarantine fields.
 8. `CreateEvidenceBundle` -- Write a redacted evidence bundle under the configured server root.
 9. `ReplayEvidenceBundle` -- Replay and verify a configured-root evidence bundle.
 10. `CorpusSummarize` -- Summarize inline corpus messages.
@@ -46,11 +46,12 @@ The current `HL7Service` protobuf contract includes:
 15. `HealthCheck` -- Return service health status.
 
 The gRPC surface remains intentionally narrower than the full HTTP/CLI/Python
-evidence sidecar. Quarantine behavior remains outside the protobuf contract
-unless a later ADR or PR promotes it. The current corpus summary, fingerprint,
-and diff RPCs cover inline caller-supplied messages only; they do not read
-request filesystem paths. The current bundle and replay RPCs operate only under
-the configured server bundle root and return root-redacted responses.
+evidence sidecar. `ValidateRedacted` covers configured quarantine output for
+failed redacted validation; it exposes only root-relative quarantine output IDs.
+The current corpus summary, fingerprint, and diff RPCs cover inline
+caller-supplied messages only; they do not read request filesystem paths. The
+current bundle and replay RPCs operate only under the configured server bundle
+root and return root-redacted responses.
 
 ## Decision
 
@@ -133,12 +134,11 @@ Tonic gives the repo a production-quality Rust path now.
 - **Scope**: gRPC currently covers parse, stream parse, validate, profile lint,
   profile explain, profile fixture test, validate-redacted, evidence bundle
   creation, evidence bundle replay, corpus summarize, corpus fingerprint,
-  corpus diff, ACK generation, normalize, and health.
+  corpus diff, configured quarantine output for failed redacted validation, ACK
+  generation, normalize, and health.
 
 ## Remaining Work
 
-- Decide whether quarantine should become a protobuf RPC or remain an HTTP
-  evidence surface.
 - Keep gRPC auth, rate-limit, and deployment behavior aligned with the server
   support-tier claims.
 - Add network-level integration tests with `tonic::transport::Channel` clients
