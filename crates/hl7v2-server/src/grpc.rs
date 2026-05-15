@@ -188,6 +188,28 @@ impl Hl7Service for Hl7ServiceImpl {
         }))
     }
 
+    async fn profile_lint(
+        &self,
+        request: Request<ProfileLintRequest>,
+    ) -> Result<Response<ProfileLintResponse>, Status> {
+        let req = request.into_inner();
+        let report_schema_version =
+            grpc_requested_schema_version(req.report_schema_version, "profile lint report")
+                .map_err(Status::invalid_argument)?;
+
+        let report = hl7v2::lint_profile_yaml(&req.profile);
+        let profile_lint_report_v2 = (report_schema_version == 2).then(|| {
+            proto_profile_lint_report_v2_from_rust(
+                &report.to_v2("hl7v2-server-grpc", env!("CARGO_PKG_VERSION")),
+            )
+        });
+
+        Ok(Response::new(ProfileLintResponse {
+            profile_lint_report: Some(proto_profile_lint_report_from_rust(&report)),
+            profile_lint_report_v2,
+        }))
+    }
+
     async fn validate_redacted(
         &self,
         request: Request<ValidateRedactedRequest>,
@@ -1101,6 +1123,49 @@ fn proto_validation_report_issue_from_rust(
         message: issue.message.clone(),
         segment_index: issue.segment_index.map(|value| value as u32),
         field_index: issue.field_index.map(|value| value as u32),
+    }
+}
+
+fn proto_profile_lint_report_from_rust(report: &hl7v2::ProfileLintReport) -> ProfileLintReport {
+    ProfileLintReport {
+        valid: report.valid,
+        error_count: usize_to_u32(report.error_count),
+        warning_count: usize_to_u32(report.warning_count),
+        issue_count: usize_to_u32(report.issue_count),
+        issues: report
+            .issues
+            .iter()
+            .map(proto_profile_lint_issue_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_profile_lint_report_v2_from_rust(
+    report: &hl7v2::ProfileLintReportV2,
+) -> ProfileLintReportV2 {
+    ProfileLintReportV2 {
+        schema_version: report.schema_version.clone(),
+        tool_name: report.tool_name.clone(),
+        tool_version: report.tool_version.clone(),
+        valid: report.report.valid,
+        error_count: usize_to_u32(report.report.error_count),
+        warning_count: usize_to_u32(report.report.warning_count),
+        issue_count: usize_to_u32(report.report.issue_count),
+        issues: report
+            .report
+            .issues
+            .iter()
+            .map(proto_profile_lint_issue_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_profile_lint_issue_from_rust(issue: &hl7v2::ProfileLintIssue) -> ProfileLintIssue {
+    ProfileLintIssue {
+        code: issue.code.clone(),
+        severity: issue.severity.as_str().to_string(),
+        path: issue.path.clone(),
+        message: issue.message.clone(),
     }
 }
 

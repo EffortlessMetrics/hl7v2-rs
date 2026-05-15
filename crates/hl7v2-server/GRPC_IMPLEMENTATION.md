@@ -29,6 +29,7 @@ copies stay synchronized.
 | `Parse` | Implemented | Parses raw or MLLP-framed HL7 bytes into protobuf message fields and metadata. |
 | `ParseStream` | Implemented | Parses one request message into one response message; per-message parse or MLLP failures return error payloads without failing the whole stream. Malformed gRPC frames still return a tonic `Status`. |
 | `Validate` | Implemented | Validates raw or MLLP-framed HL7 against an inline profile. Preserves legacy `valid`, `errors`, `warnings`, and `summary` fields while also returning `validation_report`; `report_schema_version = 2` adds `validation_report_v2`. |
+| `ProfileLint` | Implemented | Lints caller-supplied inline profile YAML without applying it to a message. Always returns v1 `profile_lint_report`; `report_schema_version = 2` adds `profile_lint_report_v2`. |
 | `ValidateRedacted` | Implemented | Applies an inline safe-analysis redaction policy before validation. Always returns v1 `validation_report` and `redaction_receipt`, can include v2 validation and redaction receipt artifacts, and includes `redacted_hl7` only when requested. |
 | `CorpusSummarize` | Implemented | Summarizes caller-supplied inline messages only. The RPC does not read filesystem paths from requests; `summary_schema_version = 2` adds the v2 corpus summary provenance shape. |
 | `CorpusFingerprint` | Implemented | Fingerprints caller-supplied inline messages only. The RPC does not read filesystem paths from requests; optional inline profiles add validation issue-code counts; `fingerprint_schema_version = 2` adds the v2 corpus fingerprint provenance shape. |
@@ -44,15 +45,17 @@ fields are additive and opt in:
 
 ```text
 ValidateRequest.report_schema_version = 2
+ProfileLintRequest.report_schema_version = 2
 ValidateRedactedRequest.report_schema_version = 2
 ValidateRedactedRequest.redaction_receipt_schema_version = 2
 CorpusSummarizeRequest.summary_schema_version = 2
 CorpusFingerprintRequest.fingerprint_schema_version = 2
+CorpusDiffRequest.diff_schema_version = 2
 ```
 
-For `Validate`, `ValidateRedacted`, `CorpusSummarize`, and
-`CorpusFingerprint`, schema versions `0` and `1` use the default v1 shape, `2`
-returns the requested v2 artifact, and other values return
+For `Validate`, `ProfileLint`, `ValidateRedacted`, `CorpusSummarize`,
+`CorpusFingerprint`, and `CorpusDiff`, schema versions `0` and `1` use the
+default v1 shape, `2` returns the requested v2 artifact, and other values return
 `InvalidArgument`.
 
 `ValidateRedacted` fails closed when the redaction policy is invalid or misses a

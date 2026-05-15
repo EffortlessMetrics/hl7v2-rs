@@ -28,7 +28,7 @@ claim tier or proof expectations.
 | CLI BDD workflows | Stable | `cargo test -p hl7v2-cli --test bdd_tests` |
 | REST evidence sidecar | Stable | `cargo test -p hl7v2-server --test validate_endpoint_test`; `cargo test -p hl7v2-server --test bundle_endpoint_test`; `cargo test -p hl7v2-server --test replay_endpoint_test` |
 | REST runtime contracts | Stable | `cargo test -p hl7v2-server --test http_runtime_contract_test` |
-| gRPC evidence service | Beta | `cargo test -p hl7v2-server --test grpc_contract_tests`; `cargo test -p hl7v2-cli --test serve_grpc_contract_test`. Current gRPC evidence coverage includes parse, parse stream, validate, validate-redacted, ACK, normalize, health, inline corpus summary, inline corpus fingerprint, and inline corpus diff. |
+| gRPC evidence service | Beta | `cargo test -p hl7v2-server --test grpc_contract_tests`; `cargo test -p hl7v2-cli --test serve_grpc_contract_test`. Current gRPC evidence coverage includes parse, parse stream, validate, profile lint, validate-redacted, ACK, normalize, health, inline corpus summary, inline corpus fingerprint, and inline corpus diff. |
 | PHI and quarantine sentinels | Stable | `cargo test -p hl7v2-e2e-tests security`; `cargo test -p hl7v2-server --test quarantine_output_hooks_test` |
 | Python binding local wheel lane | Experimental | `python tests/python_smoke/smoke.py`; `python tests/python_smoke/evidence_workflow_guide.py` after a local wheel install |
 | Python TestPyPI distribution (`hl7v2`) | Blocked | Issue [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563); requires TestPyPI upload and install-back receipt |

@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added gRPC inline corpus diff parity, including before/after inline corpus
   deltas and opt-in v2 provenance.
+- Added gRPC profile lint parity with shared profile lint reports and opt-in
+  v2 provenance.
 
 ### Fixed
 

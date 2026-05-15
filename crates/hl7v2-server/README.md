@@ -21,14 +21,16 @@ Useful release-candidate workflows include:
 - `POST /hl7/ack-policy` for policy-driven ACK/NAK decisions.
 - `/metrics` for Prometheus metrics.
 
-The gRPC service implements `Parse`, `ParseStream`, `Validate`,
-`ValidateRedacted`, `CorpusSummarize`, `CorpusFingerprint`, `GenerateAck`,
-`Normalize`, and `HealthCheck`.
+The gRPC service implements `Parse`, `ParseStream`, `Validate`, `ProfileLint`,
+`ValidateRedacted`, `CorpusSummarize`, `CorpusFingerprint`, `CorpusDiff`,
+`GenerateAck`, `Normalize`, and `HealthCheck`.
 `Validate` and `ValidateRedacted` return the shared validation report fields;
-`ValidateRedacted` also returns a redaction receipt and keeps the redacted HL7
-payload opt-in. `CorpusSummarize` and `CorpusFingerprint` accept inline
-messages only and can return v2 corpus provenance shapes with
-`summary_schema_version = 2` or `fingerprint_schema_version = 2`. See
+`ProfileLint` returns the shared profile lint report fields; `ValidateRedacted`
+also returns a redaction receipt and keeps the redacted HL7 payload opt-in.
+`CorpusSummarize`, `CorpusFingerprint`, and `CorpusDiff` accept inline messages
+only and can return v2 corpus provenance shapes with
+`summary_schema_version = 2`, `fingerprint_schema_version = 2`, or
+`diff_schema_version = 2`. See
 [GRPC_IMPLEMENTATION.md](GRPC_IMPLEMENTATION.md) for the current protobuf and
 test contract notes.
 

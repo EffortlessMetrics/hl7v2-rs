@@ -16,8 +16,8 @@ mod tests {
     use hl7v2_server::grpc::proto::{
         CorpusDiffRequest, CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest,
         GenerateAckRequest, HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest,
-        ParseStreamRequest, ParseStreamResponse, ValidateRedactedRequest, ValidateRequest,
-        generate_ack_request, health_check_response, validation_issue,
+        ParseStreamRequest, ParseStreamResponse, ProfileLintRequest, ValidateRedactedRequest,
+        ValidateRequest, generate_ack_request, health_check_response, validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
@@ -393,6 +393,118 @@ constraints:
         assert_eq!(identity.message_structure.as_deref(), Some("ADT_A01"));
         assert_eq!(identity.version.as_deref(), Some("2.5"));
         assert_eq!(report_v2.issues[0].code, "missing_required_field");
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_lint_accepts_valid_profile() {
+        let service = service();
+        let response = service
+            .profile_lint(Request::new(ProfileLintRequest {
+                profile: PROFILE.to_string(),
+                report_schema_version: 0,
+            }))
+            .await
+            .expect("ProfileLint should succeed")
+            .into_inner();
+
+        let report = response
+            .profile_lint_report
+            .expect("profile lint report should exist");
+        assert!(report.valid);
+        assert_eq!(report.error_count, 0);
+        assert_eq!(report.warning_count, 0);
+        assert_eq!(report.issue_count, 0);
+        assert!(report.issues.is_empty());
+        assert!(response.profile_lint_report_v2.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_lint_reports_warnings_and_v2_provenance() {
+        let service = service();
+        let profile = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "PID"
+unknown_top_level: "ignored"
+"#;
+
+        let response = service
+            .profile_lint(Request::new(ProfileLintRequest {
+                profile: profile.to_string(),
+                report_schema_version: 2,
+            }))
+            .await
+            .expect("ProfileLint should succeed")
+            .into_inner();
+
+        let report = response
+            .profile_lint_report
+            .expect("profile lint report should exist");
+        assert!(report.valid);
+        assert_eq!(report.error_count, 0);
+        assert_eq!(report.warning_count, 1);
+        assert_eq!(report.issue_count, 1);
+        assert_eq!(report.issues[0].code, "unknown_top_level_key");
+        assert_eq!(report.issues[0].severity, "warning");
+        assert_eq!(report.issues[0].path.as_deref(), Some("unknown_top_level"));
+
+        let report_v2 = response
+            .profile_lint_report_v2
+            .expect("profile lint report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+        assert_eq!(report_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        assert!(report_v2.valid);
+        assert_eq!(report_v2.warning_count, 1);
+        assert_eq!(report_v2.issues[0].code, "unknown_top_level_key");
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_lint_invalid_yaml_does_not_echo_profile_text() {
+        let service = service();
+        let sensitive_profile =
+            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+
+        let response = service
+            .profile_lint(Request::new(ProfileLintRequest {
+                profile: sensitive_profile.to_string(),
+                report_schema_version: 0,
+            }))
+            .await
+            .expect("ProfileLint should return a report for malformed YAML")
+            .into_inner();
+        let response_debug = format!("{response:?}");
+
+        let report = response
+            .profile_lint_report
+            .expect("profile lint report should exist");
+        assert!(!report.valid);
+        assert_eq!(report.error_count, 1);
+        assert_eq!(report.issue_count, 1);
+        assert_eq!(report.issues[0].code, "yaml_parse_error");
+        assert!(!response_debug.contains("Jane Secret"));
+        assert!(!response_debug.contains("MRN-SECRET-123"));
+        assert!(!response_debug.contains(sensitive_profile));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_profile_lint_rejects_unsupported_schema_versions() {
+        let service = service();
+        let err = service
+            .profile_lint(Request::new(ProfileLintRequest {
+                profile: PROFILE.to_string(),
+                report_schema_version: 3,
+            }))
+            .await
+            .expect_err("unsupported profile lint schema version should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported profile lint report schema version 3; expected 1 or 2"
+        );
     }
 
     #[tokio::test]
