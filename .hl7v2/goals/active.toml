@@ -65,6 +65,7 @@ canonical_sources = [
   "docs/audits/publish-v1.5.0-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
+  "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
@@ -1070,6 +1071,27 @@ non_claims = [
   "No TestPyPI or PyPI upload.",
   "No npm package.",
   "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "first-use-user-journey-acceptance"
+status = "done"
+goal = "Record the Rust, CLI, server, and Python first-use acceptance surfaces that prove users can get from install or local build to shareable evidence receipts."
+receipt = "docs/audits/user-journey-acceptance-2026-05-15.md"
+commands = [
+  "cargo +1.95.0 test -p hl7v2 --test user_journey --all-features --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests journey_cli_validate_redact_bundle_replay_produces_shareable_receipts --locked",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new crates.io release.",
+  "No Python public-registry install-back proof.",
 ]
 
 [[work_item]]

@@ -78,6 +78,7 @@ proposal, spec, plan, or receipt documents.
 | [v1.5.0 package registry state audit](audits/package-registry-state-2026-05-15.md) | Live pre-release registry state after the selected v1.5.0 graph and latest readiness refresh. |
 | [v1.5.0 objective completion audit](audits/v1.5.0-objective-completion-audit-2026-05-15.md) | Prompt-to-artifact map for the active lane, including completed evidence and remaining release/Python/npm blockers. |
 | [Dirty real-world corpus proof](audits/real-world-corpus-proof-2026-05-14.md) | Focused proof that core corpus summary, fingerprint, and diff handle Z-segments, odd MSH fields, MLLP bytes, large OBX messages, malformed delimiters, and safe parse-error output. |
+| [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
 | [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the `hl7v2-python` binding backend separate from the primary Rust product graph. |
 | [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |
