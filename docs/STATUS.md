@@ -3,7 +3,7 @@
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
 > **Last Updated**: 2026-05-15
-> **Project Status**: v1.4.0 is published to crates.io for the primary Rust product graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is prepared as the v1.5.0 Rust 1.95 quality-ratchet candidate; v1.5.0 is not published until explicit crates.io publish and tag receipts land.
+> **Project Status**: v1.5.0 is published to crates.io for the selected Rust graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is published only as binding backend infrastructure for the public Python `hl7v2` package, not as the recommended Rust API.
 
 ## Core Components
 
@@ -15,13 +15,13 @@ This document provides a transparent view of which features are fully implemente
 | Python binding (`hl7v2` distribution) | 🟡 Experimental | Smoke | Public Python distribution built from the `hl7v2-python` PyO3 binding backend; not part of the primary Rust product graph and validated through the Python/maturin wheel smoke lane before any PyPI release. |
 | retired old package names | ✅ Retired locally | N/A | Old microcrate package names, including `hl7v2-model`, `hl7v2-escape`, and `hl7v2-mllp`, are no longer local workspace crates. Some historical old-name `1.2.0` artifacts already exist on crates.io and should not be treated as the current product surface. |
 
-## Published Feature Set (v1.4.0)
+## Published Feature Set (v1.5.0)
 
 ### 🚀 Connectivity
 - ✅ **MLLP Over TCP**: Fully implemented async client and server.
 - ✅ **TLS Support**: Secure framing using `rustls`.
 - ✅ **HTTP REST API**: Axum-based JSON endpoints for parse, validate, ACK, and normalize.
-- 🟡 **gRPC Service**: v1.4.0 unary RPCs have contract tests. Current `main` also serves gRPC with `hl7v2 serve --mode grpc`, implements `ParseStream` as one request message into one response message, `GenerateAck`, `Normalize`, `ProfileLint`, `ProfileExplain`, and `ProfileTest` for inline profile evidence, `ValidateRedacted` with opt-in v2 validation, redaction receipt, and configured quarantine output evidence, `CreateEvidenceBundle` for configured-root evidence bundle creation, `ReplayEvidenceBundle` for configured-root evidence replay, `CorpusSummarize` for inline corpus summary evidence, `CorpusFingerprint` for inline corpus fingerprint evidence, and `CorpusDiff` for inline before/after corpus diff evidence with opt-in v2 provenance.
+- 🟡 **gRPC Service**: v1.5.0 unary RPCs have contract tests. Current `main` serves gRPC with `hl7v2 serve --mode grpc`, implements `ParseStream` as one request message into one response message, `GenerateAck`, `Normalize`, `ProfileLint`, `ProfileExplain`, and `ProfileTest` for inline profile evidence, `ValidateRedacted` with opt-in v2 validation, redaction receipt, and configured quarantine output evidence, `CreateEvidenceBundle` for configured-root evidence bundle creation, `ReplayEvidenceBundle` for configured-root evidence replay, `CorpusSummarize` for inline corpus summary evidence, `CorpusFingerprint` for inline corpus fingerprint evidence, and `CorpusDiff` for inline before/after corpus diff evidence with opt-in v2 provenance.
 
 ### 🛡️ Security & Observability
 - ✅ **API Authentication**: Constant-time API Key validation.
@@ -37,18 +37,18 @@ This document provides a transparent view of which features are fully implemente
 
 ## Release and Publish Readiness
 
-- ✅ **Main workflows**: required CI success, Security, Python Wheels, and API Contracts are green on the v1.4.0 release head. Coverage is unchanged/skipped for this docs/package release lane. Extended tests and benchmark artifacts remain non-publish performance lanes.
+- ✅ **Main workflows**: required CI success, Security, and CI Policy were observed green for the final pre-publish merge. Coverage is unchanged/skipped for this docs/package release lane. Extended tests and benchmark artifacts remain non-publish performance lanes.
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` defaults to the primary Rust product graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Use `cargo run -p xtask -- publish-plan --surface bindings` to inspect binding backend crates separately.
-- ✅ **Published Rust graph**: `hl7v2`, `hl7v2-server`, and `hl7v2-cli` v1.4.0 are published and visible in the crates.io index. See `docs/audits/publish-v1.4.0-2026-05-09.md`.
-- ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See `docs/audits/publish-dry-run-v1.4.0-2026-05-09.md`.
-- 🟡 **v1.5.0 candidate**: Current `main` carries the Rust 1.95 MSRV/toolchain ratchet, tighter lint/no-panic/file-policy rails, advisory `ripr`, targeted mutation routing, profile evidence, Python profile helpers and ACK parity claim sync, RIPR evidence endpoints and calibration, gRPC profile lint/explain/test, configured-root evidence bundle creation/replay/quarantine, inline corpus summary/fingerprint/diff parity, and gRPC parity surface documentation sync, the cross-surface evidence parity spec, first-use docs, dirty real-world corpus proof, gRPC serve-mode status sync, the nightly property-test command repair, finite numeric validation, and release-readiness and dry-run receipts. The v1.5.0 final pre-publish proof has been refreshed on `9fc95604d8950b565b6b6b7941ad275fd5624178` after #653. The selected crates.io graph is `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`, with `hl7v2-python` included only as a binding backend. It still needs crates.io publish and tag receipts before any release claim.
-- 🟡 **Python binding lane**: `hl7v2-python` is publishable as a governed crates.io binding backend, but it is not part of the primary Rust product graph and has not been uploaded. The public Python distribution is `hl7v2`. The v1.4.0 binding is verified through a maturin wheel build/install/import smoke lane; current `main` also has a manual TestPyPI proof workflow before any production PyPI release. The non-publishing workflow mode passed on `main`; the 2026-05-10 TestPyPI upload attempt built and smoke-tested the wheel but failed with `invalid-publisher` because the TestPyPI Trusted Publisher is not configured. Production PyPI release has not been run. A 2026-05-13 package-state check found no visible `hl7v2` package on TestPyPI or production PyPI.
-- ✅ **Package registry state**: A 2026-05-15 registry audit still finds crates.io `hl7v2`, `hl7v2-server`, and `hl7v2-cli` at `1.4.0`, no crates.io `hl7v2-python`, and no PyPI/TestPyPI `hl7v2` package. See [`docs/audits/package-registry-state-2026-05-15.md`](audits/package-registry-state-2026-05-15.md).
-- 🟡 **Objective completion audit**: A 2026-05-15 prompt-to-artifact audit confirms the lane is not complete until v1.5.0 crates.io publish/tag/GitHub release receipts, TestPyPI upload/install-back proof, a production PyPI decision, and any future npm/WASM implementation receipts exist. See [`docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md`](audits/v1.5.0-objective-completion-audit-2026-05-15.md).
+- ✅ **Published Rust graph**: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli` v1.5.0 are published and visible in the crates.io index. See [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
+- ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md`](audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md).
+- ✅ **v1.5.0 published Rust graph**: v1.5.0 is published to crates.io for `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. The release is tagged as `v1.5.0`, has a GitHub release, and has a registry-resolution and public install-back receipt. `hl7v2-python` is included only as a binding backend crate. See [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
+- 🟡 **Python binding lane**: `hl7v2-python` is published to crates.io as a governed binding backend, but it is not part of the primary Rust product graph and does not prove the public Python package. The public Python distribution is `hl7v2`. The v1.4.0 binding is verified through a maturin wheel build/install/import smoke lane; current `main` also has a manual TestPyPI proof workflow before any production PyPI release. The non-publishing workflow mode passed on `main`; the 2026-05-10 TestPyPI upload attempt built and smoke-tested the wheel but failed with `invalid-publisher` because the TestPyPI Trusted Publisher is not configured. Production PyPI release has not been run. A 2026-05-13 package-state check found no visible `hl7v2` package on TestPyPI or production PyPI.
+- ✅ **Package registry state**: A 2026-05-15 pre-release registry audit found crates.io `hl7v2`, `hl7v2-server`, and `hl7v2-cli` at `1.4.0`, no crates.io `hl7v2-python`, and no PyPI/TestPyPI `hl7v2` package before publish. The v1.5.0 publish receipt supersedes the crates.io portion of that audit while preserving the PyPI/TestPyPI absence claim. See [`docs/audits/package-registry-state-2026-05-15.md`](audits/package-registry-state-2026-05-15.md) and [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
+- 🟡 **Objective completion audit**: A 2026-05-15 prompt-to-artifact audit confirmed the lane was not complete before publish. The crates.io, tag, GitHub release, and public Rust/CLI/server install-back portions are now complete; TestPyPI upload/install-back proof, a production PyPI decision, and any future npm/WASM implementation receipts remain separate. See [`docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md`](audits/v1.5.0-objective-completion-audit-2026-05-15.md) and [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 - ✅ **Binding-backend closeout**: #604 accepted the binding-backend ADR, #605 refreshed the yanked `metrics` lock entry that blocked security checks, #606 added `publish-plan --surface primary|bindings|all-publishable`, #607 framed `hl7v2-python` as the PyO3 backend for the public Python `hl7v2` package, and #608 fixed Python wheel cache behavior. This closeout did not publish `hl7v2-python`, TestPyPI, PyPI, or any v1.5.0 crates.io artifact.
 - ✅ **Binding-backend readiness audit**: #610 added the binding-backend release-proof spec, #611 added the binding backend dry-run surface, #612 prepared `hl7v2-python` as publishable backend metadata, #613 defined the future npm/WASM package model, and #614 added a publish-surface classification guard. See [`docs/audits/binding-backend-readiness-2026-05-14.md`](audits/binding-backend-readiness-2026-05-14.md). This audit does not claim a crates.io backend upload, PyPI/TestPyPI upload, npm package, tag, GitHub release, or v1.5.0 publish.
 - ⚠️ **Registry history**: crates.io already contains historical `1.2.0` artifacts for several old microcrate names. The current release plan does not publish those names again unless a deliberate deprecation-only compatibility release is chosen.
-- ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1`, `v1.3.0`, and `v1.4.0` tags point at their release heads.
+- ✅ **Tag alignment policy**: the existing `v1.2.0` tag points at an older commit and remains historical. Fresh `v1.2.1`, `v1.3.0`, `v1.4.0`, and `v1.5.0` tags point at their release heads.
 
 ## Package Boundary Model
 
@@ -160,16 +160,17 @@ gRPC replay refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-replay
 gRPC quarantine refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-quarantine-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-15-grpc-quarantine-refresh.md).
 Parity documentation refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md).
 Final pre-publish proof: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md`](audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md).
+Publish receipt: [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 Release graph decision: [`docs/audits/v1.5.0-release-graph-decision-2026-05-14.md`](audits/v1.5.0-release-graph-decision-2026-05-14.md).
 RIPR calibration: [`docs/audits/ripr-calibration-2026-05-15.md`](audits/ripr-calibration-2026-05-15.md).
 
-- 🟡 **Release candidate**: workspace package versions are prepared as `1.5.0` for the primary Rust product graph.
+- ✅ **Published release**: workspace package versions are published as `1.5.0` for the selected Rust crates.io graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Rust floor**: MSRV is Rust 1.95 and `rust-toolchain.toml` pins Rust 1.95.0 with `rustfmt` and `clippy`.
 - ✅ **Verification rails**: lint policy, Clippy exceptions, no-panic exact identity and no-new-debt baseline, file-policy companion ledgers, advisory `ripr`, and targeted mutation routing are present.
 - ✅ **Release readiness workflow**: `.github/workflows/release-readiness.yml` records the non-publishing readiness proof bundle.
 - ✅ **Dry-run receipt**: hosted release-readiness dry-run passed on `main` at `b0bb5b5392354273946f36f797f39d741d318fc1`; current-main primary and binding surface dry-runs passed locally at `b4b7962e6f3f9d7ae5d91adf603e6328e3d13297` after #616-#618, at `cc1e3046e2496ea0c10a25239b9d077641d01c36` after #621-#622, at `425ff79b959ef5ceff1bdd072cbe074ff2a7ab04` after #624-#625, at `eb518e948d57bc07e96512ced306fe0db2dc2990` after #627, at `acfeacec0eda6d632d52e61440f2c85fda93d95f` after #629-#630, at `b0018c8760f07d738b3a6b7a11eeeda300786ef2` after #632-#633, at `fe8680c551bc3ce9248063906cbbe90ffe732a70` after #635-#636, at `483fb572a42006c07bd2e857fb7638ec91615b7d` after #638, at `915578b5cab5ab3abde7f806e5ad39c063d9cc82` after #640, at `47ba93201aaa15c95157d341bb5ec4f5f3871741` after #642, at `addbbe3e6962dc7f1629053c8a9c6810c7e37cc1` after #645, at `a12c6fdf61396de74f971c27f4887dd7c451543b` after #647, at `686dbff26afbbdcb97e4cc1915d1e33bd1404d14` after #649-#650, and at `9fc95604d8950b565b6b6b7941ad275fd5624178` after #653.
 - ✅ **Release graph decision**: v1.5.0 selects `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`, with `hl7v2-python` included only as binding backend infrastructure.
-- 🟡 **Publish receipt**: crates.io upload has not been run for v1.5.0.
+- ✅ **Publish receipt**: crates.io upload, registry resolution, `v1.5.0` tag, GitHub release, and public Rust/CLI/server install-back smoke are recorded in [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 - 🟡 **Python proof**: the public Python distribution is `hl7v2`, remains separate from the primary Rust product graph, and still requires Trusted Publisher upload/install-back proof before any TestPyPI or PyPI success claim.
 
 ## Historical Plans
@@ -177,8 +178,8 @@ Old planning documents have been moved to `docs/plans/` for archival reference.
 
 ---
 
-**Current published release**: v1.4.0 is tested, package-verified, tagged, and published to crates.io for the primary Rust product graph.
+**Current published release**: v1.5.0 is tested, package-verified, tagged, released on GitHub, and published to crates.io for the selected Rust graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is binding backend infrastructure, not the recommended Rust API.
 
-**Current main**: is prepared as the v1.5.0 Rust 1.95 quality-ratchet
-candidate. v1.4.0 remains the current published crates.io release until v1.5.0
-publish and tag receipts land.
+**Current main**: records the v1.5.0 Rust 1.95 quality-ratchet publish receipt.
+The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
+upload and install-back proof before any Python release claim.

@@ -11,8 +11,8 @@ publish claim.
 """
 
 must_not_touch = [
-  "Do not combine release prep with crates.io publishing.",
-  "Do not upload hl7v2-python to crates.io until a binding-backend release PR explicitly approves the release and records receipts.",
+  "Do not treat the crates.io hl7v2-python publish as a TestPyPI or PyPI proof.",
+  "Do not make hl7v2-python the recommended Rust API.",
   "Do not publish the hl7v2 Python distribution to TestPyPI or PyPI without the dedicated proof workflows.",
   "Do not use TestPyPI or PyPI token fallback.",
   "Do not use skip-existing.",
@@ -25,7 +25,7 @@ must_not_touch = [
 end_state = [
   "Rust MSRV is 1.95.",
   "rust-toolchain.toml pins Rust 1.95.0 with rustfmt and clippy.",
-  "Primary Rust product graph is prepared as version 1.5.0.",
+  "The selected Rust crates.io graph is published as version 1.5.0.",
   "The primary Rust product graph remains hl7v2, hl7v2-server, hl7v2-cli.",
   "Binding backend crates are classified separately from the primary Rust product graph.",
   "hl7v2-python metadata and README frame it as the publishable PyO3 backend for the Python hl7v2 package.",
@@ -36,8 +36,8 @@ end_state = [
   "File-policy behavior is split into companion ledgers.",
   "ripr is advisory static mutation-exposure proof.",
   "Runtime mutation is targeted by risk instead of default PR tax.",
-  "Release-readiness workflow and v1.5.0 dry-run receipts are present.",
-  "No production release claim exists without publish and install-back receipts.",
+  "Release-readiness workflow, v1.5.0 dry-run receipts, and crates.io publish receipt are present.",
+  "No TestPyPI, PyPI, or npm release claim exists without upload/install-back or registry receipts.",
 ]
 
 canonical_sources = [
@@ -62,6 +62,7 @@ canonical_sources = [
   "docs/audits/package-registry-state-2026-05-15.md",
   "docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md",
+  "docs/audits/publish-v1.5.0-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
@@ -978,14 +979,37 @@ acceptance = [
 
 [[work_item]]
 id = "v1-5-0-publish"
-status = "ready-after-final-prepublish-proof"
-goal = "Publish the selected v1.5.0 crates.io graph only after readiness and dry-run receipts are clean and explicit release approval is given."
+status = "done"
+goal = "Publish the selected v1.5.0 crates.io graph after readiness and dry-run receipts were clean and explicit release approval was given."
 prepublish_receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md"
+publish_receipt = "docs/audits/publish-v1.5.0-2026-05-15.md"
+commit = "04760587b83e2b4aaf410814b46ad1818c881371"
+tag = "v1.5.0"
+github_release = "https://github.com/EffortlessMetrics/hl7v2-rs/releases/tag/v1.5.0"
 publish_order = [
   "hl7v2",
   "hl7v2-python",
   "hl7v2-server",
   "hl7v2-cli",
+]
+commands = [
+  "cargo +1.95.0 publish -p hl7v2",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 publish -p hl7v2-python",
+  "cargo +1.95.0 publish -p hl7v2-server",
+  "cargo +1.95.0 publish -p hl7v2-cli",
+  "cargo +1.95.0 info hl7v2@1.5.0",
+  "cargo +1.95.0 info hl7v2-python@1.5.0",
+  "cargo +1.95.0 info hl7v2-server@1.5.0",
+  "cargo +1.95.0 info hl7v2-cli@1.5.0",
+  "cargo +1.95.0 add hl7v2@1.5.0",
+  "cargo +1.95.0 install hl7v2-cli --version 1.5.0",
+  "cargo +1.95.0 install hl7v2-server --version 1.5.0",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "hl7v2-python remains binding backend infrastructure, not the recommended Rust API.",
 ]
 
 [[work_item]]
