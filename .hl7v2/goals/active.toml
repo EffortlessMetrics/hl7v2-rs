@@ -52,6 +52,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-14-grpc-status-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-14-grpc-corpus-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-numeric-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-profile-lint-refresh.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
@@ -346,6 +347,33 @@ commands = [
   "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
   "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-numeric-refresh CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
   "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-numeric-refresh CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "v1-5-0-grpc-profile-lint-readiness-refresh"
+status = "done"
+goal = "Refresh v1.5.0 readiness after the RIPR calibration audit and gRPC profile lint parity landed."
+commit = "fe8680c551bc3ce9248063906cbbe90ffe732a70"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-profile-lint-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-current-main CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-current-main CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
   "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
   "cargo +1.95.0 run -p xtask -- badges --check",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
