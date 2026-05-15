@@ -5,8 +5,9 @@ replayable support packet. The goal is to give a vendor, support engineer,
 data team, or agent enough evidence to reproduce the failure without sending
 raw message PHI in reports, receipts, traces, manifests, or replay output.
 
-The examples use the product command name `hl7v2`. From a source checkout, use
-`cargo run -q -p hl7v2-cli --` before each command instead:
+The examples use the v1.5.0 installed CLI binary name `hl7v2-cli`. From a
+source checkout, use `cargo run -q -p hl7v2-cli --` before each command
+instead:
 
 ```bash
 cargo run -q -p hl7v2-cli -- bundle failing.hl7 --profile profile.yaml --redact-policy safe-analysis.toml --out issue-bundle/
@@ -97,7 +98,7 @@ That makes policy mistakes visible before an evidence packet is created.
 Run redaction first and write the JSON preview to a file:
 
 ```bash
-hl7v2 redact test_data/invalid_message.hl7 \
+hl7v2-cli redact test_data/invalid_message.hl7 \
   --policy target/hl7v2-safe-support-bundle/safe-analysis.toml \
   --format json \
   --output target/hl7v2-safe-support-bundle/reports/redaction-preview.json
@@ -147,7 +148,7 @@ why `PID.8 = X` violates the profile value set.
 Create the bundle. The output directory must not already exist:
 
 ```bash
-hl7v2 bundle test_data/invalid_message.hl7 \
+hl7v2-cli bundle test_data/invalid_message.hl7 \
   --profile profiles/generic.yaml \
   --redact-policy target/hl7v2-safe-support-bundle/safe-analysis.toml \
   --out target/hl7v2-safe-support-bundle/issue-bundle \
@@ -222,7 +223,7 @@ validation report.
 Run replay and keep the report:
 
 ```bash
-hl7v2 replay target/hl7v2-safe-support-bundle/issue-bundle \
+hl7v2-cli replay target/hl7v2-safe-support-bundle/issue-bundle \
   --format json \
   --output target/hl7v2-safe-support-bundle/reports/replay-report.json
 ```

@@ -5,8 +5,9 @@ migration, acquisition cleanup, or feed regression. The goal is not to inspect
 one message by hand. The goal is to produce deterministic evidence of what
 changed across two corpora.
 
-The examples use the product command name `hl7v2`. From a source checkout, use
-`cargo run -q -p hl7v2-cli --` before each command instead:
+The examples use the v1.5.0 installed CLI binary name `hl7v2-cli`. From a
+source checkout, use `cargo run -q -p hl7v2-cli --` before each command
+instead:
 
 ```bash
 cargo run -q -p hl7v2-cli -- corpus diff before/ after/ --format json
@@ -61,7 +62,7 @@ Copy-Item test_data/invalid_message.hl7 target/hl7v2-vendor-upgrade-diff/after/s
 Lint the profile before treating it as the comparison contract:
 
 ```bash
-hl7v2 profile lint profiles/generic.yaml \
+hl7v2-cli profile lint profiles/generic.yaml \
   --report json \
   --output target/hl7v2-vendor-upgrade-diff/reports/profile-lint.json
 ```
@@ -85,11 +86,11 @@ sides are compared against a contract that actually loads.
 Run summaries first. They tell you whether the corpus can be parsed at all.
 
 ```bash
-hl7v2 corpus summarize target/hl7v2-vendor-upgrade-diff/before \
+hl7v2-cli corpus summarize target/hl7v2-vendor-upgrade-diff/before \
   --format json \
   --output target/hl7v2-vendor-upgrade-diff/reports/before-summary.json
 
-hl7v2 corpus summarize target/hl7v2-vendor-upgrade-diff/after \
+hl7v2-cli corpus summarize target/hl7v2-vendor-upgrade-diff/after \
   --format json \
   --output target/hl7v2-vendor-upgrade-diff/reports/after-summary.json
 ```
@@ -121,12 +122,12 @@ counts, segment counts, field presence, field cardinality, value-shape stats,
 parse error count, profile metadata, and validation issue-code counts.
 
 ```bash
-hl7v2 corpus fingerprint target/hl7v2-vendor-upgrade-diff/before \
+hl7v2-cli corpus fingerprint target/hl7v2-vendor-upgrade-diff/before \
   --profile profiles/generic.yaml \
   --format json \
   --output target/hl7v2-vendor-upgrade-diff/reports/before-fingerprint.json
 
-hl7v2 corpus fingerprint target/hl7v2-vendor-upgrade-diff/after \
+hl7v2-cli corpus fingerprint target/hl7v2-vendor-upgrade-diff/after \
   --profile profiles/generic.yaml \
   --format json \
   --output target/hl7v2-vendor-upgrade-diff/reports/after-fingerprint.json
@@ -168,7 +169,7 @@ upgrade event.
 Run the actual before/after comparison:
 
 ```bash
-hl7v2 corpus diff \
+hl7v2-cli corpus diff \
   target/hl7v2-vendor-upgrade-diff/before \
   target/hl7v2-vendor-upgrade-diff/after \
   --profile profiles/generic.yaml \
@@ -216,7 +217,7 @@ outside the agreed value set?"
 
 ## 5. Decide What Fails CI
 
-`hl7v2 corpus diff` reports drift; it does not decide your policy for you. A
+`hl7v2-cli corpus diff` reports drift; it does not decide your policy for you. A
 useful CI gate usually fails on any of these conditions:
 
 | Field | Typical gate |
@@ -263,7 +264,7 @@ If a specific failing message needs to travel with the ticket, create a redacted
 bundle:
 
 ```bash
-hl7v2 bundle failing.hl7 \
+hl7v2-cli bundle failing.hl7 \
   --profile profiles/generic.yaml \
   --redact-policy safe-analysis.toml \
   --out issue-bundle/
@@ -272,7 +273,7 @@ hl7v2 bundle failing.hl7 \
 Then verify it:
 
 ```bash
-hl7v2 replay issue-bundle/ --format json
+hl7v2-cli replay issue-bundle/ --format json
 ```
 
 Only share the bundle when replay reports `"reproduced": true` and your

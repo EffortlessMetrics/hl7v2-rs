@@ -11,7 +11,7 @@ Modern Rust HL7v2 Processor
 
 A fast, safe, and deterministic HL7 v2 parser, validator, and generator written in Rust.
 
-> **Status**: v1.4.0 is published to crates.io for the primary Rust product graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Current `main` is prepared as the v1.5.0 Rust 1.95 quality-ratchet candidate with readiness and dry-run receipts; v1.5.0 is not published until explicit crates.io publish and tag receipts land. The public Python distribution is `hl7v2`, built from the `hl7v2-python` binding backend lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
+> **Status**: v1.5.0 is published to crates.io for `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is binding backend infrastructure for the public Python `hl7v2` package, not the recommended Rust API. Public Python TestPyPI/PyPI proof remains a separate lane. For a detailed breakdown of features, see [docs/STATUS.md](docs/STATUS.md).
 
 ## Feature Status
 
@@ -21,13 +21,13 @@ A fast, safe, and deterministic HL7 v2 parser, validator, and generator written 
 | **Writer / Normalize** | Stable | Writer tests plus HTTP/gRPC normalization contract coverage |
 | **MLLP / Network** | Stable | MLLP parse/framing tests and CI matrix coverage |
 | **REST Server** | Stable | Runtime and OpenAPI agree for parse, validate, redacted validation, bundle/replay, ACK, normalize, inline corpus evidence, readiness, and redacted structured logs |
-| **gRPC Service** | Beta | `hl7v2 serve --mode grpc` starts the Tonic service; contract tests cover Parse, Validate, ProfileLint, ProfileExplain, ProfileTest, ValidateRedacted, CreateEvidenceBundle, ReplayEvidenceBundle, CorpusSummarize, CorpusFingerprint, CorpusDiff, GenerateAck, Normalize, HealthCheck, and ParseStream as one request message into one response message |
+| **gRPC Service** | Beta | `hl7v2-cli serve --mode grpc` starts the Tonic service; contract tests cover Parse, Validate, ProfileLint, ProfileExplain, ProfileTest, ValidateRedacted, CreateEvidenceBundle, ReplayEvidenceBundle, CorpusSummarize, CorpusFingerprint, CorpusDiff, GenerateAck, Normalize, HealthCheck, and ParseStream as one request message into one response message |
 | **Lifecycle** | Beta | Domain tests exist, but lifecycle is not part of the current HTTP/gRPC contract gate |
 | **Guard / Anomaly** | Experimental | Statistical baseline fixtures exist; not a stable runtime contract |
 | **Profile Cache** | L1-only | In-memory verified; Postgres L2 pending |
-| **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; backend crate is publishable only as binding infrastructure and still needs release receipts before any crates.io claim |
-| **Publish Readiness** | Candidate | Primary Rust product crates `hl7v2`, `hl7v2-server`, and `hl7v2-cli` are prepared at v1.5.0; v1.4.0 remains the current published crates.io release until the v1.5.0 release receipt lands |
-| **Evidence Loop** | Stable | v1.4.0 is the published Evidence Contracts and Server Sidecar release; v1.5.0 keeps that surface and adds Rust 1.95, tighter policy rails, advisory ripr, targeted mutation, and release-readiness proof |
+| **Python Bindings** | Experimental | Separate maturin lane with wheel build/install/import smoke coverage; backend crate `hl7v2-python` is published as binding infrastructure, while public Python `hl7v2` still needs TestPyPI/PyPI proof |
+| **Publish Readiness** | Published | v1.5.0 is published to crates.io for `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`; see the publish receipt in `docs/audits/` |
+| **Evidence Loop** | Stable | v1.5.0 is the published Rust 1.95 quality-ratchet release; it keeps the evidence-contract surface and adds tighter policy rails, advisory ripr, targeted mutation, and release-readiness proof |
 
 ## Features
 
@@ -78,7 +78,9 @@ cargo install --path crates/hl7v2-cli
 ### From crates.io
 
 ```bash
+cargo add hl7v2
 cargo install hl7v2-cli
+cargo install hl7v2-server
 ```
 
 ## Quick Start
@@ -101,14 +103,17 @@ The fastest way to get started is with the HTTP API server:
 
 ```bash
 # Start the server
-cargo run --bin hl7v2-server
+hl7v2-server
 
 # Or with custom configuration
-BIND_ADDRESS=0.0.0.0:8080 cargo run --bin hl7v2-server
+BIND_ADDRESS=0.0.0.0:8080 hl7v2-server
 
 # Inspect sanitized effective configuration and exit
-cargo run --bin hl7v2-server -- --print-config
+hl7v2-server --print-config
 ```
+
+From a source checkout, use `cargo run -q -p hl7v2-server --` before the
+server arguments instead.
 
 **Parse a message via HTTP:**
 ```bash
@@ -194,92 +199,92 @@ policy TOML, and configured filesystem roots are not logged by default.
 
 ```bash
 # Parse an HL7 message and output canonical JSON
-hl7v2 parse <input.hl7> --json > output.json
+hl7v2-cli parse <input.hl7> --json > output.json
 
 # Parse MLLP-framed messages
-hl7v2 parse <input.mllp> --mllp --json > output.json
+hl7v2-cli parse <input.mllp> --mllp --json > output.json
 ```
 
 ### Validate Messages
 
 ```bash
 # Validate against a profile (supports profile inheritance)
-hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml
+hl7v2-cli val <input.hl7> --profile profiles/oru_r01.yaml
 
 # Emit a machine-readable validation report
-hl7v2 val <input.hl7> --profile profiles/oru_r01.yaml --report json
+hl7v2-cli val <input.hl7> --profile profiles/oru_r01.yaml --report json
 
 # Lint a profile before using it as an interface contract
-hl7v2 profile lint profiles/oru_r01.yaml --report json
+hl7v2-cli profile lint profiles/oru_r01.yaml --report json
 
 # Explain the loaded profile contract
-hl7v2 profile explain profiles/oru_r01.yaml --format json
+hl7v2-cli profile explain profiles/oru_r01.yaml --format json
 
 # Test profile fixtures as executable interface contracts
-hl7v2 profile test profiles/oru_r01.yaml fixtures/oru_r01/ --report json
+hl7v2-cli profile test profiles/oru_r01.yaml fixtures/oru_r01/ --report json
 ```
 
 ### Normalize Messages
 
 ```bash
 # Normalize an HL7 message
-hl7v2 norm <input.hl7> > output.hl7
+hl7v2-cli norm <input.hl7> > output.hl7
 ```
 
 ### Redact Messages
 
 ```bash
 # Redact PHI while retaining deterministic analysis evidence
-hl7v2 redact <input.hl7> --policy safe-analysis.toml --format json
+hl7v2-cli redact <input.hl7> --policy safe-analysis.toml --format json
 ```
 
 ### Bundle Evidence
 
 ```bash
 # Create a PHI-safe evidence packet for support or replay
-hl7v2 bundle failing.hl7 --profile profiles/oru_r01.yaml --redact-policy safe-analysis.toml --out issue-bundle/
+hl7v2-cli bundle failing.hl7 --profile profiles/oru_r01.yaml --redact-policy safe-analysis.toml --out issue-bundle/
 
 # Re-run the redacted bundle and verify the stored validation report reproduces
-hl7v2 replay issue-bundle/ --format json
+hl7v2-cli replay issue-bundle/ --format json
 ```
 
 ### Generate Messages
 
 ```bash
 # Generate synthetic HL7 messages with deterministic seeding
-hl7v2 gen --profile profiles/oru_r01.yaml --seed 1337 --count 100 --out corpus/
+hl7v2-cli gen --profile profiles/oru_r01.yaml --seed 1337 --count 100 --out corpus/
 
 # Generate with different template
-hl7v2 gen --template templates/adt_a01.yaml --seed 42 --count 50 --out test_data/
+hl7v2-cli gen --template templates/adt_a01.yaml --seed 42 --count 50 --out test_data/
 ```
 
 ### Summarize Corpora
 
 ```bash
 # Summarize a directory or single-file corpus of HL7 messages
-hl7v2 corpus summarize corpus/
+hl7v2-cli corpus summarize corpus/
 
 # Emit a machine-readable corpus summary
-hl7v2 corpus summarize corpus/ --format json
+hl7v2-cli corpus summarize corpus/ --format json
 
 # Create a deterministic feed fingerprint
-hl7v2 corpus fingerprint corpus/ --format json
+hl7v2-cli corpus fingerprint corpus/ --format json
 
 # Include validation issue-code counts in the fingerprint
-hl7v2 corpus fingerprint corpus/ --profile profiles/oru_r01.yaml --format json
+hl7v2-cli corpus fingerprint corpus/ --profile profiles/oru_r01.yaml --format json
 
 # Compare before/after corpora for feed drift
-hl7v2 corpus diff feeds/before feeds/after --profile profiles/oru_r01.yaml --format json
+hl7v2-cli corpus diff feeds/before feeds/after --profile profiles/oru_r01.yaml --format json
 ```
 
 ### Acknowledgment Generation
 
 ```bash
 # Generate an application ACK (AA - Application Accept)
-hl7v2 ack <input.hl7> --code AA > ack.hl7
+hl7v2-cli ack <input.hl7> --code AA > ack.hl7
 
 # Generate an application error ACK (AE - Application Error)
-hl7v2 ack <input.hl7> --code AE > error_ack.hl7
+hl7v2-cli ack <input.hl7> --code AE > error_ack.hl7
 ```
 
 ## Key Features

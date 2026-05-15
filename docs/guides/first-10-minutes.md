@@ -4,8 +4,15 @@ This guide proves the local CLI can turn HL7 input into evidence artifacts:
 diagnostics, profile checks, validation reports, corpus summaries, fingerprints,
 diffs, a redacted bundle, and replay verification.
 
-The examples use the product command name `hl7v2`. From a source checkout, use
-`cargo run -q -p hl7v2-cli --` before each command instead:
+The examples use the v1.5.0 installed CLI binary name `hl7v2-cli`. Install it
+with:
+
+```bash
+cargo install hl7v2-cli --version 1.5.0
+```
+
+From a source checkout, use `cargo run -q -p hl7v2-cli --` before each command
+instead:
 
 ```bash
 cargo run -q -p hl7v2-cli -- doctor --format json
@@ -42,7 +49,7 @@ Copy-Item test_data/invalid_message.hl7 target/hl7v2-first-10-minutes/fixtures/i
 ## 1. Run Doctor
 
 ```bash
-hl7v2 doctor --format json
+hl7v2-cli doctor --format json
 ```
 
 Expected output includes local diagnostics:
@@ -69,8 +76,8 @@ installed, the Python binding check can warn without blocking the Rust CLI.
 ## 2. Generate and Validate a Built-In Sample
 
 ```bash
-hl7v2 sample --type ADT_A01 --output target/hl7v2-first-10-minutes/sample.hl7
-hl7v2 validate-sample --type ADT_A01 --profile profiles/generic.yaml --report json --schema-version 2
+hl7v2-cli sample --type ADT_A01 --output target/hl7v2-first-10-minutes/sample.hl7
+hl7v2-cli validate-sample --type ADT_A01 --profile profiles/generic.yaml --report json --schema-version 2
 ```
 
 Expected validation output includes:
@@ -90,7 +97,7 @@ sample. Fix that before moving to site-specific messages.
 ## 3. Lint and Explain the Profile
 
 ```bash
-hl7v2 profile lint profiles/generic.yaml --report json
+hl7v2-cli profile lint profiles/generic.yaml --report json
 ```
 
 Expected output:
@@ -107,7 +114,7 @@ Expected output:
 Then inspect what the profile actually enforces:
 
 ```bash
-hl7v2 profile explain profiles/generic.yaml --format json
+hl7v2-cli profile explain profiles/generic.yaml --format json
 ```
 
 Expected fields include:
@@ -133,7 +140,7 @@ trusting validation, corpus fingerprints, or evidence bundles built from it.
 ## 4. Validate One Message
 
 ```bash
-hl7v2 val test_data/valid_message.hl7 --profile profiles/generic.yaml --report json
+hl7v2-cli val test_data/valid_message.hl7 --profile profiles/generic.yaml --report json
 ```
 
 Expected output:
@@ -150,7 +157,7 @@ Expected output:
 Now validate the invalid fixture:
 
 ```bash
-hl7v2 val test_data/invalid_message.hl7 --profile profiles/generic.yaml --report json
+hl7v2-cli val test_data/invalid_message.hl7 --profile profiles/generic.yaml --report json
 ```
 
 Expected behavior:
@@ -166,7 +173,7 @@ still failing the job.
 ## 5. Test the Profile Fixtures
 
 ```bash
-hl7v2 profile test profiles/generic.yaml target/hl7v2-first-10-minutes/fixtures --report json
+hl7v2-cli profile test profiles/generic.yaml target/hl7v2-first-10-minutes/fixtures --report json
 ```
 
 Expected output:
@@ -187,7 +194,7 @@ the case-level failure.
 ## 6. Summarize and Fingerprint the Corpus
 
 ```bash
-hl7v2 corpus summarize target/hl7v2-first-10-minutes/fixtures --format json
+hl7v2-cli corpus summarize target/hl7v2-first-10-minutes/fixtures --format json
 ```
 
 Expected fields:
@@ -209,7 +216,7 @@ Expected fields:
 Create a deterministic feed signature with profile-backed validation counts:
 
 ```bash
-hl7v2 corpus fingerprint target/hl7v2-first-10-minutes/fixtures \
+hl7v2-cli corpus fingerprint target/hl7v2-first-10-minutes/fixtures \
   --profile profiles/generic.yaml \
   --format json
 ```
@@ -239,7 +246,7 @@ LF-only samples can be rejected.
 Use the valid fixture as `before` and the invalid fixture as `after`:
 
 ```bash
-hl7v2 corpus diff \
+hl7v2-cli corpus diff \
   target/hl7v2-first-10-minutes/fixtures/valid \
   target/hl7v2-first-10-minutes/fixtures/invalid \
   --profile profiles/generic.yaml \
@@ -302,7 +309,7 @@ reason = "administrative sex is needed for validation"
 Build the evidence bundle:
 
 ```bash
-hl7v2 bundle test_data/valid_message.hl7 \
+hl7v2-cli bundle test_data/valid_message.hl7 \
   --profile profiles/generic.yaml \
   --redact-policy target/hl7v2-first-10-minutes/safe-analysis.toml \
   --out target/hl7v2-first-10-minutes/issue-bundle
@@ -335,7 +342,7 @@ Expected output:
 Replay the packet:
 
 ```bash
-hl7v2 replay target/hl7v2-first-10-minutes/issue-bundle --format json
+hl7v2-cli replay target/hl7v2-first-10-minutes/issue-bundle --format json
 ```
 
 Expected output:
