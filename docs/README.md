@@ -90,8 +90,9 @@ proposal, spec, plan, or receipt documents.
   binding backend lane, until a production PyPI release is intentionally proven
   and executed.
 - gRPC coverage is useful but still narrower than the full HTTP evidence
-  surface. It now includes inline corpus summary, fingerprint, and diff parity,
-  while bundle and replay remain HTTP-first until focused gRPC parity PRs land.
+  surface. It now includes inline corpus summary, fingerprint, diff, and
+  configured-root evidence bundle creation parity, while replay remains
+  HTTP-first until a focused gRPC parity PR lands.
   Use
   [`HL7V2-SPEC-0006`](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md)
   for the cross-surface parity contract, and use `docs/API_GUIDE.md` and
@@ -125,7 +126,7 @@ The current primary Rust product surface is:
 - `hl7v2-server`
 - `hl7v2-cli`
 
-The public Python distribution is `hl7v2`, built from the
-`hl7v2-python` maturin backend lane. `hl7v2-python` is a binding backend crate, not the
+The public Python distribution is `hl7v2`, built from the `hl7v2-python`
+maturin backend lane. `hl7v2-python` is a binding backend crate, not the
 recommended Rust API. Historical old microcrate names may exist on crates.io,
 but they are not the product surface for new code.
