@@ -111,7 +111,7 @@ async fn run_grpc_server(
     info!("  Transport: gRPC");
     info!("  RPCs:");
     info!("    Parse, ParseStream, Validate, ProfileLint, ProfileExplain, ProfileTest");
-    info!("    ValidateRedacted");
+    info!("    ValidateRedacted (redaction receipt and configured quarantine output)");
     info!("    CreateEvidenceBundle, ReplayEvidenceBundle");
     info!("    CorpusSummarize, CorpusFingerprint, CorpusDiff");
     info!("    GenerateAck, Normalize, HealthCheck");

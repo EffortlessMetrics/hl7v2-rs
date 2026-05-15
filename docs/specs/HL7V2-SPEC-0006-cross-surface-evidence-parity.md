@@ -38,6 +38,7 @@ Current and future surfaces are:
 | ACK | Stable | Stable where exposed | Stable where exposed | Stable | Planned or not claimed | Planned |
 | profile lint / explain / test | Stable | Stable | Stable where exposed | Profile lint/explain/test stable | Stable local helper | Planned |
 | redaction receipt | Stable | Stable | Stable | Stable via `ValidateRedacted` | Stable local binding | Planned |
+| quarantine output | Not applicable | Not applicable | Stable | Stable via `ValidateRedacted` when configured | Planned or not claimed | Planned |
 | corpus summary | Stable | Stable | Stable | Stable for inline messages | Stable local helper | Planned |
 | corpus fingerprint / diff | Stable | Stable | Stable | Stable for inline messages | Stable local helper where exposed | Planned |
 | bundle / replay | Stable | Stable | Stable | Bundle creation/replay stable | Stable local helper where exposed | Planned |
@@ -150,6 +151,14 @@ IDs, returns the shared replay report shape without configured root paths or raw
 bundle IDs, supports opt-in v2 replay reports if claimed, reports missing
 bundles as not found, fails closed on tampered bundles through the shared replay
 checks, and passes gRPC contract tests.
+
+`ValidateRedacted` can be described as gRPC quarantine output parity when the
+RPC writes configured quarantine output only after failed redacted validation,
+omits quarantine output for valid reports or disabled quarantine config, fails
+closed when quarantine is enabled without a configured root, returns only
+root-relative output IDs, supports opt-in v2 quarantine summaries if claimed,
+avoids raw HL7 and configured filesystem roots in responses and diagnostics, and
+passes gRPC contract tests.
 
 ### Correct Python Claim
 

@@ -730,6 +730,50 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "grpc-quarantine-parity"
+status = "done"
+goal = "Add typed gRPC quarantine output parity through ValidateRedacted without claiming release-readiness refresh or registry publication."
+spec = "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md"
+files = [
+  "api/proto/hl7v2/v1/hl7v2.proto",
+  "crates/hl7v2-server/proto/hl7v2/v1/hl7v2.proto",
+  "crates/hl7v2-server/src/grpc.rs",
+  "crates/hl7v2-server/tests/grpc_contract_tests.rs",
+  "crates/hl7v2-cli/src/serve.rs",
+  "crates/hl7v2-server/GRPC_IMPLEMENTATION.md",
+  "crates/hl7v2-server/README.md",
+  "docs/adr/0008-tonic-for-grpc.md",
+  "docs/architecture/evidence-artifacts.md",
+  "docs/contracts/evidence-contract-index.md",
+  "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md",
+  "docs/status/SUPPORT_TIERS.md",
+]
+commands = [
+  "cargo +1.95.0 fmt --all -- --check",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests quarantine -- --nocapture",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests",
+  "cargo +1.95.0 test -p hl7v2-server --test proto_packaging_test",
+  "npx -y @bufbuild/buf lint api/proto",
+  "npx -y @bufbuild/buf breaking api/proto --against \"https://github.com/EffortlessMetrics/hl7v2-rs.git#branch=main,subdir=api/proto\"",
+  "cargo +1.95.0 test -p hl7v2-cli --test serve_grpc_contract_test",
+  "cargo +1.95.0 check -p hl7v2-server -p hl7v2-cli --all-features --all-targets --locked",
+  "cargo +1.95.0 clippy -p hl7v2-server -p hl7v2-cli --all-targets --all-features --locked -- -D warnings",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No release-readiness refresh; refresh is a separate follow-up receipt after this PR lands.",
+]
+
+[[work_item]]
 id = "binding-backend-package-boundary-closeout"
 status = "done"
 goal = "Record the #604-#608 package-boundary closeout without claiming crates.io, TestPyPI, or PyPI publication."

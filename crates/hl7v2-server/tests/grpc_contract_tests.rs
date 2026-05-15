@@ -10,6 +10,7 @@
 
 #[cfg(test)]
 mod tests {
+    use hl7v2_server::QuarantineConfig;
     use hl7v2_server::grpc::Hl7ServiceImpl;
     use hl7v2_server::grpc::proto::hl7_service_client::Hl7ServiceClient;
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
@@ -50,6 +51,13 @@ mod tests {
     }
 
     fn mock_state_with_bundle_output_root(bundle_output_root: Option<PathBuf>) -> Arc<AppState> {
+        mock_state_with_roots(bundle_output_root, Default::default())
+    }
+
+    fn mock_state_with_roots(
+        bundle_output_root: Option<PathBuf>,
+        quarantine: QuarantineConfig,
+    ) -> Arc<AppState> {
         let recorder = PrometheusBuilder::new().build_recorder();
         let handle = recorder.handle();
         Arc::new(AppState {
@@ -60,7 +68,7 @@ mod tests {
             readiness_checks: ServerConfig::default().readiness_checks(),
             bundle_output_root,
             ack_policy: Default::default(),
-            quarantine: Default::default(),
+            quarantine,
         })
     }
 
@@ -125,6 +133,10 @@ constraints:
 
     fn service_with_bundle_output_root(root: PathBuf) -> Hl7ServiceImpl {
         Hl7ServiceImpl::new(mock_state_with_bundle_output_root(Some(root)))
+    }
+
+    fn service_with_quarantine(quarantine: QuarantineConfig) -> Hl7ServiceImpl {
+        Hl7ServiceImpl::new(mock_state_with_roots(None, quarantine))
     }
 
     fn grpc_request_body<T: ProstMessage>(messages: &[T]) -> Full<Bytes> {
@@ -848,6 +860,7 @@ unknown_top_level: "ignored"
             include_redacted_hl7: true,
             report_schema_version: 0,
             redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 0,
         });
 
         let response = service
@@ -894,6 +907,7 @@ unknown_top_level: "ignored"
             include_redacted_hl7: false,
             report_schema_version: 0,
             redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 0,
         });
 
         let response = service
@@ -919,6 +933,7 @@ unknown_top_level: "ignored"
             include_redacted_hl7: false,
             report_schema_version: 0,
             redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 0,
         });
 
         let err = service
@@ -947,6 +962,7 @@ unknown_top_level: "ignored"
             include_redacted_hl7: true,
             report_schema_version: 0,
             redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 0,
         });
 
         let response = service
@@ -974,6 +990,7 @@ unknown_top_level: "ignored"
             include_redacted_hl7: true,
             report_schema_version: 2,
             redaction_receipt_schema_version: 2,
+            quarantine_schema_version: 0,
         });
 
         let response = service
@@ -1035,6 +1052,7 @@ reason = "hash patient identifier"
             include_redacted_hl7: true,
             report_schema_version: 0,
             redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 0,
         });
 
         let err = service
@@ -1059,6 +1077,7 @@ reason = "hash patient identifier"
             include_redacted_hl7: false,
             report_schema_version: 3,
             redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 0,
         });
 
         let err = service
@@ -1084,6 +1103,7 @@ reason = "hash patient identifier"
             include_redacted_hl7: false,
             report_schema_version: 0,
             redaction_receipt_schema_version: 3,
+            quarantine_schema_version: 0,
         });
 
         let err = service
@@ -1095,6 +1115,180 @@ reason = "hash patient identifier"
         assert_eq!(
             err.message(),
             "unsupported redaction receipt schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_writes_quarantine_for_failed_validation() {
+        let root = TempRoot::new("quarantine-success");
+        let service = service_with_quarantine(QuarantineConfig {
+            enabled: true,
+            path: Some(root.path().to_path_buf()),
+            ..Default::default()
+        });
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE_REQUIRES_DROPPED_NAME.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: false,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 2,
+        });
+
+        let response = service
+            .validate_redacted(request)
+            .await
+            .expect("failed redacted validation should write quarantine output")
+            .into_inner();
+        let response_debug = format!("{response:?}");
+
+        assert!(
+            !response
+                .validation_report
+                .expect("report should exist")
+                .valid
+        );
+        let quarantine = response
+            .quarantine
+            .expect("quarantine summary should exist");
+        assert_eq!(quarantine.quarantine_version, "1");
+        assert!(quarantine.output_dir.starts_with("quarantine-"));
+        assert_eq!(quarantine.reason, "validation_error");
+        assert_eq!(quarantine.validation_issue_count, 1);
+        assert!(
+            quarantine
+                .artifacts
+                .iter()
+                .any(|path| path == "manifest.json")
+        );
+
+        let quarantine_v2 = response
+            .quarantine_v2
+            .expect("quarantine v2 summary should exist");
+        assert_eq!(quarantine_v2.schema_version, "2");
+        assert_eq!(quarantine_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(quarantine_v2.tool_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(quarantine_v2.output_dir, quarantine.output_dir);
+        assert_eq!(quarantine_v2.reason, "validation_error");
+        assert_no_phi(&response_debug);
+        assert!(!response_debug.contains(root.path().to_string_lossy().as_ref()));
+
+        let quarantine_dir = root.path().join(&quarantine.output_dir);
+        for artifact in [
+            "message.redacted.hl7",
+            "validation-report.json",
+            "field-paths.json",
+            "profile.yaml",
+            "redaction-receipt.json",
+            "environment.json",
+            "replay.sh",
+            "replay.ps1",
+            "README.md",
+            "manifest.json",
+        ] {
+            let artifact_path = quarantine_dir.join(artifact);
+            assert!(
+                artifact_path.exists(),
+                "missing gRPC quarantine artifact {artifact}"
+            );
+            let content = fs::read_to_string(artifact_path).expect("artifact should be UTF-8");
+            assert_no_phi(&content);
+            assert!(!content.contains(root.path().to_string_lossy().as_ref()));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_omits_quarantine_for_valid_report() {
+        let root = TempRoot::new("quarantine-valid");
+        let service = service_with_quarantine(QuarantineConfig {
+            enabled: true,
+            path: Some(root.path().to_path_buf()),
+            ..Default::default()
+        });
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: false,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 2,
+        });
+
+        let response = service
+            .validate_redacted(request)
+            .await
+            .expect("valid redacted validation should not write quarantine output")
+            .into_inner();
+
+        assert!(
+            response
+                .validation_report
+                .expect("report should exist")
+                .valid
+        );
+        assert!(response.quarantine.is_none());
+        assert!(response.quarantine_v2.is_none());
+        assert!(fs::read_dir(root.path()).unwrap().next().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_quarantine_fails_closed_without_path() {
+        let service = service_with_quarantine(QuarantineConfig {
+            enabled: true,
+            path: None,
+            ..Default::default()
+        });
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE_REQUIRES_DROPPED_NAME.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: false,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 0,
+        });
+
+        let err = service
+            .validate_redacted(request)
+            .await
+            .expect_err("enabled quarantine without a root should fail closed");
+
+        assert_eq!(err.code(), Code::FailedPrecondition);
+        assert_eq!(
+            err.message(),
+            "server quarantine output is enabled but no path is configured"
+        );
+        assert_no_phi(err.message());
+    }
+
+    #[tokio::test]
+    async fn test_grpc_validate_redacted_rejects_unsupported_quarantine_schema_versions() {
+        let service = service();
+        let request = Request::new(ValidateRedactedRequest {
+            message: PHI_MESSAGE.as_bytes().to_vec(),
+            profile: PROFILE.to_string(),
+            redaction_policy: REDACTION_POLICY.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: false,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 3,
+        });
+
+        let err = service
+            .validate_redacted(request)
+            .await
+            .expect_err("Unsupported quarantine schema version should fail the RPC");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported quarantine output schema version 3; expected 1 or 2"
         );
     }
 

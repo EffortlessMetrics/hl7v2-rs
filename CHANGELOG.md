@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added gRPC evidence replay parity with configured-root bundle replay,
   fail-closed missing/unsafe bundle handling, shared replay reports, and opt-in
   v2 replay provenance.
+- Added gRPC quarantine output parity through `ValidateRedacted` with
+  configured-root writes for failed redacted validation and opt-in v2 quarantine
+  provenance.
 - Added gRPC inline corpus diff parity, including before/after inline corpus
   deltas and opt-in v2 provenance.
 - Added gRPC profile explain parity with shared profile explain reports and

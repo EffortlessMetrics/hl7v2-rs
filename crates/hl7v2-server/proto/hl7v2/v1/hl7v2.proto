@@ -588,6 +588,13 @@ message ValidateRedactedRequest {
   // Omitted or 1 preserves the default receipt fields. 2 includes the
   // redaction_receipt_v2 field with embedded provenance.
   int32 redaction_receipt_schema_version = 7;
+
+  // Optional quarantine output summary schema version.
+  //
+  // Omitted or 1 preserves the default quarantine summary. 2 includes the
+  // quarantine_v2 field with embedded provenance when quarantine output is
+  // configured and validation fails.
+  int32 quarantine_schema_version = 8;
 }
 
 // Validate and redact response.
@@ -606,6 +613,12 @@ message ValidateRedactedResponse {
 
   // Redacted HL7 payload, included only when requested
   optional bytes redacted_hl7 = 5;
+
+  // Quarantine output summary when configured and validation failed
+  QuarantineOutputSummary quarantine = 6;
+
+  // Opt-in quarantine output with embedded evidence provenance
+  QuarantineOutputSummaryV2 quarantine_v2 = 7;
 }
 
 // Stable redaction receipt artifact.
@@ -639,6 +652,51 @@ message RedactionReceiptV2 {
 
   // Per-rule redaction receipts
   repeated RedactionActionReceipt actions = 6;
+}
+
+// Stable quarantine output summary artifact.
+message QuarantineOutputSummary {
+  // Quarantine output contract version
+  string quarantine_version = 1;
+
+  // Output directory relative to the configured quarantine root
+  string output_dir = 2;
+
+  // Stable reason for quarantine output, for example validation_error
+  string reason = 3;
+
+  // Number of validation issues that triggered quarantine output
+  uint32 validation_issue_count = 4;
+
+  // Quarantine-relative artifact names written by the server
+  repeated string artifacts = 5;
+}
+
+// Quarantine output summary v2 artifact with embedded evidence provenance.
+message QuarantineOutputSummaryV2 {
+  // Evidence artifact schema version
+  string schema_version = 1;
+
+  // Producer surface that generated this summary
+  string tool_name = 2;
+
+  // Semantic version of the producing crate or binding package
+  string tool_version = 3;
+
+  // Quarantine output contract version
+  string quarantine_version = 4;
+
+  // Output directory relative to the configured quarantine root
+  string output_dir = 5;
+
+  // Stable reason for quarantine output, for example validation_error
+  string reason = 6;
+
+  // Number of validation issues that triggered quarantine output
+  uint32 validation_issue_count = 7;
+
+  // Quarantine-relative artifact names written by the server
+  repeated string artifacts = 8;
 }
 
 // Per-rule redaction action receipt.

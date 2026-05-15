@@ -33,7 +33,7 @@ copies stay synchronized.
 | `ProfileLint` | Implemented | Lints caller-supplied inline profile YAML without applying it to a message. Always returns v1 `profile_lint_report`; `report_schema_version = 2` adds `profile_lint_report_v2`. |
 | `ProfileExplain` | Implemented | Explains caller-supplied inline profile YAML without applying it to a message. Always returns v1 `profile_explain_report`; `report_schema_version = 2` adds `profile_explain_report_v2`. |
 | `ProfileTest` | Implemented | Tests caller-supplied inline HL7 fixtures against an inline profile without reading request filesystem paths. Always returns v1 `profile_test_report`; `report_schema_version = 2` adds `profile_test_report_v2`. |
-| `ValidateRedacted` | Implemented | Applies an inline safe-analysis redaction policy before validation. Always returns v1 `validation_report` and `redaction_receipt`, can include v2 validation and redaction receipt artifacts, and includes `redacted_hl7` only when requested. |
+| `ValidateRedacted` | Implemented | Applies an inline safe-analysis redaction policy before validation. Always returns v1 `validation_report` and `redaction_receipt`, can include v2 validation, redaction receipt, and quarantine summary artifacts, includes `redacted_hl7` only when requested, and writes configured quarantine output only when validation fails. |
 | `CreateEvidenceBundle` | Implemented | Writes a redacted evidence bundle under the configured server bundle output root. The request supplies inline message, profile, policy, and a bundle ID; the response returns the shared summary shape with a hashed public output ID and never exposes the configured root or raw bundle ID. `bundle_artifact_schema_version = 2` writes v2 bundle artifacts. |
 | `ReplayEvidenceBundle` | Implemented | Replays and verifies a redacted evidence bundle under the configured server bundle output root. The request supplies a bundle ID; the response returns the shared replay report shape and never exposes the configured root or raw bundle ID. `replay_report_schema_version = 2` adds `replay_report_v2`. |
 | `CorpusSummarize` | Implemented | Summarizes caller-supplied inline messages only. The RPC does not read filesystem paths from requests; `summary_schema_version = 2` adds the v2 corpus summary provenance shape. |
@@ -55,6 +55,7 @@ ProfileExplainRequest.report_schema_version = 2
 ProfileTestRequest.report_schema_version = 2
 ValidateRedactedRequest.report_schema_version = 2
 ValidateRedactedRequest.redaction_receipt_schema_version = 2
+ValidateRedactedRequest.quarantine_schema_version = 2
 CreateEvidenceBundleRequest.bundle_artifact_schema_version = 2
 ReplayEvidenceBundleRequest.replay_report_schema_version = 2
 CorpusSummarizeRequest.summary_schema_version = 2
@@ -71,8 +72,12 @@ values return
 
 `ValidateRedacted` fails closed when the redaction policy is invalid or misses a
 present built-in sensitive path. The redacted HL7 body is omitted unless
-`include_redacted_hl7` is set. The RPC does not write quarantine output; REST
-`/hl7/validate-redacted` owns configured quarantine behavior.
+`include_redacted_hl7` is set. When quarantine is configured, failed redacted
+validation writes quarantine output under the configured quarantine root and
+returns a root-relative `quarantine` summary. `quarantine_schema_version = 2`
+adds `quarantine_v2`. Valid reports or disabled quarantine config do not write
+output, and enabled quarantine without a configured root fails closed with
+`FailedPrecondition`.
 
 `CreateEvidenceBundle` and `ReplayEvidenceBundle` operate only beneath
 `bundle_output_root` from server configuration. Request bundle IDs are

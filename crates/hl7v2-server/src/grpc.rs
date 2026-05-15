@@ -1,7 +1,9 @@
 //! gRPC service implementation for HL7v2.
 
 use crate::models::{
-    EvidenceBundleSummary as ServerEvidenceBundleSummary, RedactionAction as ServerRedactionAction,
+    EvidenceBundleSummary as ServerEvidenceBundleSummary,
+    QuarantineOutputSummary as ServerQuarantineOutputSummary,
+    QuarantineReason as ServerQuarantineReason, RedactionAction as ServerRedactionAction,
     RedactionActionReceipt as ServerRedactionActionReceipt,
     RedactionActionStatus as ServerRedactionActionStatus,
     RedactionReceipt as ServerRedactionReceipt,
@@ -270,12 +272,16 @@ impl Hl7Service for Hl7ServiceImpl {
             "redaction receipt",
         )
         .map_err(Status::invalid_argument)?;
+        let quarantine_schema_version =
+            grpc_requested_schema_version(req.quarantine_schema_version, "quarantine output")
+                .map_err(Status::invalid_argument)?;
 
+        let raw_input = req.message;
         let message_bytes = if req.mllp_framed {
-            hl7v2::unwrap_mllp(&req.message)
+            hl7v2::unwrap_mllp(&raw_input)
                 .map_err(|e| Status::invalid_argument(format!("Failed to unwrap MLLP: {e}")))?
         } else {
-            req.message.as_slice()
+            raw_input.as_slice()
         };
 
         let mut message = rust_parse(message_bytes)
@@ -283,7 +289,11 @@ impl Hl7Service for Hl7ServiceImpl {
 
         let receipt = redact_message(&mut message, &req.redaction_policy)
             .map_err(|e| Status::invalid_argument(format!("Failed to redact HL7: {e}")))?;
-        let redacted_hl7 = hl7v2::write(&message);
+        let redacted_hl7 = String::from_utf8(hl7v2::write(&message)).map_err(|error| {
+            Status::internal(format!(
+                "redacted message could not be encoded as UTF-8: {error}"
+            ))
+        })?;
 
         let profile = hl7v2::load_profile_checked(&req.profile)
             .map_err(|_error| Status::invalid_argument(crate::PROFILE_LOAD_SAFE_MESSAGE))?;
@@ -311,13 +321,37 @@ impl Hl7Service for Hl7ServiceImpl {
 
         let redaction_receipt_v2 = (redaction_receipt_schema_version == 2)
             .then(|| proto_redaction_receipt_v2_from_server(&receipt, "hl7v2-server-grpc"));
+        let quarantine = maybe_write_grpc_redacted_quarantine(GrpcRedactedQuarantineContext {
+            state: &self.state,
+            raw_input: &raw_input,
+            profile_yaml: &req.profile,
+            policy_text: &req.redaction_policy,
+            redacted_message: &message,
+            redacted_hl7: &redacted_hl7,
+            redaction_receipt: &receipt,
+            validation_report: &report,
+        })
+        .map_err(grpc_quarantine_output_status)?;
+        let quarantine_v2 = if quarantine_schema_version == 2 {
+            quarantine.as_ref().map(|summary| {
+                proto_quarantine_output_summary_v2_from_server(
+                    &summary.to_v2("hl7v2-server-grpc", env!("CARGO_PKG_VERSION")),
+                )
+            })
+        } else {
+            None
+        };
 
         Ok(Response::new(ValidateRedactedResponse {
             validation_report: Some(proto_validation_report_from_rust(&report)),
             validation_report_v2,
             redaction_receipt: Some(proto_redaction_receipt_from_server(&receipt)),
             redaction_receipt_v2,
-            redacted_hl7: req.include_redacted_hl7.then_some(redacted_hl7),
+            redacted_hl7: req.include_redacted_hl7.then(|| redacted_hl7.into_bytes()),
+            quarantine: quarantine
+                .as_ref()
+                .map(proto_quarantine_output_summary_from_server),
+            quarantine_v2,
         }))
     }
 
@@ -661,6 +695,71 @@ fn compute_sha256(input: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+struct GrpcRedactedQuarantineContext<'a> {
+    state: &'a AppState,
+    raw_input: &'a [u8],
+    profile_yaml: &'a str,
+    policy_text: &'a str,
+    redacted_message: &'a hl7v2::Message,
+    redacted_hl7: &'a str,
+    redaction_receipt: &'a ServerRedactionReceipt,
+    validation_report: &'a hl7v2::ValidationReport,
+}
+
+enum GrpcQuarantineOutputError {
+    MissingRoot,
+    Write(crate::evidence::EvidenceBundleError),
+}
+
+fn maybe_write_grpc_redacted_quarantine(
+    context: GrpcRedactedQuarantineContext<'_>,
+) -> Result<Option<ServerQuarantineOutputSummary>, GrpcQuarantineOutputError> {
+    let GrpcRedactedQuarantineContext {
+        state,
+        raw_input,
+        profile_yaml,
+        policy_text,
+        redacted_message,
+        redacted_hl7,
+        redaction_receipt,
+        validation_report,
+    } = context;
+
+    if validation_report.valid || !state.quarantine.enabled {
+        return Ok(None);
+    }
+
+    let root = state
+        .quarantine
+        .path
+        .as_deref()
+        .ok_or(GrpcQuarantineOutputError::MissingRoot)?;
+    let output_id = generated_quarantine_id();
+    let summary =
+        crate::evidence::write_quarantine_output(crate::evidence::QuarantineOutputWriteRequest {
+            root,
+            output_id: &output_id,
+            config: &state.quarantine,
+            raw_input,
+            profile_yaml,
+            policy_text,
+            redacted_message,
+            redacted_hl7,
+            redaction_receipt,
+            validation_report,
+        })
+        .map_err(GrpcQuarantineOutputError::Write)?;
+
+    Ok(Some(summary))
+}
+
+fn generated_quarantine_id() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    format!("quarantine-{}-{nanos}", std::process::id())
 }
 
 fn validated_grpc_corpus_message_ids(
@@ -1856,6 +1955,33 @@ fn proto_redaction_receipt_v2_from_server(
     }
 }
 
+fn proto_quarantine_output_summary_from_server(
+    summary: &ServerQuarantineOutputSummary,
+) -> QuarantineOutputSummary {
+    QuarantineOutputSummary {
+        quarantine_version: summary.quarantine_version.clone(),
+        output_dir: summary.output_dir.clone(),
+        reason: server_quarantine_reason_name(summary.reason).to_string(),
+        validation_issue_count: usize_to_u32(summary.validation_issue_count),
+        artifacts: summary.artifacts.clone(),
+    }
+}
+
+fn proto_quarantine_output_summary_v2_from_server(
+    summary: &crate::models::QuarantineOutputSummaryV2,
+) -> QuarantineOutputSummaryV2 {
+    QuarantineOutputSummaryV2 {
+        schema_version: summary.schema_version.clone(),
+        tool_name: summary.tool_name.clone(),
+        tool_version: summary.tool_version.clone(),
+        quarantine_version: summary.summary.quarantine_version.clone(),
+        output_dir: summary.summary.output_dir.clone(),
+        reason: server_quarantine_reason_name(summary.summary.reason).to_string(),
+        validation_issue_count: usize_to_u32(summary.summary.validation_issue_count),
+        artifacts: summary.summary.artifacts.clone(),
+    }
+}
+
 fn proto_evidence_bundle_summary_from_server(
     summary: &ServerEvidenceBundleSummary,
 ) -> EvidenceBundleSummary {
@@ -1930,6 +2056,25 @@ fn grpc_evidence_bundle_error(error: crate::evidence::EvidenceBundleError) -> St
     }
 }
 
+fn grpc_quarantine_output_status(error: GrpcQuarantineOutputError) -> Status {
+    match error {
+        GrpcQuarantineOutputError::MissingRoot => Status::failed_precondition(
+            "server quarantine output is enabled but no path is configured",
+        ),
+        GrpcQuarantineOutputError::Write(error) => grpc_quarantine_evidence_error(error),
+    }
+}
+
+fn grpc_quarantine_evidence_error(error: crate::evidence::EvidenceBundleError) -> Status {
+    match error {
+        crate::evidence::EvidenceBundleError::InvalidRequest(message) => {
+            Status::invalid_argument(message)
+        }
+        crate::evidence::EvidenceBundleError::Conflict(message) => Status::already_exists(message),
+        crate::evidence::EvidenceBundleError::Io(message) => Status::unavailable(message),
+    }
+}
+
 fn proto_redaction_action_receipt_from_server(
     action: &ServerRedactionActionReceipt,
 ) -> RedactionActionReceipt {
@@ -1956,6 +2101,12 @@ fn server_redaction_action_status_name(status: ServerRedactionActionStatus) -> &
         ServerRedactionActionStatus::Applied => "applied",
         ServerRedactionActionStatus::Retained => "retained",
         ServerRedactionActionStatus::NotFound => "not_found",
+    }
+}
+
+fn server_quarantine_reason_name(reason: ServerQuarantineReason) -> &'static str {
+    match reason {
+        ServerQuarantineReason::ValidationError => "validation_error",
     }
 }
 
