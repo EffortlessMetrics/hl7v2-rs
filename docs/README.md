@@ -52,6 +52,7 @@ proposal, spec, plan, or receipt documents.
 | [First Use By Surface](guides/first-use-by-surface.md) | Choose the first Rust, CLI, server, or Python receipt without learning the workspace layout. |
 | [First 10 Minutes](guides/first-10-minutes.md) | Install, diagnose, validate, summarize, bundle, and replay. |
 | [Evidence Artifacts For Operators](guides/evidence-artifacts-for-operators.md) | Interpret reports, receipts, bundles, replay output, corpus artifacts, PHI posture, and safe sharing limits. |
+| [Operator Error Guidance](guides/operator-error-guidance.md) | Interpret parse, validation, redaction, bundle, replay, server, and Python failures without exposing PHI. |
 | [Vendor Upgrade Diff](guides/vendor-upgrade-diff.md) | Compare before/after corpora and interpret drift. |
 | [Safe Support Bundle](guides/safe-support-bundle.md) | Redact and package replayable support evidence. |
 | [Deploy Validation Sidecar](guides/deploy-validation-sidecar.md) | Run `hl7v2-server` as an edge guard. |
