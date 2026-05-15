@@ -170,9 +170,8 @@ jobs:
       - name: Run extended property tests
         env:
           PROPTEST_CASES: 10000
-          PROPTEST_MAX_DEFAULT_SIZE: 1000
         run: |
-          cargo test --workspace --test property_tests \
+          cargo test -p hl7v2 --all-features property_tests \
             -- --nocapture
         timeout-minutes: 25
 
