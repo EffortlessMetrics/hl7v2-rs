@@ -4689,6 +4689,183 @@ action = "hash"
 }
 
 // =========================================================================
+// User Journey Acceptance Tests
+// =========================================================================
+
+mod user_journeys {
+    use super::*;
+
+    const PROFILE_REQUIRING_PID3: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+constraints:
+  - path: PID.3
+    required: true
+"#;
+
+    const JOURNEY_MESSAGE: &str = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605150101||ADT^A01|CTRL-JOURNEY|P|2.5\rPID|1||MRN-JOURNEY^^^HOSP^MR||Journey^Patient||19700101|F\r";
+
+    const SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+"#;
+
+    fn run_json(args: &[String], expected_code: i32) -> serde_json::Value {
+        let mut cmd = cli_command();
+        let output = cmd.args(args).output().expect("CLI command should run");
+        assert_eq!(
+            output.status.code(),
+            Some(expected_code),
+            "stdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice(&output.stdout).expect("stdout should be JSON")
+    }
+
+    fn json_from_file(path: &std::path::Path) -> serde_json::Value {
+        serde_json::from_slice(&std::fs::read(path).expect("JSON output file should be readable"))
+            .expect("output file should be JSON")
+    }
+
+    #[test]
+    fn journey_cli_validate_redact_bundle_replay_produces_shareable_receipts() {
+        let dir = create_temp_dir();
+        let message = create_temp_hl7_with_content(&dir, "message.hl7", JOURNEY_MESSAGE);
+        let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
+        let policy = create_temp_file(&dir, "safe-analysis.toml", SAFE_ANALYSIS_POLICY.as_bytes());
+
+        let parsed = run_json(
+            &[
+                "parse".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--json".to_string(),
+            ],
+            0,
+        );
+        assert!(
+            parsed.to_string().contains("MSH"),
+            "parse JSON should expose the MSH segment"
+        );
+
+        let validation = run_json(
+            &[
+                "val".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--report".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            0,
+        );
+        assert_eq!(validation["schema_version"], "2");
+        assert_eq!(validation["valid"], true);
+        assert_eq!(validation["issue_count"], 0);
+
+        let redaction = run_json(
+            &[
+                "redact".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--format".to_string(),
+                "json".to_string(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            0,
+        );
+        let redaction_text = redaction.to_string();
+        assert_eq!(redaction["receipt"]["schema_version"], "2");
+        assert_eq!(redaction["receipt"]["phi_removed"], true);
+        assert!(!redaction_text.contains("MRN-JOURNEY"));
+        assert!(!redaction_text.contains("Journey^Patient"));
+        assert!(!redaction_text.contains("19700101"));
+
+        let bundle = dir.path().join("journey-bundle");
+        let bundle_summary = run_json(
+            &[
+                "bundle".to_string(),
+                message.to_string_lossy().into_owned(),
+                "--profile".to_string(),
+                profile.to_string_lossy().into_owned(),
+                "--redact-policy".to_string(),
+                policy.to_string_lossy().into_owned(),
+                "--out".to_string(),
+                bundle.to_string_lossy().into_owned(),
+                "--schema-version".to_string(),
+                "2".to_string(),
+            ],
+            0,
+        );
+        assert_eq!(bundle_summary["schema_version"], "2");
+        assert_eq!(bundle_summary["validation_valid"], true);
+        assert_eq!(bundle_summary["redaction_phi_removed"], true);
+
+        let redacted_message =
+            std::fs::read_to_string(bundle.join("message.redacted.hl7")).unwrap();
+        assert!(redacted_message.contains("hash:sha256:"));
+        assert!(!redacted_message.contains("MRN-JOURNEY"));
+        assert!(!redacted_message.contains("Journey^Patient"));
+        assert!(!redacted_message.contains("19700101"));
+
+        let replay_report = dir.path().join("replay-report.json");
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "replay",
+                bundle.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+                "--output",
+                replay_report.to_str().unwrap(),
+                "--quiet",
+                "--no-color",
+            ])
+            .output()
+            .expect("replay command should run");
+        assert_eq!(output.status.code(), Some(0));
+        assert!(output.stdout.is_empty());
+
+        let replay = json_from_file(&replay_report);
+        assert_eq!(replay["schema_version"], "2");
+        assert_eq!(replay["reproduced"], true);
+        assert!(
+            replay["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|check| check["status"] == "pass")
+        );
+    }
+}
+
+// =========================================================================
 // File I/O Tests
 // =========================================================================
 
