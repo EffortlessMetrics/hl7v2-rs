@@ -14,15 +14,15 @@ mod tests {
     use hl7v2_server::grpc::proto::hl7_service_client::Hl7ServiceClient;
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
     use hl7v2_server::grpc::proto::{
-        CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest, GenerateAckRequest,
-        HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest, ParseStreamRequest,
-        ParseStreamResponse, ValidateRedactedRequest, ValidateRequest, generate_ack_request,
-        health_check_response, validation_issue,
+        CorpusDiffRequest, CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest,
+        GenerateAckRequest, HealthCheckRequest, NormalizeOptions, NormalizeRequest, ParseRequest,
+        ParseStreamRequest, ParseStreamResponse, ValidateRedactedRequest, ValidateRequest,
+        generate_ack_request, health_check_response, validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
         PHI_LEAK_SENTINEL_MESSAGE as PHI_MESSAGE, PHI_LEAK_SENTINEL_POLICY as REDACTION_POLICY,
-        assert_no_phi_leak_sentinels,
+        SampleMessages, assert_no_phi_leak_sentinels,
     };
     use http_body_util::Full;
     use metrics_exporter_prometheus::PrometheusBuilder;
@@ -881,6 +881,126 @@ constraints:
 
         let err = service
             .corpus_fingerprint(request)
+            .await
+            .expect_err("malformed profile should fail the RPC");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "profile could not be loaded; run profile lint for details"
+        );
+        assert!(!err.message().contains("Jane Secret"));
+        assert!(!err.message().contains("MRN-SECRET-123"));
+        assert!(!err.message().contains(sensitive_profile));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_diff_reports_inline_deltas_and_v2_provenance() {
+        let service = service();
+        let request = Request::new(CorpusDiffRequest {
+            before: vec![CorpusMessageInput {
+                id: Some("before-adt".to_string()),
+                message: SAMPLE_MSG.to_vec(),
+            }],
+            after: vec![
+                CorpusMessageInput {
+                    id: Some("after-adt".to_string()),
+                    message: SAMPLE_MSG.to_vec(),
+                },
+                CorpusMessageInput {
+                    id: Some("after-oru".to_string()),
+                    message: SampleMessages::oru_r01().as_bytes().to_vec(),
+                },
+            ],
+            profile: None,
+            diff_schema_version: 2,
+        });
+
+        let response = service
+            .corpus_diff(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+        let response_debug = format!("{inner:?}");
+
+        let diff = inner.diff.expect("diff should exist");
+        assert_eq!(diff.diff_version, "1");
+        assert_eq!(diff.tool_version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(diff.before_root, "<inline-before>");
+        assert_eq!(diff.after_root, "<inline-after>");
+        assert_eq!(
+            diff.message_count
+                .expect("message count should exist")
+                .delta,
+            1
+        );
+        assert_eq!(diff.new_message_types, vec!["ORU^R01"]);
+        assert!(
+            diff.field_presence
+                .iter()
+                .any(|field| field.path == "OBX.5" && field.message_count_delta == 1)
+        );
+
+        let diff_v2 = inner.diff_v2.expect("diff v2 should exist");
+        assert_eq!(diff_v2.schema_version, "2");
+        assert_eq!(diff_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(diff_v2.diff_version, diff.diff_version);
+        assert_eq!(diff_v2.tool_version, diff.tool_version);
+        assert_eq!(diff_v2.before_root, diff.before_root);
+        assert_eq!(diff_v2.after_root, diff.after_root);
+        assert_no_phi(&response_debug);
+        assert!(!response_debug.contains("Patient^Test"));
+        assert!(!response_debug.contains("MRN789"));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_diff_rejects_unsupported_schema_versions() {
+        let service = service();
+        let request = Request::new(CorpusDiffRequest {
+            before: vec![CorpusMessageInput {
+                id: Some("before-adt".to_string()),
+                message: SAMPLE_MSG.to_vec(),
+            }],
+            after: vec![CorpusMessageInput {
+                id: Some("after-adt".to_string()),
+                message: SAMPLE_MSG.to_vec(),
+            }],
+            profile: None,
+            diff_schema_version: 3,
+        });
+
+        let err = service
+            .corpus_diff(request)
+            .await
+            .expect_err("unsupported schema version should fail");
+
+        assert_eq!(err.code(), Code::InvalidArgument);
+        assert_eq!(
+            err.message(),
+            "unsupported corpus diff schema version 3; expected 1 or 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_diff_invalid_profile_does_not_echo_profile_text() {
+        let service = service();
+        let sensitive_profile =
+            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+        let request = Request::new(CorpusDiffRequest {
+            before: vec![CorpusMessageInput {
+                id: Some("before-adt".to_string()),
+                message: SAMPLE_MSG.to_vec(),
+            }],
+            after: vec![CorpusMessageInput {
+                id: Some("after-adt".to_string()),
+                message: SAMPLE_MSG.to_vec(),
+            }],
+            profile: Some(sensitive_profile.to_string()),
+            diff_schema_version: 0,
+        });
+
+        let err = service
+            .corpus_diff(request)
             .await
             .expect_err("malformed profile should fail the RPC");
 
