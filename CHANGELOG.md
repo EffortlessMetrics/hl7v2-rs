@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recorded a current package registry state audit showing that v1.5.0 is still
   unpublished, `hl7v2-python` is not on crates.io, and public Python `hl7v2`
   is not on PyPI or TestPyPI.
+- Recorded a prompt-to-artifact objective completion audit for the active
+  v1.5.0 lane and kept the lane open until publish, Python, and npm receipts
+  exist.
 - Refreshed the v1.5.0 release-readiness receipt after the advisory RIPR
   calibration audit and gRPC profile lint parity landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after gRPC profile explain
