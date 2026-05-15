@@ -271,6 +271,8 @@ status = "done"
 goal = "Select the v1.5.0 crates.io graph after primary and binding backend dry-runs passed."
 decision = "primary plus binding backend"
 receipt = "docs/audits/v1.5.0-release-graph-decision-2026-05-14.md"
+confirmed_after = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-bundle-refresh.md"
+confirmed_commit = "ff812d190647ff521a3d3665b9aee4255cdef923"
 publish_order = [
   "hl7v2",
   "hl7v2-python",

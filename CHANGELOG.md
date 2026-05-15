@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parity landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after gRPC evidence bundle
   creation parity landed on `main`.
+- Confirmed the v1.5.0 release graph decision still selects the primary Rust
+  graph plus `hl7v2-python` as binding backend after the latest readiness
+  refresh.
 - Refreshed the v1.5.0 release-readiness receipt after the gRPC inline corpus
   fingerprint and diff parity work landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after the nightly property
