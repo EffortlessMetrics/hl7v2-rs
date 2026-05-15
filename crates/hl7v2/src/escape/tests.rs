@@ -376,12 +376,10 @@ fn test_unescape_incomplete_sequence() {
 #[test]
 fn test_unescape_msh_encoding_chars() {
     let delims = Delims::default();
-    // MSH encoding characters - the unescape function has special handling for this
-    // When it detects the pattern ^~\& (the standard encoding chars), it returns them as-is
+    // MSH-2 encoding characters "^~\&" contain a bare backslash that is not an escape
+    // sequence opener.  unescape_text must return them unchanged.
     let unescaped = unescape_text("^~\\&", &delims).unwrap();
-    // The actual implementation returns the MSH encoding chars with an extra tilde
-    // This is a known behavior of the special case handling
-    assert_eq!(unescaped, "^~^~\\&");
+    assert_eq!(unescaped, "^~\\&");
 }
 
 #[test]

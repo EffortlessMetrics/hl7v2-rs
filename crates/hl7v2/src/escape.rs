@@ -167,20 +167,16 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 // If we don't find the closing escape character, this might be a literal backslash
                 // in the encoding characters. Let's check if this is the special case of the
                 // MSH encoding characters "^~\&"
-                if text.len() == 4 {
+                if text.chars().count() == 4 {
                     let chars: Vec<char> = text.chars().collect();
                     if chars[0] == delims.comp
                         && chars[1] == delims.rep
                         && chars[2] == delims.esc
                         && chars[3] == delims.sub
                     {
-                        // This is the MSH encoding characters, treat as literal
-                        result.push(delims.comp);
-                        result.push(delims.rep);
-                        result.push(delims.esc);
-                        result.push(delims.sub);
-                        // Skip the rest of the processing since we've handled the special case
-                        return Ok(result);
+                        // Return the original text unchanged: the prefix already in `result`
+                        // must not be duplicated by also appending the four literal chars.
+                        return Ok(text.to_string());
                     }
                 }
 
