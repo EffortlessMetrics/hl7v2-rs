@@ -32,6 +32,7 @@ copies stay synchronized.
 | `ValidateRedacted` | Implemented | Applies an inline safe-analysis redaction policy before validation. Always returns v1 `validation_report` and `redaction_receipt`, can include v2 validation and redaction receipt artifacts, and includes `redacted_hl7` only when requested. |
 | `CorpusSummarize` | Implemented | Summarizes caller-supplied inline messages only. The RPC does not read filesystem paths from requests; `summary_schema_version = 2` adds the v2 corpus summary provenance shape. |
 | `CorpusFingerprint` | Implemented | Fingerprints caller-supplied inline messages only. The RPC does not read filesystem paths from requests; optional inline profiles add validation issue-code counts; `fingerprint_schema_version = 2` adds the v2 corpus fingerprint provenance shape. |
+| `CorpusDiff` | Implemented | Diffs caller-supplied inline before/after corpora only. The RPC does not read filesystem paths from requests; optional inline profiles add validation issue-code deltas; `diff_schema_version = 2` adds the v2 corpus diff provenance shape. |
 | `GenerateAck` | Implemented | Generates ACK messages using the canonical `hl7v2` ACK facade. |
 | `Normalize` | Implemented | Normalizes delimiter output and can optionally MLLP-frame the response. |
 | `HealthCheck` | Implemented | Reports serving status and crate version. |

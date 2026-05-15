@@ -306,6 +306,53 @@ impl Hl7Service for Hl7ServiceImpl {
         }))
     }
 
+    async fn corpus_diff(
+        &self,
+        request: Request<CorpusDiffRequest>,
+    ) -> Result<Response<CorpusDiffResponse>, Status> {
+        let req = request.into_inner();
+        let diff_schema_version =
+            grpc_requested_schema_version(req.diff_schema_version, "corpus diff")
+                .map_err(Status::invalid_argument)?;
+        let before_ids =
+            validated_grpc_corpus_message_ids(&req.before).map_err(Status::invalid_argument)?;
+        let after_ids =
+            validated_grpc_corpus_message_ids(&req.after).map_err(Status::invalid_argument)?;
+        let before_messages = grpc_corpus_message_refs(&req.before, &before_ids);
+        let after_messages = grpc_corpus_message_refs(&req.after, &after_ids);
+        let mut before_fingerprint = hl7v2::synthetic::corpus::fingerprint_corpus_messages(
+            "<inline-before>",
+            &before_messages,
+        );
+        let mut after_fingerprint = hl7v2::synthetic::corpus::fingerprint_corpus_messages(
+            "<inline-after>",
+            &after_messages,
+        );
+
+        if let Some(profile_yaml) = req.profile.as_deref() {
+            let (profile, profile_metadata) =
+                load_grpc_fingerprint_profile(profile_yaml).map_err(Status::invalid_argument)?;
+            before_fingerprint.profile = Some(profile_metadata.clone());
+            after_fingerprint.profile = Some(profile_metadata);
+            before_fingerprint.validation_issue_code_counts =
+                grpc_validation_issue_counts_for_loaded_profile(&req.before, &profile);
+            after_fingerprint.validation_issue_code_counts =
+                grpc_validation_issue_counts_for_loaded_profile(&req.after, &profile);
+        }
+
+        let diff = hl7v2::synthetic::corpus::diff_corpus_fingerprints(
+            &before_fingerprint,
+            &after_fingerprint,
+        );
+        let diff_v2 = (diff_schema_version == 2)
+            .then(|| proto_corpus_diff_report_v2_from_rust(&diff.to_v2("hl7v2-server-grpc")));
+
+        Ok(Response::new(CorpusDiffResponse {
+            diff: Some(proto_corpus_diff_report_from_rust(&diff)),
+            diff_v2,
+        }))
+    }
+
     async fn generate_ack(
         &self,
         request: Request<GenerateAckRequest>,
@@ -503,6 +550,22 @@ fn attach_grpc_profile_to_fingerprint(
     profile_yaml: &str,
     messages: &[CorpusMessageInput],
 ) -> Result<hl7v2::synthetic::corpus::CorpusFingerprintProfile, &'static str> {
+    let (profile, metadata) = load_grpc_fingerprint_profile(profile_yaml)?;
+    fingerprint.profile = Some(metadata.clone());
+    fingerprint.validation_issue_code_counts =
+        grpc_validation_issue_counts_for_loaded_profile(messages, &profile);
+    Ok(metadata)
+}
+
+fn load_grpc_fingerprint_profile(
+    profile_yaml: &str,
+) -> Result<
+    (
+        hl7v2::Profile,
+        hl7v2::synthetic::corpus::CorpusFingerprintProfile,
+    ),
+    &'static str,
+> {
     let profile = hl7v2::load_profile_checked(profile_yaml)
         .map_err(|_error| crate::PROFILE_LOAD_SAFE_MESSAGE)?;
     let metadata = hl7v2::synthetic::corpus::CorpusFingerprintProfile {
@@ -511,10 +574,7 @@ fn attach_grpc_profile_to_fingerprint(
         version: profile.version.clone(),
         message_structure: profile.message_structure.clone(),
     };
-    fingerprint.profile = Some(metadata.clone());
-    fingerprint.validation_issue_code_counts =
-        grpc_validation_issue_counts_for_loaded_profile(messages, &profile);
-    Ok(metadata)
+    Ok((profile, metadata))
 }
 
 fn grpc_validation_issue_counts_for_loaded_profile(
@@ -755,6 +815,113 @@ fn proto_corpus_fingerprint_v2_from_rust(
     }
 }
 
+fn proto_corpus_diff_report_from_rust(
+    diff: &hl7v2::synthetic::corpus::CorpusDiffReport,
+) -> CorpusDiffReport {
+    CorpusDiffReport {
+        diff_version: diff.diff_version.clone(),
+        tool_version: diff.tool_version.clone(),
+        before_root: diff.before_root.clone(),
+        after_root: diff.after_root.clone(),
+        profile: diff
+            .profile
+            .as_ref()
+            .map(proto_corpus_fingerprint_profile_from_rust),
+        file_count: Some(proto_corpus_total_diff_from_rust(&diff.file_count)),
+        message_count: Some(proto_corpus_total_diff_from_rust(&diff.message_count)),
+        parse_error_count: Some(proto_corpus_total_diff_from_rust(&diff.parse_error_count)),
+        new_message_types: diff.new_message_types.clone(),
+        removed_message_types: diff.removed_message_types.clone(),
+        new_segments: diff.new_segments.clone(),
+        removed_segments: diff.removed_segments.clone(),
+        message_type_counts: diff
+            .message_type_counts
+            .iter()
+            .map(proto_corpus_count_diff_from_rust)
+            .collect(),
+        segment_counts: diff
+            .segment_counts
+            .iter()
+            .map(proto_corpus_count_diff_from_rust)
+            .collect(),
+        field_presence: diff
+            .field_presence
+            .iter()
+            .map(proto_corpus_field_presence_diff_from_rust)
+            .collect(),
+        field_cardinality: diff
+            .field_cardinality
+            .iter()
+            .map(proto_corpus_field_cardinality_diff_from_rust)
+            .collect(),
+        value_shape_stats: diff
+            .value_shape_stats
+            .iter()
+            .map(proto_corpus_value_shape_stats_diff_from_rust)
+            .collect(),
+        validation_issue_code_counts: diff
+            .validation_issue_code_counts
+            .iter()
+            .map(proto_corpus_count_diff_from_rust)
+            .collect(),
+    }
+}
+
+fn proto_corpus_diff_report_v2_from_rust(
+    diff: &hl7v2::synthetic::corpus::CorpusDiffReportV2,
+) -> CorpusDiffReportV2 {
+    let report = &diff.report;
+    CorpusDiffReportV2 {
+        schema_version: diff.schema_version.clone(),
+        tool_name: diff.tool_name.clone(),
+        diff_version: report.diff_version.clone(),
+        tool_version: report.tool_version.clone(),
+        before_root: report.before_root.clone(),
+        after_root: report.after_root.clone(),
+        profile: report
+            .profile
+            .as_ref()
+            .map(proto_corpus_fingerprint_profile_from_rust),
+        file_count: Some(proto_corpus_total_diff_from_rust(&report.file_count)),
+        message_count: Some(proto_corpus_total_diff_from_rust(&report.message_count)),
+        parse_error_count: Some(proto_corpus_total_diff_from_rust(&report.parse_error_count)),
+        new_message_types: report.new_message_types.clone(),
+        removed_message_types: report.removed_message_types.clone(),
+        new_segments: report.new_segments.clone(),
+        removed_segments: report.removed_segments.clone(),
+        message_type_counts: report
+            .message_type_counts
+            .iter()
+            .map(proto_corpus_count_diff_from_rust)
+            .collect(),
+        segment_counts: report
+            .segment_counts
+            .iter()
+            .map(proto_corpus_count_diff_from_rust)
+            .collect(),
+        field_presence: report
+            .field_presence
+            .iter()
+            .map(proto_corpus_field_presence_diff_from_rust)
+            .collect(),
+        field_cardinality: report
+            .field_cardinality
+            .iter()
+            .map(proto_corpus_field_cardinality_diff_from_rust)
+            .collect(),
+        value_shape_stats: report
+            .value_shape_stats
+            .iter()
+            .map(proto_corpus_value_shape_stats_diff_from_rust)
+            .collect(),
+        validation_issue_code_counts: report
+            .validation_issue_code_counts
+            .iter()
+            .map(proto_corpus_count_diff_from_rust)
+            .collect(),
+    }
+}
+
 fn proto_corpus_fingerprint_profile_from_rust(
     profile: &hl7v2::synthetic::corpus::CorpusFingerprintProfile,
 ) -> CorpusFingerprintProfile {
@@ -763,6 +930,74 @@ fn proto_corpus_fingerprint_profile_from_rust(
         sha256: profile.sha256.clone(),
         version: profile.version.clone(),
         message_structure: profile.message_structure.clone(),
+    }
+}
+
+fn proto_corpus_total_diff_from_rust(
+    diff: &hl7v2::synthetic::corpus::CorpusTotalDiff,
+) -> CorpusTotalDiff {
+    CorpusTotalDiff {
+        before: usize_to_u64(diff.before),
+        after: usize_to_u64(diff.after),
+        delta: i128_to_i64(diff.delta),
+    }
+}
+
+fn proto_corpus_count_diff_from_rust(
+    diff: &hl7v2::synthetic::corpus::CorpusCountDiff,
+) -> CorpusCountDiff {
+    CorpusCountDiff {
+        value: diff.value.clone(),
+        before: usize_to_u64(diff.before),
+        after: usize_to_u64(diff.after),
+        delta: i128_to_i64(diff.delta),
+    }
+}
+
+fn proto_corpus_field_presence_diff_from_rust(
+    diff: &hl7v2::synthetic::corpus::CorpusFieldPresenceDiff,
+) -> CorpusFieldPresenceDiff {
+    CorpusFieldPresenceDiff {
+        path: diff.path.clone(),
+        before_message_count: usize_to_u64(diff.before_message_count),
+        after_message_count: usize_to_u64(diff.after_message_count),
+        message_count_delta: i128_to_i64(diff.message_count_delta),
+        before_occurrence_count: usize_to_u64(diff.before_occurrence_count),
+        after_occurrence_count: usize_to_u64(diff.after_occurrence_count),
+        occurrence_count_delta: i128_to_i64(diff.occurrence_count_delta),
+    }
+}
+
+fn proto_corpus_field_cardinality_diff_from_rust(
+    diff: &hl7v2::synthetic::corpus::CorpusFieldCardinalityDiff,
+) -> CorpusFieldCardinalityDiff {
+    CorpusFieldCardinalityDiff {
+        path: diff.path.clone(),
+        before_min_per_message: usize_to_u64(diff.before_min_per_message),
+        after_min_per_message: usize_to_u64(diff.after_min_per_message),
+        min_per_message_delta: i128_to_i64(diff.min_per_message_delta),
+        before_max_per_message: usize_to_u64(diff.before_max_per_message),
+        after_max_per_message: usize_to_u64(diff.after_max_per_message),
+        max_per_message_delta: i128_to_i64(diff.max_per_message_delta),
+        before_total_occurrences: usize_to_u64(diff.before_total_occurrences),
+        after_total_occurrences: usize_to_u64(diff.after_total_occurrences),
+        total_occurrences_delta: i128_to_i64(diff.total_occurrences_delta),
+        before_message_count: usize_to_u64(diff.before_message_count),
+        after_message_count: usize_to_u64(diff.after_message_count),
+        message_count_delta: i128_to_i64(diff.message_count_delta),
+    }
+}
+
+fn proto_corpus_value_shape_stats_diff_from_rust(
+    diff: &hl7v2::synthetic::corpus::CorpusValueShapeStatsDiff,
+) -> CorpusValueShapeStatsDiff {
+    CorpusValueShapeStatsDiff {
+        path: diff.path.clone(),
+        coded_count: Some(proto_corpus_total_diff_from_rust(&diff.coded_count)),
+        timestamp_count: Some(proto_corpus_total_diff_from_rust(&diff.timestamp_count)),
+        numeric_count: Some(proto_corpus_total_diff_from_rust(&diff.numeric_count)),
+        null_count: Some(proto_corpus_total_diff_from_rust(&diff.null_count)),
+        text_count: Some(proto_corpus_total_diff_from_rust(&diff.text_count)),
     }
 }
 
@@ -797,6 +1032,14 @@ fn usize_to_u32(value: usize) -> u32 {
 
 fn usize_to_u64(value: usize) -> u64 {
     u64::try_from(value).unwrap_or(u64::MAX)
+}
+
+fn i128_to_i64(value: i128) -> i64 {
+    i64::try_from(value).unwrap_or(if value.is_negative() {
+        i64::MIN
+    } else {
+        i64::MAX
+    })
 }
 
 fn proto_validation_report_from_rust(report: &hl7v2::ValidationReport) -> ValidationReport {

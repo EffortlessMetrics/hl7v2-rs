@@ -40,11 +40,10 @@ The current `HL7Service` protobuf contract includes:
 9. `HealthCheck` -- Return service health status.
 
 The gRPC surface remains intentionally narrower than the full HTTP/CLI/Python
-evidence sidecar. Profile lint/test/explain, corpus diff, bundle, replay, and
-quarantine behavior remain outside the protobuf contract unless a later ADR or
-PR promotes those operations. The current corpus summary and fingerprint RPCs
-cover inline caller-supplied messages only; they do not read request filesystem
-paths.
+evidence sidecar. Profile lint/test/explain, bundle, replay, and quarantine
+behavior remain outside the protobuf contract unless a later ADR or PR promotes
+those operations. The current corpus summary, fingerprint, and diff RPCs cover
+inline caller-supplied messages only; they do not read request filesystem paths.
 
 ## Decision
 

@@ -26,6 +26,9 @@ service HL7Service {
   // Fingerprint an inline corpus without reading caller-supplied filesystem paths
   rpc CorpusFingerprint(CorpusFingerprintRequest) returns (CorpusFingerprintResponse);
 
+  // Diff two inline corpora without reading caller-supplied filesystem paths
+  rpc CorpusDiff(CorpusDiffRequest) returns (CorpusDiffResponse);
+
   // Generate an acknowledgment (ACK) message
   rpc GenerateAck(GenerateAckRequest) returns (GenerateAckResponse);
 
@@ -391,6 +394,35 @@ message CorpusFingerprintResponse {
   CorpusFingerprintV2 fingerprint_v2 = 2;
 }
 
+// Inline corpus diff request.
+message CorpusDiffRequest {
+  // Inline before-corpus messages. The service does not read filesystem paths
+  // from this request.
+  repeated CorpusMessageInput before = 1;
+
+  // Inline after-corpus messages. The service does not read filesystem paths
+  // from this request.
+  repeated CorpusMessageInput after = 2;
+
+  // Optional inline HL7v2 profile YAML content for validation issue-code deltas.
+  optional string profile = 3;
+
+  // Optional corpus diff evidence schema version.
+  //
+  // Omitted or 1 preserves the default diff fields. 2 includes the diff_v2
+  // field with embedded provenance.
+  int32 diff_schema_version = 4;
+}
+
+// Inline corpus diff response.
+message CorpusDiffResponse {
+  // Stable corpus diff fields shared with CLI, REST, Rust, and Python.
+  CorpusDiffReport diff = 1;
+
+  // Opt-in corpus diff with embedded evidence provenance.
+  CorpusDiffReportV2 diff_v2 = 2;
+}
+
 // Stable corpus summary artifact.
 message CorpusSummary {
   // Caller-independent corpus root label.
@@ -550,6 +582,126 @@ message CorpusFingerprintV2 {
   repeated CorpusCount validation_issue_code_counts = 15;
 }
 
+// Stable corpus diff artifact.
+message CorpusDiffReport {
+  // Corpus diff contract version.
+  string diff_version = 1;
+
+  // Producer package version.
+  string tool_version = 2;
+
+  // Caller-independent before-corpus root label.
+  string before_root = 3;
+
+  // Caller-independent after-corpus root label.
+  string after_root = 4;
+
+  // Optional profile metadata used for validation issue-code deltas.
+  CorpusFingerprintProfile profile = 5;
+
+  // File/message input count before/after/delta.
+  CorpusTotalDiff file_count = 6;
+
+  // Parsed message count before/after/delta.
+  CorpusTotalDiff message_count = 7;
+
+  // Parse error count before/after/delta.
+  CorpusTotalDiff parse_error_count = 8;
+
+  // Message types present only in the after corpus.
+  repeated string new_message_types = 9;
+
+  // Message types present only in the before corpus.
+  repeated string removed_message_types = 10;
+
+  // Segment IDs present only in the after corpus.
+  repeated string new_segments = 11;
+
+  // Segment IDs present only in the before corpus.
+  repeated string removed_segments = 12;
+
+  // Message type count differences.
+  repeated CorpusCountDiff message_type_counts = 13;
+
+  // Segment count differences.
+  repeated CorpusCountDiff segment_counts = 14;
+
+  // Field presence differences.
+  repeated CorpusFieldPresenceDiff field_presence = 15;
+
+  // Field cardinality differences.
+  repeated CorpusFieldCardinalityDiff field_cardinality = 16;
+
+  // Value shape differences.
+  repeated CorpusValueShapeStatsDiff value_shape_stats = 17;
+
+  // Validation issue-code count differences when a profile is supplied.
+  repeated CorpusCountDiff validation_issue_code_counts = 18;
+}
+
+// Corpus diff v2 artifact with embedded evidence provenance.
+message CorpusDiffReportV2 {
+  // Evidence artifact schema version.
+  string schema_version = 1;
+
+  // Producer surface that generated this diff.
+  string tool_name = 2;
+
+  // Corpus diff contract version.
+  string diff_version = 3;
+
+  // Producer package version.
+  string tool_version = 4;
+
+  // Caller-independent before-corpus root label.
+  string before_root = 5;
+
+  // Caller-independent after-corpus root label.
+  string after_root = 6;
+
+  // Optional profile metadata used for validation issue-code deltas.
+  CorpusFingerprintProfile profile = 7;
+
+  // File/message input count before/after/delta.
+  CorpusTotalDiff file_count = 8;
+
+  // Parsed message count before/after/delta.
+  CorpusTotalDiff message_count = 9;
+
+  // Parse error count before/after/delta.
+  CorpusTotalDiff parse_error_count = 10;
+
+  // Message types present only in the after corpus.
+  repeated string new_message_types = 11;
+
+  // Message types present only in the before corpus.
+  repeated string removed_message_types = 12;
+
+  // Segment IDs present only in the after corpus.
+  repeated string new_segments = 13;
+
+  // Segment IDs present only in the before corpus.
+  repeated string removed_segments = 14;
+
+  // Message type count differences.
+  repeated CorpusCountDiff message_type_counts = 15;
+
+  // Segment count differences.
+  repeated CorpusCountDiff segment_counts = 16;
+
+  // Field presence differences.
+  repeated CorpusFieldPresenceDiff field_presence = 17;
+
+  // Field cardinality differences.
+  repeated CorpusFieldCardinalityDiff field_cardinality = 18;
+
+  // Value shape differences.
+  repeated CorpusValueShapeStatsDiff value_shape_stats = 19;
+
+  // Validation issue-code count differences when a profile is supplied.
+  repeated CorpusCountDiff validation_issue_code_counts = 20;
+}
+
 // Profile metadata attached to a corpus fingerprint.
 message CorpusFingerprintProfile {
   // Profile source label. For inline gRPC profiles this is "<inline-profile>".
@@ -602,6 +754,120 @@ message CorpusValueShapeStats {
 
   // Count of other non-empty text values.
   uint32 text_count = 6;
+}
+
+// Total before/after/delta count.
+message CorpusTotalDiff {
+  // Count observed in the before corpus.
+  uint64 before = 1;
+
+  // Count observed in the after corpus.
+  uint64 after = 2;
+
+  // after - before as a signed delta.
+  int64 delta = 3;
+}
+
+// Dimension before/after/delta count.
+message CorpusCountDiff {
+  // Dimension value, such as a message type or segment ID.
+  string value = 1;
+
+  // Count observed in the before corpus.
+  uint64 before = 2;
+
+  // Count observed in the after corpus.
+  uint64 after = 3;
+
+  // after - before as a signed delta.
+  int64 delta = 4;
+}
+
+// Field-presence before/after/delta observation.
+message CorpusFieldPresenceDiff {
+  // HL7 path, such as PID.3.
+  string path = 1;
+
+  // Number of before-corpus messages where this path appeared.
+  uint64 before_message_count = 2;
+
+  // Number of after-corpus messages where this path appeared.
+  uint64 after_message_count = 3;
+
+  // after_message_count - before_message_count.
+  int64 message_count_delta = 4;
+
+  // Number of before-corpus field occurrences.
+  uint64 before_occurrence_count = 5;
+
+  // Number of after-corpus field occurrences.
+  uint64 after_occurrence_count = 6;
+
+  // after_occurrence_count - before_occurrence_count.
+  int64 occurrence_count_delta = 7;
+}
+
+// Field-cardinality before/after/delta observation.
+message CorpusFieldCardinalityDiff {
+  // HL7 path, such as PID.3.
+  string path = 1;
+
+  // Minimum occurrences per message in the before corpus.
+  uint64 before_min_per_message = 2;
+
+  // Minimum occurrences per message in the after corpus.
+  uint64 after_min_per_message = 3;
+
+  // after_min_per_message - before_min_per_message.
+  int64 min_per_message_delta = 4;
+
+  // Maximum occurrences per message in the before corpus.
+  uint64 before_max_per_message = 5;
+
+  // Maximum occurrences per message in the after corpus.
+  uint64 after_max_per_message = 6;
+
+  // after_max_per_message - before_max_per_message.
+  int64 max_per_message_delta = 7;
+
+  // Total occurrences in the before corpus.
+  uint64 before_total_occurrences = 8;
+
+  // Total occurrences in the after corpus.
+  uint64 after_total_occurrences = 9;
+
+  // after_total_occurrences - before_total_occurrences.
+  int64 total_occurrences_delta = 10;
+
+  // Number of before-corpus messages where this path appeared.
+  uint64 before_message_count = 11;
+
+  // Number of after-corpus messages where this path appeared.
+  uint64 after_message_count = 12;
+
+  // after_message_count - before_message_count.
+  int64 message_count_delta = 13;
+}
+
+// Value-shape before/after/delta observation.
+message CorpusValueShapeStatsDiff {
+  // HL7 path, such as OBX.5.
+  string path = 1;
+
+  // Coded/component value count before/after/delta.
+  CorpusTotalDiff coded_count = 2;
+
+  // Timestamp-like value count before/after/delta.
+  CorpusTotalDiff timestamp_count = 3;
+
+  // Numeric value count before/after/delta.
+  CorpusTotalDiff numeric_count = 4;
+
+  // Explicit HL7 null value count before/after/delta.
+  CorpusTotalDiff null_count = 5;
+
+  // Other non-empty text count before/after/delta.
+  CorpusTotalDiff text_count = 6;
 }
 
 // Count for a corpus dimension.

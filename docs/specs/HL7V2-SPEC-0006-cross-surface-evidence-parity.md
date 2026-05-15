@@ -39,7 +39,7 @@ Current and future surfaces are:
 | profile lint / explain / test | Stable | Stable | Stable where exposed | Planned until implemented | Stable local helper | Planned |
 | redaction receipt | Stable | Stable | Stable | Stable via `ValidateRedacted` | Stable local binding | Planned |
 | corpus summary | Stable | Stable | Stable | Stable for inline messages | Stable local helper | Planned |
-| corpus fingerprint / diff | Stable | Stable | Stable | Fingerprint stable for inline messages; diff planned until implemented | Stable local helper where exposed | Planned |
+| corpus fingerprint / diff | Stable | Stable | Stable | Stable for inline messages | Stable local helper where exposed | Planned |
 | bundle / replay | Stable | Stable | Stable | Planned until implemented | Stable local helper where exposed | Planned |
 | safe error shape | Stable | Stable | Stable | Stable for implemented RPCs | Required for every claimed helper | Planned |
 | `schema_version` behavior | Stable | Stable | Stable | Stable for implemented v2 evidence RPCs | Required for every claimed artifact | Planned |
@@ -113,8 +113,14 @@ supports optional inline profile validation issue-code counts, supports opt-in
 v2 provenance if claimed, rejects unsupported schema versions, avoids request
 filesystem reads, and passes gRPC contract tests.
 
-These claims must not imply gRPC corpus diff, bundle, or replay parity until
-those RPCs and tests land.
+`CorpusDiff` can be described as gRPC corpus diff parity when the RPC accepts
+inline before/after message sets, returns the shared corpus diff fields,
+supports optional inline profile validation issue-code deltas, supports opt-in
+v2 provenance if claimed, rejects unsupported schema versions, avoids request
+filesystem reads, and passes gRPC contract tests.
+
+These claims must not imply gRPC bundle or replay parity until those RPCs and
+tests land.
 
 ### Correct Python Claim
 

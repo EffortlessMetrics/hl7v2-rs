@@ -21,7 +21,7 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **MLLP Over TCP**: Fully implemented async client and server.
 - ✅ **TLS Support**: Secure framing using `rustls`.
 - ✅ **HTTP REST API**: Axum-based JSON endpoints for parse, validate, ACK, and normalize.
-- 🟡 **gRPC Service**: v1.4.0 unary RPCs have contract tests. Current `main` also serves gRPC with `hl7v2 serve --mode grpc`, implements `ParseStream` as one request message into one response message, `ValidateRedacted` with opt-in v2 validation and redaction receipt evidence, `CorpusSummarize` for inline corpus summary evidence, and `CorpusFingerprint` for inline corpus fingerprint evidence with opt-in v2 provenance.
+- 🟡 **gRPC Service**: v1.4.0 unary RPCs have contract tests. Current `main` also serves gRPC with `hl7v2 serve --mode grpc`, implements `ParseStream` as one request message into one response message, `ValidateRedacted` with opt-in v2 validation and redaction receipt evidence, `CorpusSummarize` for inline corpus summary evidence, `CorpusFingerprint` for inline corpus fingerprint evidence, and `CorpusDiff` for inline before/after corpus diff evidence with opt-in v2 provenance.
 
 ### 🛡️ Security & Observability
 - ✅ **API Authentication**: Constant-time API Key validation.
