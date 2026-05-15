@@ -13,7 +13,7 @@ with the current sources below before reading older planning documents.
 | Contributor workflow | [../CONTRIBUTING.md](../CONTRIBUTING.md), [../DEVELOPMENT.md](../DEVELOPMENT.md) |
 | Task-focused evidence workflows | [guides/README.md](guides/README.md) |
 | Machine-readable evidence artifacts | [contracts/evidence-contract-index.md](contracts/evidence-contract-index.md) |
-| Evidence artifact semantics and provenance | [architecture/evidence-artifacts.md](architecture/evidence-artifacts.md), [architecture/evidence-provenance-versioning.md](architecture/evidence-provenance-versioning.md) |
+| Evidence artifact semantics and provenance | [guides/evidence-artifacts-for-operators.md](guides/evidence-artifacts-for-operators.md), [architecture/evidence-artifacts.md](architecture/evidence-artifacts.md), [architecture/evidence-provenance-versioning.md](architecture/evidence-provenance-versioning.md) |
 | JSON schemas | [../schemas/README.md](../schemas/README.md) |
 | Current Rust module and package surface | [architecture/module-map.md](architecture/module-map.md) |
 | HTTP and gRPC API usage | [API_GUIDE.md](API_GUIDE.md) |
@@ -51,6 +51,7 @@ proposal, spec, plan, or receipt documents.
 | --- | --- |
 | [First Use By Surface](guides/first-use-by-surface.md) | Choose the first Rust, CLI, server, or Python receipt without learning the workspace layout. |
 | [First 10 Minutes](guides/first-10-minutes.md) | Install, diagnose, validate, summarize, bundle, and replay. |
+| [Evidence Artifacts For Operators](guides/evidence-artifacts-for-operators.md) | Interpret reports, receipts, bundles, replay output, corpus artifacts, PHI posture, and safe sharing limits. |
 | [Vendor Upgrade Diff](guides/vendor-upgrade-diff.md) | Compare before/after corpora and interpret drift. |
 | [Safe Support Bundle](guides/safe-support-bundle.md) | Redact and package replayable support evidence. |
 | [Deploy Validation Sidecar](guides/deploy-validation-sidecar.md) | Run `hl7v2-server` as an edge guard. |
