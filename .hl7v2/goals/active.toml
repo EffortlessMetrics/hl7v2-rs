@@ -775,6 +775,35 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "python-ack-local-parity-truth"
+status = "done"
+goal = "Align the cross-surface parity spec and support map with the already-tested Python ACK helper surface."
+files = [
+  "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md",
+  "docs/status/SUPPORT_TIERS.md",
+  "docs/STATUS.md",
+  "tests/python_smoke/smoke.py",
+  "tests/python_smoke/evidence_workflow_guide.py",
+]
+commands = [
+  "RUSTUP_TOOLCHAIN=1.95.0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-python-ack-parity-docs python -m maturin build --release --out F:\\cargo-target\\hl7v2-rs-python-ack-parity-docs\\dist --target-dir F:\\cargo-target\\hl7v2-rs-python-ack-parity-docs",
+  "python -m venv F:\\cargo-target\\hl7v2-rs-python-ack-parity-docs\\venv",
+  "F:\\cargo-target\\hl7v2-rs-python-ack-parity-docs\\venv\\Scripts\\python.exe -m pip install --force-reinstall F:\\cargo-target\\hl7v2-rs-python-ack-parity-docs\\dist\\hl7v2-1.5.0-cp314-cp314-win_amd64.whl",
+  "F:\\cargo-target\\hl7v2-rs-python-ack-parity-docs\\venv\\Scripts\\python.exe tests\\python_smoke\\smoke.py",
+  "F:\\cargo-target\\hl7v2-rs-python-ack-parity-docs\\venv\\Scripts\\python.exe tests\\python_smoke\\evidence_workflow_guide.py",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No Python API behavior change.",
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
 id = "v1-5-0-grpc-quarantine-readiness-refresh"
 status = "done"
 goal = "Refresh v1.5.0 readiness after gRPC quarantine output parity landed."
