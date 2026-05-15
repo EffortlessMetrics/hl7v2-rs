@@ -58,6 +58,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-bundle-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-replay-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-quarantine-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
@@ -273,8 +274,8 @@ status = "done"
 goal = "Select the v1.5.0 crates.io graph after primary and binding backend dry-runs passed."
 decision = "primary plus binding backend"
 receipt = "docs/audits/v1.5.0-release-graph-decision-2026-05-14.md"
-confirmed_after = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-quarantine-refresh.md"
-confirmed_commit = "a12c6fdf61396de74f971c27f4887dd7c451543b"
+confirmed_after = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md"
+confirmed_commit = "686dbff26afbbdcb97e4cc1915d1e33bd1404d14"
 publish_order = [
   "hl7v2",
   "hl7v2-python",
@@ -828,6 +829,36 @@ non_claims = [
   "No npm package.",
   "No tag or GitHub release.",
   "No production install-back proof.",
+  "No new release graph decision.",
+]
+
+[[work_item]]
+id = "v1-5-0-parity-doc-readiness-refresh"
+status = "done"
+goal = "Refresh v1.5.0 readiness after Python ACK and gRPC parity documentation syncs landed."
+commit = "686dbff26afbbdcb97e4cc1915d1e33bd1404d14"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-parity-doc-refresh CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-parity-doc-refresh CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No production install-back proof.",
+  "No runtime behavior change.",
   "No new release graph decision.",
 ]
 

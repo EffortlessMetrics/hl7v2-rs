@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ACK local binding proof.
 - Aligned the gRPC parity docs with the currently implemented profile,
   bundle/replay, corpus, ACK, and normalize RPC proof surface.
+- Refreshed the v1.5.0 release-readiness receipt after the Python ACK and
+  gRPC parity documentation syncs landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after the advisory RIPR
   calibration audit and gRPC profile lint parity landed on `main`.
 - Refreshed the v1.5.0 release-readiness receipt after gRPC profile explain
