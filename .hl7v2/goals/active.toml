@@ -850,6 +850,30 @@ acceptance = [
 ]
 
 [[work_item]]
+id = "grpc-parity-surface-doc-truth"
+status = "done"
+goal = "Align public gRPC parity wording with the currently implemented and tested profile, bundle/replay, corpus, ACK, normalize, quarantine, and streaming RPC surface."
+files = [
+  "README.md",
+  "docs/STATUS.md",
+  "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md",
+  "docs/status/SUPPORT_TIERS.md",
+]
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No runtime behavior change.",
+  "No support tier promotion.",
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
 id = "binding-backend-release-proof-spec"
 status = "done"
 goal = "Define the proof contract for publishing binding backend crates without promoting them as the primary Rust API."
