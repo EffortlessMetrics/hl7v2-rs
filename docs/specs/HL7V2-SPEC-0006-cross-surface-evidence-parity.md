@@ -40,7 +40,7 @@ Current and future surfaces are:
 | redaction receipt | Stable | Stable | Stable | Stable via `ValidateRedacted` | Stable local binding | Planned |
 | corpus summary | Stable | Stable | Stable | Stable for inline messages | Stable local helper | Planned |
 | corpus fingerprint / diff | Stable | Stable | Stable | Stable for inline messages | Stable local helper where exposed | Planned |
-| bundle / replay | Stable | Stable | Stable | Bundle creation stable; replay planned | Stable local helper where exposed | Planned |
+| bundle / replay | Stable | Stable | Stable | Bundle creation/replay stable | Stable local helper where exposed | Planned |
 | safe error shape | Stable | Stable | Stable | Stable for implemented RPCs | Required for every claimed helper | Planned |
 | `schema_version` behavior | Stable | Stable | Stable | Stable for implemented v2 evidence RPCs | Required for every claimed artifact | Planned |
 | PHI sentinel behavior | Stable | Stable | Stable | Required for every evidence RPC | Required for every claimed helper | Planned |
@@ -144,8 +144,12 @@ returns the shared bundle summary shape without configured root paths or raw
 bundle IDs, supports opt-in v2 bundle artifacts if claimed, avoids raw HL7,
 profile, and policy echo in diagnostics, and passes gRPC contract tests.
 
-These claims must not imply gRPC replay parity until a replay RPC and tests
-land.
+`ReplayEvidenceBundle` can be described as gRPC evidence replay parity when the
+RPC reads only from the configured server bundle root, rejects unsafe bundle
+IDs, returns the shared replay report shape without configured root paths or raw
+bundle IDs, supports opt-in v2 replay reports if claimed, reports missing
+bundles as not found, fails closed on tampered bundles through the shared replay
+checks, and passes gRPC contract tests.
 
 ### Correct Python Claim
 

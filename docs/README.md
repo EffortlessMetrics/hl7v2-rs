@@ -92,8 +92,8 @@ proposal, spec, plan, or receipt documents.
   and executed.
 - gRPC coverage is useful but still narrower than the full HTTP evidence
   surface. It now includes inline corpus summary, fingerprint, diff, and
-  configured-root evidence bundle creation parity, while replay remains
-  HTTP-first until a focused gRPC parity PR lands.
+  configured-root evidence bundle creation and replay parity. Quarantine
+  behavior remains REST-only.
   Use
   [`HL7V2-SPEC-0006`](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md)
   for the cross-surface parity contract, and use `docs/API_GUIDE.md` and
