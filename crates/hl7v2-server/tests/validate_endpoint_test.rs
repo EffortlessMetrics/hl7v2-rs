@@ -103,6 +103,17 @@ async fn test_validate_malformed_message_returns_error() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body_json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(body_json["code"], "PARSE_ERROR");
+    assert_eq!(body_json["location"], "message");
+    assert!(
+        body_json["safe_detail"]
+            .as_str()
+            .is_some_and(|detail| detail.contains("Raw message content is not echoed"))
+    );
+    assert!(
+        body_json["suggested_next_action"]
+            .as_str()
+            .is_some_and(|action| action.contains("MSH segment"))
+    );
 }
 
 #[tokio::test]
@@ -128,6 +139,17 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
     assert_eq!(
         body_json["message"],
         "profile could not be loaded; run profile lint for details"
+    );
+    assert_eq!(body_json["location"], "profile");
+    assert!(
+        body_json["safe_detail"]
+            .as_str()
+            .is_some_and(|detail| detail.contains("Raw profile content is not echoed"))
+    );
+    assert!(
+        body_json["suggested_next_action"]
+            .as_str()
+            .is_some_and(|action| action.contains("Run profile lint"))
     );
     assert!(!body_text.contains("Jane Secret"));
     assert!(!body_text.contains("MRN-SECRET-123"));
@@ -159,6 +181,17 @@ segments:
     assert_eq!(
         body_json["message"],
         "profile could not be loaded; run profile lint for details"
+    );
+    assert_eq!(body_json["location"], "profile");
+    assert!(
+        body_json["safe_detail"]
+            .as_str()
+            .is_some_and(|detail| detail.contains("Raw profile content is not echoed"))
+    );
+    assert!(
+        body_json["suggested_next_action"]
+            .as_str()
+            .is_some_and(|action| action.contains("Run profile lint"))
     );
     assert!(!body_text.contains("missing field"));
     assert!(!body_text.contains("segments"));
@@ -279,6 +312,16 @@ async fn test_validate_report_schema_version_rejects_unknown_version() {
     let body_json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(body_json["code"], "VALIDATION_ERROR");
     assert!(body_json["message"].as_str().unwrap().contains("1 or 2"));
+    assert!(
+        body_json["safe_detail"]
+            .as_str()
+            .is_some_and(|detail| detail.contains("successful evidence response"))
+    );
+    assert!(
+        body_json["suggested_next_action"]
+            .as_str()
+            .is_some_and(|action| action.contains("schema-version fields"))
+    );
 }
 
 #[tokio::test]

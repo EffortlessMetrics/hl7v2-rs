@@ -306,6 +306,16 @@ async fn test_bundle_endpoint_rejects_unsupported_artifact_schema_version() {
             .as_str()
             .is_some_and(|message| message.contains("bundle artifact schema version"))
     );
+    assert!(
+        body["safe_detail"]
+            .as_str()
+            .is_some_and(|detail| detail.contains("successful evidence response"))
+    );
+    assert!(
+        body["suggested_next_action"]
+            .as_str()
+            .is_some_and(|action| action.contains("schema-version fields"))
+    );
     assert_no_phi(&body_text);
     assert!(fs::read_dir(root.path()).unwrap().next().is_none());
 }
@@ -316,6 +326,17 @@ async fn test_bundle_endpoint_fails_closed_without_configured_output_root() {
 
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(body["code"], "BUNDLE_OUTPUT_NOT_CONFIGURED");
+    assert_eq!(body["location"], "bundle_output_root");
+    assert!(
+        body["safe_detail"]
+            .as_str()
+            .is_some_and(|detail| detail.contains("bundle root"))
+    );
+    assert!(
+        body["suggested_next_action"]
+            .as_str()
+            .is_some_and(|action| action.contains("Configure the server bundle output root"))
+    );
     assert_no_phi(&body_text);
 }
 
@@ -338,6 +359,17 @@ async fn test_bundle_endpoint_rejects_unsafe_bundle_id_without_writing() {
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["code"], "BUNDLE_ERROR");
+    assert_eq!(body["location"], "bundle_id");
+    assert!(
+        body["safe_detail"]
+            .as_str()
+            .is_some_and(|detail| detail.contains("safe bundle identifiers"))
+    );
+    assert!(
+        body["suggested_next_action"]
+            .as_str()
+            .is_some_and(|action| action.contains("without path traversal"))
+    );
     assert_no_phi(&body_text);
     assert!(fs::read_dir(root.path()).unwrap().next().is_none());
 }

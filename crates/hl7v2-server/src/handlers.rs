@@ -1237,43 +1237,121 @@ impl AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, code, message) = match self {
-            AppError::Parse(msg) => (StatusCode::BAD_REQUEST, "PARSE_ERROR", msg),
+        let (status, code, message, safe_detail, location, next_action) = match self {
+            AppError::Parse(msg) => (
+                StatusCode::BAD_REQUEST,
+                "PARSE_ERROR",
+                msg,
+                "The request message could not be parsed as HL7 v2. Raw message content is not echoed.",
+                Some("message"),
+                "Check the MSH segment, segment terminators, encoding, and mllp_framed setting.",
+            ),
             // Profile load error is a client error since the profile is provided in the request.
             // Keep the public message stable and avoid echoing parser detail derived from profile YAML.
             AppError::ProfileLoad(_) => (
                 StatusCode::BAD_REQUEST,
                 "PROFILE_LOAD_ERROR",
                 PROFILE_LOAD_SAFE_MESSAGE.to_string(),
+                "The supplied inline profile could not be loaded. Raw profile content is not echoed.",
+                Some("profile"),
+                "Run profile lint on the profile, then retry validation with the corrected profile.",
             ),
-            AppError::Validation(msg) => (StatusCode::BAD_REQUEST, "VALIDATION_ERROR", msg),
-            AppError::Redaction(msg) => (StatusCode::BAD_REQUEST, "REDACTION_ERROR", msg),
+            AppError::Validation(msg) => (
+                StatusCode::BAD_REQUEST,
+                "VALIDATION_ERROR",
+                msg,
+                "The request failed validation before a successful evidence response was produced.",
+                None,
+                "Check request parameters, schema-version fields, and validation issue paths where available.",
+            ),
+            AppError::Redaction(msg) => (
+                StatusCode::BAD_REQUEST,
+                "REDACTION_ERROR",
+                msg,
+                "The redaction policy or redaction run failed before a safe response was produced.",
+                Some("redaction_policy"),
+                "Check safe-analysis policy paths, actions, reasons, and required-field matches before retrying.",
+            ),
             AppError::BundleOutputNotConfigured => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "BUNDLE_OUTPUT_NOT_CONFIGURED",
                 "server bundle output root is not configured".to_string(),
+                "The server cannot create evidence bundles until an operator configures a bundle root.",
+                Some("bundle_output_root"),
+                "Configure the server bundle output root and verify readiness before retrying.",
             ),
             AppError::BundleOutputNotReady(msg) => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "BUNDLE_OUTPUT_NOT_READY",
                 msg,
+                "The configured bundle output root is not currently writable or available.",
+                Some("bundle_output_root"),
+                "Check server filesystem permissions and readiness before retrying.",
             ),
-            AppError::Bundle(msg) => (StatusCode::BAD_REQUEST, "BUNDLE_ERROR", msg),
-            AppError::Conflict(msg) => (StatusCode::CONFLICT, "BUNDLE_EXISTS", msg),
-            AppError::BundleNotFound(msg) => (StatusCode::NOT_FOUND, "BUNDLE_NOT_FOUND", msg),
+            AppError::Bundle(msg) => (
+                StatusCode::BAD_REQUEST,
+                "BUNDLE_ERROR",
+                msg,
+                "The bundle request could not be accepted. Server responses use safe bundle identifiers.",
+                Some("bundle_id"),
+                "Use a simple bundle id without path traversal and retry after validating inputs.",
+            ),
+            AppError::Conflict(msg) => (
+                StatusCode::CONFLICT,
+                "BUNDLE_EXISTS",
+                msg,
+                "The requested bundle output already exists under the configured root.",
+                Some("bundle_id"),
+                "Choose a new bundle id or replay the existing bundle instead of overwriting it.",
+            ),
+            AppError::BundleNotFound(msg) => (
+                StatusCode::NOT_FOUND,
+                "BUNDLE_NOT_FOUND",
+                msg,
+                "The requested bundle id was not found under the configured root.",
+                Some("bundle_id"),
+                "Check the bundle id from the bundle creation receipt and retry.",
+            ),
             AppError::QuarantineOutputNotConfigured => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "QUARANTINE_OUTPUT_NOT_CONFIGURED",
                 "server quarantine output is enabled but no path is configured".to_string(),
+                "The server cannot write quarantine artifacts until an operator configures a quarantine root.",
+                Some("quarantine.path"),
+                "Configure the quarantine output path or disable quarantine output before retrying.",
             ),
             AppError::QuarantineOutputNotReady(msg) => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "QUARANTINE_OUTPUT_NOT_READY",
                 msg,
+                "The configured quarantine output root is not currently writable or available.",
+                Some("quarantine.path"),
+                "Check server filesystem permissions and readiness before retrying.",
             ),
-            AppError::Quarantine(msg) => (StatusCode::BAD_REQUEST, "QUARANTINE_ERROR", msg),
-            AppError::QuarantineConflict(msg) => (StatusCode::CONFLICT, "QUARANTINE_EXISTS", msg),
-            AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg),
+            AppError::Quarantine(msg) => (
+                StatusCode::BAD_REQUEST,
+                "QUARANTINE_ERROR",
+                msg,
+                "The quarantine request could not be written as configured.",
+                Some("quarantine"),
+                "Check quarantine artifact settings and retry with reviewed redaction inputs.",
+            ),
+            AppError::QuarantineConflict(msg) => (
+                StatusCode::CONFLICT,
+                "QUARANTINE_EXISTS",
+                msg,
+                "The generated quarantine output collided with existing output.",
+                Some("quarantine"),
+                "Retry the request or inspect the existing quarantine output before sharing evidence.",
+            ),
+            AppError::Internal(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "INTERNAL_ERROR",
+                msg,
+                "The server hit an internal failure. Raw request payloads are not included in this response.",
+                None,
+                "Check server logs and readiness, then retry with the same request only if disclosure policy allows.",
+            ),
         };
 
         tracing::warn!(
@@ -1284,7 +1362,12 @@ impl IntoResponse for AppError {
             "request failed"
         );
 
-        let error = ErrorResponse::new(code, message);
+        let mut error = ErrorResponse::new(code, message)
+            .with_safe_detail(safe_detail)
+            .with_suggested_next_action(next_action);
+        if let Some(location) = location {
+            error = error.with_location(location);
+        }
         (status, Json(error)).into_response()
     }
 }
@@ -1343,6 +1426,9 @@ mod tests {
         let err = ErrorResponse::new("TEST_ERROR", "Test error message");
         assert_eq!(err.code, "TEST_ERROR");
         assert_eq!(err.message, "Test error message");
+        assert!(err.safe_detail.is_none());
+        assert!(err.location.is_none());
+        assert!(err.suggested_next_action.is_none());
         assert!(err.details.is_none());
     }
 
