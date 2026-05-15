@@ -14,15 +14,18 @@ API and they are not the Python package name.
 
 ## Current Release Boundary
 
-`v1.5.0` is prepared and dry-run proven, but it is not a published release until
-the crates.io upload, tag, GitHub release, and registry-resolution receipts
-exist. For current source-checkout proof, use the `cargo run` and local wheel
-commands below. After the release is published, the registry install commands
-become the normal user path.
+`v1.5.0` is published to crates.io for the selected Rust graph:
+`hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. Normal Rust,
+CLI, and server users should use the registry install commands below.
+
+The public Python package is still separate. Python users will eventually
+install `hl7v2` from TestPyPI/PyPI, but the registry upload and install-back
+proof is not complete yet. Until that proof lands, use the local wheel commands
+below for Python evidence work.
 
 ## Rust Library
 
-Released user path after publication:
+Released user path:
 
 ```bash
 cargo add hl7v2
@@ -77,10 +80,11 @@ validation report JSON + normalized byte count + ACK output
 
 ## CLI
 
-Released user path after publication:
+Released user path:
 
 ```bash
-cargo install hl7v2-cli
+cargo install hl7v2-cli --version 1.5.0
+hl7v2-cli doctor --format json
 ```
 
 Source-checkout command shape:
@@ -92,9 +96,9 @@ cargo run -q -p hl7v2-cli -- doctor --format json
 Then run the full CLI evidence loop:
 
 ```bash
-cargo run -q -p hl7v2-cli -- profile lint profiles/generic.yaml --report json
-cargo run -q -p hl7v2-cli -- val test_data/valid_message.hl7 --profile profiles/generic.yaml --report json
-cargo run -q -p hl7v2-cli -- corpus summarize test_data --format json
+hl7v2-cli profile lint profiles/generic.yaml --report json
+hl7v2-cli val test_data/valid_message.hl7 --profile profiles/generic.yaml --report json
+hl7v2-cli corpus summarize test_data --format json
 ```
 
 For the copy/paste ten-minute flow that adds corpus fingerprint, corpus diff,
@@ -109,10 +113,11 @@ doctor JSON + profile lint JSON + validation report JSON + corpus summary JSON
 
 ## Server
 
-Released user path after publication:
+Released user path:
 
 ```bash
-cargo install hl7v2-server
+cargo install hl7v2-server --version 1.5.0
+hl7v2-server --print-config
 ```
 
 Source-checkout command shape:

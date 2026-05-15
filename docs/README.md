@@ -66,7 +66,7 @@ proposal, spec, plan, or receipt documents.
 | [Final source-tree gap audit](audits/current-source-tree-evidence-objective-gap-audit.md) | Current package-state receipt after the broad local evidence-lane workbench was split and merged. |
 | [v1.4.0 publish dry-run receipt](audits/publish-dry-run-v1.4.0-2026-05-09.md) | Package verification before upload. |
 | [v1.4.0 publish receipt](audits/publish-v1.4.0-2026-05-09.md) | Dependency-ordered crates.io publication proof. |
-| [v1.5.0 Rust 1.95 release candidate notes](releases/v1.5.0-rust-1.95-quality-ratchet.md) | Candidate scope for the Rust 1.95 quality-ratchet release; not a publish receipt. |
+| [v1.5.0 Rust 1.95 release notes](releases/v1.5.0-rust-1.95-quality-ratchet.md) | Published Rust 1.95 quality-ratchet release scope; the dedicated publish receipt owns registry proof. |
 | [v1.5.0 release readiness](release/1.5.0-readiness.md) | Receipt home for Rust 1.95 / 1.5.0 readiness workflow results. |
 | [v1.5.0 publish dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-13.md) | Non-publishing crates.io dry-run proof for the v1.5.0 Rust graph. |
 | [v1.5.0 parity refresh dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-14-parity-refresh.md) | Current-main non-publishing proof after gRPC corpus summary parity and the cross-surface evidence parity spec. |

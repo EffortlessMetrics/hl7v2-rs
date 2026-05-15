@@ -574,7 +574,8 @@ bundle, quarantine, and replay artifacts when you need deeper evidence.
 - Keep redaction policies fail-closed; a rejected policy is safer than a leaky
   bundle.
 - Replay server-created bundles with `POST /hl7/replay` or
-  `hl7v2 replay <bundle-dir> --format json` before attaching them to tickets.
+  `hl7v2-cli replay <bundle-dir> --format json` before attaching them to
+  tickets.
 
 ## Workflow Summary
 
