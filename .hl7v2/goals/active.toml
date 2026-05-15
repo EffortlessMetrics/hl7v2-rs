@@ -59,6 +59,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-replay-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-quarantine-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md",
+  "docs/audits/package-registry-state-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
@@ -860,6 +861,28 @@ non_claims = [
   "No production install-back proof.",
   "No runtime behavior change.",
   "No new release graph decision.",
+]
+
+[[work_item]]
+id = "v1-5-0-package-registry-state-audit"
+status = "done"
+goal = "Record live pre-release package registry state after the selected v1.5.0 graph and latest readiness refresh without publishing anything."
+receipt = "docs/audits/package-registry-state-2026-05-15.md"
+commands = [
+  "Invoke-WebRequest https://crates.io/api/v1/crates/hl7v2",
+  "Invoke-WebRequest https://crates.io/api/v1/crates/hl7v2-server",
+  "Invoke-WebRequest https://crates.io/api/v1/crates/hl7v2-cli",
+  "Invoke-WebRequest https://crates.io/api/v1/crates/hl7v2-python",
+  "Invoke-WebRequest https://pypi.org/pypi/hl7v2/json",
+  "Invoke-WebRequest https://test.pypi.org/pypi/hl7v2/json",
+  "cargo search hl7v2 --limit 10",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No production install-back proof.",
 ]
 
 [[work_item]]

@@ -73,6 +73,7 @@ proposal, spec, plan, or receipt documents.
 | [v1.5.0 corpus refresh dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-14-corpus-refresh.md) | Current-main non-publishing proof after the first-use guide and dirty real-world corpus proof. |
 | [v1.5.0 gRPC status refresh dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-14-grpc-status-refresh.md) | Current-main non-publishing proof after the gRPC serve-mode status sync. |
 | [v1.5.0 gRPC bundle refresh dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-15-grpc-bundle-refresh.md) | Current-main non-publishing proof after gRPC configured-root evidence bundle creation parity. |
+| [v1.5.0 package registry state audit](audits/package-registry-state-2026-05-15.md) | Live pre-release registry state after the selected v1.5.0 graph and latest readiness refresh. |
 | [Dirty real-world corpus proof](audits/real-world-corpus-proof-2026-05-14.md) | Focused proof that core corpus summary, fingerprint, and diff handle Z-segments, odd MSH fields, MLLP bytes, large OBX messages, malformed delimiters, and safe parse-error output. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
 | [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the `hl7v2-python` binding backend separate from the primary Rust product graph. |
@@ -91,9 +92,9 @@ proposal, spec, plan, or receipt documents.
   binding backend lane, until a production PyPI release is intentionally proven
   and executed.
 - gRPC coverage is useful but still narrower than the full HTTP evidence
-  surface. It now includes inline corpus summary, fingerprint, diff, and
-  configured-root evidence bundle creation and replay parity. Quarantine
-  behavior remains REST-only.
+  surface. It now includes inline corpus summary, fingerprint, diff,
+  configured-root evidence bundle creation and replay parity, and configured
+  quarantine output through `ValidateRedacted`.
   Use
   [`HL7V2-SPEC-0006`](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md)
   for the cross-surface parity contract, and use `docs/API_GUIDE.md` and
