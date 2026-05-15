@@ -90,9 +90,9 @@ proposal, spec, plan, or receipt documents.
   binding backend lane, until a production PyPI release is intentionally proven
   and executed.
 - gRPC coverage is useful but still narrower than the full HTTP evidence
-  surface. It now includes inline corpus summary parity, while corpus
-  fingerprint/diff, bundle, and replay remain HTTP-first until focused gRPC
-  parity PRs land. Use
+  surface. It now includes inline corpus summary and fingerprint parity, while
+  corpus diff, bundle, and replay remain HTTP-first until focused gRPC parity
+  PRs land. Use
   [`HL7V2-SPEC-0006`](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md)
   for the cross-surface parity contract, and use `docs/API_GUIDE.md` and
   `docs/STATUS.md` for current endpoint claims.

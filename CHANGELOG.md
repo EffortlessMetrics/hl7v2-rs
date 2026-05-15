@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added gRPC inline corpus fingerprint parity, including optional inline
+  profile validation issue-code counts and opt-in v2 provenance.
 - Added an advisory `ripr` static mutation-exposure workflow and suppression
   policy, keeping runtime mutation as a targeted backstop rather than a default
   PR tax.
