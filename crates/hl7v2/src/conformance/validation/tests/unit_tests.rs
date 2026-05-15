@@ -317,6 +317,9 @@ fn test_is_numeric_edge_cases() {
     // Invalid
     assert!(!is_numeric("abc"));
     assert!(!is_numeric("12.34.56"));
+    assert!(!is_numeric("INF"));
+    assert!(!is_numeric("Infinity"));
+    assert!(!is_numeric("NaN"));
     assert!(!is_numeric(""));
 }
 
