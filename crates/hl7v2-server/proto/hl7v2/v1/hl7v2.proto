@@ -17,6 +17,9 @@ service HL7Service {
   // Validate a message against a profile
   rpc Validate(ValidateRequest) returns (ValidateResponse);
 
+  // Lint an inline profile without applying it to a message
+  rpc ProfileLint(ProfileLintRequest) returns (ProfileLintResponse);
+
   // Redact a message with a safe-analysis policy, then validate it
   rpc ValidateRedacted(ValidateRedactedRequest) returns (ValidateRedactedResponse);
 
@@ -212,6 +215,87 @@ message ValidationOptions {
 
   // Strict mode
   bool strict = 2;
+}
+
+// Profile lint request.
+message ProfileLintRequest {
+  // Inline HL7v2 profile YAML content
+  string profile = 1;
+
+  // Optional profile lint evidence schema version.
+  //
+  // Omitted or 1 preserves the default report fields. 2 includes the
+  // profile_lint_report_v2 field with embedded provenance.
+  int32 report_schema_version = 2;
+}
+
+// Profile lint response.
+message ProfileLintResponse {
+  // Stable profile lint report fields shared with Rust, CLI, and Python.
+  ProfileLintReport profile_lint_report = 1;
+
+  // Opt-in profile lint report with embedded evidence provenance.
+  ProfileLintReportV2 profile_lint_report_v2 = 2;
+}
+
+// Stable profile lint report artifact.
+message ProfileLintReport {
+  // Whether the profile has no lint errors.
+  bool valid = 1;
+
+  // Number of error-level lint issues.
+  uint32 error_count = 2;
+
+  // Number of warning-level lint issues.
+  uint32 warning_count = 3;
+
+  // Total number of lint issues.
+  uint32 issue_count = 4;
+
+  // Lint findings.
+  repeated ProfileLintIssue issues = 5;
+}
+
+// Profile lint report v2 artifact with embedded evidence provenance.
+message ProfileLintReportV2 {
+  // Evidence artifact schema version.
+  string schema_version = 1;
+
+  // Producer surface that generated this profile lint report.
+  string tool_name = 2;
+
+  // Semantic version of the producing crate or binding package.
+  string tool_version = 3;
+
+  // Whether the profile has no lint errors.
+  bool valid = 4;
+
+  // Number of error-level lint issues.
+  uint32 error_count = 5;
+
+  // Number of warning-level lint issues.
+  uint32 warning_count = 6;
+
+  // Total number of lint issues.
+  uint32 issue_count = 7;
+
+  // Lint findings.
+  repeated ProfileLintIssue issues = 8;
+}
+
+// A single profile lint finding.
+message ProfileLintIssue {
+  // Stable lint code.
+  string code = 1;
+
+  // Finding severity, usually "error" or "warning".
+  string severity = 2;
+
+  // Profile path or YAML location, when available.
+  optional string path = 3;
+
+  // Human-readable explanation. This must not include raw profile text.
+  string message = 4;
 }
 
 // Validate Response

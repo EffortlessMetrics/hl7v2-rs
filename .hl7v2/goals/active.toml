@@ -410,6 +410,30 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "grpc-profile-lint-parity"
+status = "done"
+goal = "Promote profile lint to the gRPC evidence surface with shared report semantics, v2 provenance, safe malformed-profile diagnostics, and contract tests."
+files = [
+  "api/proto/hl7v2/v1/hl7v2.proto",
+  "crates/hl7v2-server/proto/hl7v2/v1/hl7v2.proto",
+  "crates/hl7v2-server/src/grpc.rs",
+  "crates/hl7v2-server/tests/grpc_contract_tests.rs",
+]
+commands = [
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests profile_lint -- --nocapture",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests",
+  "cargo +1.95.0 test -p hl7v2-server --test proto_packaging_test",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No gRPC profile explain/test parity.",
+  "No gRPC bundle/replay parity.",
+  "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
+]
+
+[[work_item]]
 id = "binding-backend-package-boundary-closeout"
 status = "done"
 goal = "Record the #604-#608 package-boundary closeout without claiming crates.io, TestPyPI, or PyPI publication."
