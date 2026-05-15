@@ -1082,6 +1082,15 @@ pub struct ErrorResponse {
     pub code: String,
     /// Human-readable error message
     pub message: String,
+    /// PHI-safe detail for operators.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safe_detail: Option<String>,
+    /// Request field, artifact role, or evidence location when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    /// Suggested next action for the caller.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested_next_action: Option<String>,
     /// Additional error details
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<serde_json::Value>,
@@ -1093,11 +1102,36 @@ impl ErrorResponse {
         Self {
             code: code.into(),
             message: message.into(),
+            safe_detail: None,
+            location: None,
+            suggested_next_action: None,
             details: None,
         }
     }
 
+    /// Add PHI-safe operator detail to the error response.
+    #[must_use]
+    pub fn with_safe_detail(mut self, safe_detail: impl Into<String>) -> Self {
+        self.safe_detail = Some(safe_detail.into());
+        self
+    }
+
+    /// Add an operator-facing location to the error response.
+    #[must_use]
+    pub fn with_location(mut self, location: impl Into<String>) -> Self {
+        self.location = Some(location.into());
+        self
+    }
+
+    /// Add a suggested next action to the error response.
+    #[must_use]
+    pub fn with_suggested_next_action(mut self, action: impl Into<String>) -> Self {
+        self.suggested_next_action = Some(action.into());
+        self
+    }
+
     /// Add details to the error response
+    #[must_use]
     pub fn with_details(mut self, details: serde_json::Value) -> Self {
         self.details = Some(details);
         self
