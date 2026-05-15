@@ -60,6 +60,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-quarantine-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md",
   "docs/audits/package-registry-state-2026-05-15.md",
+  "docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/guides/first-use-by-surface.md",
@@ -883,6 +884,28 @@ non_claims = [
   "No npm package.",
   "No tag or GitHub release.",
   "No production install-back proof.",
+]
+
+[[work_item]]
+id = "v1-5-0-objective-completion-audit"
+status = "done"
+goal = "Map the active lane objective to concrete repo artifacts, identify completed proof, and keep the goal open until release, Python, and npm receipts exist."
+receipt = "docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md"
+outcome = "not complete"
+blocking_items = [
+  "v1.5.0 crates.io publish and registry resolution",
+  "v1.5.0 tag and GitHub release",
+  "TestPyPI Trusted Publisher setup for public project hl7v2",
+  "TestPyPI upload/install-back proof for public package hl7v2",
+  "production PyPI hold/publish decision",
+  "future npm/WASM implementation after release and parity proof are stable",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "Active goal remains open.",
 ]
 
 [[work_item]]
