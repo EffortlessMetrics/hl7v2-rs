@@ -10,7 +10,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use http_body_util::BodyExt;
-use serde_json::json;
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
 mod common;
@@ -181,6 +181,31 @@ async fn test_parse_malformed_message_returns_error() {
         response.status().is_client_error() || response.status().is_server_error(),
         "Should return 4xx or 5xx status code"
     );
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let body_json: Value = serde_json::from_str(&body_text).unwrap();
+    assert_eq!(
+        body_json.get("code").and_then(Value::as_str),
+        Some("PARSE_ERROR")
+    );
+    assert_eq!(
+        body_json.get("location").and_then(Value::as_str),
+        Some("message")
+    );
+    assert!(
+        body_json
+            .get("safe_detail")
+            .and_then(Value::as_str)
+            .is_some_and(|detail| detail.contains("Raw message content is not echoed"))
+    );
+    assert!(
+        body_json
+            .get("suggested_next_action")
+            .and_then(Value::as_str)
+            .is_some_and(|action| action.contains("MSH segment"))
+    );
+    assert!(!body_text.contains(common::fixtures::INVALID_MALFORMED));
 }
 
 #[tokio::test]

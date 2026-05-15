@@ -489,10 +489,31 @@ The API uses standard HTTP status codes and returns a JSON error body:
 ```json
 {
   "code": "PROFILE_LOAD_ERROR",
-  "message": "Failed to load profile: missing required field `version`",
+  "message": "profile could not be loaded; run profile lint for details",
+  "safe_detail": "The supplied inline profile could not be loaded. Raw profile content is not echoed.",
+  "location": "profile",
+  "suggested_next_action": "Run profile lint on the profile, then retry validation with the corrected profile.",
   "details": null
 }
 ```
+
+`code` and `message` are the compatibility fields. Newer clients should prefer
+`code`, `safe_detail`, `location`, and `suggested_next_action` for operator
+workflows. Error responses do not echo raw HL7 payloads, raw profile YAML,
+redaction policies, configured filesystem roots, API keys, or raw bundle IDs by
+default.
+
+Common operator actions:
+
+| Code | First action |
+| --- | --- |
+| `PARSE_ERROR` | Check the `MSH` segment, segment terminators, encoding, and `mllp_framed` setting. |
+| `PROFILE_LOAD_ERROR` | Run profile lint and retry with the corrected profile. |
+| `VALIDATION_ERROR` | Check request parameters, schema-version fields, and validation issue paths where available. |
+| `REDACTION_ERROR` | Check safe-analysis policy paths, actions, reasons, and required-field matches. |
+| `BUNDLE_OUTPUT_NOT_CONFIGURED` | Configure the server bundle output root and verify readiness. |
+| `BUNDLE_ERROR` | Use a simple bundle id without path traversal and retry after validating inputs. |
+| `QUARANTINE_OUTPUT_NOT_CONFIGURED` | Configure the quarantine output path or disable quarantine output before retrying. |
 
 ### Common Status Codes:
 - `200 OK`: Success.
