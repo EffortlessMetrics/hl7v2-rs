@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Added a repeatable public crates.io install-back smoke script and receipt for
+  the v1.5.0 Rust library, CLI, and server first-use paths.
 - Recorded a post-release current-main readiness refresh after normalization
   and CLI ACK parity landed through #698.
 - Recorded a post-release current-main readiness refresh after shared

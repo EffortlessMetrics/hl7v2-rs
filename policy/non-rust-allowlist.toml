@@ -404,6 +404,15 @@ classification = "test"
 reason = "Stdlib Python smoke harness verifies the deployed sidecar evidence loop over HTTP."
 covered_by = ["python tests/server_smoke/smoke.py"]
 
+[[allow]]
+glob = "tests/public_crates_smoke/**"
+kind = "public_crates_smoke_test"
+owner = "release"
+surface = "tests"
+classification = "test"
+reason = "Stdlib Python smoke harness verifies public crates.io install-back and first-use Rust, CLI, and server workflows."
+covered_by = ["python tests/public_crates_smoke/smoke.py --version 1.5.0"]
+
 # ---------------------------------------------------------------------------
 # Governance receipts (docs/ subtree)
 # ---------------------------------------------------------------------------
