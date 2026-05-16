@@ -62,12 +62,13 @@ This document provides a transparent view of which features are fully implemente
 Binding backend crates are real language-boundary APIs, but they are not the
 recommended Rust API. `xtask publish-plan --surface bindings` reports this
 separate graph. Current `hl7v2-python` metadata describes it as the PyO3
-extension crate backing the Python `hl7v2` package and is publishable as binding
-infrastructure only. #610-#614 added the binding-backend release-proof spec,
-dry-run surface, publishable metadata, npm/WASM package model, and publish
-surface guard. It still needs refreshed release readiness, language install or
-import smoke receipts, registry resolution proof, and an explicit release
-decision before any crates.io upload claim.
+extension crate backing the Python `hl7v2` package and v1.5.0 published it to
+crates.io as binding infrastructure only. #610-#614 added the binding-backend
+release-proof spec, dry-run surface, publishable metadata, npm/WASM package
+model, and publish surface guard; the v1.5.0 publish receipt owns the
+`hl7v2-python` crates.io upload and registry-resolution proof. That crates.io
+backend receipt is still not a TestPyPI or PyPI proof for the public Python
+package.
 Future TypeScript package work is governed by
 [HL7V2-SPEC-0005](specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md):
 the public npm package is `@effortlessmetrics/hl7v2`, while Rust backend crates
