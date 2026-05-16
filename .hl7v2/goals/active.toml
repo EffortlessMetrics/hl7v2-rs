@@ -61,6 +61,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md",
   "docs/audits/package-registry-state-2026-05-15.md",
   "docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md",
+  "docs/audits/v1.5.0-objective-completion-audit-2026-05-15-post-release.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md",
   "docs/audits/publish-v1.5.0-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
@@ -910,6 +911,35 @@ non_claims = [
   "No TestPyPI or PyPI upload.",
   "No npm package.",
   "No tag or GitHub release.",
+  "Active goal remains open.",
+]
+
+[[work_item]]
+id = "v1-5-0-post-release-objective-audit"
+status = "done"
+goal = "Refresh the objective completion audit after the crates.io release, tag, GitHub release, install-back proof, local Python wheel proof, and hosted non-publishing Python workflow proof."
+receipt = "docs/audits/v1.5.0-objective-completion-audit-2026-05-15-post-release.md"
+outcome = "not complete"
+completed_since_previous_audit = [
+  "v1.5.0 crates.io publish and registry resolution",
+  "v1.5.0 tag and GitHub release",
+  "public Rust library install-back proof",
+  "public CLI install-back proof",
+  "public server install-back proof",
+  "local Python hl7v2 wheel install/import/smoke/evidence workflow proof",
+  "hosted non-publishing Python TestPyPI workflow proof",
+]
+blocking_items = [
+  "TestPyPI Trusted Publisher setup for public project hl7v2",
+  "TestPyPI upload/install-back proof for public package hl7v2",
+  "production PyPI hold/publish decision",
+  "future npm/WASM implementation after Rust and Python package receipts are stable",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release action.",
   "Active goal remains open.",
 ]
 
