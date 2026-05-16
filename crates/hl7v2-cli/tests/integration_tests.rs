@@ -3917,88 +3917,44 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 mod ack_command {
     use super::*;
 
+    const ACK_PARITY_MESSAGE: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+
+    fn ack_parity_file(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        create_temp_hl7_with_content(dir, "ack-parity.hl7", ACK_PARITY_MESSAGE)
+    }
+
+    fn assert_ack_contains_code_and_control_id(stdout: &[u8], code: &str) {
+        let ack = String::from_utf8(stdout.to_vec()).unwrap();
+        assert!(
+            ack.contains(&format!("MSA|{}|CTRL123", code)),
+            "ACK did not preserve code/control id: {}",
+            ack
+        );
+        assert!(
+            ack.lines().any(|line| {
+                let line = line.trim_start_matches('\u{0b}');
+                line.starts_with("MSH|") && line.contains("|ACK^")
+            }),
+            "ACK message type missing from MSH-9: {}",
+            ack
+        );
+    }
+
+    fn assert_mllp_frame(stdout: &[u8]) {
+        assert_eq!(stdout.first(), Some(&0x0B), "MLLP frame missing VT start");
+        assert!(
+            stdout.ends_with(&[0x1C, 0x0D]),
+            "MLLP frame missing FS CR terminator"
+        );
+    }
+
     #[test]
     fn test_generate_ack_aa() {
         let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
+        let hl7_file = ack_parity_file(&dir);
 
         let mut cmd = cli_command();
-        // ACK generation may fail due to escape sequences - just verify it runs
-        let result = cmd
-            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AA"])
-            .output();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_ae() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
-            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AE"])
-            .output();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_ar() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
-            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AR"])
-            .output();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_with_mllp_output() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
-            .args([
-                "ack",
-                hl7_file.to_str().unwrap(),
-                "--code",
-                "AA",
-                "--mllp-out",
-            ])
-            .output();
-
-        // Just verify the command runs
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_with_summary() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
-            .args([
-                "ack",
-                hl7_file.to_str().unwrap(),
-                "--code",
-                "AA",
-                "--summary",
-            ])
-            .output();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_original_mode() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
+        let output = cmd
             .args([
                 "ack",
                 hl7_file.to_str().unwrap(),
@@ -4007,17 +3963,133 @@ mod ack_command {
                 "--code",
                 "AA",
             ])
-            .output();
-        assert!(result.is_ok());
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AA");
+    }
+
+    #[test]
+    fn test_generate_ack_ae() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AE",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AE");
+    }
+
+    #[test]
+    fn test_generate_ack_ar() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AR",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AR");
+    }
+
+    #[test]
+    fn test_generate_ack_with_mllp_output() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AA",
+                "--mllp-out",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_mllp_frame(&output.stdout);
+        assert_ack_contains_code_and_control_id(&output.stdout, "AA");
+    }
+
+    #[test]
+    fn test_generate_ack_with_summary() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AA",
+                "--summary",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AA");
+    }
+
+    #[test]
+    fn test_generate_ack_original_mode() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AA",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AA");
     }
 
     #[test]
     fn test_generate_ack_enhanced_mode() {
         let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
+        let hl7_file = ack_parity_file(&dir);
 
         let mut cmd = cli_command();
-        let result = cmd
+        let output = cmd
             .args([
                 "ack",
                 hl7_file.to_str().unwrap(),
@@ -4026,16 +4098,26 @@ mod ack_command {
                 "--code",
                 "CA",
             ])
-            .output();
-        assert!(result.is_ok());
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "CA");
     }
 
     #[test]
     fn test_generate_ack_missing_file() {
         let mut cmd = cli_command();
-        cmd.args(["ack", "/nonexistent/file.hl7", "--code", "AA"])
-            .assert()
-            .failure();
+        cmd.args([
+            "ack",
+            "/nonexistent/file.hl7",
+            "--mode",
+            "original",
+            "--code",
+            "AA",
+        ])
+        .assert()
+        .failure();
     }
 }
 
