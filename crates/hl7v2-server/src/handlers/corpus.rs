@@ -146,3 +146,172 @@ pub(super) fn compute_sha256(value: &str) -> String {
     hasher.update(value.as_bytes());
     format!("{:x}", hasher.finalize())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn message_input(id: Option<&str>, body: &str) -> CorpusMessageInput {
+        CorpusMessageInput {
+            id: id.map(str::to_string),
+            message: body.to_string(),
+        }
+    }
+
+    #[test]
+    fn validate_corpus_message_id_accepts_simple_identifier() {
+        validate_corpus_message_id("alpha-001.txt").expect("alpha-001.txt is allowed");
+        validate_corpus_message_id("a").expect("single char allowed");
+        validate_corpus_message_id("UPPER_lower-1.2").expect("mixed allowed chars");
+    }
+
+    #[test]
+    fn validate_corpus_message_id_accepts_max_length_128() {
+        let label = "a".repeat(128);
+        validate_corpus_message_id(&label).expect("128 chars allowed");
+    }
+
+    #[test]
+    fn validate_corpus_message_id_rejects_129_characters() {
+        let label = "a".repeat(129);
+        let err = validate_corpus_message_id(&label).expect_err("129 chars must fail");
+        assert!(
+            matches!(&err, AppError::Validation(m) if m.contains("1-128")),
+            "expected Validation mentioning 1-128, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn validate_corpus_message_id_rejects_empty() {
+        let err = validate_corpus_message_id("").expect_err("empty id must fail");
+        assert!(matches!(err, AppError::Validation(_)));
+    }
+
+    #[test]
+    fn validate_corpus_message_id_rejects_dot_and_dot_dot() {
+        assert!(matches!(
+            validate_corpus_message_id("."),
+            Err(AppError::Validation(_))
+        ));
+        assert!(matches!(
+            validate_corpus_message_id(".."),
+            Err(AppError::Validation(_))
+        ));
+    }
+
+    #[test]
+    fn validate_corpus_message_id_rejects_leading_or_trailing_whitespace() {
+        // Whitespace is outside the allowed `[A-Za-z0-9._-]` set, so the
+        // validator must reject both leading and trailing whitespace.
+        assert!(matches!(
+            validate_corpus_message_id(" leading"),
+            Err(AppError::Validation(_))
+        ));
+        assert!(matches!(
+            validate_corpus_message_id("trailing "),
+            Err(AppError::Validation(_))
+        ));
+        assert!(matches!(
+            validate_corpus_message_id("middle space"),
+            Err(AppError::Validation(_))
+        ));
+        assert!(matches!(
+            validate_corpus_message_id("tab\tchar"),
+            Err(AppError::Validation(_))
+        ));
+    }
+
+    #[test]
+    fn validate_corpus_message_id_rejects_disallowed_punctuation() {
+        for bad in [
+            "msg/1", "msg\\1", "msg:1", "msg?1", "msg*1", "msg+1", "msg=1",
+        ] {
+            let err =
+                validate_corpus_message_id(bad).expect_err("disallowed punctuation must fail");
+            assert!(
+                matches!(&err, AppError::Validation(m) if m.contains("ASCII")),
+                "expected Validation mentioning ASCII for {bad}, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_corpus_message_id_rejects_non_ascii_letters() {
+        let err = validate_corpus_message_id("messäge").expect_err("non-ASCII must fail");
+        assert!(matches!(err, AppError::Validation(_)));
+    }
+
+    #[test]
+    fn validated_corpus_message_ids_rejects_empty_list() {
+        let err =
+            validated_corpus_message_ids(&[], "messages", "msg").expect_err("empty list must fail");
+        assert!(
+            matches!(&err, AppError::Validation(m) if m.contains("messages") && m.contains("at least one")),
+            "expected Validation mentioning field name and 'at least one', got {err:?}"
+        );
+    }
+
+    #[test]
+    fn validated_corpus_message_ids_uses_default_prefix_for_missing_ids() {
+        let inputs = vec![
+            message_input(None, "msg body 1"),
+            message_input(None, "msg body 2"),
+        ];
+        let ids = validated_corpus_message_ids(&inputs, "messages", "auto")
+            .expect("default ids must validate");
+        assert_eq!(ids, vec!["auto-1".to_string(), "auto-2".to_string()]);
+    }
+
+    #[test]
+    fn validated_corpus_message_ids_keeps_user_supplied_ids() {
+        let inputs = vec![
+            message_input(Some("first.id"), "body"),
+            message_input(None, "body"),
+            message_input(Some("third-id"), "body"),
+        ];
+        let ids =
+            validated_corpus_message_ids(&inputs, "messages", "auto").expect("ids must validate");
+        assert_eq!(
+            ids,
+            vec![
+                "first.id".to_string(),
+                "auto-2".to_string(),
+                "third-id".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn validated_corpus_message_ids_rejects_invalid_supplied_id() {
+        let inputs = vec![message_input(Some("bad/id"), "body")];
+        let err = validated_corpus_message_ids(&inputs, "messages", "auto")
+            .expect_err("invalid id must fail");
+        assert!(matches!(err, AppError::Validation(_)));
+    }
+
+    #[test]
+    fn validated_corpus_message_ids_does_not_deduplicate() {
+        // The helper validates each id individually. Duplicates are not rejected
+        // here; pin the behavior so future changes are intentional.
+        let inputs = vec![
+            message_input(Some("same"), "a"),
+            message_input(Some("same"), "b"),
+        ];
+        let ids = validated_corpus_message_ids(&inputs, "messages", "auto")
+            .expect("duplicate ids are not rejected by this helper");
+        assert_eq!(ids, vec!["same".to_string(), "same".to_string()]);
+    }
+
+    #[test]
+    fn compute_sha256_produces_stable_hex_digest() {
+        // Empty input is a well-known SHA-256 fixture.
+        assert_eq!(
+            compute_sha256(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        );
+        // Same input must produce the same digest each call.
+        assert_eq!(compute_sha256("hello"), compute_sha256("hello"));
+        // Different inputs must differ.
+        assert_ne!(compute_sha256("a"), compute_sha256("b"));
+    }
+}
