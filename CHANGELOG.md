@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a post-release v1.5.0 objective audit showing that the crates.io,
+  tag, GitHub release, and Rust/CLI/server install-back portions are now
+  complete while public Python TestPyPI/PyPI proof remains blocked or
+  undecided.
 - Recorded a current hosted non-publishing `Python TestPyPI Proof` receipt for
   public package `hl7v2` while keeping TestPyPI upload/install-back blocked on
   Trusted Publisher setup.
