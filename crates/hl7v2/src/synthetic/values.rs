@@ -232,3 +232,260 @@ fn generate_value_from_faker<R: Rng>(
         .generate(&mut faker)
         .map_err(|_err| Error::InvalidEscapeToken)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+    fn ensure(condition: bool, message: &'static str) -> TestResult {
+        if condition {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(message).into())
+        }
+    }
+
+    fn seeded_rng() -> StdRng {
+        StdRng::seed_from_u64(42)
+    }
+
+    #[test]
+    fn generate_value_fixed_returns_literal() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::Fixed("HELLO".to_string()), &mut rng)?;
+        ensure(result == "HELLO", "fixed value did not round-trip")
+    }
+
+    #[test]
+    fn generate_value_from_empty_returns_empty_string() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::From(Vec::new()), &mut rng)?;
+        ensure(result.is_empty(), "empty From should yield empty string")
+    }
+
+    #[test]
+    fn generate_value_from_picks_one_of_options() -> TestResult {
+        let mut rng = seeded_rng();
+        let options = vec!["alpha".to_string(), "beta".to_string()];
+        let result = generate_value(&ValueSource::From(options.clone()), &mut rng)?;
+        ensure(options.contains(&result), "From did not pick an option")
+    }
+
+    #[test]
+    fn generate_value_numeric_returns_string_of_digits_with_expected_length() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::Numeric { digits: 5 }, &mut rng)?;
+        ensure(result.len() == 5, "numeric length should match digits")?;
+        ensure(
+            result.chars().all(|c| c.is_ascii_digit()),
+            "numeric should contain only digits",
+        )
+    }
+
+    #[test]
+    fn generate_value_map_empty_returns_empty_string() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::Map(HashMap::new()), &mut rng)?;
+        ensure(result.is_empty(), "empty Map should yield empty string")
+    }
+
+    #[test]
+    fn generate_value_uuid_v4_returns_uuid_shaped_string() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::UuidV4, &mut rng)?;
+        ensure(result.len() == 36, "UUID should be 36 chars")?;
+        let bytes = result.as_bytes();
+        for index in [8usize, 13, 18, 23] {
+            ensure(
+                bytes.get(index).copied() == Some(b'-'),
+                "UUID should have hyphen at expected position",
+            )?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn generate_value_dtm_now_utc_returns_fourteen_digit_string() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::DtmNowUtc, &mut rng)?;
+        ensure(result.len() == 14, "DTM should be 14 chars")?;
+        ensure(
+            result.chars().all(|c| c.is_ascii_digit()),
+            "DTM should contain only digits",
+        )
+    }
+
+    #[test]
+    fn generate_value_date_degenerate_range_returns_only_start() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(
+            &ValueSource::Date {
+                start: "20200101".to_string(),
+                end: "20200101".to_string(),
+            },
+            &mut rng,
+        )?;
+        ensure(result == "20200101", "degenerate range should yield start")
+    }
+
+    #[test]
+    fn generate_value_gaussian_zero_sd_returns_mean_at_precision() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(
+            &ValueSource::Gaussian {
+                mean: 100.0,
+                sd: 0.0,
+                precision: 2,
+            },
+            &mut rng,
+        )?;
+        ensure(
+            result == "100.00",
+            "Gaussian with zero SD should equal mean",
+        )
+    }
+
+    #[test]
+    fn generate_value_invalid_segment_id_returns_matching_error() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::InvalidSegmentId, &mut rng);
+        ensure(
+            matches!(result, Err(Error::InvalidSegmentId)),
+            "should return InvalidSegmentId",
+        )
+    }
+
+    #[test]
+    fn generate_value_invalid_field_format_returns_matching_error() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::InvalidFieldFormat, &mut rng);
+        ensure(
+            matches!(result, Err(Error::InvalidFieldFormat { .. })),
+            "should return InvalidFieldFormat",
+        )
+    }
+
+    #[test]
+    fn generate_value_invalid_rep_format_returns_matching_error() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::InvalidRepFormat, &mut rng);
+        ensure(
+            matches!(result, Err(Error::InvalidRepFormat { .. })),
+            "should return InvalidRepFormat",
+        )
+    }
+
+    #[test]
+    fn generate_value_invalid_comp_format_returns_matching_error() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::InvalidCompFormat, &mut rng);
+        ensure(
+            matches!(result, Err(Error::InvalidCompFormat { .. })),
+            "should return InvalidCompFormat",
+        )
+    }
+
+    #[test]
+    fn generate_value_invalid_subcomp_format_returns_matching_error() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::InvalidSubcompFormat, &mut rng);
+        ensure(
+            matches!(result, Err(Error::InvalidSubcompFormat { .. })),
+            "should return InvalidSubcompFormat",
+        )
+    }
+
+    #[test]
+    fn generate_value_duplicate_delims_returns_matching_error() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::DuplicateDelims, &mut rng);
+        ensure(
+            matches!(result, Err(Error::DuplicateDelims)),
+            "should return DuplicateDelims",
+        )
+    }
+
+    #[test]
+    fn generate_value_bad_delim_length_returns_matching_error() -> TestResult {
+        let mut rng = seeded_rng();
+        let result = generate_value(&ValueSource::BadDelimLength, &mut rng);
+        ensure(
+            matches!(result, Err(Error::BadDelimLength)),
+            "should return BadDelimLength",
+        )
+    }
+
+    #[test]
+    fn to_faker_value_fixed_round_trips() -> TestResult {
+        let source = ValueSource::Fixed("X".to_string());
+        ensure(
+            matches!(source.to_faker_value(), FakerValue::Fixed(ref value) if value == "X"),
+            "Fixed did not round-trip to FakerValue::Fixed",
+        )
+    }
+
+    #[test]
+    fn to_faker_value_from_round_trips() -> TestResult {
+        let source = ValueSource::From(vec!["a".to_string(), "b".to_string()]);
+        ensure(
+            matches!(source.to_faker_value(), FakerValue::From(ref options) if options.len() == 2),
+            "From did not round-trip to FakerValue::From",
+        )
+    }
+
+    #[test]
+    fn to_faker_value_numeric_round_trips() -> TestResult {
+        let source = ValueSource::Numeric { digits: 7 };
+        ensure(
+            matches!(source.to_faker_value(), FakerValue::Numeric { digits: 7 }),
+            "Numeric did not round-trip to FakerValue::Numeric",
+        )
+    }
+
+    #[test]
+    fn to_faker_value_realistic_name_with_gender_round_trips() -> TestResult {
+        let source = ValueSource::RealisticName {
+            gender: Some("M".to_string()),
+        };
+        ensure(
+            matches!(
+                source.to_faker_value(),
+                FakerValue::RealisticName { gender: Some(ref g) } if g == "M"
+            ),
+            "RealisticName did not round-trip to FakerValue::RealisticName",
+        )
+    }
+
+    #[test]
+    fn to_faker_value_uuid_v4_round_trips() -> TestResult {
+        let source = ValueSource::UuidV4;
+        ensure(
+            matches!(source.to_faker_value(), FakerValue::UuidV4),
+            "UuidV4 did not round-trip to FakerValue::UuidV4",
+        )
+    }
+
+    #[test]
+    fn to_faker_value_error_variant_falls_back_to_fixed_empty() -> TestResult {
+        let source = ValueSource::InvalidSegmentId;
+        ensure(
+            matches!(source.to_faker_value(), FakerValue::Fixed(ref value) if value.is_empty()),
+            "error variant should fall back to FakerValue::Fixed(empty)",
+        )
+    }
+
+    #[test]
+    fn value_source_fixed_serde_round_trip() -> TestResult {
+        let source = ValueSource::Fixed("hello".to_string());
+        let encoded = serde_json::to_string(&source)?;
+        let decoded: ValueSource = serde_json::from_str(&encoded)?;
+        ensure(
+            matches!(decoded, ValueSource::Fixed(ref value) if value == "hello"),
+            "serde round-trip should preserve Fixed value",
+        )
+    }
+}
