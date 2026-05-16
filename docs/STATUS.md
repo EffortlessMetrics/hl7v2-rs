@@ -97,7 +97,10 @@ the cross-surface evidence parity spec, dirty real-world corpus proof, the
 nightly property-test command repair, finite numeric validation, the v1.5.0
 release-readiness workflow, the focused SRP module split train through #691,
 and shared dirty-corpus parity across Rust core, CLI, REST/gRPC server, and
-local Python wheel surfaces through #695.
+local Python wheel surfaces through #695. Current `main` also includes
+normalization parity across CLI and local Python helper surfaces plus CLI ACK
+parity for command success, ACK code/control ID preservation, MSH-9 ACK message
+type, and MLLP framing through #698.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
