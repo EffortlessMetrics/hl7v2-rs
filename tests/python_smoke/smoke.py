@@ -209,10 +209,20 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    error_ack = hl7v2.ack(raw, code="ae")
-    if "MSA|AE|CTRL123" not in error_ack:
-        print(f"explicit ACK code did not round-trip: {error_ack}", file=sys.stderr)
-        return 1
+    for requested_code, expected_code in [
+        ("ae", "AE"),
+        ("AR", "AR"),
+        ("CA", "CA"),
+        ("CE", "CE"),
+        ("CR", "CR"),
+    ]:
+        explicit_ack = hl7v2.ack(raw, code=requested_code)
+        if f"MSA|{expected_code}|CTRL123" not in explicit_ack:
+            print(
+                f"explicit ACK code {requested_code} did not round-trip: {explicit_ack}",
+                file=sys.stderr,
+            )
+            return 1
     try:
         hl7v2.ack(raw, code="ZZ")
     except ValueError as exc:
