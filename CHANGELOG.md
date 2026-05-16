@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a current hosted non-publishing `Python TestPyPI Proof` receipt for
+  public package `hl7v2` while keeping TestPyPI upload/install-back blocked on
+  Trusted Publisher setup.
 - Aligned the cross-surface evidence parity docs with the already-tested Python
   ACK local binding proof.
 - Aligned the gRPC parity docs with the currently implemented profile,
