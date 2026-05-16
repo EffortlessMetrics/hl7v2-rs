@@ -66,6 +66,7 @@ canonical_sources = [
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
+  "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
@@ -976,6 +977,34 @@ acceptance = [
   "Production PyPI is not attempted.",
   "No token fallback is used.",
   "No skip-existing workaround is used.",
+]
+
+[[work_item]]
+id = "python-local-wheel-proof-1-5-0"
+status = "done"
+goal = "Refresh current-main local Python wheel proof for the public hl7v2 package identity without claiming TestPyPI or PyPI publication."
+receipt = "docs/audits/python-local-wheel-proof-2026-05-15.md"
+commands = [
+  "RUSTUP_TOOLCHAIN=1.95.0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-python-wheel-proof CARGO_INCREMENTAL=0 python -m maturin build --release --out F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\dist --target-dir F:\\cargo-target\\hl7v2-rs-python-wheel-proof",
+  "python -m venv F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv",
+  "F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv\\Scripts\\python.exe -m pip install --force-reinstall F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\dist\\hl7v2-1.5.0-cp314-cp314-win_amd64.whl",
+  "F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv\\Scripts\\python.exe -c \"import hl7v2; print(hl7v2.__version__)\"",
+  "F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv\\Scripts\\python.exe tests\\python_smoke\\smoke.py",
+  "F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv\\Scripts\\python.exe tests\\python_smoke\\evidence_workflow_guide.py",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No TestPyPI or PyPI install-back.",
+  "No token fallback.",
+  "No skip-existing.",
+  "No npm package.",
 ]
 
 [[work_item]]
