@@ -98,9 +98,11 @@ nightly property-test command repair, finite numeric validation, the v1.5.0
 release-readiness workflow, the focused SRP module split train through #691,
 and shared dirty-corpus parity across Rust core, CLI, REST/gRPC server, and
 local Python wheel surfaces through #695. Current `main` also includes
-normalization parity across CLI and local Python helper surfaces plus CLI ACK
-parity for command success, ACK code/control ID preservation, MSH-9 ACK message
-type, and MLLP framing through #698.
+normalization parity across CLI and local Python helper surfaces; CLI ACK parity
+for command success, ACK code/control ID preservation, MSH-9 ACK message type,
+and MLLP framing; REST ACK parity for all six supported ACK codes with MLLP
+framing; gRPC ACK payload and parsed segment-shape contract coverage; and
+Python enhanced ACK smoke parity through #702.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
@@ -169,6 +171,10 @@ Final pre-publish proof: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-p
 Post-release SRP refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md).
 Dirty-corpus parity refresh:
 [`docs/audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md).
+Normalization and ACK parity refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md).
+Evidence parity refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md).
 Publish receipt: [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 Release graph decision: [`docs/audits/v1.5.0-release-graph-decision-2026-05-14.md`](audits/v1.5.0-release-graph-decision-2026-05-14.md).
 RIPR calibration: [`docs/audits/ripr-calibration-2026-05-15.md`](audits/ripr-calibration-2026-05-15.md).
@@ -177,7 +183,7 @@ RIPR calibration: [`docs/audits/ripr-calibration-2026-05-15.md`](audits/ripr-cal
 - ✅ **Rust floor**: MSRV is Rust 1.95 and `rust-toolchain.toml` pins Rust 1.95.0 with `rustfmt` and `clippy`.
 - ✅ **Verification rails**: lint policy, Clippy exceptions, no-panic exact identity and no-new-debt baseline, file-policy companion ledgers, advisory `ripr`, and targeted mutation routing are present.
 - ✅ **Release readiness workflow**: `.github/workflows/release-readiness.yml` records the non-publishing readiness proof bundle.
-- ✅ **Dry-run receipt**: hosted release-readiness dry-run passed on `main` at `b0bb5b5392354273946f36f797f39d741d318fc1`; current-main primary and binding surface dry-runs passed locally at `b4b7962e6f3f9d7ae5d91adf603e6328e3d13297` after #616-#618, at `cc1e3046e2496ea0c10a25239b9d077641d01c36` after #621-#622, at `425ff79b959ef5ceff1bdd072cbe074ff2a7ab04` after #624-#625, at `eb518e948d57bc07e96512ced306fe0db2dc2990` after #627, at `acfeacec0eda6d632d52e61440f2c85fda93d95f` after #629-#630, at `b0018c8760f07d738b3a6b7a11eeeda300786ef2` after #632-#633, at `fe8680c551bc3ce9248063906cbbe90ffe732a70` after #635-#636, at `483fb572a42006c07bd2e857fb7638ec91615b7d` after #638, at `915578b5cab5ab3abde7f806e5ad39c063d9cc82` after #640, at `47ba93201aaa15c95157d341bb5ec4f5f3871741` after #642, at `addbbe3e6962dc7f1629053c8a9c6810c7e37cc1` after #645, at `a12c6fdf61396de74f971c27f4887dd7c451543b` after #647, at `686dbff26afbbdcb97e4cc1915d1e33bd1404d14` after #649-#650, at `9fc95604d8950b565b6b6b7941ad275fd5624178` after #653, at `4cf501ddc0f7fc3d027b3ce2459e899fe4aa7092` after #684-#691, and at `1564a1ac6a028146471e53c80fe3dbca22a32497` after #693-#695.
+- ✅ **Dry-run receipt**: hosted release-readiness dry-run passed on `main` at `b0bb5b5392354273946f36f797f39d741d318fc1`; current-main primary and binding surface dry-runs passed locally at `b4b7962e6f3f9d7ae5d91adf603e6328e3d13297` after #616-#618, at `cc1e3046e2496ea0c10a25239b9d077641d01c36` after #621-#622, at `425ff79b959ef5ceff1bdd072cbe074ff2a7ab04` after #624-#625, at `eb518e948d57bc07e96512ced306fe0db2dc2990` after #627, at `acfeacec0eda6d632d52e61440f2c85fda93d95f` after #629-#630, at `b0018c8760f07d738b3a6b7a11eeeda300786ef2` after #632-#633, at `fe8680c551bc3ce9248063906cbbe90ffe732a70` after #635-#636, at `483fb572a42006c07bd2e857fb7638ec91615b7d` after #638, at `915578b5cab5ab3abde7f806e5ad39c063d9cc82` after #640, at `47ba93201aaa15c95157d341bb5ec4f5f3871741` after #642, at `addbbe3e6962dc7f1629053c8a9c6810c7e37cc1` after #645, at `a12c6fdf61396de74f971c27f4887dd7c451543b` after #647, at `686dbff26afbbdcb97e4cc1915d1e33bd1404d14` after #649-#650, at `9fc95604d8950b565b6b6b7941ad275fd5624178` after #653, at `4cf501ddc0f7fc3d027b3ce2459e899fe4aa7092` after #684-#691, at `1564a1ac6a028146471e53c80fe3dbca22a32497` after #693-#695, at `c888405000384f391b24864e3e572dd0e9b6ba6a` after #696-#698, and at `65c3c30ec52c9c5d65b58dae245b62f0bee9d198` after #699-#702.
 - ✅ **Release graph decision**: v1.5.0 selects `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`, with `hl7v2-python` included only as binding backend infrastructure.
 - ✅ **Publish receipt**: crates.io upload, registry resolution, `v1.5.0` tag, GitHub release, and public Rust/CLI/server install-back smoke are recorded in [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 - 🟡 **Python proof**: the public Python distribution is `hl7v2`, remains separate from the primary Rust product graph, has current-main local wheel/import/evidence smoke proof, and still requires Trusted Publisher upload/install-back proof before any TestPyPI or PyPI success claim.
@@ -190,7 +196,7 @@ Old planning documents have been moved to `docs/plans/` for archival reference.
 **Current published release**: v1.5.0 is tested, package-verified, tagged, released on GitHub, and published to crates.io for the selected Rust graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is binding backend infrastructure, not the recommended Rust API.
 
 **Current main**: records the v1.5.0 Rust 1.95 quality-ratchet publish receipt
-and the post-release dirty-corpus parity refresh at
-`1564a1ac6a028146471e53c80fe3dbca22a32497`.
+and the post-release evidence parity refresh at
+`65c3c30ec52c9c5d65b58dae245b62f0bee9d198`.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
 upload and install-back proof before any Python release claim.
