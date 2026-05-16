@@ -82,6 +82,7 @@ proposal, spec, plan, or receipt documents.
 | [Dirty real-world corpus proof](audits/real-world-corpus-proof-2026-05-14.md) | Focused proof that core corpus summary, fingerprint, and diff handle Z-segments, odd MSH fields, MLLP bytes, large OBX messages, malformed delimiters, and safe parse-error output. |
 | [Dirty real-world shared fixture proof](audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md) | Shared fixture categories and Rust/CLI corpus parity proof for dirty interface data. |
 | [Dirty real-world server corpus parity proof](audits/dirty-real-world-server-corpus-parity-2026-05-16.md) | REST and gRPC corpus parity proof using the shared dirty real-world fixture categories. |
+| [Dirty real-world Python corpus parity proof](audits/dirty-real-world-python-corpus-parity-2026-05-16.md) | Local Python wheel corpus parity proof using the shared dirty real-world fixture categories. |
 | [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
 | [Python local wheel proof](audits/python-local-wheel-proof-2026-05-15.md) | Current-main non-publishing wheel build, fresh-venv install, import smoke, and Python evidence workflow proof for `hl7v2`. |

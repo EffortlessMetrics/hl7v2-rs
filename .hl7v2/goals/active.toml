@@ -68,6 +68,7 @@ canonical_sources = [
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md",
   "docs/audits/dirty-real-world-server-corpus-parity-2026-05-16.md",
+  "docs/audits/dirty-real-world-python-corpus-parity-2026-05-16.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
@@ -98,6 +99,29 @@ proof_commands = [
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check",
   "cargo +1.95.0 run -p xtask -- policy-report",
+]
+
+[[work_item]]
+id = "dirty-real-world-python-corpus-parity"
+status = "done"
+goal = "Reuse the shared dirty real-world corpus fixtures for local Python wheel corpus summary, fingerprint, and diff parity."
+receipt = "docs/audits/dirty-real-world-python-corpus-parity-2026-05-16.md"
+fixtures = "test_data/dirty-real-world/"
+commands = [
+  "cargo +1.95.0 test -p hl7v2-python --locked",
+  "RUSTUP_TOOLCHAIN=1.95.0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity CARGO_INCREMENTAL=0 python -m maturin build --release --out F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity\\dist --target-dir F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity",
+  "F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity\\venv\\Scripts\\python.exe tests\\python_smoke\\smoke.py",
+  "F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity\\venv\\Scripts\\python.exe tests\\python_smoke\\evidence_workflow_guide.py",
+]
+non_claims = [
+  "No TypeScript dirty-corpus parity receipt.",
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No tag or GitHub release.",
 ]
 
 [[work_item]]

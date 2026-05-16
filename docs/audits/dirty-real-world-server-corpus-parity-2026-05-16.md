@@ -66,11 +66,12 @@ This proof does not claim:
 
 - all real-world HL7 variants are covered;
 - a public compatibility corpus exists;
-- Python or TypeScript dirty-corpus parity;
+- Python or TypeScript dirty-corpus parity from this server receipt alone;
 - any crates.io upload;
 - any TestPyPI or PyPI upload;
 - any npm package;
 - any tag or GitHub release.
 
-Future Python parity work should reuse `test_data/dirty-real-world/` in the
-local wheel smoke lane before extending the fixture family again.
+The local Python wheel smoke lane now reuses `test_data/dirty-real-world/`.
+See
+[`dirty-real-world-python-corpus-parity-2026-05-16.md`](dirty-real-world-python-corpus-parity-2026-05-16.md).

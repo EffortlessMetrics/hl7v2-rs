@@ -70,17 +70,24 @@ This proof does not claim:
 
 - all real-world HL7 variants are covered;
 - a public compatibility corpus exists;
-- REST, gRPC, Python, or TypeScript dirty-corpus parity;
+- REST, gRPC, Python, or TypeScript dirty-corpus parity from this Rust/CLI
+  receipt alone;
 - any crates.io upload;
 - any TestPyPI or PyPI upload;
 - any npm package;
 - any tag or GitHub release.
 
-Future Python parity work should reuse `test_data/dirty-real-world/` before
-extending the fixture family again.
+The server and local Python parity proofs reuse `test_data/dirty-real-world/`.
+Future TypeScript parity work should reuse the same fixture family before
+extending it again.
 
 ## Follow-Up Server Proof
 
 The server REST and gRPC inline corpus surfaces now reuse the same fixture
 family. See
 [`dirty-real-world-server-corpus-parity-2026-05-16.md`](dirty-real-world-server-corpus-parity-2026-05-16.md).
+
+## Follow-Up Python Proof
+
+The local Python wheel smoke lane now reuses the same fixture family. See
+[`dirty-real-world-python-corpus-parity-2026-05-16.md`](dirty-real-world-python-corpus-parity-2026-05-16.md).
