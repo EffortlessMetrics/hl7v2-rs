@@ -1219,6 +1219,7 @@ mod summary_tests {
     )]
 
     use super::*;
+    use std::path::{Path, PathBuf};
 
     const ADT_A01: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M";
     const ORU_R01: &str = "MSH|^~\\&|LAB|LAB|EHR|HOSP|202605080101||ORU^R01|CTRL456|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\rOBR|1|ORD1|FILL1|CBC^Complete Blood Count\rOBX|1|NM|718-7^Hemoglobin||13.2|g/dL";
@@ -1233,14 +1234,57 @@ mod summary_tests {
         assert!(result.is_ok(), "test message should be written: {result:?}");
     }
 
-    fn large_obx_message(control_id: &str, obx_count: usize) -> String {
-        let mut message = format!(
-            "MSH|^~\\&|LAB|LEGACY|EHR|HOSP|202605140101||ORU^R01|{control_id}|P|2.3\rPID|1||MRN-LARGE^^^HOSP^MR||Example^Large||19700101|U\rOBR|1|ORD-LARGE|FILL-LARGE|CBC^Complete Blood Count"
+    fn dirty_real_world_fixture_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/dirty-real-world")
+    }
+
+    fn normalize_fixture_segments(bytes: &[u8]) -> Vec<u8> {
+        String::from_utf8_lossy(bytes)
+            .replace("\r\n", "\n")
+            .replace('\n', "\r")
+            .into_bytes()
+    }
+
+    fn materialize_dirty_corpus_dir(category: &str, target: &Path) {
+        let source = dirty_real_world_fixture_root().join(category);
+        let result = fs::create_dir_all(target);
+        assert!(
+            result.is_ok(),
+            "fixture target should be created: {result:?}"
         );
-        for index in 1..=obx_count {
-            message.push_str(&format!("\rOBX|{index}|NM|718-7^Hemoglobin||{index}|g/dL"));
+
+        let Ok(entries) = fs::read_dir(&source) else {
+            panic!("dirty fixture category should be readable: {source:?}");
+        };
+
+        for entry in entries {
+            let Ok(entry) = entry else {
+                panic!("dirty fixture entry should be readable");
+            };
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let Ok(bytes) = fs::read(&path) else {
+                panic!("dirty fixture file should be readable: {path:?}");
+            };
+            let Some(file_name) = path.file_name() else {
+                panic!("dirty fixture file should have a name: {path:?}");
+            };
+            write_message_bytes(&target.join(file_name), &normalize_fixture_segments(&bytes));
         }
-        message
+    }
+
+    fn add_generated_mllp_fixture(target: &Path) {
+        let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
+        let Ok(bytes) = fs::read(&source) else {
+            panic!("MLLP source fixture should be readable: {source:?}");
+        };
+        let normalized = normalize_fixture_segments(&bytes);
+        write_message_bytes(
+            &target.join("mllp-framed.hl7"),
+            &crate::wrap_mllp(&normalized),
+        );
     }
 
     #[test]
@@ -1349,24 +1393,9 @@ mod summary_tests {
             panic!("after temp dir should be created");
         };
 
-        let z_segment_message = "MSH|^~\\&|INTF|SITE|EHR|HOSP|202605140101||ADT^A01|CTRL-Z|P|2.5\rPID|1||MRN-Z^^^HOSP^MR||Example^Zed||19700101|U\rZPV|legacy-room|dirty interface note";
-        let odd_msh_message = "MSH|^~\\&|LEGACY||EHR||202605140102||ADT^A08|CTRL-ODD|P|2.3\rPID|1||MRN-ODD^^^HOSP^MR||Example^Odd||19600101|";
-        let large_before = large_obx_message("CTRL-LARGE-BEFORE", 5);
-        let large_after = large_obx_message("CTRL-LARGE-AFTER", 20);
-        let malformed_delimiters =
-            b"MSH|^^^^|BROKEN|SITE|EHR|HOSP|202605140103||ADT^A01|MRN-DIRTY|P|2.5\rPID|1";
-        let mllp_after = crate::wrap_mllp(odd_msh_message.as_bytes());
-
-        write_message(&before.path().join("z-segment.hl7"), z_segment_message);
-        write_message(&before.path().join("large-obx.hl7"), &large_before);
-
-        write_message(&after.path().join("z-segment.hl7"), z_segment_message);
-        write_message(&after.path().join("large-obx.hl7"), &large_after);
-        write_message_bytes(&after.path().join("mllp-framed.hl7"), &mllp_after);
-        write_message_bytes(
-            &after.path().join("malformed-delimiters.hl7"),
-            malformed_delimiters,
-        );
+        materialize_dirty_corpus_dir("before", before.path());
+        materialize_dirty_corpus_dir("after", after.path());
+        add_generated_mllp_fixture(after.path());
 
         let Ok(summary) = summarize_corpus_path(after.path()) else {
             panic!("dirty corpus should summarize");
@@ -1378,10 +1407,10 @@ mod summary_tests {
             panic!("dirty corpus should diff");
         };
 
-        assert_eq!(summary.file_count, 4);
-        assert_eq!(summary.message_count, 3);
-        assert_eq!(summary.parse_error_count, 1);
-        assert!(summary.total_bytes > large_after.len());
+        assert_eq!(summary.file_count, 6);
+        assert_eq!(summary.message_count, 4);
+        assert_eq!(summary.parse_error_count, 2);
+        assert!(summary.total_bytes > 1_000);
         assert!(
             summary
                 .message_types
@@ -1393,6 +1422,12 @@ mod summary_tests {
                 .message_types
                 .iter()
                 .any(|count| count.value == "ADT^A08" && count.count == 1)
+        );
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ADT^A04" && count.count == 1)
         );
         assert!(
             summary
@@ -1412,15 +1447,28 @@ mod summary_tests {
                 .iter()
                 .any(|count| count.value == "OBX" && count.count == 20)
         );
-        let Some(parse_failure) = summary.parse_errors.first() else {
-            panic!("malformed delimiter failure should be recorded");
-        };
-        assert_eq!(parse_failure.path, "malformed-delimiters.hl7");
-        assert!(!parse_failure.error.contains("MRN-DIRTY"));
+        assert!(
+            summary
+                .parse_errors
+                .iter()
+                .any(|failure| failure.path == "malformed-delimiters.hl7")
+        );
+        assert!(
+            summary
+                .parse_errors
+                .iter()
+                .any(|failure| failure.path == "partial-batch.hl7")
+        );
+        assert!(
+            summary
+                .parse_errors
+                .iter()
+                .all(|failure| !failure.error.contains("MRN-DIRTY"))
+        );
 
-        assert_eq!(fingerprint.file_count, 4);
-        assert_eq!(fingerprint.message_count, 3);
-        assert_eq!(fingerprint.parse_error_count, 1);
+        assert_eq!(fingerprint.file_count, 6);
+        assert_eq!(fingerprint.message_count, 4);
+        assert_eq!(fingerprint.parse_error_count, 2);
         assert!(
             fingerprint
                 .field_cardinality
@@ -1437,9 +1485,9 @@ mod summary_tests {
         );
 
         assert_eq!(diff.file_count.before, 2);
-        assert_eq!(diff.file_count.after, 4);
-        assert_eq!(diff.message_count.delta, 1);
-        assert_eq!(diff.parse_error_count.delta, 1);
+        assert_eq!(diff.file_count.after, 6);
+        assert_eq!(diff.message_count.delta, 2);
+        assert_eq!(diff.parse_error_count.delta, 2);
         assert!(
             diff.field_cardinality
                 .iter()

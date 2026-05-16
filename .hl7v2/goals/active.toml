@@ -66,6 +66,7 @@ canonical_sources = [
   "docs/audits/publish-v1.5.0-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
+  "docs/audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
@@ -96,6 +97,25 @@ proof_commands = [
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check",
   "cargo +1.95.0 run -p xtask -- policy-report",
+]
+
+[[work_item]]
+id = "dirty-real-world-shared-fixture-parity"
+status = "done"
+goal = "Move dirty real-world corpus proof into named shared fixtures and prove Rust core plus CLI corpus summary, fingerprint, and diff behavior against them."
+receipt = "docs/audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md"
+fixtures = "test_data/dirty-real-world/"
+commands = [
+  "cargo +1.95.0 test -p hl7v2 --lib --all-features dirty_real_world",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_corpus_commands_share_dirty_real_world_fixture_categories",
+]
+non_claims = [
+  "No REST, gRPC, Python, or TypeScript dirty-corpus parity receipt.",
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
 ]
 
 [[work_item]]

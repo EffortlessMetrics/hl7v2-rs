@@ -1317,6 +1317,54 @@ rules: []
 mod corpus_command {
     use super::*;
 
+    fn dirty_real_world_fixture_root() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/dirty-real-world")
+    }
+
+    fn normalize_fixture_segments(bytes: &[u8]) -> Vec<u8> {
+        String::from_utf8_lossy(bytes)
+            .replace("\r\n", "\n")
+            .replace('\n', "\r")
+            .into_bytes()
+    }
+
+    fn materialize_dirty_corpus_dir(category: &str, target: &std::path::Path) {
+        let source = dirty_real_world_fixture_root().join(category);
+        std::fs::create_dir_all(target).expect("dirty corpus target should be created");
+
+        for entry in std::fs::read_dir(&source).expect("dirty corpus source should be readable") {
+            let entry = entry.expect("dirty corpus entry should be readable");
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let bytes = std::fs::read(&path).expect("dirty corpus file should be readable");
+            let file_name = path
+                .file_name()
+                .expect("dirty corpus file should have a file name");
+            let destination = target.join(file_name);
+            std::fs::write(&destination, normalize_fixture_segments(&bytes))
+                .expect("dirty corpus file should be materialized");
+        }
+    }
+
+    fn add_generated_mllp_fixture(target: &std::path::Path) {
+        let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
+        let bytes = std::fs::read(&source).expect("MLLP source fixture should be readable");
+        let normalized = normalize_fixture_segments(&bytes);
+        std::fs::write(
+            target.join("mllp-framed.hl7"),
+            hl7v2::wrap_mllp(&normalized),
+        )
+        .expect("generated MLLP dirty corpus file should be materialized");
+    }
+
+    fn materialize_dirty_real_world_corpus(before: &std::path::Path, after: &std::path::Path) {
+        materialize_dirty_corpus_dir("before", before);
+        materialize_dirty_corpus_dir("after", after);
+        add_generated_mllp_fixture(after);
+    }
+
     #[test]
     fn test_corpus_summarize_text_counts_messages_and_errors() {
         let dir = create_temp_dir();
@@ -1712,6 +1760,113 @@ constraints:
         assert_eq!(report["fingerprint_version"], "1");
         assert_eq!(report["file_count"], 1);
         assert_eq!(report["message_count"], 1);
+    }
+
+    #[test]
+    fn test_corpus_commands_share_dirty_real_world_fixture_categories() {
+        let before = create_temp_dir();
+        let after = create_temp_dir();
+        materialize_dirty_real_world_corpus(before.path(), after.path());
+
+        let mut summarize = cli_command();
+        let summary_output = summarize
+            .args([
+                "corpus",
+                "summarize",
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("corpus summarize should run");
+
+        assert!(summary_output.status.success());
+        assert!(is_valid_json(&summary_output.stdout));
+        let summary: serde_json::Value =
+            serde_json::from_slice(&summary_output.stdout).expect("summary output should be JSON");
+        assert_eq!(summary["file_count"], 6);
+        assert_eq!(summary["message_count"], 4);
+        assert_eq!(summary["parse_error_count"], 2);
+        assert!(
+            summary["message_types"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["value"] == "ADT^A08" && entry["count"] == 1)
+        );
+        assert!(
+            summary["segments"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["value"] == "ZPV" && entry["count"] == 1)
+        );
+        assert!(
+            summary["parse_errors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|entry| !entry["error"].as_str().unwrap().contains("MRN-DIRTY"))
+        );
+
+        let mut fingerprint = cli_command();
+        let fingerprint_output = fingerprint
+            .args([
+                "corpus",
+                "fingerprint",
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("corpus fingerprint should run");
+
+        assert!(fingerprint_output.status.success());
+        assert!(is_valid_json(&fingerprint_output.stdout));
+        let fingerprint: serde_json::Value = serde_json::from_slice(&fingerprint_output.stdout)
+            .expect("fingerprint output should be JSON");
+        assert_eq!(fingerprint["file_count"], 6);
+        assert_eq!(fingerprint["message_count"], 4);
+        assert_eq!(fingerprint["parse_error_count"], 2);
+        assert!(
+            fingerprint["field_cardinality"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["path"] == "OBX.5"
+                    && entry["max_per_message"] == 20
+                    && entry["total_occurrences"] == 20)
+        );
+
+        let mut diff = cli_command();
+        let diff_output = diff
+            .args([
+                "corpus",
+                "diff",
+                before.path().to_str().unwrap(),
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("corpus diff should run");
+
+        assert!(diff_output.status.success());
+        assert!(is_valid_json(&diff_output.stdout));
+        let diff: serde_json::Value =
+            serde_json::from_slice(&diff_output.stdout).expect("diff output should be JSON");
+        assert_eq!(diff["file_count"]["delta"], 4);
+        assert_eq!(diff["message_count"]["delta"], 2);
+        assert_eq!(diff["parse_error_count"]["delta"], 2);
+        assert!(
+            diff["field_cardinality"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["path"] == "OBX.5"
+                    && entry["max_per_message_delta"] == 15
+                    && entry["total_occurrences_delta"] == 15)
+        );
     }
 }
 
