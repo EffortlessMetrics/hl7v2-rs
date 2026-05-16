@@ -65,9 +65,14 @@ async fn post_json(app: axum::Router, uri: &str, body: Value) -> (StatusCode, Va
     (status, value)
 }
 
+fn assert_ack_message_type(ack: &str) {
+    let message_type = ack.split('\r').next().unwrap().split('|').nth(8).unwrap();
+    assert_eq!(message_type, "ACK^ADT");
+}
+
 #[tokio::test]
 async fn test_http_ack_maps_codes_and_preserves_control_id() {
-    for code in ["AA", "AE", "AR"] {
+    for code in ["AA", "AE", "AR", "CA", "CE", "CR"] {
         let (status, body) = post_json(
             test_router(None, CorsAllowedOrigins::default()),
             "/hl7/ack",
@@ -83,8 +88,39 @@ async fn test_http_ack_maps_codes_and_preserves_control_id() {
         assert_eq!(body["ack_code"], code);
         let ack = body["ack_message"].as_str().unwrap();
         assert!(ack.contains(&format!("MSA|{}|CTRL123", code)));
+        assert_ack_message_type(ack);
         assert_eq!(body["metadata"]["message_type"], "ACK^ADT");
     }
+}
+
+#[tokio::test]
+async fn test_http_ack_accepts_mllp_input_and_can_frame_response() {
+    let framed_message = String::from_utf8(hl7v2::wrap_mllp(SAMPLE_MSG.as_bytes())).unwrap();
+    let (status, body) = post_json(
+        test_router(None, CorsAllowedOrigins::default()),
+        "/hl7/ack",
+        json!({
+            "message": framed_message,
+            "code": "AA",
+            "mllp_framed": true,
+            "mllp_frame": true
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["ack_code"], "AA");
+    assert_eq!(body["metadata"]["message_type"], "ACK^ADT");
+
+    let ack = body["ack_message"].as_str().unwrap();
+    let framed = ack.as_bytes();
+    assert_eq!(framed[0], hl7v2::MLLP_START);
+    assert_eq!(framed[framed.len() - 2], hl7v2::MLLP_END_1);
+    assert_eq!(framed[framed.len() - 1], hl7v2::MLLP_END_2);
+
+    let unframed = std::str::from_utf8(hl7v2::unwrap_mllp(framed).unwrap()).unwrap();
+    assert!(unframed.contains("MSA|AA|CTRL123"));
+    assert_ack_message_type(unframed);
 }
 
 #[tokio::test]
