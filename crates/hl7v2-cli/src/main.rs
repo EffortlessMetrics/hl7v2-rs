@@ -19,12 +19,8 @@
 )]
 
 use clap::{Parser, Subcommand};
-use hl7v2::synthetic::corpus::{
-    CorpusCount, CorpusCountDiff, CorpusDiffReport, CorpusFieldCardinalityDiff,
-    CorpusFieldPresenceDiff, CorpusFingerprint, CorpusFingerprintProfile, CorpusSummary,
-    CorpusValueShapeStatsDiff, compute_sha256, diff_corpus_fingerprints, diff_corpus_paths,
-    fingerprint_corpus_path, summarize_corpus_path,
-};
+use corpus::CorpusCommands;
+use hl7v2::synthetic::corpus::compute_sha256;
 use hl7v2::synthetic::generate::{Template, generate};
 use hl7v2::{
     AckCode as GenAckCode, Atom, Event, Field, Message, Profile, ProfileLintIssue,
@@ -44,9 +40,21 @@ use std::path::{Component, Path, PathBuf};
 use std::process;
 use std::time::Duration;
 mod config;
+mod corpus;
 mod monitor;
+mod stats;
 
 mod serve;
+#[cfg(test)]
+pub(crate) use corpus::{
+    corpus_diff_command, corpus_fingerprint_command, corpus_summarize_command, format_corpus_diff,
+    format_corpus_fingerprint, format_corpus_summary,
+};
+#[cfg(test)]
+pub(crate) use stats::{
+    SegmentStats, StatsReport, collect_stats, format_stats_report, stats_command,
+};
+
 #[cfg(test)]
 mod tests;
 
@@ -562,98 +570,6 @@ enum ProfileCommands {
     },
 }
 
-#[derive(Subcommand, Debug)]
-enum CorpusCommands {
-    /// Summarize a directory or file corpus of HL7 messages
-    Summarize {
-        /// Corpus directory or single HL7 file
-        path: PathBuf,
-
-        /// Output summary format (json, yaml, text)
-        #[arg(long, value_enum, default_value = "text")]
-        format: ReportFormat,
-
-        /// Evidence schema version for machine-readable summary reports
-        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
-        schema_version: u8,
-
-        /// Write the summary report to a file instead of stdout
-        #[arg(long)]
-        output: Option<PathBuf>,
-
-        /// Suppress non-error diagnostics
-        #[arg(long)]
-        quiet: bool,
-
-        /// Disable colored diagnostics
-        #[arg(long)]
-        no_color: bool,
-    },
-
-    /// Create a deterministic feed fingerprint
-    Fingerprint {
-        /// Corpus directory or single HL7 file
-        path: PathBuf,
-
-        /// Optional profile YAML file for validation issue-code counts
-        #[arg(long)]
-        profile: Option<PathBuf>,
-
-        /// Output fingerprint format (json, yaml, text)
-        #[arg(long, value_enum, default_value = "text")]
-        format: ReportFormat,
-
-        /// Evidence schema version for machine-readable fingerprint reports
-        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
-        schema_version: u8,
-
-        /// Write the fingerprint report to a file instead of stdout
-        #[arg(long)]
-        output: Option<PathBuf>,
-
-        /// Suppress non-error diagnostics
-        #[arg(long)]
-        quiet: bool,
-
-        /// Disable colored diagnostics
-        #[arg(long)]
-        no_color: bool,
-    },
-
-    /// Diff two directory or file corpora of HL7 messages
-    Diff {
-        /// Before corpus directory or single HL7 file
-        before: PathBuf,
-
-        /// After corpus directory or single HL7 file
-        after: PathBuf,
-
-        /// Optional profile YAML file for validation issue-code deltas
-        #[arg(long)]
-        profile: Option<PathBuf>,
-
-        /// Output diff format (json, yaml, text)
-        #[arg(long, value_enum, default_value = "text")]
-        format: ReportFormat,
-
-        /// Evidence schema version for machine-readable diff reports
-        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=2))]
-        schema_version: u8,
-
-        /// Write the diff report to a file instead of stdout
-        #[arg(long)]
-        output: Option<PathBuf>,
-
-        /// Suppress non-error diagnostics
-        #[arg(long)]
-        quiet: bool,
-
-        /// Disable colored diagnostics
-        #[arg(long)]
-        no_color: bool,
-    },
-}
-
 /// Server mode selection
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
 enum ServerMode {
@@ -682,7 +598,7 @@ enum AckCode {
 
 /// Report output format
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Default)]
-enum ReportFormat {
+pub(crate) enum ReportFormat {
     #[default]
     Text,
     Json,
@@ -714,14 +630,14 @@ impl SampleType {
     }
 }
 
-struct OutputOptions<'a> {
+pub(crate) struct OutputOptions<'a> {
     output: Option<&'a PathBuf>,
     quiet: bool,
     no_color: bool,
 }
 
 impl<'a> OutputOptions<'a> {
-    const fn new(output: Option<&'a PathBuf>, quiet: bool, no_color: bool) -> Self {
+    pub(crate) const fn new(output: Option<&'a PathBuf>, quiet: bool, no_color: bool) -> Self {
         Self {
             output,
             quiet,
@@ -729,7 +645,7 @@ impl<'a> OutputOptions<'a> {
         }
     }
 
-    fn emit(&self, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn emit(&self, output: &str) -> Result<(), Box<dyn std::error::Error>> {
         let _colors_enabled = !self.no_color;
         if let Some(path) = self.output {
             fs::write(path, output)?;
@@ -739,7 +655,7 @@ impl<'a> OutputOptions<'a> {
         Ok(())
     }
 
-    fn emit_raw(&self, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn emit_raw(&self, output: &str) -> Result<(), Box<dyn std::error::Error>> {
         let _colors_enabled = !self.no_color;
         if let Some(path) = self.output {
             fs::write(path, output)?;
@@ -749,7 +665,7 @@ impl<'a> OutputOptions<'a> {
         Ok(())
     }
 
-    fn diagnostic(&self, message: impl fmt::Display) {
+    pub(crate) fn diagnostic(&self, message: impl fmt::Display) {
         let _colors_enabled = !self.no_color;
         if !self.quiet {
             eprintln!("{message}");
@@ -1385,7 +1301,7 @@ async fn main() {
             mllp,
             distributions,
             format,
-        } => stats_command(input, *mllp, *distributions, format),
+        } => stats::stats_command(input, *mllp, *distributions, format),
         Commands::Doctor {
             sample,
             profile,
@@ -1470,53 +1386,7 @@ async fn main() {
                 &OutputOptions::new(output.as_ref(), *quiet, *no_color),
             ),
         },
-        Commands::Corpus { command } => match command {
-            CorpusCommands::Summarize {
-                path,
-                format,
-                schema_version,
-                output,
-                quiet,
-                no_color,
-            } => corpus_summarize_command(
-                path,
-                format,
-                *schema_version,
-                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
-            ),
-            CorpusCommands::Fingerprint {
-                path,
-                profile,
-                format,
-                schema_version,
-                output,
-                quiet,
-                no_color,
-            } => corpus_fingerprint_command(
-                path,
-                profile.as_ref(),
-                format,
-                *schema_version,
-                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
-            ),
-            CorpusCommands::Diff {
-                before,
-                after,
-                profile,
-                format,
-                schema_version,
-                output,
-                quiet,
-                no_color,
-            } => corpus_diff_command(
-                before,
-                after,
-                profile.as_ref(),
-                format,
-                *schema_version,
-                &OutputOptions::new(output.as_ref(), *quiet, *no_color),
-            ),
-        },
+        Commands::Corpus { command } => corpus::handle_command(command),
         Commands::Redact {
             input,
             policy,
@@ -3892,6 +3762,14 @@ fn build_profile_explain_report(
     }
 }
 
+fn format_string_list(values: &[String]) -> String {
+    if values.is_empty() {
+        "<none>".to_string()
+    } else {
+        values.join(", ")
+    }
+}
+
 fn profile_lint_issue_is_ignored_or_unsupported(issue: &ProfileLintIssue) -> bool {
     issue.code.starts_with("unknown_")
         || issue.code.contains("unsupported")
@@ -4528,739 +4406,6 @@ fn format_profile_lint_report(
 
             Ok(lines.join("\n"))
         }
-    }
-}
-
-/// Statistics report structure for JSON/YAML output
-#[derive(serde::Serialize)]
-struct StatsReport {
-    input_file: String,
-    file_size: usize,
-    segment_count: usize,
-    segments: Vec<SegmentStats>,
-    field_distributions: Option<Vec<FieldDistribution>>,
-}
-
-#[derive(serde::Serialize)]
-struct SegmentStats {
-    segment_id: String,
-    count: usize,
-}
-
-#[derive(serde::Serialize)]
-struct FieldDistribution {
-    path: String,
-    unique_values: usize,
-    sample_values: Vec<String>,
-}
-
-/// Collect statistics from an HL7 message
-fn collect_stats(message: &Message, distributions: bool) -> StatsReport {
-    // Collect segment statistics
-    let mut segment_counts: std::collections::HashMap<String, usize> =
-        std::collections::HashMap::new();
-    for segment in &message.segments {
-        *segment_counts
-            .entry(segment.id_str().to_string())
-            .or_insert(0) += 1;
-    }
-
-    let segments: Vec<SegmentStats> = segment_counts
-        .into_iter()
-        .map(|(id, count)| SegmentStats {
-            segment_id: id,
-            count,
-        })
-        .collect();
-
-    // Collect field distributions if requested
-    let field_distributions = if distributions {
-        let mut dists: Vec<FieldDistribution> = Vec::new();
-
-        // Sample some common fields for distribution analysis
-        for segment in &message.segments {
-            let segment_id = segment.id_str();
-
-            // Get field values (simplified - just first few fields)
-            for (field_idx, field) in segment.fields.iter().enumerate().take(5) {
-                if field_idx == 0 {
-                    continue; // Skip segment ID field
-                }
-
-                let path = format!("{}.{}", segment_id, field_idx);
-                // Get the first text value from the field
-                let value = field.first_text().unwrap_or("").to_string();
-
-                // Check if we already have this path
-                if let Some(existing) = dists.iter_mut().find(|d| d.path == path) {
-                    if !existing.sample_values.contains(&value) && existing.sample_values.len() < 10
-                    {
-                        existing.sample_values.push(value);
-                    }
-                    existing.unique_values = existing.sample_values.len();
-                } else {
-                    dists.push(FieldDistribution {
-                        path,
-                        unique_values: 1,
-                        sample_values: vec![value],
-                    });
-                }
-            }
-        }
-
-        Some(dists)
-    } else {
-        None
-    };
-
-    StatsReport {
-        input_file: String::new(), // To be filled by caller
-        file_size: 0,              // To be filled by caller
-        segment_count: message.segments.len(),
-        segments,
-        field_distributions,
-    }
-}
-
-/// Format statistics report based on requested format
-fn format_stats_report(
-    report: &StatsReport,
-    format: &ReportFormat,
-) -> Result<String, Box<dyn std::error::Error>> {
-    match format {
-        ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
-        ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
-        ReportFormat::Text => {
-            let mut output = String::new();
-            output.push_str("Message Statistics:\n");
-            output.push_str(&format!("  Input file: {}\n", report.input_file));
-            output.push_str(&format!("  File size: {} bytes\n", report.file_size));
-            output.push_str(&format!("  Total segments: {}\n", report.segment_count));
-            output.push('\n');
-            output.push_str("Segment breakdown:\n");
-            for seg in &report.segments {
-                output.push_str(&format!(
-                    "  {}: {} occurrence(s)\n",
-                    seg.segment_id, seg.count
-                ));
-            }
-
-            if let Some(dists) = &report.field_distributions {
-                output.push('\n');
-                output.push_str("Field value distributions:\n");
-                for dist in dists {
-                    output.push_str(&format!("  {}:\n", dist.path));
-                    output.push_str(&format!("    Unique values: {}\n", dist.unique_values));
-                    if !dist.sample_values.is_empty() {
-                        output.push_str(&format!(
-                            "    Sample values: {:?}\n",
-                            dist.sample_values.iter().take(5).collect::<Vec<_>>()
-                        ));
-                    }
-                }
-            }
-            Ok(output)
-        }
-    }
-}
-
-fn stats_command(
-    input: &PathBuf,
-    mllp: bool,
-    distributions: bool,
-    format: &ReportFormat,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut monitor = monitor::PerformanceMonitor::new();
-
-    // Read the HL7 message file
-    let contents = fs::read(input)?;
-    let file_size = contents.len();
-
-    let read_time = monitor.elapsed();
-    monitor.record_metric("File read", read_time);
-
-    // Parse the HL7 message
-    let message = if mllp {
-        parse_mllp(&contents)?
-    } else {
-        parse(&contents)?
-    };
-
-    let parse_time = monitor.elapsed() - read_time;
-    monitor.record_metric("Message parsing", parse_time);
-
-    // Collect statistics
-    let mut stats_report = collect_stats(&message, distributions);
-    stats_report.input_file = input.to_string_lossy().to_string();
-    stats_report.file_size = file_size;
-
-    // Format and output report
-    let report_output = format_stats_report(&stats_report, format)?;
-    println!("{}", report_output);
-
-    let output_time = monitor.elapsed() - read_time - parse_time;
-    monitor.record_metric("Output", output_time);
-
-    Ok(())
-}
-
-fn corpus_summarize_command(
-    path: &PathBuf,
-    format: &ReportFormat,
-    schema_version: u8,
-    output_options: &OutputOptions<'_>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if schema_version == 2 && *format == ReportFormat::Text {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "corpus summary schema version is only available with --format json or --format yaml",
-        )
-        .into());
-    }
-
-    let summary = summarize_corpus_path(path)?;
-    let output = format_corpus_summary(&summary, format, schema_version)?;
-    output_options.emit(&output)?;
-    Ok(())
-}
-
-fn format_corpus_summary(
-    summary: &CorpusSummary,
-    format: &ReportFormat,
-    schema_version: u8,
-) -> Result<String, Box<dyn std::error::Error>> {
-    match format {
-        ReportFormat::Json if schema_version == 2 => Ok(serde_json::to_string_pretty(
-            &summary.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
-        )?),
-        ReportFormat::Yaml if schema_version == 2 => Ok(serde_yaml::to_string(
-            &summary.to_v2("hl7v2-cli", env!("CARGO_PKG_VERSION")),
-        )?),
-        ReportFormat::Json => Ok(serde_json::to_string_pretty(summary)?),
-        ReportFormat::Yaml => Ok(serde_yaml::to_string(summary)?),
-        ReportFormat::Text => {
-            let mut output = String::new();
-            output.push_str("Corpus Summary:\n");
-            output.push_str(&format!("  Path: {}\n", summary.root));
-            output.push_str(&format!("  Files scanned: {}\n", summary.file_count));
-            output.push_str(&format!("  Parsed messages: {}\n", summary.message_count));
-            output.push_str(&format!("  Parse errors: {}\n", summary.parse_error_count));
-            output.push_str(&format!("  Total bytes: {}\n", summary.total_bytes));
-
-            output.push('\n');
-            output.push_str("Message types:\n");
-            append_counts(&mut output, &summary.message_types);
-
-            output.push('\n');
-            output.push_str("Segments:\n");
-            append_counts(&mut output, &summary.segments);
-
-            output.push('\n');
-            output.push_str("Field presence:\n");
-            if summary.field_presence.is_empty() {
-                output.push_str("  <none>\n");
-            } else {
-                for field in &summary.field_presence {
-                    output.push_str(&format!(
-                        "  {}: {} message(s), {} occurrence(s)\n",
-                        field.path, field.message_count, field.occurrence_count
-                    ));
-                }
-            }
-
-            if !summary.parse_errors.is_empty() {
-                output.push('\n');
-                output.push_str("Parse errors:\n");
-                for error in &summary.parse_errors {
-                    output.push_str(&format!("  {}: {}\n", error.path, error.error));
-                }
-            }
-
-            Ok(output)
-        }
-    }
-}
-
-fn append_counts(output: &mut String, counts: &[hl7v2::synthetic::corpus::CorpusCount]) {
-    if counts.is_empty() {
-        output.push_str("  <none>\n");
-        return;
-    }
-
-    for count in counts {
-        output.push_str(&format!("  {}: {}\n", count.value, count.count));
-    }
-}
-
-fn corpus_diff_command(
-    before: &PathBuf,
-    after: &PathBuf,
-    profile: Option<&PathBuf>,
-    format: &ReportFormat,
-    schema_version: u8,
-    output_options: &OutputOptions<'_>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if schema_version == 2 && *format == ReportFormat::Text {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "corpus diff schema v2 is available only with --format json or --format yaml",
-        )));
-    }
-
-    let diff = if let Some(profile_path) = profile {
-        let mut before_fingerprint = fingerprint_corpus_path(before)?;
-        let mut after_fingerprint = fingerprint_corpus_path(after)?;
-        let (profile_metadata, before_issue_counts) =
-            fingerprint_validation_issue_counts(before, profile_path)?;
-        let (_, after_issue_counts) = fingerprint_validation_issue_counts(after, profile_path)?;
-        before_fingerprint.profile = Some(profile_metadata.clone());
-        before_fingerprint.validation_issue_code_counts = before_issue_counts;
-        after_fingerprint.profile = Some(profile_metadata);
-        after_fingerprint.validation_issue_code_counts = after_issue_counts;
-        diff_corpus_fingerprints(&before_fingerprint, &after_fingerprint)
-    } else {
-        diff_corpus_paths(before, after)?
-    };
-    let output = format_corpus_diff(&diff, format, schema_version)?;
-    output_options.emit(&output)?;
-    Ok(())
-}
-
-fn corpus_fingerprint_command(
-    path: &PathBuf,
-    profile: Option<&PathBuf>,
-    format: &ReportFormat,
-    schema_version: u8,
-    output_options: &OutputOptions<'_>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if schema_version == 2 && *format == ReportFormat::Text {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "corpus fingerprint schema v2 is available only with --format json or --format yaml",
-        )));
-    }
-
-    let mut fingerprint = fingerprint_corpus_path(path)?;
-
-    if let Some(profile_path) = profile {
-        let (profile_metadata, issue_counts) =
-            fingerprint_validation_issue_counts(path, profile_path)?;
-        fingerprint.profile = Some(profile_metadata);
-        fingerprint.validation_issue_code_counts = issue_counts;
-    }
-
-    let output = format_corpus_fingerprint(&fingerprint, format, schema_version)?;
-    output_options.emit(&output)?;
-    Ok(())
-}
-
-fn format_corpus_diff(
-    diff: &CorpusDiffReport,
-    format: &ReportFormat,
-    schema_version: u8,
-) -> Result<String, Box<dyn std::error::Error>> {
-    match format {
-        ReportFormat::Json if schema_version == 2 => {
-            let diff_v2 = diff.to_v2("hl7v2-cli");
-            Ok(serde_json::to_string_pretty(&diff_v2)?)
-        }
-        ReportFormat::Yaml if schema_version == 2 => {
-            let diff_v2 = diff.to_v2("hl7v2-cli");
-            Ok(serde_yaml::to_string(&diff_v2)?)
-        }
-        ReportFormat::Json => Ok(serde_json::to_string_pretty(diff)?),
-        ReportFormat::Yaml => Ok(serde_yaml::to_string(diff)?),
-        ReportFormat::Text => {
-            let mut output = String::new();
-            output.push_str("Corpus Diff:\n");
-            output.push_str(&format!("  Diff version: {}\n", diff.diff_version));
-            output.push_str(&format!("  Tool version: {}\n", diff.tool_version));
-            output.push_str(&format!("  Before: {}\n", diff.before_root));
-            output.push_str(&format!("  After: {}\n", diff.after_root));
-
-            if let Some(profile) = &diff.profile {
-                output.push('\n');
-                output.push_str("Profile:\n");
-                output.push_str(&format!("  Path: {}\n", profile.path));
-                output.push_str(&format!("  SHA-256: {}\n", profile.sha256));
-                output.push_str(&format!("  Version: {}\n", profile.version));
-                output.push_str(&format!(
-                    "  Message structure: {}\n",
-                    profile.message_structure
-                ));
-            }
-
-            output.push('\n');
-            output.push_str("Totals:\n");
-            output.push_str(&format!(
-                "  Files scanned: {} -> {} ({})\n",
-                diff.file_count.before,
-                diff.file_count.after,
-                format_signed_delta(diff.file_count.delta)
-            ));
-            output.push_str(&format!(
-                "  Parsed messages: {} -> {} ({})\n",
-                diff.message_count.before,
-                diff.message_count.after,
-                format_signed_delta(diff.message_count.delta)
-            ));
-            output.push_str(&format!(
-                "  Parse errors: {} -> {} ({})\n",
-                diff.parse_error_count.before,
-                diff.parse_error_count.after,
-                format_signed_delta(diff.parse_error_count.delta)
-            ));
-            output.push_str(&format!(
-                "  New message types: {}\n",
-                format_string_list(&diff.new_message_types)
-            ));
-            output.push_str(&format!(
-                "  Removed message types: {}\n",
-                format_string_list(&diff.removed_message_types)
-            ));
-            output.push_str(&format!(
-                "  New segments: {}\n",
-                format_string_list(&diff.new_segments)
-            ));
-            output.push_str(&format!(
-                "  Removed segments: {}\n",
-                format_string_list(&diff.removed_segments)
-            ));
-
-            output.push('\n');
-            output.push_str("Message types:\n");
-            append_count_diffs(&mut output, &diff.message_type_counts);
-
-            output.push('\n');
-            output.push_str("Segments:\n");
-            append_count_diffs(&mut output, &diff.segment_counts);
-
-            output.push('\n');
-            output.push_str("Field presence:\n");
-            append_field_presence_diffs(&mut output, &diff.field_presence);
-
-            output.push('\n');
-            output.push_str("Field cardinality:\n");
-            append_field_cardinality_diffs(&mut output, &diff.field_cardinality);
-
-            output.push('\n');
-            output.push_str("Value shapes:\n");
-            append_value_shape_diffs(&mut output, &diff.value_shape_stats);
-
-            if diff.profile.is_some() {
-                output.push('\n');
-                output.push_str("Validation issue codes:\n");
-                append_count_diffs(&mut output, &diff.validation_issue_code_counts);
-            }
-
-            Ok(output)
-        }
-    }
-}
-
-fn fingerprint_validation_issue_counts(
-    path: &Path,
-    profile_path: &Path,
-) -> Result<(CorpusFingerprintProfile, Vec<CorpusCount>), Box<dyn std::error::Error>> {
-    let profile_yaml = fs::read_to_string(profile_path)?;
-    let profile = load_profile_checked(&profile_yaml)?;
-    let profile_metadata = CorpusFingerprintProfile {
-        path: profile_path.to_string_lossy().to_string(),
-        sha256: compute_sha256(&profile_yaml),
-        version: profile.version.clone(),
-        message_structure: profile.message_structure.clone(),
-    };
-
-    let mut files = Vec::new();
-    collect_cli_corpus_files(path, &mut files)?;
-    files.sort();
-
-    let mut counts = std::collections::BTreeMap::new();
-    for file in files {
-        let bytes = fs::read(&file)?;
-        let parsed = if is_mllp_framed(&bytes) {
-            parse_mllp(&bytes)
-        } else {
-            parse(&bytes)
-        };
-        let Ok(message) = parsed else {
-            continue;
-        };
-        let issues = validate(&message, &profile);
-        let report = ValidationReport::from_issues(
-            &message,
-            Some(profile_path.to_string_lossy().to_string()),
-            issues,
-        );
-        for issue in report.issues {
-            let count = counts.entry(issue.code).or_insert(0usize);
-            *count = count.saturating_add(1);
-        }
-    }
-
-    Ok((profile_metadata, counts_to_corpus_counts(counts)))
-}
-
-fn collect_cli_corpus_files(
-    path: &Path,
-    files: &mut Vec<PathBuf>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if path.is_file() {
-        files.push(path.to_path_buf());
-        return Ok(());
-    }
-
-    if !path.is_dir() {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("{} is not a file or directory", path.display()),
-        )));
-    }
-
-    for entry in fs::read_dir(path)? {
-        let entry = entry?;
-        let child = entry.path();
-        if child.is_dir() {
-            collect_cli_corpus_files(&child, files)?;
-        } else if child.is_file() {
-            files.push(child);
-        }
-    }
-
-    Ok(())
-}
-
-fn counts_to_corpus_counts(counts: std::collections::BTreeMap<String, usize>) -> Vec<CorpusCount> {
-    counts
-        .into_iter()
-        .map(|(value, count)| CorpusCount { value, count })
-        .collect()
-}
-
-fn format_corpus_fingerprint(
-    fingerprint: &CorpusFingerprint,
-    format: &ReportFormat,
-    schema_version: u8,
-) -> Result<String, Box<dyn std::error::Error>> {
-    match format {
-        ReportFormat::Json if schema_version == 2 => {
-            let fingerprint_v2 = fingerprint.to_v2("hl7v2-cli");
-            Ok(serde_json::to_string_pretty(&fingerprint_v2)?)
-        }
-        ReportFormat::Yaml if schema_version == 2 => {
-            let fingerprint_v2 = fingerprint.to_v2("hl7v2-cli");
-            Ok(serde_yaml::to_string(&fingerprint_v2)?)
-        }
-        ReportFormat::Json => Ok(serde_json::to_string_pretty(fingerprint)?),
-        ReportFormat::Yaml => Ok(serde_yaml::to_string(fingerprint)?),
-        ReportFormat::Text => {
-            let mut output = String::new();
-            output.push_str("Corpus Fingerprint:\n");
-            output.push_str(&format!("  Path: {}\n", fingerprint.root));
-            output.push_str(&format!(
-                "  Fingerprint version: {}\n",
-                fingerprint.fingerprint_version
-            ));
-            output.push_str(&format!("  Tool version: {}\n", fingerprint.tool_version));
-            output.push_str(&format!("  Files scanned: {}\n", fingerprint.file_count));
-            output.push_str(&format!(
-                "  Parsed messages: {}\n",
-                fingerprint.message_count
-            ));
-            output.push_str(&format!(
-                "  Parse errors: {}\n",
-                fingerprint.parse_error_count
-            ));
-
-            if let Some(profile) = &fingerprint.profile {
-                output.push('\n');
-                output.push_str("Profile:\n");
-                output.push_str(&format!("  Path: {}\n", profile.path));
-                output.push_str(&format!("  SHA-256: {}\n", profile.sha256));
-                output.push_str(&format!("  Version: {}\n", profile.version));
-                output.push_str(&format!(
-                    "  Message structure: {}\n",
-                    profile.message_structure
-                ));
-            }
-
-            output.push('\n');
-            output.push_str("Message types:\n");
-            append_counts(&mut output, &fingerprint.message_type_counts);
-
-            output.push('\n');
-            output.push_str("Segments:\n");
-            append_counts(&mut output, &fingerprint.segment_counts);
-
-            output.push('\n');
-            output.push_str("Field presence:\n");
-            append_fingerprint_field_presence(&mut output, fingerprint);
-
-            output.push('\n');
-            output.push_str("Value shapes:\n");
-            append_value_shape_stats(&mut output, fingerprint);
-
-            if fingerprint.profile.is_some() {
-                output.push('\n');
-                output.push_str("Validation issue codes:\n");
-                append_counts(&mut output, &fingerprint.validation_issue_code_counts);
-            }
-
-            Ok(output)
-        }
-    }
-}
-
-fn append_count_diffs(output: &mut String, counts: &[CorpusCountDiff]) {
-    if counts.is_empty() {
-        output.push_str("  <none>\n");
-        return;
-    }
-
-    for count in counts {
-        output.push_str(&format!(
-            "  {}: {} -> {} ({})\n",
-            count.value,
-            count.before,
-            count.after,
-            format_signed_delta(count.delta)
-        ));
-    }
-}
-
-fn append_field_presence_diffs(output: &mut String, fields: &[CorpusFieldPresenceDiff]) {
-    if fields.is_empty() {
-        output.push_str("  <none>\n");
-        return;
-    }
-
-    for field in fields {
-        output.push_str(&format!(
-            "  {}: messages {} -> {} ({}), occurrences {} -> {} ({})\n",
-            field.path,
-            field.before_message_count,
-            field.after_message_count,
-            format_signed_delta(field.message_count_delta),
-            field.before_occurrence_count,
-            field.after_occurrence_count,
-            format_signed_delta(field.occurrence_count_delta)
-        ));
-    }
-}
-
-fn append_field_cardinality_diffs(output: &mut String, fields: &[CorpusFieldCardinalityDiff]) {
-    if fields.is_empty() {
-        output.push_str("  <none>\n");
-        return;
-    }
-
-    for field in fields {
-        output.push_str(&format!(
-            "  {}: min {} -> {} ({}), max {} -> {} ({}), total {} -> {} ({})\n",
-            field.path,
-            field.before_min_per_message,
-            field.after_min_per_message,
-            format_signed_delta(field.min_per_message_delta),
-            field.before_max_per_message,
-            field.after_max_per_message,
-            format_signed_delta(field.max_per_message_delta),
-            field.before_total_occurrences,
-            field.after_total_occurrences,
-            format_signed_delta(field.total_occurrences_delta)
-        ));
-    }
-}
-
-fn append_value_shape_diffs(output: &mut String, shapes: &[CorpusValueShapeStatsDiff]) {
-    if shapes.is_empty() {
-        output.push_str("  <none>\n");
-        return;
-    }
-
-    for shape in shapes {
-        output.push_str(&format!(
-            "  {}: coded {} -> {} ({}), timestamp {} -> {} ({}), numeric {} -> {} ({}), null {} -> {} ({}), text {} -> {} ({})\n",
-            shape.path,
-            shape.coded_count.before,
-            shape.coded_count.after,
-            format_signed_delta(shape.coded_count.delta),
-            shape.timestamp_count.before,
-            shape.timestamp_count.after,
-            format_signed_delta(shape.timestamp_count.delta),
-            shape.numeric_count.before,
-            shape.numeric_count.after,
-            format_signed_delta(shape.numeric_count.delta),
-            shape.null_count.before,
-            shape.null_count.after,
-            format_signed_delta(shape.null_count.delta),
-            shape.text_count.before,
-            shape.text_count.after,
-            format_signed_delta(shape.text_count.delta)
-        ));
-    }
-}
-
-fn append_fingerprint_field_presence(output: &mut String, fingerprint: &CorpusFingerprint) {
-    if fingerprint.field_presence.is_empty() {
-        output.push_str("  <none>\n");
-        return;
-    }
-
-    for field in &fingerprint.field_presence {
-        if let Some(cardinality) = fingerprint
-            .field_cardinality
-            .iter()
-            .find(|candidate| candidate.path == field.path)
-        {
-            output.push_str(&format!(
-                "  {}: {} message(s), {} occurrence(s), min {}, max {}\n",
-                field.path,
-                field.message_count,
-                field.occurrence_count,
-                cardinality.min_per_message,
-                cardinality.max_per_message
-            ));
-        } else {
-            output.push_str(&format!(
-                "  {}: {} message(s), {} occurrence(s)\n",
-                field.path, field.message_count, field.occurrence_count
-            ));
-        }
-    }
-}
-
-fn append_value_shape_stats(output: &mut String, fingerprint: &CorpusFingerprint) {
-    if fingerprint.value_shape_stats.is_empty() {
-        output.push_str("  <none>\n");
-        return;
-    }
-
-    for stats in &fingerprint.value_shape_stats {
-        output.push_str(&format!(
-            "  {}: coded {}, timestamp {}, numeric {}, null {}, text {}\n",
-            stats.path,
-            stats.coded_count,
-            stats.timestamp_count,
-            stats.numeric_count,
-            stats.null_count,
-            stats.text_count
-        ));
-    }
-}
-
-fn format_string_list(values: &[String]) -> String {
-    if values.is_empty() {
-        "<none>".to_string()
-    } else {
-        values.join(", ")
-    }
-}
-
-fn format_signed_delta(delta: i128) -> String {
-    if delta > 0 {
-        format!("+{delta}")
-    } else {
-        delta.to_string()
     }
 }
 
