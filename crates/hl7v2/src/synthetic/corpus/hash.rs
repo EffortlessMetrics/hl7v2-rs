@@ -27,6 +27,7 @@ pub fn compute_message_hash(message: &Message) -> String {
 mod tests {
     use super::{compute_message_hash, compute_sha256};
     use crate::model::{Delims, Field, Message, Segment};
+    use crate::writer::write;
 
     #[test]
     fn empty_string_sha256_matches_known_constant() {
@@ -78,7 +79,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_message_hash_is_deterministic() {
+    fn compute_message_hash_matches_canonical_wire_bytes() {
         let message = Message {
             delims: Delims::default(),
             segments: vec![Segment {
@@ -87,11 +88,13 @@ mod tests {
             }],
             charsets: vec![],
         };
-        let h1 = compute_message_hash(&message);
-        let h2 = compute_message_hash(&message);
-        assert_eq!(h1, h2);
-        assert_eq!(h1.len(), 64);
-        assert!(h1.chars().all(|c| c.is_ascii_hexdigit()));
+        let expected_wire = "MSH|^~\\&|APP\r";
+
+        assert_eq!(write(&message), expected_wire.as_bytes());
+        assert_eq!(
+            compute_message_hash(&message),
+            compute_sha256(expected_wire)
+        );
     }
 
     #[test]
@@ -110,6 +113,8 @@ mod tests {
             fields: vec![Field::from_text("2")],
         });
 
+        assert_eq!(write(&base), b"PID|1\r");
+        assert_eq!(write(&other), b"PID|1\rOBX|2\r");
         assert_ne!(compute_message_hash(&base), compute_message_hash(&other));
     }
 }

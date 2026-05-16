@@ -487,20 +487,26 @@ mod tests {
     #[test]
     fn to_faker_value_round_trips_known_variants() {
         let fixed = ValueSource::Fixed("x".to_string()).to_faker_value();
-        assert!(matches!(fixed, FakerValue::Fixed(ref s) if s == "x"));
+        assert_eq!(fixed, FakerValue::Fixed("x".to_string()));
 
         let from = ValueSource::From(vec!["a".to_string()]).to_faker_value();
-        assert!(matches!(from, FakerValue::From(ref opts) if opts == &vec!["a".to_string()]));
+        assert_eq!(from, FakerValue::From(vec!["a".to_string()]));
 
         let numeric = ValueSource::Numeric { digits: 4 }.to_faker_value();
-        assert!(matches!(numeric, FakerValue::Numeric { digits: 4 }));
+        assert_eq!(numeric, FakerValue::Numeric { digits: 4 });
 
         let date = ValueSource::Date {
             start: "20200101".to_string(),
             end: "20201231".to_string(),
         }
         .to_faker_value();
-        assert!(matches!(date, FakerValue::Date { .. }));
+        assert_eq!(
+            date,
+            FakerValue::Date {
+                start: "20200101".to_string(),
+                end: "20201231".to_string(),
+            }
+        );
 
         let gaussian = ValueSource::Gaussian {
             mean: 1.0,
@@ -508,22 +514,84 @@ mod tests {
             precision: 1,
         }
         .to_faker_value();
-        assert!(matches!(gaussian, FakerValue::Gaussian { .. }));
+        assert_eq!(
+            gaussian,
+            FakerValue::Gaussian {
+                mean: 1.0,
+                sd: 2.0,
+                precision: 1,
+            }
+        );
+
+        let mut mapping = HashMap::new();
+        mapping.insert("in".to_string(), "out".to_string());
+        let map = ValueSource::Map(mapping.clone()).to_faker_value();
+        assert_eq!(map, FakerValue::Map(mapping));
 
         let uuid = ValueSource::UuidV4.to_faker_value();
-        assert!(matches!(uuid, FakerValue::UuidV4));
+        assert_eq!(uuid, FakerValue::UuidV4);
 
         let dtm = ValueSource::DtmNowUtc.to_faker_value();
-        assert!(matches!(dtm, FakerValue::DtmNowUtc));
+        assert_eq!(dtm, FakerValue::DtmNowUtc);
 
         let name = ValueSource::RealisticName {
             gender: Some("M".to_string()),
         }
         .to_faker_value();
-        assert!(matches!(name, FakerValue::RealisticName { .. }));
+        assert_eq!(
+            name,
+            FakerValue::RealisticName {
+                gender: Some("M".to_string()),
+            }
+        );
+
+        assert_eq!(
+            ValueSource::RealisticAddress.to_faker_value(),
+            FakerValue::RealisticAddress
+        );
+        assert_eq!(
+            ValueSource::RealisticPhone.to_faker_value(),
+            FakerValue::RealisticPhone
+        );
+        assert_eq!(
+            ValueSource::RealisticSsn.to_faker_value(),
+            FakerValue::RealisticSsn
+        );
+        assert_eq!(
+            ValueSource::RealisticMrn.to_faker_value(),
+            FakerValue::RealisticMrn
+        );
+        assert_eq!(
+            ValueSource::RealisticIcd10.to_faker_value(),
+            FakerValue::RealisticIcd10
+        );
+        assert_eq!(
+            ValueSource::RealisticLoinc.to_faker_value(),
+            FakerValue::RealisticLoinc
+        );
+        assert_eq!(
+            ValueSource::RealisticMedication.to_faker_value(),
+            FakerValue::RealisticMedication
+        );
+        assert_eq!(
+            ValueSource::RealisticAllergen.to_faker_value(),
+            FakerValue::RealisticAllergen
+        );
+        assert_eq!(
+            ValueSource::RealisticBloodType.to_faker_value(),
+            FakerValue::RealisticBloodType
+        );
+        assert_eq!(
+            ValueSource::RealisticEthnicity.to_faker_value(),
+            FakerValue::RealisticEthnicity
+        );
+        assert_eq!(
+            ValueSource::RealisticRace.to_faker_value(),
+            FakerValue::RealisticRace
+        );
 
         // Error-injection variants map to an empty Fixed.
         let bad = ValueSource::BadDelimLength.to_faker_value();
-        assert!(matches!(bad, FakerValue::Fixed(ref s) if s.is_empty()));
+        assert_eq!(bad, FakerValue::Fixed(String::new()));
     }
 }
