@@ -976,24 +976,16 @@ fn command_exists(cmd: &str) -> bool {
             .unwrap_or(false)
         }
         _ => {
-        env::var_os("PATH")
-            .map(|paths| {
-                env::split_paths(&paths)
-                    .map(|dir| dir.join(cmd))
-                    .any(|candidate| is_executable_file(&candidate))
-            })
+        let safe = cmd.replace('\'', r"'\''");
+        Command::new("sh")
+            .args(["-lc", &format!("command -v '{safe}' >/dev/null 2>&1")])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
             .unwrap_or(false)
         }
     }
-}
-
-#[cfg(not(windows))]
-fn is_executable_file(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-
-    fs::metadata(path)
-        .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
-        .unwrap_or(false)
 }
 
 // ---------------------------------------------------------------------------
