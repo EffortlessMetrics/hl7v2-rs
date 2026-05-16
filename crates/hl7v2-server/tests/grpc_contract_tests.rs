@@ -314,6 +314,9 @@ constraints:
             (generate_ack_request::AckCode::Aa, "AA"),
             (generate_ack_request::AckCode::Ae, "AE"),
             (generate_ack_request::AckCode::Ar, "AR"),
+            (generate_ack_request::AckCode::Ca, "CA"),
+            (generate_ack_request::AckCode::Ce, "CE"),
+            (generate_ack_request::AckCode::Cr, "CR"),
         ] {
             let response = service
                 .generate_ack(Request::new(GenerateAckRequest {

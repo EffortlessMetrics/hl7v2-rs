@@ -146,6 +146,12 @@ report fields, supports opt-in v2 provenance if claimed, rejects unsupported
 schema versions, avoids request filesystem reads, avoids raw profile echo in
 malformed-profile diagnostics, and passes gRPC contract tests.
 
+`GenerateAck` can be described as gRPC ACK parity when the proto contract
+accepts application ACK codes `AA`, `AE`, and `AR` plus commit ACK codes `CA`,
+`CE`, and `CR`, returns an ACK payload whose `MSA.1` and `MSA.2` preserve the
+requested code and original control ID, returns a parsed ACK shape for
+verification, and passes gRPC contract tests.
+
 `CreateEvidenceBundle` can be described as gRPC evidence bundle creation parity
 when the RPC accepts inline message, profile, and redaction policy inputs,
 writes only under the configured server bundle root, rejects unsafe bundle IDs,
