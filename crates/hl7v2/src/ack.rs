@@ -384,3 +384,207 @@ fn create_err_segment(error_message: &str) -> Segment {
         fields,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Message;
+
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+    fn ensure(condition: bool, message: &'static str) -> TestResult {
+        if condition {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(message).into())
+        }
+    }
+
+    fn parse_sample() -> Result<Message, crate::Error> {
+        crate::parse(
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\r",
+        )
+    }
+
+    fn ack_round_trip(msg: &Message) -> Result<Message, crate::Error> {
+        crate::parse(&crate::write(msg))
+    }
+
+    #[test]
+    fn ack_code_as_str_covers_all_variants() -> TestResult {
+        ensure(AckCode::AA.as_str() == "AA", "AA")?;
+        ensure(AckCode::AE.as_str() == "AE", "AE")?;
+        ensure(AckCode::AR.as_str() == "AR", "AR")?;
+        ensure(AckCode::CA.as_str() == "CA", "CA")?;
+        ensure(AckCode::CE.as_str() == "CE", "CE")?;
+        ensure(AckCode::CR.as_str() == "CR", "CR")
+    }
+
+    #[test]
+    fn ack_code_display_matches_as_str() -> TestResult {
+        for code in [
+            AckCode::AA,
+            AckCode::AE,
+            AckCode::AR,
+            AckCode::CA,
+            AckCode::CE,
+            AckCode::CR,
+        ] {
+            let displayed = format!("{code}");
+            ensure(displayed == code.as_str(), "Display mismatches as_str")?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn ack_rejects_empty_message() -> TestResult {
+        let empty = Message::new();
+        let result = ack(&empty, AckCode::AA);
+        ensure(
+            matches!(result, Err(Error::InvalidSegmentId)),
+            "empty message should yield InvalidSegmentId",
+        )
+    }
+
+    #[test]
+    fn ack_rejects_non_msh_first_segment() -> TestResult {
+        let invalid = Message::with_segments(vec![Segment {
+            id: *b"PID",
+            fields: Vec::new(),
+        }]);
+        let result = ack(&invalid, AckCode::AA);
+        ensure(
+            matches!(result, Err(Error::InvalidSegmentId)),
+            "non-MSH first segment should yield InvalidSegmentId",
+        )
+    }
+
+    #[test]
+    fn ack_preserves_default_encoding_characters() -> TestResult {
+        let original = parse_sample()?;
+        let ack_msg = ack(&original, AckCode::AA)?;
+        let reparsed = ack_round_trip(&ack_msg)?;
+
+        ensure(reparsed.delims.comp == '^', "comp delim")?;
+        ensure(reparsed.delims.rep == '~', "rep delim")?;
+        ensure(reparsed.delims.esc == '\\', "esc delim")?;
+        ensure(reparsed.delims.sub == '&', "sub delim")
+    }
+
+    #[test]
+    fn ack_propagates_non_default_encoding_characters() -> TestResult {
+        let original = crate::parse(
+            b"MSH|*&!?|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT*A01|CTRL999|P|2.5\r",
+        )?;
+        let ack_msg = ack(&original, AckCode::AA)?;
+        let reparsed = ack_round_trip(&ack_msg)?;
+
+        ensure(reparsed.delims.comp == '*', "comp delim propagated")?;
+        ensure(reparsed.delims.rep == '&', "rep delim propagated")?;
+        ensure(reparsed.delims.esc == '!', "esc delim propagated")?;
+        ensure(reparsed.delims.sub == '?', "sub delim propagated")
+    }
+
+    #[test]
+    fn ack_msh9_first_component_is_ack_with_original_message_type() -> TestResult {
+        let original = parse_sample()?;
+        let ack_msg = ack(&original, AckCode::AA)?;
+        let reparsed = ack_round_trip(&ack_msg)?;
+
+        ensure(
+            crate::get(&reparsed, "MSH.9.1") == Some("ACK"),
+            "MSH.9.1 should be ACK",
+        )?;
+        ensure(
+            crate::get(&reparsed, "MSH.9.2") == Some("ADT"),
+            "MSH.9.2 should carry original message type code",
+        )
+    }
+
+    #[test]
+    fn ack_defaults_version_when_source_missing() -> TestResult {
+        let original = crate::parse(
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P\r",
+        )?;
+        let ack_msg = ack(&original, AckCode::AA)?;
+        let reparsed = ack_round_trip(&ack_msg)?;
+
+        ensure(
+            crate::get(&reparsed, "MSH.12") == Some("2.5.1"),
+            "MSH.12 should default to 2.5.1",
+        )
+    }
+
+    #[test]
+    fn ack_defaults_processing_id_when_source_missing() -> TestResult {
+        let original = crate::parse(
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123\r",
+        )?;
+        let ack_msg = ack(&original, AckCode::AA)?;
+        let reparsed = ack_round_trip(&ack_msg)?;
+
+        ensure(
+            crate::get(&reparsed, "MSH.11") == Some("P"),
+            "MSH.11 should default to P",
+        )
+    }
+
+    #[test]
+    fn ack_with_error_without_message_has_no_err_segment() -> TestResult {
+        let original = parse_sample()?;
+        let ack_msg = ack_with_error(&original, AckCode::AA, None)?;
+
+        ensure(
+            ack_msg.segments.len() == 2,
+            "no error message should yield only MSH+MSA",
+        )?;
+        ensure(
+            ack_msg.segments.first().map(|s| &s.id) == Some(b"MSH"),
+            "first segment MSH",
+        )?;
+        ensure(
+            ack_msg.segments.get(1).map(|s| &s.id) == Some(b"MSA"),
+            "second segment MSA",
+        )
+    }
+
+    #[test]
+    fn ack_with_error_appends_err_segment_with_text() -> TestResult {
+        let original = parse_sample()?;
+        let ack_msg = ack_with_error(&original, AckCode::AE, Some("boom"))?;
+        let reparsed = ack_round_trip(&ack_msg)?;
+
+        ensure(reparsed.segments.len() == 3, "MSH + MSA + ERR")?;
+        ensure(
+            crate::get(&reparsed, "ERR.3") == Some("boom"),
+            "ERR.3 should carry error text",
+        )
+    }
+
+    #[test]
+    fn ack_with_error_preserves_ae_and_ar_codes() -> TestResult {
+        let original = parse_sample()?;
+
+        for code in [AckCode::AE, AckCode::AR] {
+            let ack_msg = ack_with_error(&original, code, Some("err"))?;
+            let reparsed = ack_round_trip(&ack_msg)?;
+            ensure(
+                crate::get(&reparsed, "MSA.1") == Some(code.as_str()),
+                "MSA.1 should match code",
+            )?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn ack_carries_original_control_id_in_msa_2() -> TestResult {
+        let original = parse_sample()?;
+        let ack_msg = ack(&original, AckCode::AA)?;
+        let reparsed = ack_round_trip(&ack_msg)?;
+
+        ensure(
+            crate::get(&reparsed, "MSA.2") == Some("CTRL123"),
+            "MSA.2 should mirror original MSH-10",
+        )
+    }
+}
