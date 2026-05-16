@@ -92,11 +92,11 @@ Required fixture families:
 
 The shared dirty-corpus fixture family lives in
 `test_data/dirty-real-world/`. It currently proves Rust core, CLI, REST server,
-and gRPC server corpus summary, fingerprint, and diff parity for Z-segments,
-large OBX expansion, legacy encoding declarations, malformed delimiters, partial
-batch-like input, and generated MLLP-framed input. Python and TypeScript parity
-must use the same fixture family or explicitly explain why a transport-specific
-fixture is required.
+gRPC server, and local Python wheel corpus summary, fingerprint, and diff parity
+for Z-segments, large OBX expansion, legacy encoding declarations, malformed
+delimiters, partial batch-like input, and generated MLLP-framed input.
+TypeScript parity must use the same fixture family or explicitly explain why a
+transport-specific fixture is required.
 
 ## Non-Goals
 

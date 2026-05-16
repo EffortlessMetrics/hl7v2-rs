@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for corpus summary, fingerprint, and diff.
 - Added REST and gRPC server dirty-corpus parity coverage using the shared dirty
   real-world fixture categories.
+- Added local Python wheel dirty-corpus parity coverage using the shared dirty
+  real-world fixture categories.
 - Added gRPC evidence replay parity with configured-root bundle replay,
   fail-closed missing/unsafe bundle handling, shared replay reports, and opt-in
   v2 replay provenance.
@@ -45,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CLI corpus evidence commands.
 - Recorded the server dirty real-world corpus parity proof for REST and gRPC
   corpus evidence commands.
+- Recorded the local Python wheel dirty real-world corpus parity proof.
 - Recorded a post-release current-main readiness refresh after the focused SRP
   module split train landed through #691.
 - Recorded a fresh hosted non-publishing `Python TestPyPI Proof` receipt on

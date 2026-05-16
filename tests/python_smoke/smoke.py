@@ -112,6 +112,31 @@ def assert_no_phi_leak_sentinels_or_paths(
             raise AssertionError(f"{context} leaked raw fixture file name: {file_name}")
 
 
+def normalize_fixture_segments(contents: bytes) -> bytes:
+    return (
+        contents.decode("utf-8", errors="replace")
+        .replace("\r\n", "\n")
+        .replace("\n", "\r")
+        .encode("utf-8")
+    )
+
+
+def materialize_dirty_corpus_dir(source: Path, target: Path) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    for path in sorted(source.iterdir()):
+        if path.is_file():
+            (target / path.name).write_bytes(normalize_fixture_segments(path.read_bytes()))
+
+
+def add_generated_mllp_fixture(source: Path, target: Path) -> None:
+    normalized = normalize_fixture_segments(source.read_bytes())
+    (target / "mllp-framed.hl7").write_bytes(b"\x0b" + normalized + b"\x1c\r")
+
+
+def has_count(entries: list[dict[str, object]], value: str, count: int) -> bool:
+    return any(entry.get("value") == value and entry.get("count") == count for entry in entries)
+
+
 def main() -> int:
     raw = (
         "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01|CTRL123|P|2.5\r"
@@ -553,6 +578,125 @@ constraints:
                 return 1
         else:
             print("expected unsupported diff schema version to fail", file=sys.stderr)
+            return 1
+
+    repo_root = Path(__file__).resolve().parents[2]
+    dirty_fixture_root = repo_root / "test_data" / "dirty-real-world"
+    with tempfile.TemporaryDirectory() as tmp:
+        dirty_root = Path(tmp)
+        dirty_before = dirty_root / "before"
+        dirty_after = dirty_root / "after"
+        materialize_dirty_corpus_dir(dirty_fixture_root / "before", dirty_before)
+        materialize_dirty_corpus_dir(dirty_fixture_root / "after", dirty_after)
+        add_generated_mllp_fixture(
+            dirty_fixture_root / "sources" / "mllp-source.hl7",
+            dirty_after,
+        )
+
+        dirty_summary = hl7v2.corpus_summary(str(dirty_after), schema_version=2)
+        if (
+            dirty_summary["schema_version"] != "2"
+            or dirty_summary["tool_name"] != "hl7v2-python"
+            or dirty_summary["message_count"] != 4
+            or dirty_summary["file_count"] != 6
+            or dirty_summary["parse_error_count"] != 2
+        ):
+            print(
+                "dirty corpus summary did not preserve expected aggregate counts",
+                file=sys.stderr,
+            )
+            return 1
+        if not (
+            has_count(dirty_summary["message_types"], "ADT^A01", 1)
+            and has_count(dirty_summary["message_types"], "ADT^A08", 1)
+            and has_count(dirty_summary["message_types"], "ADT^A04", 1)
+            and has_count(dirty_summary["message_types"], "ORU^R01", 1)
+            and has_count(dirty_summary["segments"], "ZPV", 1)
+            and has_count(dirty_summary["segments"], "OBX", 20)
+        ):
+            print("dirty corpus summary did not preserve expected shape counts", file=sys.stderr)
+            return 1
+        parse_error_paths = {item["path"] for item in dirty_summary["parse_errors"]}
+        if parse_error_paths != {"malformed-delimiters.hl7", "partial-batch.hl7"}:
+            print(
+                f"unexpected dirty corpus parse-error paths: {parse_error_paths}",
+                file=sys.stderr,
+            )
+            return 1
+
+        dirty_fingerprint = hl7v2.corpus_fingerprint(str(dirty_after), schema_version=2)
+        if (
+            dirty_fingerprint["schema_version"] != "2"
+            or dirty_fingerprint["tool_name"] != "hl7v2-python"
+            or dirty_fingerprint["fingerprint_version"] != "1"
+            or dirty_fingerprint["message_count"] != 4
+            or dirty_fingerprint["file_count"] != 6
+            or dirty_fingerprint["parse_error_count"] != 2
+        ):
+            print(
+                "dirty corpus fingerprint did not preserve expected aggregate counts",
+                file=sys.stderr,
+            )
+            return 1
+        if not any(
+            field["path"] == "OBX.5"
+            and field["max_per_message"] == 20
+            and field["total_occurrences"] == 20
+            for field in dirty_fingerprint["field_cardinality"]
+        ):
+            print(
+                "dirty corpus fingerprint did not preserve OBX.5 cardinality",
+                file=sys.stderr,
+            )
+            return 1
+        if not any(
+            field["path"] == "ZPV.1" and field["total_occurrences"] == 1
+            for field in dirty_fingerprint["field_cardinality"]
+        ):
+            print(
+                "dirty corpus fingerprint did not preserve ZPV.1 cardinality",
+                file=sys.stderr,
+            )
+            return 1
+
+        dirty_diff = hl7v2.corpus_diff(
+            str(dirty_before),
+            str(dirty_after),
+            schema_version=2,
+        )
+        if (
+            dirty_diff["schema_version"] != "2"
+            or dirty_diff["tool_name"] != "hl7v2-python"
+            or dirty_diff["diff_version"] != "1"
+            or dirty_diff["file_count"]["before"] != 2
+            or dirty_diff["file_count"]["after"] != 6
+            or dirty_diff["file_count"]["delta"] != 4
+            or dirty_diff["message_count"]["delta"] != 2
+            or dirty_diff["parse_error_count"]["delta"] != 2
+        ):
+            print(
+                "dirty corpus diff did not preserve expected aggregate deltas",
+                file=sys.stderr,
+            )
+            return 1
+        if not any(
+            field["path"] == "OBX.5"
+            and field["max_per_message_delta"] == 15
+            and field["total_occurrences_delta"] == 15
+            for field in dirty_diff["field_cardinality"]
+        ):
+            print(
+                "dirty corpus diff did not preserve OBX.5 cardinality delta",
+                file=sys.stderr,
+            )
+            return 1
+
+        dirty_evidence_text = "\n".join(
+            json.dumps(report, sort_keys=True)
+            for report in [dirty_summary, dirty_fingerprint, dirty_diff]
+        )
+        if "MRN-DIRTY" in dirty_evidence_text:
+            print("dirty corpus evidence leaked the synthetic MRN marker", file=sys.stderr)
             return 1
 
     phi_raw = PHI_LEAK_SENTINEL_MESSAGE
