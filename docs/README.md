@@ -92,6 +92,7 @@ proposal, spec, plan, or receipt documents.
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
 | [Python local wheel proof](audits/python-local-wheel-proof-2026-05-15.md) | Current-main non-publishing wheel build, fresh-venv install, import smoke, and Python evidence workflow proof for `hl7v2`. |
 | [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-16.md) | Current hosted non-publishing Python wheel, import, smoke, and evidence workflow proof for public package `hl7v2`. |
+| [Python TestPyPI publish attempt refresh](audits/python-testpypi-publish-attempt-2026-05-16.md) | Publishing-mode proof attempt on current `main`; wheel smoke passed, upload is still blocked by TestPyPI Trusted Publishing setup. |
 | [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |
 
 ## Current Boundaries

@@ -133,6 +133,11 @@ public package `hl7v2`. A 2026-05-10 publishing-mode run from `main` built and
 smoke-tested the wheel, then failed during Trusted Publishing token exchange
 with `invalid-publisher`; see
 [docs/audits/python-testpypi-publish-attempt-2026-05-10.md](../audits/python-testpypi-publish-attempt-2026-05-10.md).
+A 2026-05-16 publishing-mode run from current `main` after the v1.5.0 release
+again built and smoke-tested the wheel successfully, then failed at the same
+Trusted Publishing exchange boundary with
+`repo:EffortlessMetrics/hl7v2-rs:environment:testpypi`; see
+[docs/audits/python-testpypi-publish-attempt-2026-05-16.md](../audits/python-testpypi-publish-attempt-2026-05-16.md).
 The TestPyPI upload/install-back proof remains incomplete until the TestPyPI
 Trusted Publisher is configured for project `hl7v2` and a rerun passes. Track
 the external setup blocker in
