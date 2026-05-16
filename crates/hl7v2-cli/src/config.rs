@@ -104,25 +104,35 @@ pub fn load_config(path: impl AsRef<Path>) -> Result<Config, Box<dyn std::error:
 /// Apply environment variable overrides to configuration
 #[allow(dead_code)]
 pub fn apply_env_overrides(config: &mut Config) {
-    if let Ok(host) = std::env::var("HL7_HOST") {
+    apply_env_overrides_with(config, |key| std::env::var(key));
+}
+
+fn apply_env_overrides_with(
+    config: &mut Config,
+    mut var: impl FnMut(&str) -> Result<String, std::env::VarError>,
+) {
+    if let Ok(host) = var("HL7_HOST") {
         config.server.host = host;
     }
-    if let Ok(port_str) = std::env::var("HL7_PORT")
+    if let Ok(port_str) = var("HL7_PORT")
         && let Ok(port) = port_str.parse::<u16>()
     {
         config.server.port = port;
     }
-    if let Ok(api_key) = std::env::var("HL7_API_KEY") {
+    if let Ok(api_key) = var("HL7_API_KEY") {
         config.server.api_key = Some(api_key);
     }
-    if let Ok(log_level) = std::env::var("HL7_LOG_LEVEL") {
+    if let Ok(log_level) = var("HL7_LOG_LEVEL") {
         config.logging.level = log_level;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{CliConfig, Config, LogConfig, ServerConfig, apply_env_overrides, load_config};
+    use super::{
+        CliConfig, Config, LogConfig, ServerConfig, apply_env_overrides, apply_env_overrides_with,
+        load_config,
+    };
     use std::fs;
 
     #[test]
@@ -255,33 +265,43 @@ mod tests {
     }
 
     #[test]
-    fn apply_env_overrides_without_known_vars_leaves_defaults_intact() {
-        // The workspace forbids `unsafe_code`, so this test cannot mutate
-        // process env state. It instead exercises the override pathway in
-        // its natural state and asserts that any value that happens to be
-        // present is reflected, while no override of an absent variable
-        // ever clobbers the supplied defaults.
+    fn apply_env_overrides_sets_known_values() {
+        let mut config = Config::default();
+
+        apply_env_overrides_with(&mut config, |key| match key {
+            "HL7_HOST" => Ok("0.0.0.0".to_string()),
+            "HL7_PORT" => Ok("9090".to_string()),
+            "HL7_API_KEY" => Ok("secret".to_string()),
+            "HL7_LOG_LEVEL" => Ok("debug".to_string()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+
+        assert_eq!(config.server.host, "0.0.0.0");
+        assert_eq!(config.server.port, 9090);
+        assert_eq!(config.server.api_key.as_deref(), Some("secret"));
+        assert_eq!(config.logging.level, "debug");
+    }
+
+    #[test]
+    fn apply_env_overrides_ignores_absent_or_invalid_values() {
         let mut config = Config::default();
         let port_before = config.server.port;
         let host_before = config.server.host.clone();
         let level_before = config.logging.level.clone();
-        apply_env_overrides(&mut config);
+        apply_env_overrides_with(&mut config, |key| match key {
+            "HL7_PORT" => Ok("not-a-port".to_string()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
 
-        if std::env::var("HL7_HOST").is_err() {
-            assert_eq!(config.server.host, host_before);
-        }
-        if std::env::var("HL7_PORT")
-            .ok()
-            .and_then(|s| s.parse::<u16>().ok())
-            .is_none()
-        {
-            assert_eq!(config.server.port, port_before);
-        }
-        if std::env::var("HL7_API_KEY").is_err() {
-            assert!(config.server.api_key.is_none());
-        }
-        if std::env::var("HL7_LOG_LEVEL").is_err() {
-            assert_eq!(config.logging.level, level_before);
-        }
+        assert_eq!(config.server.host, host_before);
+        assert_eq!(config.server.port, port_before);
+        assert!(config.server.api_key.is_none());
+        assert_eq!(config.logging.level, level_before);
+    }
+
+    #[test]
+    fn apply_env_overrides_ambient_path_is_callable() {
+        let mut config = Config::default();
+        apply_env_overrides(&mut config);
     }
 }
