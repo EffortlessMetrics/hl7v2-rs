@@ -76,8 +76,9 @@ This builds the wheel, installs it into a fresh virtual environment, runs the
 Python smoke test plus the evidence workflow guide, and uploads the wheel as a
 short-retention artifact. It does not publish.
 
-The 2026-05-09 run of this non-publishing mode passed on `main`; see
-[`docs/audits/python-testpypi-nonpublish-proof-2026-05-09.md`](../audits/python-testpypi-nonpublish-proof-2026-05-09.md).
+The current hosted non-publishing proof passed on `main` after the v1.5.0
+release and public `hl7v2` package retarget; see
+[`docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md`](../audits/python-testpypi-nonpublish-proof-2026-05-15.md).
 
 After the local wheel proof and non-publishing workflow pass, rerun with:
 
@@ -127,12 +128,12 @@ After the upload/install-back proof passes, use
 [Python PyPI Release](python-pypi-release.md) for the guarded production PyPI
 release path.
 
-Current status: the non-publishing proof is complete. A 2026-05-10
-publishing-mode run from `main` built and smoke-tested the wheel, then failed
-during Trusted Publishing token exchange with `invalid-publisher`; see
+Current status: the non-publishing proof is complete on current `main` for
+public package `hl7v2`. A 2026-05-10 publishing-mode run from `main` built and
+smoke-tested the wheel, then failed during Trusted Publishing token exchange
+with `invalid-publisher`; see
 [docs/audits/python-testpypi-publish-attempt-2026-05-10.md](../audits/python-testpypi-publish-attempt-2026-05-10.md).
-The public distribution has since been retargeted from `hl7v2-python` to
-`hl7v2`. The TestPyPI upload/install-back proof remains incomplete until the
-TestPyPI Trusted Publisher is configured for project `hl7v2` and a rerun
-passes. Track the external setup blocker in
+The TestPyPI upload/install-back proof remains incomplete until the TestPyPI
+Trusted Publisher is configured for project `hl7v2` and a rerun passes. Track
+the external setup blocker in
 [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563).

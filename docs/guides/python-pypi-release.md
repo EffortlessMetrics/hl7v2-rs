@@ -80,6 +80,9 @@ This builds the wheel, installs it into a fresh virtual environment, runs the
 Python smoke test and evidence workflow guide, and uploads the wheel as a
 short-retention artifact. It does not publish to PyPI.
 
+The 2026-05-16 non-publishing rehearsal passed on `main` and is recorded in
+[`docs/audits/python-pypi-nonpublish-proof-2026-05-16.md`](../audits/python-pypi-nonpublish-proof-2026-05-16.md).
+
 ## Production Publish
 
 Run the same workflow manually with:

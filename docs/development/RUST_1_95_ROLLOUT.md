@@ -1,7 +1,7 @@
 # Rust 1.95 And 1.5.0 Rollout
 
-This document is the rollout map for moving `hl7v2-rs` from Rust 1.93 to
-Rust 1.95 and preparing the next release as `1.5.0`.
+This document is the rollout map that moved `hl7v2-rs` from Rust 1.93 to
+Rust 1.95 and prepared the `1.5.0` release.
 
 This is a planning and operating document. The initial map PR did not change
 the active MSRV, toolchain, CI behavior, lint policy, package version, or
@@ -29,7 +29,7 @@ self-describing and better receipted.
 | Surface | Current state | Notes |
 | --- | --- | --- |
 | Rust edition | `2024` | No edition migration is planned. |
-| Workspace version | `1.5.0` candidate | v1.4.0 remains the current published crates.io release until v1.5.0 receipts land. |
+| Workspace version | `1.5.0` | v1.5.0 is published on crates.io; see [`docs/audits/publish-v1.5.0-2026-05-15.md`](../audits/publish-v1.5.0-2026-05-15.md). |
 | Workspace MSRV | `1.95` | Declared in the root `Cargo.toml` after the compatibility probe. |
 | Toolchain file | present | `rust-toolchain.toml` pins Rust `1.95.0` with `rustfmt` and `clippy`. |
 | Root lint policy | strict | Rust and Clippy lints are already governed from the workspace root. |

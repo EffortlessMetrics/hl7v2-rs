@@ -37,15 +37,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a post-release v1.5.0 objective audit showing that the crates.io,
+  tag, GitHub release, and Rust/CLI/server install-back portions are now
+  complete while public Python TestPyPI/PyPI proof remains blocked or
+  undecided.
+- Recorded a current hosted non-publishing `Python TestPyPI Proof` receipt for
+  public package `hl7v2` while keeping TestPyPI upload/install-back blocked on
+  Trusted Publisher setup.
 - Aligned the cross-surface evidence parity docs with the already-tested Python
   ACK local binding proof.
 - Aligned the gRPC parity docs with the currently implemented profile,
   bundle/replay, corpus, ACK, and normalize RPC proof surface.
 - Refreshed the v1.5.0 release-readiness receipt after the Python ACK and
   gRPC parity documentation syncs landed on `main`.
-- Recorded a current package registry state audit showing that v1.5.0 is still
-  unpublished, `hl7v2-python` is not on crates.io, and public Python `hl7v2`
-  is not on PyPI or TestPyPI.
+- Recorded a pre-release package registry state audit showing that v1.5.0 was
+  not yet published at that snapshot and that public Python `hl7v2` was not on
+  PyPI or TestPyPI.
 - Recorded a prompt-to-artifact objective completion audit for the active
   v1.5.0 lane and kept the lane open until publish, Python, and npm receipts
   exist.
