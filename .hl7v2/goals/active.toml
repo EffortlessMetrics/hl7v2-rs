@@ -210,7 +210,7 @@ commands = [
   "cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
   "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
 ]
-note = "Unpatched cargo publish --dry-run requires hl7v2 1.5.0 to resolve from crates.io; primary v1.5.0 has not been published yet."
+note = "At the time of this metadata PR, unpatched cargo publish --dry-run required hl7v2 1.5.0 to resolve from crates.io. v1.5.0 is now published and receipted in docs/audits/publish-v1.5.0-2026-05-15.md."
 
 [[work_item]]
 id = "npm-wasm-binding-package-model"
@@ -957,8 +957,9 @@ prs = [
 acceptance = [
   "Primary Rust product graph still reports hl7v2, hl7v2-server, and hl7v2-cli.",
   "Binding backend graph reports hl7v2-python separately.",
-  "hl7v2-python remains unpublished unless a later binding-backend release PR records upload proof.",
-  "No crates.io, TestPyPI, or PyPI publish claim is made.",
+  "At closeout time, hl7v2-python remained unpublished unless a later binding-backend release PR recorded upload proof.",
+  "The later v1.5.0 publish receipt records the hl7v2-python crates.io backend upload.",
+  "No TestPyPI or PyPI publish claim is made.",
 ]
 
 [[work_item]]
