@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a post-release current-main readiness refresh after the focused SRP
+  module split train landed through #691.
+- Recorded a fresh hosted non-publishing `Python TestPyPI Proof` receipt on
+  current `main` and confirmed public Python `hl7v2` is still absent from
+  TestPyPI and PyPI.
 - Recorded a post-release v1.5.0 objective audit showing that the crates.io,
   tag, GitHub release, and Rust/CLI/server install-back portions are now
   complete while public Python TestPyPI/PyPI proof remains blocked or
