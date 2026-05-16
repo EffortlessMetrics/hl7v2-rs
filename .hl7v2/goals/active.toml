@@ -72,6 +72,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md",
+  "docs/audits/public-crates-install-first-use-2026-05-16.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
@@ -132,6 +133,30 @@ commands = [
 ]
 non_claims = [
   "No new crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "public-crates-install-first-use-smoke"
+status = "done"
+goal = "Add a repeatable public crates.io install-back smoke for the v1.5.0 Rust library, CLI, and server first-use paths."
+receipt = "docs/audits/public-crates-install-first-use-2026-05-16.md"
+script = "tests/public_crates_smoke/smoke.py"
+commands = [
+  "python tests/public_crates_smoke/smoke.py --version 1.5.0",
+  "cargo +1.95.0 test -p hl7v2 --test user_journey --all-features --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests journey_cli_validate_redact_bundle_replay_produces_shareable_receipts --locked",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
   "No TestPyPI upload.",
   "No PyPI upload.",
   "No npm package.",
