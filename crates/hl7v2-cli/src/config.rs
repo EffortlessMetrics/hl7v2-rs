@@ -104,25 +104,35 @@ pub fn load_config(path: impl AsRef<Path>) -> Result<Config, Box<dyn std::error:
 /// Apply environment variable overrides to configuration
 #[allow(dead_code)]
 pub fn apply_env_overrides(config: &mut Config) {
-    if let Ok(host) = std::env::var("HL7_HOST") {
+    apply_env_overrides_with(config, |key| std::env::var(key));
+}
+
+fn apply_env_overrides_with(
+    config: &mut Config,
+    mut var: impl FnMut(&str) -> Result<String, std::env::VarError>,
+) {
+    if let Ok(host) = var("HL7_HOST") {
         config.server.host = host;
     }
-    if let Ok(port_str) = std::env::var("HL7_PORT")
+    if let Ok(port_str) = var("HL7_PORT")
         && let Ok(port) = port_str.parse::<u16>()
     {
         config.server.port = port;
     }
-    if let Ok(api_key) = std::env::var("HL7_API_KEY") {
+    if let Ok(api_key) = var("HL7_API_KEY") {
         config.server.api_key = Some(api_key);
     }
-    if let Ok(log_level) = std::env::var("HL7_LOG_LEVEL") {
+    if let Ok(log_level) = var("HL7_LOG_LEVEL") {
         config.logging.level = log_level;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, load_config};
+    use super::{
+        CliConfig, Config, LogConfig, ServerConfig, apply_env_overrides, apply_env_overrides_with,
+        load_config,
+    };
     use std::fs;
 
     #[test]
@@ -167,5 +177,131 @@ mod tests {
         assert_eq!(config.cli.output_format, "text");
         assert_eq!(config.logging.level, "info");
         assert!(!config.logging.log_to_file);
+    }
+
+    #[test]
+    fn config_default_has_expected_subsection_values() {
+        let config = Config::default();
+
+        assert_eq!(config.server.host, "127.0.0.1");
+        assert_eq!(config.server.port, 8080);
+        assert!(config.server.api_key.is_none());
+
+        assert_eq!(config.cli.default_version, "2.5.1");
+        assert_eq!(config.cli.output_format, "text");
+
+        assert_eq!(config.logging.level, "info");
+        assert!(!config.logging.log_to_file);
+        assert!(config.logging.log_path.is_none());
+    }
+
+    #[test]
+    fn server_config_default_matches_documented_defaults() {
+        let server = ServerConfig::default();
+        assert_eq!(server.host, "127.0.0.1");
+        assert_eq!(server.port, 8080);
+        assert!(server.api_key.is_none());
+    }
+
+    #[test]
+    fn cli_config_default_matches_documented_defaults() {
+        let cli = CliConfig::default();
+        assert_eq!(cli.default_version, "2.5.1");
+        assert_eq!(cli.output_format, "text");
+    }
+
+    #[test]
+    fn log_config_default_matches_documented_defaults() {
+        let logging = LogConfig::default();
+        assert_eq!(logging.level, "info");
+        assert!(!logging.log_to_file);
+        assert!(logging.log_path.is_none());
+    }
+
+    #[test]
+    fn load_config_returns_err_for_missing_path() {
+        let _err = load_config("/no/such/path/definitely-missing.toml")
+            .expect_err("missing path should fail to load");
+    }
+
+    #[test]
+    fn load_config_returns_err_for_invalid_toml() {
+        let dir = tempfile::tempdir().expect("tempdir should be created");
+        let path = dir.path().join("invalid.toml");
+        fs::write(&path, "@@ this is not valid toml @@@\n!!!!!")
+            .expect("invalid TOML fixture should be written");
+
+        let _err = load_config(&path).expect_err("invalid TOML should fail to load");
+    }
+
+    #[test]
+    fn load_config_returns_err_for_invalid_yaml() {
+        let dir = tempfile::tempdir().expect("tempdir should be created");
+        let path = dir.path().join("invalid.yaml");
+        fs::write(
+            &path,
+            "server:\n  host: [unterminated\n  port: not-a-number",
+        )
+        .expect("invalid YAML fixture should be written");
+
+        let _err = load_config(&path).expect_err("invalid YAML should fail to load");
+    }
+
+    #[test]
+    fn load_config_empty_toml_yields_default_config() {
+        let dir = tempfile::tempdir().expect("tempdir should be created");
+        let path = dir.path().join("empty.toml");
+        fs::write(&path, "").expect("empty TOML fixture should be written");
+
+        let config = load_config(&path).expect("empty TOML should load as defaults");
+        let defaults = Config::default();
+
+        assert_eq!(config.server.host, defaults.server.host);
+        assert_eq!(config.server.port, defaults.server.port);
+        assert_eq!(config.cli.default_version, defaults.cli.default_version);
+        assert_eq!(config.cli.output_format, defaults.cli.output_format);
+        assert_eq!(config.logging.level, defaults.logging.level);
+        assert_eq!(config.logging.log_to_file, defaults.logging.log_to_file);
+    }
+
+    #[test]
+    fn apply_env_overrides_sets_known_values() {
+        let mut config = Config::default();
+
+        apply_env_overrides_with(&mut config, |key| match key {
+            "HL7_HOST" => Ok("0.0.0.0".to_string()),
+            "HL7_PORT" => Ok("9090".to_string()),
+            "HL7_API_KEY" => Ok("secret".to_string()),
+            "HL7_LOG_LEVEL" => Ok("debug".to_string()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+
+        assert_eq!(config.server.host, "0.0.0.0");
+        assert_eq!(config.server.port, 9090);
+        assert_eq!(config.server.api_key.as_deref(), Some("secret"));
+        assert_eq!(config.logging.level, "debug");
+    }
+
+    #[test]
+    fn apply_env_overrides_ignores_absent_or_invalid_values() {
+        let mut config = Config::default();
+        let port_before = config.server.port;
+        let host_before = config.server.host.clone();
+        let level_before = config.logging.level.clone();
+        apply_env_overrides_with(&mut config, |key| match key {
+            "HL7_PORT" => Ok("not-a-port".to_string()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+
+        assert_eq!(config.server.host, host_before);
+        assert_eq!(config.server.port, port_before);
+        assert!(config.server.api_key.is_none());
+        assert_eq!(config.logging.level, level_before);
+    }
+
+    #[test]
+    fn apply_env_overrides_ambient_path_is_callable() {
+        let mut config = Config::default();
+        apply_env_overrides(&mut config);
     }
 }
