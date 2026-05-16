@@ -67,6 +67,7 @@ canonical_sources = [
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
+  "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
@@ -1002,6 +1003,25 @@ non_claims = [
   "No TestPyPI upload.",
   "No PyPI upload.",
   "No TestPyPI or PyPI install-back.",
+  "No token fallback.",
+  "No skip-existing.",
+  "No npm package.",
+]
+
+[[work_item]]
+id = "python-testpypi-nonpublish-proof-1-5-0"
+status = "done"
+goal = "Refresh hosted non-publishing Python TestPyPI workflow proof for public package hl7v2 without uploading to TestPyPI or PyPI."
+run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25948637228"
+receipt = "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md"
+commands = [
+  "gh workflow run python-testpypi.yml --ref main -f publish_to_testpypi=false",
+  "gh run watch 25948637228 --exit-status",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
   "No token fallback.",
   "No skip-existing.",
   "No npm package.",

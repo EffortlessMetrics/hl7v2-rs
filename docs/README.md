@@ -81,7 +81,7 @@ proposal, spec, plan, or receipt documents.
 | [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
 | [Python local wheel proof](audits/python-local-wheel-proof-2026-05-15.md) | Current-main non-publishing wheel build, fresh-venv install, import smoke, and Python evidence workflow proof for `hl7v2`. |
-| [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the `hl7v2-python` binding backend separate from the primary Rust product graph. |
+| [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-15.md) | Current hosted non-publishing Python wheel, import, smoke, and evidence workflow proof for public package `hl7v2`. |
 | [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |
 
 ## Current Boundaries
