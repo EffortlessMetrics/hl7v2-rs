@@ -695,7 +695,7 @@ mod norm_command {
             &dir,
             "custom-delimiters.hl7",
             fixture_content
-                .trim_end_matches(|ch| ch == '\r' || ch == '\n')
+                .trim_end_matches(['\r', '\n'])
                 .as_bytes(),
         );
 
