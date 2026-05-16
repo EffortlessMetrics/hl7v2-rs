@@ -85,7 +85,7 @@ pub struct ParsedTimestamp {
     pub datetime: NaiveDateTime,
     /// The precision of the timestamp
     pub precision: TimestampPrecision,
-    /// Fractional seconds (if present)
+    /// Fractional seconds, right-padded to six digits for storage when present.
     pub fractional_seconds: Option<u32>,
 }
 
@@ -148,7 +148,10 @@ impl ParsedTimestamp {
             TimestampPrecision::Second => self.datetime.format("%Y%m%d%H%M%S").to_string(),
             TimestampPrecision::FractionalSecond => {
                 if let Some(frac) = self.fractional_seconds {
-                    format!("{}{frac:06}", self.datetime.format("%Y%m%d%H%M%S"))
+                    let frac = format!("{frac:06}");
+                    let frac = frac.trim_end_matches('0');
+                    let frac = if frac.is_empty() { "0" } else { frac };
+                    format!("{}.{}", self.datetime.format("%Y%m%d%H%M%S"), frac)
                 } else {
                     self.datetime.format("%Y%m%d%H%M%S").to_string()
                 }
@@ -183,7 +186,7 @@ pub fn parse_hl7_dt(s: &str) -> Result<NaiveDate, DateTimeError> {
         .map_err(|e| DateTimeError::InvalidDateFormat(e.to_string()))
 }
 
-/// Parse HL7 time (TM format: HHMM[SS[.S...]])
+/// Parse HL7 time (TM format: HHMM[SS[.S...]], 1 to 4 fractional digits).
 ///
 /// # Errors
 ///
@@ -256,9 +259,10 @@ pub fn parse_hl7_tm(s: &str) -> Result<(u32, u32, u32, Option<u32>), DateTimeErr
         }
 
         let frac = if let Some(f) = frac_part {
-            // Parse fractional seconds (up to 6 digits for microseconds)
-            let padded = format!("{:0<6}", f.chars().take(6).collect::<String>());
-            Some(padded.parse::<u32>().unwrap_or(0))
+            Some(parse_fractional_seconds(
+                f,
+                DateTimeError::InvalidTimeFormat,
+            )?)
         } else {
             None
         };
@@ -410,11 +414,38 @@ pub fn parse_hl7_ts_with_precision(s: &str) -> Result<ParsedTimestamp, DateTimeE
             let dt = parse_hl7_ts(part(s, 0..14, "Missing timestamp")?)?;
             // Parse fractional part
             let frac_str = part(s, 15..s.len(), "Missing fractional seconds")?; // Skip the dot
-            let padded = format!("{:0<6}", frac_str.chars().take(6).collect::<String>());
-            let fractional: u32 = padded.parse().unwrap_or(0);
+            let fractional =
+                parse_fractional_seconds(frac_str, DateTimeError::InvalidTimestampFormat)?;
             Ok(ParsedTimestamp::with_fractional(dt, fractional))
         }
     }
+}
+
+fn parse_fractional_seconds<F>(fractional: &str, error: F) -> Result<u32, DateTimeError>
+where
+    F: Fn(String) -> DateTimeError,
+{
+    if fractional.is_empty() {
+        return Err(error("Missing fractional seconds".to_string()));
+    }
+
+    if fractional.len() > 4 {
+        return Err(error(format!(
+            "Fractional seconds must contain 1 to 4 digits, got {}",
+            fractional.len()
+        )));
+    }
+
+    if !fractional.chars().all(|c| c.is_ascii_digit()) {
+        return Err(error(
+            "Fractional seconds contain non-digit characters".to_string(),
+        ));
+    }
+
+    let padded = format!("{fractional:0<6}");
+    padded
+        .parse()
+        .map_err(|_err| error("Invalid fractional seconds".to_string()))
 }
 
 fn part<'a>(
@@ -611,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_hl7_tm_fractional_one_to_six_digits() {
+    fn parse_hl7_tm_fractional_one_to_four_digits() {
         // 1 digit
         let (.., f1) = parse_hl7_tm("153045.5").expect("1-digit fraction");
         assert_eq!(f1, Some(500000));
@@ -621,12 +652,20 @@ mod tests {
         // 3 digits (millisecond)
         let (.., f3) = parse_hl7_tm("153045.123").expect("3-digit fraction");
         assert_eq!(f3, Some(123000));
-        // 6 digits (microsecond)
-        let (.., f6) = parse_hl7_tm("153045.123456").expect("6-digit fraction");
-        assert_eq!(f6, Some(123456));
-        // More than 6 digits — only first 6 used
-        let (.., f7) = parse_hl7_tm("153045.1234567").expect("7-digit fraction truncated");
-        assert_eq!(f7, Some(123456));
+        // 4 digits (HL7 TS/TM maximum fractional precision documented here)
+        let (.., f4) = parse_hl7_tm("153045.1234").expect("4-digit fraction");
+        assert_eq!(f4, Some(123400));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_invalid_fractional_seconds() {
+        for bad in ["153045.", "153045.abc", "153045.12345"] {
+            let err = parse_hl7_tm(bad).expect_err("invalid fraction");
+            assert!(
+                matches!(err, DateTimeError::InvalidTimeFormat(_)),
+                "{bad} returned {err:?}"
+            );
+        }
     }
 
     #[test]
@@ -725,6 +764,21 @@ mod tests {
         assert!(matches!(err, DateTimeError::InvalidDateFormat(_)));
     }
 
+    #[test]
+    fn parse_hl7_ts_rejects_invalid_fractional_time_part() {
+        for bad in [
+            "20250715103456.",
+            "20250715103456.abc",
+            "20250715103456.12345",
+        ] {
+            let err = parse_hl7_ts(bad).expect_err("invalid timestamp fraction");
+            assert!(
+                matches!(err, DateTimeError::InvalidTimeFormat(_)),
+                "{bad} returned {err:?}"
+            );
+        }
+    }
+
     // ------------------------------------------------------------------
     // parse_hl7_ts_with_precision — every precision arm
     // ------------------------------------------------------------------
@@ -780,6 +834,21 @@ mod tests {
         let ts = parse_hl7_ts_with_precision("20250715103456.123").expect("fractional precision");
         assert_eq!(ts.precision, TimestampPrecision::FractionalSecond);
         assert_eq!(ts.fractional_seconds, Some(123000));
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_rejects_invalid_fractional_seconds() {
+        for bad in [
+            "20250715103456.",
+            "20250715103456.x",
+            "20250715103456.12345",
+        ] {
+            let err = parse_hl7_ts_with_precision(bad).expect_err("invalid fractional precision");
+            assert!(
+                matches!(err, DateTimeError::InvalidTimestampFormat(_)),
+                "{bad} returned {err:?}"
+            );
+        }
     }
 
     #[test]
@@ -946,7 +1015,7 @@ mod tests {
         assert_eq!(sec.to_hl7_string(), "20250715103456");
 
         let frac = parse_hl7_ts_with_precision("20250715103456.123").expect("frac");
-        assert_eq!(frac.to_hl7_string(), "20250715103456123000");
+        assert_eq!(frac.to_hl7_string(), "20250715103456.123");
     }
 
     #[test]
