@@ -65,8 +65,17 @@ mod tests {
         assert_eq!(message.delims.sub, '&');
 
         assert_eq!(message.segments.len(), 2);
-        assert_eq!(&message.segments[0].id, b"MSH");
-        assert_eq!(&message.segments[1].id, b"PID");
+        assert_eq!(
+            message
+                .segments
+                .first()
+                .map(|segment| segment.id.as_slice()),
+            Some(b"MSH".as_slice())
+        );
+        assert_eq!(
+            message.segments.get(1).map(|segment| segment.id.as_slice()),
+            Some(b"PID".as_slice())
+        );
     }
 
     #[test]
