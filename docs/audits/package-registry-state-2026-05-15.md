@@ -8,6 +8,14 @@ and release graph decision.
 This audit records live package index state only. It is not a crates.io,
 TestPyPI, PyPI, npm, tag, or GitHub release receipt.
 
+Post-release note: the crates.io portion of this pre-release snapshot was later
+superseded by
+[`publish-v1.5.0-2026-05-15.md`](publish-v1.5.0-2026-05-15.md), which records
+`hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli` v1.5.0 upload and
+registry resolution. The PyPI and TestPyPI absence recorded here remains the
+current Python registry boundary until a dedicated upload/install-back receipt
+supersedes it.
+
 ## Result
 
 The public registries still match the expected pre-release boundary:
