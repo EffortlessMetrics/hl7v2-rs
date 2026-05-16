@@ -77,10 +77,12 @@ proposal, spec, plan, or receipt documents.
 | [v1.5.0 gRPC bundle refresh dry-run receipt](audits/publish-dry-run-v1.5.0-2026-05-15-grpc-bundle-refresh.md) | Current-main non-publishing proof after gRPC configured-root evidence bundle creation parity. |
 | [v1.5.0 package registry state audit](audits/package-registry-state-2026-05-15.md) | Live pre-release registry state after the selected v1.5.0 graph and latest readiness refresh. |
 | [v1.5.0 objective completion audit](audits/v1.5.0-objective-completion-audit-2026-05-15.md) | Prompt-to-artifact map for the active lane, including completed evidence and remaining release/Python/npm blockers. |
+| [v1.5.0 post-release objective audit](audits/v1.5.0-objective-completion-audit-2026-05-15-post-release.md) | Current-state prompt-to-artifact map after the crates.io release, tag, GitHub release, local Python wheel proof, and hosted non-publishing Python workflow proof. |
 | [Dirty real-world corpus proof](audits/real-world-corpus-proof-2026-05-14.md) | Focused proof that core corpus summary, fingerprint, and diff handle Z-segments, odd MSH fields, MLLP bytes, large OBX messages, malformed delimiters, and safe parse-error output. |
 | [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
-| [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-09.md) | Python packaging proof that keeps the `hl7v2-python` binding backend separate from the primary Rust product graph. |
+| [Python local wheel proof](audits/python-local-wheel-proof-2026-05-15.md) | Current-main non-publishing wheel build, fresh-venv install, import smoke, and Python evidence workflow proof for `hl7v2`. |
+| [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-15.md) | Current hosted non-publishing Python wheel, import, smoke, and evidence workflow proof for public package `hl7v2`. |
 | [Python TestPyPI publish attempt](audits/python-testpypi-publish-attempt-2026-05-10.md) | Publishing-mode proof attempt; wheel smoke passed, upload is blocked by TestPyPI Trusted Publishing setup. |
 
 ## Current Boundaries

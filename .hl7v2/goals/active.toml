@@ -61,11 +61,14 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md",
   "docs/audits/package-registry-state-2026-05-15.md",
   "docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md",
+  "docs/audits/v1.5.0-objective-completion-audit-2026-05-15-post-release.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md",
   "docs/audits/publish-v1.5.0-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
+  "docs/audits/python-local-wheel-proof-2026-05-15.md",
+  "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
@@ -207,7 +210,7 @@ commands = [
   "cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
   "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
 ]
-note = "Unpatched cargo publish --dry-run requires hl7v2 1.5.0 to resolve from crates.io; primary v1.5.0 has not been published yet."
+note = "At the time of this metadata PR, unpatched cargo publish --dry-run required hl7v2 1.5.0 to resolve from crates.io. v1.5.0 is now published and receipted in docs/audits/publish-v1.5.0-2026-05-15.md."
 
 [[work_item]]
 id = "npm-wasm-binding-package-model"
@@ -912,6 +915,35 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "v1-5-0-post-release-objective-audit"
+status = "done"
+goal = "Refresh the objective completion audit after the crates.io release, tag, GitHub release, install-back proof, local Python wheel proof, and hosted non-publishing Python workflow proof."
+receipt = "docs/audits/v1.5.0-objective-completion-audit-2026-05-15-post-release.md"
+outcome = "not complete"
+completed_since_previous_audit = [
+  "v1.5.0 crates.io publish and registry resolution",
+  "v1.5.0 tag and GitHub release",
+  "public Rust library install-back proof",
+  "public CLI install-back proof",
+  "public server install-back proof",
+  "local Python hl7v2 wheel install/import/smoke/evidence workflow proof",
+  "hosted non-publishing Python TestPyPI workflow proof",
+]
+blocking_items = [
+  "TestPyPI Trusted Publisher setup for public project hl7v2",
+  "TestPyPI upload/install-back proof for public package hl7v2",
+  "production PyPI hold/publish decision",
+  "future npm/WASM implementation after Rust and Python package receipts are stable",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI or PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release action.",
+  "Active goal remains open.",
+]
+
+[[work_item]]
 id = "binding-backend-package-boundary-closeout"
 status = "done"
 goal = "Record the #604-#608 package-boundary closeout without claiming crates.io, TestPyPI, or PyPI publication."
@@ -925,8 +957,9 @@ prs = [
 acceptance = [
   "Primary Rust product graph still reports hl7v2, hl7v2-server, and hl7v2-cli.",
   "Binding backend graph reports hl7v2-python separately.",
-  "hl7v2-python remains unpublished unless a later binding-backend release PR records upload proof.",
-  "No crates.io, TestPyPI, or PyPI publish claim is made.",
+  "At closeout time, hl7v2-python remained unpublished unless a later binding-backend release PR recorded upload proof.",
+  "The later v1.5.0 publish receipt records the hl7v2-python crates.io backend upload.",
+  "No TestPyPI or PyPI publish claim is made.",
 ]
 
 [[work_item]]
@@ -976,6 +1009,53 @@ acceptance = [
   "Production PyPI is not attempted.",
   "No token fallback is used.",
   "No skip-existing workaround is used.",
+]
+
+[[work_item]]
+id = "python-local-wheel-proof-1-5-0"
+status = "done"
+goal = "Refresh current-main local Python wheel proof for the public hl7v2 package identity without claiming TestPyPI or PyPI publication."
+receipt = "docs/audits/python-local-wheel-proof-2026-05-15.md"
+commands = [
+  "RUSTUP_TOOLCHAIN=1.95.0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-python-wheel-proof CARGO_INCREMENTAL=0 python -m maturin build --release --out F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\dist --target-dir F:\\cargo-target\\hl7v2-rs-python-wheel-proof",
+  "python -m venv F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv",
+  "F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv\\Scripts\\python.exe -m pip install --force-reinstall F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\dist\\hl7v2-1.5.0-cp314-cp314-win_amd64.whl",
+  "F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv\\Scripts\\python.exe -c \"import hl7v2; print(hl7v2.__version__)\"",
+  "F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv\\Scripts\\python.exe tests\\python_smoke\\smoke.py",
+  "F:\\cargo-target\\hl7v2-rs-python-wheel-proof\\venv\\Scripts\\python.exe tests\\python_smoke\\evidence_workflow_guide.py",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No TestPyPI or PyPI install-back.",
+  "No token fallback.",
+  "No skip-existing.",
+  "No npm package.",
+]
+
+[[work_item]]
+id = "python-testpypi-nonpublish-proof-1-5-0"
+status = "done"
+goal = "Refresh hosted non-publishing Python TestPyPI workflow proof for public package hl7v2 without uploading to TestPyPI or PyPI."
+run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25948637228"
+receipt = "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md"
+commands = [
+  "gh workflow run python-testpypi.yml --ref main -f publish_to_testpypi=false",
+  "gh run watch 25948637228 --exit-status",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No token fallback.",
+  "No skip-existing.",
+  "No npm package.",
 ]
 
 [[work_item]]
