@@ -90,6 +90,14 @@ Required fixture families:
 - v1 and v2 `schema_version` behavior where an artifact supports both;
 - malformed input that proves safe diagnostics without echoing raw PHI.
 
+The shared dirty-corpus fixture family lives in
+`test_data/dirty-real-world/`. It currently proves Rust core and CLI corpus
+summary, fingerprint, and diff parity for Z-segments, large OBX expansion,
+legacy encoding declarations, malformed delimiters, partial batch-like input,
+and generated MLLP-framed input. Server, Python, and TypeScript parity must use
+the same fixture family or explicitly explain why a transport-specific fixture
+is required.
+
 ## Non-Goals
 
 - No new runtime implementation in this spec.

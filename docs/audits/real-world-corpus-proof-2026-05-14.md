@@ -58,3 +58,14 @@ This proof does not claim:
 
 Future corpus work should expand this into named fixture categories and
 cross-surface parity receipts after the stable Rust proof remains useful.
+
+## Follow-Up Shared Fixture Proof
+
+The first follow-up landed on 2026-05-16 and moved the dirty-corpus proof into
+named shared fixture categories under `test_data/dirty-real-world/`. It proves
+the same core summary, fingerprint, diff, and safe parse-error behavior, then
+adds CLI `corpus summarize`, `corpus fingerprint`, and `corpus diff` JSON proof
+against the same materialized fixture set.
+
+See
+[`dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md`](dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md).

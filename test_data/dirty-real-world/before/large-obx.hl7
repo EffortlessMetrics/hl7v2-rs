@@ -1,0 +1,8 @@
+MSH|^~\&|LAB|LEGACY|EHR|HOSP|202605140101||ORU^R01|CTRL-LARGE-BEFORE|P|2.3
+PID|1||MRN-LARGE^^^HOSP^MR||Example^Large||19700101|U
+OBR|1|ORD-LARGE|FILL-LARGE|CBC^Complete Blood Count
+OBX|1|NM|718-7^Hemoglobin||1|g/dL
+OBX|2|NM|718-7^Hemoglobin||2|g/dL
+OBX|3|NM|718-7^Hemoglobin||3|g/dL
+OBX|4|NM|718-7^Hemoglobin||4|g/dL
+OBX|5|NM|718-7^Hemoglobin||5|g/dL

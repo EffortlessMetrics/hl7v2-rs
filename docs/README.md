@@ -80,6 +80,7 @@ proposal, spec, plan, or receipt documents.
 | [v1.5.0 post-release objective audit](audits/v1.5.0-objective-completion-audit-2026-05-15-post-release.md) | Current-state prompt-to-artifact map after the crates.io release, tag, GitHub release, local Python wheel proof, and hosted non-publishing Python workflow proof. |
 | [v1.5.0 post-SRP readiness refresh](audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md) | Current-main post-release package, policy, evidence, and docs proof after the focused SRP module split train. |
 | [Dirty real-world corpus proof](audits/real-world-corpus-proof-2026-05-14.md) | Focused proof that core corpus summary, fingerprint, and diff handle Z-segments, odd MSH fields, MLLP bytes, large OBX messages, malformed delimiters, and safe parse-error output. |
+| [Dirty real-world shared fixture proof](audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md) | Shared fixture categories and Rust/CLI corpus parity proof for dirty interface data. |
 | [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
 | [Python local wheel proof](audits/python-local-wheel-proof-2026-05-15.md) | Current-main non-publishing wheel build, fresh-venv install, import smoke, and Python evidence workflow proof for `hl7v2`. |
