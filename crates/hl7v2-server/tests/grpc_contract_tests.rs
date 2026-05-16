@@ -16,12 +16,12 @@ mod tests {
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
     use hl7v2_server::grpc::proto::{
         CorpusDiffRequest, CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest,
-        CreateEvidenceBundleRequest, GenerateAckRequest, HealthCheckRequest, NormalizeOptions,
-        NormalizeRequest, ParseRequest, ParseStreamRequest, ParseStreamResponse,
-        ProfileExplainRequest, ProfileLintRequest, ProfileTestFixture, ProfileTestRequest,
-        ReplayEvidenceBundleRequest, ValidateRedactedRequest, ValidateRequest,
-        evidence_replay_check, generate_ack_request, health_check_response, profile_test_fixture,
-        validation_issue,
+        CreateEvidenceBundleRequest, GenerateAckRequest, HealthCheckRequest,
+        Message as ProtoMessage, NormalizeOptions, NormalizeRequest, ParseRequest,
+        ParseStreamRequest, ParseStreamResponse, ProfileExplainRequest, ProfileLintRequest,
+        ProfileTestFixture, ProfileTestRequest, ReplayEvidenceBundleRequest,
+        ValidateRedactedRequest, ValidateRequest, evidence_replay_check, generate_ack_request,
+        health_check_response, profile_test_fixture, validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
@@ -225,6 +225,22 @@ constraints:
             .normalized
     }
 
+    fn assert_ack_message_type(ack: &str) {
+        let message_type = ack
+            .split('\r')
+            .next()
+            .expect("ACK should include an MSH segment")
+            .split('|')
+            .nth(8)
+            .expect("ACK MSH should include MSH-9");
+        assert_eq!(message_type, "ACK^ADT");
+    }
+
+    fn assert_parsed_ack_segments(parsed_ack: &ProtoMessage) {
+        assert_eq!(parsed_ack.segments[0].id, "MSH");
+        assert_eq!(parsed_ack.segments[1].id, "MSA");
+    }
+
     #[tokio::test]
     async fn test_grpc_parse_raw_hl7_success() {
         let service = service();
@@ -315,7 +331,10 @@ constraints:
                 ack_str.contains(&format!("MSA|{}|CTRL123", expected)),
                 "ACK did not preserve code/control id: {ack_str}"
             );
-            assert!(inner.parsed_ack.is_some());
+            assert_ack_message_type(&ack_str);
+
+            let parsed_ack = inner.parsed_ack.expect("parsed ACK should exist");
+            assert_parsed_ack_segments(&parsed_ack);
         }
     }
 
