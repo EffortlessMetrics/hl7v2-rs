@@ -638,3 +638,430 @@ impl std::error::Error for GenerateError {}
 pub use rand::Rng;
 pub use rand::SeedableRng;
 pub use rand::rngs::StdRng;
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::panic,
+        reason = "Faker unit tests fail explicitly on test setup errors."
+    )]
+
+    use super::{DateError, Faker, FakerValue, GaussianError, GenerateError};
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+    use std::collections::HashMap;
+
+    fn seeded_rng() -> StdRng {
+        StdRng::seed_from_u64(42)
+    }
+
+    #[test]
+    fn name_male_returns_last_caret_first() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let name = faker.name(Some("M"));
+        let parts: Vec<&str> = name.split('^').collect();
+        assert_eq!(parts.len(), 2, "expected LAST^FIRST format, got {name}");
+        let male_pool = [
+            "James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph",
+            "Thomas", "Charles",
+        ];
+        let first = parts.get(1).copied().unwrap_or("");
+        assert!(
+            male_pool.contains(&first),
+            "first name {first} should come from the male pool"
+        );
+    }
+
+    #[test]
+    fn name_female_uses_female_pool() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let name = faker.name(Some("F"));
+        let parts: Vec<&str> = name.split('^').collect();
+        assert_eq!(parts.len(), 2, "expected LAST^FIRST format, got {name}");
+        let female_pool = [
+            "Mary",
+            "Patricia",
+            "Jennifer",
+            "Linda",
+            "Elizabeth",
+            "Barbara",
+            "Susan",
+            "Jessica",
+            "Sarah",
+            "Karen",
+        ];
+        let first = parts.get(1).copied().unwrap_or("");
+        assert!(
+            female_pool.contains(&first),
+            "first name {first} should come from the female pool"
+        );
+    }
+
+    #[test]
+    fn name_unknown_gender_falls_back_to_mixed_pool() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        // "U" and None and any other value all map to the mixed pool.
+        let name_u = faker.name(Some("U"));
+        let name_none = faker.name(None);
+        let name_other = faker.name(Some("X"));
+        for sample in [&name_u, &name_none, &name_other] {
+            assert!(
+                sample.contains('^'),
+                "name {sample} should contain caret separator"
+            );
+            assert_eq!(
+                sample.split('^').count(),
+                2,
+                "expected LAST^FIRST in {sample}"
+            );
+            assert!(!sample.starts_with('^'), "last name must be non-empty");
+            assert!(!sample.ends_with('^'), "first name must be non-empty");
+        }
+    }
+
+    #[test]
+    fn name_with_fixed_seed_is_deterministic() {
+        let mut rng_a = StdRng::seed_from_u64(123);
+        let mut rng_b = StdRng::seed_from_u64(123);
+        let mut faker_a = Faker::new(&mut rng_a);
+        let mut faker_b = Faker::new(&mut rng_b);
+        assert_eq!(faker_a.name(Some("M")), faker_b.name(Some("M")));
+    }
+
+    #[test]
+    fn address_has_expected_caret_structure() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let addr = faker.address();
+        // Format is "NUMBER STREET^^CITY^STATE^ZIP^USA"
+        let parts: Vec<&str> = addr.split('^').collect();
+        assert_eq!(parts.len(), 6, "expected 6 caret-separated parts in {addr}");
+        assert_eq!(parts.get(5).copied(), Some("USA"));
+        // ZIP is 5 digits
+        let zip = parts.get(4).copied().unwrap_or("");
+        assert_eq!(zip.len(), 5, "zip {zip} should be 5 digits");
+        assert!(
+            zip.chars().all(|c| c.is_ascii_digit()),
+            "zip should be all digits"
+        );
+        // State is two letters
+        let state = parts.get(3).copied().unwrap_or("");
+        assert_eq!(state.len(), 2, "state {state} should be 2 letters");
+    }
+
+    #[test]
+    fn phone_has_parens_and_dash() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let phone = faker.phone();
+        assert!(phone.starts_with('('), "phone {phone} should start with (");
+        assert!(phone.contains(')'), "phone {phone} should contain )");
+        assert!(phone.contains('-'), "phone {phone} should contain -");
+        // Length should be at least "(200)200-1000" = 13 chars
+        assert!(phone.len() >= 13, "phone {phone} too short");
+    }
+
+    #[test]
+    fn ssn_has_three_dashed_groups() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let ssn = faker.ssn();
+        let parts: Vec<&str> = ssn.split('-').collect();
+        assert_eq!(parts.len(), 3, "ssn {ssn} should have 3 groups");
+        assert_eq!(parts.first().map(|s| s.len()), Some(3));
+        assert_eq!(parts.get(1).map(|s| s.len()), Some(2));
+        assert_eq!(parts.get(2).map(|s| s.len()), Some(4));
+        for group in &parts {
+            assert!(
+                group.chars().all(|c| c.is_ascii_digit()),
+                "ssn group {group} should be digits"
+            );
+        }
+    }
+
+    #[test]
+    fn mrn_has_six_to_ten_digits() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        for _ in 0..20 {
+            let mrn = faker.mrn();
+            assert!(
+                (6..=10).contains(&mrn.len()),
+                "mrn {mrn} length {} not in 6..=10",
+                mrn.len()
+            );
+            assert!(
+                mrn.chars().all(|c| c.is_ascii_digit()),
+                "mrn {mrn} should be all digits"
+            );
+        }
+    }
+
+    #[test]
+    fn date_within_range_returns_yyyymmdd() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let Ok(date) = faker.date("20200101", "20201231") else {
+            panic!("date generation should succeed");
+        };
+        assert_eq!(date.len(), 8, "date {date} should be YYYYMMDD");
+        assert!(date.chars().all(|c| c.is_ascii_digit()));
+        assert!(date.as_str() >= "20200101");
+        assert!(date.as_str() <= "20201231");
+    }
+
+    #[test]
+    fn date_single_day_range_returns_that_day() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let Ok(date) = faker.date("20230615", "20230615") else {
+            panic!("single-day date should succeed");
+        };
+        assert_eq!(date, "20230615");
+    }
+
+    #[test]
+    fn date_invalid_start_format_returns_error() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let result = faker.date("not-a-date", "20201231");
+        assert!(matches!(
+            result,
+            Err(DateError::InvalidDateFormat(ref s)) if s == "not-a-date"
+        ));
+    }
+
+    #[test]
+    fn date_invalid_end_format_returns_error() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let result = faker.date("20200101", "garbage");
+        assert!(matches!(
+            result,
+            Err(DateError::InvalidDateFormat(ref s)) if s == "garbage"
+        ));
+    }
+
+    #[test]
+    fn date_end_before_start_returns_range_error() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let result = faker.date("20201231", "20200101");
+        assert!(matches!(result, Err(DateError::InvalidDateRange { .. })));
+    }
+
+    #[test]
+    fn gaussian_returns_formatted_value() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let Ok(value) = faker.gaussian(100.0, 15.0, 2) else {
+            panic!("gaussian generation should succeed");
+        };
+        // Should have exactly 2 decimal places
+        let parts: Vec<&str> = value.split('.').collect();
+        assert_eq!(parts.len(), 2, "gaussian {value} should have a decimal");
+        assert_eq!(
+            parts.get(1).map(|s| s.len()),
+            Some(2),
+            "expected 2 decimal places in {value}"
+        );
+    }
+
+    #[test]
+    fn gaussian_precision_zero_emits_no_decimal_point() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let Ok(value) = faker.gaussian(50.0, 5.0, 0) else {
+            panic!("gaussian generation should succeed");
+        };
+        assert!(
+            !value.contains('.'),
+            "precision-0 result {value} should not contain a decimal point"
+        );
+    }
+
+    #[test]
+    fn gaussian_infinite_sd_returns_error() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        // Non-finite SD is invalid in rand_distr::Normal.
+        let result = faker.gaussian(0.0, f64::INFINITY, 2);
+        assert_eq!(result, Err(GaussianError::InvalidParameters));
+    }
+
+    #[test]
+    fn gaussian_nan_sd_returns_error() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let result = faker.gaussian(0.0, f64::NAN, 2);
+        assert_eq!(result, Err(GaussianError::InvalidParameters));
+    }
+
+    #[test]
+    fn select_from_empty_returns_none() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let empty: Vec<String> = Vec::new();
+        assert_eq!(faker.select_from(&empty), None);
+    }
+
+    #[test]
+    fn select_from_picks_from_options() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let options = vec!["alpha".to_string(), "beta".to_string(), "gamma".to_string()];
+        for _ in 0..10 {
+            let picked = faker.select_from(&options);
+            let Some(value) = picked else {
+                panic!("select_from should return Some for non-empty options");
+            };
+            assert!(options.contains(&value), "value {value} not in options");
+        }
+    }
+
+    #[test]
+    fn select_from_map_empty_returns_none() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let empty: HashMap<String, String> = HashMap::new();
+        assert_eq!(faker.select_from_map(&empty), None);
+    }
+
+    #[test]
+    fn select_from_map_returns_a_value_from_map() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let mut map: HashMap<String, String> = HashMap::new();
+        map.insert("k1".to_string(), "v1".to_string());
+        map.insert("k2".to_string(), "v2".to_string());
+        map.insert("k3".to_string(), "v3".to_string());
+        let values: Vec<String> = map.values().cloned().collect();
+        for _ in 0..10 {
+            let Some(picked) = faker.select_from_map(&map) else {
+                panic!("select_from_map should return Some for non-empty map");
+            };
+            assert!(values.contains(&picked), "{picked} not a map value");
+        }
+    }
+
+    #[test]
+    fn icd10_loinc_medication_allergen_blood_ethnicity_race_are_non_empty() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        assert!(faker.icd10().contains('.'));
+        let loinc = faker.loinc();
+        assert!(loinc.chars().all(|c| c.is_ascii_digit()));
+        assert!(!faker.medication().is_empty());
+        assert!(!faker.allergen().is_empty());
+        assert!(!faker.blood_type().is_empty());
+        assert!(!faker.ethnicity().is_empty());
+        assert!(!faker.race().is_empty());
+    }
+
+    #[test]
+    fn numeric_emits_exact_digit_count() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let value = faker.numeric(7);
+        assert_eq!(value.len(), 7);
+        assert!(value.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    #[test]
+    fn numeric_zero_digits_returns_empty() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        assert_eq!(faker.numeric(0), "");
+    }
+
+    #[test]
+    fn uuid_v4_is_well_formed() {
+        let mut rng = seeded_rng();
+        let faker = Faker::new(&mut rng);
+        let uuid = faker.uuid_v4();
+        // Standard UUID string length is 36 with dashes.
+        assert_eq!(uuid.len(), 36, "uuid {uuid} should be 36 chars");
+        assert_eq!(uuid.matches('-').count(), 4);
+    }
+
+    #[test]
+    fn dtm_now_utc_is_yyyymmddhhmmss() {
+        let mut rng = seeded_rng();
+        let faker = Faker::new(&mut rng);
+        let dtm = faker.dtm_now_utc();
+        assert_eq!(dtm.len(), 14, "dtm {dtm} should be 14 chars");
+        assert!(dtm.chars().all(|c| c.is_ascii_digit()));
+    }
+
+    #[test]
+    fn faker_value_fixed_round_trips_string() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let fv = FakerValue::Fixed("hello".to_string());
+        assert_eq!(fv.generate(&mut faker).ok(), Some("hello".to_string()));
+    }
+
+    #[test]
+    fn faker_value_from_empty_returns_error() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let fv = FakerValue::From(Vec::new());
+        assert_eq!(fv.generate(&mut faker), Err(GenerateError::EmptyOptions));
+    }
+
+    #[test]
+    fn faker_value_map_empty_returns_error() {
+        let mut rng = seeded_rng();
+        let mut faker = Faker::new(&mut rng);
+        let fv = FakerValue::Map(HashMap::new());
+        assert_eq!(fv.generate(&mut faker), Err(GenerateError::EmptyMap));
+    }
+
+    #[test]
+    fn date_error_display_includes_context() {
+        let err = DateError::InvalidDateFormat("foo".to_string());
+        let s = format!("{err}");
+        assert!(s.contains("foo"));
+
+        let err = DateError::InvalidDateRange {
+            start: "20210101".to_string(),
+            end: "20200101".to_string(),
+        };
+        let s = format!("{err}");
+        assert!(s.contains("20210101"));
+        assert!(s.contains("20200101"));
+
+        let err = DateError::DateOutOfRange;
+        let s = format!("{err}");
+        assert!(s.contains("out of range"));
+    }
+
+    #[test]
+    fn gaussian_error_display_is_human_readable() {
+        let err = GaussianError::InvalidParameters;
+        let s = format!("{err}");
+        assert!(s.contains("Gaussian"));
+    }
+
+    #[test]
+    fn generate_error_display_wraps_inner_errors() {
+        let err = GenerateError::Date(DateError::DateOutOfRange);
+        let s = format!("{err}");
+        assert!(s.contains("Date generation error"));
+
+        let err = GenerateError::Gaussian(GaussianError::InvalidParameters);
+        let s = format!("{err}");
+        assert!(s.contains("Gaussian generation error"));
+
+        let err = GenerateError::EmptyOptions;
+        let s = format!("{err}");
+        assert!(s.contains("empty options"));
+
+        let err = GenerateError::EmptyMap;
+        let s = format!("{err}");
+        assert!(s.contains("empty map"));
+    }
+}
