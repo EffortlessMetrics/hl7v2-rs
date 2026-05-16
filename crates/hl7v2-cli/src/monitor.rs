@@ -31,9 +31,12 @@ impl PerformanceMonitor {
     }
 
     /// Get a specific metric
-    #[expect(
-        dead_code,
-        reason = "retained for report expansion; debt is tracked in policy/clippy-debt.toml"
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "retained for report expansion; debt is tracked in policy/clippy-debt.toml"
+        )
     )]
     pub fn get_metric(&self, name: &str) -> Option<std::time::Duration> {
         self.metrics.get(name).copied()
@@ -135,5 +138,169 @@ pub fn get_system_info() -> SystemInfo {
         cpu: cpu_info,
         total_memory: sys.total_memory(),
         used_memory: sys.used_memory(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        CpuInfo, MemoryInfo, PerformanceMonitor, SystemInfo, get_cpu_info, get_memory_info,
+        get_system_info,
+    };
+    use std::time::Duration;
+
+    #[test]
+    fn performance_monitor_new_elapsed_is_non_negative() {
+        let monitor = PerformanceMonitor::new();
+        let elapsed = monitor.elapsed();
+        assert!(elapsed.as_nanos() < u128::MAX);
+    }
+
+    #[test]
+    fn performance_monitor_records_and_returns_metric() {
+        let mut monitor = PerformanceMonitor::new();
+        let duration = Duration::from_millis(42);
+        monitor.record_metric("parse", duration);
+
+        assert_eq!(monitor.get_metric("parse"), Some(duration));
+    }
+
+    #[test]
+    fn performance_monitor_records_multiple_distinct_keys() {
+        let mut monitor = PerformanceMonitor::new();
+        let a = Duration::from_millis(10);
+        let b = Duration::from_millis(20);
+        monitor.record_metric("a", a);
+        monitor.record_metric("b", b);
+
+        assert_eq!(monitor.get_metric("a"), Some(a));
+        assert_eq!(monitor.get_metric("b"), Some(b));
+        assert_eq!(monitor.get_metrics().len(), 2);
+    }
+
+    #[test]
+    fn performance_monitor_record_metric_overwrites_existing_key() {
+        let mut monitor = PerformanceMonitor::new();
+        monitor.record_metric("step", Duration::from_millis(1));
+        monitor.record_metric("step", Duration::from_millis(2));
+
+        assert_eq!(monitor.get_metric("step"), Some(Duration::from_millis(2)));
+        assert_eq!(monitor.get_metrics().len(), 1);
+    }
+
+    #[test]
+    fn performance_monitor_get_metric_returns_none_for_unknown_key() {
+        let monitor = PerformanceMonitor::new();
+        assert!(monitor.get_metric("missing").is_none());
+    }
+
+    #[test]
+    fn performance_monitor_get_metrics_reflects_record_count() {
+        let mut monitor = PerformanceMonitor::new();
+        assert!(monitor.get_metrics().is_empty());
+
+        monitor.record_metric("one", Duration::from_micros(1));
+        monitor.record_metric("two", Duration::from_micros(2));
+        monitor.record_metric("three", Duration::from_micros(3));
+
+        let metrics = monitor.get_metrics();
+        assert_eq!(metrics.len(), 3);
+        assert!(metrics.contains_key("one"));
+        assert!(metrics.contains_key("two"));
+        assert!(metrics.contains_key("three"));
+    }
+
+    #[test]
+    fn performance_monitor_clone_preserves_metrics() {
+        let mut monitor = PerformanceMonitor::new();
+        monitor.record_metric("a", Duration::from_millis(5));
+        let cloned = monitor.clone();
+
+        assert_eq!(cloned.get_metric("a"), Some(Duration::from_millis(5)));
+        let debug_repr = format!("{monitor:?}");
+        assert!(debug_repr.contains("PerformanceMonitor"));
+    }
+
+    #[test]
+    fn memory_info_debug_and_clone_round_trip() {
+        let info = MemoryInfo {
+            resident_set_size: Some(0),
+            virtual_memory_size: Some(0),
+        };
+        let cloned = info.clone();
+        assert_eq!(cloned.resident_set_size, Some(0));
+        assert_eq!(cloned.virtual_memory_size, Some(0));
+
+        let debug_repr = format!("{info:?}");
+        assert!(debug_repr.contains("MemoryInfo"));
+    }
+
+    #[test]
+    fn cpu_info_debug_and_clone_round_trip() {
+        let info = CpuInfo {
+            cpu_usage_percent: Some(0.0),
+        };
+        let cloned = info.clone();
+        assert_eq!(cloned.cpu_usage_percent, Some(0.0));
+
+        let debug_repr = format!("{info:?}");
+        assert!(debug_repr.contains("CpuInfo"));
+    }
+
+    #[test]
+    fn system_info_debug_and_clone_round_trip() {
+        let info = SystemInfo {
+            memory: MemoryInfo {
+                resident_set_size: Some(1),
+                virtual_memory_size: Some(2),
+            },
+            cpu: CpuInfo {
+                cpu_usage_percent: Some(3.0),
+            },
+            total_memory: 4,
+            used_memory: 5,
+        };
+        let cloned = info.clone();
+        assert_eq!(cloned.total_memory, 4);
+        assert_eq!(cloned.used_memory, 5);
+
+        let debug_repr = format!("{info:?}");
+        assert!(debug_repr.contains("SystemInfo"));
+    }
+
+    #[test]
+    fn get_memory_info_returns_value_without_panicking() {
+        let info = get_memory_info();
+        let _ = info.resident_set_size;
+        let _ = info.virtual_memory_size;
+    }
+
+    #[test]
+    fn get_cpu_info_returns_value_without_panicking() {
+        let info = get_cpu_info();
+        let _ = info.cpu_usage_percent;
+    }
+
+    #[test]
+    fn get_system_info_returns_value_without_panicking() {
+        let info = get_system_info();
+        let _ = info.total_memory;
+        let _ = info.used_memory;
+        let _ = info.memory.resident_set_size;
+        let _ = info.cpu.cpu_usage_percent;
+    }
+
+    #[test]
+    fn benchmark_macro_propagates_result_and_records_duration() {
+        let (result, duration) = crate::benchmark!("compute", {
+            let mut sum: u64 = 0;
+            for i in 0..1000u64 {
+                sum = sum.wrapping_add(i);
+            }
+            sum
+        });
+
+        assert_eq!(result, (0..1000u64).sum::<u64>());
+        assert!(duration.as_nanos() < u128::MAX);
     }
 }
