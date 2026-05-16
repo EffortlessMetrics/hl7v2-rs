@@ -41,9 +41,13 @@ A binding backend crate can be published only when it is:
 - covered by that language package's install/import smoke proof;
 - recorded in a release receipt.
 
-Current `hl7v2-python` metadata may make the crate publishable as binding
-infrastructure. It remains unpublished until a dedicated release PR records the
-required proof and a crates.io upload plus registry resolution succeeds.
+Current `hl7v2-python` metadata makes the crate publishable as binding
+infrastructure. v1.5.0 published it to crates.io after dedicated release proof
+and registry resolution were recorded in
+[`publish-v1.5.0-2026-05-15.md`](../audits/publish-v1.5.0-2026-05-15.md).
+That backend publication remains separate from TestPyPI or PyPI proof for the
+public Python `hl7v2` package. Future binding backend crates must satisfy this
+same proof contract before any publish claim.
 
 ## Package Classes
 
