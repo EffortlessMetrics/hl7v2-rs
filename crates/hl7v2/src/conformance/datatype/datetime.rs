@@ -515,3 +515,506 @@ pub fn now_hl7() -> String {
 pub fn today_hl7() -> String {
     chrono::Utc::now().format("%Y%m%d").to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::expect_used,
+        reason = "inline unit tests use expect with descriptive messages for clarity"
+    )]
+
+    use super::{
+        DateTimeError, ParsedTimestamp, TimestampPrecision, is_valid_hl7_date, is_valid_hl7_time,
+        is_valid_hl7_timestamp, now_hl7, parse_hl7_dt, parse_hl7_tm, parse_hl7_ts,
+        parse_hl7_ts_with_precision, today_hl7, truncate_to_precision,
+    };
+    use chrono::{Datelike, NaiveDate, Timelike};
+
+    // ------------------------------------------------------------------
+    // parse_hl7_dt
+    // ------------------------------------------------------------------
+    #[test]
+    fn parse_hl7_dt_accepts_valid_date() {
+        let d = parse_hl7_dt("20250128").expect("valid date");
+        assert_eq!(d.year(), 2025);
+        assert_eq!(d.month(), 1);
+        assert_eq!(d.day(), 28);
+    }
+
+    #[test]
+    fn parse_hl7_dt_trims_whitespace() {
+        let d = parse_hl7_dt("  20250128  ").expect("valid trimmed date");
+        assert_eq!(d.year(), 2025);
+    }
+
+    #[test]
+    fn parse_hl7_dt_leap_year_feb_29() {
+        // 2024 is a leap year — Feb 29 is valid
+        let d = parse_hl7_dt("20240229").expect("leap day");
+        assert_eq!(d.day(), 29);
+
+        // 2023 is not a leap year — Feb 29 is invalid
+        assert!(matches!(
+            parse_hl7_dt("20230229"),
+            Err(DateTimeError::InvalidDateFormat(_))
+        ));
+    }
+
+    #[test]
+    fn parse_hl7_dt_year_2000_is_leap_year_2100_is_not() {
+        // 2000 is divisible by 400 — is a leap year
+        parse_hl7_dt("20000229").expect("Feb 29 2000 is valid");
+        // 2100 is divisible by 100 but not 400 — is NOT a leap year
+        parse_hl7_dt("21000229").expect_err("Feb 29 2100 is invalid");
+    }
+
+    #[test]
+    fn parse_hl7_dt_rejects_wrong_length() {
+        let err = parse_hl7_dt("2025012").expect_err("too short");
+        assert!(matches!(err, DateTimeError::InvalidDateFormat(_)));
+        let err = parse_hl7_dt("202501288").expect_err("too long");
+        assert!(matches!(err, DateTimeError::InvalidDateFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_dt_rejects_non_digit() {
+        let err = parse_hl7_dt("2025-128").expect_err("non-digit");
+        assert!(matches!(err, DateTimeError::InvalidDateFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_dt_rejects_invalid_month_day() {
+        parse_hl7_dt("20251301").expect_err("month 13 invalid");
+        parse_hl7_dt("20250132").expect_err("day 32 invalid");
+        parse_hl7_dt("20250000").expect_err("month 0 day 0 invalid");
+    }
+
+    // ------------------------------------------------------------------
+    // parse_hl7_tm
+    // ------------------------------------------------------------------
+    #[test]
+    fn parse_hl7_tm_hour_minute_only() {
+        let (h, m, s, f) = parse_hl7_tm("1530").expect("valid HHMM");
+        assert_eq!(h, 15);
+        assert_eq!(m, 30);
+        assert_eq!(s, 0);
+        assert_eq!(f, None);
+    }
+
+    #[test]
+    fn parse_hl7_tm_with_seconds() {
+        let (h, m, s, f) = parse_hl7_tm("153045").expect("valid HHMMSS");
+        assert_eq!(h, 15);
+        assert_eq!(m, 30);
+        assert_eq!(s, 45);
+        assert_eq!(f, None);
+    }
+
+    #[test]
+    fn parse_hl7_tm_fractional_one_to_six_digits() {
+        // 1 digit
+        let (.., f1) = parse_hl7_tm("153045.5").expect("1-digit fraction");
+        assert_eq!(f1, Some(500000));
+        // 2 digits
+        let (.., f2) = parse_hl7_tm("153045.50").expect("2-digit fraction");
+        assert_eq!(f2, Some(500000));
+        // 3 digits (millisecond)
+        let (.., f3) = parse_hl7_tm("153045.123").expect("3-digit fraction");
+        assert_eq!(f3, Some(123000));
+        // 6 digits (microsecond)
+        let (.., f6) = parse_hl7_tm("153045.123456").expect("6-digit fraction");
+        assert_eq!(f6, Some(123456));
+        // More than 6 digits — only first 6 used
+        let (.., f7) = parse_hl7_tm("153045.1234567").expect("7-digit fraction truncated");
+        assert_eq!(f7, Some(123456));
+    }
+
+    #[test]
+    fn parse_hl7_tm_boundary_2359_59() {
+        let (h, m, s, _) = parse_hl7_tm("235959").expect("end of day");
+        assert_eq!((h, m, s), (23, 59, 59));
+    }
+
+    #[test]
+    fn parse_hl7_tm_midnight() {
+        let (h, m, s, _) = parse_hl7_tm("0000").expect("midnight");
+        assert_eq!((h, m, s), (0, 0, 0));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_too_short() {
+        let err = parse_hl7_tm("12").expect_err("too short");
+        assert!(matches!(err, DateTimeError::InvalidTimeFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_non_ascii() {
+        let err = parse_hl7_tm("12\u{00e9}0").expect_err("non-ascii");
+        assert!(matches!(err, DateTimeError::InvalidTimeFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_hour_out_of_range() {
+        let err = parse_hl7_tm("2400").expect_err("hour 24");
+        assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_minute_out_of_range() {
+        let err = parse_hl7_tm("1260").expect_err("minute 60");
+        assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_second_out_of_range() {
+        let err = parse_hl7_tm("125960").expect_err("second 60");
+        assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_non_numeric_hours() {
+        let err = parse_hl7_tm("ab30").expect_err("non-numeric hour");
+        assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_non_numeric_seconds() {
+        let err = parse_hl7_tm("1530ab").expect_err("non-numeric seconds");
+        assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    // ------------------------------------------------------------------
+    // parse_hl7_ts
+    // ------------------------------------------------------------------
+    #[test]
+    fn parse_hl7_ts_date_only_midnight() {
+        let dt = parse_hl7_ts("20250128").expect("date-only ts");
+        assert_eq!(
+            dt.date(),
+            NaiveDate::from_ymd_opt(2025, 1, 28).expect("ymd")
+        );
+        assert_eq!(dt.hour(), 0);
+        assert_eq!(dt.minute(), 0);
+        assert_eq!(dt.second(), 0);
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_time() {
+        let dt = parse_hl7_ts("20250128152312").expect("ts with time");
+        assert_eq!(dt.hour(), 15);
+        assert_eq!(dt.minute(), 23);
+        assert_eq!(dt.second(), 12);
+    }
+
+    #[test]
+    fn parse_hl7_ts_rejects_too_short() {
+        let err = parse_hl7_ts("2025").expect_err("too short");
+        assert!(matches!(err, DateTimeError::InvalidTimestampFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_ts_rejects_non_ascii() {
+        let err = parse_hl7_ts("20250128\u{00e9}").expect_err("non-ascii");
+        assert!(matches!(err, DateTimeError::InvalidTimestampFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_ts_rejects_invalid_date_part() {
+        // 13-month date should propagate the date error
+        let err = parse_hl7_ts("20251301").expect_err("bad month");
+        assert!(matches!(err, DateTimeError::InvalidDateFormat(_)));
+    }
+
+    // ------------------------------------------------------------------
+    // parse_hl7_ts_with_precision — every precision arm
+    // ------------------------------------------------------------------
+    #[test]
+    fn parse_hl7_ts_with_precision_year() {
+        let ts = parse_hl7_ts_with_precision("2025").expect("year precision");
+        assert_eq!(ts.precision, TimestampPrecision::Year);
+        assert_eq!(ts.datetime.year(), 2025);
+        assert_eq!(ts.datetime.month(), 1);
+        assert_eq!(ts.datetime.day(), 1);
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_month() {
+        let ts = parse_hl7_ts_with_precision("202507").expect("month precision");
+        assert_eq!(ts.precision, TimestampPrecision::Month);
+        assert_eq!(ts.datetime.month(), 7);
+        assert_eq!(ts.datetime.day(), 1);
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_day() {
+        let ts = parse_hl7_ts_with_precision("20250715").expect("day precision");
+        assert_eq!(ts.precision, TimestampPrecision::Day);
+        assert_eq!(ts.datetime.day(), 15);
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_hour() {
+        let ts = parse_hl7_ts_with_precision("2025071510").expect("hour precision");
+        assert_eq!(ts.precision, TimestampPrecision::Hour);
+        assert_eq!(ts.datetime.hour(), 10);
+        assert_eq!(ts.datetime.minute(), 0);
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_minute() {
+        let ts = parse_hl7_ts_with_precision("202507151034").expect("minute precision");
+        assert_eq!(ts.precision, TimestampPrecision::Minute);
+        assert_eq!(ts.datetime.minute(), 34);
+        assert_eq!(ts.datetime.second(), 0);
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_second() {
+        let ts = parse_hl7_ts_with_precision("20250715103456").expect("second precision");
+        assert_eq!(ts.precision, TimestampPrecision::Second);
+        assert_eq!(ts.datetime.second(), 56);
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_fractional() {
+        let ts = parse_hl7_ts_with_precision("20250715103456.123").expect("fractional precision");
+        assert_eq!(ts.precision, TimestampPrecision::FractionalSecond);
+        assert_eq!(ts.fractional_seconds, Some(123000));
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_invalid_length() {
+        let err = parse_hl7_ts_with_precision("202").expect_err("3 chars");
+        assert!(matches!(err, DateTimeError::InvalidTimestampFormat(_)));
+        // 15 chars without a dot at position 14 is also invalid
+        let err = parse_hl7_ts_with_precision("202507151034567").expect_err("15 chars no dot");
+        assert!(matches!(err, DateTimeError::InvalidTimestampFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_rejects_non_ascii() {
+        let err = parse_hl7_ts_with_precision("2025\u{00e9}").expect_err("non-ascii");
+        assert!(matches!(err, DateTimeError::InvalidTimestampFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_invalid_year_value() {
+        // Non-numeric 4-char input
+        let err = parse_hl7_ts_with_precision("abcd").expect_err("non-numeric year");
+        assert!(matches!(err, DateTimeError::InvalidDateFormat(_)));
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_invalid_month_value() {
+        let err = parse_hl7_ts_with_precision("202513").expect_err("month 13");
+        assert!(matches!(err, DateTimeError::DateOutOfRange(_)));
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_invalid_hour_value() {
+        let err = parse_hl7_ts_with_precision("2025071524").expect_err("hour 24");
+        assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_invalid_minute_value() {
+        let err = parse_hl7_ts_with_precision("202507151060").expect_err("minute 60");
+        assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    // ------------------------------------------------------------------
+    // is_valid_* helpers
+    // ------------------------------------------------------------------
+    #[test]
+    fn is_valid_hl7_date_accept_and_reject() {
+        assert!(is_valid_hl7_date("20250128"));
+        assert!(!is_valid_hl7_date("2025-01-28"));
+        assert!(!is_valid_hl7_date(""));
+    }
+
+    #[test]
+    fn is_valid_hl7_time_accept_and_reject() {
+        assert!(is_valid_hl7_time("1530"));
+        assert!(is_valid_hl7_time("153045"));
+        assert!(is_valid_hl7_time("153045.123"));
+        assert!(!is_valid_hl7_time("25"));
+        assert!(!is_valid_hl7_time("2400"));
+    }
+
+    #[test]
+    fn is_valid_hl7_timestamp_accept_and_reject() {
+        assert!(is_valid_hl7_timestamp("20250128"));
+        assert!(is_valid_hl7_timestamp("20250128120000"));
+        assert!(!is_valid_hl7_timestamp(""));
+        assert!(!is_valid_hl7_timestamp("not-a-ts"));
+    }
+
+    // ------------------------------------------------------------------
+    // now_hl7 / today_hl7 — format & length only (time-dependent)
+    // ------------------------------------------------------------------
+    #[test]
+    fn now_hl7_returns_14_ascii_digits() {
+        let now = now_hl7();
+        assert_eq!(now.len(), 14);
+        assert!(now.chars().all(|c| c.is_ascii_digit()));
+        // and is parseable
+        assert!(is_valid_hl7_timestamp(&now));
+    }
+
+    #[test]
+    fn today_hl7_returns_8_ascii_digits() {
+        let today = today_hl7();
+        assert_eq!(today.len(), 8);
+        assert!(today.chars().all(|c| c.is_ascii_digit()));
+        assert!(is_valid_hl7_date(&today));
+    }
+
+    // ------------------------------------------------------------------
+    // ParsedTimestamp helpers
+    // ------------------------------------------------------------------
+    #[test]
+    fn parsed_timestamp_new_sets_no_fractional() {
+        let dt = NaiveDate::from_ymd_opt(2025, 1, 28)
+            .and_then(|d| d.and_hms_opt(12, 0, 0))
+            .expect("valid dt");
+        let ts = ParsedTimestamp::new(dt, TimestampPrecision::Second);
+        assert_eq!(ts.precision, TimestampPrecision::Second);
+        assert_eq!(ts.fractional_seconds, None);
+    }
+
+    #[test]
+    fn parsed_timestamp_with_fractional_sets_fields() {
+        let dt = NaiveDate::from_ymd_opt(2025, 1, 28)
+            .and_then(|d| d.and_hms_opt(12, 0, 0))
+            .expect("valid dt");
+        let ts = ParsedTimestamp::with_fractional(dt, 123_456);
+        assert_eq!(ts.precision, TimestampPrecision::FractionalSecond);
+        assert_eq!(ts.fractional_seconds, Some(123_456));
+    }
+
+    #[test]
+    fn parsed_timestamp_is_same_day() {
+        let a = parse_hl7_ts_with_precision("20250128").expect("a");
+        let b = parse_hl7_ts_with_precision("20250128120000").expect("b");
+        let c = parse_hl7_ts_with_precision("20250129").expect("c");
+        assert!(a.is_same_day(&b));
+        assert!(!a.is_same_day(&c));
+    }
+
+    #[test]
+    fn parsed_timestamp_is_before_and_after() {
+        let a = parse_hl7_ts_with_precision("20250128").expect("a");
+        let b = parse_hl7_ts_with_precision("20250129").expect("b");
+        assert!(a.is_before(&b));
+        assert!(b.is_after(&a));
+        assert!(!a.is_after(&b));
+        assert!(!b.is_before(&a));
+
+        // Same precision branch
+        let c = parse_hl7_ts_with_precision("20250128").expect("c");
+        assert!(!a.is_before(&c));
+    }
+
+    #[test]
+    fn parsed_timestamp_is_equal_with_mixed_precision() {
+        let day = parse_hl7_ts_with_precision("20250128").expect("day");
+        let sec = parse_hl7_ts_with_precision("20250128120000").expect("sec");
+        // Different precisions — equal at the coarser (Day) level
+        assert!(day.is_equal(&sec));
+        let other_day = parse_hl7_ts_with_precision("20250129").expect("other day");
+        assert!(!day.is_equal(&other_day));
+    }
+
+    #[test]
+    fn parsed_timestamp_to_hl7_string_per_precision() {
+        let year = parse_hl7_ts_with_precision("2025").expect("year");
+        assert_eq!(year.to_hl7_string(), "2025");
+
+        let month = parse_hl7_ts_with_precision("202507").expect("month");
+        assert_eq!(month.to_hl7_string(), "202507");
+
+        let day = parse_hl7_ts_with_precision("20250715").expect("day");
+        assert_eq!(day.to_hl7_string(), "20250715");
+
+        let hour = parse_hl7_ts_with_precision("2025071510").expect("hour");
+        assert_eq!(hour.to_hl7_string(), "2025071510");
+
+        let minute = parse_hl7_ts_with_precision("202507151034").expect("minute");
+        assert_eq!(minute.to_hl7_string(), "202507151034");
+
+        let sec = parse_hl7_ts_with_precision("20250715103456").expect("sec");
+        assert_eq!(sec.to_hl7_string(), "20250715103456");
+
+        let frac = parse_hl7_ts_with_precision("20250715103456.123").expect("frac");
+        assert_eq!(frac.to_hl7_string(), "20250715103456123000");
+    }
+
+    #[test]
+    fn parsed_timestamp_to_hl7_string_fractional_without_frac_value() {
+        let dt = NaiveDate::from_ymd_opt(2025, 7, 15)
+            .and_then(|d| d.and_hms_opt(10, 34, 56))
+            .expect("dt");
+        // Construct a FractionalSecond precision but with no fractional_seconds
+        // (covers the else branch of to_hl7_string).
+        let ts = ParsedTimestamp {
+            datetime: dt,
+            precision: TimestampPrecision::FractionalSecond,
+            fractional_seconds: None,
+        };
+        assert_eq!(ts.to_hl7_string(), "20250715103456");
+    }
+
+    // ------------------------------------------------------------------
+    // truncate_to_precision (pub(crate) helper)
+    // ------------------------------------------------------------------
+    #[test]
+    fn truncate_to_precision_all_levels() {
+        let dt = NaiveDate::from_ymd_opt(2025, 7, 15)
+            .and_then(|d| d.and_hms_opt(10, 34, 56))
+            .expect("dt");
+
+        let year = truncate_to_precision(&dt, TimestampPrecision::Year);
+        assert_eq!(year.month(), 1);
+        assert_eq!(year.day(), 1);
+        assert_eq!(year.hour(), 0);
+
+        let month = truncate_to_precision(&dt, TimestampPrecision::Month);
+        assert_eq!(month.day(), 1);
+        assert_eq!(month.hour(), 0);
+
+        let day = truncate_to_precision(&dt, TimestampPrecision::Day);
+        assert_eq!(day.hour(), 0);
+        assert_eq!(day.minute(), 0);
+
+        let hour = truncate_to_precision(&dt, TimestampPrecision::Hour);
+        assert_eq!(hour.hour(), 10);
+        assert_eq!(hour.minute(), 0);
+        assert_eq!(hour.second(), 0);
+
+        let minute = truncate_to_precision(&dt, TimestampPrecision::Minute);
+        assert_eq!(minute.minute(), 34);
+        assert_eq!(minute.second(), 0);
+
+        let sec = truncate_to_precision(&dt, TimestampPrecision::Second);
+        assert_eq!(sec, dt);
+        let frac = truncate_to_precision(&dt, TimestampPrecision::FractionalSecond);
+        assert_eq!(frac, dt);
+    }
+
+    // ------------------------------------------------------------------
+    // DateTimeError display
+    // ------------------------------------------------------------------
+    #[test]
+    fn datetime_error_display_messages() {
+        let e = DateTimeError::InvalidDateFormat("x".to_string());
+        assert!(format!("{e}").contains("Invalid date"));
+        let e = DateTimeError::InvalidTimeFormat("x".to_string());
+        assert!(format!("{e}").contains("Invalid time"));
+        let e = DateTimeError::InvalidTimestampFormat("x".to_string());
+        assert!(format!("{e}").contains("Invalid timestamp"));
+        let e = DateTimeError::DateOutOfRange("x".to_string());
+        assert!(format!("{e}").contains("Date out"));
+        let e = DateTimeError::TimeOutOfRange("x".to_string());
+        assert!(format!("{e}").contains("Time out"));
+    }
+}
