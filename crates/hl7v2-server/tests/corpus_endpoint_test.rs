@@ -2,6 +2,7 @@
 
 #![expect(
     clippy::unwrap_used,
+    clippy::expect_used,
     clippy::indexing_slicing,
     reason = "endpoint integration tests use static JSON fixtures for contract coverage"
 )]
@@ -12,9 +13,60 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
+use std::path::{Path, PathBuf};
 use tower::ServiceExt;
 
 mod common;
+
+fn dirty_real_world_fixture_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/dirty-real-world")
+}
+
+fn normalize_fixture_segments(bytes: &[u8]) -> Vec<u8> {
+    String::from_utf8_lossy(bytes)
+        .replace("\r\n", "\n")
+        .replace('\n', "\r")
+        .into_bytes()
+}
+
+fn dirty_corpus_messages(category: &str) -> Vec<Value> {
+    let source = dirty_real_world_fixture_root().join(category);
+    let mut paths = std::fs::read_dir(&source)
+        .expect("dirty fixture category should be readable")
+        .map(|entry| {
+            entry
+                .expect("dirty fixture entry should be readable")
+                .path()
+        })
+        .filter(|path| path.is_file())
+        .collect::<Vec<_>>();
+    paths.sort();
+
+    paths
+        .into_iter()
+        .map(|path| {
+            let bytes = std::fs::read(&path).expect("dirty fixture file should be readable");
+            let file_name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .expect("dirty fixture file should have a UTF-8 name");
+            let message = String::from_utf8(normalize_fixture_segments(&bytes))
+                .expect("dirty fixture should be UTF-8 after normalization");
+            json!({ "id": file_name, "message": message })
+        })
+        .collect()
+}
+
+fn dirty_after_corpus_messages() -> Vec<Value> {
+    let mut messages = dirty_corpus_messages("after");
+    let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
+    let bytes = std::fs::read(&source).expect("MLLP source fixture should be readable");
+    let normalized = normalize_fixture_segments(&bytes);
+    let message =
+        String::from_utf8(hl7v2::wrap_mllp(&normalized)).expect("MLLP fixture should be UTF-8");
+    messages.push(json!({ "id": "mllp-framed.hl7", "message": message }));
+    messages
+}
 
 fn post_json(path: &str, request_body: Value) -> Request<Body> {
     Request::builder()
@@ -37,6 +89,125 @@ async fn post_corpus(path: &str, request_body: Value) -> (StatusCode, Value, Str
     let body_text = String::from_utf8(body.to_vec()).unwrap();
     let value = serde_json::from_str(&body_text).unwrap_or_else(|_| json!({}));
     (status, value, body_text)
+}
+
+#[tokio::test]
+async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
+    let before = dirty_corpus_messages("before");
+    let after = dirty_after_corpus_messages();
+
+    let (status, summary, summary_text) = post_corpus(
+        "/hl7/corpus/summarize",
+        json!({
+            "messages": after,
+            "summary_schema_version": 2
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(summary["schema_version"], "2");
+    assert_eq!(summary["tool_name"], "hl7v2-server");
+    assert_eq!(summary["root"], "<inline-corpus>");
+    assert_eq!(summary["file_count"], 6);
+    assert_eq!(summary["message_count"], 4);
+    assert_eq!(summary["parse_error_count"], 2);
+    assert!(
+        summary["message_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["value"] == "ADT^A08" && entry["count"] == 1)
+    );
+    assert!(
+        summary["message_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["value"] == "ADT^A04" && entry["count"] == 1)
+    );
+    assert!(
+        summary["segments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["value"] == "ZPV" && entry["count"] == 1)
+    );
+    assert!(
+        summary["parse_errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "malformed-delimiters.hl7")
+    );
+    assert!(
+        summary["parse_errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "partial-batch.hl7")
+    );
+    assert!(!summary_text.contains("MRN-DIRTY"));
+
+    let (status, fingerprint, fingerprint_text) = post_corpus(
+        "/hl7/corpus/fingerprint",
+        json!({
+            "messages": dirty_after_corpus_messages(),
+            "fingerprint_schema_version": 2
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(fingerprint["schema_version"], "2");
+    assert_eq!(fingerprint["tool_name"], "hl7v2-server");
+    assert_eq!(fingerprint["file_count"], 6);
+    assert_eq!(fingerprint["message_count"], 4);
+    assert_eq!(fingerprint["parse_error_count"], 2);
+    assert!(
+        fingerprint["field_cardinality"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "OBX.5"
+                && entry["max_per_message"] == 20
+                && entry["total_occurrences"] == 20)
+    );
+    assert!(
+        fingerprint["field_cardinality"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "ZPV.1" && entry["total_occurrences"] == 1)
+    );
+    assert!(!fingerprint_text.contains("MRN-DIRTY"));
+
+    let (status, diff, diff_text) = post_corpus(
+        "/hl7/corpus/diff",
+        json!({
+            "before": before,
+            "after": dirty_after_corpus_messages(),
+            "diff_schema_version": 2
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(diff["schema_version"], "2");
+    assert_eq!(diff["tool_name"], "hl7v2-server");
+    assert_eq!(diff["file_count"]["delta"], 4);
+    assert_eq!(diff["message_count"]["delta"], 2);
+    assert_eq!(diff["parse_error_count"]["delta"], 2);
+    assert!(
+        diff["field_cardinality"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "OBX.5"
+                && entry["max_per_message_delta"] == 15
+                && entry["total_occurrences_delta"] == 15)
+    );
+    assert!(!diff_text.contains("MRN-DIRTY"));
 }
 
 #[tokio::test]
