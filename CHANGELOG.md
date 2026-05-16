@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a post-release current-main readiness refresh after gRPC enhanced ACK
+  parity landed through #705.
 - Added a repeatable public crates.io install-back smoke script and receipt for
   the v1.5.0 Rust library, CLI, and server first-use paths.
 - Recorded a post-release current-main readiness refresh after normalization
