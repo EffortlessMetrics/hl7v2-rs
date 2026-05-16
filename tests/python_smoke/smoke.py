@@ -138,6 +138,8 @@ def has_count(entries: list[dict[str, object]], value: str, count: int) -> bool:
 
 
 def main() -> int:
+    repo_root = Path(__file__).resolve().parents[2]
+
     raw = (
         "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01|CTRL123|P|2.5\r"
         "PID|1||123456^^^HOSP^MR||Doe^John||19700101|M"
@@ -172,6 +174,32 @@ def main() -> int:
     normalized = hl7v2.normalize(raw)
     if "MSH|^~\\&" not in normalized or "PID|" not in normalized:
         print("normalize did not return expected HL7 content", file=sys.stderr)
+        return 1
+
+    custom_delimiter_raw = (repo_root / "test_data" / "custom_delimiters.hl7").read_text(
+        encoding="utf-8"
+    ).rstrip("\r\n")
+    canonical_custom = hl7v2.normalize(custom_delimiter_raw, canonical_delims=True)
+    if not canonical_custom.startswith("MSH|^~\\&|"):
+        print(
+            f"canonical normalization did not use standard delimiters: {canonical_custom}",
+            file=sys.stderr,
+        )
+        return 1
+    if "ADT^A01" not in canonical_custom or "ADT%A01" in canonical_custom:
+        print(
+            f"canonical normalization did not rewrite component delimiters: {canonical_custom}",
+            file=sys.stderr,
+        )
+        return 1
+    if "MSH*%$!?*" in canonical_custom:
+        print(
+            f"canonical normalization retained custom field delimiters: {canonical_custom}",
+            file=sys.stderr,
+        )
+        return 1
+    if hl7v2.normalize(canonical_custom, canonical_delims=True) != canonical_custom:
+        print("canonical normalization was not idempotent", file=sys.stderr)
         return 1
 
     ack_message = hl7v2.ack(raw)
@@ -580,7 +608,6 @@ constraints:
             print("expected unsupported diff schema version to fail", file=sys.stderr)
             return 1
 
-    repo_root = Path(__file__).resolve().parents[2]
     dirty_fixture_root = repo_root / "test_data" / "dirty-real-world"
     with tempfile.TemporaryDirectory() as tmp:
         dirty_root = Path(tmp)
