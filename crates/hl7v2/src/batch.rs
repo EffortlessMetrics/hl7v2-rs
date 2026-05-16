@@ -562,3 +562,236 @@ fn fields_after_separator(line: &str) -> &str {
 fn segment_prefix(line: &str) -> &str {
     line.get(..3).unwrap_or(line)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+    fn ensure(condition: bool, message: &'static str) -> TestResult {
+        if condition {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(message).into())
+        }
+    }
+
+    fn sample_message() -> Result<Message, ModelError> {
+        parse(b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG001|P|2.5.1\r")
+    }
+
+    #[test]
+    fn batch_type_equality_distinguishes_single_and_file() -> TestResult {
+        ensure(BatchType::Single == BatchType::Single, "Single == Single")?;
+        ensure(BatchType::File == BatchType::File, "File == File")?;
+        ensure(BatchType::Single != BatchType::File, "Single != File")
+    }
+
+    #[test]
+    fn batch_info_default_uses_single_batch_type() -> TestResult {
+        let info = BatchInfo::default();
+        ensure(
+            info.batch_type == BatchType::Single,
+            "default BatchInfo should be Single",
+        )?;
+        ensure(info.field_separator.is_none(), "no field separator")?;
+        ensure(info.message_count.is_none(), "no message count")
+    }
+
+    #[test]
+    fn batch_new_default_match_and_count_zero() -> TestResult {
+        let new_batch = Batch::new();
+        let default_batch = Batch::default();
+        ensure(new_batch == default_batch, "default matches new")?;
+        ensure(new_batch.message_count() == 0, "empty count zero")?;
+        ensure(
+            new_batch.iter_messages().count() == 0,
+            "iter yields nothing",
+        )
+    }
+
+    #[test]
+    fn batch_add_message_increments_count_and_iter_yields_order() -> TestResult {
+        let mut batch = Batch::new();
+        let m1 = sample_message()?;
+        let m2 = sample_message()?;
+        batch.add_message(m1);
+        batch.add_message(m2);
+        ensure(batch.message_count() == 2, "count after adds")?;
+        ensure(batch.iter_messages().count() == 2, "iter count after adds")
+    }
+
+    #[test]
+    fn file_batch_new_defaults_to_file_batch_type() -> TestResult {
+        let fb = FileBatch::new();
+        ensure(
+            fb.info.batch_type == BatchType::File,
+            "FileBatch defaults to File type",
+        )?;
+        ensure(fb.batches.is_empty(), "no batches")?;
+        ensure(fb.header.is_none(), "no header")?;
+        ensure(fb.trailer.is_none(), "no trailer")
+    }
+
+    #[test]
+    fn file_batch_total_message_count_sums_nested_batches() -> TestResult {
+        let mut fb = FileBatch::new();
+        let mut b1 = Batch::new();
+        b1.add_message(sample_message()?);
+        b1.add_message(sample_message()?);
+        let mut b2 = Batch::new();
+        b2.add_message(sample_message()?);
+        fb.add_batch(b1);
+        fb.add_batch(b2);
+        ensure(fb.total_message_count() == 3, "total sums to 3")?;
+        ensure(fb.batches.len() == 2, "two batches")
+    }
+
+    #[test]
+    fn file_batch_iter_all_messages_yields_insertion_order() -> TestResult {
+        let mut fb = FileBatch::new();
+        let mut b1 = Batch::new();
+        b1.add_message(sample_message()?);
+        let mut b2 = Batch::new();
+        b2.add_message(sample_message()?);
+        b2.add_message(sample_message()?);
+        fb.add_batch(b1);
+        fb.add_batch(b2);
+        ensure(fb.iter_all_messages().count() == 3, "iter_all sees 3")
+    }
+
+    #[test]
+    fn parse_batch_rejects_empty_input() -> TestResult {
+        let result = parse_batch(b"");
+        ensure(
+            matches!(result, Err(BatchError::InvalidStructure(_))),
+            "empty input should be InvalidStructure",
+        )
+    }
+
+    #[test]
+    fn parse_batch_rejects_invalid_utf8() -> TestResult {
+        let result = parse_batch(b"\xff\xfe");
+        ensure(
+            matches!(result, Err(BatchError::InvalidStructure(_))),
+            "invalid UTF-8 should be InvalidStructure",
+        )
+    }
+
+    #[test]
+    fn parse_batch_rejects_unknown_first_segment() -> TestResult {
+        let result = parse_batch(b"XYZ|foo\r");
+        ensure(
+            matches!(result, Err(BatchError::InvalidStructure(_))),
+            "unknown first segment should be InvalidStructure",
+        )
+    }
+
+    #[test]
+    fn parse_batch_handles_valid_single_bhs_bts_batch() -> TestResult {
+        let data = b"BHS|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120000|||BATCH001|Test batch\r\
+MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128120001||ADT^A01|MSG001|P|2.5.1\r\
+PID|1||123456^^^MRN||Doe^John\r\
+BTS|1|End of batch\r";
+        let file_batch = parse_batch(data)?;
+        ensure(
+            file_batch.info.batch_type == BatchType::Single,
+            "info.batch_type == Single",
+        )?;
+        ensure(file_batch.batches.len() == 1, "one nested batch")?;
+        ensure(file_batch.total_message_count() == 1, "one message")
+    }
+
+    #[test]
+    fn parse_batch_handles_valid_file_batch_with_fhs_and_fts() -> TestResult {
+        let data = b"FHS|^~\\&|HIS|HOSPITAL|||20250128120000\r\
+BHS|^~\\&|HIS|HOSPITAL|LAB|LABHOST|20250128120000|||LAB_BATCH\r\
+MSH|^~\\&|HIS|HOSPITAL|LAB|LABHOST|20250128120100||ORM^O01|ORD001|P|2.5.1\r\
+PID|1||MRN001^^^HOSP^MR||Patient^One\r\
+BTS|1\r\
+FTS|1\r";
+        let file_batch = parse_batch(data)?;
+        ensure(
+            file_batch.info.batch_type == BatchType::File,
+            "info.batch_type == File",
+        )?;
+        ensure(file_batch.batches.len() == 1, "one nested batch")?;
+        ensure(file_batch.total_message_count() == 1, "one message total")?;
+        ensure(
+            file_batch.info.message_count == Some(1),
+            "FTS-1 message count parsed",
+        )
+    }
+
+    #[test]
+    fn parse_batch_rejects_count_mismatch_in_bts() -> TestResult {
+        let data = b"BHS|^~\\&|APP|FAC\r\
+MSH|^~\\&|APP|FAC|RECV|RECVFAC|||ADT^A01|MSG|P|2.5.1\r\
+BTS|5\r";
+        let result = parse_batch(data);
+        ensure(
+            matches!(result, Err(BatchError::CountMismatch { .. })),
+            "BTS count mismatch should be CountMismatch",
+        )
+    }
+
+    #[test]
+    fn parse_batch_accepts_bare_msh_stream() -> TestResult {
+        let data = b"MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000||ADT^A01|MSG001|P|2.5.1\r\
+PID|1||MRN001^^^HOSP^MR||Patient^One\r";
+        let file_batch = parse_batch(data)?;
+        ensure(file_batch.batches.len() == 1, "one implicit batch")?;
+        ensure(file_batch.total_message_count() == 1, "one message")
+    }
+
+    #[test]
+    fn batch_error_display_contains_key_text() -> TestResult {
+        let err = BatchError::InvalidStructure("oops".to_string());
+        ensure(
+            err.to_string().contains("oops"),
+            "InvalidStructure includes inner detail",
+        )?;
+
+        let missing = BatchError::MissingSegment("FHS".to_string());
+        ensure(
+            missing.to_string().contains("FHS"),
+            "MissingSegment includes name",
+        )?;
+
+        let mismatch = BatchError::MismatchedHeaders;
+        ensure(
+            !mismatch.to_string().is_empty(),
+            "MismatchedHeaders has display text",
+        )?;
+
+        let count = BatchError::CountMismatch {
+            expected: 2,
+            actual: 3,
+        };
+        let count_msg = count.to_string();
+        ensure(
+            count_msg.contains('2') && count_msg.contains('3'),
+            "CountMismatch shows counts",
+        )?;
+
+        let parse_err = BatchError::ParseError("nope".to_string());
+        ensure(
+            parse_err.to_string().contains("nope"),
+            "ParseError includes inner",
+        )
+    }
+
+    #[test]
+    fn batch_error_clone_round_trips() -> TestResult {
+        let err = BatchError::CountMismatch {
+            expected: 1,
+            actual: 2,
+        };
+        let cloned = err.clone();
+        ensure(
+            err.to_string() == cloned.to_string(),
+            "clone produces equivalent display",
+        )
+    }
+}
