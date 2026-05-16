@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a post-release current-main readiness refresh after shared
+  Rust/CLI/server/Python dirty-corpus parity landed through #695.
 - Recorded the shared dirty real-world corpus fixture proof for Rust core and
   CLI corpus evidence commands.
 - Recorded the server dirty real-world corpus parity proof for REST and gRPC
