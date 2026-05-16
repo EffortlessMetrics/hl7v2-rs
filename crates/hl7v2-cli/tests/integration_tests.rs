@@ -684,6 +684,46 @@ mod norm_command {
 
         assert_eq!(original_msg.segments.len(), normalized_msg.segments.len());
     }
+
+    #[test]
+    fn test_norm_canonical_delimiters_matches_shared_fixture() {
+        let dir = create_temp_dir();
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test_data/custom_delimiters.hl7");
+        let fixture_content = std::fs::read_to_string(fixture).unwrap();
+        let custom_file = create_temp_file(
+            &dir,
+            "custom-delimiters.hl7",
+            fixture_content.trim_end_matches(['\r', '\n']).as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["norm", custom_file.to_str().unwrap(), "--canonical-delims"])
+            .output()
+            .expect("Failed to execute norm");
+
+        assert!(output.status.success());
+        let canonical = String::from_utf8(output.stdout).unwrap();
+        assert!(canonical.starts_with("MSH|^~\\&|"));
+        assert!(canonical.contains("ADT^A01"));
+        assert!(!canonical.contains("MSH*%$!?*"));
+        assert!(!canonical.contains("ADT%A01"));
+
+        let canonical_file = create_temp_file(&dir, "canonical.hl7", canonical.as_bytes());
+        let mut second_cmd = cli_command();
+        let second_output = second_cmd
+            .args([
+                "norm",
+                canonical_file.to_str().unwrap(),
+                "--canonical-delims",
+            ])
+            .output()
+            .expect("Failed to execute second norm");
+
+        assert!(second_output.status.success());
+        assert_eq!(canonical, String::from_utf8(second_output.stdout).unwrap());
+    }
 }
 
 // =========================================================================
