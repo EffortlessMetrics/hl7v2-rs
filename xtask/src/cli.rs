@@ -1,0 +1,195 @@
+//! Command-line interface definitions for the xtask binary.
+
+use crate::publish::PublishSurface;
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "xtask")]
+#[command(about = "Development automation tasks", long_about = None)]
+pub(crate) struct Cli {
+    #[command(subcommand)]
+    pub(crate) command: Commands,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum Commands {
+    /// Run all checks (format, lint, test)
+    Gate {
+        /// Run in check mode (no mutation, strict CI parity)
+        #[arg(long)]
+        check: bool,
+        /// Only check crates that have changed
+        #[arg(long)]
+        changed: bool,
+        /// Run only specific check (fmt, clippy, test)
+        #[arg(long)]
+        only: Option<String>,
+    },
+    /// Fix formatting and common clippy issues
+    LintFix,
+    /// Setup development environment (git hooks, etc.)
+    Setup,
+    /// Audit dependencies for vulnerabilities and license compliance
+    Audit,
+    /// Check for outdated dependencies
+    Outdated,
+    /// Print the primary Rust product crates.io publish order
+    PublishPlan {
+        /// Resume from this crate name
+        #[arg(long)]
+        from: Option<String>,
+        /// Package surface to report
+        #[arg(long, value_enum, default_value = "primary")]
+        surface: PublishSurface,
+    },
+    /// Publish workspace crates to crates.io in dependency order
+    Publish {
+        /// Resume from this crate name
+        #[arg(long)]
+        from: Option<String>,
+        /// Confirm that this should publish to crates.io
+        #[arg(long)]
+        yes: bool,
+        /// Retry attempts for crates.io index propagation or transient failures
+        #[arg(long, default_value_t = 10)]
+        retry_attempts: u32,
+        /// Delay between retries, and between successful crate publishes
+        #[arg(long, default_value_t = 30)]
+        retry_delay_secs: u64,
+    },
+    /// Dry-run publish workspace crates in dependency order
+    PublishDryRun {
+        /// Resume from this crate name
+        #[arg(long)]
+        from: Option<String>,
+        /// Package surface to dry-run
+        #[arg(long, value_enum, default_value = "primary")]
+        surface: PublishSurface,
+        /// Patch internal workspace crates to local paths during verification
+        #[arg(long)]
+        workspace_patches: bool,
+        /// Include uncommitted working tree changes in the dry-run package
+        #[arg(long)]
+        allow_dirty: bool,
+    },
+    /// Generate and open documentation
+    Docs {
+        /// Don't open in browser
+        #[arg(long)]
+        no_open: bool,
+    },
+    /// Git pre-commit hook: lint-fix staged Rust/Cargo files
+    HookPreCommit,
+    /// Git pre-push hook: run full gate checks
+    HookPrePush,
+    /// Verify workspace lint policy, ledgers, and debt receipts
+    CheckLintPolicy,
+    /// Print the governed lint policy rollout and debt summary
+    PolicyReport,
+    /// Verify the panic-family allowlist against current source findings
+    CheckNoPanicFamily {
+        /// Treat staged crates as report-only (default).
+        #[arg(long)]
+        include_staged: bool,
+    },
+    /// Generate proposed no-panic allowlist entries from current findings
+    NoPanic {
+        #[command(subcommand)]
+        action: NoPanicAction,
+    },
+    /// Verify the non-Rust file allowlist against tracked and untracked non-ignored files
+    CheckFilePolicy,
+    /// Verify explicit local Markdown links point at checked-in repository targets
+    CheckDocLinks,
+    /// Verify Python TestPyPI/PyPI release workflow safety controls
+    CheckPythonPublishPolicy,
+    /// Verify CI lane whitelist: coverage, required fields, expensive-default exceptions
+    CheckCiLaneWhitelist,
+    /// Validate checked-in evidence fixtures against their JSON schemas
+    EvidenceSchemaCheck,
+    /// Generate repo-scoped public badge endpoint JSON
+    Badges {
+        /// Verify committed badges are current.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Generate the diff-scoped RIPR PR evidence packet
+    RiprPr {
+        /// Workspace root passed to ripr.
+        #[arg(long, default_value = ".")]
+        root: String,
+        /// Base revision for the PR diff.
+        #[arg(long, default_value = "origin/main")]
+        base: String,
+        /// Head revision for the PR diff.
+        #[arg(long, default_value = "HEAD")]
+        head: String,
+        /// Verify generated artifacts already exist and are contract-valid.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Generate bounded RIPR review guidance without posting to GitHub
+    RiprReviewComments {
+        /// Workspace root passed to ripr.
+        #[arg(long, default_value = ".")]
+        root: String,
+        /// Base revision for the PR diff.
+        #[arg(long, default_value = "origin/main")]
+        base: String,
+        /// Head revision for the PR diff.
+        #[arg(long, default_value = "HEAD")]
+        head: String,
+        /// Verify generated artifacts already exist and are contract-valid.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Generate a stable Markdown summary from PR evidence artifacts
+    RiprPrSummary {
+        /// Verify the summary is current.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Emit non-blocking GitHub warning annotations from review comments
+    RiprAnnotations {
+        /// Review comments JSON input.
+        #[arg(long, default_value = "target/ripr/review/comments.json")]
+        comments: String,
+        /// Annotation command output path.
+        #[arg(long, default_value = "target/ripr/review/annotations.txt")]
+        out: String,
+        /// Verify generated annotations are current.
+        #[arg(long)]
+        check: bool,
+    },
+    /// Generate impacted evidence and mutation routing receipt
+    ImpactedEvidence {
+        /// PR evidence JSON input.
+        #[arg(long, default_value = "target/ripr/pr/repo-exposure.json")]
+        pr_evidence: String,
+        /// Add one PR label.
+        #[arg(long)]
+        label: Vec<String>,
+        /// Add comma, semicolon, or newline separated PR labels.
+        #[arg(long)]
+        labels: Option<String>,
+        /// Verify generated impacted evidence is current.
+        #[arg(long)]
+        check: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum NoPanicAction {
+    /// Emit proposed allowlist entries for current findings
+    Propose {
+        /// Include staged (non-required) crates as well
+        #[arg(long)]
+        include_staged: bool,
+    },
+    /// Refresh the no-new-debt baseline
+    Baseline {
+        /// Absorb all current findings into the baseline
+        #[arg(long)]
+        reset: bool,
+    },
+}

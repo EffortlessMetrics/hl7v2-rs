@@ -8,10 +8,10 @@ lane is proven.
 
 This is language-binding infrastructure, not the recommended Rust API. The
 crate metadata is publishable so release tooling can prove backend packaging
-provenance, but no crates.io publish claim exists until an explicit
-binding-backend release receipt records upload and registry resolution. Build
-and validate it through the Python/maturin lane before any PyPI or TestPyPI
-release.
+provenance. `hl7v2-python` v1.5.0 is published to crates.io as binding backend
+infrastructure; that crates.io receipt is not a TestPyPI or PyPI release for
+the public Python package. Build and validate it through the Python/maturin lane
+before any PyPI or TestPyPI release.
 
 The Python distribution name is `hl7v2`; the import module is also `hl7v2`.
 The Rust/PyO3 backend crate remains `hl7v2-python`.
