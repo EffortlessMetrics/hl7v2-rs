@@ -76,5 +76,11 @@ This proof does not claim:
 - any npm package;
 - any tag or GitHub release.
 
-Future parity work should reuse `test_data/dirty-real-world/` for server and
-Python receipts before extending the fixture family again.
+Future Python parity work should reuse `test_data/dirty-real-world/` before
+extending the fixture family again.
+
+## Follow-Up Server Proof
+
+The server REST and gRPC inline corpus surfaces now reuse the same fixture
+family. See
+[`dirty-real-world-server-corpus-parity-2026-05-16.md`](dirty-real-world-server-corpus-parity-2026-05-16.md).

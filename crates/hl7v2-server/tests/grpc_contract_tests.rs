@@ -139,6 +139,58 @@ constraints:
         Hl7ServiceImpl::new(mock_state_with_roots(None, quarantine))
     }
 
+    fn dirty_real_world_fixture_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/dirty-real-world")
+    }
+
+    fn normalize_fixture_segments(bytes: &[u8]) -> Vec<u8> {
+        String::from_utf8_lossy(bytes)
+            .replace("\r\n", "\n")
+            .replace('\n', "\r")
+            .into_bytes()
+    }
+
+    fn dirty_corpus_messages(category: &str) -> Vec<CorpusMessageInput> {
+        let source = dirty_real_world_fixture_root().join(category);
+        let mut paths = fs::read_dir(&source)
+            .expect("dirty fixture category should be readable")
+            .map(|entry| {
+                entry
+                    .expect("dirty fixture entry should be readable")
+                    .path()
+            })
+            .filter(|path| path.is_file())
+            .collect::<Vec<_>>();
+        paths.sort();
+
+        paths
+            .into_iter()
+            .map(|path| {
+                let bytes = fs::read(&path).expect("dirty fixture file should be readable");
+                let file_name = path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .expect("dirty fixture file should have a UTF-8 name");
+                CorpusMessageInput {
+                    id: Some(file_name.to_string()),
+                    message: normalize_fixture_segments(&bytes),
+                }
+            })
+            .collect()
+    }
+
+    fn dirty_after_corpus_messages() -> Vec<CorpusMessageInput> {
+        let mut messages = dirty_corpus_messages("after");
+        let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
+        let bytes = fs::read(&source).expect("MLLP source fixture should be readable");
+        let normalized = normalize_fixture_segments(&bytes);
+        messages.push(CorpusMessageInput {
+            id: Some("mllp-framed.hl7".to_string()),
+            message: hl7v2::wrap_mllp(&normalized),
+        });
+        messages
+    }
+
     fn grpc_request_body<T: ProstMessage>(messages: &[T]) -> Full<Bytes> {
         let mut body = Vec::new();
         for message in messages {
@@ -1594,6 +1646,134 @@ reason = "hash patient identifier"
             err.message(),
             "unsupported replay report schema version 3; expected 1 or 2"
         );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_commands_share_dirty_real_world_fixture_categories() {
+        let service = service();
+
+        let summary = service
+            .corpus_summarize(Request::new(CorpusSummarizeRequest {
+                messages: dirty_after_corpus_messages(),
+                summary_schema_version: 2,
+            }))
+            .await
+            .expect("CorpusSummarize should succeed")
+            .into_inner();
+        let summary_debug = format!("{summary:?}");
+
+        let summary_report = summary.summary.expect("summary should exist");
+        assert_eq!(summary_report.root, "<inline-corpus>");
+        assert_eq!(summary_report.file_count, 6);
+        assert_eq!(summary_report.message_count, 4);
+        assert_eq!(summary_report.parse_error_count, 2);
+        assert!(
+            summary_report
+                .message_types
+                .iter()
+                .any(|entry| entry.value == "ADT^A08" && entry.count == 1)
+        );
+        assert!(
+            summary_report
+                .message_types
+                .iter()
+                .any(|entry| entry.value == "ADT^A04" && entry.count == 1)
+        );
+        assert!(
+            summary_report
+                .segments
+                .iter()
+                .any(|entry| entry.value == "ZPV" && entry.count == 1)
+        );
+        assert!(
+            summary_report
+                .parse_errors
+                .iter()
+                .any(|entry| entry.path == "malformed-delimiters.hl7")
+        );
+        assert!(
+            summary_report
+                .parse_errors
+                .iter()
+                .any(|entry| entry.path == "partial-batch.hl7")
+        );
+        assert!(!summary_debug.contains("MRN-DIRTY"));
+
+        let fingerprint = service
+            .corpus_fingerprint(Request::new(CorpusFingerprintRequest {
+                messages: dirty_after_corpus_messages(),
+                profile: None,
+                fingerprint_schema_version: 2,
+            }))
+            .await
+            .expect("CorpusFingerprint should succeed")
+            .into_inner();
+        let fingerprint_debug = format!("{fingerprint:?}");
+
+        let fingerprint_report = fingerprint.fingerprint.expect("fingerprint should exist");
+        assert_eq!(fingerprint_report.root, "<inline-corpus>");
+        assert_eq!(fingerprint_report.file_count, 6);
+        assert_eq!(fingerprint_report.message_count, 4);
+        assert_eq!(fingerprint_report.parse_error_count, 2);
+        assert!(
+            fingerprint_report
+                .field_cardinality
+                .iter()
+                .any(|entry| entry.path == "OBX.5"
+                    && entry.max_per_message == 20
+                    && entry.total_occurrences == 20)
+        );
+        assert!(
+            fingerprint_report
+                .field_cardinality
+                .iter()
+                .any(|entry| entry.path == "ZPV.1" && entry.total_occurrences == 1)
+        );
+        assert!(!fingerprint_debug.contains("MRN-DIRTY"));
+
+        let diff = service
+            .corpus_diff(Request::new(CorpusDiffRequest {
+                before: dirty_corpus_messages("before"),
+                after: dirty_after_corpus_messages(),
+                profile: None,
+                diff_schema_version: 2,
+            }))
+            .await
+            .expect("CorpusDiff should succeed")
+            .into_inner();
+        let diff_debug = format!("{diff:?}");
+
+        let diff_report = diff.diff.expect("diff should exist");
+        assert_eq!(
+            diff_report
+                .file_count
+                .expect("file count should exist")
+                .delta,
+            4
+        );
+        assert_eq!(
+            diff_report
+                .message_count
+                .expect("message count should exist")
+                .delta,
+            2
+        );
+        assert_eq!(
+            diff_report
+                .parse_error_count
+                .expect("parse error count should exist")
+                .delta,
+            2
+        );
+        assert!(
+            diff_report
+                .field_cardinality
+                .iter()
+                .any(|entry| entry.path == "OBX.5"
+                    && entry.max_per_message_delta == 15
+                    && entry.total_occurrences_delta == 15)
+        );
+        assert!(!diff_debug.contains("MRN-DIRTY"));
     }
 
     #[tokio::test]
