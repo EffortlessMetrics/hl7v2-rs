@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added gRPC enhanced ACK parity for commit ACK codes `CA`, `CE`, and `CR`
+  alongside the existing `AA`, `AE`, and `AR` application ACK codes.
 - Added shared dirty real-world corpus fixture categories and CLI parity coverage
   for corpus summary, fingerprint, and diff.
 - Added REST and gRPC server dirty-corpus parity coverage using the shared dirty

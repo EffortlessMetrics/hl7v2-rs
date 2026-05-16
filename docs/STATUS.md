@@ -101,8 +101,8 @@ local Python wheel surfaces through #695. Current `main` also includes
 normalization parity across CLI and local Python helper surfaces; CLI ACK parity
 for command success, ACK code/control ID preservation, MSH-9 ACK message type,
 and MLLP framing; REST ACK parity for all six supported ACK codes with MLLP
-framing; gRPC ACK payload and parsed segment-shape contract coverage; and
-Python enhanced ACK smoke parity through #702.
+framing; gRPC ACK payload and parsed segment-shape contract coverage for all
+six supported ACK codes; and Python enhanced ACK smoke parity through #702.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
