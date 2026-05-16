@@ -694,9 +694,7 @@ mod norm_command {
         let custom_file = create_temp_file(
             &dir,
             "custom-delimiters.hl7",
-            fixture_content
-                .trim_end_matches(['\r', '\n'])
-                .as_bytes(),
+            fixture_content.trim_end_matches(['\r', '\n']).as_bytes(),
         );
 
         let mut cmd = cli_command();
