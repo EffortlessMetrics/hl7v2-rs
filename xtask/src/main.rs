@@ -57,6 +57,7 @@ fn main() -> Result<()> {
         Commands::CheckDocLinks => check_doc_links()?,
         Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
+        Commands::CheckEvidenceParity => check_evidence_parity()?,
         Commands::EvidenceSchemaCheck => evidence_schema_check()?,
         Commands::Badges { check } => verification_surface::badges(check)?,
         Commands::RiprPr {
@@ -123,6 +124,8 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
         check_no_panic_family(false)?;
         println!("Checking non-Rust file policy...");
         check_file_policy()?;
+        println!("Checking evidence parity manifest...");
+        check_evidence_parity()?;
         println!("Checking Markdown local links...");
         check_doc_links()?;
         println!("Checking Python publish policy...");
@@ -4187,6 +4190,454 @@ fn string_array_after_root(text: &str, key: &str) -> Option<Vec<String>> {
 // Python publish policy checker
 // ---------------------------------------------------------------------------
 
+const EVIDENCE_PARITY_MANIFEST_PATH: &str = "policy/evidence-parity.toml";
+
+const EVIDENCE_PARITY_REQUIRED_SURFACES: &[&str] =
+    &["rust", "cli", "rest", "grpc", "python", "typescript"];
+
+const EVIDENCE_PARITY_REQUIRED_CONTRACTS: &[&str] = &[
+    "parse-write",
+    "validate",
+    "normalize",
+    "ack",
+    "profile-lint-explain-test",
+    "redaction-quarantine",
+    "bundle-replay",
+    "corpus-summary-fingerprint-diff",
+    "safe-error-shape",
+    "schema-version-behavior",
+    "phi-sentinel-behavior",
+];
+
+const EVIDENCE_PARITY_ALLOWED_CONTRACT_STATUS: &[&str] = &["partially-proven", "gap-recorded"];
+const EVIDENCE_PARITY_ALLOWED_RUST_STATES: &[&str] = &["stable", "surface-specific-tests"];
+const EVIDENCE_PARITY_ALLOWED_CLI_STATES: &[&str] =
+    &["stable", "stable-where-exposed", "surface-specific-tests"];
+const EVIDENCE_PARITY_ALLOWED_REST_STATES: &[&str] = &[
+    "stable",
+    "stable-where-exposed",
+    "parse-stable-write-scoped-to-exposed-endpoints",
+    "surface-specific-tests",
+];
+const EVIDENCE_PARITY_ALLOWED_GRPC_STATES: &[&str] = &[
+    "stable",
+    "stable-for-implemented-rpcs",
+    "stable-for-profile-rpcs",
+    "stable-for-validate-redacted",
+    "stable-for-configured-root-rpcs",
+    "stable-for-inline-messages",
+    "stable-for-implemented-v2-rpcs",
+    "parse-stable-write-scoped-to-exposed-rpcs",
+    "required-for-evidence-rpcs",
+    "surface-specific-tests",
+];
+const EVIDENCE_PARITY_ALLOWED_PYTHON_STATES: &[&str] = &[
+    "local-wheel-only",
+    "local-wheel-specific-tests",
+    "redaction-local-wheel-only-quarantine-not-claimed",
+    "required-for-claimed-artifacts",
+];
+
+fn check_evidence_parity() -> Result<()> {
+    println!("🔎 Checking evidence parity manifest...");
+    let root = env::current_dir()?;
+    let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+    check_evidence_parity_manifest_text(&text)?;
+    println!(
+        "✅ evidence parity: {} surface(s), {} contract(s), and registry non-claim boundaries checked",
+        EVIDENCE_PARITY_REQUIRED_SURFACES.len(),
+        EVIDENCE_PARITY_REQUIRED_CONTRACTS.len()
+    );
+    Ok(())
+}
+
+fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
+    let manifest: toml::Value = toml::from_str(text)
+        .map_err(|error| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} is not valid TOML: {error}"))?;
+
+    ensure_top_level_string_value(&manifest, "schema_version", "1.0")?;
+    ensure_top_level_string_value(&manifest, "policy", "evidence-parity")?;
+    ensure_top_level_string_value(&manifest, "status", "active")?;
+    ensure_top_level_array_contains(
+        &manifest,
+        "non_claims",
+        "does not claim TestPyPI, PyPI, npm",
+    )?;
+    ensure_top_level_array_contains(
+        &manifest,
+        "non_claims",
+        "Python local wheel proof is not public Python registry proof",
+    )?;
+    ensure_top_level_array_contains(
+        &manifest,
+        "non_claims",
+        "hl7v2-python is binding backend infrastructure",
+    )?;
+    ensure_top_level_array_contains(&manifest, "non_claims", "TypeScript remains planned")?;
+
+    let surface_table = manifest
+        .get("surface")
+        .and_then(toml::Value::as_table)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} [surface] table is missing"))?;
+    for surface in EVIDENCE_PARITY_REQUIRED_SURFACES {
+        let section = format!("[surface.{surface}]");
+        if !surface_table.contains_key(*surface) {
+            return Err(anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} missing {section}"));
+        }
+        ensure_toml_string_non_empty(&manifest, &section, "role", EVIDENCE_PARITY_MANIFEST_PATH)?;
+        if *surface != "typescript" {
+            ensure_toml_array_non_empty(
+                &manifest,
+                &section,
+                "proof",
+                EVIDENCE_PARITY_MANIFEST_PATH,
+            )?;
+        }
+    }
+
+    ensure_pyproject_string_value(
+        &manifest,
+        "[surface.python]",
+        "package",
+        "hl7v2",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[surface.python]",
+        "backend_crate",
+        "hl7v2-python",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_value_contains(
+        &manifest,
+        "[surface.python]",
+        "blocked_by",
+        "issues/563",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[surface.typescript]",
+        "package",
+        "@effortlessmetrics/hl7v2",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[surface.typescript]",
+        "tier",
+        "planned",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+
+    ensure_pyproject_array_contains(
+        &manifest,
+        "[surface.rest]",
+        "proof",
+        "cargo test -p hl7v2-server --test parse_endpoint_test",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_array_contains(
+        &manifest,
+        "[surface.rest]",
+        "proof",
+        "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+
+    let contracts = manifest
+        .get("contract")
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} [[contract]] array is missing"))?;
+    let mut seen = BTreeSet::new();
+    for contract in contracts {
+        let table = contract.as_table().ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} [[contract]] entries must be tables")
+        })?;
+        let id = table
+            .get("id")
+            .and_then(toml::Value::as_str)
+            .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract.id is missing"))?;
+        if !seen.insert(id.to_string()) {
+            return Err(anyhow!(
+                "{EVIDENCE_PARITY_MANIFEST_PATH} has duplicate contract id `{id}`"
+            ));
+        }
+        for key in [
+            "status",
+            "rust",
+            "cli",
+            "rest",
+            "grpc",
+            "python",
+            "typescript",
+        ] {
+            let value = table
+                .get(key)
+                .and_then(toml::Value::as_str)
+                .ok_or_else(|| {
+                    anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` missing `{key}`")
+                })?;
+            if key == "python" {
+                ensure_python_contract_state_is_not_registry_claim(id, value)?;
+            }
+            ensure_contract_state_is_allowed(id, key, value)?;
+        }
+        ensure_contract_text_array_non_empty(table, id, "proof", true)?;
+        ensure_contract_text_array_non_empty(table, id, "gaps", false)?;
+    }
+    for required in EVIDENCE_PARITY_REQUIRED_CONTRACTS {
+        if !seen.contains(*required) {
+            return Err(anyhow!(
+                "{EVIDENCE_PARITY_MANIFEST_PATH} missing required contract `{required}`"
+            ));
+        }
+    }
+
+    ensure_contract_proof_contains(
+        contracts,
+        "parse-write",
+        "cargo test -p hl7v2-server --test parse_endpoint_test",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "redaction-quarantine",
+        "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
+    )?;
+    ensure_contract_string_value(
+        contracts,
+        "corpus-summary-fingerprint-diff",
+        "fixture_family",
+        "test_data/dirty-real-world/",
+    )?;
+
+    Ok(())
+}
+
+fn ensure_top_level_string_value(document: &toml::Value, key: &str, expected: &str) -> Result<()> {
+    let actual = document
+        .get(key)
+        .and_then(toml::Value::as_str)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} {key} must be a string"))?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} {key} must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn ensure_top_level_array_contains(
+    document: &toml::Value,
+    key: &str,
+    expected_substring: &str,
+) -> Result<()> {
+    let values = document
+        .get(key)
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} {key} must be an array"))?;
+    if values.iter().any(|value| {
+        value
+            .as_str()
+            .is_some_and(|value| value.contains(expected_substring))
+    }) {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} {key} must contain text `{expected_substring}`"
+        ))
+    }
+}
+
+fn ensure_toml_array_non_empty(
+    document: &toml::Value,
+    section: &str,
+    key: &str,
+    context: &str,
+) -> Result<()> {
+    let values = pyproject_value(document, section, key, context)?
+        .as_array()
+        .ok_or_else(|| anyhow!("{context} {section}.{key} must be an array"))?;
+    if values.is_empty() {
+        return Err(anyhow!("{context} {section}.{key} must not be empty"));
+    }
+    for value in values {
+        let text = value
+            .as_str()
+            .ok_or_else(|| anyhow!("{context} {section}.{key} entries must be strings"))?;
+        if text.trim().is_empty() {
+            return Err(anyhow!(
+                "{context} {section}.{key} entries must not be empty"
+            ));
+        }
+        if !evidence_parity_proof_reference_is_known(text) {
+            return Err(anyhow!(
+                "{context} {section}.{key} entry `{text}` must be a known command or approved proof reference"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_toml_string_non_empty(
+    document: &toml::Value,
+    section: &str,
+    key: &str,
+    context: &str,
+) -> Result<()> {
+    let actual = pyproject_value(document, section, key, context)?
+        .as_str()
+        .ok_or_else(|| anyhow!("{context} {section}.{key} must be a string"))?;
+    if actual.trim().is_empty() {
+        Err(anyhow!("{context} {section}.{key} must not be empty"))
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_contract_text_array_non_empty(
+    contract: &toml::map::Map<String, toml::Value>,
+    id: &str,
+    key: &str,
+    require_proof_reference: bool,
+) -> Result<()> {
+    let values = contract
+        .get(key)
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} must be an array")
+        })?;
+    if values.is_empty() {
+        return Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} must not be empty"
+        ));
+    }
+    for value in values {
+        let text = value.as_str().ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} entries must be strings")
+        })?;
+        if text.trim().is_empty() {
+            return Err(anyhow!(
+                "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} entries must not be empty"
+            ));
+        }
+        if require_proof_reference && !evidence_parity_proof_reference_is_known(text) {
+            return Err(anyhow!(
+                "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` proof entry `{text}` must be a known command or approved proof reference"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_python_contract_state_is_not_registry_claim(id: &str, value: &str) -> Result<()> {
+    let normalized = value.to_ascii_lowercase();
+    if normalized.contains("testpypi")
+        || normalized.contains("pypi")
+        || normalized == "stable"
+        || normalized == "released"
+    {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` python state `{value}` looks like a public registry claim; use local-wheel-only or required-for-claimed-artifacts until upload/install-back is receipted"
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_contract_state_is_allowed(id: &str, key: &str, value: &str) -> Result<()> {
+    let allowed = match key {
+        "status" => EVIDENCE_PARITY_ALLOWED_CONTRACT_STATUS,
+        "rust" => EVIDENCE_PARITY_ALLOWED_RUST_STATES,
+        "cli" => EVIDENCE_PARITY_ALLOWED_CLI_STATES,
+        "rest" => EVIDENCE_PARITY_ALLOWED_REST_STATES,
+        "grpc" => EVIDENCE_PARITY_ALLOWED_GRPC_STATES,
+        "python" => EVIDENCE_PARITY_ALLOWED_PYTHON_STATES,
+        "typescript" => &["planned"],
+        _ => return Ok(()),
+    };
+    if allowed.contains(&value) {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} state `{value}` is not in the allowed vocabulary: {}",
+            allowed.join(", ")
+        ))
+    }
+}
+
+fn evidence_parity_proof_reference_is_known(value: &str) -> bool {
+    value.starts_with("cargo test ")
+        || value.starts_with("cargo run ")
+        || value.starts_with("python ")
+        || value
+            == "Surface-specific tests and specs require safe diagnostics without raw PHI echo."
+}
+
+fn ensure_contract_proof_contains(
+    contracts: &[toml::Value],
+    id: &str,
+    expected: &str,
+) -> Result<()> {
+    let contract = contract_table(contracts, id)?;
+    let proofs = contract
+        .get("proof")
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` proof must be an array")
+        })?;
+    if proofs
+        .iter()
+        .any(|value| value.as_str().is_some_and(|value| value == expected))
+    {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` proof must include `{expected}`"
+        ))
+    }
+}
+
+fn ensure_contract_string_value(
+    contracts: &[toml::Value],
+    id: &str,
+    key: &str,
+    expected: &str,
+) -> Result<()> {
+    let contract = contract_table(contracts, id)?;
+    let actual = contract
+        .get(key)
+        .and_then(toml::Value::as_str)
+        .ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} must be a string")
+        })?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn contract_table<'a>(
+    contracts: &'a [toml::Value],
+    id: &str,
+) -> Result<&'a toml::map::Map<String, toml::Value>> {
+    contracts
+        .iter()
+        .filter_map(toml::Value::as_table)
+        .find(|table| {
+            table
+                .get("id")
+                .and_then(toml::Value::as_str)
+                .is_some_and(|actual| actual == id)
+        })
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} missing contract `{id}`"))
+}
+
 struct PythonPublishWorkflowPolicy {
     path: &'static str,
     workflow_name: &'static str,
@@ -5914,6 +6365,146 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
 "#;
 
         check_hl7v2_python_manifest_policy_text(manifest, "1.5.0")
+    }
+
+    #[test]
+    fn evidence_parity_policy_covers_checked_in_manifest() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+
+        check_evidence_parity_manifest_text(&text)
+    }
+
+    #[test]
+    fn evidence_parity_policy_rejects_public_python_registry_overclaim() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replacen(
+            "python = \"local-wheel-only\"",
+            "python = \"PyPI-released\"",
+            1,
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject public Python registry overclaims"
+            )),
+            Err(err)
+                if err.to_string().contains("python state")
+                    && err.to_string().contains("public registry claim") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_rejects_unknown_contract_state() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replacen("rest = \"stable\"", "rest = \"stable-for-magic\"", 1);
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject unknown contract state vocabulary"
+            )),
+            Err(err)
+                if err.to_string().contains("allowed vocabulary")
+                    && err.to_string().contains("stable-for-magic") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_rejects_unknown_proof_references() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replacen(
+            "\"cargo test -p hl7v2 --all-features\",",
+            "\"not-a-proof-command\",",
+            1,
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject unknown proof references"
+            )),
+            Err(err)
+                if err.to_string().contains("proof entry")
+                    && err.to_string().contains("not-a-proof-command") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_rest_parse_and_redaction_proofs() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text
+            .replace(
+                "\"cargo test -p hl7v2-server --test parse_endpoint_test\",",
+                "\"cargo test -p hl7v2-server --test missing_parse_endpoint_test\",",
+            )
+            .replace(
+                "\"cargo test -p hl7v2-server --test validate_redacted_endpoint_test\",",
+                "\"cargo test -p hl7v2-server --test missing_validate_redacted_endpoint_test\",",
+            );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject missing REST parse/redaction proof commands"
+            )),
+            Err(err)
+                if err.to_string().contains("parse_endpoint_test")
+                    || err.to_string().contains("validate_redacted_endpoint_test") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_rejects_missing_required_contract() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "id = \"safe-error-shape\"",
+            "id = \"safe-error-shape-renamed\"",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject missing required contracts"
+            )),
+            Err(err) if err.to_string().contains("safe-error-shape") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
     }
 
     #[test]

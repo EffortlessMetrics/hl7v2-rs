@@ -105,6 +105,8 @@ pub(crate) enum Commands {
     CheckPythonPublishPolicy,
     /// Verify CI lane whitelist: coverage, required fields, expensive-default exceptions
     CheckCiLaneWhitelist,
+    /// Verify cross-surface evidence parity manifest state and non-claim boundaries
+    CheckEvidenceParity,
     /// Validate checked-in evidence fixtures against their JSON schemas
     EvidenceSchemaCheck,
     /// Generate repo-scoped public badge endpoint JSON
