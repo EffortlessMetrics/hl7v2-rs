@@ -58,6 +58,9 @@ fn main() -> Result<()> {
         Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
+        Commands::CheckEvidenceParityAcceptance { include_python } => {
+            check_evidence_parity_acceptance(include_python)?;
+        }
         Commands::CheckSafeErrorPhiParity { include_python } => {
             check_safe_error_phi_parity(include_python)?;
         }
@@ -4263,6 +4266,17 @@ fn check_evidence_parity() -> Result<()> {
     Ok(())
 }
 
+fn check_evidence_parity_acceptance(include_python: bool) -> Result<()> {
+    println!("🔎 Checking cross-surface evidence parity acceptance...");
+    check_evidence_parity()?;
+    check_safe_error_phi_parity(include_python)?;
+    check_schema_version_parity(include_python)?;
+    check_dirty_corpus_parity(include_python)?;
+    check_bundle_replay_parity(include_python)?;
+    println!("✅ Cross-surface evidence parity acceptance checks passed!");
+    Ok(())
+}
+
 fn check_safe_error_phi_parity(include_python: bool) -> Result<()> {
     println!("🔎 Checking safe-error and PHI parity acceptance...");
 
@@ -4806,6 +4820,11 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         "hl7v2-python is binding backend infrastructure",
     )?;
     ensure_top_level_array_contains(&manifest, "non_claims", "TypeScript remains planned")?;
+    ensure_top_level_array_contains(
+        &manifest,
+        "acceptance",
+        "cargo run -p xtask -- check-evidence-parity-acceptance",
+    )?;
 
     let surface_table = manifest
         .get("surface")
@@ -7192,6 +7211,27 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
                 "evidence parity policy should reject a missing bundle/replay runner"
             )),
             Err(err) if err.to_string().contains("check-bundle-replay-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_acceptance_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-evidence-parity-acceptance\",",
+            "\"cargo run -p xtask -- old-evidence-parity-acceptance\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing acceptance runner"
+            )),
+            Err(err) if err.to_string().contains("check-evidence-parity-acceptance") => Ok(()),
             Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
         }
     }

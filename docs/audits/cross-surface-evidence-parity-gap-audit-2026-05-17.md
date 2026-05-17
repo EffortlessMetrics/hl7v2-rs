@@ -58,25 +58,28 @@ release, or install-back success.
 4. Keep [`policy/evidence-parity.toml`](../../policy/evidence-parity.toml)
    current as the machine-readable parity manifest for proof commands, fixture
    families, supported surfaces, and known gaps.
-5. Keep `cargo run -p xtask -- check-safe-error-phi-parity` as the shared
+5. Use `cargo run -p xtask -- check-evidence-parity-acceptance` as the default
+   local Rust/CLI/REST/gRPC parity acceptance suite; use `--include-python`
+   only when a local Python wheel is installed.
+6. Keep `cargo run -p xtask -- check-safe-error-phi-parity` as the shared
    safe-error and PHI sentinel runner for Rust, CLI, REST, and gRPC surfaces;
    use `--include-python` only when a local Python wheel is installed.
-6. Keep `cargo run -p xtask -- check-schema-version-parity` as the shared
+7. Keep `cargo run -p xtask -- check-schema-version-parity` as the shared
    schema-version runner for Rust, CLI, REST, and gRPC surfaces; use
    `--include-python` only when a local Python wheel is installed.
-7. Keep `cargo run -p xtask -- check-bundle-replay-parity` as the shared
+8. Keep `cargo run -p xtask -- check-bundle-replay-parity` as the shared
    bundle/replay runner for Rust, CLI, REST, and gRPC surfaces; use
    `--include-python` only when a local Python wheel is installed.
-8. Keep `cargo run -p xtask -- check-dirty-corpus-parity` as the shared
+9. Keep `cargo run -p xtask -- check-dirty-corpus-parity` as the shared
    dirty-corpus runner for Rust, CLI, REST, and gRPC corpus
    summary/fingerprint/diff proof; use `--include-python` only when a local
    Python wheel is installed.
-9. Extend dirty-corpus proof beyond corpus summary/fingerprint/diff only where
+10. Extend dirty-corpus proof beyond corpus summary/fingerprint/diff only where
    the next surface has a concrete user workflow, such as validate, redaction,
    bundle, or replay.
-10. Keep gRPC as Beta until transport lifecycle and operational hardening
+11. Keep gRPC as Beta until transport lifecycle and operational hardening
    catches up with the artifact semantics already covered for implemented RPCs.
-11. Start npm/WASM implementation planning only after Python public proof and
+12. Start npm/WASM implementation planning only after Python public proof and
    parity acceptance are stable.
 
 ## Boundaries

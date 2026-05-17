@@ -15,6 +15,10 @@ non_claims = [
   "TypeScript remains planned until @effortlessmetrics/hl7v2 has implementation and install proof.",
 ]
 
+acceptance = [
+  "cargo run -p xtask -- check-evidence-parity-acceptance",
+]
+
 [surface.rust]
 package = "hl7v2"
 tier = "stable"

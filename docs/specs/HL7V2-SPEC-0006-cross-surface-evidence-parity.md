@@ -77,6 +77,11 @@ future PRs can update parity state without scraping audit prose. The manifest
 does not create a new release, registry, or runtime claim by itself. Use
 `cargo run -p xtask -- check-evidence-parity` to verify the manifest keeps the
 required surfaces, contracts, proof links, and non-claim boundaries.
+Use `cargo run -p xtask -- check-evidence-parity-acceptance` as the default
+local Rust/CLI/REST/gRPC acceptance suite for the implemented parity runners.
+Pass `--include-python` only after a local `hl7v2` wheel is installed; Python
+registry availability remains governed by the separate TestPyPI/PyPI proof
+lane.
 
 ## Fixture Rules
 
@@ -142,6 +147,11 @@ The default bundle/replay acceptance runner is
 Rust, CLI, REST, and gRPC bundle/replay checks. Pass `--include-python` only
 after a local `hl7v2` wheel is installed, because Python package availability
 remains governed by the separate TestPyPI/PyPI proof lane.
+
+The default aggregate local acceptance runner is
+`cargo run -p xtask -- check-evidence-parity-acceptance`. It verifies the
+manifest and then runs the shared safe-error/PHI, schema-version, dirty-corpus,
+and bundle/replay parity runners for Rust, CLI, REST, and gRPC.
 
 ## Non-Goals
 
