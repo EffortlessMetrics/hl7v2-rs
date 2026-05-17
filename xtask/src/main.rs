@@ -58,6 +58,9 @@ fn main() -> Result<()> {
         Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
+        Commands::CheckSafeErrorPhiParity { include_python } => {
+            check_safe_error_phi_parity(include_python)?;
+        }
         Commands::EvidenceSchemaCheck => evidence_schema_check()?,
         Commands::Badges { check } => verification_surface::badges(check)?,
         Commands::RiprPr {
@@ -4251,6 +4254,140 @@ fn check_evidence_parity() -> Result<()> {
     Ok(())
 }
 
+fn check_safe_error_phi_parity(include_python: bool) -> Result<()> {
+    println!("🔎 Checking safe-error and PHI parity acceptance...");
+
+    let commands: &[(&str, &[&str])] = &[
+        (
+            "Rust library safe-error/PHI fixture tests",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--test",
+                "safe_error_phi_parity",
+                "--all-features",
+                "--locked",
+            ],
+        ),
+        (
+            "CLI parse safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "test_parse_safe_error_does_not_emit_manifest_phi_sentinels",
+                "--locked",
+            ],
+        ),
+        (
+            "CLI redaction PHI fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "test_redact_json_does_not_emit_phi_leak_sentinels_or_paths",
+                "--locked",
+            ],
+        ),
+        (
+            "REST parse safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "parse_endpoint_test",
+                "test_parse_malformed_message_returns_error",
+                "--locked",
+            ],
+        ),
+        (
+            "REST invalid-profile safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_endpoint_test",
+                "test_validate_invalid_profile_yaml_returns_error",
+                "--locked",
+            ],
+        ),
+        (
+            "REST validate-redacted PHI fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_redacted_endpoint_test",
+                "test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC parse safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_parse_invalid_hl7_returns_parse_error",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC invalid-profile safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_validate_invalid_profile_returns_invalid_argument",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC validate-redacted PHI fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi",
+                "--locked",
+            ],
+        ),
+    ];
+
+    for (label, args) in commands {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    if include_python {
+        println!("Checking Python local-wheel smoke...");
+        run_command("python", &["tests/python_smoke/smoke.py"])?;
+        println!("Checking Python evidence workflow guide...");
+        run_command("python", &["tests/python_smoke/evidence_workflow_guide.py"])?;
+    } else {
+        println!(
+            "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    println!("✅ Safe-error and PHI parity acceptance checks passed!");
+    Ok(())
+}
+
 fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
     let manifest: toml::Value = toml::from_str(text)
         .map_err(|error| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} is not valid TOML: {error}"))?;
@@ -4419,6 +4556,16 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         contracts,
         "schema-version-behavior",
         "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_separates_errors_from_warnings --locked",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "safe-error-shape",
+        "cargo run -p xtask -- check-safe-error-phi-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "phi-sentinel-behavior",
+        "cargo run -p xtask -- check-safe-error-phi-parity",
     )?;
     ensure_contract_string_value(
         contracts,
@@ -6551,6 +6698,27 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
             {
                 Ok(())
             }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_safe_error_phi_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-safe-error-phi-parity\",",
+            "\"cargo run -p xtask -- old-safe-error-phi-parity\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing safe-error/PHI runner"
+            )),
+            Err(err) if err.to_string().contains("check-safe-error-phi-parity") => Ok(()),
             Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
         }
     }

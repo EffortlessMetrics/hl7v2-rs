@@ -255,6 +255,7 @@ python = "local-wheel-specific-tests"
 typescript = "planned"
 fixture_family = "test_data/security/safe-error-phi-parity.json"
 proof = [
+  "cargo run -p xtask -- check-safe-error-phi-parity",
   "cargo test -p hl7v2 --test safe_error_phi_parity --all-features",
   "cargo test -p hl7v2-cli --test integration_tests test_parse_safe_error_does_not_emit_manifest_phi_sentinels",
   "cargo test -p hl7v2-server --test parse_endpoint_test test_parse_malformed_message_returns_error",
@@ -263,7 +264,7 @@ proof = [
   "python tests/python_smoke/smoke.py",
 ]
 gaps = [
-  "The shared fixture is exercised by surface-specific tests, not a single cross-surface runner.",
+  "The default acceptance runner covers Rust, CLI, REST, and gRPC; Python remains local-wheel smoke until public registry install-back exists.",
   "Public Python TestPyPI/PyPI install-back is absent.",
   "TypeScript is unimplemented.",
 ]
@@ -305,6 +306,7 @@ python = "local-wheel-only"
 typescript = "planned"
 fixture_family = "test_data/security/safe-error-phi-parity.json"
 proof = [
+  "cargo run -p xtask -- check-safe-error-phi-parity",
   "cargo test -p hl7v2 --test safe_error_phi_parity --all-features",
   "cargo test -p hl7v2-cli --test integration_tests test_redact_json_does_not_emit_phi_leak_sentinels_or_paths",
   "cargo test -p hl7v2-server --test validate_redacted_endpoint_test test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi",
@@ -315,7 +317,7 @@ proof = [
   "python tests/python_smoke/smoke.py",
 ]
 gaps = [
-  "The shared fixture is exercised by surface-specific tests, not a single cross-surface runner.",
+  "The default acceptance runner covers Rust, CLI, REST, and gRPC; Python remains local-wheel smoke until public registry install-back exists.",
   "Public Python TestPyPI/PyPI install-back is absent.",
   "TypeScript is unimplemented.",
 ]

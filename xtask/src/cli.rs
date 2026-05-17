@@ -107,6 +107,12 @@ pub(crate) enum Commands {
     CheckCiLaneWhitelist,
     /// Verify cross-surface evidence parity manifest state and non-claim boundaries
     CheckEvidenceParity,
+    /// Run fixture-backed safe-error and PHI parity acceptance checks
+    CheckSafeErrorPhiParity {
+        /// Also run Python local-wheel smoke checks when hl7v2 is installed
+        #[arg(long)]
+        include_python: bool,
+    },
     /// Validate checked-in evidence fixtures against their JSON schemas
     EvidenceSchemaCheck,
     /// Generate repo-scoped public badge endpoint JSON
