@@ -6,27 +6,15 @@
     reason = "legacy validate endpoint tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
 )]
 
-use axum::{
-    body::Body,
-    http::{Request, StatusCode},
-};
+use axum::{body::Body, http::StatusCode};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
 mod common;
 
-fn validate_request(request_body: Value) -> Request<Body> {
-    Request::builder()
-        .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-            [127, 0, 0, 1],
-            8080,
-        ))))
-        .uri("/hl7/validate")
-        .method("POST")
-        .header("Content-Type", "application/json")
-        .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-        .unwrap()
+fn validate_request(request_body: Value) -> axum::http::Request<Body> {
+    common::json_value_post("/hl7/validate", request_body)
 }
 
 #[tokio::test]
@@ -365,18 +353,7 @@ async fn test_validate_empty_request_body_returns_400() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from("{}"))
-                .unwrap(),
-        )
+        .oneshot(common::json_post("/hl7/validate", "{}"))
         .await
         .unwrap();
 
@@ -393,17 +370,11 @@ async fn test_validate_get_method_not_allowed() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/validate")
-                .method("GET")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(common::request(
+            axum::http::Method::GET,
+            "/hl7/validate",
+            Body::empty(),
+        ))
         .await
         .unwrap();
 

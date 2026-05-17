@@ -5,10 +5,19 @@
     reason = "shared integration-test support is consumed by different test binaries"
 )]
 
-use axum::Router;
+use axum::{
+    Router,
+    body::Body,
+    http::{Method, Request},
+};
 use hl7v2_server::server::{AppState, Server, ServerConfig};
+use serde_json::Value;
 use std::sync::Arc;
 use std::time::Instant;
+
+const TEST_CLIENT_ADDR: ([u8; 4], u16) = ([127, 0, 0, 1], 8080);
+const CONTENT_TYPE: &str = "Content-Type";
+const APPLICATION_JSON: &str = "application/json";
 
 /// Create a test server instance with default configuration
 pub fn create_test_server() -> Server {
@@ -40,6 +49,41 @@ pub fn create_test_router() -> Router {
         quarantine: Default::default(),
     });
     hl7v2_server::routes::build_router(state)
+}
+
+/// Build a request with the standard test client connection metadata.
+pub fn request(method: Method, uri: &str, body: Body) -> Request<Body> {
+    Request::builder()
+        .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(
+            TEST_CLIENT_ADDR,
+        )))
+        .uri(uri)
+        .method(method)
+        .body(body)
+        .unwrap()
+}
+
+/// Build a JSON request with the standard test client connection metadata.
+pub fn json_request(method: Method, uri: &str, body: impl Into<Body>) -> Request<Body> {
+    Request::builder()
+        .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from(
+            TEST_CLIENT_ADDR,
+        )))
+        .uri(uri)
+        .method(method)
+        .header(CONTENT_TYPE, APPLICATION_JSON)
+        .body(body.into())
+        .unwrap()
+}
+
+/// Build a POST request with an already-serialized JSON body.
+pub fn json_post(uri: &str, body: impl Into<Body>) -> Request<Body> {
+    json_request(Method::POST, uri, body)
+}
+
+/// Build a POST request from a JSON value.
+pub fn json_value_post(uri: &str, body: Value) -> Request<Body> {
+    json_post(uri, serde_json::to_string(&body).unwrap())
 }
 
 /// Sample HL7v2 messages for testing

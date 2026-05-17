@@ -5,10 +5,7 @@
     reason = "legacy parse endpoint tests use static fixtures; cleanup is tracked in policy/clippy-debt.toml"
 )]
 
-use axum::{
-    body::Body,
-    http::{Request, StatusCode},
-};
+use axum::{body::Body, http::StatusCode};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -29,18 +26,7 @@ async fn test_parse_valid_adt_a01_message() {
     });
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
+        .oneshot(common::json_value_post("/hl7/parse", request_body))
         .await
         .unwrap();
 
@@ -61,18 +47,7 @@ async fn test_parse_valid_adt_a04_message() {
     });
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
+        .oneshot(common::json_value_post("/hl7/parse", request_body))
         .await
         .unwrap();
 
@@ -93,18 +68,7 @@ async fn test_parse_valid_oru_r01_message() {
     });
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
+        .oneshot(common::json_value_post("/hl7/parse", request_body))
         .await
         .unwrap();
 
@@ -125,18 +89,7 @@ async fn test_parse_minimal_valid_message() {
     });
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
+        .oneshot(common::json_value_post("/hl7/parse", request_body))
         .await
         .unwrap();
 
@@ -157,18 +110,7 @@ async fn test_parse_malformed_message_returns_error() {
     });
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
+        .oneshot(common::json_value_post("/hl7/parse", request_body))
         .await
         .unwrap();
 
@@ -221,18 +163,7 @@ async fn test_parse_invalid_encoding_may_succeed_if_has_msh() {
     });
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
+        .oneshot(common::json_value_post("/hl7/parse", request_body))
         .await
         .unwrap();
 
@@ -250,18 +181,7 @@ async fn test_parse_empty_request_body_returns_400() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from("{}"))
-                .unwrap(),
-        )
+        .oneshot(common::json_post("/hl7/parse", "{}"))
         .await
         .unwrap();
 
@@ -278,18 +198,7 @@ async fn test_parse_invalid_json_returns_400() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from("not valid json"))
-                .unwrap(),
-        )
+        .oneshot(common::json_post("/hl7/parse", "not valid json"))
         .await
         .unwrap();
 
@@ -313,18 +222,7 @@ async fn test_parse_response_contains_segments() {
     });
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("POST")
-                .header("Content-Type", "application/json")
-                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
-                .unwrap(),
-        )
+        .oneshot(common::json_value_post("/hl7/parse", request_body))
         .await
         .unwrap();
 
@@ -345,17 +243,11 @@ async fn test_parse_get_method_not_allowed() {
     let app = common::create_test_router();
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
-                    [127, 0, 0, 1],
-                    8080,
-                ))))
-                .uri("/hl7/parse")
-                .method("GET")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(common::request(
+            axum::http::Method::GET,
+            "/hl7/parse",
+            Body::empty(),
+        ))
         .await
         .unwrap();
 
