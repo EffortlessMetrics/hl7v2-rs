@@ -73,6 +73,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md",
   "docs/audits/public-crates-install-first-use-2026-05-16.md",
   "docs/audits/grpc-enhanced-ack-parity-2026-05-16.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
@@ -106,6 +107,43 @@ proof_commands = [
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check",
   "cargo +1.95.0 run -p xtask -- policy-report",
+]
+
+[[work_item]]
+id = "v1-5-0-test-coverage-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after synthetic evidence tests, server handler helper tests, datatype/datetime tests, and the fractional timestamp syntax fix landed through #710 and #709."
+commit = "aa548e1579f659c089162f0dd8e445219d0a2414"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-2026-05-17 CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 info hl7v2@1.5.0",
+  "cargo +1.95.0 info hl7v2-python@1.5.0",
+  "cargo +1.95.0 info hl7v2-server@1.5.0",
+  "cargo +1.95.0 info hl7v2-cli@1.5.0",
+  "git tag -l v1.5.0",
+  "git rev-list -n 1 v1.5.0",
+  "gh release view v1.5.0 --json tagName,name,publishedAt,isDraft,isPrerelease,url",
+  "git diff --check",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
 ]
 
 [[work_item]]
