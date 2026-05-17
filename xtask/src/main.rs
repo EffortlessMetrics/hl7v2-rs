@@ -56,6 +56,12 @@ fn main() -> Result<()> {
         Commands::CheckFilePolicy => check_file_policy()?,
         Commands::CheckDocLinks => check_doc_links()?,
         Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
+        Commands::PythonLocalWheelProof {
+            root,
+            python,
+            rust_toolchain,
+            keep_existing,
+        } => python_local_wheel_proof(root, &python, &rust_toolchain, keep_existing)?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
         Commands::CheckEvidenceParityAcceptance { include_python } => {
@@ -936,6 +942,70 @@ fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}",
+            cmd,
+            args.join(" "),
+            status.code()
+        ));
+    }
+
+    Ok(())
+}
+
+fn run_command_with_env_in_dir(
+    cmd: &Path,
+    args: &[&str],
+    envs: &[(&str, &str)],
+    cwd: Option<&Path>,
+) -> Result<()> {
+    let mut command = Command::new(cmd);
+    command
+        .args(args)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+
+    let status = command.status()?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}",
+            cmd.display(),
+            args.join(" "),
+            status.code()
+        ));
+    }
+
+    Ok(())
+}
+
+fn run_program_with_env_in_dir(
+    cmd: &str,
+    args: &[&str],
+    envs: &[(&str, &str)],
+    cwd: Option<&Path>,
+) -> Result<()> {
+    let mut command = Command::new(cmd);
+    command
+        .args(args)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+
+    let status = command.status()?;
 
     if !status.success() {
         return Err(anyhow!(
@@ -4253,6 +4323,187 @@ const EVIDENCE_PARITY_ALLOWED_PYTHON_STATES: &[&str] = &[
     "required-for-claimed-artifacts",
 ];
 
+const PYTHON_LOCAL_WHEEL_PROOF_DEFAULT_ROOT: &str = "target/hl7v2-python-local-wheel-proof";
+const PYTHON_LOCAL_WHEEL_MATURIN_REQUIREMENT: &str = "maturin==1.13.1";
+
+fn python_local_wheel_proof(
+    root: Option<PathBuf>,
+    python: &str,
+    rust_toolchain: &str,
+    keep_existing: bool,
+) -> Result<()> {
+    println!("Checking Python local-wheel proof...");
+
+    let metadata = MetadataCommand::new().no_deps().exec()?;
+    let workspace_root = metadata.workspace_root.into_std_path_buf();
+    let root = prepare_python_local_wheel_root(root, keep_existing, &workspace_root)?;
+    let venv = root.join("venv");
+    let dist = root.join("dist");
+    let cargo_target = root.join("cargo-target");
+
+    recreate_dir(&venv)?;
+    recreate_dir(&dist)?;
+    recreate_dir(&cargo_target)?;
+
+    let venv_arg = path_to_arg(&venv)?;
+    println!("Creating proof virtualenv at {}", venv.display());
+    run_program_with_env_in_dir(
+        python,
+        &["-m", "venv", &venv_arg],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    let venv_python = python_executable_in_venv(&venv);
+    println!("Installing maturin into proof virtualenv...");
+    run_command_with_env_in_dir(
+        &venv_python,
+        &[
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "pip",
+            PYTHON_LOCAL_WHEEL_MATURIN_REQUIREMENT,
+        ],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    let dist_arg = path_to_arg(&dist)?;
+    let cargo_target_arg = path_to_arg(&cargo_target)?;
+    println!("Building hl7v2 wheel with maturin...");
+    run_command_with_env_in_dir(
+        &venv_python,
+        &[
+            "-m",
+            "maturin",
+            "build",
+            "--release",
+            "--out",
+            &dist_arg,
+            "--target-dir",
+            &cargo_target_arg,
+        ],
+        &[
+            ("PYO3_USE_ABI3_FORWARD_COMPATIBILITY", "1"),
+            ("RUSTUP_TOOLCHAIN", rust_toolchain),
+        ],
+        Some(&workspace_root),
+    )?;
+
+    let wheel = single_wheel_in_dist(&dist)?;
+    let wheel_arg = path_to_arg(&wheel)?;
+    println!("Installing local wheel {}", wheel.display());
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["-m", "pip", "install", "--force-reinstall", &wheel_arg],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    println!("Checking import and Python evidence helpers...");
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["-c", "import hl7v2; print(hl7v2.__version__)"],
+        &[],
+        Some(&workspace_root),
+    )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/smoke.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/evidence_workflow_guide.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    println!(
+        "Python local-wheel proof passed at {}. This does not claim TestPyPI or PyPI availability.",
+        root.display()
+    );
+    Ok(())
+}
+
+fn prepare_python_local_wheel_root(
+    root: Option<PathBuf>,
+    keep_existing: bool,
+    workspace_root: &Path,
+) -> Result<PathBuf> {
+    let requested = root.unwrap_or_else(|| PathBuf::from(PYTHON_LOCAL_WHEEL_PROOF_DEFAULT_ROOT));
+    let absolute = if requested.is_absolute() {
+        requested
+    } else {
+        workspace_root.join(requested)
+    };
+    let leaf = absolute
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow!("Python local-wheel proof root must have a final path component"))?;
+    if !(leaf.contains("hl7v2") && leaf.contains("python") && leaf.contains("proof")) {
+        return Err(anyhow!(
+            "refusing to use scratch root '{}': final component must contain 'hl7v2', 'python', and 'proof'",
+            absolute.display()
+        ));
+    }
+
+    if let Some(parent) = absolute.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    if absolute.exists() && !keep_existing {
+        fs::remove_dir_all(&absolute)?;
+    }
+    fs::create_dir_all(&absolute)?;
+
+    Ok(absolute)
+}
+
+fn recreate_dir(path: &Path) -> Result<()> {
+    if path.exists() {
+        fs::remove_dir_all(path)?;
+    }
+    fs::create_dir_all(path)?;
+    Ok(())
+}
+
+fn python_executable_in_venv(venv: &Path) -> PathBuf {
+    if cfg!(windows) {
+        venv.join("Scripts").join("python.exe")
+    } else {
+        venv.join("bin").join("python")
+    }
+}
+
+fn single_wheel_in_dist(dist: &Path) -> Result<PathBuf> {
+    let mut wheels = fs::read_dir(dist)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("whl"))
+        .collect::<Vec<_>>();
+    wheels.sort();
+
+    match wheels.as_slice() {
+        [wheel] => Ok(wheel.clone()),
+        [] => Err(anyhow!("no wheel found in {}", dist.display())),
+        _ => Err(anyhow!(
+            "expected exactly one wheel in {}, found {}",
+            dist.display(),
+            wheels.len()
+        )),
+    }
+}
+
+fn path_to_arg(path: &Path) -> Result<String> {
+    path.to_str()
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| anyhow!("path is not valid UTF-8: {}", path.display()))
+}
+
 fn check_evidence_parity() -> Result<()> {
     println!("🔎 Checking evidence parity manifest...");
     let root = env::current_dir()?;
@@ -6677,6 +6928,110 @@ mod tests {
         assert_eq!(command_program("cargo"), "cargo.cmd");
         #[cfg(not(windows))]
         assert_eq!(command_program("cargo"), "cargo");
+    }
+
+    #[test]
+    fn python_venv_executable_uses_platform_path() {
+        let venv = Path::new("proof-venv");
+
+        #[cfg(windows)]
+        assert_eq!(
+            python_executable_in_venv(venv),
+            PathBuf::from("proof-venv")
+                .join("Scripts")
+                .join("python.exe")
+        );
+        #[cfg(not(windows))]
+        assert_eq!(
+            python_executable_in_venv(venv),
+            PathBuf::from("proof-venv").join("bin").join("python")
+        );
+    }
+
+    #[test]
+    fn single_wheel_in_dist_requires_exactly_one_wheel() -> Result<()> {
+        let root = doc_link_temp_root("python-wheel-proof")?;
+        let dist = root.join("dist");
+        fs::create_dir_all(&dist)?;
+
+        match single_wheel_in_dist(&dist) {
+            Ok(_) => return Err(anyhow!("empty dist should not select a wheel")),
+            Err(err) if err.to_string().contains("no wheel found") => {}
+            Err(err) => return Err(anyhow!("unexpected empty dist error: {err}")),
+        }
+
+        let wheel = dist.join("hl7v2-1.5.0-py3-none-any.whl");
+        fs::write(&wheel, [])?;
+        let selected = single_wheel_in_dist(&dist)?;
+        if selected != wheel {
+            return Err(anyhow!(
+                "expected {}, selected {}",
+                wheel.display(),
+                selected.display()
+            ));
+        }
+
+        fs::write(dist.join("hl7v2-1.5.0-cp314-win_amd64.whl"), [])?;
+        match single_wheel_in_dist(&dist) {
+            Ok(_) => return Err(anyhow!("multi-wheel dist should be rejected")),
+            Err(err) if err.to_string().contains("expected exactly one wheel") => {}
+            Err(err) => return Err(anyhow!("unexpected multi-wheel dist error: {err}")),
+        }
+
+        remove_doc_link_temp_root(&root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn python_local_wheel_root_resolves_relative_to_workspace_root() -> Result<()> {
+        let workspace_root = doc_link_temp_root("python-wheel-proof-workspace")?;
+        let requested = PathBuf::from("target/hl7v2-python-proof-test");
+        let expected = workspace_root.join(&requested);
+        let actual = prepare_python_local_wheel_root(Some(requested), false, &workspace_root)?;
+
+        if actual != expected {
+            return Err(anyhow!(
+                "expected proof root {}, got {}",
+                expected.display(),
+                actual.display()
+            ));
+        }
+        if !actual.exists() {
+            return Err(anyhow!(
+                "proof root should be created at {}",
+                actual.display()
+            ));
+        }
+
+        remove_doc_link_temp_root(&workspace_root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn recreate_dir_removes_previous_contents() -> Result<()> {
+        let root = doc_link_temp_root("python-wheel-proof-recreate")?;
+        let proof_dir = root.join("venv");
+        let stale_file = proof_dir.join("stale.txt");
+        fs::create_dir_all(&proof_dir)?;
+        fs::write(&stale_file, "stale")?;
+
+        recreate_dir(&proof_dir)?;
+
+        if !proof_dir.exists() {
+            return Err(anyhow!(
+                "proof dir should be recreated at {}",
+                proof_dir.display()
+            ));
+        }
+        if stale_file.exists() {
+            return Err(anyhow!(
+                "recreated proof dir retained stale file {}",
+                stale_file.display()
+            ));
+        }
+
+        remove_doc_link_temp_root(&root)?;
+        Ok(())
     }
 
     #[test]
