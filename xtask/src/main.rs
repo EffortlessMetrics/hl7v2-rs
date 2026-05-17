@@ -7983,9 +7983,14 @@ bindings = "pyo3"
             .to_path_buf();
         let workflow = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
         let broken = workflow.replace(
-            "      - name: Run Python dirty evidence workflow smoke test\n        run: python tests/python_smoke/dirty_evidence_workflow.py\n",
-            "",
+            "python tests/python_smoke/dirty_evidence_workflow.py",
+            "python tests/python_smoke/smoke.py",
         );
+        if broken == workflow {
+            return Err(anyhow!(
+                "test setup should remove the Python Wheels dirty evidence smoke command"
+            ));
+        }
 
         match check_python_wheels_workflow_text(&broken) {
             Ok(()) => Err(anyhow!(
