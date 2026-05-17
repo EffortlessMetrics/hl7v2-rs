@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "v2_report_schema_version": 2,
+  "expected_v2_schema_version": "2",
+  "unsupported_report_schema_version": 3,
+  "unsupported_error_contains": "1 or 2",
+  "tool_names": {
+    "cli": "hl7v2-cli",
+    "rest": "hl7v2-server",
+    "grpc": "hl7v2-server-grpc",
+    "python": "hl7v2-python"
+  },
+  "validation": {
+    "message_type": "ADT^A01",
+    "profile_label": "ADT_A01",
+    "profile_version": "2.5",
+    "required_issue_code": "missing_required_field",
+    "required_issue_path": "PID.3"
+  }
+}

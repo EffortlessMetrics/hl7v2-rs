@@ -166,11 +166,7 @@ python -c "import hl7v2; print(hl7v2.__version__)"
 Current source-checkout proof uses a local wheel:
 
 ```powershell
-python -m pip install --upgrade pip "maturin==1.13.1"
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
-maturin build --release --out dist
-python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
-python -c "import hl7v2; print(hl7v2.__version__)"
+cargo +1.95.0 run -p xtask -- python-local-wheel-proof
 ```
 
 Minimal Python shape:

@@ -84,6 +84,9 @@ jobs:
       - name: Run Python evidence guide smoke test
         run: python tests/python_smoke/evidence_workflow_guide.py
 
+      - name: Run Python dirty evidence workflow smoke test
+        run: python tests/python_smoke/dirty_evidence_workflow.py
+
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v7
         with:

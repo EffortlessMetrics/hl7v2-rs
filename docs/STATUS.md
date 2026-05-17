@@ -2,7 +2,7 @@
 
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
-> **Last Updated**: 2026-05-15
+> **Last Updated**: 2026-05-17
 > **Project Status**: v1.5.0 is published to crates.io for the selected Rust graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is published only as binding backend infrastructure for the public Python `hl7v2` package, not as the recommended Rust API.
 
 ## Core Components
@@ -41,8 +41,9 @@ This document provides a transparent view of which features are fully implemente
 - ✅ **Publish order**: `cargo run -p xtask -- publish-plan` defaults to the primary Rust product graph: `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Use `cargo run -p xtask -- publish-plan --surface bindings` to inspect binding backend crates separately.
 - ✅ **Published Rust graph**: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli` v1.5.0 are published and visible in the crates.io index. See [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 - ✅ **Dry-run publish**: Workspace-patched dry-run verification and dependency-ordered direct dry-runs were completed before upload. See [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md`](audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md).
-- ✅ **v1.5.0 published Rust graph**: v1.5.0 is published to crates.io for `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. The release is tagged as `v1.5.0`, has a GitHub release, and has a registry-resolution and public install-back receipt. `hl7v2-python` is included only as a binding backend crate. See [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
-- 🟡 **Python binding lane**: `hl7v2-python` is published to crates.io as a governed binding backend, but it is not part of the primary Rust product graph and does not prove the public Python package. The public Python distribution is `hl7v2`. Current `main` has a v1.5.0 local wheel build, fresh-venv install, import smoke, and evidence workflow receipt; see [`docs/audits/python-local-wheel-proof-2026-05-15.md`](audits/python-local-wheel-proof-2026-05-15.md). The hosted non-publishing TestPyPI proof mode passed on current `main` for public package `hl7v2`; see [`docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md`](audits/python-testpypi-nonpublish-proof-2026-05-15.md). The manual TestPyPI publishing proof remains required before any production PyPI release. The 2026-05-10 TestPyPI upload attempt built and smoke-tested the wheel but failed with `invalid-publisher` because the TestPyPI Trusted Publisher is not configured. Production PyPI release has not been run. A 2026-05-15 package-state check still found no visible `hl7v2` package on TestPyPI or production PyPI.
+- ✅ **v1.5.0 published Rust graph**: v1.5.0 is published to crates.io for `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. The release is tagged as `v1.5.0`, has a GitHub release, and has a registry-resolution and public install-back receipt. A repeatable public crates smoke now rechecks the `hl7v2`, `hl7v2-cli`, and `hl7v2-server` first-use paths from crates.io. `hl7v2-python` is included only as a binding backend crate. See [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md) and [`docs/audits/public-crates-install-first-use-2026-05-16.md`](audits/public-crates-install-first-use-2026-05-16.md).
+- ✅ **Current-main readiness refresh**: The post-release readiness refresh at `06d237eeefa1d22fc3ed7c4e46d11f3f6adce777` passed after the Python wheel dirty evidence smoke, Windows policy guard, server validation-helper refactor, and synthetic value/CLI help cleanup landed through #740/#742/#743/#738. See [`docs/audits/publish-dry-run-v1.5.0-2026-05-17-refactor-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-17-refactor-refresh.md).
+- 🟡 **Python binding lane**: `hl7v2-python` is published to crates.io as a governed binding backend, but it is not part of the primary Rust product graph and does not prove the public Python package. The public Python distribution is `hl7v2`. Current `main` has a v1.5.0 local wheel build, fresh-venv install, import smoke, and evidence workflow receipt; see [`docs/audits/python-local-wheel-proof-2026-05-15.md`](audits/python-local-wheel-proof-2026-05-15.md). The hosted non-publishing TestPyPI proof mode passed again on current `main` after the SRP refactor wave; see [`docs/audits/python-testpypi-nonpublish-proof-2026-05-16.md`](audits/python-testpypi-nonpublish-proof-2026-05-16.md). The hosted production PyPI non-publishing rehearsal also passed and is recorded in [`docs/audits/python-pypi-nonpublish-proof-2026-05-16.md`](audits/python-pypi-nonpublish-proof-2026-05-16.md). The manual TestPyPI publishing proof remains required before any production PyPI release. The latest 2026-05-17 TestPyPI upload attempt on commit `764647e79ab61cd9814d07a777cbf1eed27a5ee8` built and smoke-tested the wheel but failed with `invalid-publisher` because the TestPyPI Trusted Publisher is not configured. Production PyPI upload and install-back have not been run. A 2026-05-17 package-state check still found no visible `hl7v2` package on TestPyPI or production PyPI.
 - ✅ **Package registry state**: A 2026-05-15 pre-release registry audit found crates.io `hl7v2`, `hl7v2-server`, and `hl7v2-cli` at `1.4.0`, no crates.io `hl7v2-python`, and no PyPI/TestPyPI `hl7v2` package before publish. The v1.5.0 publish receipt supersedes the crates.io portion of that audit while preserving the PyPI/TestPyPI absence claim. See [`docs/audits/package-registry-state-2026-05-15.md`](audits/package-registry-state-2026-05-15.md) and [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 - 🟡 **Objective completion audit**: The pre-publish 2026-05-15 prompt-to-artifact audit correctly kept the lane open before crates.io release. The post-release audit now records the current state: crates.io, tag, GitHub release, and public Rust/CLI/server install-back portions are complete; TestPyPI upload/install-back proof, a production PyPI decision, and any future npm/WASM implementation receipts remain separate. See [`docs/audits/v1.5.0-objective-completion-audit-2026-05-15.md`](audits/v1.5.0-objective-completion-audit-2026-05-15.md), [`docs/audits/v1.5.0-objective-completion-audit-2026-05-15-post-release.md`](audits/v1.5.0-objective-completion-audit-2026-05-15-post-release.md), and [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 - ✅ **Binding-backend closeout**: #604 accepted the binding-backend ADR, #605 refreshed the yanked `metrics` lock entry that blocked security checks, #606 added `publish-plan --surface primary|bindings|all-publishable`, #607 framed `hl7v2-python` as the PyO3 backend for the public Python `hl7v2` package, and #608 fixed Python wheel cache behavior. This closeout did not publish `hl7v2-python`, TestPyPI, PyPI, or any v1.5.0 crates.io artifact.
@@ -77,7 +78,8 @@ Cross-surface evidence parity is governed by
 [HL7V2-SPEC-0006](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md):
 Rust, CLI, REST, gRPC, Python, and future TypeScript claims must map to shared
 semantics, safe diagnostics, schema-backed artifacts, and receipts before they
-are described as equivalent.
+are described as equivalent. The current machine-readable parity state lives in
+[`policy/evidence-parity.toml`](../policy/evidence-parity.toml).
 
 ## Evidence Contracts Release And Current Main
 
@@ -94,20 +96,57 @@ Python profile helpers, gRPC profile lint/explain/test, configured-root
 evidence bundle creation/replay, and inline corpus summary/fingerprint/diff
 parity, advisory `ripr`, RIPR evidence endpoints, targeted mutation routing,
 the cross-surface evidence parity spec, dirty real-world corpus proof, the
-nightly property-test command repair, finite numeric validation, and the v1.5.0
-release-readiness workflow.
+nightly property-test command repair, finite numeric validation, the v1.5.0
+release-readiness workflow, the focused SRP module split train through #691,
+shared dirty-corpus parity across Rust core, CLI, REST/gRPC server, and local
+Python wheel surfaces through #695, the Python Wheels dirty evidence smoke and
+Windows policy guard through #738/#743, and focused server-validation-helper
+plus synthetic-value/CLI-help refactors through #742/#740. Dirty-corpus corpus
+summary/fingerprint/diff proof, plus CLI, REST, and gRPC
+validate/redact/bundle/replay workflows over the shared Z-segment fixture, is
+now routed through
+`cargo run -p xtask -- check-dirty-corpus-parity` for the Rust/CLI/REST/gRPC
+acceptance path, with optional local Python dirty-corpus and dirty
+validate/redact/bundle/replay smoke after wheel install. Current
+`main` also includes `cargo run -p xtask -- check-bundle-replay-parity` as the
+Rust/CLI/REST/gRPC bundle/replay acceptance path, with optional local Python
+evidence workflow smoke after wheel install. Current `main` also includes
+`cargo run -p xtask -- check-evidence-parity-acceptance` as the aggregate
+local Rust/CLI/REST/gRPC parity acceptance path, with optional local Python
+smoke after wheel install. Current `main` also includes
+normalization parity across CLI and local Python helper surfaces; CLI ACK parity
+for command success, ACK code/control ID preservation, MSH-9 ACK message type,
+and MLLP framing; REST ACK parity for all six supported ACK codes with MLLP
+framing; gRPC ACK payload and parsed segment-shape contract coverage for all
+six supported ACK codes; Python enhanced ACK smoke parity through #702; server
+handler helper tests through #710; and conformance datatype/datetime coverage
+with strict fractional timestamp syntax enforcement through #709. Safe-error
+and PHI sentinel parity is now backed by the shared
+`test_data/security/safe-error-phi-parity.json` fixture across Rust core, CLI,
+REST, and gRPC tests, with `cargo run -p xtask -- check-safe-error-phi-parity`
+as the acceptance runner; the local Python smoke path reads the same fixture,
+with public Python registry proof still blocked by #563. Schema-version behavior is
+now backed by `test_data/evidence/schema-version-parity.json` for
+representative Rust core, CLI, REST, gRPC, and local Python smoke proof, with
+`cargo run -p xtask -- check-schema-version-parity` as the Rust/CLI/REST/gRPC
+acceptance runner and `xtask check-evidence-parity` requiring that fixture
+before the manifest can claim local schema-version parity.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
 final source-tree gap audit after the local workbench split, see
 [`docs/audits/current-source-tree-evidence-objective-gap-audit.md`](audits/current-source-tree-evidence-objective-gap-audit.md).
+For the current cross-surface evidence parity gap map, see
+[`docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md`](audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md).
+For current parity states, proof commands, fixture families, and known gaps, see
+[`policy/evidence-parity.toml`](../policy/evidence-parity.toml).
 
 | Area | Status | Notes |
 |------|--------|-------|
 | First-run diagnostics | ✅ Stable | `hl7v2 doctor` verifies CLI version, sample parse, profile loading, JSON output, optional server reachability, and optional Python binding presence. |
 | Typed validation evidence | ✅ Stable | `ValidationReport` is shared by library, CLI, server validation, and Python bindings. |
 | Profiles as code | ✅ Stable | `profile lint`, `profile test`, and `profile explain` produce machine-readable profile evidence. |
-| Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. Current proof includes dirty-corpus coverage for Z-segments, odd MSH fields, MLLP bytes, large OBX messages, malformed delimiters, and safe parse-error output. |
+| Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. Current proof includes shared dirty-corpus coverage for Z-segments, legacy MSH/encoding fields, generated MLLP bytes, large OBX expansion, malformed delimiters, partial batch-like input, safe parse-error output across Rust core, CLI, REST server, gRPC server, and local Python wheel surfaces, plus CLI, REST, and gRPC validate/redact/bundle/replay workflows over the shared Z-segment fixture. |
 | Safe support packets | ✅ Stable | `redact`, `bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. |
 | Evidence contracts | ✅ Stable | v1.4.0 ships opt-in v2 provenance schemas/producers and an `xtask evidence-schema-check` gate. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
@@ -161,18 +200,36 @@ gRPC replay refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-replay
 gRPC quarantine refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-grpc-quarantine-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-15-grpc-quarantine-refresh.md).
 Parity documentation refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-15-parity-doc-refresh.md).
 Final pre-publish proof: [`docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md`](audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md).
+Post-release SRP refresh: [`docs/audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md).
+Dirty-corpus parity refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md).
+Normalization and ACK parity refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md).
+Evidence parity refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md).
+gRPC enhanced ACK refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md).
+Test-coverage refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md).
+Current-main refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md).
+Dirty-corpus evidence workflow refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-17-dirty-corpus-evidence-workflow-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-17-dirty-corpus-evidence-workflow-refresh.md).
+Refactor cleanup readiness refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-17-refactor-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-17-refactor-refresh.md).
 Publish receipt: [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 Release graph decision: [`docs/audits/v1.5.0-release-graph-decision-2026-05-14.md`](audits/v1.5.0-release-graph-decision-2026-05-14.md).
-RIPR calibration: [`docs/audits/ripr-calibration-2026-05-15.md`](audits/ripr-calibration-2026-05-15.md).
+RIPR calibration: [`docs/audits/ripr-calibration-2026-05-17.md`](audits/ripr-calibration-2026-05-17.md).
 
 - ✅ **Published release**: workspace package versions are published as `1.5.0` for the selected Rust crates.io graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Rust floor**: MSRV is Rust 1.95 and `rust-toolchain.toml` pins Rust 1.95.0 with `rustfmt` and `clippy`.
 - ✅ **Verification rails**: lint policy, Clippy exceptions, no-panic exact identity and no-new-debt baseline, file-policy companion ledgers, advisory `ripr`, and targeted mutation routing are present.
 - ✅ **Release readiness workflow**: `.github/workflows/release-readiness.yml` records the non-publishing readiness proof bundle.
-- ✅ **Dry-run receipt**: hosted release-readiness dry-run passed on `main` at `b0bb5b5392354273946f36f797f39d741d318fc1`; current-main primary and binding surface dry-runs passed locally at `b4b7962e6f3f9d7ae5d91adf603e6328e3d13297` after #616-#618, at `cc1e3046e2496ea0c10a25239b9d077641d01c36` after #621-#622, at `425ff79b959ef5ceff1bdd072cbe074ff2a7ab04` after #624-#625, at `eb518e948d57bc07e96512ced306fe0db2dc2990` after #627, at `acfeacec0eda6d632d52e61440f2c85fda93d95f` after #629-#630, at `b0018c8760f07d738b3a6b7a11eeeda300786ef2` after #632-#633, at `fe8680c551bc3ce9248063906cbbe90ffe732a70` after #635-#636, at `483fb572a42006c07bd2e857fb7638ec91615b7d` after #638, at `915578b5cab5ab3abde7f806e5ad39c063d9cc82` after #640, at `47ba93201aaa15c95157d341bb5ec4f5f3871741` after #642, at `addbbe3e6962dc7f1629053c8a9c6810c7e37cc1` after #645, at `a12c6fdf61396de74f971c27f4887dd7c451543b` after #647, at `686dbff26afbbdcb97e4cc1915d1e33bd1404d14` after #649-#650, and at `9fc95604d8950b565b6b6b7941ad275fd5624178` after #653.
+- ✅ **Dry-run receipt**: hosted release-readiness dry-run passed on `main` at `b0bb5b5392354273946f36f797f39d741d318fc1`; current-main primary and binding surface dry-runs passed locally at `b4b7962e6f3f9d7ae5d91adf603e6328e3d13297` after #616-#618, at `cc1e3046e2496ea0c10a25239b9d077641d01c36` after #621-#622, at `425ff79b959ef5ceff1bdd072cbe074ff2a7ab04` after #624-#625, at `eb518e948d57bc07e96512ced306fe0db2dc2990` after #627, at `acfeacec0eda6d632d52e61440f2c85fda93d95f` after #629-#630, at `b0018c8760f07d738b3a6b7a11eeeda300786ef2` after #632-#633, at `fe8680c551bc3ce9248063906cbbe90ffe732a70` after #635-#636, at `483fb572a42006c07bd2e857fb7638ec91615b7d` after #638, at `915578b5cab5ab3abde7f806e5ad39c063d9cc82` after #640, at `47ba93201aaa15c95157d341bb5ec4f5f3871741` after #642, at `addbbe3e6962dc7f1629053c8a9c6810c7e37cc1` after #645, at `a12c6fdf61396de74f971c27f4887dd7c451543b` after #647, at `686dbff26afbbdcb97e4cc1915d1e33bd1404d14` after #649-#650, at `9fc95604d8950b565b6b6b7941ad275fd5624178` after #653, at `4cf501ddc0f7fc3d027b3ce2459e899fe4aa7092` after #684-#691, at `1564a1ac6a028146471e53c80fe3dbca22a32497` after #693-#695, at `c888405000384f391b24864e3e572dd0e9b6ba6a` after #696-#698, at `65c3c30ec52c9c5d65b58dae245b62f0bee9d198` after #699-#702, at `a8ac4cf5b9ab9e33a1a0aa61287901e00b13ab04` after #705, at `aa548e1579f659c089162f0dd8e445219d0a2414` after #708-#710/#709, and at `adda4353aae604972670db82415bd5dac1a6373a` after #733-#734.
+- ✅ **Latest readiness refresh**: current-main primary and binding surface dry-runs also passed locally at `06d237eeefa1d22fc3ed7c4e46d11f3f6adce777` after #738/#743/#742/#740; the receipt explicitly records no new crates.io upload, tag, GitHub release, TestPyPI/PyPI upload, install-back, or npm package claim.
 - ✅ **Release graph decision**: v1.5.0 selects `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`, with `hl7v2-python` included only as binding backend infrastructure.
-- ✅ **Publish receipt**: crates.io upload, registry resolution, `v1.5.0` tag, GitHub release, and public Rust/CLI/server install-back smoke are recorded in [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
-- 🟡 **Python proof**: the public Python distribution is `hl7v2`, remains separate from the primary Rust product graph, has current-main local wheel/import/evidence smoke proof, and still requires Trusted Publisher upload/install-back proof before any TestPyPI or PyPI success claim.
+- ✅ **Publish receipt**: crates.io upload, registry resolution, `v1.5.0` tag, GitHub release, and public Rust/CLI/server install-back smoke are recorded in [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md). The repeatable install-back harness is recorded in [`docs/audits/public-crates-install-first-use-2026-05-16.md`](audits/public-crates-install-first-use-2026-05-16.md).
+- 🟡 **Python proof**: the public Python distribution is `hl7v2`, remains separate from the primary Rust product graph, has current-main local wheel/import/evidence smoke proof, and the 2026-05-17 publishing-mode TestPyPI run again passed wheel smoke before failing at `invalid-publisher`; Trusted Publisher upload/install-back proof is still required before any TestPyPI or PyPI success claim.
 
 ## Historical Plans
 Old planning documents have been moved to `docs/plans/` for archival reference.
@@ -181,6 +238,13 @@ Old planning documents have been moved to `docs/plans/` for archival reference.
 
 **Current published release**: v1.5.0 is tested, package-verified, tagged, released on GitHub, and published to crates.io for the selected Rust graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is binding backend infrastructure, not the recommended Rust API.
 
-**Current main**: records the v1.5.0 Rust 1.95 quality-ratchet publish receipt.
+**Current main**: records the v1.5.0 Rust 1.95 quality-ratchet publish receipt
+and the post-release current-main readiness refresh at
+`06d237eeefa1d22fc3ed7c4e46d11f3f6adce777` after the Python wheel dirty
+evidence smoke, Windows policy guard, server validation-helper refactor, and
+synthetic value/CLI help cleanup landed through #740/#742/#743/#738.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
-upload and install-back proof before any Python release claim.
+upload and install-back proof before any Python release claim. The latest
+publishing-mode TestPyPI attempt ran on current `main` commit
+`764647e79ab61cd9814d07a777cbf1eed27a5ee8` and is
+[`docs/audits/python-testpypi-publish-attempt-2026-05-17.md`](audits/python-testpypi-publish-attempt-2026-05-17.md).

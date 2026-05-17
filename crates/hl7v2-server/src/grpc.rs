@@ -567,6 +567,9 @@ impl Hl7Service for Hl7ServiceImpl {
             generate_ack_request::AckCode::Aa => hl7v2::AckCode::AA,
             generate_ack_request::AckCode::Ae => hl7v2::AckCode::AE,
             generate_ack_request::AckCode::Ar => hl7v2::AckCode::AR,
+            generate_ack_request::AckCode::Ca => hl7v2::AckCode::CA,
+            generate_ack_request::AckCode::Ce => hl7v2::AckCode::CE,
+            generate_ack_request::AckCode::Cr => hl7v2::AckCode::CR,
             _ => hl7v2::AckCode::AA,
         };
 

@@ -46,6 +46,18 @@ covered_by = [".github/workflows/python-wheels.yml", ".github/workflows/python-t
 review_after = "2026-06-30"
 
 [[allow]]
+id = "public-crates-install-smoke"
+owner = "release"
+surface = "release-proof"
+behavior = "The public crates smoke script may install released crates into a disposable scratch root and verify first-use Rust, CLI, and server workflows."
+paths = ["tests/public_crates_smoke/*.py"]
+commands = ["python tests/public_crates_smoke/smoke.py --version 1.5.0"]
+broad_glob_reason = "The directory is intentionally limited to public crates.io install-back smoke scripts."
+reason = "Public install-back proof should be repeatable without making a new registry upload claim."
+covered_by = ["python tests/public_crates_smoke/smoke.py --version 1.5.0"]
+review_after = "2026-06-30"
+
+[[allow]]
 id = "script-tree"
 owner = "release/ci"
 surface = "developer-tooling"

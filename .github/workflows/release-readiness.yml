@@ -74,7 +74,7 @@ jobs:
           text = Path(".github/workflows/contracts.yml").read_text(encoding="utf-8")
           required = [
               "spectral lint api/openapi/hl7v2-api-v1.yaml",
-              "@bufbuild/buf lint api/proto",
+              "@bufbuild/buf@1.69.0 lint api/proto",
               "ajv validate",
               "cargo run -p xtask -- evidence-schema-check",
           ]

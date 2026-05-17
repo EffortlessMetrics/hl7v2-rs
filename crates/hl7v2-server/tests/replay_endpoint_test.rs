@@ -79,6 +79,57 @@ action = "retain"
 reason = "administrative sex is required to reproduce validation"
 "#;
 
+const DIRTY_ADT_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+  - id: ZPV
+constraints:
+  - path: MSH.9
+    required: true
+  - path: PID.3
+    required: true
+"#;
+
+const DIRTY_SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "ZPV.1"
+action = "retain"
+reason = "synthetic room marker is useful for dirty-corpus analysis"
+
+[[rules]]
+path = "ZPV.2"
+action = "retain"
+reason = "synthetic dirty-corpus note is useful for support triage"
+"#;
+
 struct TempRoot {
     path: PathBuf,
 }
@@ -147,6 +198,24 @@ async fn post_json(app: axum::Router, uri: &str, body: Value) -> (StatusCode, Va
     (status, value, body_text)
 }
 
+fn dirty_real_world_fixture_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/dirty-real-world")
+}
+
+fn normalize_fixture_segments(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes)
+        .replace("\r\n", "\n")
+        .replace('\n', "\r")
+}
+
+fn dirty_z_segment_message() -> String {
+    let source = dirty_real_world_fixture_root()
+        .join("after")
+        .join("z-segment.hl7");
+    let bytes = fs::read(&source).unwrap();
+    normalize_fixture_segments(&bytes)
+}
+
 async fn create_bundle(root: &TempRoot, bundle_id: &str) {
     create_bundle_with_input(root, bundle_id, PHI_MESSAGE, PROFILE, POLICY).await;
 }
@@ -207,6 +276,100 @@ async fn test_replay_endpoint_replays_server_bundle_without_phi_or_root_paths() 
     );
     assert_no_phi(&body_text);
     assert!(!body_text.contains(root.path().to_string_lossy().as_ref()));
+}
+
+#[tokio::test]
+async fn test_rest_dirty_real_world_validate_redact_bundle_replay_workflow() {
+    let root = TempRoot::new("dirty-z-workflow");
+    let bundle_id = "dirty-z-rest-workflow";
+    let message = dirty_z_segment_message();
+
+    let (status, validate_redacted, validate_text) = post_json(
+        test_router(None),
+        "/hl7/validate-redacted",
+        json!({
+            "message": message.as_str(),
+            "profile": DIRTY_ADT_PROFILE,
+            "redaction_policy": DIRTY_SAFE_ANALYSIS_POLICY,
+            "include_redacted_hl7": true,
+            "report_schema_version": 2,
+            "redaction_receipt_schema_version": 2
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "{validate_text}");
+    assert_eq!(validate_redacted["validation_report"]["valid"], true);
+    assert_eq!(
+        validate_redacted["validation_report"]["message_type"],
+        "ADT^A01"
+    );
+    assert_eq!(validate_redacted["redaction_receipt"]["phi_removed"], true);
+    assert_eq!(
+        validate_redacted["validation_report_v2"]["schema_version"],
+        "2"
+    );
+    assert_eq!(
+        validate_redacted["redaction_receipt_v2"]["schema_version"],
+        "2"
+    );
+    let redacted_hl7 = validate_redacted["redacted_hl7"].as_str().unwrap();
+    assert!(redacted_hl7.contains("hash:sha256:"));
+    assert!(redacted_hl7.contains("ZPV|legacy-room|dirty interface note"));
+    assert!(!validate_text.contains("MRN-Z"));
+    assert!(!validate_text.contains("Example^Zed"));
+    assert!(!validate_text.contains("19700101"));
+
+    let (status, bundle, bundle_text) = post_json(
+        test_router(Some(root.path().to_path_buf())),
+        "/hl7/bundle",
+        json!({
+            "message": message.as_str(),
+            "profile": DIRTY_ADT_PROFILE,
+            "redaction_policy": DIRTY_SAFE_ANALYSIS_POLICY,
+            "bundle_id": bundle_id,
+            "bundle_artifact_schema_version": 2
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::CREATED, "{bundle_text}");
+    assert_eq!(bundle["message_type"], "ADT^A01");
+    assert_eq!(bundle["validation_valid"], true);
+    assert_eq!(bundle["redaction_phi_removed"], true);
+    assert!(!bundle_text.contains(root.path().to_string_lossy().as_ref()));
+    assert!(!bundle_text.contains(bundle_id));
+    assert!(!bundle_text.contains("MRN-Z"));
+    assert!(!bundle_text.contains("Example^Zed"));
+    assert!(!bundle_text.contains("19700101"));
+
+    let bundle_dir = root.path().join(bundle_id);
+    let redacted_message = fs::read_to_string(bundle_dir.join("message.redacted.hl7")).unwrap();
+    assert!(redacted_message.contains("hash:sha256:"));
+    assert!(redacted_message.contains("ZPV|legacy-room|dirty interface note"));
+    assert!(!redacted_message.contains("MRN-Z"));
+    assert!(!redacted_message.contains("Example^Zed"));
+    assert!(!redacted_message.contains("19700101"));
+
+    let (status, replay, replay_text) = post_json(
+        test_router(Some(root.path().to_path_buf())),
+        "/hl7/replay",
+        json!({
+            "bundle_id": bundle_id,
+            "replay_report_schema_version": 2
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "{replay_text}");
+    assert_eq!(replay["schema_version"], "2");
+    assert_eq!(replay["reproduced"], true, "{replay_text}");
+    assert_eq!(replay["message_type"], "ADT^A01");
+    assert_eq!(replay["validation_valid"], true);
+    assert!(!replay_text.contains(root.path().to_string_lossy().as_ref()));
+    assert!(!replay_text.contains("MRN-Z"));
+    assert!(!replay_text.contains("Example^Zed"));
+    assert!(!replay_text.contains("19700101"));
 }
 
 #[tokio::test]

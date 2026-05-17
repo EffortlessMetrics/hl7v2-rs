@@ -14,13 +14,18 @@ after installing a locally built `hl7v2` wheel.
 From the repository root:
 
 ```powershell
-python -m pip install --upgrade pip "maturin==1.13.1"
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
-maturin build --release --out dist
-python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
+cargo +1.95.0 run -p xtask -- python-local-wheel-proof
 ```
 
-The Python distribution is `hl7v2`; the import module is `hl7v2`.
+The proof command builds a local wheel, installs it into a scratch virtual
+environment, imports `hl7v2`, runs `tests/python_smoke/smoke.py`, and runs this
+guide's evidence workflow script plus the shared dirty Z-segment evidence
+workflow smoke. It does not claim TestPyPI or PyPI availability.
+
+The Python distribution is `hl7v2`; the import module is `hl7v2`. If you want to
+inspect the module interactively after the proof, activate the scratch virtual
+environment under `target/hl7v2-python-local-wheel-proof/venv` or pass
+`--root <scratch-dir>` to the proof command.
 
 ```python
 import hl7v2

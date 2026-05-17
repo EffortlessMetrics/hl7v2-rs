@@ -65,16 +65,37 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md",
   "docs/audits/publish-v1.5.0-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
+  "docs/audits/ripr-calibration-2026-05-17.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
+  "docs/audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md",
+  "docs/audits/dirty-real-world-server-corpus-parity-2026-05-16.md",
+  "docs/audits/dirty-real-world-python-corpus-parity-2026-05-16.md",
+  "docs/audits/dirty-real-world-python-evidence-workflow-2026-05-17.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-17-dirty-corpus-evidence-workflow-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-17-refactor-refresh.md",
+  "docs/audits/public-crates-install-first-use-2026-05-16.md",
+  "docs/audits/grpc-enhanced-ack-parity-2026-05-16.md",
+  "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
+  "docs/audits/python-testpypi-nonpublish-proof-2026-05-16.md",
+  "docs/audits/python-testpypi-publish-attempt-2026-05-16.md",
+  "docs/audits/python-testpypi-publish-attempt-2026-05-17.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
   "docs/specs/HL7V2-SPEC-0005-npm-wasm-binding-package-model.md",
   "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md",
   "docs/ci/ripr.md",
   "docs/ci/test-evidence-lanes.md",
+  "policy/evidence-parity.toml",
   "policy/clippy-lints.toml",
   "policy/clippy-debt.toml",
   "policy/clippy-exceptions.toml",
@@ -90,10 +111,529 @@ proof_commands = [
   "cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
   "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
   "cargo +1.95.0 run -p xtask -- badges --check",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check",
   "cargo +1.95.0 run -p xtask -- policy-report",
+]
+
+[[work_item]]
+id = "v1-5-0-test-coverage-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after synthetic evidence tests, server handler helper tests, datatype/datetime tests, and the fractional timestamp syntax fix landed through #710 and #709."
+commit = "aa548e1579f659c089162f0dd8e445219d0a2414"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-2026-05-17 CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 info hl7v2@1.5.0",
+  "cargo +1.95.0 info hl7v2-python@1.5.0",
+  "cargo +1.95.0 info hl7v2-server@1.5.0",
+  "cargo +1.95.0 info hl7v2-cli@1.5.0",
+  "git tag -l v1.5.0",
+  "git rev-list -n 1 v1.5.0",
+  "gh release view v1.5.0 --json tagName,name,publishedAt,isDraft,isPrerelease,url",
+  "git diff --check",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "v1-5-0-current-main-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after the TestPyPI blocker receipt, first-use README routing, testing guide refresh, issue-template cleanup, and contracts Buf CLI pin landed through #720."
+commit = "7a7c60907100442c5bbf5f2e7fcf7c2378035261"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md"
+commands = [
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- badges --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-doc-links",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 search hl7v2 --limit 10",
+  "cargo +1.95.0 info --registry crates-io hl7v2@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-python@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-server@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-cli@1.5.0",
+  "git tag -l v1.5.0",
+  "git rev-list -n 1 v1.5.0",
+  "git ls-remote --tags origin v1.5.0",
+  "gh release view v1.5.0 --json tagName,name,publishedAt,isDraft,isPrerelease,url,targetCommitish",
+  "git diff --check",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "v1-5-0-dirty-corpus-evidence-workflow-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after REST and gRPC dirty real-world validate-redacted/bundle/replay workflow proof landed through #734."
+commit = "adda4353aae604972670db82415bd5dac1a6373a"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-17-dirty-corpus-evidence-workflow-refresh.md"
+commands = [
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- badges --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-doc-links",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-file-policy",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance",
+  "cargo +1.95.0 info --registry crates-io hl7v2@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-python@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-server@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-cli@1.5.0",
+  "git tag -l v1.5.0",
+  "git rev-list -n 1 v1.5.0",
+  "git ls-remote --tags origin v1.5.0",
+  "gh release view v1.5.0 --json tagName,name,publishedAt,isDraft,isPrerelease,url,targetCommitish",
+  "curl -I https://test.pypi.org/pypi/hl7v2/json",
+  "curl -I https://pypi.org/pypi/hl7v2/json",
+  "curl -I https://registry.npmjs.org/@effortlessmetrics%2Fhl7v2",
+  "gh issue view 563 --json number,title,state,url,labels",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No Python public-registry install-back proof.",
+  "No Python dirty workflow claim.",
+]
+
+[[work_item]]
+id = "v1-5-0-refactor-cleanup-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after the Python wheel dirty evidence smoke, Windows policy guard, server validation-helper refactor, and synthetic value/CLI help cleanup landed through #740/#742/#743/#738."
+commit = "06d237eeefa1d22fc3ed7c4e46d11f3f6adce777"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-17-refactor-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-2026-05-17-refactor-refresh CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-2026-05-17-refactor-refresh CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance",
+  "cargo +1.95.0 info --registry crates-io hl7v2@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-python@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-server@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-cli@1.5.0",
+  "git tag -l v1.5.0",
+  "git rev-list -n 1 v1.5.0",
+  "git ls-remote --tags origin v1.5.0",
+  "git ls-remote --tags origin \"v1.5.0^{}\"",
+  "gh release view v1.5.0 --json tagName,name,publishedAt,isDraft,isPrerelease,url,targetCommitish",
+  "gh run list --workflow python-testpypi.yml --limit 5 --json databaseId,displayTitle,status,conclusion,headSha,event,createdAt,url",
+  "curl -I https://test.pypi.org/pypi/hl7v2/json",
+  "curl -I https://pypi.org/pypi/hl7v2/json",
+  "curl -I https://registry.npmjs.org/@effortlessmetrics%2Fhl7v2",
+  "gh issue view 563 --json number,title,state,stateReason,url",
+  "git diff --check",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "cross-surface-evidence-parity-gap-audit"
+status = "done"
+goal = "Map remaining cross-surface evidence parity gaps after v1.5.0 release proof, first-use docs, dirty-corpus parity, Python local wheel proof, and the #734 readiness refresh."
+receipt = "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No runtime implementation.",
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload or install-back.",
+  "No PyPI upload or install-back.",
+  "No npm package.",
+  "No TypeScript implementation.",
+  "No promotion of hl7v2-python as the recommended Rust API.",
+]
+
+[[work_item]]
+id = "cross-surface-evidence-parity-manifest"
+status = "done"
+goal = "Add a machine-readable parity manifest that maps each cross-surface evidence contract to current surface state, proof commands, fixture families, and known gaps."
+manifest = "policy/evidence-parity.toml"
+commands = [
+  "python -c \"import pathlib, tomllib; tomllib.loads(pathlib.Path('policy/evidence-parity.toml').read_text())\"",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- policy-report",
+  "cargo +1.95.0 test -p xtask evidence_parity --locked",
+  "git diff --check",
+]
+non_claims = [
+  "No runtime implementation.",
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload or install-back.",
+  "No PyPI upload or install-back.",
+  "No npm package.",
+  "No TypeScript implementation.",
+  "No promotion of hl7v2-python as the recommended Rust API.",
+]
+
+[[work_item]]
+id = "python-testpypi-publish-attempt-refresh"
+status = "blocked"
+goal = "Rerun the guarded Python TestPyPI proof in publishing mode from current main and record the external Trusted Publisher boundary."
+blocked_by = "https://github.com/EffortlessMetrics/hl7v2-rs/issues/563"
+commit = "764647e79ab61cd9814d07a777cbf1eed27a5ee8"
+receipt = "docs/audits/python-testpypi-publish-attempt-2026-05-17.md"
+workflow_run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26002395769"
+commands = [
+  "gh workflow run python-testpypi.yml --ref main -f publish_to_testpypi=true",
+  "gh run view 26002395769 --json headSha,event,status,conclusion,url,jobs",
+  "gh run view 26002395769 --log-failed",
+  "gh api repos/EffortlessMetrics/hl7v2-rs/actions/runs/26002395769/artifacts",
+  "gh issue reopen 563 --comment <latest failed run summary>",
+  "curl -I https://test.pypi.org/pypi/hl7v2/json",
+  "curl -I https://pypi.org/pypi/hl7v2/json",
+]
+result = [
+  "Build and smoke wheel succeeded.",
+  "Publish to TestPyPI failed with invalid-publisher.",
+  "Install from TestPyPI and smoke was skipped.",
+  "TestPyPI and PyPI hl7v2 JSON endpoints still returned 404.",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No token fallback.",
+  "No skip-existing.",
+]
+
+[[work_item]]
+id = "v1-5-0-grpc-enhanced-ack-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after gRPC GenerateAck parity for all six supported ACK codes landed through #705."
+commit = "a8ac4cf5b9ab9e33a1a0aa61287901e00b13ab04"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-2026-05-16 CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-2026-05-16 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 info hl7v2@1.5.0",
+  "cargo +1.95.0 info hl7v2-python@1.5.0",
+  "cargo +1.95.0 info hl7v2-server@1.5.0",
+  "cargo +1.95.0 info hl7v2-cli@1.5.0",
+  "git tag -l v1.5.0",
+  "git rev-list -n 1 v1.5.0",
+  "gh release view v1.5.0 --json tagName,name,publishedAt,isDraft,isPrerelease,url",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "grpc-enhanced-ack-parity"
+status = "done"
+goal = "Close the remaining gRPC ACK commit-code parity gap by exposing CA, CE, and CR in the proto/API/runtime surface."
+receipt = "docs/audits/grpc-enhanced-ack-parity-2026-05-16.md"
+commands = [
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_generate_ack_maps_codes_and_preserves_control_id --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test proto_packaging_test --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test serve_grpc_contract_test --locked",
+  "npm exec --yes -- @bufbuild/buf lint api/proto",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 fmt --all -- --check",
+  "python -c \"import pathlib,tomllib; tomllib.loads(pathlib.Path('.hl7v2/goals/active.toml').read_text()); print('active.toml ok')\"",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "v1-5-0-evidence-parity-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after REST ACK parity, gRPC ACK contract parity, and Python enhanced ACK smoke proof landed through #702."
+commit = "65c3c30ec52c9c5d65b58dae245b62f0bee9d198"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-v15-readiness-current-main PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 RUSTUP_TOOLCHAIN=1.95.0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-v15-readiness-current-main PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 RUSTUP_TOOLCHAIN=1.95.0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 info hl7v2@1.5.0",
+  "cargo +1.95.0 info hl7v2-python@1.5.0",
+  "cargo +1.95.0 info hl7v2-server@1.5.0",
+  "cargo +1.95.0 info hl7v2-cli@1.5.0",
+  "gh release view v1.5.0 --json tagName,targetCommitish,name,publishedAt,isDraft,isPrerelease,url",
+  "git diff --check",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "public-crates-install-first-use-smoke"
+status = "done"
+goal = "Add a repeatable public crates.io install-back smoke for the v1.5.0 Rust library, CLI, and server first-use paths."
+receipt = "docs/audits/public-crates-install-first-use-2026-05-16.md"
+script = "tests/public_crates_smoke/smoke.py"
+commands = [
+  "python tests/public_crates_smoke/smoke.py --version 1.5.0",
+  "cargo +1.95.0 test -p hl7v2 --test user_journey --all-features --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests journey_cli_validate_redact_bundle_replay_produces_shareable_receipts --locked",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "v1-5-0-normalization-ack-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after post-release readiness, normalization parity, and CLI ACK parity landed through #698."
+commit = "c888405000384f391b24864e3e572dd0e9b6ba6a"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-v15-readiness-ack-parity CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-v15-readiness-ack-parity CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "v1-5-0-dirty-corpus-parity-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after shared Rust/CLI, REST/gRPC server, and local Python wheel dirty-corpus parity landed through #695."
+commit = "1564a1ac6a028146471e53c80fe3dbca22a32497"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-v15-readiness-current-main CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-v15-readiness-current-main CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "dirty-real-world-python-corpus-parity"
+status = "done"
+goal = "Reuse the shared dirty real-world corpus fixtures for local Python wheel corpus summary, fingerprint, and diff parity."
+receipt = "docs/audits/dirty-real-world-python-corpus-parity-2026-05-16.md"
+fixtures = "test_data/dirty-real-world/"
+commands = [
+  "cargo +1.95.0 test -p hl7v2-python --locked",
+  "RUSTUP_TOOLCHAIN=1.95.0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity CARGO_INCREMENTAL=0 python -m maturin build --release --out F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity\\dist --target-dir F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity",
+  "F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity\\venv\\Scripts\\python.exe tests\\python_smoke\\smoke.py",
+  "F:\\cargo-target\\hl7v2-rs-python-dirty-corpus-parity\\venv\\Scripts\\python.exe tests\\python_smoke\\evidence_workflow_guide.py",
+]
+non_claims = [
+  "No TypeScript dirty-corpus parity receipt.",
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "dirty-real-world-server-corpus-parity"
+status = "done"
+goal = "Reuse the shared dirty real-world corpus fixtures for REST and gRPC server corpus summary, fingerprint, and diff parity."
+receipt = "docs/audits/dirty-real-world-server-corpus-parity-2026-05-16.md"
+fixtures = "test_data/dirty-real-world/"
+commands = [
+  "cargo +1.95.0 test -p hl7v2-server --test corpus_endpoint_test test_corpus_endpoints_share_dirty_real_world_fixture_categories",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_corpus_commands_share_dirty_real_world_fixture_categories",
+]
+non_claims = [
+  "No Python or TypeScript dirty-corpus parity receipt.",
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "dirty-real-world-shared-fixture-parity"
+status = "done"
+goal = "Move dirty real-world corpus proof into named shared fixtures and prove Rust core plus CLI corpus summary, fingerprint, and diff behavior against them."
+receipt = "docs/audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md"
+fixtures = "test_data/dirty-real-world/"
+commands = [
+  "cargo +1.95.0 test -p hl7v2 --lib --all-features dirty_real_world",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_corpus_commands_share_dirty_real_world_fixture_categories",
+]
+non_claims = [
+  "This Rust/CLI receipt does not itself claim REST, gRPC, Python, or TypeScript dirty-corpus parity.",
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "v1-5-0-post-srp-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness and hosted Python non-publishing proof after the focused SRP module split train landed through #691."
+commit = "4cf501ddc0f7fc3d027b3ce2459e899fe4aa7092"
+readiness_receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md"
+python_receipt = "docs/audits/python-testpypi-nonpublish-proof-2026-05-16.md"
+python_run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25958692952"
+commands = [
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-post-srp-readiness CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-post-srp-readiness CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
 ]
 
 [[work_item]]
@@ -126,6 +666,33 @@ sampled_runs = [
   "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25894522063",
   "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25895990745",
   "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25899168227",
+]
+commands = [
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No branch-protection rule changed.",
+  "No required check added.",
+  "No runtime mutation run.",
+  "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
+]
+
+[[work_item]]
+id = "ripr-calibration-after-parity-traffic"
+status = "done"
+goal = "Refresh the advisory ripr evidence calibration after evidence-parity, Python-proof, and refactor PR traffic without making it branch-protection blocking."
+receipt = "docs/audits/ripr-calibration-2026-05-17.md"
+sampled_runs = [
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25990753620",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25997492068",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25998379659",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25998977833",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25999837574",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26000683148",
 ]
 commands = [
   "cargo +1.95.0 run -p xtask -- badges --check",
@@ -295,6 +862,203 @@ non_claims = [
   "No TestPyPI or PyPI upload.",
   "No npm package.",
   "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "safe-error-phi-parity-fixture"
+status = "done"
+goal = "Back safe-error-shape and PHI sentinel parity with one shared fixture, surface-specific Rust/CLI/REST/gRPC proof, and Python smoke fixture wiring."
+manifest = "test_data/security/safe-error-phi-parity.json"
+commands = [
+  "cargo +1.95.0 test -p hl7v2-test-utils security_fixtures --locked",
+  "cargo +1.95.0 test -p hl7v2 --test safe_error_phi_parity --all-features --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_parse_safe_error_does_not_emit_manifest_phi_sentinels --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_redact_json_does_not_emit_phi_leak_sentinels_or_paths --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test parse_endpoint_test test_parse_malformed_message_returns_error --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test validate_endpoint_test test_validate_invalid_profile_yaml_returns_error --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test validate_redacted_endpoint_test test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_parse_invalid_hl7_returns_parse_error --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_invalid_profile_returns_invalid_argument --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_redacted_returns_report_receipt_and_redacted_hl7 --locked",
+  "CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2-test-utils --tests --locked -- -D warnings",
+  "CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2 --test safe_error_phi_parity --all-features --locked -- -D warnings",
+  "CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2-cli --test integration_tests --locked -- -D warnings",
+  "CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2-server --tests --locked -- -D warnings",
+  "python -m py_compile tests/python_smoke/smoke.py",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No Python local-wheel smoke execution was claimed from this base environment; py_compile only checked the smoke script syntax.",
+]
+
+[[work_item]]
+id = "safe-error-phi-parity-acceptance-runner"
+status = "done"
+goal = "Add one xtask runner that composes the shared safe-error and PHI sentinel proof across Rust core, CLI, REST, and gRPC surfaces."
+manifest = "test_data/security/safe-error-phi-parity.json"
+command = "cargo +1.95.0 run -p xtask -- check-safe-error-phi-parity"
+optional_python_command = "cargo +1.95.0 run -p xtask -- check-safe-error-phi-parity --include-python"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "The default runner does not claim Python public-registry install-back proof.",
+  "The optional Python runner requires a locally installed hl7v2 wheel.",
+]
+
+[[work_item]]
+id = "schema-version-parity-fixture"
+status = "done"
+goal = "Back schema-version behavior parity with one shared fixture, representative CLI/REST/gRPC proof, Python smoke fixture wiring, and an xtask manifest guard."
+manifest = "test_data/evidence/schema-version-parity.json"
+commands = [
+  "cargo +1.95.0 test -p hl7v2-test-utils schema_version --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test validate_endpoint_test test_validate_report_schema_v2_returns_nested_provenance_report --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_separates_errors_from_warnings --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_redacted_rejects_unsupported_schema_versions --locked",
+  "cargo +1.95.0 test -p xtask evidence_parity_policy_requires_schema_version_fixture --locked",
+  "cargo +1.95.0 test -p xtask evidence_parity_policy_requires_schema_version_proofs --locked",
+  "python -m py_compile tests/python_smoke/smoke.py",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No Python local-wheel smoke execution was claimed from this base environment; py_compile only checked the smoke script syntax.",
+]
+
+[[work_item]]
+id = "schema-version-parity-acceptance-runner"
+status = "done"
+goal = "Add one xtask runner that composes the shared schema-version proof across Rust core, CLI, REST, and gRPC surfaces."
+manifest = "test_data/evidence/schema-version-parity.json"
+command = "cargo +1.95.0 run -p xtask -- check-schema-version-parity"
+optional_python_command = "cargo +1.95.0 run -p xtask -- check-schema-version-parity --include-python"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "The default runner does not claim Python public-registry install-back proof.",
+  "The optional Python runner requires a locally installed hl7v2 wheel.",
+]
+
+[[work_item]]
+id = "dirty-corpus-parity-acceptance-runner"
+status = "done"
+goal = "Add one xtask runner that composes the shared dirty-real-world corpus summary/fingerprint/diff proof across Rust core, CLI, REST, and gRPC surfaces."
+manifest = "test_data/dirty-real-world/"
+command = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity"
+optional_python_command = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity --include-python"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "The default runner does not claim Python public-registry install-back proof.",
+  "The optional Python runner requires a locally installed hl7v2 wheel.",
+]
+
+[[work_item]]
+id = "dirty-corpus-cli-evidence-workflow"
+status = "done"
+goal = "Extend the dirty-corpus runner with one CLI validate/redact/bundle/replay evidence workflow over the shared Z-segment fixture."
+command = "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_dirty_real_world_validate_redact_bundle_replay_workflow --locked"
+runner = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No Python dirty validate/redact/bundle/replay workflow claim.",
+]
+
+[[work_item]]
+id = "dirty-corpus-rest-evidence-workflow"
+status = "done"
+goal = "Extend the dirty-corpus runner with one REST validate-redacted/bundle/replay evidence workflow over the shared Z-segment fixture."
+command = "cargo +1.95.0 test -p hl7v2-server --test replay_endpoint_test test_rest_dirty_real_world_validate_redact_bundle_replay_workflow --locked"
+runner = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No Python dirty validate/redact/bundle/replay workflow claim.",
+]
+
+[[work_item]]
+id = "dirty-corpus-grpc-evidence-workflow"
+status = "done"
+goal = "Extend the dirty-corpus runner with one gRPC validate-redacted/bundle/replay evidence workflow over the shared Z-segment fixture."
+command = "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow --locked"
+runner = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No Python dirty validate/redact/bundle/replay workflow claim.",
+]
+
+[[work_item]]
+id = "bundle-replay-parity-acceptance-runner"
+status = "done"
+goal = "Add one xtask runner that composes bundle/replay proof across Rust core, CLI, REST, and gRPC surfaces."
+command = "cargo +1.95.0 run -p xtask -- check-bundle-replay-parity"
+optional_python_command = "cargo +1.95.0 run -p xtask -- check-bundle-replay-parity --include-python"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "The default runner does not claim Python public-registry install-back proof.",
+  "The optional Python runner requires a locally installed hl7v2 wheel.",
+]
+
+[[work_item]]
+id = "aggregate-evidence-parity-acceptance-runner"
+status = "done"
+goal = "Add one xtask runner that composes the local Rust/CLI/REST/gRPC evidence parity acceptance suite."
+command = "cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance"
+optional_python_command = "cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance --include-python"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "The default runner does not claim Python public-registry install-back proof.",
+  "The optional Python runner requires a locally installed hl7v2 wheel.",
 ]
 
 [[work_item]]
@@ -1129,6 +1893,52 @@ non_claims = [
   "No TestPyPI or PyPI upload.",
   "No npm package.",
   "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "python-local-wheel-proof-command"
+status = "done"
+goal = "Make local Python wheel proof self-contained so agents and maintainers can build, install, import, smoke, and parity-check the public hl7v2 wheel without manual venv setup."
+receipt = "docs/audits/python-local-wheel-proof-command-2026-05-17.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- python-local-wheel-proof --root F:\\cargo-target\\hl7v2-rs-python-local-wheel-proof-2026-05-17",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance --include-python",
+  "cargo +1.95.0 test -p xtask python --locked",
+  "cargo +1.95.0 test -p xtask single_wheel_in_dist_requires_exactly_one_wheel --locked",
+  "cargo +1.95.0 test -p xtask python_venv_executable_uses_platform_path --locked",
+  "cargo +1.95.0 fmt --all -- --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No token fallback.",
+  "No skip-existing.",
+]
+
+[[work_item]]
+id = "dirty-real-world-python-evidence-workflow"
+status = "done"
+goal = "Extend local Python dirty real-world proof from corpus summary/fingerprint/diff into validate, redact, bundle, and replay over the shared Z-segment fixture."
+receipt = "docs/audits/dirty-real-world-python-evidence-workflow-2026-05-17.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- python-local-wheel-proof --root F:\\cargo-target\\hl7v2-rs-python-dirty-evidence-proof-workflow-2026-05-17",
+  "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity --include-python",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No token fallback.",
+  "No skip-existing.",
 ]
 
 [[work_item]]

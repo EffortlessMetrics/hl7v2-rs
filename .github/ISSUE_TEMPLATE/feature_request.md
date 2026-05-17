@@ -18,20 +18,20 @@ A clear and concise description of what you want to happen.
 **Describe alternatives you've considered**
 A clear and concise description of any alternative solutions or features you've considered.
 
-**Check the roadmap**
-- Is this feature already planned? Check [ROADMAP.md](../../ROADMAP.md)
-- For v1.2.0: Check [ROADMAP.md](../../ROADMAP.md)
-- Is this a known limitation? Check [docs/STATUS.md](../../docs/STATUS.md)
+**Check current planning sources**
+- Is this feature already planned or blocked? Check [docs/STATUS.md](../../docs/STATUS.md).
+- Does this affect a support tier? Check [docs/status/SUPPORT_TIERS.md](../../docs/status/SUPPORT_TIERS.md).
+- Does this add or change an evidence artifact? Check [docs/contracts/evidence-contract-index.md](../../docs/contracts/evidence-contract-index.md).
 
 **Related documents**
 - Link to design docs if applicable
 - Link to related issues
-- Reference ROADMAP.md section if already planned
+- Reference proposal/spec/ADR/plan if already planned
 
 **Priority**
 - Critical (blocking other work)
-- High (important for v1.2.0)
-- Medium (nice to have in v1.3.0)
+- High (important for the current release lane)
+- Medium (useful follow-up)
 - Low (future consideration)
 
 **Additional context**

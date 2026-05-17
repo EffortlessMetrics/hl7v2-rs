@@ -1,6 +1,6 @@
 #![cfg(feature = "batch")]
 
-use hl7v2::batch::{BatchType, parse_batch};
+use hl7v2::batch::{BatchError, BatchType, parse_batch};
 use std::fmt::Debug;
 
 #[test]
@@ -90,6 +90,33 @@ PID|1||MRN002^^^HOSP^MR||Patient^Two\r";
 
     require_eq(batch.total_message_count(), 2, "message count")?;
     require_eq(batch.batches.len(), 1, "implicit batch count")?;
+
+    Ok(())
+}
+
+#[test]
+fn batch_module_reports_file_trailer_count_mismatch() -> Result<(), Box<dyn std::error::Error>> {
+    let data = b"FHS|^~\\&|APP|FAC|||20250128120000\r\
+BHS|^~\\&|APP|FAC|RECV|RECVFAC|20250128120000|||BATCH001\r\
+MSH|^~\\&|APP|FAC|RECV|RECVFAC|20250128120001||ADT^A01|MSG001|P|2.5.1\r\
+PID|1||MRN001^^^HOSP^MR||Patient^One\r\
+BTS|1\r\
+FTS|2|declares too many messages\r";
+
+    let result = parse_batch(data);
+
+    match result {
+        Err(BatchError::CountMismatch { expected, actual }) => {
+            require_eq(expected, 2, "expected file trailer count")?;
+            require_eq(actual, 1, "actual parsed message count")?;
+        }
+        Err(err) => {
+            return Err(
+                std::io::Error::other(format!("expected file count mismatch, got {err}")).into(),
+            );
+        }
+        Ok(_) => return Err(std::io::Error::other("expected file count mismatch").into()),
+    }
 
     Ok(())
 }
