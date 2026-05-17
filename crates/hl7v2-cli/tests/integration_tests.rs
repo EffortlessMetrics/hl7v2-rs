@@ -41,182 +41,61 @@ fn is_sha256_hex(value: &str) -> bool {
 mod help_and_version {
     use super::*;
 
-    #[test]
-    fn test_help_flag() {
+    fn assert_help_contains(args: &[&str], expected: &str) {
         let mut cmd = cli_command();
-        cmd.arg("--help")
+        cmd.args(args)
             .assert()
             .success()
-            .stdout(predicate::str::contains("HL7 v2 parser"));
-    }
-
-    // Note: --version flag is not configured in the CLI, skip this test
-
-    #[test]
-    fn test_parse_help() {
-        let mut cmd = cli_command();
-        cmd.args(["parse", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Parse HL7 v2 message"));
+            .stdout(predicate::str::contains(expected));
     }
 
     #[test]
-    fn test_norm_help() {
-        let mut cmd = cli_command();
-        cmd.args(["norm", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Normalize"));
-    }
-
-    #[test]
-    fn test_val_help() {
-        let mut cmd = cli_command();
-        cmd.args(["val", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Validate"));
-    }
-
-    #[test]
-    fn test_profile_help() {
-        let mut cmd = cli_command();
-        cmd.args(["profile", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Inspect and lint"));
-    }
-
-    #[test]
-    fn test_profile_lint_help() {
-        let mut cmd = cli_command();
-        cmd.args(["profile", "lint", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Lint a profile YAML file"));
-    }
-
-    #[test]
-    fn test_profile_test_help() {
-        let mut cmd = cli_command();
-        cmd.args(["profile", "test", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+    fn help_text_mentions_expected_command_purpose() {
+        const CASES: &[(&[&str], &str)] = &[
+            (&["--help"], "HL7 v2 parser"),
+            (&["parse", "--help"], "Parse HL7 v2 message"),
+            (&["norm", "--help"], "Normalize"),
+            (&["val", "--help"], "Validate"),
+            (&["profile", "--help"], "Inspect and lint"),
+            (&["profile", "lint", "--help"], "Lint a profile YAML file"),
+            (
+                &["profile", "test", "--help"],
                 "Test a profile against valid/invalid",
-            ));
-    }
-
-    #[test]
-    fn test_profile_explain_help() {
-        let mut cmd = cli_command();
-        cmd.args(["profile", "explain", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Explain the loaded profile"));
-    }
-
-    #[test]
-    fn test_corpus_help() {
-        let mut cmd = cli_command();
-        cmd.args(["corpus", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Inspect message corpora"));
-    }
-
-    #[test]
-    fn test_corpus_summarize_help() {
-        let mut cmd = cli_command();
-        cmd.args(["corpus", "summarize", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["profile", "explain", "--help"],
+                "Explain the loaded profile",
+            ),
+            (&["corpus", "--help"], "Inspect message corpora"),
+            (
+                &["corpus", "summarize", "--help"],
                 "Summarize a directory or file corpus",
-            ));
-    }
-
-    #[test]
-    fn test_corpus_diff_help() {
-        let mut cmd = cli_command();
-        cmd.args(["corpus", "diff", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["corpus", "diff", "--help"],
                 "Diff two directory or file corpora",
-            ));
-    }
-
-    #[test]
-    fn test_corpus_fingerprint_help() {
-        let mut cmd = cli_command();
-        cmd.args(["corpus", "fingerprint", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["corpus", "fingerprint", "--help"],
                 "Create a deterministic feed fingerprint",
-            ));
-    }
-
-    #[test]
-    fn test_redact_help() {
-        let mut cmd = cli_command();
-        cmd.args(["redact", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["redact", "--help"],
                 "Redact an HL7 v2 message using a safe-analysis policy",
-            ));
-    }
-
-    #[test]
-    fn test_bundle_help() {
-        let mut cmd = cli_command();
-        cmd.args(["bundle", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["bundle", "--help"],
                 "Create a redacted support/debug evidence bundle",
-            ));
-    }
+            ),
+            (&["replay", "--help"], "Replay a redacted evidence bundle"),
+            (&["ack", "--help"], "Generate ACK"),
+            (&["gen", "--help"], "Generate synthetic"),
+            (&["doctor", "--help"], "Run first-use diagnostics"),
+        ];
 
-    #[test]
-    fn test_replay_help() {
-        let mut cmd = cli_command();
-        cmd.args(["replay", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
-                "Replay a redacted evidence bundle",
-            ));
-    }
-
-    #[test]
-    fn test_ack_help() {
-        let mut cmd = cli_command();
-        cmd.args(["ack", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Generate ACK"));
-    }
-
-    #[test]
-    fn test_gen_help() {
-        let mut cmd = cli_command();
-        cmd.args(["gen", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Generate synthetic"));
-    }
-
-    #[test]
-    fn test_doctor_help() {
-        let mut cmd = cli_command();
-        cmd.args(["doctor", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Run first-use diagnostics"));
+        for (args, expected) in CASES {
+            assert_help_contains(args, expected);
+        }
     }
 }
 

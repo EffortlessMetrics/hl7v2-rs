@@ -6,7 +6,6 @@
 use crate::model::Error;
 use crate::synthetic::faker::{Faker, FakerValue};
 use rand::Rng;
-use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -91,41 +90,73 @@ pub enum ValueSource {
 impl ValueSource {
     /// Convert to a `FakerValue` for callers that still operate on faker types.
     pub fn to_faker_value(&self) -> FakerValue {
+        self.try_to_faker_value()
+            .unwrap_or_else(|| FakerValue::Fixed(String::new()))
+    }
+
+    fn try_to_faker_value(&self) -> Option<FakerValue> {
         match self {
-            Self::Fixed(value) => FakerValue::Fixed(value.clone()),
-            Self::From(options) => FakerValue::From(options.clone()),
-            Self::Numeric { digits } => FakerValue::Numeric { digits: *digits },
-            Self::Date { start, end } => FakerValue::Date {
+            Self::Fixed(value) => Some(FakerValue::Fixed(value.clone())),
+            Self::From(options) => Some(FakerValue::From(options.clone())),
+            Self::Numeric { digits } => Some(FakerValue::Numeric { digits: *digits }),
+            Self::Date { start, end } => Some(FakerValue::Date {
                 start: start.clone(),
                 end: end.clone(),
-            },
+            }),
             Self::Gaussian {
                 mean,
                 sd,
                 precision,
-            } => FakerValue::Gaussian {
+            } => Some(FakerValue::Gaussian {
                 mean: *mean,
                 sd: *sd,
                 precision: *precision,
-            },
-            Self::Map(mapping) => FakerValue::Map(mapping.clone()),
-            Self::UuidV4 => FakerValue::UuidV4,
-            Self::DtmNowUtc => FakerValue::DtmNowUtc,
-            Self::RealisticName { gender } => FakerValue::RealisticName {
+            }),
+            Self::Map(mapping) => Some(FakerValue::Map(mapping.clone())),
+            Self::UuidV4 => Some(FakerValue::UuidV4),
+            Self::DtmNowUtc => Some(FakerValue::DtmNowUtc),
+            Self::RealisticName { gender } => Some(FakerValue::RealisticName {
                 gender: gender.clone(),
-            },
-            Self::RealisticAddress => FakerValue::RealisticAddress,
-            Self::RealisticPhone => FakerValue::RealisticPhone,
-            Self::RealisticSsn => FakerValue::RealisticSsn,
-            Self::RealisticMrn => FakerValue::RealisticMrn,
-            Self::RealisticIcd10 => FakerValue::RealisticIcd10,
-            Self::RealisticLoinc => FakerValue::RealisticLoinc,
-            Self::RealisticMedication => FakerValue::RealisticMedication,
-            Self::RealisticAllergen => FakerValue::RealisticAllergen,
-            Self::RealisticBloodType => FakerValue::RealisticBloodType,
-            Self::RealisticEthnicity => FakerValue::RealisticEthnicity,
-            Self::RealisticRace => FakerValue::RealisticRace,
-            _ => FakerValue::Fixed(String::new()),
+            }),
+            Self::RealisticAddress => Some(FakerValue::RealisticAddress),
+            Self::RealisticPhone => Some(FakerValue::RealisticPhone),
+            Self::RealisticSsn => Some(FakerValue::RealisticSsn),
+            Self::RealisticMrn => Some(FakerValue::RealisticMrn),
+            Self::RealisticIcd10 => Some(FakerValue::RealisticIcd10),
+            Self::RealisticLoinc => Some(FakerValue::RealisticLoinc),
+            Self::RealisticMedication => Some(FakerValue::RealisticMedication),
+            Self::RealisticAllergen => Some(FakerValue::RealisticAllergen),
+            Self::RealisticBloodType => Some(FakerValue::RealisticBloodType),
+            Self::RealisticEthnicity => Some(FakerValue::RealisticEthnicity),
+            Self::RealisticRace => Some(FakerValue::RealisticRace),
+            Self::InvalidSegmentId
+            | Self::InvalidFieldFormat
+            | Self::InvalidRepFormat
+            | Self::InvalidCompFormat
+            | Self::InvalidSubcompFormat
+            | Self::DuplicateDelims
+            | Self::BadDelimLength => None,
+        }
+    }
+
+    fn injected_error(&self) -> Option<Error> {
+        match self {
+            Self::InvalidSegmentId => Some(Error::InvalidSegmentId),
+            Self::InvalidFieldFormat => Some(Error::InvalidFieldFormat {
+                details: "Injected invalid field format".to_string(),
+            }),
+            Self::InvalidRepFormat => Some(Error::InvalidRepFormat {
+                details: "Injected invalid repetition format".to_string(),
+            }),
+            Self::InvalidCompFormat => Some(Error::InvalidCompFormat {
+                details: "Injected invalid component format".to_string(),
+            }),
+            Self::InvalidSubcompFormat => Some(Error::InvalidSubcompFormat {
+                details: "Injected invalid subcomponent format".to_string(),
+            }),
+            Self::DuplicateDelims => Some(Error::DuplicateDelims),
+            Self::BadDelimLength => Some(Error::BadDelimLength),
+            _ => None,
         }
     }
 }
@@ -137,90 +168,21 @@ impl ValueSource {
 /// Returns parser/model errors when the selected source intentionally injects
 /// invalid HL7 content or when faker-backed value generation fails.
 pub fn generate_value<R: Rng>(value_source: &ValueSource, rng: &mut R) -> Result<String, Error> {
-    match value_source {
-        ValueSource::Fixed(value) => Ok(value.clone()),
-        ValueSource::From(options) => {
-            if options.is_empty() {
-                return Ok(String::new());
-            }
-            let index = rng.random_range(0..options.len());
-            Ok(options.get(index).cloned().unwrap_or_default())
-        }
-        ValueSource::Numeric { digits } => {
-            let mut faker = Faker::new(rng);
-            Ok(faker.numeric(*digits))
-        }
-        ValueSource::Map(mapping) => {
-            if mapping.is_empty() {
-                return Ok(String::new());
-            }
-            let value_source = FakerValue::Map(mapping.clone());
-            generate_value_from_faker(value_source, rng)
-        }
-        ValueSource::Date { start, end } => {
-            let value_source = FakerValue::Date {
-                start: start.clone(),
-                end: end.clone(),
-            };
-            generate_value_from_faker(value_source, rng)
-        }
-        ValueSource::Gaussian {
-            mean,
-            sd,
-            precision,
-        } => {
-            let value_source = FakerValue::Gaussian {
-                mean: *mean,
-                sd: *sd,
-                precision: *precision,
-            };
-            generate_value_from_faker(value_source, rng)
-        }
-        ValueSource::UuidV4 => generate_value_from_faker(FakerValue::UuidV4, rng),
-        ValueSource::DtmNowUtc => generate_value_from_faker(FakerValue::DtmNowUtc, rng),
-        ValueSource::RealisticName { gender } => generate_value_from_faker(
-            FakerValue::RealisticName {
-                gender: gender.clone(),
-            },
-            rng,
-        ),
-        ValueSource::RealisticAddress => {
-            generate_value_from_faker(FakerValue::RealisticAddress, rng)
-        }
-        ValueSource::RealisticPhone => generate_value_from_faker(FakerValue::RealisticPhone, rng),
-        ValueSource::RealisticSsn => generate_value_from_faker(FakerValue::RealisticSsn, rng),
-        ValueSource::RealisticMrn => generate_value_from_faker(FakerValue::RealisticMrn, rng),
-        ValueSource::RealisticIcd10 => generate_value_from_faker(FakerValue::RealisticIcd10, rng),
-        ValueSource::RealisticLoinc => generate_value_from_faker(FakerValue::RealisticLoinc, rng),
-        ValueSource::RealisticMedication => {
-            generate_value_from_faker(FakerValue::RealisticMedication, rng)
-        }
-        ValueSource::RealisticAllergen => {
-            generate_value_from_faker(FakerValue::RealisticAllergen, rng)
-        }
-        ValueSource::RealisticBloodType => {
-            generate_value_from_faker(FakerValue::RealisticBloodType, rng)
-        }
-        ValueSource::RealisticEthnicity => {
-            generate_value_from_faker(FakerValue::RealisticEthnicity, rng)
-        }
-        ValueSource::RealisticRace => generate_value_from_faker(FakerValue::RealisticRace, rng),
-        ValueSource::InvalidSegmentId => Err(Error::InvalidSegmentId),
-        ValueSource::InvalidFieldFormat => Err(Error::InvalidFieldFormat {
-            details: "Injected invalid field format".to_string(),
-        }),
-        ValueSource::InvalidRepFormat => Err(Error::InvalidRepFormat {
-            details: "Injected invalid repetition format".to_string(),
-        }),
-        ValueSource::InvalidCompFormat => Err(Error::InvalidCompFormat {
-            details: "Injected invalid component format".to_string(),
-        }),
-        ValueSource::InvalidSubcompFormat => Err(Error::InvalidSubcompFormat {
-            details: "Injected invalid subcomponent format".to_string(),
-        }),
-        ValueSource::DuplicateDelims => Err(Error::DuplicateDelims),
-        ValueSource::BadDelimLength => Err(Error::BadDelimLength),
+    if let Some(error) = value_source.injected_error() {
+        return Err(error);
     }
+
+    if matches!(
+        value_source,
+        ValueSource::From(options) if options.is_empty()
+    ) || matches!(
+        value_source,
+        ValueSource::Map(mapping) if mapping.is_empty()
+    ) {
+        return Ok(String::new());
+    }
+
+    generate_value_from_faker(value_source.to_faker_value(), rng)
 }
 
 fn generate_value_from_faker<R: Rng>(
