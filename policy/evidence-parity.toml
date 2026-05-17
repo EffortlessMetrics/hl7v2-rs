@@ -196,6 +196,7 @@ proof = [
   "cargo test -p hl7v2-server --test quarantine_output_hooks_test",
   "cargo test -p hl7v2-server --test grpc_contract_tests",
   "python tests/python_smoke/evidence_workflow_guide.py",
+  "python tests/python_smoke/dirty_evidence_workflow.py",
 ]
 gaps = [
   "Python quarantine output is not a public package claim.",
@@ -220,6 +221,7 @@ proof = [
   "cargo test -p hl7v2-server --test replay_endpoint_test",
   "cargo test -p hl7v2-server --test grpc_contract_tests",
   "python tests/python_smoke/evidence_workflow_guide.py",
+  "python tests/python_smoke/dirty_evidence_workflow.py",
 ]
 gaps = [
   "The default acceptance runner covers Rust, CLI, REST, and gRPC bundle/replay proof; Python remains optional local-wheel proof until public registry install-back exists.",
@@ -247,9 +249,10 @@ proof = [
   "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_corpus_commands_share_dirty_real_world_fixture_categories",
   "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow",
   "python tests/python_smoke/smoke.py",
+  "python tests/python_smoke/dirty_evidence_workflow.py",
 ]
 gaps = [
-  "The default acceptance runner covers Rust, CLI, REST, and gRPC corpus summary/fingerprint/diff proof plus CLI, REST, and gRPC dirty validate/redact/bundle/replay workflows; broader dirty workflow coverage for Python remains future focused work.",
+  "The default acceptance runner covers Rust, CLI, REST, and gRPC corpus summary/fingerprint/diff proof plus CLI, REST, gRPC, and optional local-wheel Python dirty validate/redact/bundle/replay workflows.",
   "Public Python TestPyPI/PyPI install-back is absent.",
   "TypeScript is unimplemented.",
 ]

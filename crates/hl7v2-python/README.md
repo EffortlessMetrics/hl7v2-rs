@@ -24,8 +24,8 @@ cargo +1.95.0 run -p xtask -- python-local-wheel-proof
 
 The proof command creates a scratch virtual environment, installs
 `maturin==1.13.1`, builds the `hl7v2` wheel, installs it, imports `hl7v2`, and
-runs the Python smoke and evidence workflow scripts. It does not claim TestPyPI
-or PyPI availability.
+runs the Python smoke, evidence workflow, and dirty Z-segment evidence workflow
+scripts. It does not claim TestPyPI or PyPI availability.
 
 ## Current API
 

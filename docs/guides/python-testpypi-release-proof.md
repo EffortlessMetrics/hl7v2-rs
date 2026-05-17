@@ -58,8 +58,9 @@ hl7v2 smoke ok version=<version> segments=2
 ```
 
 The command creates a scratch virtual environment, builds the `hl7v2` wheel with
-maturin, installs that wheel, imports `hl7v2`, and runs both
-`tests/python_smoke/smoke.py` and `tests/python_smoke/evidence_workflow_guide.py`.
+maturin, installs that wheel, imports `hl7v2`, and runs
+`tests/python_smoke/smoke.py`, `tests/python_smoke/evidence_workflow_guide.py`,
+and `tests/python_smoke/dirty_evidence_workflow.py`.
 It is a local wheel proof only; TestPyPI success still requires upload and
 install-back from TestPyPI.
 
@@ -74,8 +75,8 @@ publish_to_testpypi = false
 ```
 
 This builds the wheel, installs it into a fresh virtual environment, runs the
-Python smoke test plus the evidence workflow guide, and uploads the wheel as a
-short-retention artifact. It does not publish.
+Python smoke test, evidence workflow guide, and dirty evidence workflow smoke,
+and uploads the wheel as a short-retention artifact. It does not publish.
 
 The current hosted non-publishing proof passed on `main` after the v1.5.0
 release and public `hl7v2` package retarget; see
@@ -101,8 +102,9 @@ This does three things:
 1. Builds and smoke-tests the wheel.
 2. Publishes the wheel to TestPyPI using Trusted Publishing.
 3. Installs `hl7v2==<workspace version>` back from TestPyPI in a fresh
-   virtual environment and reruns `tests/python_smoke/smoke.py` plus
-   `tests/python_smoke/evidence_workflow_guide.py`.
+   virtual environment and reruns `tests/python_smoke/smoke.py`,
+   `tests/python_smoke/evidence_workflow_guide.py`, and
+   `tests/python_smoke/dirty_evidence_workflow.py`.
 
 TestPyPI does not allow overwriting an existing file for the same version. If
 the upload fails because the version already exists, stop and choose a new
@@ -118,8 +120,9 @@ A TestPyPI proof is complete only when all of these are true:
 - The manual workflow with `publish_to_testpypi=true` uploads the current
   version to TestPyPI.
 - The install-back job installs from `https://test.pypi.org/simple/` and runs
-  `tests/python_smoke/smoke.py` plus
-  `tests/python_smoke/evidence_workflow_guide.py` successfully.
+  `tests/python_smoke/smoke.py`,
+  `tests/python_smoke/evidence_workflow_guide.py`, and
+  `tests/python_smoke/dirty_evidence_workflow.py` successfully.
 
 This is still not a production PyPI release. Treat it as packaging evidence for
 the separate Python lane. A crates.io binding-backend publish, if later

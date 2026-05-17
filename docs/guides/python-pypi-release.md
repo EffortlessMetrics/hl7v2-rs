@@ -33,7 +33,8 @@ Before running the production publish mode, verify all of these are true:
 - The TestPyPI install-back job installed
   `hl7v2==<workspace version>` from `https://test.pypi.org/simple/` and
   ran `tests/python_smoke/smoke.py` plus
-  `tests/python_smoke/evidence_workflow_guide.py`.
+  `tests/python_smoke/evidence_workflow_guide.py` plus
+  `tests/python_smoke/dirty_evidence_workflow.py`.
 - You have the successful **Python TestPyPI Proof** workflow run URL for this
   exact version.
 - The current version is not already present on production PyPI.
@@ -76,8 +77,9 @@ publish_to_pypi = false
 ```
 
 This builds the wheel, installs it into a fresh virtual environment, runs the
-Python smoke test and evidence workflow guide, and uploads the wheel as a
-short-retention artifact. It does not publish to PyPI.
+Python smoke test, evidence workflow guide, and dirty evidence workflow smoke,
+and uploads the wheel as a short-retention artifact. It does not publish to
+PyPI.
 
 The 2026-05-16 non-publishing rehearsal passed on `main` and is recorded in
 [`docs/audits/python-pypi-nonpublish-proof-2026-05-16.md`](../audits/python-pypi-nonpublish-proof-2026-05-16.md).
@@ -104,7 +106,8 @@ This does three things:
 1. Builds and smoke-tests the wheel.
 2. Publishes the wheel to production PyPI using Trusted Publishing.
 3. Installs `hl7v2==<workspace version>` back from PyPI in a fresh
-   virtual environment and reruns the Python smoke and evidence workflow guide.
+   virtual environment and reruns the Python smoke, evidence workflow guide,
+   and dirty evidence workflow smoke.
 
 PyPI does not allow overwriting an existing file for the same version. If the
 upload fails because the version already exists, stop and choose a new workspace
@@ -120,6 +123,8 @@ A production PyPI release is complete only when all of these are true:
 - The install-back job installs from `https://pypi.org/simple/`.
 - `tests/python_smoke/smoke.py` passes against the installed PyPI package.
 - `tests/python_smoke/evidence_workflow_guide.py` passes against the installed
+  PyPI package.
+- `tests/python_smoke/dirty_evidence_workflow.py` passes against the installed
   PyPI package.
 - A release receipt records the workflow run URL, version, package URL, and
   install-back result.

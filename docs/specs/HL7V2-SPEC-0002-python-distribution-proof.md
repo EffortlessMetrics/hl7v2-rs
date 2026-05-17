@@ -18,6 +18,7 @@ local wheel build
 local wheel install
 smoke.py
 evidence_workflow_guide.py
+dirty_evidence_workflow.py
 TestPyPI publish from main
 TestPyPI install-back
 receipt PR
@@ -71,6 +72,7 @@ Local proof must show:
 - wheel install succeeds in a clean environment;
 - `tests/python_smoke/smoke.py` passes;
 - `tests/python_smoke/evidence_workflow_guide.py` passes.
+- `tests/python_smoke/dirty_evidence_workflow.py` passes.
 
 ### TestPyPI Proof
 
@@ -81,7 +83,7 @@ TestPyPI proof must show:
 - wheel build and smoke pass before upload;
 - Trusted Publishing upload succeeds;
 - install-back from TestPyPI succeeds;
-- smoke output is recorded;
+- smoke, evidence workflow, and dirty evidence workflow output is recorded;
 - production PyPI upload is not attempted;
 - no token fallback is used;
 - no skip-existing workaround is used.
@@ -97,7 +99,7 @@ Production proof must show:
 - `publish_to_pypi=true`;
 - production PyPI upload succeeds;
 - install-back from `https://pypi.org/simple/` succeeds;
-- smoke output is recorded;
+- smoke, evidence workflow, and dirty evidence workflow output is recorded;
 - receipt PR lands.
 
 ## Hard Rules
@@ -122,7 +124,7 @@ A successful TestPyPI receipt PR records:
 - TestPyPI URL;
 - publish job result;
 - install-back job result;
-- smoke output;
+- smoke, evidence workflow, and dirty evidence workflow output;
 - confirmation that production PyPI was not attempted.
 
 A production PyPI receipt PR records the same facts for production PyPI and

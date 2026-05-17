@@ -87,6 +87,7 @@ proposal, spec, plan, or receipt documents.
 | [Dirty real-world shared fixture proof](audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md) | Shared fixture categories and Rust/CLI corpus parity proof for dirty interface data. |
 | [Dirty real-world server corpus parity proof](audits/dirty-real-world-server-corpus-parity-2026-05-16.md) | REST and gRPC corpus parity proof using the shared dirty real-world fixture categories. |
 | [Dirty real-world Python corpus parity proof](audits/dirty-real-world-python-corpus-parity-2026-05-16.md) | Local Python wheel corpus parity proof using the shared dirty real-world fixture categories. |
+| [Dirty real-world Python evidence workflow proof](audits/dirty-real-world-python-evidence-workflow-2026-05-17.md) | Local Python wheel validate/redact/bundle/replay proof using the shared dirty Z-segment fixture. |
 | [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
 | [Public crates install and first-use smoke](audits/public-crates-install-first-use-2026-05-16.md) | Repeatable crates.io install-back smoke for `hl7v2`, `hl7v2-cli`, and `hl7v2-server` v1.5.0 first-use paths. |
 | [gRPC enhanced ACK parity receipt](audits/grpc-enhanced-ack-parity-2026-05-16.md) | gRPC `GenerateAck` parity for all six supported ACK codes: `AA`, `AE`, `AR`, `CA`, `CE`, and `CR`. |
