@@ -346,12 +346,22 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
         return Err(BatchError::MissingSegment("FHS".to_string()));
     }
 
-    // If message_count is not set from FTS, calculate from batches
-    if file_batch.info.message_count.is_none() {
-        file_batch.info.message_count = Some(file_batch.total_message_count());
-    }
+    let actual_message_count = file_batch.total_message_count();
 
-    Ok(file_batch)
+    // If message_count is not set from FTS, calculate from batches. Otherwise,
+    // verify the file trailer count matches the total messages across nested
+    // batches, mirroring the single-batch BTS validation.
+    match file_batch.info.message_count {
+        Some(expected) if expected != actual_message_count => Err(BatchError::CountMismatch {
+            expected,
+            actual: actual_message_count,
+        }),
+        Some(_expected) => Ok(file_batch),
+        None => {
+            file_batch.info.message_count = Some(actual_message_count);
+            Ok(file_batch)
+        }
+    }
 }
 
 /// Parse a single batch (with BHS/BTS)

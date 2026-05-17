@@ -413,6 +413,21 @@ mod tests {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
+    fn profile_loader_without_proxy() -> ProfileLoader {
+        let cache_size = std::num::NonZeroUsize::new(DEFAULT_CACHE_SIZE)
+            .unwrap_or(std::num::NonZeroUsize::new(1).unwrap());
+
+        ProfileLoader {
+            cache: Arc::new(RwLock::new(LruCache::new(cache_size))),
+            client: reqwest::Client::builder()
+                .no_proxy()
+                .timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+                .build()
+                .unwrap_or_default(),
+            timeout: Duration::from_secs(DEFAULT_TIMEOUT_SECS),
+        }
+    }
+
     #[tokio::test]
     async fn test_load_from_url() {
         let server = MockServer::start().await;
@@ -424,7 +439,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let loader = ProfileLoader::new();
+        let loader = profile_loader_without_proxy();
         let url = format!("{}/profile.yaml", server.uri());
         let result = loader.load(&url).await.unwrap();
 
@@ -447,7 +462,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let loader = ProfileLoader::new();
+        let loader = profile_loader_without_proxy();
         let url = format!("{}/profile.yaml", server.uri());
 
         // First load
