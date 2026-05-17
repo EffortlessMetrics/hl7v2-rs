@@ -71,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Updated the current-main TestPyPI publishing-mode proof retry after the
+  v1.5.0 refactor cleanup readiness refresh; wheel smoke passed, while upload
+  remains blocked by TestPyPI Trusted Publisher setup.
 - Recorded a post-release current-main readiness refresh after the Python wheel
   dirty evidence smoke, Windows policy guard, server validation-helper refactor,
   and synthetic value/CLI help cleanup landed through #740/#742/#743/#738.
