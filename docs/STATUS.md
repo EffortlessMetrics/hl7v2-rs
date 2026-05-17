@@ -105,6 +105,9 @@ acceptance path, with optional local Python smoke after wheel install. Current
 `main` also includes `cargo run -p xtask -- check-bundle-replay-parity` as the
 Rust/CLI/REST/gRPC bundle/replay acceptance path, with optional local Python
 evidence workflow smoke after wheel install. Current `main` also includes
+`cargo run -p xtask -- check-evidence-parity-acceptance` as the aggregate
+local Rust/CLI/REST/gRPC parity acceptance path, with optional local Python
+smoke after wheel install. Current `main` also includes
 normalization parity across CLI and local Python helper surfaces; CLI ACK parity
 for command success, ACK code/control ID preservation, MSH-9 ACK message type,
 and MLLP framing; REST ACK parity for all six supported ACK codes with MLLP
