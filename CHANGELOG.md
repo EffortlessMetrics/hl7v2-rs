@@ -64,6 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a post-release current-main readiness refresh after REST and gRPC
+  dirty real-world validate-redacted/bundle/replay workflows landed through
+  #734.
 - Recorded a current-main TestPyPI publishing-mode proof retry for public
   Python package `hl7v2`; wheel smoke passed, while upload remains blocked by
   TestPyPI Trusted Publisher setup.

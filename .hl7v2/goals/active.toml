@@ -75,6 +75,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-17-dirty-corpus-evidence-workflow-refresh.md",
   "docs/audits/public-crates-install-first-use-2026-05-16.md",
   "docs/audits/grpc-enhanced-ack-parity-2026-05-16.md",
   "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md",
@@ -190,9 +191,56 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "v1-5-0-dirty-corpus-evidence-workflow-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after REST and gRPC dirty real-world validate-redacted/bundle/replay workflow proof landed through #734."
+commit = "adda4353aae604972670db82415bd5dac1a6373a"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-17-dirty-corpus-evidence-workflow-refresh.md"
+commands = [
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- badges --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-doc-links",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-file-policy",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-dirty-evidence-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance",
+  "cargo +1.95.0 info --registry crates-io hl7v2@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-python@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-server@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-cli@1.5.0",
+  "git tag -l v1.5.0",
+  "git rev-list -n 1 v1.5.0",
+  "git ls-remote --tags origin v1.5.0",
+  "gh release view v1.5.0 --json tagName,name,publishedAt,isDraft,isPrerelease,url,targetCommitish",
+  "curl -I https://test.pypi.org/pypi/hl7v2/json",
+  "curl -I https://pypi.org/pypi/hl7v2/json",
+  "curl -I https://registry.npmjs.org/@effortlessmetrics%2Fhl7v2",
+  "gh issue view 563 --json number,title,state,url,labels",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No Python public-registry install-back proof.",
+  "No Python dirty workflow claim.",
+]
+
+[[work_item]]
 id = "cross-surface-evidence-parity-gap-audit"
 status = "done"
-goal = "Map remaining cross-surface evidence parity gaps after v1.5.0 release proof, first-use docs, dirty-corpus parity, Python local wheel proof, and the #721 readiness refresh."
+goal = "Map remaining cross-surface evidence parity gaps after v1.5.0 release proof, first-use docs, dirty-corpus parity, Python local wheel proof, and the #734 readiness refresh."
 receipt = "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md"
 commands = [
   "cargo +1.95.0 run -p xtask -- check-doc-links",
