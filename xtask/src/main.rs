@@ -64,6 +64,9 @@ fn main() -> Result<()> {
         Commands::CheckSchemaVersionParity { include_python } => {
             check_schema_version_parity(include_python)?;
         }
+        Commands::CheckDirtyCorpusParity { include_python } => {
+            check_dirty_corpus_parity(include_python)?;
+        }
         Commands::EvidenceSchemaCheck => evidence_schema_check()?,
         Commands::Badges { check } => verification_surface::badges(check)?,
         Commands::RiprPr {
@@ -4597,6 +4600,78 @@ fn check_schema_version_parity(include_python: bool) -> Result<()> {
     Ok(())
 }
 
+fn check_dirty_corpus_parity(include_python: bool) -> Result<()> {
+    println!("🔎 Checking dirty-corpus parity acceptance...");
+
+    let commands: &[(&str, &[&str])] = &[
+        (
+            "Rust dirty real-world corpus proof",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--lib",
+                "--all-features",
+                "--locked",
+                "dirty_real_world",
+            ],
+        ),
+        (
+            "CLI dirty-corpus command parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "test_corpus_commands_share_dirty_real_world_fixture_categories",
+                "--locked",
+            ],
+        ),
+        (
+            "REST dirty-corpus endpoint parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "corpus_endpoint_test",
+                "test_corpus_endpoints_share_dirty_real_world_fixture_categories",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC dirty-corpus RPC parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_corpus_commands_share_dirty_real_world_fixture_categories",
+                "--locked",
+            ],
+        ),
+    ];
+
+    for (label, args) in commands {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    if include_python {
+        println!("Checking Python local-wheel dirty-corpus smoke...");
+        run_command("python", &["tests/python_smoke/smoke.py"])?;
+    } else {
+        println!(
+            "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    println!("✅ Dirty-corpus parity acceptance checks passed!");
+    Ok(())
+}
+
 fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
     let manifest: toml::Value = toml::from_str(text)
         .map_err(|error| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} is not valid TOML: {error}"))?;
@@ -4780,6 +4855,11 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         contracts,
         "phi-sentinel-behavior",
         "cargo run -p xtask -- check-safe-error-phi-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "corpus-summary-fingerprint-diff",
+        "cargo run -p xtask -- check-dirty-corpus-parity",
     )?;
     ensure_contract_string_value(
         contracts,
@@ -6954,6 +7034,27 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
                 "evidence parity policy should reject a missing safe-error/PHI runner"
             )),
             Err(err) if err.to_string().contains("check-safe-error-phi-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_dirty_corpus_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-dirty-corpus-parity\",",
+            "\"cargo run -p xtask -- old-dirty-corpus-parity\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing dirty-corpus runner"
+            )),
+            Err(err) if err.to_string().contains("check-dirty-corpus-parity") => Ok(()),
             Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
         }
     }

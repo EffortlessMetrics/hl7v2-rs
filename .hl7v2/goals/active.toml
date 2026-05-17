@@ -838,6 +838,23 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "dirty-corpus-parity-acceptance-runner"
+status = "done"
+goal = "Add one xtask runner that composes the shared dirty-real-world corpus summary/fingerprint/diff proof across Rust core, CLI, REST, and gRPC surfaces."
+manifest = "test_data/dirty-real-world/"
+command = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity"
+optional_python_command = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity --include-python"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "The default runner does not claim Python public-registry install-back proof.",
+  "The optional Python runner requires a locally installed hl7v2 wheel.",
+]
+
+[[work_item]]
 id = "v1-5-0-grpc-status-readiness-refresh"
 status = "done"
 goal = "Refresh v1.5.0 readiness after the gRPC serve-mode status sync landed."
