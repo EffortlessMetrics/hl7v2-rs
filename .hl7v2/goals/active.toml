@@ -77,6 +77,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md",
   "docs/audits/public-crates-install-first-use-2026-05-16.md",
   "docs/audits/grpc-enhanced-ack-parity-2026-05-16.md",
+  "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
@@ -184,6 +185,27 @@ non_claims = [
   "No PyPI upload.",
   "No npm package.",
   "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "cross-surface-evidence-parity-gap-audit"
+status = "done"
+goal = "Map remaining cross-surface evidence parity gaps after v1.5.0 release proof, first-use docs, dirty-corpus parity, Python local wheel proof, and the #721 readiness refresh."
+receipt = "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No runtime implementation.",
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload or install-back.",
+  "No PyPI upload or install-back.",
+  "No npm package.",
+  "No TypeScript implementation.",
+  "No promotion of hl7v2-python as the recommended Rust API.",
 ]
 
 [[work_item]]
