@@ -112,9 +112,10 @@ REST, and gRPC tests, with `cargo run -p xtask -- check-safe-error-phi-parity`
 as the acceptance runner; the local Python smoke path reads the same fixture,
 with public Python registry proof still blocked by #563. Schema-version behavior is
 now backed by `test_data/evidence/schema-version-parity.json` for
-representative CLI, REST, gRPC, and local Python smoke proof, with
-`xtask check-evidence-parity` requiring that fixture before the manifest can
-claim local schema-version parity.
+representative Rust core, CLI, REST, gRPC, and local Python smoke proof, with
+`cargo run -p xtask -- check-schema-version-parity` as the Rust/CLI/REST/gRPC
+acceptance runner and `xtask check-evidence-parity` requiring that fixture
+before the manifest can claim local schema-version parity.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current

@@ -61,6 +61,9 @@ fn main() -> Result<()> {
         Commands::CheckSafeErrorPhiParity { include_python } => {
             check_safe_error_phi_parity(include_python)?;
         }
+        Commands::CheckSchemaVersionParity { include_python } => {
+            check_schema_version_parity(include_python)?;
+        }
         Commands::EvidenceSchemaCheck => evidence_schema_check()?,
         Commands::Badges { check } => verification_surface::badges(check)?,
         Commands::RiprPr {
@@ -4388,6 +4391,212 @@ fn check_safe_error_phi_parity(include_python: bool) -> Result<()> {
     Ok(())
 }
 
+fn check_schema_version_parity(include_python: bool) -> Result<()> {
+    println!("🔎 Checking schema-version parity acceptance...");
+
+    let commands: &[(&str, &[&str])] = &[
+        (
+            "Shared schema-version fixture contract",
+            &[
+                "test",
+                "-p",
+                "hl7v2-test-utils",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "Rust library schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--all-features",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "CLI schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST validation v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_endpoint_test",
+                "--locked",
+                "schema_v2",
+            ],
+        ),
+        (
+            "REST validation unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST validate-redacted v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_redacted_endpoint_test",
+                "--locked",
+                "schema_v2",
+            ],
+        ),
+        (
+            "REST validate-redacted unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_redacted_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST bundle schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "bundle_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST replay schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "replay_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST corpus v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "corpus_endpoint_test",
+                "--locked",
+                "schema_v2",
+            ],
+        ),
+        (
+            "REST corpus unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "corpus_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST quarantine v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "quarantine_output_hooks_test",
+                "--locked",
+                "v2_provenance",
+            ],
+        ),
+        (
+            "REST quarantine unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "quarantine_output_hooks_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "gRPC v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "--locked",
+                "v2",
+            ],
+        ),
+        (
+            "gRPC unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "--locked",
+                "schema_versions",
+            ],
+        ),
+    ];
+
+    for (label, args) in commands {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    println!("Checking evidence fixture schemas...");
+    evidence_schema_check()?;
+
+    if include_python {
+        println!("Checking Python local-wheel schema-version smoke...");
+        run_command("python", &["tests/python_smoke/smoke.py"])?;
+        println!("Checking Python evidence workflow guide...");
+        run_command("python", &["tests/python_smoke/evidence_workflow_guide.py"])?;
+    } else {
+        println!(
+            "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    println!("✅ Schema-version parity acceptance checks passed!");
+    Ok(())
+}
+
 fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
     let manifest: toml::Value = toml::from_str(text)
         .map_err(|error| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} is not valid TOML: {error}"))?;
@@ -4541,6 +4750,11 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         contracts,
         "redaction-quarantine",
         "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo run -p xtask -- check-schema-version-parity",
     )?;
     ensure_contract_proof_contains(
         contracts,
@@ -6698,6 +6912,27 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
             {
                 Ok(())
             }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_schema_version_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-schema-version-parity\",",
+            "\"cargo run -p xtask -- old-schema-version-parity\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing schema-version runner"
+            )),
+            Err(err) if err.to_string().contains("check-schema-version-parity") => Ok(()),
             Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
         }
     }

@@ -44,7 +44,7 @@ release, or install-back success.
 | bundle / replay | Rust, CLI, REST, gRPC, and local Python helper proof exist for bundle/replay semantics. | Public Python registry install-back is absent; TypeScript is unimplemented. | Python public proof, then shared parity runner. |
 | corpus summary / fingerprint / diff | Rust core, CLI, REST, gRPC, and local Python dirty-corpus parity proof share `test_data/dirty-real-world/`. | TypeScript is unimplemented; dirty-corpus proof is strongest for corpus commands, not every evidence workflow. | Extend dirty-corpus proof to validate/redact/bundle/replay only in focused test PRs. |
 | safe error shape | Surface-specific tests and specs require safe diagnostics without raw PHI echo, and `cargo run -p xtask -- check-safe-error-phi-parity` now composes the fixture-backed Rust, CLI, REST, and gRPC checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep the runner current as new surfaces claim safe-error parity; add Python public proof after TestPyPI/PyPI receipts. |
-| `schema_version` behavior | Evidence schemas and many surface-specific tests cover v1/v2 outputs where implemented. | There is no machine-readable matrix that records which surface supports which schema-versioned artifact. | Add a parity manifest before adding more surface claims. |
+| `schema_version` behavior | Evidence schemas and surface-specific tests cover v1/v2 outputs where implemented, and `cargo run -p xtask -- check-schema-version-parity` composes the fixture-backed Rust, CLI, REST, and gRPC checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep the runner current as new surfaces claim schema-version parity; add Python public proof after TestPyPI/PyPI receipts. |
 | PHI sentinel behavior | PHI and quarantine sentinels are stable in support tiers, Python/local evidence receipts include PHI-safe checks, and `cargo run -p xtask -- check-safe-error-phi-parity` covers Rust, CLI, REST, and gRPC PHI fixture checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep PHI sentinel proof explicit when adding new artifact families or language surfaces. |
 | TypeScript / npm | Package identity is specified as `@effortlessmetrics/hl7v2`. | No npm package, WASM backend, pack/install/import proof, or parity fixtures exist. | Plan npm/WASM only after Python public proof and parity stabilization. |
 
@@ -61,12 +61,15 @@ release, or install-back success.
 5. Keep `cargo run -p xtask -- check-safe-error-phi-parity` as the shared
    safe-error and PHI sentinel runner for Rust, CLI, REST, and gRPC surfaces;
    use `--include-python` only when a local Python wheel is installed.
-6. Extend dirty-corpus proof beyond corpus summary/fingerprint/diff only where
+6. Keep `cargo run -p xtask -- check-schema-version-parity` as the shared
+   schema-version runner for Rust, CLI, REST, and gRPC surfaces; use
+   `--include-python` only when a local Python wheel is installed.
+7. Extend dirty-corpus proof beyond corpus summary/fingerprint/diff only where
    the next surface has a concrete user workflow, such as validate, redaction,
    bundle, or replay.
-7. Keep gRPC as Beta until transport lifecycle and operational hardening
+8. Keep gRPC as Beta until transport lifecycle and operational hardening
    catches up with the artifact semantics already covered for implemented RPCs.
-8. Start npm/WASM implementation planning only after Python public proof and
+9. Start npm/WASM implementation planning only after Python public proof and
    parity acceptance are stable.
 
 ## Boundaries

@@ -125,6 +125,12 @@ version, unsupported-version diagnostic fragment, surface tool names, and the
 validation shape used by representative CLI, REST, gRPC, and local Python
 proof. Artifact-specific tests may remain near their surfaces, but they should
 consume this fixture when claiming schema-version behavior parity.
+The default acceptance runner is
+`cargo run -p xtask -- check-schema-version-parity`; it composes the
+fixture-backed Rust, CLI, REST, and gRPC checks plus evidence schema
+validation. Pass `--include-python` only after a local `hl7v2` wheel is
+installed, because Python package availability remains governed by the
+separate TestPyPI/PyPI proof lane.
 
 ## Non-Goals
 

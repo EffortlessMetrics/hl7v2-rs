@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   real-world fixture categories.
 - Added a shared schema-version parity fixture and manifest guard for
   representative CLI, REST, gRPC, and local Python evidence proof.
+- Added `xtask check-schema-version-parity` to run the shared schema-version
+  acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added `xtask check-safe-error-phi-parity` to run the shared safe-error and
   PHI sentinel acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added gRPC evidence replay parity with configured-root bundle replay,
