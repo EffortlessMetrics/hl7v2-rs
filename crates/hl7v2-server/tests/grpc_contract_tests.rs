@@ -128,6 +128,57 @@ constraints:
     required: true
 "#;
 
+    const DIRTY_ADT_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+  - id: ZPV
+constraints:
+  - path: MSH.9
+    required: true
+  - path: PID.3
+    required: true
+"#;
+
+    const DIRTY_SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "ZPV.1"
+action = "retain"
+reason = "synthetic room marker is useful for dirty-corpus analysis"
+
+[[rules]]
+path = "ZPV.2"
+action = "retain"
+reason = "synthetic dirty-corpus note is useful for support triage"
+"#;
+
     fn service() -> Hl7ServiceImpl {
         Hl7ServiceImpl::new(mock_state())
     }
@@ -178,6 +229,14 @@ constraints:
                 }
             })
             .collect()
+    }
+
+    fn dirty_z_segment_message() -> Vec<u8> {
+        let source = dirty_real_world_fixture_root()
+            .join("after")
+            .join("z-segment.hl7");
+        let bytes = fs::read(&source).expect("dirty Z-segment fixture should be readable");
+        normalize_fixture_segments(&bytes)
     }
 
     fn dirty_after_corpus_messages() -> Vec<CorpusMessageInput> {
@@ -1619,6 +1678,137 @@ reason = "hash patient identifier"
         assert_no_phi(&response_debug);
         assert!(!response_debug.contains(root.path().to_string_lossy().as_ref()));
         assert!(!response_debug.contains(bundle_id));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow() {
+        let root = TempRoot::new("dirty-z-workflow");
+        let bundle_id = "dirty-z-grpc-workflow";
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        let message = dirty_z_segment_message();
+
+        let validate_redacted = service
+            .validate_redacted(Request::new(ValidateRedactedRequest {
+                message: message.clone(),
+                profile: DIRTY_ADT_PROFILE.to_string(),
+                redaction_policy: DIRTY_SAFE_ANALYSIS_POLICY.to_string(),
+                mllp_framed: false,
+                include_redacted_hl7: true,
+                report_schema_version: 2,
+                redaction_receipt_schema_version: 2,
+                quarantine_schema_version: 0,
+            }))
+            .await
+            .expect("ValidateRedacted should succeed")
+            .into_inner();
+        let validate_debug = format!("{validate_redacted:?}");
+
+        let report = validate_redacted
+            .validation_report
+            .as_ref()
+            .expect("Validation report should exist");
+        assert!(report.valid);
+        assert_eq!(report.message_type, "ADT^A01");
+        let report_v2 = validate_redacted
+            .validation_report_v2
+            .as_ref()
+            .expect("Validation report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+
+        let receipt = validate_redacted
+            .redaction_receipt
+            .as_ref()
+            .expect("Redaction receipt should exist");
+        assert!(receipt.phi_removed);
+        let receipt_v2 = validate_redacted
+            .redaction_receipt_v2
+            .as_ref()
+            .expect("Redaction receipt v2 should exist");
+        assert_eq!(receipt_v2.schema_version, "2");
+
+        let redacted_hl7 = String::from_utf8(
+            validate_redacted
+                .redacted_hl7
+                .expect("Redacted HL7 should be included"),
+        )
+        .expect("Redacted HL7 should be UTF-8");
+        assert!(redacted_hl7.contains("hash:sha256:"));
+        assert!(redacted_hl7.contains("ZPV|legacy-room|dirty interface note"));
+        for unsafe_value in ["MRN-Z", "Example^Zed", "19700101"] {
+            assert!(!validate_debug.contains(unsafe_value));
+            assert!(!redacted_hl7.contains(unsafe_value));
+        }
+
+        let bundle = service
+            .create_evidence_bundle(Request::new(CreateEvidenceBundleRequest {
+                message: message.clone(),
+                profile: DIRTY_ADT_PROFILE.to_string(),
+                redaction_policy: DIRTY_SAFE_ANALYSIS_POLICY.to_string(),
+                bundle_id: bundle_id.to_string(),
+                mllp_framed: false,
+                bundle_artifact_schema_version: 2,
+            }))
+            .await
+            .expect("CreateEvidenceBundle should succeed")
+            .into_inner();
+        let bundle_debug = format!("{bundle:?}");
+        let summary = bundle
+            .summary
+            .as_ref()
+            .expect("bundle summary should exist");
+
+        assert_eq!(summary.message_type, "ADT^A01");
+        assert!(summary.validation_valid);
+        assert!(summary.redaction_phi_removed);
+        assert!(!bundle_debug.contains(root.path().to_string_lossy().as_ref()));
+        assert!(!bundle_debug.contains(bundle_id));
+        for unsafe_value in ["MRN-Z", "Example^Zed", "19700101"] {
+            assert!(!bundle_debug.contains(unsafe_value));
+        }
+
+        let bundle_dir = root.path().join(bundle_id);
+        let redacted_message = fs::read_to_string(bundle_dir.join("message.redacted.hl7"))
+            .expect("redacted message should be readable");
+        assert!(redacted_message.contains("hash:sha256:"));
+        assert!(redacted_message.contains("ZPV|legacy-room|dirty interface note"));
+        for unsafe_value in ["MRN-Z", "Example^Zed", "19700101"] {
+            assert!(!redacted_message.contains(unsafe_value));
+        }
+
+        let replay = service
+            .replay_evidence_bundle(Request::new(ReplayEvidenceBundleRequest {
+                bundle_id: bundle_id.to_string(),
+                replay_report_schema_version: 2,
+            }))
+            .await
+            .expect("ReplayEvidenceBundle should succeed")
+            .into_inner();
+        let replay_debug = format!("{replay:?}");
+        let replay_report = replay
+            .replay_report
+            .as_ref()
+            .expect("replay report should exist");
+
+        assert_eq!(replay_report.message_type.as_deref(), Some("ADT^A01"));
+        assert!(replay_report.reproduced);
+        assert_eq!(replay_report.validation_valid, Some(true));
+        assert!(
+            replay_report
+                .checks
+                .iter()
+                .all(|check| check.status == evidence_replay_check::Status::Pass as i32)
+        );
+
+        let replay_v2 = replay
+            .replay_report_v2
+            .as_ref()
+            .expect("replay report v2 should exist");
+        assert_eq!(replay_v2.schema_version, "2");
+        assert!(!replay_debug.contains(root.path().to_string_lossy().as_ref()));
+        assert!(!replay_debug.contains(bundle_id));
+        for unsafe_value in ["MRN-Z", "Example^Zed", "19700101"] {
+            assert!(!replay_debug.contains(unsafe_value));
+        }
     }
 
     #[tokio::test]
