@@ -1432,6 +1432,19 @@ mod corpus_command {
         }
     }
 
+    fn materialize_dirty_fixture_file(
+        category: &str,
+        file_name: &str,
+        target: &tempfile::TempDir,
+        target_name: &str,
+    ) -> std::path::PathBuf {
+        let source = dirty_real_world_fixture_root()
+            .join(category)
+            .join(file_name);
+        let bytes = std::fs::read(&source).expect("dirty corpus file should be readable");
+        create_temp_file(target, target_name, &normalize_fixture_segments(&bytes))
+    }
+
     fn add_generated_mllp_fixture(target: &std::path::Path) {
         let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
         let bytes = std::fs::read(&source).expect("MLLP source fixture should be readable");
@@ -1448,6 +1461,57 @@ mod corpus_command {
         materialize_dirty_corpus_dir("after", after);
         add_generated_mllp_fixture(after);
     }
+
+    const DIRTY_ADT_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+  - id: ZPV
+constraints:
+  - path: MSH.9
+    required: true
+  - path: PID.3
+    required: true
+"#;
+
+    const DIRTY_SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "ZPV.1"
+action = "retain"
+reason = "synthetic room marker is useful for dirty-corpus analysis"
+
+[[rules]]
+path = "ZPV.2"
+action = "retain"
+reason = "synthetic dirty-corpus note is useful for support triage"
+"#;
 
     #[test]
     fn test_corpus_summarize_text_counts_messages_and_errors() {
@@ -1844,6 +1908,130 @@ constraints:
         assert_eq!(report["fingerprint_version"], "1");
         assert_eq!(report["file_count"], 1);
         assert_eq!(report["message_count"], 1);
+    }
+
+    #[test]
+    fn test_dirty_real_world_validate_redact_bundle_replay_workflow() {
+        let dir = create_temp_dir();
+        let message_file =
+            materialize_dirty_fixture_file("after", "z-segment.hl7", &dir, "dirty-z.hl7");
+        let profile_file = create_temp_profile(&dir, "dirty-profile.yaml", DIRTY_ADT_PROFILE);
+        let policy_file = create_temp_file(
+            &dir,
+            "dirty-safe-analysis.toml",
+            DIRTY_SAFE_ANALYSIS_POLICY.as_bytes(),
+        );
+
+        let mut validate = cli_command();
+        let validate_output = validate
+            .args([
+                "val",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("dirty fixture validation should run");
+
+        assert!(validate_output.status.success());
+        let validate_stdout = String::from_utf8(validate_output.stdout).unwrap();
+        let validate_report: serde_json::Value =
+            serde_json::from_str(&validate_stdout).expect("validation report should be JSON");
+        assert_eq!(validate_report["valid"], true);
+        assert_eq!(validate_report["message_type"], "ADT^A01");
+        assert_eq!(validate_report["issue_count"], 0);
+        assert!(!validate_stdout.contains("MRN-Z"));
+        assert!(!validate_stdout.contains("Example^Zed"));
+        assert!(!validate_stdout.contains("19700101"));
+
+        let mut redact = cli_command();
+        let redact_output = redact
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("dirty fixture redaction should run");
+
+        assert!(redact_output.status.success());
+        let redact_stdout = String::from_utf8(redact_output.stdout).unwrap();
+        let redact_report: serde_json::Value =
+            serde_json::from_str(&redact_stdout).expect("redaction report should be JSON");
+        assert_eq!(redact_report["message_type"], "ADT^A01");
+        assert_eq!(redact_report["receipt"]["phi_removed"], true);
+        assert!(redact_stdout.contains("hash:sha256:"));
+        assert!(!redact_stdout.contains("MRN-Z"));
+        assert!(!redact_stdout.contains("Example^Zed"));
+        assert!(!redact_stdout.contains("19700101"));
+
+        let bundle_dir = dir.path().join("dirty-support-bundle");
+        let mut bundle = cli_command();
+        let bundle_output = bundle
+            .args([
+                "bundle",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--redact-policy",
+                policy_file.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("dirty fixture bundle should run");
+
+        assert!(bundle_output.status.success());
+        let bundle_stdout = String::from_utf8(bundle_output.stdout).unwrap();
+        let bundle_summary: serde_json::Value =
+            serde_json::from_str(&bundle_stdout).expect("bundle summary should be JSON");
+        assert_eq!(bundle_summary["schema_version"], "2");
+        assert_eq!(bundle_summary["message_type"], "ADT^A01");
+        assert_eq!(bundle_summary["validation_valid"], true);
+        assert_eq!(bundle_summary["redaction_phi_removed"], true);
+        assert!(!bundle_stdout.contains("MRN-Z"));
+        assert!(!bundle_stdout.contains("Example^Zed"));
+        assert!(!bundle_stdout.contains("19700101"));
+
+        let redacted_message =
+            std::fs::read_to_string(bundle_dir.join("message.redacted.hl7")).unwrap();
+        assert!(redacted_message.contains("hash:sha256:"));
+        assert!(redacted_message.contains("ZPV|legacy-room|dirty interface note"));
+        assert!(!redacted_message.contains("MRN-Z"));
+        assert!(!redacted_message.contains("Example^Zed"));
+        assert!(!redacted_message.contains("19700101"));
+
+        let mut replay = cli_command();
+        let replay_output = replay
+            .args([
+                "replay",
+                bundle_dir.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("dirty fixture replay should run");
+
+        assert!(replay_output.status.success());
+        let replay_stdout = String::from_utf8(replay_output.stdout).unwrap();
+        let replay_report: serde_json::Value =
+            serde_json::from_str(&replay_stdout).expect("replay report should be JSON");
+        assert_eq!(replay_report["schema_version"], "2");
+        assert_eq!(replay_report["message_type"], "ADT^A01");
+        assert_eq!(replay_report["reproduced"], true);
+        assert_eq!(replay_report["validation_valid"], true);
+        assert!(!replay_stdout.contains("MRN-Z"));
+        assert!(!replay_stdout.contains("Example^Zed"));
+        assert!(!replay_stdout.contains("19700101"));
     }
 
     #[test]

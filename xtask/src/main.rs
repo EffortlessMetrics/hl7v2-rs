@@ -4646,6 +4646,18 @@ fn check_dirty_corpus_parity(include_python: bool) -> Result<()> {
             ],
         ),
         (
+            "CLI dirty evidence workflow parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "test_dirty_real_world_validate_redact_bundle_replay_workflow",
+                "--locked",
+            ],
+        ),
+        (
             "REST dirty-corpus endpoint parity",
             &[
                 "test",
@@ -4990,6 +5002,11 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         contracts,
         "corpus-summary-fingerprint-diff",
         "cargo run -p xtask -- check-dirty-corpus-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "corpus-summary-fingerprint-diff",
+        "cargo test -p hl7v2-cli --test integration_tests test_dirty_real_world_validate_redact_bundle_replay_workflow",
     )?;
     ensure_contract_proof_contains(
         contracts,
@@ -7190,6 +7207,33 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
                 "evidence parity policy should reject a missing dirty-corpus runner"
             )),
             Err(err) if err.to_string().contains("check-dirty-corpus-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_dirty_workflow_proof() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo test -p hl7v2-cli --test integration_tests test_dirty_real_world_validate_redact_bundle_replay_workflow\",",
+            "\"cargo test -p hl7v2-cli --test integration_tests test_old_dirty_real_world_workflow\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing dirty workflow proof"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("test_dirty_real_world_validate_redact_bundle_replay_workflow") =>
+            {
+                Ok(())
+            }
             Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
         }
     }

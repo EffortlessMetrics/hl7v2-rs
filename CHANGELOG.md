@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   real-world fixture categories.
 - Added `xtask check-dirty-corpus-parity` to run the shared dirty-corpus
   acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
+- Added a CLI dirty real-world validate/redact/bundle/replay workflow to the
+  shared dirty-corpus parity runner.
 - Added `xtask check-bundle-replay-parity` to run the shared bundle/replay
   acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added `xtask check-evidence-parity-acceptance` as the aggregate local

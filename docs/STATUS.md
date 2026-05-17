@@ -99,7 +99,8 @@ nightly property-test command repair, finite numeric validation, the v1.5.0
 release-readiness workflow, the focused SRP module split train through #691,
 and shared dirty-corpus parity across Rust core, CLI, REST/gRPC server, and
 local Python wheel surfaces through #695. Dirty-corpus corpus
-summary/fingerprint/diff proof is now routed through
+summary/fingerprint/diff proof, plus one CLI validate/redact/bundle/replay
+workflow over the shared Z-segment fixture, is now routed through
 `cargo run -p xtask -- check-dirty-corpus-parity` for the Rust/CLI/REST/gRPC
 acceptance path, with optional local Python smoke after wheel install. Current
 `main` also includes `cargo run -p xtask -- check-bundle-replay-parity` as the
@@ -140,7 +141,7 @@ For current parity states, proof commands, fixture families, and known gaps, see
 | First-run diagnostics | ✅ Stable | `hl7v2 doctor` verifies CLI version, sample parse, profile loading, JSON output, optional server reachability, and optional Python binding presence. |
 | Typed validation evidence | ✅ Stable | `ValidationReport` is shared by library, CLI, server validation, and Python bindings. |
 | Profiles as code | ✅ Stable | `profile lint`, `profile test`, and `profile explain` produce machine-readable profile evidence. |
-| Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. Current proof includes shared dirty-corpus coverage for Z-segments, legacy MSH/encoding fields, generated MLLP bytes, large OBX expansion, malformed delimiters, partial batch-like input, and safe parse-error output across Rust core, CLI, REST server, gRPC server, and local Python wheel surfaces. |
+| Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. Current proof includes shared dirty-corpus coverage for Z-segments, legacy MSH/encoding fields, generated MLLP bytes, large OBX expansion, malformed delimiters, partial batch-like input, safe parse-error output across Rust core, CLI, REST server, gRPC server, and local Python wheel surfaces, plus one CLI validate/redact/bundle/replay workflow over the shared Z-segment fixture. |
 | Safe support packets | ✅ Stable | `redact`, `bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. |
 | Evidence contracts | ✅ Stable | v1.4.0 ships opt-in v2 provenance schemas/producers and an `xtask evidence-schema-check` gate. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
