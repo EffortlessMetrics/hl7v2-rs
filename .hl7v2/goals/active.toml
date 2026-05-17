@@ -774,6 +774,36 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "schema-version-parity-fixture"
+status = "done"
+goal = "Back schema-version behavior parity with one shared fixture, representative CLI/REST/gRPC proof, Python smoke fixture wiring, and an xtask manifest guard."
+manifest = "test_data/evidence/schema-version-parity.json"
+commands = [
+  "cargo +1.95.0 test -p hl7v2-test-utils schema_version --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test validate_endpoint_test test_validate_report_schema_v2_returns_nested_provenance_report --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_separates_errors_from_warnings --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_redacted_rejects_unsupported_schema_versions --locked",
+  "cargo +1.95.0 test -p xtask evidence_parity_policy_requires_schema_version_fixture --locked",
+  "cargo +1.95.0 test -p xtask evidence_parity_policy_requires_schema_version_proofs --locked",
+  "python -m py_compile tests/python_smoke/smoke.py",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No Python local-wheel smoke execution was claimed from this base environment; py_compile only checked the smoke script syntax.",
+]
+
+[[work_item]]
 id = "v1-5-0-grpc-status-readiness-refresh"
 status = "done"
 goal = "Refresh v1.5.0 readiness after the gRPC serve-mode status sync landed."

@@ -33,6 +33,7 @@ pub mod assertions;
 pub mod builders;
 pub mod fixtures;
 pub mod mocks;
+pub mod schema_version_fixtures;
 pub mod security_fixtures;
 
 // Re-exports for convenience
@@ -43,6 +44,10 @@ pub use assertions::{
 pub use builders::{MessageBuilder, SegmentBuilder};
 pub use fixtures::SampleMessages;
 pub use mocks::{MockMessageHandler, MockMllpServer};
+pub use schema_version_fixtures::{
+    SCHEMA_VERSION_PARITY_MANIFEST, SchemaVersionParityFixture, SchemaVersionToolNames,
+    SchemaVersionValidationFixture, schema_version_parity_fixture,
+};
 pub use security_fixtures::{
     PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, PHI_LEAK_SENTINELS,
     RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL, SAFE_ERROR_PHI_PARITY_MANIFEST,
@@ -59,6 +64,10 @@ pub mod prelude {
     pub use crate::builders::{MessageBuilder, SegmentBuilder};
     pub use crate::fixtures::SampleMessages;
     pub use crate::mocks::{MockMessageHandler, MockMllpServer};
+    pub use crate::schema_version_fixtures::{
+        SCHEMA_VERSION_PARITY_MANIFEST, SchemaVersionParityFixture, SchemaVersionToolNames,
+        SchemaVersionValidationFixture, schema_version_parity_fixture,
+    };
     pub use crate::security_fixtures::{
         PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, PHI_LEAK_SENTINELS,
         RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL, SAFE_ERROR_PHI_PARITY_MANIFEST,

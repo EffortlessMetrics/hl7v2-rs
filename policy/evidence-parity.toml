@@ -270,20 +270,28 @@ gaps = [
 
 [[contract]]
 id = "schema-version-behavior"
-status = "gap-recorded"
+status = "partially-proven"
 rust = "stable"
 cli = "stable"
 rest = "stable"
 grpc = "stable-for-implemented-v2-rpcs"
-python = "required-for-claimed-artifacts"
+python = "local-wheel-only"
 typescript = "planned"
+fixture_family = "test_data/evidence/schema-version-parity.json"
 proof = [
+  "cargo test -p hl7v2-test-utils schema_version --locked",
+  "cargo test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked",
+  "cargo test -p hl7v2-server --test validate_endpoint_test test_validate_report_schema_v2_returns_nested_provenance_report --locked",
+  "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_separates_errors_from_warnings --locked",
   "cargo run -p xtask -- evidence-schema-check",
   "cargo test -p hl7v2-server --test grpc_contract_tests",
   "python tests/python_smoke/evidence_workflow_guide.py",
+  "python tests/python_smoke/smoke.py",
 ]
 gaps = [
-  "Schema-version support needs this manifest plus future checker coverage before more surface claims are added.",
+  "Schema-version behavior uses representative fixture-backed surface tests plus existing artifact-specific tests, not a single cross-surface runner.",
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
 ]
 
 [[contract]]

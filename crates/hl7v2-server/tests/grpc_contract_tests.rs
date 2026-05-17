@@ -27,6 +27,7 @@ mod tests {
     use hl7v2_test_utils::{
         PHI_LEAK_SENTINEL_MESSAGE as PHI_MESSAGE, PHI_LEAK_SENTINEL_POLICY as REDACTION_POLICY,
         SampleMessages, assert_no_phi_leak_sentinels, safe_error_phi_parity_fixture,
+        schema_version_parity_fixture,
     };
     use http_body_util::Full;
     use metrics_exporter_prometheus::PrometheusBuilder;
@@ -457,6 +458,7 @@ constraints:
     #[tokio::test]
     async fn test_grpc_validate_separates_errors_from_warnings() {
         let service = service();
+        let fixture = schema_version_parity_fixture().unwrap();
         let profile = r#"
 message_structure: "ADT_A01"
 version: "2.5"
@@ -472,7 +474,7 @@ constraints:
             profile: profile.to_string(),
             mllp_framed: false,
             options: None,
-            report_schema_version: 2,
+            report_schema_version: fixture.v2_report_schema_version.into(),
         });
 
         let response = service.validate(request).await.expect("RPC should succeed");
@@ -513,19 +515,31 @@ constraints:
         let report_v2 = inner
             .validation_report_v2
             .expect("Validation report v2 should exist");
-        assert_eq!(report_v2.schema_version, "2");
-        assert_eq!(report_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report_v2.schema_version, fixture.expected_v2_schema_version);
+        assert_eq!(report_v2.tool_name, fixture.tool_names.grpc);
         assert_eq!(report_v2.tool_version, env!("CARGO_PKG_VERSION"));
         assert!(!report_v2.valid);
-        assert_eq!(report_v2.message_type, "ADT^A01");
-        assert_eq!(report_v2.profile.as_deref(), Some("ADT_A01"));
+        assert_eq!(report_v2.message_type, fixture.validation.message_type);
+        assert_eq!(
+            report_v2.profile.as_deref(),
+            Some(fixture.validation.profile_label.as_str())
+        );
         let identity = report_v2
             .profile_identity
             .expect("Profile identity should exist");
-        assert_eq!(identity.label, "ADT_A01");
-        assert_eq!(identity.message_structure.as_deref(), Some("ADT_A01"));
-        assert_eq!(identity.version.as_deref(), Some("2.5"));
-        assert_eq!(report_v2.issues[0].code, "missing_required_field");
+        assert_eq!(identity.label, fixture.validation.profile_label);
+        assert_eq!(
+            identity.message_structure.as_deref(),
+            Some(fixture.validation.profile_label.as_str())
+        );
+        assert_eq!(
+            identity.version.as_deref(),
+            Some(fixture.validation.profile_version.as_str())
+        );
+        assert_eq!(
+            report_v2.issues[0].code,
+            fixture.validation.required_issue_code
+        );
     }
 
     #[tokio::test]
@@ -1145,13 +1159,14 @@ reason = "hash patient identifier"
     #[tokio::test]
     async fn test_grpc_validate_redacted_rejects_unsupported_schema_versions() {
         let service = service();
+        let fixture = schema_version_parity_fixture().unwrap();
         let request = Request::new(ValidateRedactedRequest {
             message: PHI_MESSAGE.as_bytes().to_vec(),
             profile: PROFILE.to_string(),
             redaction_policy: REDACTION_POLICY.to_string(),
             mllp_framed: false,
             include_redacted_hl7: false,
-            report_schema_version: 3,
+            report_schema_version: fixture.unsupported_report_schema_version.into(),
             redaction_receipt_schema_version: 0,
             quarantine_schema_version: 0,
         });
@@ -1164,7 +1179,10 @@ reason = "hash patient identifier"
         assert_eq!(err.code(), Code::InvalidArgument);
         assert_eq!(
             err.message(),
-            "unsupported validation report schema version 3; expected 1 or 2"
+            format!(
+                "unsupported validation report schema version {}; expected {}",
+                fixture.unsupported_report_schema_version, fixture.unsupported_error_contains
+            )
         );
     }
 

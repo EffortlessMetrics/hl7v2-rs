@@ -4405,11 +4405,32 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         "redaction-quarantine",
         "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
     )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo test -p hl7v2-server --test validate_endpoint_test test_validate_report_schema_v2_returns_nested_provenance_report --locked",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_separates_errors_from_warnings --locked",
+    )?;
     ensure_contract_string_value(
         contracts,
         "corpus-summary-fingerprint-diff",
         "fixture_family",
         "test_data/dirty-real-world/",
+    )?;
+    ensure_contract_string_value(
+        contracts,
+        "schema-version-behavior",
+        "fixture_family",
+        "test_data/evidence/schema-version-parity.json",
     )?;
 
     Ok(())
@@ -6479,6 +6500,54 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
             Err(err)
                 if err.to_string().contains("parse_endpoint_test")
                     || err.to_string().contains("validate_redacted_endpoint_test") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_schema_version_fixture() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "fixture_family = \"test_data/evidence/schema-version-parity.json\"",
+            "fixture_family = \"test_data/evidence/old-schema-version-fixture.json\"",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing schema-version fixture family"
+            )),
+            Err(err) if err.to_string().contains("schema-version-parity.json") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_schema_version_proofs() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked\",",
+            "\"cargo test -p hl7v2-cli --test integration_tests test_old_schema_version_two --locked\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject missing schema-version proof commands"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("test_validate_sample_json_schema_version_two") =>
             {
                 Ok(())
             }

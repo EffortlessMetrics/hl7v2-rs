@@ -24,6 +24,7 @@ use common::{
 use hl7v2_test_utils::{
     PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, RAW_INPUT_FILE_SENTINEL,
     RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels_or_paths, safe_error_phi_parity_fixture,
+    schema_version_parity_fixture,
 };
 
 fn is_sha256_hex(value: &str) -> bool {
@@ -387,9 +388,11 @@ constraints:
 
     #[test]
     fn test_validate_sample_json_schema_version_two() {
+        let fixture = schema_version_parity_fixture().unwrap();
         let dir = create_temp_dir();
         let profile = create_temp_profile(&dir, "profile.yaml", ADT_PROFILE);
         let report_file = dir.path().join("sample-validation.json");
+        let schema_version = fixture.v2_report_schema_version.to_string();
 
         let mut cmd = cli_command();
         let output = cmd
@@ -402,7 +405,7 @@ constraints:
                 "--report",
                 "json",
                 "--schema-version",
-                "2",
+                schema_version.as_str(),
                 "--output",
                 report_file.to_str().unwrap(),
                 "--quiet",
@@ -415,15 +418,18 @@ constraints:
         assert!(output.stdout.is_empty());
         let report: serde_json::Value =
             serde_json::from_slice(&read_file(&report_file)).expect("report should be JSON");
-        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["schema_version"], fixture.expected_v2_schema_version);
+        assert_eq!(report["tool_name"], fixture.tool_names.cli);
         assert_eq!(report["valid"], true);
-        assert_eq!(report["message_type"], "ADT^A01");
+        assert_eq!(report["message_type"], fixture.validation.message_type);
     }
 
     #[test]
     fn test_validate_sample_text_rejects_schema_version_two() {
+        let fixture = schema_version_parity_fixture().unwrap();
         let dir = create_temp_dir();
         let profile = create_temp_profile(&dir, "profile.yaml", ADT_PROFILE);
+        let schema_version = fixture.v2_report_schema_version.to_string();
 
         let mut cmd = cli_command();
         let output = cmd
@@ -434,7 +440,7 @@ constraints:
                 "--profile",
                 profile.to_str().unwrap(),
                 "--schema-version",
-                "2",
+                schema_version.as_str(),
             ])
             .output()
             .expect("validate-sample should run");

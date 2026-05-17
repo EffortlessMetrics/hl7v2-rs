@@ -109,7 +109,11 @@ with strict fractional timestamp syntax enforcement through #709. Safe-error
 and PHI sentinel parity is now backed by the shared
 `test_data/security/safe-error-phi-parity.json` fixture across Rust core, CLI,
 REST, and gRPC tests; the local Python smoke path reads the same fixture, with
-public Python registry proof still blocked by #563.
+public Python registry proof still blocked by #563. Schema-version behavior is
+now backed by `test_data/evidence/schema-version-parity.json` for
+representative CLI, REST, gRPC, and local Python smoke proof, with
+`xtask check-evidence-parity` requiring that fixture before the manifest can
+claim local schema-version parity.
 
 For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
