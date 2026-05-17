@@ -292,11 +292,14 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
 fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
     let mut file_batch = FileBatch::new();
     let mut current_batch_lines: Vec<&str> = Vec::new();
+    let mut current_message_lines: Vec<&str> = Vec::new();
     let mut in_batch = false;
     let mut has_fhs = false;
 
     for line in lines {
         if line.starts_with("FHS") {
+            add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+            current_message_lines.clear();
             has_fhs = true;
             file_batch.header = Some(parse_segment(line)?);
             let info = extract_batch_info(line, "FHS")?;
@@ -312,12 +315,16 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
             file_batch.info.batch_name = info.batch_name;
             file_batch.info.batch_comment = info.batch_comment;
         } else if line.starts_with("FTS") {
+            add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+            current_message_lines.clear();
             file_batch.trailer = Some(parse_segment(line)?);
             // Extract message count from FTS-1
             let info = extract_batch_info(line, "FTS")?;
             file_batch.info.message_count = info.message_count;
             file_batch.info.trailer_comment = info.trailer_comment;
         } else if line.starts_with("BHS") {
+            add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+            current_message_lines.clear();
             in_batch = true;
             current_batch_lines.push(line);
         } else if line.starts_with("BTS") {
@@ -329,17 +336,15 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
         } else if in_batch {
             current_batch_lines.push(line);
         } else if line.starts_with("MSH") {
-            // Message without BHS wrapper
-            let messages = parse_messages(std::slice::from_ref(line))?;
-            let batch = Batch {
-                header: None,
-                messages,
-                trailer: None,
-                info: BatchInfo::default(),
-            };
-            file_batch.add_batch(batch);
+            add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+            current_message_lines.clear();
+            current_message_lines.push(line);
+        } else if !current_message_lines.is_empty() {
+            current_message_lines.push(line);
         }
     }
+
+    add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
 
     // Validate that FHS is present for file batches
     if !has_fhs {
@@ -362,6 +367,25 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
             Ok(file_batch)
         }
     }
+}
+
+fn add_unwrapped_message_batch(
+    file_batch: &mut FileBatch,
+    message_lines: &[&str],
+) -> Result<(), BatchError> {
+    if message_lines.is_empty() {
+        return Ok(());
+    }
+
+    let messages = parse_messages(message_lines)?;
+    let batch = Batch {
+        header: None,
+        messages,
+        trailer: None,
+        info: BatchInfo::default(),
+    };
+    file_batch.add_batch(batch);
+    Ok(())
 }
 
 /// Parse a single batch (with BHS/BTS)
@@ -575,12 +599,9 @@ fn segment_prefix(line: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    #![expect(
-        clippy::panic_in_result_fn,
-        reason = "unit tests use assertions after fallible batch parsing setup"
-    )]
-
     use super::*;
+    use crate::query::get;
+    use std::fmt::Debug;
 
     fn message(control_id: &str) -> String {
         format!(
@@ -588,52 +609,120 @@ mod tests {
         )
     }
 
+    fn require_eq<T>(actual: T, expected: T, label: &str) -> Result<(), Box<dyn std::error::Error>>
+    where
+        T: PartialEq + Debug,
+    {
+        if actual == expected {
+            Ok(())
+        } else {
+            Err(
+                std::io::Error::other(format!("{label}: expected {expected:?}, got {actual:?}"))
+                    .into(),
+            )
+        }
+    }
+
+    fn require(condition: bool, message: &'static str) -> Result<(), Box<dyn std::error::Error>> {
+        if condition {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(message).into())
+        }
+    }
+
     #[test]
-    fn parse_batch_rejects_invalid_utf8_before_segment_processing() {
+    fn parse_batch_rejects_invalid_utf8_before_segment_processing()
+    -> Result<(), Box<dyn std::error::Error>> {
         let result = parse_batch(&[0xff, 0xfe, 0xfd]);
 
-        assert!(matches!(
-            result,
-            Err(BatchError::InvalidStructure(message)) if message == "Invalid UTF-8 data"
-        ));
+        require(
+            matches!(
+                result,
+                Err(BatchError::InvalidStructure(message)) if message == "Invalid UTF-8 data"
+            ),
+            "invalid UTF-8 should fail before segment processing",
+        )?;
+
+        Ok(())
     }
 
     #[test]
-    fn parse_batch_reports_unknown_first_segment_prefix() {
+    fn parse_batch_reports_unknown_first_segment_prefix() -> Result<(), Box<dyn std::error::Error>>
+    {
         let result = parse_batch(b"ZZ\r");
 
-        assert!(matches!(
-            result,
-            Err(BatchError::InvalidStructure(message)) if message == "Unknown first segment: ZZ"
-        ));
+        require(
+            matches!(
+                result,
+                Err(BatchError::InvalidStructure(message)) if message == "Unknown first segment: ZZ"
+            ),
+            "unknown first segment should report the prefix",
+        )?;
+
+        Ok(())
     }
 
     #[test]
-    fn parse_single_batch_preserves_header_and_trailer_metadata() -> Result<(), BatchError> {
+    fn parse_single_batch_preserves_header_and_trailer_metadata()
+    -> Result<(), Box<dyn std::error::Error>> {
         let data = format!(
             "BHS*:+\\&*SEND*SFAC*RECV*RFAC*202605030101*SEC**BATCH42*Nightly import\r{}\rBTS*1*done\r",
             message("CTRL1")
         );
         let batch = parse_batch(data.as_bytes())?;
 
-        assert_eq!(batch.info.batch_type, BatchType::Single);
-        assert_eq!(batch.info.field_separator, Some('*'));
-        assert_eq!(batch.info.encoding_characters, Some(":+\\&".to_string()));
-        assert_eq!(batch.info.sending_application, Some("SEND".to_string()));
-        assert_eq!(batch.info.sending_facility, Some("SFAC".to_string()));
-        assert_eq!(batch.info.receiving_application, Some("RECV".to_string()));
-        assert_eq!(batch.info.receiving_facility, Some("RFAC".to_string()));
-        assert_eq!(batch.info.security, Some("SEC".to_string()));
-        assert_eq!(batch.info.batch_name, Some("BATCH42".to_string()));
-        assert_eq!(batch.info.batch_comment, Some("Nightly import".to_string()));
-        assert_eq!(batch.info.message_count, Some(1));
-        assert_eq!(batch.info.trailer_comment, Some("done".to_string()));
+        require_eq(batch.info.batch_type, BatchType::Single, "batch type")?;
+        require_eq(batch.info.field_separator, Some('*'), "field separator")?;
+        require_eq(
+            batch.info.encoding_characters.as_deref(),
+            Some(":+\\&"),
+            "encoding characters",
+        )?;
+        require_eq(
+            batch.info.sending_application.as_deref(),
+            Some("SEND"),
+            "sending application",
+        )?;
+        require_eq(
+            batch.info.sending_facility.as_deref(),
+            Some("SFAC"),
+            "sending facility",
+        )?;
+        require_eq(
+            batch.info.receiving_application.as_deref(),
+            Some("RECV"),
+            "receiving application",
+        )?;
+        require_eq(
+            batch.info.receiving_facility.as_deref(),
+            Some("RFAC"),
+            "receiving facility",
+        )?;
+        require_eq(batch.info.security.as_deref(), Some("SEC"), "security")?;
+        require_eq(
+            batch.info.batch_name.as_deref(),
+            Some("BATCH42"),
+            "batch name",
+        )?;
+        require_eq(
+            batch.info.batch_comment.as_deref(),
+            Some("Nightly import"),
+            "batch comment",
+        )?;
+        require_eq(batch.info.message_count, Some(1), "message count")?;
+        require_eq(
+            batch.info.trailer_comment.as_deref(),
+            Some("done"),
+            "trailer comment",
+        )?;
 
         Ok(())
     }
 
     #[test]
-    fn parse_file_batch_collects_unwrapped_messages_separately() -> Result<(), BatchError> {
+    fn parse_file_batch_collects_unwrapped_messages_separately()
+    -> Result<(), Box<dyn std::error::Error>> {
         let data = format!(
             "FHS|^~\\&|FILEAPP|FILEFAC|||202605030101\r{}\r{}\rFTS|2|complete\r",
             message("CTRL1"),
@@ -641,34 +730,67 @@ mod tests {
         );
         let batch = parse_batch(data.as_bytes())?;
 
-        assert_eq!(batch.info.batch_type, BatchType::File);
-        assert_eq!(
-            batch.info.file_creation_time,
-            Some("202605030101".to_string())
-        );
-        assert_eq!(batch.info.message_count, Some(2));
-        assert_eq!(batch.info.trailer_comment, Some("complete".to_string()));
-        assert_eq!(batch.batches.len(), 2);
-        assert_eq!(batch.total_message_count(), 2);
+        require_eq(batch.info.batch_type, BatchType::File, "batch type")?;
+        require_eq(
+            batch.info.file_creation_time.as_deref(),
+            Some("202605030101"),
+            "file creation time",
+        )?;
+        require_eq(batch.info.message_count, Some(2), "message count")?;
+        require_eq(
+            batch.info.trailer_comment.as_deref(),
+            Some("complete"),
+            "trailer comment",
+        )?;
+        require_eq(batch.batches.len(), 2, "implicit batch count")?;
+        require_eq(batch.total_message_count(), 2, "total message count")?;
+
+        let first_message = batch
+            .batches
+            .first()
+            .and_then(|batch| batch.messages.first())
+            .ok_or_else(|| std::io::Error::other("missing first unwrapped message"))?;
+        require_eq(
+            first_message.segments.len(),
+            2,
+            "first unwrapped message segment count",
+        )?;
+        require_eq(
+            get(first_message, "PID.5.1"),
+            Some("Doe"),
+            "first unwrapped message PID-5.1",
+        )?;
+        require_eq(
+            get(first_message, "PID.5.2"),
+            Some("John"),
+            "first unwrapped message PID-5.2",
+        )?;
 
         Ok(())
     }
 
     #[test]
-    fn parse_segment_preserves_empty_fields_with_custom_separator() -> Result<(), BatchError> {
+    fn parse_segment_preserves_empty_fields_with_custom_separator()
+    -> Result<(), Box<dyn std::error::Error>> {
         let segment = parse_segment("BTS*2**comment")?;
 
-        assert_eq!(segment.id, *b"BTS");
-        assert_eq!(segment.fields.len(), 3);
-        assert_eq!(
+        require_eq(segment.id, *b"BTS", "segment id")?;
+        require_eq(segment.fields.len(), 3, "field count")?;
+        require_eq(
             segment.fields.first().and_then(Field::first_text),
-            Some("2")
-        );
-        assert_eq!(segment.fields.get(1).and_then(Field::first_text), Some(""));
-        assert_eq!(
+            Some("2"),
+            "first field",
+        )?;
+        require_eq(
+            segment.fields.get(1).and_then(Field::first_text),
+            Some(""),
+            "empty second field",
+        )?;
+        require_eq(
             segment.fields.get(2).and_then(Field::first_text),
-            Some("comment")
-        );
+            Some("comment"),
+            "third field",
+        )?;
 
         Ok(())
     }
