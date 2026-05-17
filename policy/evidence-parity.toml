@@ -209,6 +209,7 @@ grpc = "stable-for-configured-root-rpcs"
 python = "local-wheel-only"
 typescript = "planned"
 proof = [
+  "cargo run -p xtask -- check-bundle-replay-parity",
   "cargo test -p hl7v2 --all-features",
   "cargo test -p hl7v2-cli --test integration_tests",
   "cargo test -p hl7v2-server --test bundle_endpoint_test",
@@ -217,6 +218,7 @@ proof = [
   "python tests/python_smoke/evidence_workflow_guide.py",
 ]
 gaps = [
+  "The default acceptance runner covers Rust, CLI, REST, and gRPC bundle/replay proof; Python remains optional local-wheel proof until public registry install-back exists.",
   "Public Python TestPyPI/PyPI install-back is absent.",
   "TypeScript is unimplemented.",
 ]

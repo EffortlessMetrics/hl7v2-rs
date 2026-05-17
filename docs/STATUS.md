@@ -102,7 +102,9 @@ local Python wheel surfaces through #695. Dirty-corpus corpus
 summary/fingerprint/diff proof is now routed through
 `cargo run -p xtask -- check-dirty-corpus-parity` for the Rust/CLI/REST/gRPC
 acceptance path, with optional local Python smoke after wheel install. Current
-`main` also includes
+`main` also includes `cargo run -p xtask -- check-bundle-replay-parity` as the
+Rust/CLI/REST/gRPC bundle/replay acceptance path, with optional local Python
+evidence workflow smoke after wheel install. Current `main` also includes
 normalization parity across CLI and local Python helper surfaces; CLI ACK parity
 for command success, ACK code/control ID preservation, MSH-9 ACK message type,
 and MLLP framing; REST ACK parity for all six supported ACK codes with MLLP

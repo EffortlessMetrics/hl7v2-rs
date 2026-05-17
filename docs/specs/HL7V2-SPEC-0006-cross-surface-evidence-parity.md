@@ -137,6 +137,12 @@ validation. Pass `--include-python` only after a local `hl7v2` wheel is
 installed, because Python package availability remains governed by the
 separate TestPyPI/PyPI proof lane.
 
+The default bundle/replay acceptance runner is
+`cargo run -p xtask -- check-bundle-replay-parity`; it composes the existing
+Rust, CLI, REST, and gRPC bundle/replay checks. Pass `--include-python` only
+after a local `hl7v2` wheel is installed, because Python package availability
+remains governed by the separate TestPyPI/PyPI proof lane.
+
 ## Non-Goals
 
 - No new runtime implementation in this spec.
