@@ -10,7 +10,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use hl7v2_test_utils::safe_error_phi_parity_fixture;
+use hl7v2_test_utils::{safe_error_phi_parity_fixture, schema_version_parity_fixture};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -247,6 +247,7 @@ constraints:
 #[tokio::test]
 async fn test_validate_report_schema_v2_returns_nested_provenance_report() {
     let app = common::create_test_router();
+    let fixture = schema_version_parity_fixture().unwrap();
 
     let profile = r#"
 message_structure: "ADT_A01"
@@ -262,7 +263,7 @@ constraints:
         "message": common::fixtures::MINIMAL_VALID,
         "profile": profile,
         "mllp_framed": false,
-        "report_schema_version": 2
+        "report_schema_version": fixture.v2_report_schema_version
     });
 
     let response = app.oneshot(validate_request(request_body)).await.unwrap();
@@ -275,17 +276,26 @@ constraints:
 
     assert_eq!(body_json["valid"], false);
     assert_eq!(body_json["issue_count"], 1);
-    assert_eq!(report_v2["schema_version"], "2");
-    assert_eq!(report_v2["tool_name"], "hl7v2-server");
+    assert_eq!(
+        report_v2["schema_version"],
+        fixture.expected_v2_schema_version
+    );
+    assert_eq!(report_v2["tool_name"], fixture.tool_names.rest);
     assert_eq!(report_v2["valid"], false);
-    assert_eq!(report_v2["message_type"], "ADT^A01");
-    assert_eq!(report_v2["profile"], "ADT_A01");
-    assert_eq!(report_v2["profile_identity"]["label"], "ADT_A01");
+    assert_eq!(report_v2["message_type"], fixture.validation.message_type);
+    assert_eq!(report_v2["profile"], fixture.validation.profile_label);
+    assert_eq!(
+        report_v2["profile_identity"]["label"],
+        fixture.validation.profile_label
+    );
     assert_eq!(
         report_v2["profile_identity"]["message_structure"],
-        "ADT_A01"
+        fixture.validation.profile_label
     );
-    assert_eq!(report_v2["profile_identity"]["version"], "2.5");
+    assert_eq!(
+        report_v2["profile_identity"]["version"],
+        fixture.validation.profile_version
+    );
     assert_eq!(
         report_v2["profile_identity"]["sha256"]
             .as_str()
@@ -293,19 +303,26 @@ constraints:
             .len(),
         64
     );
-    assert_eq!(report_v2["issues"][0]["code"], "missing_required_field");
-    assert_eq!(report_v2["issues"][0]["path"], "PID.3");
+    assert_eq!(
+        report_v2["issues"][0]["code"],
+        fixture.validation.required_issue_code
+    );
+    assert_eq!(
+        report_v2["issues"][0]["path"],
+        fixture.validation.required_issue_path
+    );
 }
 
 #[tokio::test]
 async fn test_validate_report_schema_version_rejects_unknown_version() {
     let app = common::create_test_router();
+    let fixture = schema_version_parity_fixture().unwrap();
 
     let request_body = json!({
         "message": common::fixtures::MINIMAL_VALID,
         "profile": common::profiles::MINIMAL_PROFILE,
         "mllp_framed": false,
-        "report_schema_version": 3
+        "report_schema_version": fixture.unsupported_report_schema_version
     });
 
     let response = app.oneshot(validate_request(request_body)).await.unwrap();
@@ -315,7 +332,12 @@ async fn test_validate_report_schema_version_rejects_unknown_version() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body_json: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(body_json["code"], "VALIDATION_ERROR");
-    assert!(body_json["message"].as_str().unwrap().contains("1 or 2"));
+    assert!(
+        body_json["message"]
+            .as_str()
+            .unwrap()
+            .contains(&fixture.unsupported_error_contains)
+    );
     assert!(
         body_json["safe_detail"]
             .as_str()

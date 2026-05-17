@@ -114,6 +114,14 @@ core, CLI, REST, gRPC, and local Python proof. Surface tests may stay
 transport-specific, but they must use this fixture when claiming safe-error or
 PHI sentinel parity.
 
+The shared schema-version fixture lives in
+`test_data/evidence/schema-version-parity.json`. It records the accepted v2
+request value, expected v2 artifact `schema_version`, unsupported request
+version, unsupported-version diagnostic fragment, surface tool names, and the
+validation shape used by representative CLI, REST, gRPC, and local Python
+proof. Artifact-specific tests may remain near their surfaces, but they should
+consume this fixture when claiming schema-version behavior parity.
+
 ## Non-Goals
 
 - No new runtime implementation in this spec.

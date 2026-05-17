@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   real-world fixture categories.
 - Added local Python wheel dirty-corpus parity coverage using the shared dirty
   real-world fixture categories.
+- Added a shared schema-version parity fixture and manifest guard for
+  representative CLI, REST, gRPC, and local Python evidence proof.
 - Added gRPC evidence replay parity with configured-root bundle replay,
   fail-closed missing/unsafe bundle handling, shared replay reports, and opt-in
   v2 replay provenance.
