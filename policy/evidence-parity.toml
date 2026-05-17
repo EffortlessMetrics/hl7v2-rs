@@ -280,6 +280,7 @@ python = "local-wheel-only"
 typescript = "planned"
 fixture_family = "test_data/evidence/schema-version-parity.json"
 proof = [
+  "cargo run -p xtask -- check-schema-version-parity",
   "cargo test -p hl7v2-test-utils schema_version --locked",
   "cargo test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked",
   "cargo test -p hl7v2-server --test validate_endpoint_test test_validate_report_schema_v2_returns_nested_provenance_report --locked",
@@ -290,7 +291,7 @@ proof = [
   "python tests/python_smoke/smoke.py",
 ]
 gaps = [
-  "Schema-version behavior uses representative fixture-backed surface tests plus existing artifact-specific tests, not a single cross-surface runner.",
+  "The default acceptance runner covers Rust, CLI, REST, and gRPC; Python remains local-wheel smoke until public registry install-back exists.",
   "Public Python TestPyPI/PyPI install-back is absent.",
   "TypeScript is unimplemented.",
 ]
