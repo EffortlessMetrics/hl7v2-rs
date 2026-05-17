@@ -70,6 +70,12 @@ Every parity claim must map to at least one local or hosted receipt:
 | Evidence artifact | Schema validation against `schemas/evidence/` and golden fixture coverage |
 | Publish or registry claim | Upload plus registry-resolution or install-back proof |
 
+The machine-readable parity manifest lives in
+[`policy/evidence-parity.toml`](../../policy/evidence-parity.toml). It records
+the current surface state, proof commands, fixture families, and known gaps so
+future PRs can update parity state without scraping audit prose. The manifest
+does not create a new release, registry, or runtime claim by itself.
+
 ## Fixture Rules
 
 Parity fixtures should be shared across surfaces where practical. A fixture set

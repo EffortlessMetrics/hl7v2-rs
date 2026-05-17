@@ -77,7 +77,8 @@ Cross-surface evidence parity is governed by
 [HL7V2-SPEC-0006](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md):
 Rust, CLI, REST, gRPC, Python, and future TypeScript claims must map to shared
 semantics, safe diagnostics, schema-backed artifacts, and receipts before they
-are described as equivalent.
+are described as equivalent. The current machine-readable parity state lives in
+[`policy/evidence-parity.toml`](../policy/evidence-parity.toml).
 
 ## Evidence Contracts Release And Current Main
 
@@ -112,6 +113,8 @@ final source-tree gap audit after the local workbench split, see
 [`docs/audits/current-source-tree-evidence-objective-gap-audit.md`](audits/current-source-tree-evidence-objective-gap-audit.md).
 For the current cross-surface evidence parity gap map, see
 [`docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md`](audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md).
+For current parity states, proof commands, fixture families, and known gaps, see
+[`policy/evidence-parity.toml`](../policy/evidence-parity.toml).
 
 | Area | Status | Notes |
 |------|--------|-------|

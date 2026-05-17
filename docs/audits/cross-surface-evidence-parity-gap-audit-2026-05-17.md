@@ -17,6 +17,7 @@ release, or install-back success.
 | Source | What it proves |
 | --- | --- |
 | [HL7V2-SPEC-0006](../specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Accepted parity contract and minimum proof rules. |
+| [`policy/evidence-parity.toml`](../../policy/evidence-parity.toml) | Machine-readable current parity surface states, proof commands, fixture families, and known gaps. |
 | [Support tier map](../status/SUPPORT_TIERS.md) | Current claim tier and proof command map. |
 | [First-use guide](../guides/first-use-by-surface.md) | Current user-facing install and first evidence receipt paths. |
 | [User journey acceptance proof](user-journey-acceptance-2026-05-15.md) | Rust, CLI, server, and local Python first-use evidence workflow proof. |
@@ -54,8 +55,9 @@ release, or install-back success.
 2. Record TestPyPI upload, install-back, `import hl7v2`, `smoke.py`, and
    `evidence_workflow_guide.py` proof before closing #563.
 3. Decide production PyPI separately from TestPyPI.
-4. Add a machine-readable parity manifest or acceptance matrix that maps each
-   contract to the exact proof command, fixture family, and supported surface.
+4. Keep [`policy/evidence-parity.toml`](../../policy/evidence-parity.toml)
+   current as the machine-readable parity manifest for proof commands, fixture
+   families, supported surfaces, and known gaps.
 5. Add a shared safe-error and PHI sentinel parity runner for malformed inputs
    across Rust, CLI, REST/gRPC, and Python local wheel surfaces.
 6. Extend dirty-corpus proof beyond corpus summary/fingerprint/diff only where
