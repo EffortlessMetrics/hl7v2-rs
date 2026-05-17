@@ -77,7 +77,7 @@ jobs:
         run: go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
 
       - name: Lint Protos
-        run: npx -y @bufbuild/buf lint api/proto
+        run: npx -y @bufbuild/buf@1.69.0 lint api/proto
 
       - name: Check Breaking Changes
         if: github.event_name == 'pull_request'
@@ -85,12 +85,12 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          npx -y @bufbuild/buf breaking api/proto \
+          npx -y @bufbuild/buf@1.69.0 breaking api/proto \
             --against "https://github.com/${REPOSITORY}.git#branch=${BASE_REF},subdir=api/proto"
 
       - name: Generate Proto Docs
         run: |
-          npx -y @bufbuild/buf generate api/proto --template buf.gen.yaml
+          npx -y @bufbuild/buf@1.69.0 generate api/proto --template buf.gen.yaml
 
   schema-validation:
     name: Validate Schemas

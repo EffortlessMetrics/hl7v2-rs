@@ -56,7 +56,29 @@ fn main() -> Result<()> {
         Commands::CheckFilePolicy => check_file_policy()?,
         Commands::CheckDocLinks => check_doc_links()?,
         Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
+        Commands::PythonLocalWheelProof {
+            root,
+            python,
+            rust_toolchain,
+            keep_existing,
+        } => python_local_wheel_proof(root, &python, &rust_toolchain, keep_existing)?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
+        Commands::CheckEvidenceParity => check_evidence_parity()?,
+        Commands::CheckEvidenceParityAcceptance { include_python } => {
+            check_evidence_parity_acceptance(include_python)?;
+        }
+        Commands::CheckSafeErrorPhiParity { include_python } => {
+            check_safe_error_phi_parity(include_python)?;
+        }
+        Commands::CheckSchemaVersionParity { include_python } => {
+            check_schema_version_parity(include_python)?;
+        }
+        Commands::CheckDirtyCorpusParity { include_python } => {
+            check_dirty_corpus_parity(include_python)?;
+        }
+        Commands::CheckBundleReplayParity { include_python } => {
+            check_bundle_replay_parity(include_python)?;
+        }
         Commands::EvidenceSchemaCheck => evidence_schema_check()?,
         Commands::Badges { check } => verification_surface::badges(check)?,
         Commands::RiprPr {
@@ -123,6 +145,8 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
         check_no_panic_family(false)?;
         println!("Checking non-Rust file policy...");
         check_file_policy()?;
+        println!("Checking evidence parity manifest...");
+        check_evidence_parity()?;
         println!("Checking Markdown local links...");
         check_doc_links()?;
         println!("Checking Python publish policy...");
@@ -918,6 +942,70 @@ fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}",
+            cmd,
+            args.join(" "),
+            status.code()
+        ));
+    }
+
+    Ok(())
+}
+
+fn run_command_with_env_in_dir(
+    cmd: &Path,
+    args: &[&str],
+    envs: &[(&str, &str)],
+    cwd: Option<&Path>,
+) -> Result<()> {
+    let mut command = Command::new(cmd);
+    command
+        .args(args)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+
+    let status = command.status()?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}",
+            cmd.display(),
+            args.join(" "),
+            status.code()
+        ));
+    }
+
+    Ok(())
+}
+
+fn run_program_with_env_in_dir(
+    cmd: &str,
+    args: &[&str],
+    envs: &[(&str, &str)],
+    cwd: Option<&Path>,
+) -> Result<()> {
+    let mut command = Command::new(cmd);
+    command
+        .args(args)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+
+    let status = command.status()?;
 
     if !status.success() {
         return Err(anyhow!(
@@ -4187,6 +4275,1276 @@ fn string_array_after_root(text: &str, key: &str) -> Option<Vec<String>> {
 // Python publish policy checker
 // ---------------------------------------------------------------------------
 
+const EVIDENCE_PARITY_MANIFEST_PATH: &str = "policy/evidence-parity.toml";
+
+const EVIDENCE_PARITY_REQUIRED_SURFACES: &[&str] =
+    &["rust", "cli", "rest", "grpc", "python", "typescript"];
+
+const EVIDENCE_PARITY_REQUIRED_CONTRACTS: &[&str] = &[
+    "parse-write",
+    "validate",
+    "normalize",
+    "ack",
+    "profile-lint-explain-test",
+    "redaction-quarantine",
+    "bundle-replay",
+    "corpus-summary-fingerprint-diff",
+    "safe-error-shape",
+    "schema-version-behavior",
+    "phi-sentinel-behavior",
+];
+
+const EVIDENCE_PARITY_ALLOWED_CONTRACT_STATUS: &[&str] = &["partially-proven", "gap-recorded"];
+const EVIDENCE_PARITY_ALLOWED_RUST_STATES: &[&str] = &["stable", "surface-specific-tests"];
+const EVIDENCE_PARITY_ALLOWED_CLI_STATES: &[&str] =
+    &["stable", "stable-where-exposed", "surface-specific-tests"];
+const EVIDENCE_PARITY_ALLOWED_REST_STATES: &[&str] = &[
+    "stable",
+    "stable-where-exposed",
+    "parse-stable-write-scoped-to-exposed-endpoints",
+    "surface-specific-tests",
+];
+const EVIDENCE_PARITY_ALLOWED_GRPC_STATES: &[&str] = &[
+    "stable",
+    "stable-for-implemented-rpcs",
+    "stable-for-profile-rpcs",
+    "stable-for-validate-redacted",
+    "stable-for-configured-root-rpcs",
+    "stable-for-inline-messages",
+    "stable-for-implemented-v2-rpcs",
+    "parse-stable-write-scoped-to-exposed-rpcs",
+    "required-for-evidence-rpcs",
+    "surface-specific-tests",
+];
+const EVIDENCE_PARITY_ALLOWED_PYTHON_STATES: &[&str] = &[
+    "local-wheel-only",
+    "local-wheel-specific-tests",
+    "redaction-local-wheel-only-quarantine-not-claimed",
+    "required-for-claimed-artifacts",
+];
+
+const PYTHON_LOCAL_WHEEL_PROOF_DEFAULT_ROOT: &str = "target/hl7v2-python-local-wheel-proof";
+const PYTHON_LOCAL_WHEEL_MATURIN_REQUIREMENT: &str = "maturin==1.13.1";
+
+fn python_local_wheel_proof(
+    root: Option<PathBuf>,
+    python: &str,
+    rust_toolchain: &str,
+    keep_existing: bool,
+) -> Result<()> {
+    println!("Checking Python local-wheel proof...");
+
+    let metadata = MetadataCommand::new().no_deps().exec()?;
+    let workspace_root = metadata.workspace_root.into_std_path_buf();
+    let root = prepare_python_local_wheel_root(root, keep_existing, &workspace_root)?;
+    let venv = root.join("venv");
+    let dist = root.join("dist");
+    let cargo_target = root.join("cargo-target");
+
+    recreate_dir(&venv)?;
+    recreate_dir(&dist)?;
+    recreate_dir(&cargo_target)?;
+
+    let venv_arg = path_to_arg(&venv)?;
+    println!("Creating proof virtualenv at {}", venv.display());
+    run_program_with_env_in_dir(
+        python,
+        &["-m", "venv", &venv_arg],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    let venv_python = python_executable_in_venv(&venv);
+    println!("Installing maturin into proof virtualenv...");
+    run_command_with_env_in_dir(
+        &venv_python,
+        &[
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "pip",
+            PYTHON_LOCAL_WHEEL_MATURIN_REQUIREMENT,
+        ],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    let dist_arg = path_to_arg(&dist)?;
+    let cargo_target_arg = path_to_arg(&cargo_target)?;
+    println!("Building hl7v2 wheel with maturin...");
+    run_command_with_env_in_dir(
+        &venv_python,
+        &[
+            "-m",
+            "maturin",
+            "build",
+            "--release",
+            "--out",
+            &dist_arg,
+            "--target-dir",
+            &cargo_target_arg,
+        ],
+        &[
+            ("PYO3_USE_ABI3_FORWARD_COMPATIBILITY", "1"),
+            ("RUSTUP_TOOLCHAIN", rust_toolchain),
+        ],
+        Some(&workspace_root),
+    )?;
+
+    let wheel = single_wheel_in_dist(&dist)?;
+    let wheel_arg = path_to_arg(&wheel)?;
+    println!("Installing local wheel {}", wheel.display());
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["-m", "pip", "install", "--force-reinstall", &wheel_arg],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    println!("Checking import and Python evidence helpers...");
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["-c", "import hl7v2; print(hl7v2.__version__)"],
+        &[],
+        Some(&workspace_root),
+    )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/smoke.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/evidence_workflow_guide.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/dirty_evidence_workflow.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    println!(
+        "Python local-wheel proof passed at {}. This does not claim TestPyPI or PyPI availability.",
+        root.display()
+    );
+    Ok(())
+}
+
+fn prepare_python_local_wheel_root(
+    root: Option<PathBuf>,
+    keep_existing: bool,
+    workspace_root: &Path,
+) -> Result<PathBuf> {
+    let requested = root.unwrap_or_else(|| PathBuf::from(PYTHON_LOCAL_WHEEL_PROOF_DEFAULT_ROOT));
+    let absolute = if requested.is_absolute() {
+        requested
+    } else {
+        workspace_root.join(requested)
+    };
+    let leaf = absolute
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow!("Python local-wheel proof root must have a final path component"))?;
+    if !(leaf.contains("hl7v2") && leaf.contains("python") && leaf.contains("proof")) {
+        return Err(anyhow!(
+            "refusing to use scratch root '{}': final component must contain 'hl7v2', 'python', and 'proof'",
+            absolute.display()
+        ));
+    }
+
+    if let Some(parent) = absolute.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    if absolute.exists() && !keep_existing {
+        fs::remove_dir_all(&absolute)?;
+    }
+    fs::create_dir_all(&absolute)?;
+
+    Ok(absolute)
+}
+
+fn recreate_dir(path: &Path) -> Result<()> {
+    if path.exists() {
+        fs::remove_dir_all(path)?;
+    }
+    fs::create_dir_all(path)?;
+    Ok(())
+}
+
+fn python_executable_in_venv(venv: &Path) -> PathBuf {
+    if cfg!(windows) {
+        venv.join("Scripts").join("python.exe")
+    } else {
+        venv.join("bin").join("python")
+    }
+}
+
+fn single_wheel_in_dist(dist: &Path) -> Result<PathBuf> {
+    let mut wheels = fs::read_dir(dist)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("whl"))
+        .collect::<Vec<_>>();
+    wheels.sort();
+
+    match wheels.as_slice() {
+        [wheel] => Ok(wheel.clone()),
+        [] => Err(anyhow!("no wheel found in {}", dist.display())),
+        _ => Err(anyhow!(
+            "expected exactly one wheel in {}, found {}",
+            dist.display(),
+            wheels.len()
+        )),
+    }
+}
+
+fn path_to_arg(path: &Path) -> Result<String> {
+    path.to_str()
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| anyhow!("path is not valid UTF-8: {}", path.display()))
+}
+
+fn check_evidence_parity() -> Result<()> {
+    println!("🔎 Checking evidence parity manifest...");
+    let root = env::current_dir()?;
+    let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+    check_evidence_parity_manifest_text(&text)?;
+    println!(
+        "✅ evidence parity: {} surface(s), {} contract(s), and registry non-claim boundaries checked",
+        EVIDENCE_PARITY_REQUIRED_SURFACES.len(),
+        EVIDENCE_PARITY_REQUIRED_CONTRACTS.len()
+    );
+    Ok(())
+}
+
+fn check_evidence_parity_acceptance(include_python: bool) -> Result<()> {
+    println!("🔎 Checking cross-surface evidence parity acceptance...");
+    check_evidence_parity()?;
+    check_safe_error_phi_parity(include_python)?;
+    check_schema_version_parity(include_python)?;
+    check_dirty_corpus_parity(include_python)?;
+    check_bundle_replay_parity(include_python)?;
+    println!("✅ Cross-surface evidence parity acceptance checks passed!");
+    Ok(())
+}
+
+fn check_safe_error_phi_parity(include_python: bool) -> Result<()> {
+    println!("🔎 Checking safe-error and PHI parity acceptance...");
+
+    let commands: &[(&str, &[&str])] = &[
+        (
+            "Rust library safe-error/PHI fixture tests",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--test",
+                "safe_error_phi_parity",
+                "--all-features",
+                "--locked",
+            ],
+        ),
+        (
+            "CLI parse safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "test_parse_safe_error_does_not_emit_manifest_phi_sentinels",
+                "--locked",
+            ],
+        ),
+        (
+            "CLI redaction PHI fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "test_redact_json_does_not_emit_phi_leak_sentinels_or_paths",
+                "--locked",
+            ],
+        ),
+        (
+            "REST parse safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "parse_endpoint_test",
+                "test_parse_malformed_message_returns_error",
+                "--locked",
+            ],
+        ),
+        (
+            "REST invalid-profile safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_endpoint_test",
+                "test_validate_invalid_profile_yaml_returns_error",
+                "--locked",
+            ],
+        ),
+        (
+            "REST validate-redacted PHI fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_redacted_endpoint_test",
+                "test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC parse safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_parse_invalid_hl7_returns_parse_error",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC invalid-profile safe-error fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_validate_invalid_profile_returns_invalid_argument",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC validate-redacted PHI fixture",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi",
+                "--locked",
+            ],
+        ),
+    ];
+
+    for (label, args) in commands {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    if include_python {
+        println!("Checking Python local-wheel smoke...");
+        run_command("python", &["tests/python_smoke/smoke.py"])?;
+        println!("Checking Python evidence workflow guide...");
+        run_command("python", &["tests/python_smoke/evidence_workflow_guide.py"])?;
+    } else {
+        println!(
+            "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    println!("✅ Safe-error and PHI parity acceptance checks passed!");
+    Ok(())
+}
+
+fn check_schema_version_parity(include_python: bool) -> Result<()> {
+    println!("🔎 Checking schema-version parity acceptance...");
+
+    let commands: &[(&str, &[&str])] = &[
+        (
+            "Shared schema-version fixture contract",
+            &[
+                "test",
+                "-p",
+                "hl7v2-test-utils",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "Rust library schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--all-features",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "CLI schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST validation v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_endpoint_test",
+                "--locked",
+                "schema_v2",
+            ],
+        ),
+        (
+            "REST validation unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST validate-redacted v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_redacted_endpoint_test",
+                "--locked",
+                "schema_v2",
+            ],
+        ),
+        (
+            "REST validate-redacted unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_redacted_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST bundle schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "bundle_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST replay schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "replay_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST corpus v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "corpus_endpoint_test",
+                "--locked",
+                "schema_v2",
+            ],
+        ),
+        (
+            "REST corpus unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "corpus_endpoint_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "REST quarantine v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "quarantine_output_hooks_test",
+                "--locked",
+                "v2_provenance",
+            ],
+        ),
+        (
+            "REST quarantine unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "quarantine_output_hooks_test",
+                "--locked",
+                "schema_version",
+            ],
+        ),
+        (
+            "gRPC v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "--locked",
+                "v2",
+            ],
+        ),
+        (
+            "gRPC unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "--locked",
+                "schema_versions",
+            ],
+        ),
+    ];
+
+    for (label, args) in commands {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    println!("Checking evidence fixture schemas...");
+    evidence_schema_check()?;
+
+    if include_python {
+        println!("Checking Python local-wheel schema-version smoke...");
+        run_command("python", &["tests/python_smoke/smoke.py"])?;
+        println!("Checking Python evidence workflow guide...");
+        run_command("python", &["tests/python_smoke/evidence_workflow_guide.py"])?;
+    } else {
+        println!(
+            "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    println!("✅ Schema-version parity acceptance checks passed!");
+    Ok(())
+}
+
+fn check_dirty_corpus_parity(include_python: bool) -> Result<()> {
+    println!("🔎 Checking dirty-corpus parity acceptance...");
+
+    let commands: &[(&str, &[&str])] = &[
+        (
+            "Rust dirty real-world corpus proof",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--lib",
+                "--all-features",
+                "--locked",
+                "dirty_real_world",
+            ],
+        ),
+        (
+            "CLI dirty-corpus command parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "test_corpus_commands_share_dirty_real_world_fixture_categories",
+                "--locked",
+            ],
+        ),
+        (
+            "CLI dirty evidence workflow parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "test_dirty_real_world_validate_redact_bundle_replay_workflow",
+                "--locked",
+            ],
+        ),
+        (
+            "REST dirty-corpus endpoint parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "corpus_endpoint_test",
+                "test_corpus_endpoints_share_dirty_real_world_fixture_categories",
+                "--locked",
+            ],
+        ),
+        (
+            "REST dirty evidence workflow parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "replay_endpoint_test",
+                "test_rest_dirty_real_world_validate_redact_bundle_replay_workflow",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC dirty-corpus RPC parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_corpus_commands_share_dirty_real_world_fixture_categories",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC dirty evidence workflow parity",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow",
+                "--locked",
+            ],
+        ),
+    ];
+
+    for (label, args) in commands {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    if include_python {
+        println!("Checking Python local-wheel dirty-corpus smoke...");
+        run_command("python", &["tests/python_smoke/smoke.py"])?;
+        println!("Checking Python local-wheel dirty evidence workflow...");
+        run_command("python", &["tests/python_smoke/dirty_evidence_workflow.py"])?;
+    } else {
+        println!(
+            "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    println!("✅ Dirty-corpus parity acceptance checks passed!");
+    Ok(())
+}
+
+fn check_bundle_replay_parity(include_python: bool) -> Result<()> {
+    println!("🔎 Checking bundle/replay parity acceptance...");
+
+    let commands: &[(&str, &[&str])] = &[
+        (
+            "Rust evidence bundle behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--lib",
+                "--all-features",
+                "--locked",
+                "bundle_",
+            ],
+        ),
+        (
+            "Rust evidence replay behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--lib",
+                "--all-features",
+                "--locked",
+                "replay_",
+            ],
+        ),
+        (
+            "CLI bundle command behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "bundle_command",
+                "--locked",
+            ],
+        ),
+        (
+            "CLI replay command behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "replay_command",
+                "--locked",
+            ],
+        ),
+        (
+            "REST bundle endpoint behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "bundle_endpoint_test",
+                "bundle_endpoint",
+                "--locked",
+            ],
+        ),
+        (
+            "REST replay endpoint behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "replay_endpoint_test",
+                "replay_endpoint",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC bundle/replay behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "evidence_bundle",
+                "--locked",
+            ],
+        ),
+    ];
+
+    for (label, args) in commands {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    if include_python {
+        println!("Checking Python local-wheel bundle/replay smoke...");
+        run_command("python", &["tests/python_smoke/evidence_workflow_guide.py"])?;
+    } else {
+        println!(
+            "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    println!("✅ Bundle/replay parity acceptance checks passed!");
+    Ok(())
+}
+
+fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
+    let manifest: toml::Value = toml::from_str(text)
+        .map_err(|error| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} is not valid TOML: {error}"))?;
+
+    ensure_top_level_string_value(&manifest, "schema_version", "1.0")?;
+    ensure_top_level_string_value(&manifest, "policy", "evidence-parity")?;
+    ensure_top_level_string_value(&manifest, "status", "active")?;
+    ensure_top_level_array_contains(
+        &manifest,
+        "non_claims",
+        "does not claim TestPyPI, PyPI, npm",
+    )?;
+    ensure_top_level_array_contains(
+        &manifest,
+        "non_claims",
+        "Python local wheel proof is not public Python registry proof",
+    )?;
+    ensure_top_level_array_contains(
+        &manifest,
+        "non_claims",
+        "hl7v2-python is binding backend infrastructure",
+    )?;
+    ensure_top_level_array_contains(&manifest, "non_claims", "TypeScript remains planned")?;
+    ensure_top_level_array_contains(
+        &manifest,
+        "acceptance",
+        "cargo run -p xtask -- check-evidence-parity-acceptance",
+    )?;
+
+    let surface_table = manifest
+        .get("surface")
+        .and_then(toml::Value::as_table)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} [surface] table is missing"))?;
+    for surface in EVIDENCE_PARITY_REQUIRED_SURFACES {
+        let section = format!("[surface.{surface}]");
+        if !surface_table.contains_key(*surface) {
+            return Err(anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} missing {section}"));
+        }
+        ensure_toml_string_non_empty(&manifest, &section, "role", EVIDENCE_PARITY_MANIFEST_PATH)?;
+        if *surface != "typescript" {
+            ensure_toml_array_non_empty(
+                &manifest,
+                &section,
+                "proof",
+                EVIDENCE_PARITY_MANIFEST_PATH,
+            )?;
+        }
+    }
+
+    ensure_pyproject_string_value(
+        &manifest,
+        "[surface.python]",
+        "package",
+        "hl7v2",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[surface.python]",
+        "backend_crate",
+        "hl7v2-python",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_value_contains(
+        &manifest,
+        "[surface.python]",
+        "blocked_by",
+        "issues/563",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[surface.typescript]",
+        "package",
+        "@effortlessmetrics/hl7v2",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_string_value(
+        &manifest,
+        "[surface.typescript]",
+        "tier",
+        "planned",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+
+    ensure_pyproject_array_contains(
+        &manifest,
+        "[surface.rest]",
+        "proof",
+        "cargo test -p hl7v2-server --test parse_endpoint_test",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+    ensure_pyproject_array_contains(
+        &manifest,
+        "[surface.rest]",
+        "proof",
+        "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
+
+    let contracts = manifest
+        .get("contract")
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} [[contract]] array is missing"))?;
+    let mut seen = BTreeSet::new();
+    for contract in contracts {
+        let table = contract.as_table().ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} [[contract]] entries must be tables")
+        })?;
+        let id = table
+            .get("id")
+            .and_then(toml::Value::as_str)
+            .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract.id is missing"))?;
+        if !seen.insert(id.to_string()) {
+            return Err(anyhow!(
+                "{EVIDENCE_PARITY_MANIFEST_PATH} has duplicate contract id `{id}`"
+            ));
+        }
+        for key in [
+            "status",
+            "rust",
+            "cli",
+            "rest",
+            "grpc",
+            "python",
+            "typescript",
+        ] {
+            let value = table
+                .get(key)
+                .and_then(toml::Value::as_str)
+                .ok_or_else(|| {
+                    anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` missing `{key}`")
+                })?;
+            if key == "python" {
+                ensure_python_contract_state_is_not_registry_claim(id, value)?;
+            }
+            ensure_contract_state_is_allowed(id, key, value)?;
+        }
+        ensure_contract_text_array_non_empty(table, id, "proof", true)?;
+        ensure_contract_text_array_non_empty(table, id, "gaps", false)?;
+    }
+    for required in EVIDENCE_PARITY_REQUIRED_CONTRACTS {
+        if !seen.contains(*required) {
+            return Err(anyhow!(
+                "{EVIDENCE_PARITY_MANIFEST_PATH} missing required contract `{required}`"
+            ));
+        }
+    }
+
+    ensure_contract_proof_contains(
+        contracts,
+        "parse-write",
+        "cargo test -p hl7v2-server --test parse_endpoint_test",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "redaction-quarantine",
+        "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo run -p xtask -- check-schema-version-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo test -p hl7v2-server --test validate_endpoint_test test_validate_report_schema_v2_returns_nested_provenance_report --locked",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_separates_errors_from_warnings --locked",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "safe-error-shape",
+        "cargo run -p xtask -- check-safe-error-phi-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "phi-sentinel-behavior",
+        "cargo run -p xtask -- check-safe-error-phi-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "corpus-summary-fingerprint-diff",
+        "cargo run -p xtask -- check-dirty-corpus-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "corpus-summary-fingerprint-diff",
+        "cargo test -p hl7v2-cli --test integration_tests test_dirty_real_world_validate_redact_bundle_replay_workflow",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "corpus-summary-fingerprint-diff",
+        "cargo test -p hl7v2-server --test replay_endpoint_test test_rest_dirty_real_world_validate_redact_bundle_replay_workflow",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "corpus-summary-fingerprint-diff",
+        "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "bundle-replay",
+        "cargo run -p xtask -- check-bundle-replay-parity",
+    )?;
+    ensure_contract_string_value(
+        contracts,
+        "corpus-summary-fingerprint-diff",
+        "fixture_family",
+        "test_data/dirty-real-world/",
+    )?;
+    ensure_contract_string_value(
+        contracts,
+        "schema-version-behavior",
+        "fixture_family",
+        "test_data/evidence/schema-version-parity.json",
+    )?;
+
+    Ok(())
+}
+
+fn ensure_top_level_string_value(document: &toml::Value, key: &str, expected: &str) -> Result<()> {
+    let actual = document
+        .get(key)
+        .and_then(toml::Value::as_str)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} {key} must be a string"))?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} {key} must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn ensure_top_level_array_contains(
+    document: &toml::Value,
+    key: &str,
+    expected_substring: &str,
+) -> Result<()> {
+    let values = document
+        .get(key)
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} {key} must be an array"))?;
+    if values.iter().any(|value| {
+        value
+            .as_str()
+            .is_some_and(|value| value.contains(expected_substring))
+    }) {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} {key} must contain text `{expected_substring}`"
+        ))
+    }
+}
+
+fn ensure_toml_array_non_empty(
+    document: &toml::Value,
+    section: &str,
+    key: &str,
+    context: &str,
+) -> Result<()> {
+    let values = pyproject_value(document, section, key, context)?
+        .as_array()
+        .ok_or_else(|| anyhow!("{context} {section}.{key} must be an array"))?;
+    if values.is_empty() {
+        return Err(anyhow!("{context} {section}.{key} must not be empty"));
+    }
+    for value in values {
+        let text = value
+            .as_str()
+            .ok_or_else(|| anyhow!("{context} {section}.{key} entries must be strings"))?;
+        if text.trim().is_empty() {
+            return Err(anyhow!(
+                "{context} {section}.{key} entries must not be empty"
+            ));
+        }
+        if !evidence_parity_proof_reference_is_known(text) {
+            return Err(anyhow!(
+                "{context} {section}.{key} entry `{text}` must be a known command or approved proof reference"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_toml_string_non_empty(
+    document: &toml::Value,
+    section: &str,
+    key: &str,
+    context: &str,
+) -> Result<()> {
+    let actual = pyproject_value(document, section, key, context)?
+        .as_str()
+        .ok_or_else(|| anyhow!("{context} {section}.{key} must be a string"))?;
+    if actual.trim().is_empty() {
+        Err(anyhow!("{context} {section}.{key} must not be empty"))
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_contract_text_array_non_empty(
+    contract: &toml::map::Map<String, toml::Value>,
+    id: &str,
+    key: &str,
+    require_proof_reference: bool,
+) -> Result<()> {
+    let values = contract
+        .get(key)
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} must be an array")
+        })?;
+    if values.is_empty() {
+        return Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} must not be empty"
+        ));
+    }
+    for value in values {
+        let text = value.as_str().ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} entries must be strings")
+        })?;
+        if text.trim().is_empty() {
+            return Err(anyhow!(
+                "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} entries must not be empty"
+            ));
+        }
+        if require_proof_reference && !evidence_parity_proof_reference_is_known(text) {
+            return Err(anyhow!(
+                "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` proof entry `{text}` must be a known command or approved proof reference"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_python_contract_state_is_not_registry_claim(id: &str, value: &str) -> Result<()> {
+    let normalized = value.to_ascii_lowercase();
+    if normalized.contains("testpypi")
+        || normalized.contains("pypi")
+        || normalized == "stable"
+        || normalized == "released"
+    {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` python state `{value}` looks like a public registry claim; use local-wheel-only or required-for-claimed-artifacts until upload/install-back is receipted"
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_contract_state_is_allowed(id: &str, key: &str, value: &str) -> Result<()> {
+    let allowed = match key {
+        "status" => EVIDENCE_PARITY_ALLOWED_CONTRACT_STATUS,
+        "rust" => EVIDENCE_PARITY_ALLOWED_RUST_STATES,
+        "cli" => EVIDENCE_PARITY_ALLOWED_CLI_STATES,
+        "rest" => EVIDENCE_PARITY_ALLOWED_REST_STATES,
+        "grpc" => EVIDENCE_PARITY_ALLOWED_GRPC_STATES,
+        "python" => EVIDENCE_PARITY_ALLOWED_PYTHON_STATES,
+        "typescript" => &["planned"],
+        _ => return Ok(()),
+    };
+    if allowed.contains(&value) {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} state `{value}` is not in the allowed vocabulary: {}",
+            allowed.join(", ")
+        ))
+    }
+}
+
+fn evidence_parity_proof_reference_is_known(value: &str) -> bool {
+    value.starts_with("cargo test ")
+        || value.starts_with("cargo run ")
+        || value.starts_with("python ")
+        || value
+            == "Surface-specific tests and specs require safe diagnostics without raw PHI echo."
+}
+
+fn ensure_contract_proof_contains(
+    contracts: &[toml::Value],
+    id: &str,
+    expected: &str,
+) -> Result<()> {
+    let contract = contract_table(contracts, id)?;
+    let proofs = contract
+        .get("proof")
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` proof must be an array")
+        })?;
+    if proofs
+        .iter()
+        .any(|value| value.as_str().is_some_and(|value| value == expected))
+    {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` proof must include `{expected}`"
+        ))
+    }
+}
+
+fn ensure_contract_string_value(
+    contracts: &[toml::Value],
+    id: &str,
+    key: &str,
+    expected: &str,
+) -> Result<()> {
+    let contract = contract_table(contracts, id)?;
+    let actual = contract
+        .get(key)
+        .and_then(toml::Value::as_str)
+        .ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} must be a string")
+        })?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{EVIDENCE_PARITY_MANIFEST_PATH} contract `{id}` {key} must be `{expected}`, found `{actual}`"
+        ))
+    }
+}
+
+fn contract_table<'a>(
+    contracts: &'a [toml::Value],
+    id: &str,
+) -> Result<&'a toml::map::Map<String, toml::Value>> {
+    contracts
+        .iter()
+        .filter_map(toml::Value::as_table)
+        .find(|table| {
+            table
+                .get("id")
+                .and_then(toml::Value::as_str)
+                .is_some_and(|actual| actual == id)
+        })
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} missing contract `{id}`"))
+}
+
 struct PythonPublishWorkflowPolicy {
     path: &'static str,
     workflow_name: &'static str,
@@ -4233,6 +5591,7 @@ const PYTHON_DISTRIBUTION_DESCRIPTION: &str =
     "Python package for HL7v2 parsing, validation, and evidence workflows backed by Rust.";
 const HL7V2_PYTHON_CRATE_DESCRIPTION: &str =
     "PyO3 extension crate backing the Python hl7v2 package. Rust users should depend on hl7v2.";
+const PYTHON_WHEELS_WORKFLOW_PATH: &str = ".github/workflows/python-wheels.yml";
 
 fn check_python_publish_policy() -> Result<()> {
     println!("🔎 Checking Python publish policy...");
@@ -4241,12 +5600,13 @@ fn check_python_publish_policy() -> Result<()> {
     ensure_hl7v2_python_binding_backend_publishable(&root)?;
     check_hl7v2_python_manifest_policy(&root)?;
     check_python_pyproject_policy(&root)?;
+    check_python_wheels_workflow(&root)?;
     for policy in PYTHON_PUBLISH_WORKFLOWS {
         check_python_publish_workflow(&root, policy)?;
     }
 
     println!(
-        "✅ python publish policy: pyproject.toml, hl7v2-python metadata, and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python is a publishable binding backend crate with separate release receipts required",
+        "✅ python publish policy: pyproject.toml, hl7v2-python metadata, Python Wheels smoke, and {} publish workflow(s) checked; Python distribution is hl7v2 and hl7v2-python is a publishable binding backend crate with separate release receipts required",
         PYTHON_PUBLISH_WORKFLOWS.len()
     );
     Ok(())
@@ -4436,6 +5796,74 @@ fn check_python_pyproject_policy_text(text: &str) -> Result<()> {
         "pyo3",
         "pyproject.toml",
     )?;
+    Ok(())
+}
+
+fn check_python_wheels_workflow(root: &Path) -> Result<()> {
+    let text = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
+    check_python_wheels_workflow_text(&text)
+}
+
+fn check_python_wheels_workflow_text(text: &str) -> Result<()> {
+    let workflow: serde_yaml::Value = serde_yaml::from_str(text)
+        .map_err(|error| anyhow!("{PYTHON_WHEELS_WORKFLOW_PATH} is not valid YAML: {error}"))?;
+    let root_map = yaml_mapping(&workflow, PYTHON_WHEELS_WORKFLOW_PATH)?;
+
+    ensure_yaml_string(
+        root_map,
+        PYTHON_WHEELS_WORKFLOW_PATH,
+        "name",
+        "Python Wheels",
+    )?;
+    let permissions = yaml_child_mapping(root_map, PYTHON_WHEELS_WORKFLOW_PATH, "permissions")?;
+    ensure_yaml_permission(permissions, PYTHON_WHEELS_WORKFLOW_PATH, "contents", "read")?;
+    ensure_yaml_missing(permissions, PYTHON_WHEELS_WORKFLOW_PATH, "id-token")?;
+
+    let jobs = yaml_child_mapping(root_map, PYTHON_WHEELS_WORKFLOW_PATH, "jobs")?;
+    let wheel_job = yaml_mapping_child(jobs, PYTHON_WHEELS_WORKFLOW_PATH, "jobs", "wheel-smoke")?;
+    let steps = yaml_child_sequence(wheel_job, PYTHON_WHEELS_WORKFLOW_PATH, "steps")?;
+
+    let build = yaml_step_named(steps, PYTHON_WHEELS_WORKFLOW_PATH, "Build wheel")?;
+    let build_run = yaml_mapping_string(build, PYTHON_WHEELS_WORKFLOW_PATH, "run")?;
+    if !build_run.contains("maturin build --release --out dist") {
+        return Err(anyhow!(
+            "{PYTHON_WHEELS_WORKFLOW_PATH} Build wheel step must run `maturin build --release --out dist`"
+        ));
+    }
+
+    let install = yaml_step_named(steps, PYTHON_WHEELS_WORKFLOW_PATH, "Install built wheel")?;
+    let install_run = yaml_mapping_string(install, PYTHON_WHEELS_WORKFLOW_PATH, "run")?;
+    for expected in ["dist/*.whl", "pip", "install"] {
+        if !install_run.contains(expected) {
+            return Err(anyhow!(
+                "{PYTHON_WHEELS_WORKFLOW_PATH} Install built wheel step must contain `{expected}`"
+            ));
+        }
+    }
+
+    for (step_name, expected) in [
+        (
+            "Run import smoke test",
+            "python tests/python_smoke/smoke.py",
+        ),
+        (
+            "Run Python evidence guide smoke test",
+            "python tests/python_smoke/evidence_workflow_guide.py",
+        ),
+        (
+            "Run Python dirty evidence workflow smoke test",
+            "python tests/python_smoke/dirty_evidence_workflow.py",
+        ),
+    ] {
+        let step = yaml_step_named(steps, PYTHON_WHEELS_WORKFLOW_PATH, step_name)?;
+        let run = yaml_mapping_string(step, PYTHON_WHEELS_WORKFLOW_PATH, "run")?;
+        if !run.contains(expected) {
+            return Err(anyhow!(
+                "{PYTHON_WHEELS_WORKFLOW_PATH} `{step_name}` step must contain `{expected}`"
+            ));
+        }
+    }
+
     Ok(())
 }
 
@@ -4788,6 +6216,7 @@ fn ensure_python_wheel_proof_job(
         "python -m pip install --force-reinstall dist/*.whl",
         "tests/python_smoke/smoke.py",
         "tests/python_smoke/evidence_workflow_guide.py",
+        "tests/python_smoke/dirty_evidence_workflow.py",
     ] {
         if !smoke_run.contains(expected) {
             return Err(anyhow!(
@@ -4910,6 +6339,7 @@ fn ensure_python_install_back_job(
         "hl7v2==${PACKAGE_VERSION}",
         "tests/python_smoke/smoke.py",
         "tests/python_smoke/evidence_workflow_guide.py",
+        "tests/python_smoke/dirty_evidence_workflow.py",
     ] {
         if !run.contains(expected) {
             return Err(anyhow!(
@@ -5581,6 +7011,110 @@ mod tests {
     }
 
     #[test]
+    fn python_venv_executable_uses_platform_path() {
+        let venv = Path::new("proof-venv");
+
+        #[cfg(windows)]
+        assert_eq!(
+            python_executable_in_venv(venv),
+            PathBuf::from("proof-venv")
+                .join("Scripts")
+                .join("python.exe")
+        );
+        #[cfg(not(windows))]
+        assert_eq!(
+            python_executable_in_venv(venv),
+            PathBuf::from("proof-venv").join("bin").join("python")
+        );
+    }
+
+    #[test]
+    fn single_wheel_in_dist_requires_exactly_one_wheel() -> Result<()> {
+        let root = doc_link_temp_root("python-wheel-proof")?;
+        let dist = root.join("dist");
+        fs::create_dir_all(&dist)?;
+
+        match single_wheel_in_dist(&dist) {
+            Ok(_) => return Err(anyhow!("empty dist should not select a wheel")),
+            Err(err) if err.to_string().contains("no wheel found") => {}
+            Err(err) => return Err(anyhow!("unexpected empty dist error: {err}")),
+        }
+
+        let wheel = dist.join("hl7v2-1.5.0-py3-none-any.whl");
+        fs::write(&wheel, [])?;
+        let selected = single_wheel_in_dist(&dist)?;
+        if selected != wheel {
+            return Err(anyhow!(
+                "expected {}, selected {}",
+                wheel.display(),
+                selected.display()
+            ));
+        }
+
+        fs::write(dist.join("hl7v2-1.5.0-cp314-win_amd64.whl"), [])?;
+        match single_wheel_in_dist(&dist) {
+            Ok(_) => return Err(anyhow!("multi-wheel dist should be rejected")),
+            Err(err) if err.to_string().contains("expected exactly one wheel") => {}
+            Err(err) => return Err(anyhow!("unexpected multi-wheel dist error: {err}")),
+        }
+
+        remove_doc_link_temp_root(&root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn python_local_wheel_root_resolves_relative_to_workspace_root() -> Result<()> {
+        let workspace_root = doc_link_temp_root("python-wheel-proof-workspace")?;
+        let requested = PathBuf::from("target/hl7v2-python-proof-test");
+        let expected = workspace_root.join(&requested);
+        let actual = prepare_python_local_wheel_root(Some(requested), false, &workspace_root)?;
+
+        if actual != expected {
+            return Err(anyhow!(
+                "expected proof root {}, got {}",
+                expected.display(),
+                actual.display()
+            ));
+        }
+        if !actual.exists() {
+            return Err(anyhow!(
+                "proof root should be created at {}",
+                actual.display()
+            ));
+        }
+
+        remove_doc_link_temp_root(&workspace_root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn recreate_dir_removes_previous_contents() -> Result<()> {
+        let root = doc_link_temp_root("python-wheel-proof-recreate")?;
+        let proof_dir = root.join("venv");
+        let stale_file = proof_dir.join("stale.txt");
+        fs::create_dir_all(&proof_dir)?;
+        fs::write(&stale_file, "stale")?;
+
+        recreate_dir(&proof_dir)?;
+
+        if !proof_dir.exists() {
+            return Err(anyhow!(
+                "proof dir should be recreated at {}",
+                proof_dir.display()
+            ));
+        }
+        if stale_file.exists() {
+            return Err(anyhow!(
+                "recreated proof dir retained stale file {}",
+                stale_file.display()
+            ));
+        }
+
+        remove_doc_link_temp_root(&root)?;
+        Ok(())
+    }
+
+    #[test]
     fn publish_order_uses_workspace_dependency_order() -> Result<()> {
         let ordered = publish_order(None)?;
 
@@ -5917,6 +7451,380 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
     }
 
     #[test]
+    fn evidence_parity_policy_covers_checked_in_manifest() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+
+        check_evidence_parity_manifest_text(&text)
+    }
+
+    #[test]
+    fn evidence_parity_policy_rejects_public_python_registry_overclaim() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replacen(
+            "python = \"local-wheel-only\"",
+            "python = \"PyPI-released\"",
+            1,
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject public Python registry overclaims"
+            )),
+            Err(err)
+                if err.to_string().contains("python state")
+                    && err.to_string().contains("public registry claim") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_rejects_unknown_contract_state() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replacen("rest = \"stable\"", "rest = \"stable-for-magic\"", 1);
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject unknown contract state vocabulary"
+            )),
+            Err(err)
+                if err.to_string().contains("allowed vocabulary")
+                    && err.to_string().contains("stable-for-magic") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_rejects_unknown_proof_references() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replacen(
+            "\"cargo test -p hl7v2 --all-features\",",
+            "\"not-a-proof-command\",",
+            1,
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject unknown proof references"
+            )),
+            Err(err)
+                if err.to_string().contains("proof entry")
+                    && err.to_string().contains("not-a-proof-command") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_rest_parse_and_redaction_proofs() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text
+            .replace(
+                "\"cargo test -p hl7v2-server --test parse_endpoint_test\",",
+                "\"cargo test -p hl7v2-server --test missing_parse_endpoint_test\",",
+            )
+            .replace(
+                "\"cargo test -p hl7v2-server --test validate_redacted_endpoint_test\",",
+                "\"cargo test -p hl7v2-server --test missing_validate_redacted_endpoint_test\",",
+            );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject missing REST parse/redaction proof commands"
+            )),
+            Err(err)
+                if err.to_string().contains("parse_endpoint_test")
+                    || err.to_string().contains("validate_redacted_endpoint_test") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_schema_version_fixture() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "fixture_family = \"test_data/evidence/schema-version-parity.json\"",
+            "fixture_family = \"test_data/evidence/old-schema-version-fixture.json\"",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing schema-version fixture family"
+            )),
+            Err(err) if err.to_string().contains("schema-version-parity.json") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_schema_version_proofs() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked\",",
+            "\"cargo test -p hl7v2-cli --test integration_tests test_old_schema_version_two --locked\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject missing schema-version proof commands"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("test_validate_sample_json_schema_version_two") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_schema_version_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-schema-version-parity\",",
+            "\"cargo run -p xtask -- old-schema-version-parity\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing schema-version runner"
+            )),
+            Err(err) if err.to_string().contains("check-schema-version-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_safe_error_phi_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-safe-error-phi-parity\",",
+            "\"cargo run -p xtask -- old-safe-error-phi-parity\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing safe-error/PHI runner"
+            )),
+            Err(err) if err.to_string().contains("check-safe-error-phi-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_dirty_corpus_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-dirty-corpus-parity\",",
+            "\"cargo run -p xtask -- old-dirty-corpus-parity\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing dirty-corpus runner"
+            )),
+            Err(err) if err.to_string().contains("check-dirty-corpus-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_dirty_workflow_proof() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo test -p hl7v2-cli --test integration_tests test_dirty_real_world_validate_redact_bundle_replay_workflow\",",
+            "\"cargo test -p hl7v2-cli --test integration_tests test_old_dirty_real_world_workflow\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing dirty workflow proof"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("test_dirty_real_world_validate_redact_bundle_replay_workflow") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_rest_dirty_workflow_proof() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo test -p hl7v2-server --test replay_endpoint_test test_rest_dirty_real_world_validate_redact_bundle_replay_workflow\",",
+            "\"cargo test -p hl7v2-server --test replay_endpoint_test test_old_rest_dirty_real_world_workflow\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing REST dirty workflow proof"
+            )),
+            Err(err)
+                if err.to_string().contains(
+                    "test_rest_dirty_real_world_validate_redact_bundle_replay_workflow",
+                ) =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_grpc_dirty_workflow_proof() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow\",",
+            "\"cargo test -p hl7v2-server --test grpc_contract_tests test_old_grpc_dirty_real_world_workflow\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing gRPC dirty workflow proof"
+            )),
+            Err(err)
+                if err.to_string().contains(
+                    "test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow",
+                ) =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_bundle_replay_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-bundle-replay-parity\",",
+            "\"cargo run -p xtask -- old-bundle-replay-parity\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing bundle/replay runner"
+            )),
+            Err(err) if err.to_string().contains("check-bundle-replay-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_acceptance_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-evidence-parity-acceptance\",",
+            "\"cargo run -p xtask -- old-evidence-parity-acceptance\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing acceptance runner"
+            )),
+            Err(err) if err.to_string().contains("check-evidence-parity-acceptance") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_rejects_missing_required_contract() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "id = \"safe-error-shape\"",
+            "id = \"safe-error-shape-renamed\"",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject missing required contracts"
+            )),
+            Err(err) if err.to_string().contains("safe-error-shape") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
     fn hl7v2_python_manifest_policy_rejects_generic_description() -> Result<()> {
         let manifest = r#"
 [package]
@@ -6027,6 +7935,75 @@ bindings = "pyo3"
                 Ok(())
             }
             Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_missing_dirty_evidence_smoke() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace("python tests/python_smoke/dirty_evidence_workflow.py", "");
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject workflows without dirty evidence smoke"
+            )),
+            Err(err)
+                if err.to_string().contains("local wheel proof step")
+                    && err.to_string().contains("dirty_evidence_workflow.py") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_covers_python_wheels_workflow() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
+
+        check_python_wheels_workflow_text(&workflow)
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_python_wheels_missing_dirty_smoke() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
+        let broken = workflow.replace(
+            "python tests/python_smoke/dirty_evidence_workflow.py",
+            "python tests/python_smoke/smoke.py",
+        );
+        if broken == workflow {
+            return Err(anyhow!(
+                "test setup should remove the Python Wheels dirty evidence smoke command"
+            ));
+        }
+
+        match check_python_wheels_workflow_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject Python Wheels without dirty evidence smoke"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("Run Python dirty evidence workflow smoke test") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected Python Wheels policy error: {err}")),
         }
     }
 

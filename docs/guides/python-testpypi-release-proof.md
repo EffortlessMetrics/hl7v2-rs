@@ -48,12 +48,7 @@ cargo run -p xtask -- check-python-publish-policy
 Then run the local wheel proof:
 
 ```powershell
-python -m pip install --upgrade pip "maturin==1.13.1"
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
-maturin build --release --out dist
-python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
-python tests\python_smoke\smoke.py
-python tests\python_smoke\evidence_workflow_guide.py
+cargo +1.95.0 run -p xtask -- python-local-wheel-proof
 ```
 
 Expected result:
@@ -61,6 +56,13 @@ Expected result:
 ```text
 hl7v2 smoke ok version=<version> segments=2
 ```
+
+The command creates a scratch virtual environment, builds the `hl7v2` wheel with
+maturin, installs that wheel, imports `hl7v2`, and runs
+`tests/python_smoke/smoke.py`, `tests/python_smoke/evidence_workflow_guide.py`,
+and `tests/python_smoke/dirty_evidence_workflow.py`.
+It is a local wheel proof only; TestPyPI success still requires upload and
+install-back from TestPyPI.
 
 ## Manual TestPyPI Proof
 
@@ -73,8 +75,8 @@ publish_to_testpypi = false
 ```
 
 This builds the wheel, installs it into a fresh virtual environment, runs the
-Python smoke test plus the evidence workflow guide, and uploads the wheel as a
-short-retention artifact. It does not publish.
+Python smoke test, evidence workflow guide, and dirty evidence workflow smoke,
+and uploads the wheel as a short-retention artifact. It does not publish.
 
 The current hosted non-publishing proof passed on `main` after the v1.5.0
 release and public `hl7v2` package retarget; see
@@ -100,8 +102,9 @@ This does three things:
 1. Builds and smoke-tests the wheel.
 2. Publishes the wheel to TestPyPI using Trusted Publishing.
 3. Installs `hl7v2==<workspace version>` back from TestPyPI in a fresh
-   virtual environment and reruns `tests/python_smoke/smoke.py` plus
-   `tests/python_smoke/evidence_workflow_guide.py`.
+   virtual environment and reruns `tests/python_smoke/smoke.py`,
+   `tests/python_smoke/evidence_workflow_guide.py`, and
+   `tests/python_smoke/dirty_evidence_workflow.py`.
 
 TestPyPI does not allow overwriting an existing file for the same version. If
 the upload fails because the version already exists, stop and choose a new
@@ -117,8 +120,9 @@ A TestPyPI proof is complete only when all of these are true:
 - The manual workflow with `publish_to_testpypi=true` uploads the current
   version to TestPyPI.
 - The install-back job installs from `https://test.pypi.org/simple/` and runs
-  `tests/python_smoke/smoke.py` plus
-  `tests/python_smoke/evidence_workflow_guide.py` successfully.
+  `tests/python_smoke/smoke.py`,
+  `tests/python_smoke/evidence_workflow_guide.py`, and
+  `tests/python_smoke/dirty_evidence_workflow.py` successfully.
 
 This is still not a production PyPI release. Treat it as packaging evidence for
 the separate Python lane. A crates.io binding-backend publish, if later
@@ -133,6 +137,11 @@ public package `hl7v2`. A 2026-05-10 publishing-mode run from `main` built and
 smoke-tested the wheel, then failed during Trusted Publishing token exchange
 with `invalid-publisher`; see
 [docs/audits/python-testpypi-publish-attempt-2026-05-10.md](../audits/python-testpypi-publish-attempt-2026-05-10.md).
+A 2026-05-17 publishing-mode run from current `main` after the v1.5.0 release
+and the connect-timeout test fix again built and smoke-tested the wheel
+successfully, then failed at the same Trusted Publishing exchange boundary with
+`repo:EffortlessMetrics/hl7v2-rs:environment:testpypi`; see
+[docs/audits/python-testpypi-publish-attempt-2026-05-17.md](../audits/python-testpypi-publish-attempt-2026-05-17.md).
 The TestPyPI upload/install-back proof remains incomplete until the TestPyPI
 Trusted Publisher is configured for project `hl7v2` and a rerun passes. Track
 the external setup blocker in

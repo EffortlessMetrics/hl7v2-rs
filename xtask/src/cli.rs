@@ -103,8 +103,55 @@ pub(crate) enum Commands {
     CheckDocLinks,
     /// Verify Python TestPyPI/PyPI release workflow safety controls
     CheckPythonPublishPolicy,
+    /// Build, install, and smoke-test the Python hl7v2 wheel in a local venv
+    PythonLocalWheelProof {
+        /// Scratch root for the wheel, venv, and cargo target artifacts
+        #[arg(long)]
+        root: Option<std::path::PathBuf>,
+        /// Python launcher/interpreter used to create the proof virtualenv
+        #[arg(long, default_value = "python")]
+        python: String,
+        /// Rust toolchain used by maturin when building the wheel
+        #[arg(long, default_value = "1.95.0")]
+        rust_toolchain: String,
+        /// Keep the previous scratch root instead of deleting it first
+        #[arg(long)]
+        keep_existing: bool,
+    },
     /// Verify CI lane whitelist: coverage, required fields, expensive-default exceptions
     CheckCiLaneWhitelist,
+    /// Verify cross-surface evidence parity manifest state and non-claim boundaries
+    CheckEvidenceParity,
+    /// Run the local cross-surface evidence parity acceptance suite
+    CheckEvidenceParityAcceptance {
+        /// Also run Python local-wheel smoke checks when hl7v2 is installed
+        #[arg(long)]
+        include_python: bool,
+    },
+    /// Run fixture-backed safe-error and PHI parity acceptance checks
+    CheckSafeErrorPhiParity {
+        /// Also run Python local-wheel smoke checks when hl7v2 is installed
+        #[arg(long)]
+        include_python: bool,
+    },
+    /// Run fixture-backed schema-version parity acceptance checks
+    CheckSchemaVersionParity {
+        /// Also run Python local-wheel smoke checks when hl7v2 is installed
+        #[arg(long)]
+        include_python: bool,
+    },
+    /// Run fixture-backed dirty-corpus parity acceptance checks
+    CheckDirtyCorpusParity {
+        /// Also run Python local-wheel smoke checks when hl7v2 is installed
+        #[arg(long)]
+        include_python: bool,
+    },
+    /// Run bundle/replay parity acceptance checks
+    CheckBundleReplayParity {
+        /// Also run Python local-wheel smoke checks when hl7v2 is installed
+        #[arg(long)]
+        include_python: bool,
+    },
     /// Validate checked-in evidence fixtures against their JSON schemas
     EvidenceSchemaCheck,
     /// Generate repo-scoped public badge endpoint JSON

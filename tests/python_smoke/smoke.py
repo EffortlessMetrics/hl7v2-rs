@@ -10,85 +10,41 @@ from pathlib import Path
 import hl7v2
 
 
-PHI_LEAK_SENTINEL_MESSAGE = (
-    "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\r"
-    "PID|1||MRN-777-ALPHA^^^HOSP^MR||Signal^Patricia||19661224|M|||742 Evergreen Terrace||5558675309\r"
-    "NK1|1|Watcher^Nora||900 Support Way|5550001234\r"
-    "OBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r"
+SECURITY_FIXTURE = json.loads(
+    (
+        Path(__file__).resolve().parents[2]
+        / "test_data"
+        / "security"
+        / "safe-error-phi-parity.json"
+    ).read_text(encoding="utf-8")
+)
+SCHEMA_VERSION_FIXTURE = json.loads(
+    (
+        Path(__file__).resolve().parents[2]
+        / "test_data"
+        / "evidence"
+        / "schema-version-parity.json"
+    ).read_text(encoding="utf-8")
 )
 
-PHI_LEAK_SENTINEL_POLICY = """
-[[rules]]
-path = "PID.3"
-action = "hash"
-reason = "Patient identifier"
-
-[[rules]]
-path = "PID.5"
-action = "drop"
-reason = "Patient name"
-
-[[rules]]
-path = "PID.7"
-action = "drop"
-reason = "Date of birth"
-
-[[rules]]
-path = "PID.11"
-action = "drop"
-reason = "Patient address"
-
-[[rules]]
-path = "PID.13"
-action = "drop"
-reason = "Patient phone"
-
-[[rules]]
-path = "NK1.2"
-action = "drop"
-reason = "Next-of-kin name"
-
-[[rules]]
-path = "NK1.4"
-action = "drop"
-reason = "Next-of-kin address"
-
-[[rules]]
-path = "NK1.5"
-action = "drop"
-reason = "Next-of-kin phone"
-
-[[rules]]
-path = "MSH.9"
-action = "retain"
-reason = "Message type is needed for analysis"
-
-[[rules]]
-path = "MSH.10"
-action = "retain"
-reason = "Control id is needed for replay correlation"
-
-[[rules]]
-path = "OBX.3"
-action = "retain"
-reason = "Observation identifier is needed for analysis"
-
-[[rules]]
-path = "OBX.5"
-action = "retain"
-reason = "Synthetic observation value shape is needed for analysis"
-"""
-
-PHI_LEAK_SENTINELS = (
-    ("patient name", "Signal^Patricia"),
-    ("MRN", "MRN-777-ALPHA^^^HOSP^MR"),
-    ("date of birth", "19661224"),
-    ("address", "742 Evergreen Terrace"),
-    ("phone", "5558675309"),
-    ("next-of-kin name", "Watcher^Nora"),
-    ("next-of-kin address", "900 Support Way"),
-    ("next-of-kin phone", "5550001234"),
+PHI_LEAK_SENTINEL_MESSAGE = SECURITY_FIXTURE["phi"]["message"]
+PHI_LEAK_SENTINEL_POLICY = SECURITY_FIXTURE["phi"]["policy"]
+RAW_INPUT_FILE_SENTINEL = SECURITY_FIXTURE["phi"]["raw_input_file"]
+RAW_POLICY_FILE_SENTINEL = SECURITY_FIXTURE["phi"]["raw_policy_file"]
+PHI_LEAK_SENTINELS = tuple(
+    (f"manifest forbidden value {index}", value)
+    for index, value in enumerate(SECURITY_FIXTURE["phi"]["forbidden"], start=1)
 )
+V2_REPORT_SCHEMA_VERSION = SCHEMA_VERSION_FIXTURE["v2_report_schema_version"]
+EXPECTED_V2_SCHEMA_VERSION = SCHEMA_VERSION_FIXTURE["expected_v2_schema_version"]
+UNSUPPORTED_REPORT_SCHEMA_VERSION = SCHEMA_VERSION_FIXTURE[
+    "unsupported_report_schema_version"
+]
+UNSUPPORTED_SCHEMA_VERSION_FRAGMENT = SCHEMA_VERSION_FIXTURE[
+    "unsupported_error_contains"
+]
+PYTHON_TOOL_NAME = SCHEMA_VERSION_FIXTURE["tool_names"]["python"]
+VALIDATION_SCHEMA_FIXTURE = SCHEMA_VERSION_FIXTURE["validation"]
 
 
 def assert_no_phi_leak_sentinels(context: str, content: str) -> None:
@@ -107,7 +63,7 @@ def assert_no_phi_leak_sentinels_or_paths(
         path_text = str(path)
         if path_text in content:
             raise AssertionError(f"{context} leaked local path: {path_text}")
-    for file_name in ("raw-phi-input-sentinel.hl7", "raw-policy-sentinel.toml"):
+    for file_name in (RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL):
         if file_name in content:
             raise AssertionError(f"{context} leaked raw fixture file name: {file_name}")
 
@@ -274,18 +230,38 @@ constraints:
     if profile_lint["valid"] is not True or profile_lint["issue_count"] != 0:
         print(f"unexpected profile lint report: {profile_lint}", file=sys.stderr)
         return 1
-    profile_lint_v2 = hl7v2.profile_lint(profile_yaml, schema_version=2)
+    invalid_profile_yaml = SECURITY_FIXTURE["invalid_profile"]["yaml"]
+    invalid_profile_lint = hl7v2.profile_lint(invalid_profile_yaml)
+    if invalid_profile_lint["valid"] is not False:
+        print(
+            f"expected invalid profile lint report to fail: {invalid_profile_lint}",
+            file=sys.stderr,
+        )
+        return 1
+    invalid_profile_text = json.dumps(invalid_profile_lint, sort_keys=True)
+    for forbidden in SECURITY_FIXTURE["invalid_profile"]["forbidden"]:
+        if forbidden in invalid_profile_text:
+            print(
+                f"Python profile lint safe error leaked manifest value: {forbidden}",
+                file=sys.stderr,
+            )
+            return 1
+    profile_lint_v2 = hl7v2.profile_lint(
+        profile_yaml, schema_version=V2_REPORT_SCHEMA_VERSION
+    )
     if (
-        profile_lint_v2["schema_version"] != "2"
-        or profile_lint_v2["tool_name"] != "hl7v2-python"
+        profile_lint_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+        or profile_lint_v2["tool_name"] != PYTHON_TOOL_NAME
         or profile_lint_v2["valid"] is not True
     ):
         print(f"unexpected profile lint v2 report: {profile_lint_v2}", file=sys.stderr)
         return 1
     try:
-        hl7v2.profile_lint(profile_yaml, schema_version=3)
+        hl7v2.profile_lint(
+            profile_yaml, schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION
+        )
     except ValueError as exc:
-        if "schema_version must be 1 or 2" not in str(exc):
+        if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
             print(f"unexpected profile lint schema failure: {exc}", file=sys.stderr)
             return 1
     else:
@@ -307,19 +283,21 @@ constraints:
     profile_explain_v2 = hl7v2.profile_explain(
         profile_yaml,
         profile_name="profiles/adt_a01.yaml",
-        schema_version=2,
+        schema_version=V2_REPORT_SCHEMA_VERSION,
     )
     if (
-        profile_explain_v2["schema_version"] != "2"
-        or profile_explain_v2["tool_name"] != "hl7v2-python"
+        profile_explain_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+        or profile_explain_v2["tool_name"] != PYTHON_TOOL_NAME
         or profile_explain_v2["profile"] != "profiles/adt_a01.yaml"
     ):
         print(f"unexpected profile explain v2 report: {profile_explain_v2}", file=sys.stderr)
         return 1
     try:
-        hl7v2.profile_explain(profile_yaml, schema_version=3)
+        hl7v2.profile_explain(
+            profile_yaml, schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION
+        )
     except ValueError as exc:
-        if "schema_version must be 1 or 2" not in str(exc):
+        if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
             print(f"unexpected profile explain schema failure: {exc}", file=sys.stderr)
             return 1
     else:
@@ -394,11 +372,11 @@ constraints:
             profile_yaml,
             str(fixture_root),
             profile_name="profiles/adt_a01.yaml",
-            schema_version=2,
+            schema_version=V2_REPORT_SCHEMA_VERSION,
         )
         if (
-            profile_test_v2["schema_version"] != "2"
-            or profile_test_v2["tool_name"] != "hl7v2-python"
+            profile_test_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or profile_test_v2["tool_name"] != PYTHON_TOOL_NAME
             or profile_test_v2["valid"] is not True
         ):
             print(f"unexpected profile test v2 report: {profile_test_v2}", file=sys.stderr)
@@ -411,9 +389,13 @@ constraints:
             print("profile test v2 report leaked caller profile path", file=sys.stderr)
             return 1
         try:
-            hl7v2.profile_test(profile_yaml, str(fixture_root), schema_version=3)
+            hl7v2.profile_test(
+                profile_yaml,
+                str(fixture_root),
+                schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION,
+            )
         except ValueError as exc:
-            if "schema_version must be 1 or 2" not in str(exc):
+            if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
                 print(f"unexpected profile test schema failure: {exc}", file=sys.stderr)
                 return 1
         else:
@@ -438,24 +420,25 @@ constraints:
     if report_json["message_type"] != "ADT^A01":
         print("validation report JSON did not preserve message_type", file=sys.stderr)
         return 1
-    report_v2 = report.to_dict(2)
+    report_v2 = report.to_dict(V2_REPORT_SCHEMA_VERSION)
     if (
-        report_v2["schema_version"] != "2"
-        or report_v2["tool_name"] != "hl7v2-python"
+        report_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+        or report_v2["tool_name"] != PYTHON_TOOL_NAME
         or report_v2["profile_identity"]["label"] != "<inline-profile>"
-        or report_v2["profile_identity"]["message_structure"] != "ADT_A01"
+        or report_v2["profile_identity"]["message_structure"]
+        != VALIDATION_SCHEMA_FIXTURE["profile_label"]
         or len(report_v2["profile_identity"]["sha256"]) != 64
     ):
         print(f"validation report v2 did not preserve provenance: {report_v2}", file=sys.stderr)
         return 1
-    report_v2_json = json.loads(report.to_json(2))
-    if report_v2_json["schema_version"] != "2":
+    report_v2_json = json.loads(report.to_json(V2_REPORT_SCHEMA_VERSION))
+    if report_v2_json["schema_version"] != EXPECTED_V2_SCHEMA_VERSION:
         print("validation report v2 JSON did not preserve schema_version", file=sys.stderr)
         return 1
     try:
-        report.to_dict(3)
+        report.to_dict(UNSUPPORTED_REPORT_SCHEMA_VERSION)
     except ValueError as exc:
-        if "schema_version must be 1 or 2" not in str(exc):
+        if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
             print(f"unexpected schema version failure: {exc}", file=sys.stderr)
             return 1
     else:
@@ -508,19 +491,23 @@ constraints:
         if summary["message_types"][0] != {"value": "ADT^A01", "count": 1}:
             print(f"unexpected corpus message type counts: {summary}", file=sys.stderr)
             return 1
-        summary_v2 = hl7v2.corpus_summary(str(before), schema_version=2)
+        summary_v2 = hl7v2.corpus_summary(
+            str(before), schema_version=V2_REPORT_SCHEMA_VERSION
+        )
         if (
-            summary_v2["schema_version"] != "2"
-            or summary_v2["tool_name"] != "hl7v2-python"
+            summary_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or summary_v2["tool_name"] != PYTHON_TOOL_NAME
             or summary_v2["tool_version"] != hl7v2.__version__
             or summary_v2["message_count"] != 1
         ):
             print(f"unexpected summary v2 provenance: {summary_v2}", file=sys.stderr)
             return 1
         try:
-            hl7v2.corpus_summary(str(before), schema_version=3)
+            hl7v2.corpus_summary(
+                str(before), schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION
+            )
         except ValueError as exc:
-            if "schema_version must be 1 or 2" not in str(exc):
+            if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
                 print(f"unexpected summary schema version failure: {exc}", file=sys.stderr)
                 return 1
         else:
@@ -550,20 +537,22 @@ constraints:
         fingerprint_v2 = hl7v2.corpus_fingerprint(
             str(before),
             profile_yaml=failing_profile_yaml,
-            schema_version=2,
+            schema_version=V2_REPORT_SCHEMA_VERSION,
         )
         if (
-            fingerprint_v2["schema_version"] != "2"
-            or fingerprint_v2["tool_name"] != "hl7v2-python"
+            fingerprint_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or fingerprint_v2["tool_name"] != PYTHON_TOOL_NAME
             or fingerprint_v2["fingerprint_version"] != "1"
             or fingerprint_v2["profile"]["path"] != "<inline-profile>"
         ):
             print(f"unexpected fingerprint v2 provenance: {fingerprint_v2}", file=sys.stderr)
             return 1
         try:
-            hl7v2.corpus_fingerprint(str(before), schema_version=3)
+            hl7v2.corpus_fingerprint(
+                str(before), schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION
+            )
         except ValueError as exc:
-            if "schema_version must be 1 or 2" not in str(exc):
+            if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
                 print(f"unexpected fingerprint schema version failure: {exc}", file=sys.stderr)
                 return 1
         else:
@@ -598,20 +587,22 @@ constraints:
             str(before),
             str(after),
             profile_yaml=failing_profile_yaml,
-            schema_version=2,
+            schema_version=V2_REPORT_SCHEMA_VERSION,
         )
         if (
-            diff_v2["schema_version"] != "2"
-            or diff_v2["tool_name"] != "hl7v2-python"
+            diff_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or diff_v2["tool_name"] != PYTHON_TOOL_NAME
             or diff_v2["diff_version"] != "1"
             or diff_v2["message_count"]["delta"] != 1
         ):
             print(f"unexpected diff v2 provenance: {diff_v2}", file=sys.stderr)
             return 1
         try:
-            hl7v2.corpus_diff(str(before), str(after), schema_version=3)
+            hl7v2.corpus_diff(
+                str(before), str(after), schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION
+            )
         except ValueError as exc:
-            if "schema_version must be 1 or 2" not in str(exc):
+            if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
                 print(f"unexpected diff schema version failure: {exc}", file=sys.stderr)
                 return 1
         else:
@@ -630,10 +621,12 @@ constraints:
             dirty_after,
         )
 
-        dirty_summary = hl7v2.corpus_summary(str(dirty_after), schema_version=2)
+        dirty_summary = hl7v2.corpus_summary(
+            str(dirty_after), schema_version=V2_REPORT_SCHEMA_VERSION
+        )
         if (
-            dirty_summary["schema_version"] != "2"
-            or dirty_summary["tool_name"] != "hl7v2-python"
+            dirty_summary["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or dirty_summary["tool_name"] != PYTHON_TOOL_NAME
             or dirty_summary["message_count"] != 4
             or dirty_summary["file_count"] != 6
             or dirty_summary["parse_error_count"] != 2
@@ -661,10 +654,12 @@ constraints:
             )
             return 1
 
-        dirty_fingerprint = hl7v2.corpus_fingerprint(str(dirty_after), schema_version=2)
+        dirty_fingerprint = hl7v2.corpus_fingerprint(
+            str(dirty_after), schema_version=V2_REPORT_SCHEMA_VERSION
+        )
         if (
-            dirty_fingerprint["schema_version"] != "2"
-            or dirty_fingerprint["tool_name"] != "hl7v2-python"
+            dirty_fingerprint["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or dirty_fingerprint["tool_name"] != PYTHON_TOOL_NAME
             or dirty_fingerprint["fingerprint_version"] != "1"
             or dirty_fingerprint["message_count"] != 4
             or dirty_fingerprint["file_count"] != 6
@@ -699,11 +694,11 @@ constraints:
         dirty_diff = hl7v2.corpus_diff(
             str(dirty_before),
             str(dirty_after),
-            schema_version=2,
+            schema_version=V2_REPORT_SCHEMA_VERSION,
         )
         if (
-            dirty_diff["schema_version"] != "2"
-            or dirty_diff["tool_name"] != "hl7v2-python"
+            dirty_diff["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or dirty_diff["tool_name"] != PYTHON_TOOL_NAME
             or dirty_diff["diff_version"] != "1"
             or dirty_diff["file_count"]["before"] != 2
             or dirty_diff["file_count"]["after"] != 6
@@ -780,14 +775,16 @@ constraints:
         print(f"unexpected redaction actions: {receipt}", file=sys.stderr)
         return 1
 
-    redaction_v2 = hl7v2.redact(phi_raw, redaction_policy, schema_version=2)
+    redaction_v2 = hl7v2.redact(
+        phi_raw, redaction_policy, schema_version=V2_REPORT_SCHEMA_VERSION
+    )
     receipt_v2 = redaction_v2["receipt"]
     if (
-        redaction_v2["schema_version"] != "2"
-        or redaction_v2["tool_name"] != "hl7v2-python"
+        redaction_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+        or redaction_v2["tool_name"] != PYTHON_TOOL_NAME
         or redaction_v2["tool_version"] != hl7v2.__version__
-        or receipt_v2["schema_version"] != "2"
-        or receipt_v2["tool_name"] != "hl7v2-python"
+        or receipt_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+        or receipt_v2["tool_name"] != PYTHON_TOOL_NAME
         or receipt_v2["tool_version"] != hl7v2.__version__
         or receipt_v2["phi_removed"] is not True
         or receipt_v2["hash_algorithm"] != "sha256"
@@ -807,9 +804,13 @@ constraints:
         print(str(exc), file=sys.stderr)
         return 1
     try:
-        hl7v2.redact(phi_raw, redaction_policy, schema_version=3)
+        hl7v2.redact(
+            phi_raw,
+            redaction_policy,
+            schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION,
+        )
     except ValueError as exc:
-        if "schema_version must be 1 or 2" not in str(exc):
+        if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
             print(f"unexpected redaction schema version failure: {exc}", file=sys.stderr)
             return 1
     else:
@@ -867,11 +868,11 @@ reason = "Patient identifier"
             profile_yaml,
             redaction_policy,
             str(bundle_v2_dir),
-            schema_version=2,
+            schema_version=V2_REPORT_SCHEMA_VERSION,
         )
         if (
-            bundle_v2["schema_version"] != "2"
-            or bundle_v2["tool_name"] != "hl7v2-python"
+            bundle_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or bundle_v2["tool_name"] != PYTHON_TOOL_NAME
             or "tool_version" not in bundle_v2
             or bundle_v2["bundle_version"] != "1"
         ):
@@ -887,8 +888,8 @@ reason = "Patient identifier"
                 (bundle_v2_dir / artifact).read_text(encoding="utf-8")
             )
             if (
-                artifact_json["schema_version"] != "2"
-                or artifact_json["tool_name"] != "hl7v2-python"
+                artifact_json["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+                or artifact_json["tool_name"] != PYTHON_TOOL_NAME
             ):
                 print(
                     f"unexpected bundle v2 artifact {artifact}: {artifact_json}",
@@ -902,10 +903,10 @@ reason = "Patient identifier"
                 profile_yaml,
                 redaction_policy,
                 str(Path(tmp) / "bad-schema-bundle"),
-                schema_version=3,
+                schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION,
             )
         except ValueError as exc:
-            if "schema_version must be 1 or 2" not in str(exc):
+            if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
                 print(f"unexpected bundle schema failure: {exc}", file=sys.stderr)
                 return 1
         else:
@@ -913,16 +914,16 @@ reason = "Patient identifier"
             return 1
 
         manifest = json.loads((bundle_dir / "manifest.json").read_text(encoding="utf-8"))
-        if manifest["tool_name"] != "hl7v2-python":
+        if manifest["tool_name"] != PYTHON_TOOL_NAME:
             print(f"unexpected bundle manifest tool: {manifest}", file=sys.stderr)
             return 1
         environment = json.loads((bundle_dir / "environment.json").read_text(encoding="utf-8"))
-        if environment["tool_name"] != "hl7v2-python":
+        if environment["tool_name"] != PYTHON_TOOL_NAME:
             print(f"unexpected bundle environment tool: {environment}", file=sys.stderr)
             return 1
 
         replay = hl7v2.replay(str(bundle_dir))
-        if replay["reproduced"] is not True or replay["tool_name"] != "hl7v2-python":
+        if replay["reproduced"] is not True or replay["tool_name"] != PYTHON_TOOL_NAME:
             print(f"unexpected replay report: {replay}", file=sys.stderr)
             return 1
         replay_checks = {item["name"]: item["status"] for item in replay["checks"]}
@@ -930,19 +931,23 @@ reason = "Patient identifier"
             print(f"replay did not verify manifest hashes: {replay}", file=sys.stderr)
             return 1
 
-        replay_v2 = hl7v2.replay(str(bundle_dir), schema_version=2)
+        replay_v2 = hl7v2.replay(
+            str(bundle_dir), schema_version=V2_REPORT_SCHEMA_VERSION
+        )
         if (
-            replay_v2["schema_version"] != "2"
-            or replay_v2["tool_name"] != "hl7v2-python"
+            replay_v2["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
+            or replay_v2["tool_name"] != PYTHON_TOOL_NAME
             or replay_v2["replay_version"] != "1"
             or replay_v2["reproduced"] is not True
         ):
             print(f"unexpected replay v2 report: {replay_v2}", file=sys.stderr)
             return 1
         try:
-            hl7v2.replay(str(bundle_dir), schema_version=3)
+            hl7v2.replay(
+                str(bundle_dir), schema_version=UNSUPPORTED_REPORT_SCHEMA_VERSION
+            )
         except ValueError as exc:
-            if "schema_version must be 1 or 2" not in str(exc):
+            if UNSUPPORTED_SCHEMA_VERSION_FRAGMENT not in str(exc):
                 print(f"unexpected replay schema failure: {exc}", file=sys.stderr)
                 return 1
         else:
@@ -1012,11 +1017,25 @@ reason = "Patient identifier"
             print("expected existing bundle directory to fail closed", file=sys.stderr)
             return 1
 
+    malformed = SECURITY_FIXTURE["malformed_message"]["message"]
     try:
-        hl7v2.parse("not an hl7 message")
+        hl7v2.parse(malformed)
     except ValueError as exc:
-        if "Parse error" not in str(exc):
+        error_text = str(exc)
+        if "Parse error" not in error_text:
             print(f"parse error did not include stable context: {exc}", file=sys.stderr)
+            return 1
+        for expected in SECURITY_FIXTURE["malformed_message"]["expected_error_substrings"]:
+            if expected not in error_text:
+                print(
+                    f"parse error omitted expected safe context {expected!r}: {exc}",
+                    file=sys.stderr,
+                )
+                return 1
+        try:
+            assert_no_phi_leak_sentinels("Python parse safe error", error_text)
+        except AssertionError as safe_error:
+            print(str(safe_error), file=sys.stderr)
             return 1
     else:
         print("expected invalid HL7 parse to raise ValueError", file=sys.stderr)

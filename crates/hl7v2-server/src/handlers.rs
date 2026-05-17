@@ -18,6 +18,7 @@ mod metadata;
 mod parsing;
 mod quarantine;
 mod schema_versions;
+mod validation;
 
 use ack_policy::*;
 use corpus::*;
@@ -28,6 +29,7 @@ use metadata::joined_components;
 use parsing::*;
 use quarantine::*;
 use schema_versions::*;
+use validation::*;
 
 /// Handler for GET /health
 pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -114,16 +116,14 @@ pub async fn validate_handler(
 
     // Load the profile before validation. Profile load failures are client
     // errors, not successful validation results.
-    let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
-
-    // Perform validation using the profile
-    let issues = hl7v2::validate(&message, &profile);
-    let report = hl7v2::ValidationReport::from_issues(
+    let validation = validate_message_with_profile(
         &message,
-        Some(profile.message_structure.clone()),
-        issues.clone(),
-    );
-    crate::metrics::record_validation_result(crate::metrics::operation::VALIDATE, report.valid);
+        &request.profile,
+        crate::metrics::operation::VALIDATE,
+        |profile| Some(profile.message_structure.clone()),
+    )?;
+    let profile = validation.profile;
+    let report = validation.report;
     let validation_report_v2 = (report_schema_version == 2)
         .then(|| validation_report_v2_for_server(&report, &request.profile, &profile));
 
@@ -142,33 +142,7 @@ pub async fn validate_handler(
     );
 
     // Preserve legacy error/warning arrays while exposing the shared report issues.
-    let mut errors = Vec::new();
-    let mut warnings = Vec::new();
-
-    for issue in issues {
-        let severity = match issue.severity {
-            hl7v2::Severity::Error => ErrorSeverity::Error,
-            hl7v2::Severity::Warning => ErrorSeverity::Warning,
-        };
-
-        let validation_item = ValidationError {
-            code: issue.code,
-            message: issue.detail,
-            location: issue.path,
-            severity,
-        };
-
-        match issue.severity {
-            hl7v2::Severity::Error => errors.push(validation_item),
-            hl7v2::Severity::Warning => {
-                warnings.push(ValidationWarning {
-                    code: validation_item.code,
-                    message: validation_item.message,
-                    location: validation_item.location,
-                });
-            }
-        }
-    }
+    let (errors, warnings) = legacy_validation_items(validation.issues);
 
     let response = ValidateResponse {
         valid: report.valid,
@@ -211,17 +185,14 @@ pub async fn validate_redacted_handler(
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
         .map_err(|error| AppError::Internal(format!("redacted message was not UTF-8: {error}")))?;
 
-    let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
-    let issues = hl7v2::validate(&message, &profile);
-    let validation_report = hl7v2::ValidationReport::from_issues(
+    let validation = validate_message_with_profile(
         &message,
-        Some(profile.message_structure.clone()),
-        issues,
-    );
-    crate::metrics::record_validation_result(
+        &request.profile,
         crate::metrics::operation::VALIDATE_REDACTED,
-        validation_report.valid,
-    );
+        |profile| Some(profile.message_structure.clone()),
+    )?;
+    let profile = validation.profile;
+    let validation_report = validation.report;
     let validation_report_v2 = (report_schema_version == 2)
         .then(|| validation_report_v2_for_server(&validation_report, &request.profile, &profile));
     let redaction_receipt_v2 = (redaction_receipt_schema_version == 2).then(|| receipt.to_v2());
@@ -306,14 +277,14 @@ pub async fn bundle_handler(
     let redacted_hl7 = String::from_utf8(hl7v2::write(&message))
         .map_err(|error| AppError::Internal(format!("redacted message was not UTF-8: {error}")))?;
 
-    let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
-    let issues = hl7v2::validate(&message, &profile);
-    let validation_report =
-        hl7v2::ValidationReport::from_issues(&message, Some("profile.yaml".to_string()), issues);
-    crate::metrics::record_validation_result(
+    let validation = validate_message_with_profile(
+        &message,
+        &request.profile,
         crate::metrics::operation::BUNDLE,
-        validation_report.valid,
-    );
+        |_profile| Some("profile.yaml".to_string()),
+    )?;
+    let profile = validation.profile;
+    let validation_report = validation.report;
 
     let summary =
         crate::evidence::write_evidence_bundle(crate::evidence::EvidenceBundleWriteRequest {
@@ -551,17 +522,13 @@ pub async fn ack_policy_handler(
         crate::metrics::operation::ACK_POLICY,
     ) {
         Ok(message) => {
-            let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
-            let issues = hl7v2::validate(&message, &profile);
-            let report = hl7v2::ValidationReport::from_issues(
+            let validation = validate_message_with_profile(
                 &message,
-                Some(profile.message_structure.clone()),
-                issues,
-            );
-            crate::metrics::record_validation_result(
+                &request.profile,
                 crate::metrics::operation::ACK_POLICY,
-                report.valid,
-            );
+                |profile| Some(profile.message_structure.clone()),
+            )?;
+            let report = validation.report;
             let decision = ack_policy_decision_for_validation(policy, &report)?;
             (message, Some(report), decision)
         }

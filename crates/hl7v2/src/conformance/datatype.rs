@@ -644,3 +644,536 @@ fn parse_fixed_u32(value: &str, len: usize) -> Option<u32> {
     }
     value.parse().ok()
 }
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::expect_used,
+        reason = "inline unit tests use expect with descriptive messages for clarity"
+    )]
+
+    use super::{
+        ChecksumAlgorithm, DataType, DataTypeError, DataTypeValidator, is_address, is_coded_value,
+        is_date, is_email, is_extended_id, is_formatted_text, is_hierarchic_designator,
+        is_identifier, is_numeric, is_person_name, is_phone_number, is_sequence_id, is_ssn,
+        is_string, is_text_data, is_time, is_timestamp, is_valid_age_range, is_valid_birth_date,
+        is_within_range, matches_format, validate_datatype, validate_luhn_checksum,
+        validate_mod10_checksum,
+    };
+
+    // ------------------------------------------------------------------
+    // DataType::parse — covers every dispatcher key including unknown
+    // ------------------------------------------------------------------
+    #[test]
+    fn datatype_parse_recognises_all_codes() {
+        let codes = [
+            ("ST", DataType::ST),
+            ("ID", DataType::ID),
+            ("IS", DataType::IS),
+            ("DT", DataType::DT),
+            ("TM", DataType::TM),
+            ("TS", DataType::TS),
+            ("NM", DataType::NM),
+            ("SI", DataType::SI),
+            ("TX", DataType::TX),
+            ("FT", DataType::FT),
+            ("PN", DataType::PN),
+            ("CX", DataType::CX),
+            ("HD", DataType::HD),
+            ("AD", DataType::AD),
+            ("XTN", DataType::XTN),
+        ];
+        for (code, expected) in codes {
+            assert_eq!(DataType::parse(code), Some(expected), "code {code}");
+        }
+        assert_eq!(DataType::parse("UNKNOWN"), None);
+        assert_eq!(DataType::parse(""), None);
+    }
+
+    // ------------------------------------------------------------------
+    // validate_datatype dispatcher — every match arm
+    // ------------------------------------------------------------------
+    #[test]
+    fn validate_datatype_st_arm() {
+        assert!(validate_datatype("anything", "ST"));
+        assert!(validate_datatype("", "ST"));
+    }
+
+    #[test]
+    fn validate_datatype_id_arm() {
+        assert!(validate_datatype("ABC123", "ID"));
+        assert!(!validate_datatype("ABC\x01", "ID"));
+    }
+
+    #[test]
+    fn validate_datatype_is_arm() {
+        assert!(validate_datatype("CODE", "IS"));
+        assert!(!validate_datatype("\u{80}foo", "IS"));
+    }
+
+    #[test]
+    fn validate_datatype_dt_arm() {
+        assert!(validate_datatype("20250128", "DT"));
+        assert!(!validate_datatype("20251328", "DT"));
+    }
+
+    #[test]
+    fn validate_datatype_tm_arm() {
+        assert!(validate_datatype("1530", "TM"));
+        assert!(!validate_datatype("2470", "TM"));
+    }
+
+    #[test]
+    fn validate_datatype_ts_arm() {
+        assert!(validate_datatype("20250128", "TS"));
+        assert!(!validate_datatype("2025", "TS"));
+    }
+
+    #[test]
+    fn validate_datatype_nm_arm() {
+        assert!(validate_datatype("12.34", "NM"));
+        assert!(validate_datatype("-5", "NM"));
+        assert!(!validate_datatype("abc", "NM"));
+    }
+
+    #[test]
+    fn validate_datatype_si_arm() {
+        assert!(validate_datatype("42", "SI"));
+        assert!(!validate_datatype("0", "SI"));
+        assert!(!validate_datatype("-1", "SI"));
+    }
+
+    #[test]
+    fn validate_datatype_tx_arm() {
+        assert!(validate_datatype("free text", "TX"));
+        assert!(validate_datatype("", "TX"));
+    }
+
+    #[test]
+    fn validate_datatype_ft_arm() {
+        assert!(validate_datatype("formatted", "FT"));
+        assert!(validate_datatype("", "FT"));
+    }
+
+    #[test]
+    fn validate_datatype_pn_arm() {
+        assert!(validate_datatype("Smith^John", "PN"));
+        assert!(!validate_datatype("Smith1", "PN"));
+    }
+
+    #[test]
+    fn validate_datatype_cx_arm() {
+        assert!(validate_datatype("12345^^^HOSP", "CX"));
+        assert!(!validate_datatype("foo\x07", "CX"));
+    }
+
+    #[test]
+    fn validate_datatype_hd_arm() {
+        assert!(validate_datatype("FACILITY.NAME", "HD"));
+        assert!(!validate_datatype("bad\nname", "HD"));
+    }
+
+    #[test]
+    fn validate_datatype_ad_arm() {
+        assert!(validate_datatype("123 Main St", "AD"));
+        assert!(!validate_datatype("ctrl\x01char", "AD"));
+    }
+
+    #[test]
+    fn validate_datatype_xtn_arm() {
+        assert!(validate_datatype("5551234", "XTN"));
+        assert!(!validate_datatype("123", "XTN"));
+    }
+
+    #[test]
+    fn validate_datatype_unknown_arm_returns_true() {
+        // Unknown data types should be assumed valid.
+        assert!(validate_datatype("anything-goes", "ZZZ"));
+        assert!(validate_datatype("", ""));
+    }
+
+    // ------------------------------------------------------------------
+    // is_* primitive validators
+    // ------------------------------------------------------------------
+    #[test]
+    fn is_string_always_true() {
+        assert!(is_string(""));
+        assert!(is_string("hello"));
+        assert!(is_string("\u{1F600}"));
+    }
+
+    #[test]
+    fn is_identifier_accepts_ascii_rejects_control() {
+        assert!(is_identifier("ABC123"));
+        assert!(is_identifier(""));
+        assert!(!is_identifier("ABC\n"));
+        assert!(!is_identifier("ABC\u{80}"));
+    }
+
+    #[test]
+    fn is_coded_value_matches_identifier() {
+        assert!(is_coded_value("CODE-1"));
+        assert!(!is_coded_value("\u{0}"));
+    }
+
+    #[test]
+    fn is_date_accept_and_reject() {
+        assert!(is_date("20250101"));
+        assert!(!is_date("2025-01-01"));
+        assert!(!is_date(""));
+    }
+
+    #[test]
+    fn is_time_accept_and_reject() {
+        assert!(is_time("0930"));
+        assert!(!is_time("24"));
+        assert!(!is_time("9999"));
+    }
+
+    #[test]
+    fn is_timestamp_accept_and_reject() {
+        assert!(is_timestamp("20250101"));
+        assert!(is_timestamp("20250101120000"));
+        assert!(!is_timestamp("foo"));
+    }
+
+    #[test]
+    fn is_numeric_accept_and_reject() {
+        assert!(is_numeric("0"));
+        assert!(is_numeric("-12.5"));
+        assert!(!is_numeric(""));
+        assert!(!is_numeric("nope"));
+        assert!(!is_numeric("inf"));
+    }
+
+    #[test]
+    fn is_sequence_id_accept_and_reject() {
+        assert!(is_sequence_id("1"));
+        assert!(is_sequence_id("999"));
+        assert!(!is_sequence_id("0"));
+        assert!(!is_sequence_id("-3"));
+        assert!(!is_sequence_id("abc"));
+    }
+
+    #[test]
+    fn is_text_and_formatted_always_true() {
+        assert!(is_text_data(""));
+        assert!(is_text_data("anything"));
+        assert!(is_formatted_text(""));
+        assert!(is_formatted_text("\\.br\\"));
+    }
+
+    #[test]
+    fn is_person_name_accept_and_reject() {
+        assert!(is_person_name("O'Brien"));
+        assert!(is_person_name("Smith Jr."));
+        assert!(is_person_name("Last^First^Middle"));
+        assert!(!is_person_name("John123"));
+        assert!(!is_person_name("name@"));
+    }
+
+    #[test]
+    fn is_extended_and_hierarchic_id() {
+        assert!(is_extended_id("X1"));
+        assert!(is_hierarchic_designator("HD-1"));
+        assert!(!is_extended_id("\n"));
+        assert!(!is_hierarchic_designator("\t"));
+    }
+
+    #[test]
+    fn is_address_accept_and_reject() {
+        assert!(is_address("221B Baker St"));
+        assert!(!is_address("bad\x00addr"));
+    }
+
+    #[test]
+    fn is_phone_number_accept_and_reject() {
+        assert!(is_phone_number("5551234"));
+        assert!(is_phone_number("(555) 123-4567"));
+        assert!(!is_phone_number("123"));
+        // 16 digits is over the maximum
+        assert!(!is_phone_number("1234567890123456"));
+    }
+
+    #[test]
+    fn is_email_accept_and_reject() {
+        assert!(is_email("user@example.com"));
+        assert!(!is_email("noatsign"));
+        assert!(!is_email("a@@b.com"));
+        assert!(!is_email("@example.com"));
+        assert!(!is_email("user@"));
+        assert!(!is_email("user@nodot"));
+    }
+
+    #[test]
+    fn is_ssn_accept_and_reject() {
+        assert!(is_ssn("123-45-6789"));
+        assert!(is_ssn("123456789"));
+        // Reserved/invalid area numbers
+        assert!(!is_ssn("000-12-3456"));
+        assert!(!is_ssn("666-12-3456"));
+        assert!(!is_ssn("900-12-3456"));
+        // Zero group
+        assert!(!is_ssn("123-00-4567"));
+        // Zero serial
+        assert!(!is_ssn("123-45-0000"));
+        // Wrong length
+        assert!(!is_ssn("12345"));
+    }
+
+    // ------------------------------------------------------------------
+    // Checksum validators
+    // ------------------------------------------------------------------
+    #[test]
+    fn validate_luhn_checksum_accept_and_reject() {
+        // Known-good Luhn test value
+        assert!(validate_luhn_checksum("4532015112830366"));
+        assert!(!validate_luhn_checksum("4532015112830367"));
+        assert!(!validate_luhn_checksum("1"));
+        assert!(!validate_luhn_checksum(""));
+    }
+
+    #[test]
+    fn validate_mod10_delegates_to_luhn() {
+        assert!(validate_mod10_checksum("4532015112830366"));
+        assert!(!validate_mod10_checksum("9"));
+    }
+
+    // ------------------------------------------------------------------
+    // Date helpers
+    // ------------------------------------------------------------------
+    #[test]
+    fn is_valid_birth_date_accepts_past_rejects_future_and_bad_format() {
+        assert!(is_valid_birth_date("19900101"));
+        assert!(!is_valid_birth_date("99991231"));
+        assert!(!is_valid_birth_date("not-a-date"));
+    }
+
+    #[test]
+    fn is_valid_age_range_orders_dates() {
+        assert!(is_valid_age_range("19900101", "20250101"));
+        assert!(is_valid_age_range("20250101", "20250101"));
+        assert!(!is_valid_age_range("20250101", "19900101"));
+        assert!(!is_valid_age_range("bad", "20250101"));
+        assert!(!is_valid_age_range("20250101", "bad"));
+    }
+
+    // ------------------------------------------------------------------
+    // Range helpers
+    // ------------------------------------------------------------------
+    #[test]
+    fn is_within_range_inclusive() {
+        assert!(is_within_range("5", "1", "10"));
+        assert!(is_within_range("1", "1", "10"));
+        assert!(is_within_range("10", "1", "10"));
+        assert!(!is_within_range("11", "1", "10"));
+        assert!(!is_within_range("0", "1", "10"));
+    }
+
+    #[test]
+    fn is_within_range_rejects_non_numeric_inputs() {
+        assert!(!is_within_range("foo", "1", "10"));
+        assert!(!is_within_range("5", "bar", "10"));
+        assert!(!is_within_range("5", "1", "baz"));
+    }
+
+    // ------------------------------------------------------------------
+    // matches_format dispatcher (DT/TM/unknown)
+    // ------------------------------------------------------------------
+    #[test]
+    fn matches_format_dt_yyyy_mm_dd_accepts_valid() {
+        assert!(matches_format("2025-01-28", "YYYY-MM-DD", "DT"));
+        assert!(matches_format("1999-12-31", "YYYY-MM-DD", "DT"));
+    }
+
+    #[test]
+    fn matches_format_dt_yyyy_mm_dd_rejects_bad_inputs() {
+        // Wrong length
+        assert!(!matches_format("2025-1-28", "YYYY-MM-DD", "DT"));
+        // Wrong separators / not split into 3 parts
+        assert!(!matches_format("2025/01/28", "YYYY-MM-DD", "DT"));
+        // Non-digit year
+        assert!(!matches_format("YEAR-01-28", "YYYY-MM-DD", "DT"));
+        // Month out of range
+        assert!(!matches_format("2025-13-28", "YYYY-MM-DD", "DT"));
+        assert!(!matches_format("2025-00-28", "YYYY-MM-DD", "DT"));
+        // Day out of range
+        assert!(!matches_format("2025-01-32", "YYYY-MM-DD", "DT"));
+        assert!(!matches_format("2025-01-00", "YYYY-MM-DD", "DT"));
+    }
+
+    #[test]
+    fn matches_format_tm_hh_mm_ss_accepts_valid() {
+        assert!(matches_format("00:00:00", "HH:MM:SS", "TM"));
+        assert!(matches_format("23:59:59", "HH:MM:SS", "TM"));
+    }
+
+    #[test]
+    fn matches_format_tm_hh_mm_ss_rejects_bad_inputs() {
+        // Wrong length
+        assert!(!matches_format("23:59", "HH:MM:SS", "TM"));
+        // Non-digit segments
+        assert!(!matches_format("ab:cd:ef", "HH:MM:SS", "TM"));
+        // Hour out of range
+        assert!(!matches_format("24:00:00", "HH:MM:SS", "TM"));
+        // Minute out of range
+        assert!(!matches_format("12:60:00", "HH:MM:SS", "TM"));
+        // Second out of range
+        assert!(!matches_format("12:00:60", "HH:MM:SS", "TM"));
+    }
+
+    #[test]
+    fn matches_format_unknown_format_assumed_valid() {
+        assert!(matches_format("anything", "WEIRD", "ZZZ"));
+        assert!(matches_format("", "", ""));
+    }
+
+    // ------------------------------------------------------------------
+    // DataTypeValidator builder & validation paths
+    // ------------------------------------------------------------------
+    #[test]
+    fn datatype_validator_default_accepts_anything() {
+        let v = DataTypeValidator::new();
+        assert!(v.validate(""));
+        assert!(v.validate("hello"));
+    }
+
+    #[test]
+    fn datatype_validator_min_length_enforced() {
+        let v = DataTypeValidator::new().with_min_length(3);
+        assert!(v.validate("abc"));
+        assert!(v.validate("abcd"));
+        assert!(!v.validate("ab"));
+
+        let err = v
+            .validate_detailed("a")
+            .expect_err("too short should error");
+        assert!(
+            matches!(err, DataTypeError::TooShort { length: 1, min: 3 }),
+            "expected TooShort {{ length: 1, min: 3 }}, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn datatype_validator_max_length_enforced() {
+        let v = DataTypeValidator::new().with_max_length(2);
+        assert!(v.validate(""));
+        assert!(v.validate("ab"));
+        assert!(!v.validate("abc"));
+
+        let err = v
+            .validate_detailed("abcd")
+            .expect_err("too long should error");
+        assert!(
+            matches!(err, DataTypeError::TooLong { length: 4, max: 2 }),
+            "expected TooLong {{ length: 4, max: 2 }}, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn datatype_validator_pattern_enforced() {
+        let v = DataTypeValidator::new().with_pattern(r"^\d+$");
+        assert!(v.validate("12345"));
+        assert!(!v.validate("12a45"));
+
+        let err = v
+            .validate_detailed("abc")
+            .expect_err("pattern mismatch should error");
+        assert_eq!(
+            err,
+            DataTypeError::PatternMismatch {
+                value: "abc".to_string(),
+                pattern: r"^\d+$".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn datatype_validator_invalid_pattern_skipped() {
+        // Invalid regex pattern should be ignored, not crash.
+        let v = DataTypeValidator::new().with_pattern("[");
+        assert!(v.validate("anything"));
+    }
+
+    #[test]
+    fn datatype_validator_allowed_values_enforced() {
+        let v =
+            DataTypeValidator::new().with_allowed_values(vec!["A".to_string(), "B".to_string()]);
+        assert!(v.validate("A"));
+        assert!(v.validate("B"));
+        assert!(!v.validate("C"));
+
+        let err = v
+            .validate_detailed("C")
+            .expect_err("not in allowed set should error");
+        assert_eq!(
+            err,
+            DataTypeError::NotInAllowedSet {
+                value: "C".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn datatype_validator_checksum_enforced() {
+        let v_luhn = DataTypeValidator::new().with_checksum(ChecksumAlgorithm::Luhn);
+        assert!(v_luhn.validate("4532015112830366"));
+        assert!(!v_luhn.validate("4532015112830367"));
+
+        let err = v_luhn
+            .validate_detailed("9")
+            .expect_err("checksum should fail");
+        assert_eq!(err, DataTypeError::ChecksumFailed);
+
+        let v_mod10 = DataTypeValidator::new().with_checksum(ChecksumAlgorithm::Mod10);
+        assert!(v_mod10.validate("4532015112830366"));
+        assert!(!v_mod10.validate("9"));
+    }
+
+    #[test]
+    fn datatype_validator_builder_returns_self() {
+        let v = DataTypeValidator::new()
+            .with_min_length(1)
+            .with_max_length(10)
+            .with_pattern(r".*")
+            .with_allowed_values(vec!["x".to_string()])
+            .with_checksum(ChecksumAlgorithm::Mod10);
+        assert_eq!(v.min_length, Some(1));
+        assert_eq!(v.max_length, Some(10));
+        assert_eq!(v.pattern.as_deref(), Some(".*"));
+        assert!(v.allowed_values.is_some());
+        assert_eq!(v.checksum, Some(ChecksumAlgorithm::Mod10));
+    }
+
+    // ------------------------------------------------------------------
+    // Error display surfaces
+    // ------------------------------------------------------------------
+    #[test]
+    fn datatype_error_display_messages() {
+        let e = DataTypeError::InvalidDataType {
+            datatype: "ZZZ".to_string(),
+            reason: "bad".to_string(),
+        };
+        assert!(format!("{e}").contains("ZZZ"));
+
+        let e = DataTypeError::TooShort { length: 1, min: 5 };
+        assert!(format!("{e}").contains("Value too short"));
+
+        let e = DataTypeError::TooLong { length: 9, max: 3 };
+        assert!(format!("{e}").contains("Value too long"));
+
+        let e = DataTypeError::PatternMismatch {
+            value: "x".to_string(),
+            pattern: "y".to_string(),
+        };
+        assert!(format!("{e}").contains("Pattern"));
+
+        let e = DataTypeError::NotInAllowedSet {
+            value: "z".to_string(),
+        };
+        assert!(format!("{e}").contains("z"));
+
+        let e = DataTypeError::ChecksumFailed;
+        assert!(format!("{e}").contains("Checksum"));
+    }
+}

@@ -4,15 +4,21 @@ Comprehensive testing procedures for hl7v2-rs development.
 
 ---
 
-## Test Targets for v1.2.0
+## Test Targets for v1.5.0
 
-| Component | Target | Current | Status |
-|-----------|--------|---------|--------|
-| hl7v2-core | 95% | ~90% | 🟡 In Progress |
-| hl7v2-prof | 95% | ~92% | 🟡 In Progress |
-| hl7v2-gen | 90% | ~88% | 🟡 In Progress |
-| hl7v2-cli | 85% | ~80% | 🟡 In Progress |
-| **Overall** | **90%** | **87%** | 🟡 In Progress |
+The current workspace is Rust 1.95 and version `1.5.0`. The public Rust
+product graph is `hl7v2`, `hl7v2-cli`, and `hl7v2-server`; `hl7v2-python` is
+a binding backend for the public Python `hl7v2` package. Historical crates such
+as `hl7v2-core`, `hl7v2-prof`, and `hl7v2-gen` are no longer the current
+workspace surface.
+
+| Surface | Target | Current evidence |
+|-----------|--------|------------------|
+| Rust library (`hl7v2`) | Parser, validation, normalization, ACK, profile, corpus, bundle, replay, and user-journey tests pass on Rust 1.95. | `cargo +1.95.0 test -p hl7v2 --all-features` |
+| CLI (`hl7v2-cli`) | Evidence command and integration tests pass. | `cargo +1.95.0 test -p hl7v2-cli --all-features` |
+| Server (`hl7v2-server`) | REST/gRPC contracts, health, bundle, replay, quarantine, and evidence endpoint tests pass. | `cargo +1.95.0 test -p hl7v2-server --all-features` |
+| Python binding backend (`hl7v2-python`) | Local wheel build/install/import and evidence smoke pass; public TestPyPI/PyPI proof remains separate. | `python tests/python_smoke/smoke.py` and `python tests/python_smoke/evidence_workflow_guide.py` after a local wheel install |
+| Policy and release gates | Lint, no-panic, file-policy, evidence-schema, publish-plan, and docs checks remain green. | `cargo +1.95.0 run -p xtask -- gate --check` plus the focused `xtask` checks below |
 
 ---
 
@@ -22,43 +28,43 @@ Comprehensive testing procedures for hl7v2-rs development.
 
 ```bash
 # Run all tests
-cargo test --all
+cargo +1.95.0 test --workspace --all-features
 
 # Run tests for specific crate
-cargo test -p hl7v2-core
-cargo test -p hl7v2-prof
-cargo test -p hl7v2-gen
-cargo test -p hl7v2-cli
+cargo +1.95.0 test -p hl7v2 --all-features
+cargo +1.95.0 test -p hl7v2-cli --all-features
+cargo +1.95.0 test -p hl7v2-server --all-features
+cargo +1.95.0 test -p xtask
 
 # Run specific test
-cargo test test_parse_simple
+cargo +1.95.0 test parse_simple -- --exact
 ```
 
 ### Test Output
 
 ```bash
 # Show println! output
-cargo test -- --nocapture
+cargo +1.95.0 test -- --nocapture
 
 # Show full output
-cargo test -- --nocapture --test-threads=1
+cargo +1.95.0 test -- --nocapture --test-threads=1
 
 # Run ignored tests
-cargo test -- --ignored
+cargo +1.95.0 test -- --ignored
 ```
 
 ### Test Filtering
 
 ```bash
 # Run tests matching pattern
-cargo test profile           # All tests with "profile" in name
-cargo test streaming         # All streaming tests
+cargo +1.95.0 test profile           # All tests with "profile" in name
+cargo +1.95.0 test streaming         # All streaming tests
 
 # Run exact test
-cargo test --test test_name -- --exact
+cargo +1.95.0 test --test test_name -- --exact
 
 # Run single test from command line
-cargo test parse_simple::test_simple -- --exact
+cargo +1.95.0 test parse_simple::test_simple -- --exact
 ```
 
 ---
@@ -85,22 +91,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_simple() {
+    fn test_parse_simple() -> Result<(), Box<dyn std::error::Error>> {
         let input = b"MSH|^~\\&|...";
-        let msg = parse(input).unwrap();
+        let msg = parse(input)?;
         assert_eq!(msg.segments.len(), 2);
+        Ok(())
     }
 
     #[test]
     fn test_parse_empty() {
         let result = parse(b"");
         assert!(result.is_err());
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_panic_on_invalid() {
-        parse_unchecked(b"invalid").unwrap();
     }
 
     #[test]
@@ -144,11 +145,11 @@ assert!(string.starts_with("prefix"));
 Tests in `tests/` directory are compiled as separate binaries:
 ```
 tests/
-├── common/
-│   └── mod.rs           # Shared utilities
-├── parse_integration.rs  # Integrated parse tests
-├── validate_integration.rs
-└── generate_integration.rs
+  common/
+    mod.rs                  # Shared utilities
+  parse_integration.rs      # Integrated parse tests
+  validate_integration.rs
+  generate_integration.rs
 ```
 
 ### Example
@@ -156,7 +157,7 @@ tests/
 ```rust
 // tests/parse_integration.rs
 
-use hl7v2_core::parse;
+use hl7v2::parse;
 
 #[test]
 fn test_full_parse_workflow() {
@@ -175,7 +176,7 @@ fn test_full_parse_workflow() {
 fn test_parse_validates_round_trip() {
     let original = include_bytes!("../test_data/sample.hl7");
     let msg = parse(original).unwrap();
-    let serialized = hl7v2_core::write(&msg);
+    let serialized = hl7v2::write(&msg);
 
     let msg2 = parse(&serialized).unwrap();
     assert_eq!(msg, msg2);
@@ -190,7 +191,7 @@ Use `proptest` for generating random test cases:
 
 ```bash
 # Add proptest as dev dependency
-cargo add proptest --dev -p hl7v2-core
+cargo add proptest --dev -p hl7v2
 ```
 
 ```rust
@@ -232,7 +233,7 @@ cargo tarpaulin --all --out Lcov --output-dir target/coverage
 cargo tarpaulin --all --out Xml
 
 # Coverage for specific crate
-cargo tarpaulin -p hl7v2-core --out Html
+cargo tarpaulin -p hl7v2 --out Html
 
 # With minimum coverage threshold
 cargo tarpaulin --all --timeout 600 --fail-under 90
@@ -253,16 +254,10 @@ cargo llvm-cov --all
 
 ### CI/CD Coverage
 
-```bash
-# Run in GitHub Actions
-- name: Generate coverage
-  run: cargo tarpaulin --all --timeout 600 --out Xml
-
-- name: Upload to codecov
-  uses: codecov/codecov-action@v3
-  with:
-    files: ./cobertura.xml
-```
+Coverage is routed rather than part of every default PR lane. See
+[docs/ci/test-evidence-lanes.md](docs/ci/test-evidence-lanes.md) and
+[docs/ci/coverage.md](docs/ci/coverage.md) for the current
+coverage workflow and claim boundaries.
 
 ---
 
@@ -298,7 +293,7 @@ fn bench_parse_small(c: &mut Criterion) {
     let input = black_box(include_bytes!("../test_data/small.hl7"));
 
     c.bench_function("parse_small_message", |b| {
-        b.iter(|| hl7v2_core::parse(input))
+        b.iter(|| hl7v2::parse(input))
     });
 }
 
@@ -306,7 +301,7 @@ fn bench_parse_large(c: &mut Criterion) {
     let input = black_box(include_bytes!("../test_data/large.hl7"));
 
     c.bench_function("parse_large_message", |b| {
-        b.iter(|| hl7v2_core::parse(input))
+        b.iter(|| hl7v2::parse(input))
     });
 }
 
@@ -314,23 +309,25 @@ criterion_group!(benches, bench_parse_small, bench_parse_large);
 criterion_main!(benches);
 ```
 
-### Performance Targets (v1.2.0)
+### Performance Targets
 
-From [ROADMAP.md](ROADMAP.md):
+The benchmark harness lives in `crates/hl7v2-bench`. Treat the table below as
+target guidance, not a release receipt. Release claims should point to
+benchmark or readiness receipts under `docs/audits/`.
 
 | Operation | Target | Measurement |
 |-----------|--------|-------------|
 | Parse (small) | <1ms p95 | 200-byte message |
 | Parse (large) | <5ms p95 | 2KB message |
 | Validate | <10ms p95 | Typical profile |
-| Generate | <2ms p95 | Single message |
-| Server throughput | ≥1000 RPS | Sustained load |
+| ACK/write | <2ms p95 | Single message |
+| Server throughput | >=1000 RPS | Sustained load |
 
 ### Memory Targets
 
 ```bash
 # Test RSS memory usage
-cargo test --release -- --nocapture --test-threads=1
+cargo +1.95.0 test --release -- --nocapture --test-threads=1
 
 # Expected: Proportional to message size, <500MB steady-state
 ```
@@ -467,50 +464,26 @@ fn test_something() {
 
 ```bash
 # Before committing
-cargo fmt --all && cargo clippy --all && cargo test --all
+cargo +1.95.0 fmt --all -- --check
+cargo +1.95.0 clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo +1.95.0 test --workspace --all-features --locked
 ```
 
 ### CI/CD Pipeline
 
-Typical checks (run automatically on PR):
+Current PR checks are staged and routed:
 
-1. **Build**: `cargo build --all`
-2. **Format**: `cargo fmt --all -- --check`
-3. **Clippy**: `cargo clippy --all -- -D warnings`
-4. **Tests**: `cargo test --all`
-5. **Coverage**: `cargo tarpaulin --all --fail-under 90`
-6. **Benchmarks**: `cargo bench --all`
+1. **Fast Checks**: formatting, Clippy, lint policy, no-panic-family, file
+   policy, unit tests, and doc tests.
+2. **MSRV Smoke (1.95)**: verifies the declared Rust 1.95 support boundary.
+3. **Standard Tests**: integration, BDD, and limited property tests.
+4. **Matrix / Extended / Benchmarks**: routed by branch, label, or manual
+   dispatch so default PR cost stays bounded.
+5. **Security / CI Policy / PR Plan**: security, policy, and lane-routing
+   checks.
 
-### GitHub Actions Example
-
-```yaml
-name: Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.92
-
-      - name: Format
-        run: cargo fmt --all -- --check
-
-      - name: Clippy
-        run: cargo clippy --all -- -D warnings
-
-      - name: Tests
-        run: cargo test --all
-
-      - name: Coverage
-        run: |
-          cargo install cargo-tarpaulin
-          cargo tarpaulin --all --fail-under 90
-```
+Use the workflow files under `.github/workflows/` as the source of truth for
+the current CI implementation. Do not copy old sample workflows into the repo.
 
 ---
 
@@ -520,26 +493,26 @@ jobs:
 
 ```bash
 # Run with timeout
-timeout 30s cargo test test_name
+cargo +1.95.0 test test_name
 
 # Run single threaded (helps debug race conditions)
-cargo test -- --test-threads=1
+cargo +1.95.0 test -- --test-threads=1
 
 # Show backtraces
-RUST_BACKTRACE=full cargo test
+RUST_BACKTRACE=full cargo +1.95.0 test
 ```
 
 ### Test fails locally but passes in CI
 
-```bash
+```powershell
 # Try running in release mode
-cargo test --release
+cargo +1.95.0 test --release
 
 # Try deterministic ordering
-cargo test -- --test-threads=1
+cargo +1.95.0 test -- --test-threads=1
 
-# Check for unset environment variables
-env | grep HL7
+# Check for unset environment variables on Windows PowerShell
+Get-ChildItem Env:HL7*
 ```
 
 ### Flaky tests
@@ -552,7 +525,7 @@ fn test_with_timeout() {
     // test code
 }
 
-// Run only with: cargo test -- --ignored
+// Run only with: cargo +1.95.0 test -- --ignored
 ```
 
 ---
@@ -563,16 +536,13 @@ fn test_with_timeout() {
 
 ```
 test_data/
-├── valid/
-│   ├── oru_r01.hl7
-│   ├── adt_a01.hl7
-│   └── orm_o01.hl7
-├── invalid/
-│   ├── malformed.hl7
-│   ├── truncated.hl7
-│   └── invalid_delim.hl7
-└── large/
-    └── bulk_10mb.hl7
+  valid_message.hl7
+  invalid_message.hl7
+  test_profile.yaml
+  dirty-real-world/
+    before/
+    after/
+    sources/
 ```
 
 ### Include Test Data
@@ -586,13 +556,22 @@ let msg = parse(data).unwrap();
 
 ```bash
 # Using the CLI
-cargo run -p hl7v2-cli -- gen --template templates/adt_a01.yaml --count 100 --seed 42 --out test_data/
+cargo +1.95.0 run -p hl7v2-cli -- gen --template test_data/test_template.yaml --count 10 --seed 42 --out target/generated-hl7
 
 # Or programmatically in tests
-use hl7v2_gen::generate;
+use hl7v2::synthetic::template::{generate, Template};
+use std::collections::HashMap;
 
-let template = load_template("adt_a01.yaml").unwrap();
-let msg = generate(&template, 42).unwrap();
+let template = Template {
+    name: "ADT_A01".to_string(),
+    delims: "^~\\&".to_string(),
+    segments: vec![
+        "MSH|^~\\&|SEND|FAC|RECV|FAC|202605170101||ADT^A01|CTRL1|P|2.5".to_string(),
+        "PID|1||MRN-1^^^HOSP^MR||Example^Patient".to_string(),
+    ],
+    values: HashMap::new(),
+};
+let messages = generate(&template, 42, 10).unwrap();
 ```
 
 ---
@@ -601,15 +580,14 @@ let msg = generate(&template, 42).unwrap();
 
 A test contribution is **DONE** when:
 
-- ✅ Tests are added for new functionality
-- ✅ Existing tests still pass
-- ✅ Coverage is ≥90% for new code
-- ✅ Tests run in <10 seconds (unit tests)
-- ✅ Tests are deterministic (don't flake)
-- ✅ Tests have clear names describing what they test
-- ✅ Tests are organized with related tests grouped
-- ✅ No test-only code in main library
-- ✅ Benchmark baselines established (if applicable)
+- Tests are added for new or changed behavior.
+- Existing focused tests still pass.
+- Evidence-producing behavior has schema or fixture coverage when applicable.
+- Tests are deterministic and do not require raw PHI.
+- Test names describe the behavior being protected.
+- Test data is safe to commit and documented when non-obvious.
+- Policy gates remain green: lint policy, no-panic-family, file policy, and docs links.
+- Benchmark or performance receipts are updated when the change affects a measured path.
 
 ---
 
@@ -617,14 +595,15 @@ A test contribution is **DONE** when:
 
 ```bash
 # Essential commands
-cargo test --all                          # Run all tests
-cargo test -p hl7v2-core                 # Specific crate
-cargo test test_name -- --exact           # Specific test
-cargo test -- --nocapture                # Show output
-cargo bench                                # Run benchmarks
-cargo tarpaulin --all --out Html         # Generate coverage
-cargo clippy --all                        # Check for issues
-cargo fmt --all                           # Format code
+cargo +1.95.0 test --workspace --all-features --locked
+cargo +1.95.0 test -p hl7v2 --all-features
+cargo +1.95.0 test test_name -- --exact
+cargo +1.95.0 test -- --nocapture
+cargo +1.95.0 bench --workspace
+cargo +1.95.0 clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo +1.95.0 fmt --all -- --check
+cargo +1.95.0 run -p xtask -- gate --check
+cargo +1.95.0 run -p xtask -- check-doc-links
 ```
 
 ---
