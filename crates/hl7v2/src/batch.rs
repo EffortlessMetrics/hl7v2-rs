@@ -346,9 +346,15 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
         return Err(BatchError::MissingSegment("FHS".to_string()));
     }
 
-    // If message_count is not set from FTS, calculate from batches
-    if file_batch.info.message_count.is_none() {
-        file_batch.info.message_count = Some(file_batch.total_message_count());
+    // If message_count is not set from FTS, calculate from batches. Otherwise,
+    // validate the declared file trailer count against all parsed nested batches.
+    let actual = file_batch.total_message_count();
+    if let Some(expected) = file_batch.info.message_count {
+        if expected != actual {
+            return Err(BatchError::CountMismatch { expected, actual });
+        }
+    } else {
+        file_batch.info.message_count = Some(actual);
     }
 
     Ok(file_batch)
@@ -561,4 +567,96 @@ fn fields_after_separator(line: &str) -> &str {
 
 fn segment_prefix(line: &str) -> &str {
     line.get(..3).unwrap_or(line)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_ok(data: &[u8]) -> FileBatch {
+        parse_batch(data).expect("batch should parse")
+    }
+
+    #[test]
+    fn single_batch_propagates_header_and_trailer_metadata_to_wrapper() {
+        let batch = parse_ok(
+            b"BHS|^~\\&|SENDING_APP|SENDING_FAC|RECV_APP|RECV_FAC|20260516120000|SEC||BATCH42|nightly import\r\
+MSH|^~\\&|SENDING_APP|SENDING_FAC|RECV_APP|RECV_FAC|20260516120100||ADT^A01|MSG001|P|2.5.1\r\
+PID|1||MRN001^^^HOSP^MR||Patient^One\r\
+BTS|1|done\r",
+        );
+
+        assert_eq!(batch.info.batch_type, BatchType::Single);
+        assert_eq!(batch.info.field_separator, Some('|'));
+        assert_eq!(batch.info.encoding_characters.as_deref(), Some("^~\\&"));
+        assert_eq!(
+            batch.info.sending_application.as_deref(),
+            Some("SENDING_APP")
+        );
+        assert_eq!(batch.info.sending_facility.as_deref(), Some("SENDING_FAC"));
+        assert_eq!(
+            batch.info.receiving_application.as_deref(),
+            Some("RECV_APP")
+        );
+        assert_eq!(batch.info.receiving_facility.as_deref(), Some("RECV_FAC"));
+        assert_eq!(batch.info.security.as_deref(), Some("SEC"));
+        assert_eq!(batch.info.batch_name.as_deref(), Some("BATCH42"));
+        assert_eq!(batch.info.batch_comment.as_deref(), Some("nightly import"));
+        assert_eq!(batch.info.message_count, Some(1));
+        assert_eq!(batch.info.trailer_comment.as_deref(), Some("done"));
+        assert_eq!(batch.total_message_count(), 1);
+    }
+
+    #[test]
+    fn file_batch_validates_file_trailer_count_against_nested_batches() {
+        let err = parse_batch(
+            b"FHS|^~\\&|HIS|HOSPITAL|||20260516120000\r\
+BHS|^~\\&|HIS|HOSPITAL|LAB|LABHOST|20260516120000|||LAB_BATCH\r\
+MSH|^~\\&|HIS|HOSPITAL|LAB|LABHOST|20260516120100||ORM^O01|ORD001|P|2.5.1\r\
+PID|1||MRN001^^^HOSP^MR||Patient^One\r\
+BTS|1\r\
+FTS|2|declared too many\r",
+        )
+        .expect_err("FTS-1 should be validated against nested batch message counts");
+
+        match err {
+            BatchError::CountMismatch { expected, actual } => {
+                assert_eq!(expected, 2);
+                assert_eq!(actual, 1);
+            }
+            other => panic!("expected CountMismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn file_batch_computes_missing_file_trailer_count_and_iterates_all_messages() {
+        let batch = parse_ok(
+            b"FHS|^~\\&|HIS|HOSPITAL|||20260516120000\r\
+BHS|^~\\&|HIS|HOSPITAL|LAB|LABHOST|20260516120000|||LAB_BATCH\r\
+MSH|^~\\&|HIS|HOSPITAL|LAB|LABHOST|20260516120100||ORM^O01|ORD001|P|2.5.1\r\
+PID|1||MRN001^^^HOSP^MR||Patient^One\r\
+BTS|1\r\
+BHS|^~\\&|HIS|HOSPITAL|RAD|RADHOST|20260516130000|||RAD_BATCH\r\
+MSH|^~\\&|HIS|HOSPITAL|RAD|RADHOST|20260516130100||ORM^O01|RAD001|P|2.5.1\r\
+PID|1||MRN002^^^HOSP^MR||Patient^Two\r\
+BTS|1\r",
+        );
+
+        assert_eq!(batch.info.batch_type, BatchType::File);
+        assert_eq!(batch.info.message_count, Some(2));
+        assert_eq!(batch.total_message_count(), 2);
+        assert_eq!(batch.iter_all_messages().count(), 2);
+    }
+
+    #[test]
+    fn rejects_invalid_utf8_before_segment_parsing() {
+        let err = parse_batch(&[0xff, 0xfe, 0xfd]).expect_err("invalid utf-8 should fail");
+
+        match err {
+            BatchError::InvalidStructure(message) => {
+                assert!(message.contains("Invalid UTF-8 data"));
+            }
+            other => panic!("expected InvalidStructure, got {other:?}"),
+        }
+    }
 }
