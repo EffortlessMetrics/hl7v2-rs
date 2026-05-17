@@ -41,7 +41,7 @@ release, or install-back success.
 | profile lint / explain / test | Rust, CLI, gRPC, and local Python helper proof are recorded; REST claims remain limited to exposed endpoints. | Public Python registry install-back is absent; TypeScript is unimplemented. | Python public proof, then parity acceptance suite. |
 | redaction receipt | Rust, CLI, REST, gRPC `ValidateRedacted`, and local Python redaction helper proof exist. | Public Python registry install-back is absent; TypeScript is unimplemented. | Python public proof; keep PHI sentinel checks explicit. |
 | quarantine output | REST and gRPC configured quarantine behavior is proved where exposed. | Python quarantine output is not a public package claim; TypeScript is unimplemented. | Do not claim Python quarantine unless a focused helper and smoke proof are added. |
-| bundle / replay | Rust, CLI, REST, gRPC, and local Python helper proof exist for bundle/replay semantics. | Public Python registry install-back is absent; TypeScript is unimplemented. | Python public proof, then shared parity runner. |
+| bundle / replay | Rust, CLI, REST, gRPC, and local Python helper proof exist for bundle/replay semantics; `cargo run -p xtask -- check-bundle-replay-parity` composes the Rust/CLI/REST/gRPC acceptance path. | Public Python registry install-back is absent; TypeScript is unimplemented; Python remains local-wheel proof until registry install-back exists. | Python public proof before promoting Python registry parity; keep the shared runner current as bundle/replay surfaces change. |
 | corpus summary / fingerprint / diff | Rust core, CLI, REST, gRPC, and local Python dirty-corpus parity proof share `test_data/dirty-real-world/`; `cargo run -p xtask -- check-dirty-corpus-parity` composes the Rust/CLI/REST/gRPC acceptance path. | TypeScript is unimplemented; dirty-corpus proof is strongest for corpus commands, not every evidence workflow; Python remains local-wheel proof until registry install-back exists. | Extend dirty-corpus proof to validate/redact/bundle/replay only in focused test PRs. |
 | safe error shape | Surface-specific tests and specs require safe diagnostics without raw PHI echo, and `cargo run -p xtask -- check-safe-error-phi-parity` now composes the fixture-backed Rust, CLI, REST, and gRPC checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep the runner current as new surfaces claim safe-error parity; add Python public proof after TestPyPI/PyPI receipts. |
 | `schema_version` behavior | Evidence schemas and surface-specific tests cover v1/v2 outputs where implemented, and `cargo run -p xtask -- check-schema-version-parity` composes the fixture-backed Rust, CLI, REST, and gRPC checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep the runner current as new surfaces claim schema-version parity; add Python public proof after TestPyPI/PyPI receipts. |
@@ -64,16 +64,19 @@ release, or install-back success.
 6. Keep `cargo run -p xtask -- check-schema-version-parity` as the shared
    schema-version runner for Rust, CLI, REST, and gRPC surfaces; use
    `--include-python` only when a local Python wheel is installed.
-7. Keep `cargo run -p xtask -- check-dirty-corpus-parity` as the shared
+7. Keep `cargo run -p xtask -- check-bundle-replay-parity` as the shared
+   bundle/replay runner for Rust, CLI, REST, and gRPC surfaces; use
+   `--include-python` only when a local Python wheel is installed.
+8. Keep `cargo run -p xtask -- check-dirty-corpus-parity` as the shared
    dirty-corpus runner for Rust, CLI, REST, and gRPC corpus
    summary/fingerprint/diff proof; use `--include-python` only when a local
    Python wheel is installed.
-8. Extend dirty-corpus proof beyond corpus summary/fingerprint/diff only where
+9. Extend dirty-corpus proof beyond corpus summary/fingerprint/diff only where
    the next surface has a concrete user workflow, such as validate, redaction,
    bundle, or replay.
-9. Keep gRPC as Beta until transport lifecycle and operational hardening
+10. Keep gRPC as Beta until transport lifecycle and operational hardening
    catches up with the artifact semantics already covered for implemented RPCs.
-10. Start npm/WASM implementation planning only after Python public proof and
+11. Start npm/WASM implementation planning only after Python public proof and
    parity acceptance are stable.
 
 ## Boundaries

@@ -125,6 +125,12 @@ pub(crate) enum Commands {
         #[arg(long)]
         include_python: bool,
     },
+    /// Run bundle/replay parity acceptance checks
+    CheckBundleReplayParity {
+        /// Also run Python local-wheel smoke checks when hl7v2 is installed
+        #[arg(long)]
+        include_python: bool,
+    },
     /// Validate checked-in evidence fixtures against their JSON schemas
     EvidenceSchemaCheck,
     /// Generate repo-scoped public badge endpoint JSON
