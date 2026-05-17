@@ -1,0 +1,298 @@
+schema_version = "1.0"
+policy = "evidence-parity"
+owner = "EffortlessMetrics"
+status = "active"
+last_reviewed = "2026-05-17"
+
+source_spec = "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md"
+source_audit = "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md"
+support_map = "docs/status/SUPPORT_TIERS.md"
+
+non_claims = [
+  "This manifest does not claim TestPyPI, PyPI, npm, tag, GitHub release, or new crates.io success.",
+  "Python local wheel proof is not public Python registry proof.",
+  "hl7v2-python is binding backend infrastructure, not the recommended Rust API.",
+  "TypeScript remains planned until @effortlessmetrics/hl7v2 has implementation and install proof.",
+]
+
+[surface.rust]
+package = "hl7v2"
+tier = "stable"
+role = "Canonical parser, validator, normalizer, evidence model, and artifact semantics."
+proof = [
+  "cargo test -p hl7v2 --all-features",
+  "cargo run -p xtask -- evidence-schema-check",
+]
+
+[surface.cli]
+package = "hl7v2-cli"
+tier = "stable"
+role = "Operator and CI interface for evidence commands and support receipts."
+proof = [
+  "cargo test -p hl7v2-cli --test integration_tests",
+  "cargo test -p hl7v2-cli --test bdd_tests",
+]
+
+[surface.rest]
+package = "hl7v2-server"
+tier = "stable"
+role = "HTTP sidecar for validation, redaction, corpus, bundle, replay, and service integration."
+proof = [
+  "cargo test -p hl7v2-server --test parse_endpoint_test",
+  "cargo test -p hl7v2-server --test validate_endpoint_test",
+  "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
+  "cargo test -p hl7v2-server --test bundle_endpoint_test",
+  "cargo test -p hl7v2-server --test replay_endpoint_test",
+  "cargo test -p hl7v2-server --test http_runtime_contract_test",
+]
+
+[surface.grpc]
+package = "hl7v2-server"
+tier = "beta"
+role = "Typed service transport with evidence parity for implemented RPCs."
+proof = [
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "cargo test -p hl7v2-cli --test serve_grpc_contract_test",
+]
+
+[surface.python]
+package = "hl7v2"
+backend_crate = "hl7v2-python"
+tier = "experimental-local-wheel"
+role = "Python user package backed by hl7v2-python; public registry proof is blocked by TestPyPI Trusted Publisher setup."
+proof = [
+  "python tests/python_smoke/smoke.py",
+  "python tests/python_smoke/evidence_workflow_guide.py",
+]
+blocked_by = "https://github.com/EffortlessMetrics/hl7v2-rs/issues/563"
+
+[surface.typescript]
+package = "@effortlessmetrics/hl7v2"
+tier = "planned"
+role = "Future TypeScript package governed by HL7V2-SPEC-0005."
+proof = []
+
+[[contract]]
+id = "parse-write"
+status = "partially-proven"
+rust = "stable"
+cli = "stable"
+rest = "parse-stable-write-scoped-to-exposed-endpoints"
+grpc = "parse-stable-write-scoped-to-exposed-rpcs"
+python = "local-wheel-only"
+typescript = "planned"
+proof = [
+  "cargo test -p hl7v2 --all-features",
+  "cargo test -p hl7v2-cli --test integration_tests",
+  "cargo test -p hl7v2-server --test parse_endpoint_test",
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "python tests/python_smoke/smoke.py",
+]
+gaps = [
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "REST and gRPC do not claim a standalone general write endpoint or RPC.",
+  "TypeScript is unimplemented.",
+]
+
+[[contract]]
+id = "validate"
+status = "partially-proven"
+rust = "stable"
+cli = "stable"
+rest = "stable"
+grpc = "stable-for-implemented-rpcs"
+python = "local-wheel-only"
+typescript = "planned"
+proof = [
+  "cargo test -p hl7v2 --all-features",
+  "cargo test -p hl7v2-cli --test integration_tests",
+  "cargo test -p hl7v2-server --test validate_endpoint_test",
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "python tests/python_smoke/smoke.py",
+]
+gaps = [
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
+]
+
+[[contract]]
+id = "normalize"
+status = "partially-proven"
+rust = "stable"
+cli = "stable"
+rest = "stable"
+grpc = "stable-for-implemented-rpcs"
+python = "local-wheel-only"
+typescript = "planned"
+proof = [
+  "cargo test -p hl7v2 --all-features",
+  "cargo test -p hl7v2-cli --test integration_tests",
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "python tests/python_smoke/smoke.py",
+]
+gaps = [
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
+]
+
+[[contract]]
+id = "ack"
+status = "partially-proven"
+rust = "stable"
+cli = "stable-where-exposed"
+rest = "stable-where-exposed"
+grpc = "stable"
+python = "local-wheel-only"
+typescript = "planned"
+proof = [
+  "cargo test -p hl7v2 --all-features",
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "python tests/python_smoke/smoke.py",
+]
+gaps = [
+  "CLI and REST ACK matrices must stay scoped to the cases exposed by tests.",
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
+]
+
+[[contract]]
+id = "profile-lint-explain-test"
+status = "partially-proven"
+rust = "stable"
+cli = "stable"
+rest = "stable-where-exposed"
+grpc = "stable-for-profile-rpcs"
+python = "local-wheel-only"
+typescript = "planned"
+proof = [
+  "cargo test -p hl7v2 --all-features",
+  "cargo test -p hl7v2-cli --test integration_tests",
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "python tests/python_smoke/evidence_workflow_guide.py",
+]
+gaps = [
+  "REST profile claims remain limited to exposed endpoints.",
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
+]
+
+[[contract]]
+id = "redaction-quarantine"
+status = "partially-proven"
+rust = "stable"
+cli = "stable"
+rest = "stable"
+grpc = "stable-for-validate-redacted"
+python = "redaction-local-wheel-only-quarantine-not-claimed"
+typescript = "planned"
+proof = [
+  "cargo test -p hl7v2 --all-features",
+  "cargo test -p hl7v2-cli --test integration_tests",
+  "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
+  "cargo test -p hl7v2-server --test quarantine_output_hooks_test",
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "python tests/python_smoke/evidence_workflow_guide.py",
+]
+gaps = [
+  "Python quarantine output is not a public package claim.",
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
+]
+
+[[contract]]
+id = "bundle-replay"
+status = "partially-proven"
+rust = "stable"
+cli = "stable"
+rest = "stable"
+grpc = "stable-for-configured-root-rpcs"
+python = "local-wheel-only"
+typescript = "planned"
+proof = [
+  "cargo test -p hl7v2 --all-features",
+  "cargo test -p hl7v2-cli --test integration_tests",
+  "cargo test -p hl7v2-server --test bundle_endpoint_test",
+  "cargo test -p hl7v2-server --test replay_endpoint_test",
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "python tests/python_smoke/evidence_workflow_guide.py",
+]
+gaps = [
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
+]
+
+[[contract]]
+id = "corpus-summary-fingerprint-diff"
+status = "partially-proven"
+rust = "stable"
+cli = "stable"
+rest = "stable"
+grpc = "stable-for-inline-messages"
+python = "local-wheel-only"
+typescript = "planned"
+fixture_family = "test_data/dirty-real-world/"
+proof = [
+  "cargo test -p hl7v2 --lib --all-features dirty_real_world",
+  "cargo test -p hl7v2-cli --test integration_tests test_corpus_commands_share_dirty_real_world_fixture_categories",
+  "cargo test -p hl7v2-server --test corpus_endpoint_test test_corpus_endpoints_share_dirty_real_world_fixture_categories",
+  "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_corpus_commands_share_dirty_real_world_fixture_categories",
+  "python tests/python_smoke/smoke.py",
+]
+gaps = [
+  "Dirty-corpus proof is strongest for corpus commands, not every evidence workflow.",
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
+]
+
+[[contract]]
+id = "safe-error-shape"
+status = "gap-recorded"
+rust = "surface-specific-tests"
+cli = "surface-specific-tests"
+rest = "surface-specific-tests"
+grpc = "surface-specific-tests"
+python = "local-wheel-specific-tests"
+typescript = "planned"
+proof = [
+  "Surface-specific tests and specs require safe diagnostics without raw PHI echo.",
+]
+gaps = [
+  "No single shared malformed-input parity runner exercises Rust, CLI, REST/gRPC, and Python.",
+]
+
+[[contract]]
+id = "schema-version-behavior"
+status = "gap-recorded"
+rust = "stable"
+cli = "stable"
+rest = "stable"
+grpc = "stable-for-implemented-v2-rpcs"
+python = "required-for-claimed-artifacts"
+typescript = "planned"
+proof = [
+  "cargo run -p xtask -- evidence-schema-check",
+  "cargo test -p hl7v2-server --test grpc_contract_tests",
+  "python tests/python_smoke/evidence_workflow_guide.py",
+]
+gaps = [
+  "Schema-version support needs this manifest plus future checker coverage before more surface claims are added.",
+]
+
+[[contract]]
+id = "phi-sentinel-behavior"
+status = "gap-recorded"
+rust = "stable"
+cli = "stable"
+rest = "stable"
+grpc = "required-for-evidence-rpcs"
+python = "local-wheel-only"
+typescript = "planned"
+proof = [
+  "cargo test -p hl7v2-e2e-tests security",
+  "cargo test -p hl7v2-server --test quarantine_output_hooks_test",
+  "python tests/python_smoke/evidence_workflow_guide.py",
+]
+gaps = [
+  "No single shared PHI sentinel runner covers every exposed surface and artifact family.",
+  "Public Python TestPyPI/PyPI install-back is absent.",
+]

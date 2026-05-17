@@ -91,6 +91,7 @@ canonical_sources = [
   "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md",
   "docs/ci/ripr.md",
   "docs/ci/test-evidence-lanes.md",
+  "policy/evidence-parity.toml",
   "policy/clippy-lints.toml",
   "policy/clippy-debt.toml",
   "policy/clippy-exceptions.toml",
@@ -195,6 +196,29 @@ receipt = "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md"
 commands = [
   "cargo +1.95.0 run -p xtask -- check-doc-links",
   "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No runtime implementation.",
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload or install-back.",
+  "No PyPI upload or install-back.",
+  "No npm package.",
+  "No TypeScript implementation.",
+  "No promotion of hl7v2-python as the recommended Rust API.",
+]
+
+[[work_item]]
+id = "cross-surface-evidence-parity-manifest"
+status = "done"
+goal = "Add a machine-readable parity manifest that maps each cross-surface evidence contract to current surface state, proof commands, fixture families, and known gaps."
+manifest = "policy/evidence-parity.toml"
+commands = [
+  "python -c \"import pathlib, tomllib; tomllib.loads(pathlib.Path('policy/evidence-parity.toml').read_text())\"",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- policy-report",
   "git diff --check",
 ]
 non_claims = [

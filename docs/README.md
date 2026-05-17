@@ -90,6 +90,7 @@ proposal, spec, plan, or receipt documents.
 | [Public crates install and first-use smoke](audits/public-crates-install-first-use-2026-05-16.md) | Repeatable crates.io install-back smoke for `hl7v2`, `hl7v2-cli`, and `hl7v2-server` v1.5.0 first-use paths. |
 | [gRPC enhanced ACK parity receipt](audits/grpc-enhanced-ack-parity-2026-05-16.md) | gRPC `GenerateAck` parity for all six supported ACK codes: `AA`, `AE`, `AR`, `CA`, `CE`, and `CR`. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
+| [Cross-surface evidence parity manifest](../policy/evidence-parity.toml) | Machine-readable current parity states, proof commands, fixture families, and known gaps. |
 | [Cross-surface evidence parity gap audit](audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md) | Current implementation gap map after v1.5.0 release proof, first-use guides, dirty-corpus parity, Python local wheel proof, and #721 readiness refresh. |
 | [Python local wheel proof](audits/python-local-wheel-proof-2026-05-15.md) | Current-main non-publishing wheel build, fresh-venv install, import smoke, and Python evidence workflow proof for `hl7v2`. |
 | [Python TestPyPI non-publish proof](audits/python-testpypi-nonpublish-proof-2026-05-16.md) | Current hosted non-publishing Python wheel, import, smoke, and evidence workflow proof for public package `hl7v2`. |
@@ -114,8 +115,10 @@ proposal, spec, plan, or receipt documents.
   quarantine output through `ValidateRedacted`.
   Use
   [`HL7V2-SPEC-0006`](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md)
-  for the cross-surface parity contract, and use `docs/API_GUIDE.md` and
-  `docs/STATUS.md` for current endpoint claims.
+  for the cross-surface parity contract,
+  [`policy/evidence-parity.toml`](../policy/evidence-parity.toml) for current
+  parity proof state, and use `docs/API_GUIDE.md` and `docs/STATUS.md` for
+  current endpoint claims.
 
 ## Historical Documents
 
