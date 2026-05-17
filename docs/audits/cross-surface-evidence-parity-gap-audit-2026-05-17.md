@@ -1,12 +1,12 @@
 # Cross-Surface Evidence Parity Gap Audit
 
 Date: 2026-05-17
-Base commit: `d17306661eee1c5bd328321c8dfd4061fe9f20ea`
+Base commit: `adda4353aae604972670db82415bd5dac1a6373a`
 
 This audit maps the remaining cross-surface evidence parity work after the
 v1.5.0 Rust release, the package-boundary closeout, the first-use guides, the
 dirty-corpus parity receipts, the Python local wheel proof, and the current
-readiness refresh through #721.
+readiness refresh through #734.
 
 This is a gap map. It does not add runtime behavior, does not change support
 tiers, and does not claim new crates.io, TestPyPI, PyPI, npm, tag, GitHub
@@ -29,6 +29,7 @@ release, or install-back success.
 | [Dirty real-world Python proof](dirty-real-world-python-corpus-parity-2026-05-16.md) | Local Python dirty-corpus corpus parity proof. |
 | [gRPC enhanced ACK receipt](grpc-enhanced-ack-parity-2026-05-16.md) | gRPC ACK parity for `AA`, `AE`, `AR`, `CA`, `CE`, and `CR`. |
 | [v1.5.0 current-main readiness refresh](publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md) | Current-main package, policy, evidence, docs, registry, tag, and release-state checks without new uploads. |
+| [v1.5.0 dirty-corpus evidence workflow refresh](publish-dry-run-v1.5.0-2026-05-17-dirty-corpus-evidence-workflow-refresh.md) | Current-main package, policy, evidence, docs, registry, tag, release-state, and boundary checks after REST and gRPC dirty validate-redacted/bundle/replay workflow proof landed through #734. |
 
 ## Current Gap Matrix
 
@@ -96,8 +97,8 @@ release, or install-back success.
 
 ## Conclusion
 
-The repo now has substantial cross-surface evidence parity, but the remaining
-work is not "more readiness." The immediate blocker is public Python registry
-proof. After that, the next technical product work should add a shared parity
-manifest and acceptance suite so future Rust, CLI, server, Python, and
-TypeScript claims are routed through the same fixtures and proof commands.
+The repo now has substantial cross-surface evidence parity, and the shared
+parity manifest plus Rust/CLI/REST/gRPC acceptance suite are in place. The
+immediate blocker is public Python registry proof. After that, future Rust,
+CLI, server, Python, and TypeScript claims should continue to route through the
+same fixtures and proof commands instead of creating parallel truth.
