@@ -24,6 +24,7 @@ of truth for exceptions and policy state.
 | `policy/ci-lane-whitelist.toml` | Allowed CI lanes, ownership, trigger class, and LEM estimate. |
 | `policy/ci-risk-packs.toml` | Risk-pack routing for CI lanes. |
 | `policy/ci-budget.toml` | CI budget policy. |
+| `policy/evidence-parity.toml` | Machine-readable cross-surface evidence parity state, proof commands, and known gaps. |
 
 Generated local diagnostics, such as
 `target/policy/no-panic-report.md` and
@@ -58,5 +59,6 @@ they govern behavior that does not belong in `policy/non-rust-allowlist.toml`.
 cargo run -p xtask -- check-file-policy
 cargo run -p xtask -- check-lint-policy
 cargo run -p xtask -- check-no-panic-family
+cargo run -p xtask -- check-evidence-parity
 cargo run -p xtask -- policy-report
 ```

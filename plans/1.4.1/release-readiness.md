@@ -1,8 +1,14 @@
 # v1.4.1 Release Readiness Plan
 
-Status: Waiting
+Status: Superseded by v1.5.0 release
 Proposal: [HL7V2-PROP-0001](../../docs/proposals/HL7V2-PROP-0001-source-of-truth-and-release-governance.md)
 Support map: [SUPPORT_TIERS](../../docs/status/SUPPORT_TIERS.md)
+
+Historical note: this patch-release candidate was not the final release path.
+The repo shipped the Rust 1.95 / v1.5.0 quality-ratchet release instead. Use
+[`docs/release/1.5.0-readiness.md`](../../docs/release/1.5.0-readiness.md),
+[`docs/audits/publish-v1.5.0-2026-05-15.md`](../../docs/audits/publish-v1.5.0-2026-05-15.md),
+and [`docs/STATUS.md`](../../docs/STATUS.md) for current release truth.
 
 ## Goal
 
@@ -50,7 +56,8 @@ production PyPI: not attempted
 ## Non-Goals
 
 - Do not publish Python to production PyPI by default.
-- Do not publish `hl7v2-python` to crates.io.
+- Do not treat a crates.io `hl7v2-python` binding-backend publish as a
+  TestPyPI or PyPI proof for the public Python package `hl7v2`.
 - Do not claim TestPyPI success until upload and install-back pass.
 - Do not include production PyPI unless production upload and install-back pass.
 

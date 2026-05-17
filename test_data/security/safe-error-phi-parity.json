@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "phi": {
+    "message": "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||MRN-777-ALPHA^^^HOSP^MR||Signal^Patricia||19661224|M|||742 Evergreen Terrace||5558675309\rNK1|1|Watcher^Nora||900 Support Way|5550001234\rOBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r",
+    "policy": "[[rules]]\npath = \"PID.3\"\naction = \"hash\"\nreason = \"patient identifier\"\n\n[[rules]]\npath = \"PID.5\"\naction = \"drop\"\nreason = \"patient name\"\n\n[[rules]]\npath = \"PID.7\"\naction = \"drop\"\nreason = \"date of birth\"\n\n[[rules]]\npath = \"PID.11\"\naction = \"drop\"\nreason = \"patient address\"\n\n[[rules]]\npath = \"PID.13\"\naction = \"drop\"\nreason = \"patient phone\"\n\n[[rules]]\npath = \"NK1.2\"\naction = \"drop\"\nreason = \"next of kin name\"\n\n[[rules]]\npath = \"NK1.4\"\naction = \"drop\"\nreason = \"next of kin address\"\n\n[[rules]]\npath = \"NK1.5\"\naction = \"drop\"\nreason = \"next of kin phone\"\n\n[[rules]]\npath = \"MSH.9\"\naction = \"retain\"\nreason = \"message type is needed for analysis\"\n\n[[rules]]\npath = \"MSH.10\"\naction = \"retain\"\nreason = \"control id is needed for replay correlation\"\n\n[[rules]]\npath = \"OBX.3\"\naction = \"retain\"\nreason = \"observation identifier is needed for analysis\"\n\n[[rules]]\npath = \"OBX.5\"\naction = \"retain\"\nreason = \"non-PHI synthetic observation value shape is needed for analysis\"\n",
+    "raw_input_file": "raw-phi-input-sentinel.hl7",
+    "raw_policy_file": "raw-policy-sentinel.toml",
+    "forbidden": [
+      "Signal^Patricia",
+      "MRN-777-ALPHA^^^HOSP^MR",
+      "19661224",
+      "742 Evergreen Terrace",
+      "5558675309",
+      "Watcher^Nora",
+      "900 Support Way",
+      "5550001234"
+    ]
+  },
+  "malformed_message": {
+    "message": "not an HL7 message Signal^Patricia MRN-777-ALPHA^^^HOSP^MR 19661224 742 Evergreen Terrace 5558675309 Watcher^Nora 900 Support Way 5550001234",
+    "expected_error_substrings": [
+      "Invalid segment ID"
+    ],
+    "rest_code": "PARSE_ERROR",
+    "rest_location": "message",
+    "rest_safe_detail_contains": "Raw message content is not echoed",
+    "rest_action_contains": "MSH segment"
+  },
+  "invalid_profile": {
+    "yaml": "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:",
+    "forbidden": [
+      "Jane Secret",
+      "MRN-SECRET-123",
+      "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:"
+    ],
+    "rest_code": "PROFILE_LOAD_ERROR",
+    "rest_location": "profile",
+    "rest_safe_detail_contains": "Raw profile content is not echoed",
+    "rest_action_contains": "Run profile lint"
+  }
+}

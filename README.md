@@ -85,9 +85,17 @@ cargo install hl7v2-server
 
 ## Quick Start
 
+If you are choosing an install/runtime surface first, start with
+[First Use By Surface](docs/guides/first-use-by-surface.md). It routes Rust,
+CLI, server, and Python users to the first useful receipt without requiring
+the workspace topology.
+
 For a task-focused walkthrough from local diagnostics to validation reports,
 corpus fingerprint/diff output, and replayable redacted bundles, start with the
 [First 10 Minutes guide](docs/guides/first-10-minutes.md).
+To interpret validation reports, redaction receipts, corpus fingerprints,
+bundles, replay output, and PHI-sharing posture, use
+[Evidence Artifacts For Operators](docs/guides/evidence-artifacts-for-operators.md).
 For migration and vendor-change review, see the
 [Vendor Upgrade Diff guide](docs/guides/vendor-upgrade-diff.md).
 For support escalation without raw message PHI, see the
