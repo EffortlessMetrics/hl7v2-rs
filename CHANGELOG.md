@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   real-world fixture categories.
 - Added local Python wheel dirty-corpus parity coverage using the shared dirty
   real-world fixture categories.
+- Added `xtask check-dirty-corpus-parity` to run the shared dirty-corpus
+  acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added a shared schema-version parity fixture and manifest guard for
   representative CLI, REST, gRPC, and local Python evidence proof.
 - Added `xtask check-schema-version-parity` to run the shared schema-version

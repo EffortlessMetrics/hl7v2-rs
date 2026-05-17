@@ -105,6 +105,11 @@ for Z-segments, large OBX expansion, legacy encoding declarations, malformed
 delimiters, partial batch-like input, and generated MLLP-framed input.
 TypeScript parity must use the same fixture family or explicitly explain why a
 transport-specific fixture is required.
+The default acceptance runner is
+`cargo run -p xtask -- check-dirty-corpus-parity`; it composes the existing
+Rust, CLI, REST, and gRPC dirty-corpus checks. Pass `--include-python` only
+after a local `hl7v2` wheel is installed, because Python package availability
+remains governed by the separate TestPyPI/PyPI proof lane.
 
 The shared safe-error and PHI sentinel fixture lives in
 `test_data/security/safe-error-phi-parity.json`. It supplies the synthetic PHI

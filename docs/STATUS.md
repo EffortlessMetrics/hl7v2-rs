@@ -98,7 +98,11 @@ the cross-surface evidence parity spec, dirty real-world corpus proof, the
 nightly property-test command repair, finite numeric validation, the v1.5.0
 release-readiness workflow, the focused SRP module split train through #691,
 and shared dirty-corpus parity across Rust core, CLI, REST/gRPC server, and
-local Python wheel surfaces through #695. Current `main` also includes
+local Python wheel surfaces through #695. Dirty-corpus corpus
+summary/fingerprint/diff proof is now routed through
+`cargo run -p xtask -- check-dirty-corpus-parity` for the Rust/CLI/REST/gRPC
+acceptance path, with optional local Python smoke after wheel install. Current
+`main` also includes
 normalization parity across CLI and local Python helper surfaces; CLI ACK parity
 for command success, ACK code/control ID preservation, MSH-9 ACK message type,
 and MLLP framing; REST ACK parity for all six supported ACK codes with MLLP
