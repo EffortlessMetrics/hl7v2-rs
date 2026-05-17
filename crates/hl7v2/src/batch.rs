@@ -562,3 +562,111 @@ fn fields_after_separator(line: &str) -> &str {
 fn segment_prefix(line: &str) -> &str {
     line.get(..3).unwrap_or(line)
 }
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::panic_in_result_fn,
+        reason = "unit tests use assertions after fallible batch parsing setup"
+    )]
+
+    use super::*;
+
+    fn message(control_id: &str) -> String {
+        format!(
+            "MSH|^~\\&|APP|FAC|RCV|RCVFAC|202605030101||ADT^A01|{control_id}|P|2.5.1\rPID|1||MRN^^^HOSP^MR||Doe^John"
+        )
+    }
+
+    #[test]
+    fn parse_batch_rejects_invalid_utf8_before_segment_processing() {
+        let result = parse_batch(&[0xff, 0xfe, 0xfd]);
+
+        assert!(matches!(
+            result,
+            Err(BatchError::InvalidStructure(message)) if message == "Invalid UTF-8 data"
+        ));
+    }
+
+    #[test]
+    fn parse_batch_reports_unknown_first_segment_prefix() {
+        let result = parse_batch(b"ZZ\r");
+
+        assert!(matches!(
+            result,
+            Err(BatchError::InvalidStructure(message)) if message == "Unknown first segment: ZZ"
+        ));
+    }
+
+    #[test]
+    fn parse_single_batch_preserves_header_and_trailer_metadata() -> Result<(), BatchError> {
+        let data = format!(
+            "BHS*:+\\&*SEND*SFAC*RECV*RFAC*202605030101*SEC**BATCH42*Nightly import\r{}\rBTS*1*done\r",
+            message("CTRL1")
+        );
+        let batch = parse_batch(data.as_bytes())?;
+
+        assert_eq!(batch.info.batch_type, BatchType::Single);
+        assert_eq!(batch.info.field_separator, Some('*'));
+        assert_eq!(batch.info.encoding_characters, Some(":+\\&".to_string()));
+        assert_eq!(batch.info.sending_application, Some("SEND".to_string()));
+        assert_eq!(batch.info.sending_facility, Some("SFAC".to_string()));
+        assert_eq!(batch.info.receiving_application, Some("RECV".to_string()));
+        assert_eq!(batch.info.receiving_facility, Some("RFAC".to_string()));
+        assert_eq!(batch.info.security, Some("SEC".to_string()));
+        assert_eq!(batch.info.batch_name, Some("BATCH42".to_string()));
+        assert_eq!(batch.info.batch_comment, Some("Nightly import".to_string()));
+        assert_eq!(batch.info.message_count, Some(1));
+        assert_eq!(batch.info.trailer_comment, Some("done".to_string()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_file_batch_collects_unwrapped_messages_separately() -> Result<(), BatchError> {
+        let data = format!(
+            "FHS|^~\\&|FILEAPP|FILEFAC|||202605030101\r{}\r{}\rFTS|2|complete\r",
+            message("CTRL1"),
+            message("CTRL2")
+        );
+        let batch = parse_batch(data.as_bytes())?;
+
+        assert_eq!(batch.info.batch_type, BatchType::File);
+        assert_eq!(
+            batch.info.file_creation_time,
+            Some("202605030101".to_string())
+        );
+        assert_eq!(batch.info.message_count, Some(2));
+        assert_eq!(batch.info.trailer_comment, Some("complete".to_string()));
+        assert_eq!(batch.batches.len(), 2);
+        assert_eq!(batch.total_message_count(), 2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_segment_preserves_empty_fields_with_custom_separator() -> Result<(), BatchError> {
+        let segment = parse_segment("BTS*2**comment")?;
+
+        assert_eq!(segment.id, *b"BTS");
+        assert_eq!(segment.fields.len(), 3);
+        assert_eq!(
+            segment.fields.first().and_then(Field::first_text),
+            Some("2")
+        );
+        assert_eq!(segment.fields.get(1).and_then(Field::first_text), Some(""));
+        assert_eq!(
+            segment.fields.get(2).and_then(Field::first_text),
+            Some("comment")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn fields_after_separator_handles_short_and_multibyte_segments() {
+        assert_eq!(fields_after_separator("BHS|fields"), "fields");
+        assert_eq!(fields_after_separator("MSH"), "");
+        assert_eq!(fields_after_separator("AAAÅ|fields"), "");
+    }
+}

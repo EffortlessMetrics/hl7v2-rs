@@ -384,3 +384,99 @@ fn create_err_segment(error_message: &str) -> Segment {
         fields,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::panic_in_result_fn,
+        reason = "unit tests use assertions after fallible parser setup"
+    )]
+
+    use super::*;
+    use crate::parser::parse;
+    use crate::query::get;
+
+    fn sample_message() -> Result<Message, Error> {
+        parse(
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ORM^O01|CTRL123|T|2.4\r\
+PID|1||123456^^^HOSP^MR||Doe^John\r",
+        )
+    }
+
+    #[test]
+    fn ack_code_display_matches_hl7_code() {
+        let cases = [
+            (AckCode::AA, "AA"),
+            (AckCode::AE, "AE"),
+            (AckCode::AR, "AR"),
+            (AckCode::CA, "CA"),
+            (AckCode::CE, "CE"),
+            (AckCode::CR, "CR"),
+        ];
+
+        for (code, expected) in cases {
+            assert_eq!(code.as_str(), expected);
+            assert_eq!(code.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn ack_uses_original_delimiters_and_routing_metadata() -> Result<(), Error> {
+        let original = sample_message()?;
+        let response = ack(&original, AckCode::CA)?;
+
+        assert_eq!(response.delims, original.delims);
+        assert_eq!(get(&response, "MSH.3"), Some("RECVAPP"));
+        assert_eq!(get(&response, "MSH.4"), Some("RECVFAC"));
+        assert_eq!(get(&response, "MSH.5"), Some("SENDAPP"));
+        assert_eq!(get(&response, "MSH.6"), Some("SENDFAC"));
+        assert_eq!(get(&response, "MSA.1"), Some("CA"));
+        assert_eq!(get(&response, "MSA.2"), Some("CTRL123"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn ack_with_error_omits_err_segment_when_message_is_none() -> Result<(), Error> {
+        let original = sample_message()?;
+        let response = ack_with_error(&original, AckCode::AA, None)?;
+
+        assert_eq!(response.segments.len(), 2);
+        assert!(
+            response
+                .segments
+                .iter()
+                .all(|segment| segment.id != *b"ERR")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_field_value_handles_missing_zero_and_null_fields() {
+        let segment = Segment {
+            id: *b"TST",
+            fields: vec![
+                Field {
+                    reps: vec![Rep {
+                        comps: vec![Comp {
+                            subs: vec![Atom::Text("present".to_string())],
+                        }],
+                    }],
+                },
+                Field {
+                    reps: vec![Rep {
+                        comps: vec![Comp {
+                            subs: vec![Atom::Null],
+                        }],
+                    }],
+                },
+            ],
+        };
+
+        assert_eq!(get_field_value(&segment, 1), Some("present".to_string()));
+        assert_eq!(get_field_value(&segment, 0), None);
+        assert_eq!(get_field_value(&segment, 2), None);
+        assert_eq!(get_field_value(&segment, 3), None);
+    }
+}
