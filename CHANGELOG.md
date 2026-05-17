@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   availability.
 - Added local Python dirty real-world validate/redact/bundle/replay workflow
   proof using the shared Z-segment fixture.
+- Added the dirty real-world Python evidence workflow smoke to the hosted
+  Python Wheels workflow and policy guard.
 - Added a shared schema-version parity fixture and manifest guard for
   representative CLI, REST, gRPC, and local Python evidence proof.
 - Added `xtask check-schema-version-parity` to run the shared schema-version

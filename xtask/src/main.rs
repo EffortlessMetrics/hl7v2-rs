@@ -5591,6 +5591,7 @@ const PYTHON_DISTRIBUTION_DESCRIPTION: &str =
     "Python package for HL7v2 parsing, validation, and evidence workflows backed by Rust.";
 const HL7V2_PYTHON_CRATE_DESCRIPTION: &str =
     "PyO3 extension crate backing the Python hl7v2 package. Rust users should depend on hl7v2.";
+const PYTHON_WHEELS_WORKFLOW_PATH: &str = ".github/workflows/python-wheels.yml";
 
 fn check_python_publish_policy() -> Result<()> {
     println!("🔎 Checking Python publish policy...");
@@ -5599,12 +5600,13 @@ fn check_python_publish_policy() -> Result<()> {
     ensure_hl7v2_python_binding_backend_publishable(&root)?;
     check_hl7v2_python_manifest_policy(&root)?;
     check_python_pyproject_policy(&root)?;
+    check_python_wheels_workflow(&root)?;
     for policy in PYTHON_PUBLISH_WORKFLOWS {
         check_python_publish_workflow(&root, policy)?;
     }
 
     println!(
-        "✅ python publish policy: pyproject.toml, hl7v2-python metadata, and {} workflow(s) checked; Python distribution is hl7v2 and hl7v2-python is a publishable binding backend crate with separate release receipts required",
+        "✅ python publish policy: pyproject.toml, hl7v2-python metadata, Python Wheels smoke, and {} publish workflow(s) checked; Python distribution is hl7v2 and hl7v2-python is a publishable binding backend crate with separate release receipts required",
         PYTHON_PUBLISH_WORKFLOWS.len()
     );
     Ok(())
@@ -5794,6 +5796,74 @@ fn check_python_pyproject_policy_text(text: &str) -> Result<()> {
         "pyo3",
         "pyproject.toml",
     )?;
+    Ok(())
+}
+
+fn check_python_wheels_workflow(root: &Path) -> Result<()> {
+    let text = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
+    check_python_wheels_workflow_text(&text)
+}
+
+fn check_python_wheels_workflow_text(text: &str) -> Result<()> {
+    let workflow: serde_yaml::Value = serde_yaml::from_str(text)
+        .map_err(|error| anyhow!("{PYTHON_WHEELS_WORKFLOW_PATH} is not valid YAML: {error}"))?;
+    let root_map = yaml_mapping(&workflow, PYTHON_WHEELS_WORKFLOW_PATH)?;
+
+    ensure_yaml_string(
+        root_map,
+        PYTHON_WHEELS_WORKFLOW_PATH,
+        "name",
+        "Python Wheels",
+    )?;
+    let permissions = yaml_child_mapping(root_map, PYTHON_WHEELS_WORKFLOW_PATH, "permissions")?;
+    ensure_yaml_permission(permissions, PYTHON_WHEELS_WORKFLOW_PATH, "contents", "read")?;
+    ensure_yaml_missing(permissions, PYTHON_WHEELS_WORKFLOW_PATH, "id-token")?;
+
+    let jobs = yaml_child_mapping(root_map, PYTHON_WHEELS_WORKFLOW_PATH, "jobs")?;
+    let wheel_job = yaml_mapping_child(jobs, PYTHON_WHEELS_WORKFLOW_PATH, "jobs", "wheel-smoke")?;
+    let steps = yaml_child_sequence(wheel_job, PYTHON_WHEELS_WORKFLOW_PATH, "steps")?;
+
+    let build = yaml_step_named(steps, PYTHON_WHEELS_WORKFLOW_PATH, "Build wheel")?;
+    let build_run = yaml_mapping_string(build, PYTHON_WHEELS_WORKFLOW_PATH, "run")?;
+    if !build_run.contains("maturin build --release --out dist") {
+        return Err(anyhow!(
+            "{PYTHON_WHEELS_WORKFLOW_PATH} Build wheel step must run `maturin build --release --out dist`"
+        ));
+    }
+
+    let install = yaml_step_named(steps, PYTHON_WHEELS_WORKFLOW_PATH, "Install built wheel")?;
+    let install_run = yaml_mapping_string(install, PYTHON_WHEELS_WORKFLOW_PATH, "run")?;
+    for expected in ["dist/*.whl", "pip", "install"] {
+        if !install_run.contains(expected) {
+            return Err(anyhow!(
+                "{PYTHON_WHEELS_WORKFLOW_PATH} Install built wheel step must contain `{expected}`"
+            ));
+        }
+    }
+
+    for (step_name, expected) in [
+        (
+            "Run import smoke test",
+            "python tests/python_smoke/smoke.py",
+        ),
+        (
+            "Run Python evidence guide smoke test",
+            "python tests/python_smoke/evidence_workflow_guide.py",
+        ),
+        (
+            "Run Python dirty evidence workflow smoke test",
+            "python tests/python_smoke/dirty_evidence_workflow.py",
+        ),
+    ] {
+        let step = yaml_step_named(steps, PYTHON_WHEELS_WORKFLOW_PATH, step_name)?;
+        let run = yaml_mapping_string(step, PYTHON_WHEELS_WORKFLOW_PATH, "run")?;
+        if !run.contains(expected) {
+            return Err(anyhow!(
+                "{PYTHON_WHEELS_WORKFLOW_PATH} `{step_name}` step must contain `{expected}`"
+            ));
+        }
+    }
+
     Ok(())
 }
 
@@ -7891,6 +7961,44 @@ bindings = "pyo3"
                 Ok(())
             }
             Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_covers_python_wheels_workflow() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
+
+        check_python_wheels_workflow_text(&workflow)
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_python_wheels_missing_dirty_smoke() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
+        let broken = workflow.replace(
+            "      - name: Run Python dirty evidence workflow smoke test\n        run: python tests/python_smoke/dirty_evidence_workflow.py\n",
+            "",
+        );
+
+        match check_python_wheels_workflow_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject Python Wheels without dirty evidence smoke"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("Run Python dirty evidence workflow smoke test") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected Python Wheels policy error: {err}")),
         }
     }
 
