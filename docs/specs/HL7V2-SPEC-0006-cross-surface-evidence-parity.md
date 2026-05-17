@@ -108,9 +108,9 @@ The shared dirty-corpus fixture family lives in
 gRPC server, and local Python wheel corpus summary, fingerprint, and diff parity
 for Z-segments, large OBX expansion, legacy encoding declarations, malformed
 delimiters, partial batch-like input, and generated MLLP-framed input.
-It also proves one CLI validate/redact/bundle/replay workflow against the shared
-Z-segment fixture so dirty-corpus evidence is not limited to feed-level corpus
-commands.
+It also proves CLI and REST validate/redact/bundle/replay workflows against the
+shared Z-segment fixture so dirty-corpus evidence is not limited to feed-level
+corpus commands.
 TypeScript parity must use the same fixture family or explicitly explain why a
 transport-specific fixture is required.
 The default acceptance runner is
