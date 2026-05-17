@@ -410,7 +410,7 @@ mod tests {
     )]
 
     use super::*;
-    use wiremock::matchers::{method, path};
+    use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn profile_loader_without_proxy() -> ProfileLoader {
@@ -445,6 +445,7 @@ mod tests {
 
         assert_eq!(result.profile.message_structure, "ADT_A01");
         assert!(!result.from_cache);
+        assert_eq!(result.etag, None);
     }
 
     #[tokio::test]
@@ -465,21 +466,86 @@ mod tests {
         let loader = profile_loader_without_proxy();
         let url = format!("{}/profile.yaml", server.uri());
 
-        // First load
-        let _ = loader.load(&url).await.unwrap();
+        // First load populates the cache with the response ETag.
+        let first = loader.load(&url).await.unwrap();
+        assert!(!first.from_cache);
+        assert_eq!(first.etag.as_deref(), Some("v1"));
 
-        // Second load (should be from cache if we don't have conditional request logic yet,
-        // or should use ETag)
-        // Let's mock the 304 response
+        // Second load should revalidate with If-None-Match and satisfy 304s from cache.
         server.reset().await;
         Mock::given(method("GET"))
             .and(path("/profile.yaml"))
+            .and(header("if-none-match", "v1"))
             .respond_with(ResponseTemplate::new(304))
             .mount(&server)
             .await;
 
         let result = loader.load(&url).await.unwrap();
         assert!(result.from_cache);
+        assert_eq!(result.profile.message_structure, "ADT_A01");
+        assert_eq!(result.etag.as_deref(), Some("v1"));
+    }
+
+    #[tokio::test]
+    async fn test_load_from_url_updates_cache_when_remote_profile_changes() {
+        let server = MockServer::start().await;
+        let first_profile_yaml = "message_structure: ADT_A01\nversion: '2.5'\nsegments: []";
+        let second_profile_yaml = "message_structure: ORU_R01\nversion: '2.5'\nsegments: []";
+
+        Mock::given(method("GET"))
+            .and(path("/profile.yaml"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(first_profile_yaml)
+                    .insert_header("ETag", "v1"),
+            )
+            .mount(&server)
+            .await;
+
+        let loader = profile_loader_without_proxy();
+        let url = format!("{}/profile.yaml", server.uri());
+        let first = loader.load(&url).await.unwrap();
+        assert_eq!(first.profile.message_structure, "ADT_A01");
+        assert_eq!(first.etag.as_deref(), Some("v1"));
+
+        server.reset().await;
+        Mock::given(method("GET"))
+            .and(path("/profile.yaml"))
+            .and(header("if-none-match", "v1"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string(second_profile_yaml)
+                    .insert_header("ETag", "v2"),
+            )
+            .mount(&server)
+            .await;
+
+        let second = loader.load(&url).await.unwrap();
+        assert!(!second.from_cache);
+        assert_eq!(second.profile.message_structure, "ORU_R01");
+        assert_eq!(second.etag.as_deref(), Some("v2"));
+    }
+
+    #[tokio::test]
+    async fn test_file_scheme_loads_and_reuses_local_file_cache() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("profile.yaml");
+        let profile_yaml = "message_structure: PPR_PC1\nversion: '2.5'\nsegments: []";
+        std::fs::write(&file_path, profile_yaml).unwrap();
+
+        let loader = ProfileLoader::new();
+        let path = file_path.to_str().unwrap();
+        let file_url = format!("file://{path}");
+
+        let first = loader.load(&file_url).await.unwrap();
+        assert_eq!(first.profile.message_structure, "PPR_PC1");
+        assert!(!first.from_cache);
+        assert!(loader.is_cached(path).await);
+        assert!(!loader.is_cached(&file_url).await);
+
+        let second = loader.load(&file_url).await.unwrap();
+        assert!(second.from_cache);
+        assert_eq!(second.profile.message_structure, "PPR_PC1");
     }
 
     #[tokio::test]
