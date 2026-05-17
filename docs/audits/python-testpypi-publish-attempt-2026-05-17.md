@@ -2,9 +2,9 @@
 
 Date: 2026-05-17
 
-This receipt records a guarded `Python TestPyPI Proof` workflow run with
-`publish_to_testpypi=true` after the v1.5.0 release, the test-coverage readiness
-refresh, and the connect-timeout test fix landed on `main`.
+This receipt records the latest guarded `Python TestPyPI Proof` workflow run
+with `publish_to_testpypi=true` after the v1.5.0 release and the refactor
+cleanup readiness refresh landed on `main`.
 
 It proves the hosted wheel build and local wheel smoke still pass on current
 `main`. The TestPyPI upload/install-back proof remains blocked by missing
@@ -19,9 +19,9 @@ Trusted Publishing configuration on TestPyPI.
 | Trigger | `workflow_dispatch` |
 | Input | `publish_to_testpypi=true` |
 | Branch | `main` |
-| Commit | `54cde6b686f1904d76a980a03a1e104631ccce7b` |
-| Run ID | `25978162158` |
-| Run URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25978162158> |
+| Commit | `764647e79ab61cd9814d07a777cbf1eed27a5ee8` |
+| Run ID | `26002395769` |
+| Run URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26002395769> |
 | Result | `failure` |
 
 ## Verified Jobs
@@ -35,9 +35,9 @@ Trusted Publishing configuration on TestPyPI.
 Observed job IDs:
 
 ```text
-Build and smoke wheel: 76361965688
-Publish to TestPyPI: 76362005042
-Install from TestPyPI and smoke: 76362013790
+Build and smoke wheel: 76427912720
+Publish to TestPyPI: 76427962681
+Install from TestPyPI and smoke: 76427979558
 ```
 
 The run uploaded a short-retention wheel artifact:
@@ -45,10 +45,10 @@ The run uploaded a short-retention wheel artifact:
 | Field | Value |
 | --- | --- |
 | Artifact name | `python-testpypi-wheel` |
-| Artifact ID | `7038323437` |
-| Artifact digest | `sha256:656e1e11046c945262bb94603c274cd9a4baa5d9a82b47fa7eed30ac6608c18f` |
-| Artifact URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25978162158/artifacts/7038323437> |
-| Expiration | `2026-05-24T01:37:30Z` |
+| Artifact ID | `7045952170` |
+| Artifact digest | `sha256:853047c04204aa36f60a47fde13e0a3f813120e778063a1edaac1fa88fec0244` |
+| Artifact URL | <https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26002395769/artifacts/7045952170> |
+| Expiration | `2026-05-24T20:52:59Z` |
 
 ## Trusted Publisher Claims
 
@@ -76,8 +76,8 @@ Live registry checks during this receipt still found no public Python package:
 
 | Registry | URL | Result |
 | --- | --- | --- |
-| TestPyPI | <https://test.pypi.org/pypi/hl7v2/json> | `404 Not Found` at 2026-05-17T01:41:16Z |
-| PyPI | <https://pypi.org/pypi/hl7v2/json> | `404 Not Found` at 2026-05-17T01:41:16Z |
+| TestPyPI | <https://test.pypi.org/pypi/hl7v2/json> | `404 Not Found` during the 2026-05-17 refresh |
+| PyPI | <https://pypi.org/pypi/hl7v2/json> | `404 Not Found` during the 2026-05-17 refresh |
 
 ## Boundaries
 
@@ -95,6 +95,10 @@ Live registry checks during this receipt still found no public Python package:
 Configure the TestPyPI Trusted Publisher for project `hl7v2` with the fields
 below. The external setup work is tracked in
 [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563).
+
+Issue #563 was reopened after this run because the attempted publish still
+failed at `invalid-publisher`; issue state is not a substitute for
+upload/install-back proof.
 
 | TestPyPI field | Value |
 | --- | --- |

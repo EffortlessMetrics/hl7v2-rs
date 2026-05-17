@@ -338,14 +338,15 @@ id = "python-testpypi-publish-attempt-refresh"
 status = "blocked"
 goal = "Rerun the guarded Python TestPyPI proof in publishing mode from current main and record the external Trusted Publisher boundary."
 blocked_by = "https://github.com/EffortlessMetrics/hl7v2-rs/issues/563"
-commit = "54cde6b686f1904d76a980a03a1e104631ccce7b"
+commit = "764647e79ab61cd9814d07a777cbf1eed27a5ee8"
 receipt = "docs/audits/python-testpypi-publish-attempt-2026-05-17.md"
-workflow_run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25978162158"
+workflow_run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26002395769"
 commands = [
   "gh workflow run python-testpypi.yml --ref main -f publish_to_testpypi=true",
-  "gh run view 25978162158 --json headSha,event,status,conclusion,url,jobs",
-  "gh run view 25978162158 --log-failed",
-  "gh api repos/EffortlessMetrics/hl7v2-rs/actions/runs/25978162158/artifacts",
+  "gh run view 26002395769 --json headSha,event,status,conclusion,url,jobs",
+  "gh run view 26002395769 --log-failed",
+  "gh api repos/EffortlessMetrics/hl7v2-rs/actions/runs/26002395769/artifacts",
+  "gh issue reopen 563 --comment <latest failed run summary>",
   "curl -I https://test.pypi.org/pypi/hl7v2/json",
   "curl -I https://pypi.org/pypi/hl7v2/json",
 ]
