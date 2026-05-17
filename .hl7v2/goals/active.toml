@@ -867,7 +867,7 @@ non_claims = [
   "No npm package.",
   "No tag or GitHub release.",
   "No Python public-registry install-back proof.",
-  "No gRPC or Python dirty validate/redact/bundle/replay workflow claim.",
+  "No Python dirty validate/redact/bundle/replay workflow claim.",
 ]
 
 [[work_item]]
@@ -883,7 +883,23 @@ non_claims = [
   "No npm package.",
   "No tag or GitHub release.",
   "No Python public-registry install-back proof.",
-  "No gRPC or Python dirty validate/redact/bundle/replay workflow claim.",
+  "No Python dirty validate/redact/bundle/replay workflow claim.",
+]
+
+[[work_item]]
+id = "dirty-corpus-grpc-evidence-workflow"
+status = "done"
+goal = "Extend the dirty-corpus runner with one gRPC validate-redacted/bundle/replay evidence workflow over the shared Z-segment fixture."
+command = "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow --locked"
+runner = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No Python dirty validate/redact/bundle/replay workflow claim.",
 ]
 
 [[work_item]]
