@@ -23,7 +23,7 @@ use common::{
 };
 use hl7v2_test_utils::{
     PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, RAW_INPUT_FILE_SENTINEL,
-    RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels_or_paths,
+    RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels_or_paths, safe_error_phi_parity_fixture,
 };
 
 fn is_sha256_hex(value: &str) -> bool {
@@ -534,6 +534,44 @@ mod parse_command {
         cmd.args(["parse", invalid_file.to_str().unwrap()])
             .assert()
             .failure();
+    }
+
+    #[test]
+    fn test_parse_safe_error_does_not_emit_manifest_phi_sentinels() {
+        let fixture = safe_error_phi_parity_fixture().unwrap();
+        let dir = create_temp_dir();
+        let invalid_file = create_temp_file(
+            &dir,
+            &fixture.phi.raw_input_file,
+            fixture.malformed_message.message.as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["parse", invalid_file.to_str().unwrap()])
+            .output()
+            .expect("Failed to execute parse");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        let combined = format!("{stdout}\n{stderr}");
+        for expected in &fixture.malformed_message.expected_error_substrings {
+            assert!(
+                combined.contains(expected),
+                "CLI parse error omitted expected safe context: {expected}; got: {combined}"
+            );
+        }
+        fixture.assert_no_forbidden("CLI parse safe error stdout", &stdout);
+        fixture.assert_no_forbidden("CLI parse safe error stderr", &stderr);
+        assert!(
+            !combined.contains(&fixture.phi.raw_input_file),
+            "CLI parse safe error leaked raw input file name"
+        );
+        assert!(
+            !combined.contains(invalid_file.to_string_lossy().as_ref()),
+            "CLI parse safe error leaked raw input file path"
+        );
     }
 
     #[test]

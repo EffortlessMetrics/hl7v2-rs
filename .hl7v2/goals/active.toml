@@ -738,6 +738,42 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "safe-error-phi-parity-fixture"
+status = "done"
+goal = "Back safe-error-shape and PHI sentinel parity with one shared fixture, surface-specific Rust/CLI/REST/gRPC proof, and Python smoke fixture wiring."
+manifest = "test_data/security/safe-error-phi-parity.json"
+commands = [
+  "cargo +1.95.0 test -p hl7v2-test-utils security_fixtures --locked",
+  "cargo +1.95.0 test -p hl7v2 --test safe_error_phi_parity --all-features --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_parse_safe_error_does_not_emit_manifest_phi_sentinels --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_redact_json_does_not_emit_phi_leak_sentinels_or_paths --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test parse_endpoint_test test_parse_malformed_message_returns_error --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test validate_endpoint_test test_validate_invalid_profile_yaml_returns_error --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test validate_redacted_endpoint_test test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_parse_invalid_hl7_returns_parse_error --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_invalid_profile_returns_invalid_argument --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_redacted_returns_report_receipt_and_redacted_hl7 --locked",
+  "CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2-test-utils --tests --locked -- -D warnings",
+  "CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2 --test safe_error_phi_parity --all-features --locked -- -D warnings",
+  "CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2-cli --test integration_tests --locked -- -D warnings",
+  "CARGO_INCREMENTAL=0 cargo +1.95.0 clippy -p hl7v2-server --tests --locked -- -D warnings",
+  "python -m py_compile tests/python_smoke/smoke.py",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No Python local-wheel smoke execution was claimed from this base environment; py_compile only checked the smoke script syntax.",
+]
+
+[[work_item]]
 id = "v1-5-0-grpc-status-readiness-refresh"
 status = "done"
 goal = "Refresh v1.5.0 readiness after the gRPC serve-mode status sync landed."

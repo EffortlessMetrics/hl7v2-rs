@@ -45,8 +45,9 @@ pub use fixtures::SampleMessages;
 pub use mocks::{MockMessageHandler, MockMllpServer};
 pub use security_fixtures::{
     PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, PHI_LEAK_SENTINELS,
-    RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels,
-    assert_no_phi_leak_sentinels_or_paths, deterministic_api_key,
+    RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL, SAFE_ERROR_PHI_PARITY_MANIFEST,
+    SafeErrorPhiParityFixture, assert_no_phi_leak_sentinels, assert_no_phi_leak_sentinels_or_paths,
+    deterministic_api_key, safe_error_phi_parity_fixture,
 };
 
 /// Prelude module for convenient imports
@@ -60,8 +61,10 @@ pub mod prelude {
     pub use crate::mocks::{MockMessageHandler, MockMllpServer};
     pub use crate::security_fixtures::{
         PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, PHI_LEAK_SENTINELS,
-        RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels,
+        RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL, SAFE_ERROR_PHI_PARITY_MANIFEST,
+        SafeErrorPhiParityFixture, assert_no_phi_leak_sentinels,
         assert_no_phi_leak_sentinels_or_paths, deterministic_api_key,
+        safe_error_phi_parity_fixture,
     };
 }
 

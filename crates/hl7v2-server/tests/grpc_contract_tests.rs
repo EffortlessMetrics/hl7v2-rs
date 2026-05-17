@@ -26,7 +26,7 @@ mod tests {
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
         PHI_LEAK_SENTINEL_MESSAGE as PHI_MESSAGE, PHI_LEAK_SENTINEL_POLICY as REDACTION_POLICY,
-        SampleMessages, assert_no_phi_leak_sentinels,
+        SampleMessages, assert_no_phi_leak_sentinels, safe_error_phi_parity_fixture,
     };
     use http_body_util::Full;
     use metrics_exporter_prometheus::PrometheusBuilder;
@@ -291,8 +291,9 @@ constraints:
     #[tokio::test]
     async fn test_grpc_parse_invalid_hl7_returns_parse_error() {
         let service = service();
+        let fixture = safe_error_phi_parity_fixture().unwrap();
         let request = Request::new(ParseRequest {
-            message: b"not an HL7 message".to_vec(),
+            message: fixture.malformed_message.message.as_bytes().to_vec(),
             mllp_framed: false,
             options: None,
         });
@@ -303,7 +304,11 @@ constraints:
         assert!(!inner.success);
         assert!(inner.message.is_none());
         assert_eq!(inner.errors.len(), 1);
-        assert_eq!(inner.errors[0].code, "PARSE_ERROR");
+        assert_eq!(
+            inner.errors[0].code,
+            fixture.malformed_message.rest_code.as_str()
+        );
+        fixture.assert_no_forbidden("gRPC parse safe error", &format!("{inner:?}"));
     }
 
     #[tokio::test]
@@ -426,12 +431,11 @@ constraints:
     #[tokio::test]
     async fn test_grpc_validate_invalid_profile_returns_invalid_argument() {
         let service = service();
-        let sensitive_profile =
-            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+        let fixture = safe_error_phi_parity_fixture().unwrap();
 
         let request = Request::new(ValidateRequest {
             message: SAMPLE_MSG.to_vec(),
-            profile: sensitive_profile.to_string(),
+            profile: fixture.invalid_profile.yaml.clone(),
             mllp_framed: false,
             options: None,
             report_schema_version: 0,
@@ -447,9 +451,7 @@ constraints:
             err.message(),
             "profile could not be loaded; run profile lint for details"
         );
-        assert!(!err.message().contains("Jane Secret"));
-        assert!(!err.message().contains("MRN-SECRET-123"));
-        assert!(!err.message().contains(sensitive_profile));
+        fixture.assert_no_forbidden("gRPC validate profile safe error", err.message());
     }
 
     #[tokio::test]
