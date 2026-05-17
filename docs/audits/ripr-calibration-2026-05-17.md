@@ -34,6 +34,36 @@ ripr-pr-evidence` into a temporary directory and inspected from
 `repo-exposure.json`, `summary.md`, `comments.json`, `comments.md`, and
 `target/xtask/impacted-evidence/latest.md`.
 
+## Cost And Latency Sample
+
+The hosted lane was also sampled for runtime cost because a useful static
+signal can still become an expensive default PR tax if it is slow enough at
+industrialized volume.
+
+| Pull request | Workflow run | Workflow elapsed | `ripr` job elapsed | Install `ripr` | Advisory evidence step |
+| --- | --- | ---: | ---: | ---: | ---: |
+| #731, evidence parity acceptance runner | `25990753620` | 1m48s | 1m46s | 1m12s | 28s |
+| #737, Python dirty evidence workflow smoke | `25997492068` | 1m54s | 1m51s | 1m14s | 30s |
+| #738, Python wheel dirty smoke workflow | `25998379659` | 1m53s | 1m51s | 1m15s | 29s |
+| #743, Python Wheels policy CRLF guard | `25998977833` | 1m52s | 1m48s | 1m14s | 29s |
+| #742, server validation helper refactor | `25999837574` | 1m54s | 1m51s | 1m15s | 30s |
+| #740, duplicated value generation refactor | `26000683148` | 1m51s | 1m48s | 1m12s | 31s |
+| #748, FTS count validation and profile-loader stabilization | `26004231616` | 1m54s | 1m50s | 1m13s | 28s |
+| #747, ACK and batch unit coverage | `26004773809` | 1m56s | 1m53s | 1m16s | 31s |
+| #751, profile loader cache coverage | `26005082252` | 1m55s | 1m53s | 1m13s | 29s |
+
+Observed envelope for this sample:
+
+- workflow elapsed: p50 1m54s, max 1m56s;
+- `ripr` job elapsed: p50 1m51s, max 1m53s;
+- advisory evidence step: p50 29s, max 31s;
+- queue-to-start delay: 0s-3s in the sampled runs;
+- most elapsed time is tool installation, not analysis.
+
+This is acceptable for an advisory PR-time lane today, but it is not yet enough
+evidence to make the lane branch-protection blocking. A future optimization
+should focus on installation/cache behavior before adding default CI weight.
+
 ## Calibration Findings
 
 The lane is still useful as advisory review evidence:
@@ -80,8 +110,14 @@ Keep `ripr` advisory:
   `comments.json`, `summary.md`, and `comments.md`.
 - Keep collecting hosted samples before deciding whether any `ripr` severity or
   routing result can become blocking.
-- Track cost and latency once enough PR traffic exists to calculate a useful
-  envelope.
+- Do not promote `ripr` from advisory to soft-gate or required until all of the
+  following are true: artifact counter semantics are aligned or explicitly
+  specified; at least 25 hosted PR samples show stable low-noise routing;
+  targeted-mutation escalation correlates with meaningful review or test risk;
+  p95 workflow elapsed remains below 3 minutes after normal cache behavior; and
+  the workflow does not add broad runtime mutation to ordinary PRs.
+- Track whether caching or a pinned prebuilt tool path can reduce the current
+  install-dominated runtime before considering stricter enforcement.
 - Consider a focused test follow-up for server validation helper seams if the
   #742 guidance maps to meaningful untested behavior.
 
