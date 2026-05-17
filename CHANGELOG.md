@@ -71,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a post-release current-main readiness refresh after the Python wheel
+  dirty evidence smoke, Windows policy guard, server validation-helper refactor,
+  and synthetic value/CLI help cleanup landed through #740/#742/#743/#738.
 - Recorded a post-release current-main readiness refresh after REST and gRPC
   dirty real-world validate-redacted/bundle/replay workflows landed through
   #734.
