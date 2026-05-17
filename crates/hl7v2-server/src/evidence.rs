@@ -1,12 +1,12 @@
 //! Evidence bundle helpers for HTTP endpoints.
 
+use crate::hash::{compute_sha256, compute_sha256_bytes};
 use crate::models::{
     EvidenceBundleEnvironment, EvidenceBundleManifest, EvidenceBundleManifestArtifact,
     EvidenceBundleSummary, FieldPathTrace, FieldPathTraceReport, FieldValueShape, QuarantineConfig,
     QuarantineOutputSummary, QuarantineReason, RedactionAction, RedactionReceipt,
 };
 use hl7v2::{Atom, Field, Message, ValidationReport};
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
@@ -479,16 +479,6 @@ fn field_to_text(field: &Field, delims: &hl7v2::Delims) -> String {
         })
         .collect::<Vec<_>>()
         .join(&delims.rep.to_string())
-}
-
-fn compute_sha256(value: &str) -> String {
-    compute_sha256_bytes(value.as_bytes())
-}
-
-fn compute_sha256_bytes(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    format!("{:x}", hasher.finalize())
 }
 
 fn replay_shell_script() -> &'static str {

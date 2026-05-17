@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
-use sha2::{Digest, Sha256};
-
 use crate::handlers::error::AppError;
+use crate::hash::compute_sha256;
 use crate::models::CorpusMessageInput;
 
 pub(super) fn validated_corpus_message_ids(
@@ -139,10 +138,4 @@ pub(super) fn validation_report_v2_for_server(
             sha256: Some(compute_sha256(profile_yaml)),
         }),
     )
-}
-
-pub(super) fn compute_sha256(value: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
-    format!("{:x}", hasher.finalize())
 }

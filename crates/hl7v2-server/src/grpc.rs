@@ -1,5 +1,6 @@
 //! gRPC service implementation for HL7v2.
 
+use crate::hash::compute_sha256;
 use crate::models::{
     EvidenceBundleSummary as ServerEvidenceBundleSummary,
     QuarantineOutputSummary as ServerQuarantineOutputSummary,
@@ -14,7 +15,6 @@ use hl7v2::{
     Comp as RustComp, Field as RustField, Message as RustMessage, Rep as RustRep,
     Segment as RustSegment, parse as rust_parse,
 };
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -689,12 +689,6 @@ fn grpc_requested_schema_version(version: i32, artifact: &str) -> Result<i32, St
             "unsupported {artifact} schema version {other}; expected 1 or 2"
         )),
     }
-}
-
-fn compute_sha256(input: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    format!("{:x}", hasher.finalize())
 }
 
 struct GrpcRedactedQuarantineContext<'a> {

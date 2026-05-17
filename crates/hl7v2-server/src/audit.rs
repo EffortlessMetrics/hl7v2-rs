@@ -1,7 +1,6 @@
 //! Redacted structured audit log helpers for server evidence workflows.
 
-use sha2::{Digest, Sha256};
-
+use crate::hash::compute_sha256;
 use crate::models::{AckPolicyOutcome, AckPolicyReason};
 
 /// Structured event emitted when `/hl7/parse` completes.
@@ -90,9 +89,7 @@ fn hash_or_missing(value: &str) -> String {
     if value.is_empty() {
         "missing".to_string()
     } else {
-        let mut hasher = Sha256::new();
-        hasher.update(value.as_bytes());
-        format!("{:x}", hasher.finalize())
+        compute_sha256(value)
     }
 }
 

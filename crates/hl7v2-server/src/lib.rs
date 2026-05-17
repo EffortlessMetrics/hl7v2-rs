@@ -47,6 +47,7 @@
 )]
 
 mod audit;
+mod hash;
 
 pub mod evidence;
 pub mod grpc;

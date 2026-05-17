@@ -1,11 +1,11 @@
 //! Safe-analysis redaction helpers for HTTP evidence endpoints.
 
+use crate::hash::compute_sha256;
 use crate::models::{
     RedactionAction, RedactionActionReceipt, RedactionActionStatus, RedactionReceipt,
 };
 use hl7v2::{Atom, Field, Message};
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
 #[derive(Debug, Deserialize)]
@@ -279,10 +279,4 @@ fn field_to_text(field: &Field, delims: &hl7v2::Delims) -> String {
         })
         .collect::<Vec<_>>()
         .join(&delims.rep.to_string())
-}
-
-fn compute_sha256(value: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
-    format!("{:x}", hasher.finalize())
 }
