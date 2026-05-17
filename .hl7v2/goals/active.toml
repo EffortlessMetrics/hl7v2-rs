@@ -774,6 +774,23 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "safe-error-phi-parity-acceptance-runner"
+status = "done"
+goal = "Add one xtask runner that composes the shared safe-error and PHI sentinel proof across Rust core, CLI, REST, and gRPC surfaces."
+manifest = "test_data/security/safe-error-phi-parity.json"
+command = "cargo +1.95.0 run -p xtask -- check-safe-error-phi-parity"
+optional_python_command = "cargo +1.95.0 run -p xtask -- check-safe-error-phi-parity --include-python"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "The default runner does not claim Python public-registry install-back proof.",
+  "The optional Python runner requires a locally installed hl7v2 wheel.",
+]
+
+[[work_item]]
 id = "schema-version-parity-fixture"
 status = "done"
 goal = "Back schema-version behavior parity with one shared fixture, representative CLI/REST/gRPC proof, Python smoke fixture wiring, and an xtask manifest guard."

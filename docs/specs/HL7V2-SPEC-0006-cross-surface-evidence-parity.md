@@ -112,7 +112,11 @@ message, safe-analysis policy, malformed-input payload, malformed-profile
 payload, expected safe diagnostics, and forbidden sentinel values used by Rust
 core, CLI, REST, gRPC, and local Python proof. Surface tests may stay
 transport-specific, but they must use this fixture when claiming safe-error or
-PHI sentinel parity.
+PHI sentinel parity. The default acceptance runner is
+`cargo run -p xtask -- check-safe-error-phi-parity`; it composes the
+fixture-backed Rust, CLI, REST, and gRPC checks. Pass `--include-python` only
+after a local `hl7v2` wheel is installed, because Python package availability
+remains governed by the separate TestPyPI/PyPI proof lane.
 
 The shared schema-version fixture lives in
 `test_data/evidence/schema-version-parity.json`. It records the accepted v2

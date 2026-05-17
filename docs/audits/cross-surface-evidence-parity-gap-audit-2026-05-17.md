@@ -43,9 +43,9 @@ release, or install-back success.
 | quarantine output | REST and gRPC configured quarantine behavior is proved where exposed. | Python quarantine output is not a public package claim; TypeScript is unimplemented. | Do not claim Python quarantine unless a focused helper and smoke proof are added. |
 | bundle / replay | Rust, CLI, REST, gRPC, and local Python helper proof exist for bundle/replay semantics. | Public Python registry install-back is absent; TypeScript is unimplemented. | Python public proof, then shared parity runner. |
 | corpus summary / fingerprint / diff | Rust core, CLI, REST, gRPC, and local Python dirty-corpus parity proof share `test_data/dirty-real-world/`. | TypeScript is unimplemented; dirty-corpus proof is strongest for corpus commands, not every evidence workflow. | Extend dirty-corpus proof to validate/redact/bundle/replay only in focused test PRs. |
-| safe error shape | Surface-specific tests and specs require safe diagnostics without raw PHI echo. | There is no single cross-surface safe-error fixture runner that exercises the same malformed inputs across Rust, CLI, REST/gRPC, and Python. | Add a parity acceptance suite or manifest for safe-error fixtures. |
+| safe error shape | Surface-specific tests and specs require safe diagnostics without raw PHI echo, and `cargo run -p xtask -- check-safe-error-phi-parity` now composes the fixture-backed Rust, CLI, REST, and gRPC checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep the runner current as new surfaces claim safe-error parity; add Python public proof after TestPyPI/PyPI receipts. |
 | `schema_version` behavior | Evidence schemas and many surface-specific tests cover v1/v2 outputs where implemented. | There is no machine-readable matrix that records which surface supports which schema-versioned artifact. | Add a parity manifest before adding more surface claims. |
-| PHI sentinel behavior | PHI and quarantine sentinels are stable in support tiers, and Python/local evidence receipts include PHI-safe checks. | There is no single shared PHI sentinel runner across every exposed surface and artifact family. | Add shared sentinel fixtures as part of the parity acceptance suite. |
+| PHI sentinel behavior | PHI and quarantine sentinels are stable in support tiers, Python/local evidence receipts include PHI-safe checks, and `cargo run -p xtask -- check-safe-error-phi-parity` covers Rust, CLI, REST, and gRPC PHI fixture checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep PHI sentinel proof explicit when adding new artifact families or language surfaces. |
 | TypeScript / npm | Package identity is specified as `@effortlessmetrics/hl7v2`. | No npm package, WASM backend, pack/install/import proof, or parity fixtures exist. | Plan npm/WASM only after Python public proof and parity stabilization. |
 
 ## Implementation Queue
@@ -58,8 +58,9 @@ release, or install-back success.
 4. Keep [`policy/evidence-parity.toml`](../../policy/evidence-parity.toml)
    current as the machine-readable parity manifest for proof commands, fixture
    families, supported surfaces, and known gaps.
-5. Add a shared safe-error and PHI sentinel parity runner for malformed inputs
-   across Rust, CLI, REST/gRPC, and Python local wheel surfaces.
+5. Keep `cargo run -p xtask -- check-safe-error-phi-parity` as the shared
+   safe-error and PHI sentinel runner for Rust, CLI, REST, and gRPC surfaces;
+   use `--include-python` only when a local Python wheel is installed.
 6. Extend dirty-corpus proof beyond corpus summary/fingerprint/diff only where
    the next surface has a concrete user workflow, such as validate, redaction,
    bundle, or replay.
