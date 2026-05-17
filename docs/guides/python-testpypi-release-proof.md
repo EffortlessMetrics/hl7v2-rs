@@ -48,12 +48,7 @@ cargo run -p xtask -- check-python-publish-policy
 Then run the local wheel proof:
 
 ```powershell
-python -m pip install --upgrade pip "maturin==1.13.1"
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
-maturin build --release --out dist
-python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
-python tests\python_smoke\smoke.py
-python tests\python_smoke\evidence_workflow_guide.py
+cargo +1.95.0 run -p xtask -- python-local-wheel-proof
 ```
 
 Expected result:
@@ -61,6 +56,12 @@ Expected result:
 ```text
 hl7v2 smoke ok version=<version> segments=2
 ```
+
+The command creates a scratch virtual environment, builds the `hl7v2` wheel with
+maturin, installs that wheel, imports `hl7v2`, and runs both
+`tests/python_smoke/smoke.py` and `tests/python_smoke/evidence_workflow_guide.py`.
+It is a local wheel proof only; TestPyPI success still requires upload and
+install-back from TestPyPI.
 
 ## Manual TestPyPI Proof
 

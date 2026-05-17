@@ -26,9 +26,8 @@ Before running the production publish mode, verify all of these are true:
 
 - The Rust crates for the same release train are already published or
   intentionally not changing.
-- The local wheel proof passes with `maturin build --release --out dist`,
-  `tests/python_smoke/smoke.py`, and
-  `tests/python_smoke/evidence_workflow_guide.py`.
+- The local wheel proof passes with
+  `cargo run -p xtask -- python-local-wheel-proof`.
 - The manual **Python TestPyPI Proof** workflow has passed with
   `publish_to_testpypi=true`.
 - The TestPyPI install-back job installed

@@ -1817,6 +1817,29 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "python-local-wheel-proof-command"
+status = "done"
+goal = "Make local Python wheel proof self-contained so agents and maintainers can build, install, import, smoke, and parity-check the public hl7v2 wheel without manual venv setup."
+receipt = "docs/audits/python-local-wheel-proof-command-2026-05-17.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- python-local-wheel-proof --root F:\\cargo-target\\hl7v2-rs-python-local-wheel-proof-2026-05-17",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance --include-python",
+  "cargo +1.95.0 test -p xtask python --locked",
+  "cargo +1.95.0 test -p xtask single_wheel_in_dist_requires_exactly_one_wheel --locked",
+  "cargo +1.95.0 test -p xtask python_venv_executable_uses_platform_path --locked",
+  "cargo +1.95.0 fmt --all -- --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No token fallback.",
+  "No skip-existing.",
+]
+
+[[work_item]]
 id = "dirty-real-world-corpus-proof"
 status = "done"
 goal = "Add a focused core proof that corpus summary, fingerprint, and diff handle dirty real-world interface data safely."

@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask check-evidence-parity-acceptance` as the aggregate local
   Rust/CLI/REST/gRPC parity acceptance suite, with optional local Python wheel
   smoke.
+- Added `xtask python-local-wheel-proof` to build, install, import, and
+  smoke-test the local Python `hl7v2` wheel without claiming TestPyPI or PyPI
+  availability.
 - Added a shared schema-version parity fixture and manifest guard for
   representative CLI, REST, gRPC, and local Python evidence proof.
 - Added `xtask check-schema-version-parity` to run the shared schema-version
