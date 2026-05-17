@@ -74,7 +74,9 @@ The machine-readable parity manifest lives in
 [`policy/evidence-parity.toml`](../../policy/evidence-parity.toml). It records
 the current surface state, proof commands, fixture families, and known gaps so
 future PRs can update parity state without scraping audit prose. The manifest
-does not create a new release, registry, or runtime claim by itself.
+does not create a new release, registry, or runtime claim by itself. Use
+`cargo run -p xtask -- check-evidence-parity` to verify the manifest keeps the
+required surfaces, contracts, proof links, and non-claim boundaries.
 
 ## Fixture Rules
 

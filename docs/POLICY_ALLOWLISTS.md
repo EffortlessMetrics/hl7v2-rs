@@ -59,5 +59,6 @@ they govern behavior that does not belong in `policy/non-rust-allowlist.toml`.
 cargo run -p xtask -- check-file-policy
 cargo run -p xtask -- check-lint-policy
 cargo run -p xtask -- check-no-panic-family
+cargo run -p xtask -- check-evidence-parity
 cargo run -p xtask -- policy-report
 ```
