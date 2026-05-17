@@ -3,6 +3,14 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
+use std::sync::OnceLock;
+
+/// Shared manifest that ties PHI sentinel and safe-error parity tests together.
+pub const SAFE_ERROR_PHI_PARITY_MANIFEST: &str =
+    include_str!("../../../test_data/security/safe-error-phi-parity.json");
+
+static SAFE_ERROR_PHI_PARITY_FIXTURE: OnceLock<Result<SafeErrorPhiParityFixture, String>> =
+    OnceLock::new();
 
 /// Synthetic HL7 message containing deterministic PHI leak sentinels.
 ///
@@ -93,6 +101,71 @@ pub const PHI_LEAK_SENTINELS: &[(&str, &str)] = &[
     ("next of kin phone", "5550001234"),
 ];
 
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct SafeErrorPhiParityFixture {
+    pub schema_version: String,
+    pub phi: PhiFixture,
+    pub malformed_message: MalformedMessageFixture,
+    pub invalid_profile: InvalidProfileFixture,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct PhiFixture {
+    pub message: String,
+    pub policy: String,
+    pub raw_input_file: String,
+    pub raw_policy_file: String,
+    pub forbidden: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct MalformedMessageFixture {
+    pub message: String,
+    pub expected_error_substrings: Vec<String>,
+    pub rest_code: String,
+    pub rest_location: String,
+    pub rest_safe_detail_contains: String,
+    pub rest_action_contains: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct InvalidProfileFixture {
+    pub yaml: String,
+    pub forbidden: Vec<String>,
+    pub rest_code: String,
+    pub rest_location: String,
+    pub rest_safe_detail_contains: String,
+    pub rest_action_contains: String,
+}
+
+impl SafeErrorPhiParityFixture {
+    pub fn forbidden_values(&self) -> impl Iterator<Item = &str> {
+        self.phi
+            .forbidden
+            .iter()
+            .chain(self.invalid_profile.forbidden.iter())
+            .map(String::as_str)
+    }
+
+    pub fn assert_no_forbidden(&self, context: &str, content: &str) {
+        for value in self.forbidden_values() {
+            assert!(
+                !content.contains(value),
+                "{context} leaked manifest-forbidden value: {value}"
+            );
+        }
+    }
+}
+
+pub fn safe_error_phi_parity_fixture() -> Result<&'static SafeErrorPhiParityFixture, String> {
+    match SAFE_ERROR_PHI_PARITY_FIXTURE.get_or_init(|| {
+        serde_json::from_str(SAFE_ERROR_PHI_PARITY_MANIFEST).map_err(|err| err.to_string())
+    }) {
+        Ok(fixture) => Ok(fixture),
+        Err(err) => Err(err.clone()),
+    }
+}
+
 /// Assert that `content` contains none of the shared PHI leak sentinel values.
 ///
 /// This is a regression tripwire for synthetic fixtures, not a general PHI
@@ -148,8 +221,8 @@ pub fn deterministic_api_key(seed: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, assert_no_phi_leak_sentinels,
-        deterministic_api_key,
+        PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, PHI_LEAK_SENTINELS,
+        assert_no_phi_leak_sentinels, deterministic_api_key, safe_error_phi_parity_fixture,
     };
 
     #[test]
@@ -181,5 +254,24 @@ mod tests {
             "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||hash:sha256:abc||||M|||",
         );
         assert!(PHI_LEAK_SENTINEL_MESSAGE.contains("Signal^Patricia"));
+    }
+
+    #[test]
+    fn test_safe_error_phi_parity_fixture_matches_shared_phi_values() -> Result<(), String> {
+        let fixture = safe_error_phi_parity_fixture()?;
+
+        assert_eq!(fixture.schema_version, "1.0");
+        assert_eq!(fixture.phi.message, PHI_LEAK_SENTINEL_MESSAGE);
+        assert_eq!(fixture.phi.policy.trim(), PHI_LEAK_SENTINEL_POLICY.trim());
+        assert_eq!(fixture.phi.raw_input_file, super::RAW_INPUT_FILE_SENTINEL);
+        assert_eq!(fixture.phi.raw_policy_file, super::RAW_POLICY_FILE_SENTINEL);
+        for (_, value) in PHI_LEAK_SENTINELS {
+            assert!(
+                fixture.phi.forbidden.iter().any(|item| item == value),
+                "manifest missing PHI sentinel value: {value}"
+            );
+        }
+
+        Ok(())
     }
 }

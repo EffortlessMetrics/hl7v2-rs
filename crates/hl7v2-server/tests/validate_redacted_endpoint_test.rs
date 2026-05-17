@@ -12,7 +12,7 @@ use axum::{
 };
 use hl7v2_test_utils::{
     PHI_LEAK_SENTINEL_MESSAGE as PHI_MESSAGE, PHI_LEAK_SENTINEL_POLICY as REDACTION_POLICY,
-    assert_no_phi_leak_sentinels,
+    assert_no_phi_leak_sentinels, safe_error_phi_parity_fixture,
 };
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
@@ -66,10 +66,11 @@ fn validate_redacted_request(request_body: Value) -> Request<Body> {
 #[tokio::test]
 async fn test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi() {
     let app = common::create_test_router();
+    let fixture = safe_error_phi_parity_fixture().unwrap();
     let request_body = json!({
-        "message": PHI_MESSAGE,
+        "message": &fixture.phi.message,
         "profile": VALIDATION_PROFILE,
-        "redaction_policy": REDACTION_POLICY,
+        "redaction_policy": &fixture.phi.policy,
         "include_redacted_hl7": true
     });
 
@@ -94,7 +95,7 @@ async fn test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_
             .unwrap()
             .contains("hash:sha256:")
     );
-    assert_no_phi(&body_text);
+    fixture.assert_no_forbidden("REST validate-redacted response", &body_text);
 }
 
 #[tokio::test]

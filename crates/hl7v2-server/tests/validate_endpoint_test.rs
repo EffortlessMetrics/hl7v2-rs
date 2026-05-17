@@ -10,6 +10,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use hl7v2_test_utils::safe_error_phi_parity_fixture;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -119,12 +120,11 @@ async fn test_validate_malformed_message_returns_error() {
 #[tokio::test]
 async fn test_validate_invalid_profile_yaml_returns_error() {
     let app = common::create_test_router();
-    let sensitive_profile =
-        "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+    let fixture = safe_error_phi_parity_fixture().unwrap();
 
     let request_body = json!({
         "message": common::fixtures::MINIMAL_VALID,
-        "profile": sensitive_profile,
+        "profile": &fixture.invalid_profile.yaml,
         "mllp_framed": false
     });
 
@@ -135,25 +135,29 @@ async fn test_validate_invalid_profile_yaml_returns_error() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body_text = String::from_utf8(body.to_vec()).unwrap();
     let body_json: Value = serde_json::from_str(&body_text).unwrap();
-    assert_eq!(body_json["code"], "PROFILE_LOAD_ERROR");
+    assert_eq!(
+        body_json["code"].as_str(),
+        Some(fixture.invalid_profile.rest_code.as_str())
+    );
     assert_eq!(
         body_json["message"],
         "profile could not be loaded; run profile lint for details"
     );
-    assert_eq!(body_json["location"], "profile");
+    assert_eq!(
+        body_json["location"].as_str(),
+        Some(fixture.invalid_profile.rest_location.as_str())
+    );
     assert!(
-        body_json["safe_detail"]
-            .as_str()
-            .is_some_and(|detail| detail.contains("Raw profile content is not echoed"))
+        body_json["safe_detail"].as_str().is_some_and(
+            |detail| detail.contains(&fixture.invalid_profile.rest_safe_detail_contains)
+        )
     );
     assert!(
         body_json["suggested_next_action"]
             .as_str()
-            .is_some_and(|action| action.contains("Run profile lint"))
+            .is_some_and(|action| action.contains(&fixture.invalid_profile.rest_action_contains))
     );
-    assert!(!body_text.contains("Jane Secret"));
-    assert!(!body_text.contains("MRN-SECRET-123"));
-    assert!(!body_text.contains(sensitive_profile));
+    fixture.assert_no_forbidden("REST validate profile safe error", &body_text);
 }
 
 #[tokio::test]

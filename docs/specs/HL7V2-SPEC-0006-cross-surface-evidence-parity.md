@@ -106,6 +106,14 @@ delimiters, partial batch-like input, and generated MLLP-framed input.
 TypeScript parity must use the same fixture family or explicitly explain why a
 transport-specific fixture is required.
 
+The shared safe-error and PHI sentinel fixture lives in
+`test_data/security/safe-error-phi-parity.json`. It supplies the synthetic PHI
+message, safe-analysis policy, malformed-input payload, malformed-profile
+payload, expected safe diagnostics, and forbidden sentinel values used by Rust
+core, CLI, REST, gRPC, and local Python proof. Surface tests may stay
+transport-specific, but they must use this fixture when claiming safe-error or
+PHI sentinel parity.
+
 ## Non-Goals
 
 - No new runtime implementation in this spec.

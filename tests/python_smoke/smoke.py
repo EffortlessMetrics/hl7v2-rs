@@ -10,84 +10,22 @@ from pathlib import Path
 import hl7v2
 
 
-PHI_LEAK_SENTINEL_MESSAGE = (
-    "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\r"
-    "PID|1||MRN-777-ALPHA^^^HOSP^MR||Signal^Patricia||19661224|M|||742 Evergreen Terrace||5558675309\r"
-    "NK1|1|Watcher^Nora||900 Support Way|5550001234\r"
-    "OBX|1|NM|718-7^Hemoglobin^LN||13.2|g/dL\r"
+SECURITY_FIXTURE = json.loads(
+    (
+        Path(__file__).resolve().parents[2]
+        / "test_data"
+        / "security"
+        / "safe-error-phi-parity.json"
+    ).read_text(encoding="utf-8")
 )
 
-PHI_LEAK_SENTINEL_POLICY = """
-[[rules]]
-path = "PID.3"
-action = "hash"
-reason = "Patient identifier"
-
-[[rules]]
-path = "PID.5"
-action = "drop"
-reason = "Patient name"
-
-[[rules]]
-path = "PID.7"
-action = "drop"
-reason = "Date of birth"
-
-[[rules]]
-path = "PID.11"
-action = "drop"
-reason = "Patient address"
-
-[[rules]]
-path = "PID.13"
-action = "drop"
-reason = "Patient phone"
-
-[[rules]]
-path = "NK1.2"
-action = "drop"
-reason = "Next-of-kin name"
-
-[[rules]]
-path = "NK1.4"
-action = "drop"
-reason = "Next-of-kin address"
-
-[[rules]]
-path = "NK1.5"
-action = "drop"
-reason = "Next-of-kin phone"
-
-[[rules]]
-path = "MSH.9"
-action = "retain"
-reason = "Message type is needed for analysis"
-
-[[rules]]
-path = "MSH.10"
-action = "retain"
-reason = "Control id is needed for replay correlation"
-
-[[rules]]
-path = "OBX.3"
-action = "retain"
-reason = "Observation identifier is needed for analysis"
-
-[[rules]]
-path = "OBX.5"
-action = "retain"
-reason = "Synthetic observation value shape is needed for analysis"
-"""
-
-PHI_LEAK_SENTINELS = (
-    ("patient name", "Signal^Patricia"),
-    ("MRN", "MRN-777-ALPHA^^^HOSP^MR"),
-    ("date of birth", "19661224"),
-    ("address", "742 Evergreen Terrace"),
-    ("phone", "5558675309"),
-    ("next-of-kin name", "Watcher^Nora"),
-    ("next-of-kin address", "900 Support Way"),
-    ("next-of-kin phone", "5550001234"),
+PHI_LEAK_SENTINEL_MESSAGE = SECURITY_FIXTURE["phi"]["message"]
+PHI_LEAK_SENTINEL_POLICY = SECURITY_FIXTURE["phi"]["policy"]
+RAW_INPUT_FILE_SENTINEL = SECURITY_FIXTURE["phi"]["raw_input_file"]
+RAW_POLICY_FILE_SENTINEL = SECURITY_FIXTURE["phi"]["raw_policy_file"]
+PHI_LEAK_SENTINELS = tuple(
+    (f"manifest forbidden value {index}", value)
+    for index, value in enumerate(SECURITY_FIXTURE["phi"]["forbidden"], start=1)
 )
 
 
@@ -107,7 +45,7 @@ def assert_no_phi_leak_sentinels_or_paths(
         path_text = str(path)
         if path_text in content:
             raise AssertionError(f"{context} leaked local path: {path_text}")
-    for file_name in ("raw-phi-input-sentinel.hl7", "raw-policy-sentinel.toml"):
+    for file_name in (RAW_INPUT_FILE_SENTINEL, RAW_POLICY_FILE_SENTINEL):
         if file_name in content:
             raise AssertionError(f"{context} leaked raw fixture file name: {file_name}")
 
@@ -274,6 +212,22 @@ constraints:
     if profile_lint["valid"] is not True or profile_lint["issue_count"] != 0:
         print(f"unexpected profile lint report: {profile_lint}", file=sys.stderr)
         return 1
+    invalid_profile_yaml = SECURITY_FIXTURE["invalid_profile"]["yaml"]
+    invalid_profile_lint = hl7v2.profile_lint(invalid_profile_yaml)
+    if invalid_profile_lint["valid"] is not False:
+        print(
+            f"expected invalid profile lint report to fail: {invalid_profile_lint}",
+            file=sys.stderr,
+        )
+        return 1
+    invalid_profile_text = json.dumps(invalid_profile_lint, sort_keys=True)
+    for forbidden in SECURITY_FIXTURE["invalid_profile"]["forbidden"]:
+        if forbidden in invalid_profile_text:
+            print(
+                f"Python profile lint safe error leaked manifest value: {forbidden}",
+                file=sys.stderr,
+            )
+            return 1
     profile_lint_v2 = hl7v2.profile_lint(profile_yaml, schema_version=2)
     if (
         profile_lint_v2["schema_version"] != "2"
@@ -1012,11 +966,25 @@ reason = "Patient identifier"
             print("expected existing bundle directory to fail closed", file=sys.stderr)
             return 1
 
+    malformed = SECURITY_FIXTURE["malformed_message"]["message"]
     try:
-        hl7v2.parse("not an hl7 message")
+        hl7v2.parse(malformed)
     except ValueError as exc:
-        if "Parse error" not in str(exc):
+        error_text = str(exc)
+        if "Parse error" not in error_text:
             print(f"parse error did not include stable context: {exc}", file=sys.stderr)
+            return 1
+        for expected in SECURITY_FIXTURE["malformed_message"]["expected_error_substrings"]:
+            if expected not in error_text:
+                print(
+                    f"parse error omitted expected safe context {expected!r}: {exc}",
+                    file=sys.stderr,
+                )
+                return 1
+        try:
+            assert_no_phi_leak_sentinels("Python parse safe error", error_text)
+        except AssertionError as safe_error:
+            print(str(safe_error), file=sys.stderr)
             return 1
     else:
         print("expected invalid HL7 parse to raise ValueError", file=sys.stderr)

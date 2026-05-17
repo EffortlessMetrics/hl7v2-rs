@@ -246,18 +246,26 @@ gaps = [
 
 [[contract]]
 id = "safe-error-shape"
-status = "gap-recorded"
+status = "partially-proven"
 rust = "surface-specific-tests"
 cli = "surface-specific-tests"
 rest = "surface-specific-tests"
 grpc = "surface-specific-tests"
 python = "local-wheel-specific-tests"
 typescript = "planned"
+fixture_family = "test_data/security/safe-error-phi-parity.json"
 proof = [
-  "Surface-specific tests and specs require safe diagnostics without raw PHI echo.",
+  "cargo test -p hl7v2 --test safe_error_phi_parity --all-features",
+  "cargo test -p hl7v2-cli --test integration_tests test_parse_safe_error_does_not_emit_manifest_phi_sentinels",
+  "cargo test -p hl7v2-server --test parse_endpoint_test test_parse_malformed_message_returns_error",
+  "cargo test -p hl7v2-server --test validate_endpoint_test test_validate_invalid_profile_yaml_returns_error",
+  "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_parse_invalid_hl7_returns_parse_error",
+  "python tests/python_smoke/smoke.py",
 ]
 gaps = [
-  "No single shared malformed-input parity runner exercises Rust, CLI, REST/gRPC, and Python.",
+  "The shared fixture is exercised by surface-specific tests, not a single cross-surface runner.",
+  "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
 ]
 
 [[contract]]
@@ -280,19 +288,26 @@ gaps = [
 
 [[contract]]
 id = "phi-sentinel-behavior"
-status = "gap-recorded"
+status = "partially-proven"
 rust = "stable"
 cli = "stable"
 rest = "stable"
 grpc = "required-for-evidence-rpcs"
 python = "local-wheel-only"
 typescript = "planned"
+fixture_family = "test_data/security/safe-error-phi-parity.json"
 proof = [
+  "cargo test -p hl7v2 --test safe_error_phi_parity --all-features",
+  "cargo test -p hl7v2-cli --test integration_tests test_redact_json_does_not_emit_phi_leak_sentinels_or_paths",
+  "cargo test -p hl7v2-server --test validate_redacted_endpoint_test test_validate_redacted_returns_report_receipt_and_redacted_hl7_without_phi",
+  "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_redacted_returns_report_receipt_and_redacted_hl7",
   "cargo test -p hl7v2-e2e-tests security",
   "cargo test -p hl7v2-server --test quarantine_output_hooks_test",
   "python tests/python_smoke/evidence_workflow_guide.py",
+  "python tests/python_smoke/smoke.py",
 ]
 gaps = [
-  "No single shared PHI sentinel runner covers every exposed surface and artifact family.",
+  "The shared fixture is exercised by surface-specific tests, not a single cross-surface runner.",
   "Public Python TestPyPI/PyPI install-back is absent.",
+  "TypeScript is unimplemented.",
 ]
