@@ -241,12 +241,13 @@ proof = [
   "cargo run -p xtask -- check-dirty-corpus-parity",
   "cargo test -p hl7v2 --lib --all-features dirty_real_world",
   "cargo test -p hl7v2-cli --test integration_tests test_corpus_commands_share_dirty_real_world_fixture_categories",
+  "cargo test -p hl7v2-cli --test integration_tests test_dirty_real_world_validate_redact_bundle_replay_workflow",
   "cargo test -p hl7v2-server --test corpus_endpoint_test test_corpus_endpoints_share_dirty_real_world_fixture_categories",
   "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_corpus_commands_share_dirty_real_world_fixture_categories",
   "python tests/python_smoke/smoke.py",
 ]
 gaps = [
-  "The default acceptance runner covers Rust, CLI, REST, and gRPC corpus summary/fingerprint/diff proof; dirty-corpus proof is strongest for corpus commands, not every evidence workflow.",
+  "The default acceptance runner covers Rust, CLI, REST, and gRPC corpus summary/fingerprint/diff proof plus one CLI dirty validate/redact/bundle/replay workflow; broader dirty workflow coverage for REST, gRPC, and Python remains future focused work.",
   "Public Python TestPyPI/PyPI install-back is absent.",
   "TypeScript is unimplemented.",
 ]

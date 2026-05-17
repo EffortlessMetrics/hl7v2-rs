@@ -855,6 +855,22 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "dirty-corpus-cli-evidence-workflow"
+status = "done"
+goal = "Extend the dirty-corpus runner with one CLI validate/redact/bundle/replay evidence workflow over the shared Z-segment fixture."
+command = "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_dirty_real_world_validate_redact_bundle_replay_workflow --locked"
+runner = "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity"
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+  "No REST, gRPC, or Python dirty validate/redact/bundle/replay workflow claim.",
+]
+
+[[work_item]]
 id = "bundle-replay-parity-acceptance-runner"
 status = "done"
 goal = "Add one xtask runner that composes bundle/replay proof across Rust core, CLI, REST, and gRPC surfaces."
