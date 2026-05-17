@@ -110,6 +110,8 @@ For navigation across current docs, historical receipts, and evidence workflow
 guides, start with [the documentation index](README.md). For the current
 final source-tree gap audit after the local workbench split, see
 [`docs/audits/current-source-tree-evidence-objective-gap-audit.md`](audits/current-source-tree-evidence-objective-gap-audit.md).
+For the current cross-surface evidence parity gap map, see
+[`docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md`](audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md).
 
 | Area | Status | Notes |
 |------|--------|-------|
