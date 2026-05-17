@@ -65,6 +65,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-15-final-prepublish.md",
   "docs/audits/publish-v1.5.0-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
+  "docs/audits/ripr-calibration-2026-05-17.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md",
   "docs/audits/dirty-real-world-server-corpus-parity-2026-05-16.md",
@@ -665,6 +666,33 @@ sampled_runs = [
   "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25894522063",
   "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25895990745",
   "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25899168227",
+]
+commands = [
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No branch-protection rule changed.",
+  "No required check added.",
+  "No runtime mutation run.",
+  "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
+]
+
+[[work_item]]
+id = "ripr-calibration-after-parity-traffic"
+status = "done"
+goal = "Refresh the advisory ripr evidence calibration after evidence-parity, Python-proof, and refactor PR traffic without making it branch-protection blocking."
+receipt = "docs/audits/ripr-calibration-2026-05-17.md"
+sampled_runs = [
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25990753620",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25997492068",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25998379659",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25998977833",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/25999837574",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26000683148",
 ]
 commands = [
   "cargo +1.95.0 run -p xtask -- badges --check",

@@ -71,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a second hosted-traffic calibration audit for the advisory `ripr`
+  evidence surface after evidence-parity and Python-proof PR traffic, keeping
+  the lane non-blocking.
 - Updated the current-main TestPyPI publishing-mode proof retry after the
   v1.5.0 refactor cleanup readiness refresh; wheel smoke passed, while upload
   remains blocked by TestPyPI Trusted Publisher setup.
