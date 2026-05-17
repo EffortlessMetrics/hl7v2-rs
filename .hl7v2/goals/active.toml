@@ -74,6 +74,7 @@ canonical_sources = [
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md",
+  "docs/audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md",
   "docs/audits/public-crates-install-first-use-2026-05-16.md",
   "docs/audits/grpc-enhanced-ack-parity-2026-05-16.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
@@ -144,6 +145,44 @@ non_claims = [
   "No PyPI upload.",
   "No npm package.",
   "No new tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "v1-5-0-current-main-readiness-refresh"
+status = "done"
+goal = "Refresh current-main readiness after the TestPyPI blocker receipt, first-use README routing, testing guide refresh, issue-template cleanup, and contracts Buf CLI pin landed through #720."
+commit = "7a7c60907100442c5bbf5f2e7fcf7c2378035261"
+receipt = "docs/audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md"
+commands = [
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface primary",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface bindings",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-plan --surface all-publishable",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 cargo +1.95.0 run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- badges --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-doc-links",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "CARGO_TARGET_DIR=F:\\cargo-target\\hl7v2-rs-readiness-refresh-2026-05-17 CARGO_INCREMENTAL=0 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 search hl7v2 --limit 10",
+  "cargo +1.95.0 info --registry crates-io hl7v2@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-python@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-server@1.5.0",
+  "cargo +1.95.0 info --registry crates-io hl7v2-cli@1.5.0",
+  "git tag -l v1.5.0",
+  "git rev-list -n 1 v1.5.0",
+  "git ls-remote --tags origin v1.5.0",
+  "gh release view v1.5.0 --json tagName,name,publishedAt,isDraft,isPrerelease,url,targetCommitish",
+  "git diff --check",
+]
+non_claims = [
+  "No new crates.io upload.",
+  "No new tag or GitHub release.",
+  "No TestPyPI upload.",
+  "No PyPI upload.",
+  "No npm package.",
   "No Python public-registry install-back proof.",
 ]
 

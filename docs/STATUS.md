@@ -181,6 +181,8 @@ gRPC enhanced ACK refresh:
 [`docs/audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-16-grpc-enhanced-ack-refresh.md).
 Test-coverage refresh:
 [`docs/audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-17-test-coverage-refresh.md).
+Current-main refresh:
+[`docs/audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-17-current-main-refresh.md).
 Publish receipt: [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 Release graph decision: [`docs/audits/v1.5.0-release-graph-decision-2026-05-14.md`](audits/v1.5.0-release-graph-decision-2026-05-14.md).
 RIPR calibration: [`docs/audits/ripr-calibration-2026-05-15.md`](audits/ripr-calibration-2026-05-15.md).
@@ -202,9 +204,9 @@ Old planning documents have been moved to `docs/plans/` for archival reference.
 **Current published release**: v1.5.0 is tested, package-verified, tagged, released on GitHub, and published to crates.io for the selected Rust graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is binding backend infrastructure, not the recommended Rust API.
 
 **Current main**: records the v1.5.0 Rust 1.95 quality-ratchet publish receipt
-and the post-release test-coverage readiness refresh at
-`aa548e1579f659c089162f0dd8e445219d0a2414`; the latest main state referenced
-by the current TestPyPI publishing attempt is
+and the post-release current-main readiness refresh at
+`7a7c60907100442c5bbf5f2e7fcf7c2378035261`; the latest main state referenced
+by the current TestPyPI publishing attempt remains
 `54cde6b686f1904d76a980a03a1e104631ccce7b`.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
 upload and install-back proof before any Python release claim. The latest
