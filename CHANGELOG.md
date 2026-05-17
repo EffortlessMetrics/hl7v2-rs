@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask python-local-wheel-proof` to build, install, import, and
   smoke-test the local Python `hl7v2` wheel without claiming TestPyPI or PyPI
   availability.
+- Added local Python dirty real-world validate/redact/bundle/replay workflow
+  proof using the shared Z-segment fixture.
 - Added a shared schema-version parity fixture and manifest guard for
   representative CLI, REST, gRPC, and local Python evidence proof.
 - Added `xtask check-schema-version-parity` to run the shared schema-version

@@ -3,7 +3,7 @@
 Scope: record the self-contained `xtask python-local-wheel-proof` command that
 builds the public Python `hl7v2` wheel from the Rust/PyO3 backend, installs it
 into a scratch virtual environment, imports `hl7v2`, and runs the Python smoke
-and evidence workflow guide scripts.
+and evidence workflow scripts.
 
 This is a local wheel proof only. It does not claim TestPyPI or PyPI upload,
 install-back, or registry availability.
@@ -27,6 +27,7 @@ cargo +1.95.0 run -p xtask -- python-local-wheel-proof --root F:\cargo-target\hl
 | `import hl7v2` | Pass; reported version `1.5.0` |
 | `tests/python_smoke/smoke.py` | Pass; `hl7v2 smoke ok version=1.5.0 segments=2` |
 | `tests/python_smoke/evidence_workflow_guide.py` | Pass; `python evidence workflow guide ok version=1.5.0` |
+| `tests/python_smoke/dirty_evidence_workflow.py` | Pass; `python dirty evidence workflow ok version=1.5.0` |
 
 Built wheel:
 
@@ -48,7 +49,8 @@ cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance --include-python
 
 Result: pass. The gate ran the Rust, CLI, REST, gRPC, schema-version,
 dirty-corpus, bundle/replay, safe-error, PHI-sentinel, and local Python smoke
-checks with the locally installed `hl7v2` wheel.
+checks with the locally installed `hl7v2` wheel, including the dirty
+Z-segment validate/redact/bundle/replay workflow.
 
 ## Non-Claims
 

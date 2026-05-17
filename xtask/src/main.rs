@@ -4421,6 +4421,12 @@ fn python_local_wheel_proof(
         &[],
         Some(&workspace_root),
     )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/dirty_evidence_workflow.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
 
     println!(
         "Python local-wheel proof passed at {}. This does not claim TestPyPI or PyPI availability.",
@@ -4966,6 +4972,8 @@ fn check_dirty_corpus_parity(include_python: bool) -> Result<()> {
     if include_python {
         println!("Checking Python local-wheel dirty-corpus smoke...");
         run_command("python", &["tests/python_smoke/smoke.py"])?;
+        println!("Checking Python local-wheel dirty evidence workflow...");
+        run_command("python", &["tests/python_smoke/dirty_evidence_workflow.py"])?;
     } else {
         println!(
             "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
@@ -6138,6 +6146,7 @@ fn ensure_python_wheel_proof_job(
         "python -m pip install --force-reinstall dist/*.whl",
         "tests/python_smoke/smoke.py",
         "tests/python_smoke/evidence_workflow_guide.py",
+        "tests/python_smoke/dirty_evidence_workflow.py",
     ] {
         if !smoke_run.contains(expected) {
             return Err(anyhow!(
@@ -6260,6 +6269,7 @@ fn ensure_python_install_back_job(
         "hl7v2==${PACKAGE_VERSION}",
         "tests/python_smoke/smoke.py",
         "tests/python_smoke/evidence_workflow_guide.py",
+        "tests/python_smoke/dirty_evidence_workflow.py",
     ] {
         if !run.contains(expected) {
             return Err(anyhow!(
@@ -7851,6 +7861,32 @@ bindings = "pyo3"
             Err(err)
                 if err.to_string().contains("local wheel proof step")
                     && err.to_string().contains("evidence_workflow_guide.py") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_missing_dirty_evidence_smoke() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace("python tests/python_smoke/dirty_evidence_workflow.py", "");
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject workflows without dirty evidence smoke"
+            )),
+            Err(err)
+                if err.to_string().contains("local wheel proof step")
+                    && err.to_string().contains("dirty_evidence_workflow.py") =>
             {
                 Ok(())
             }

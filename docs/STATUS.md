@@ -103,7 +103,8 @@ summary/fingerprint/diff proof, plus CLI, REST, and gRPC
 validate/redact/bundle/replay workflows over the shared Z-segment fixture, is
 now routed through
 `cargo run -p xtask -- check-dirty-corpus-parity` for the Rust/CLI/REST/gRPC
-acceptance path, with optional local Python smoke after wheel install. Current
+acceptance path, with optional local Python dirty-corpus and dirty
+validate/redact/bundle/replay smoke after wheel install. Current
 `main` also includes `cargo run -p xtask -- check-bundle-replay-parity` as the
 Rust/CLI/REST/gRPC bundle/replay acceptance path, with optional local Python
 evidence workflow smoke after wheel install. Current `main` also includes

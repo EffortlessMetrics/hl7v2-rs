@@ -19,8 +19,8 @@ cargo +1.95.0 run -p xtask -- python-local-wheel-proof
 
 The proof command builds a local wheel, installs it into a scratch virtual
 environment, imports `hl7v2`, runs `tests/python_smoke/smoke.py`, and runs this
-guide's evidence workflow script. It does not claim TestPyPI or PyPI
-availability.
+guide's evidence workflow script plus the shared dirty Z-segment evidence
+workflow smoke. It does not claim TestPyPI or PyPI availability.
 
 The Python distribution is `hl7v2`; the import module is `hl7v2`. If you want to
 inspect the module interactively after the proof, activate the scratch virtual

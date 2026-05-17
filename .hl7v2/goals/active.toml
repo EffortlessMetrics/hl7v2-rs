@@ -69,6 +69,7 @@ canonical_sources = [
   "docs/audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md",
   "docs/audits/dirty-real-world-server-corpus-parity-2026-05-16.md",
   "docs/audits/dirty-real-world-python-corpus-parity-2026-05-16.md",
+  "docs/audits/dirty-real-world-python-evidence-workflow-2026-05-17.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md",
@@ -1828,6 +1829,29 @@ commands = [
   "cargo +1.95.0 test -p xtask single_wheel_in_dist_requires_exactly_one_wheel --locked",
   "cargo +1.95.0 test -p xtask python_venv_executable_uses_platform_path --locked",
   "cargo +1.95.0 fmt --all -- --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No token fallback.",
+  "No skip-existing.",
+]
+
+[[work_item]]
+id = "dirty-real-world-python-evidence-workflow"
+status = "done"
+goal = "Extend local Python dirty real-world proof from corpus summary/fingerprint/diff into validate, redact, bundle, and replay over the shared Z-segment fixture."
+receipt = "docs/audits/dirty-real-world-python-evidence-workflow-2026-05-17.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- python-local-wheel-proof --root F:\\cargo-target\\hl7v2-rs-python-dirty-evidence-proof-workflow-2026-05-17",
+  "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity --include-python",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
 ]
 non_claims = [
   "No TestPyPI upload.",
