@@ -1,9 +1,15 @@
 # v1.4.1 Source-of-Truth Implementation Plan
 
-Status: Active
+Status: Closed / superseded by v1.5.0 release receipts
 Date: 2026-05-13
 Proposal: [HL7V2-PROP-0001](../../docs/proposals/HL7V2-PROP-0001-source-of-truth-and-release-governance.md)
 Primary spec: [HL7V2-SPEC-0001](../../docs/specs/HL7V2-SPEC-0001-source-of-truth-stack.md)
+
+Historical note: this plan captured the v1.4.1 source-of-truth campaign before
+the release train moved forward to Rust 1.95 / v1.5.0. Current package and
+release truth lives in [`docs/STATUS.md`](../../docs/STATUS.md),
+[`docs/status/SUPPORT_TIERS.md`](../../docs/status/SUPPORT_TIERS.md), and the
+v1.5.0 receipts linked from those files.
 
 ## Goal
 
@@ -31,8 +37,8 @@ in this documentation campaign.
 | Python distribution ADR | Done | [ADR-0002](../../docs/adr/HL7V2-ADR-0002-python-is-separate-distribution-lane.md) | Record Python as separate from crates.io. |
 | Support tier map | Done | [SUPPORT_TIERS](../../docs/status/SUPPORT_TIERS.md) | Map product surfaces to proof commands. |
 | TestPyPI Trusted Publisher proof | Blocked | [testpypi-closure.md](testpypi-closure.md), issue [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563) | Complete upload and install-back after external setup. |
-| Active goal manifest | Ready | `.hl7v2/goals/active.toml` | Record machine-readable current campaign state. |
-| v1.4.1 release readiness | Waiting | [release-readiness.md](release-readiness.md) | Decide patch candidate only after receipts are clean. |
+| Active goal manifest | Done | `.hl7v2/goals/active.toml` | Record machine-readable current campaign state. |
+| v1.4.1 release readiness | Superseded | [release-readiness.md](release-readiness.md), [v1.5.0 readiness](../../docs/release/1.5.0-readiness.md) | The release train moved to v1.5.0; do not use this plan as current release state. |
 
 ## PR Order
 
@@ -55,7 +61,8 @@ in this documentation campaign.
 
 ## Proof Commands
 
-Docs-only plan changes use:
+Historical docs-only plan changes used Rust 1.93. Current validation commands
+should follow the active Rust 1.95 release docs. The original commands were:
 
 ```powershell
 cargo +1.93.0 run -p xtask -- check-doc-links

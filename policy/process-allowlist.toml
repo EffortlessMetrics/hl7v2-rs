@@ -44,6 +44,27 @@ covered_by = [".github/workflows/python-wheels.yml", ".github/workflows/python-t
 review_after = "2026-06-30"
 
 [[allow]]
+id = "public-crates-install-smoke"
+owner = "release"
+surface = "release-proof"
+behavior = "Python may orchestrate Cargo installs from crates.io into disposable scratch roots to verify public Rust, CLI, and server first-use workflows."
+commands = [
+  "python tests/public_crates_smoke/smoke.py --version 1.5.0",
+  "cargo new rust-smoke --bin",
+  "cargo add hl7v2@1.5.0",
+  "cargo add serde_json",
+  "cargo run --quiet",
+  "cargo install hl7v2-cli --version 1.5.0",
+  "cargo install hl7v2-server --version 1.5.0",
+  "hl7v2-cli doctor --format json",
+  "hl7v2-server --print-config",
+  "hl7v2-server",
+]
+reason = "The v1.5.0 user path needs repeatable install-back proof without claiming a new publish."
+covered_by = ["python tests/public_crates_smoke/smoke.py --version 1.5.0"]
+review_after = "2026-06-30"
+
+[[allow]]
 id = "contract-tool-processes"
 owner = "api"
 surface = "contracts"

@@ -16,17 +16,18 @@ mod tests {
     use hl7v2_server::grpc::proto::hl7_service_server::Hl7Service;
     use hl7v2_server::grpc::proto::{
         CorpusDiffRequest, CorpusFingerprintRequest, CorpusMessageInput, CorpusSummarizeRequest,
-        CreateEvidenceBundleRequest, GenerateAckRequest, HealthCheckRequest, NormalizeOptions,
-        NormalizeRequest, ParseRequest, ParseStreamRequest, ParseStreamResponse,
-        ProfileExplainRequest, ProfileLintRequest, ProfileTestFixture, ProfileTestRequest,
-        ReplayEvidenceBundleRequest, ValidateRedactedRequest, ValidateRequest,
-        evidence_replay_check, generate_ack_request, health_check_response, profile_test_fixture,
-        validation_issue,
+        CreateEvidenceBundleRequest, GenerateAckRequest, HealthCheckRequest,
+        Message as ProtoMessage, NormalizeOptions, NormalizeRequest, ParseRequest,
+        ParseStreamRequest, ParseStreamResponse, ProfileExplainRequest, ProfileLintRequest,
+        ProfileTestFixture, ProfileTestRequest, ReplayEvidenceBundleRequest,
+        ValidateRedactedRequest, ValidateRequest, evidence_replay_check, generate_ack_request,
+        health_check_response, profile_test_fixture, validation_issue,
     };
     use hl7v2_server::server::{AppState, ServerConfig};
     use hl7v2_test_utils::{
         PHI_LEAK_SENTINEL_MESSAGE as PHI_MESSAGE, PHI_LEAK_SENTINEL_POLICY as REDACTION_POLICY,
-        SampleMessages, assert_no_phi_leak_sentinels,
+        SampleMessages, assert_no_phi_leak_sentinels, safe_error_phi_parity_fixture,
+        schema_version_parity_fixture,
     };
     use http_body_util::Full;
     use metrics_exporter_prometheus::PrometheusBuilder;
@@ -127,6 +128,57 @@ constraints:
     required: true
 "#;
 
+    const DIRTY_ADT_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+  - id: ZPV
+constraints:
+  - path: MSH.9
+    required: true
+  - path: PID.3
+    required: true
+"#;
+
+    const DIRTY_SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "ZPV.1"
+action = "retain"
+reason = "synthetic room marker is useful for dirty-corpus analysis"
+
+[[rules]]
+path = "ZPV.2"
+action = "retain"
+reason = "synthetic dirty-corpus note is useful for support triage"
+"#;
+
     fn service() -> Hl7ServiceImpl {
         Hl7ServiceImpl::new(mock_state())
     }
@@ -137,6 +189,66 @@ constraints:
 
     fn service_with_quarantine(quarantine: QuarantineConfig) -> Hl7ServiceImpl {
         Hl7ServiceImpl::new(mock_state_with_roots(None, quarantine))
+    }
+
+    fn dirty_real_world_fixture_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/dirty-real-world")
+    }
+
+    fn normalize_fixture_segments(bytes: &[u8]) -> Vec<u8> {
+        String::from_utf8_lossy(bytes)
+            .replace("\r\n", "\n")
+            .replace('\n', "\r")
+            .into_bytes()
+    }
+
+    fn dirty_corpus_messages(category: &str) -> Vec<CorpusMessageInput> {
+        let source = dirty_real_world_fixture_root().join(category);
+        let mut paths = fs::read_dir(&source)
+            .expect("dirty fixture category should be readable")
+            .map(|entry| {
+                entry
+                    .expect("dirty fixture entry should be readable")
+                    .path()
+            })
+            .filter(|path| path.is_file())
+            .collect::<Vec<_>>();
+        paths.sort();
+
+        paths
+            .into_iter()
+            .map(|path| {
+                let bytes = fs::read(&path).expect("dirty fixture file should be readable");
+                let file_name = path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .expect("dirty fixture file should have a UTF-8 name");
+                CorpusMessageInput {
+                    id: Some(file_name.to_string()),
+                    message: normalize_fixture_segments(&bytes),
+                }
+            })
+            .collect()
+    }
+
+    fn dirty_z_segment_message() -> Vec<u8> {
+        let source = dirty_real_world_fixture_root()
+            .join("after")
+            .join("z-segment.hl7");
+        let bytes = fs::read(&source).expect("dirty Z-segment fixture should be readable");
+        normalize_fixture_segments(&bytes)
+    }
+
+    fn dirty_after_corpus_messages() -> Vec<CorpusMessageInput> {
+        let mut messages = dirty_corpus_messages("after");
+        let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
+        let bytes = fs::read(&source).expect("MLLP source fixture should be readable");
+        let normalized = normalize_fixture_segments(&bytes);
+        messages.push(CorpusMessageInput {
+            id: Some("mllp-framed.hl7".to_string()),
+            message: hl7v2::wrap_mllp(&normalized),
+        });
+        messages
     }
 
     fn grpc_request_body<T: ProstMessage>(messages: &[T]) -> Full<Bytes> {
@@ -171,6 +283,22 @@ constraints:
             .expect("RPC should succeed")
             .into_inner()
             .normalized
+    }
+
+    fn assert_ack_message_type(ack: &str) {
+        let message_type = ack
+            .split('\r')
+            .next()
+            .expect("ACK should include an MSH segment")
+            .split('|')
+            .nth(8)
+            .expect("ACK MSH should include MSH-9");
+        assert_eq!(message_type, "ACK^ADT");
+    }
+
+    fn assert_parsed_ack_segments(parsed_ack: &ProtoMessage) {
+        assert_eq!(parsed_ack.segments[0].id, "MSH");
+        assert_eq!(parsed_ack.segments[1].id, "MSA");
     }
 
     #[tokio::test]
@@ -223,8 +351,9 @@ constraints:
     #[tokio::test]
     async fn test_grpc_parse_invalid_hl7_returns_parse_error() {
         let service = service();
+        let fixture = safe_error_phi_parity_fixture().unwrap();
         let request = Request::new(ParseRequest {
-            message: b"not an HL7 message".to_vec(),
+            message: fixture.malformed_message.message.as_bytes().to_vec(),
             mllp_framed: false,
             options: None,
         });
@@ -235,7 +364,11 @@ constraints:
         assert!(!inner.success);
         assert!(inner.message.is_none());
         assert_eq!(inner.errors.len(), 1);
-        assert_eq!(inner.errors[0].code, "PARSE_ERROR");
+        assert_eq!(
+            inner.errors[0].code,
+            fixture.malformed_message.rest_code.as_str()
+        );
+        fixture.assert_no_forbidden("gRPC parse safe error", &format!("{inner:?}"));
     }
 
     #[tokio::test]
@@ -246,6 +379,9 @@ constraints:
             (generate_ack_request::AckCode::Aa, "AA"),
             (generate_ack_request::AckCode::Ae, "AE"),
             (generate_ack_request::AckCode::Ar, "AR"),
+            (generate_ack_request::AckCode::Ca, "CA"),
+            (generate_ack_request::AckCode::Ce, "CE"),
+            (generate_ack_request::AckCode::Cr, "CR"),
         ] {
             let response = service
                 .generate_ack(Request::new(GenerateAckRequest {
@@ -263,7 +399,10 @@ constraints:
                 ack_str.contains(&format!("MSA|{}|CTRL123", expected)),
                 "ACK did not preserve code/control id: {ack_str}"
             );
-            assert!(inner.parsed_ack.is_some());
+            assert_ack_message_type(&ack_str);
+
+            let parsed_ack = inner.parsed_ack.expect("parsed ACK should exist");
+            assert_parsed_ack_segments(&parsed_ack);
         }
     }
 
@@ -352,12 +491,11 @@ constraints:
     #[tokio::test]
     async fn test_grpc_validate_invalid_profile_returns_invalid_argument() {
         let service = service();
-        let sensitive_profile =
-            "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
+        let fixture = safe_error_phi_parity_fixture().unwrap();
 
         let request = Request::new(ValidateRequest {
             message: SAMPLE_MSG.to_vec(),
-            profile: sensitive_profile.to_string(),
+            profile: fixture.invalid_profile.yaml.clone(),
             mllp_framed: false,
             options: None,
             report_schema_version: 0,
@@ -373,14 +511,13 @@ constraints:
             err.message(),
             "profile could not be loaded; run profile lint for details"
         );
-        assert!(!err.message().contains("Jane Secret"));
-        assert!(!err.message().contains("MRN-SECRET-123"));
-        assert!(!err.message().contains(sensitive_profile));
+        fixture.assert_no_forbidden("gRPC validate profile safe error", err.message());
     }
 
     #[tokio::test]
     async fn test_grpc_validate_separates_errors_from_warnings() {
         let service = service();
+        let fixture = schema_version_parity_fixture().unwrap();
         let profile = r#"
 message_structure: "ADT_A01"
 version: "2.5"
@@ -396,7 +533,7 @@ constraints:
             profile: profile.to_string(),
             mllp_framed: false,
             options: None,
-            report_schema_version: 2,
+            report_schema_version: fixture.v2_report_schema_version.into(),
         });
 
         let response = service.validate(request).await.expect("RPC should succeed");
@@ -437,19 +574,31 @@ constraints:
         let report_v2 = inner
             .validation_report_v2
             .expect("Validation report v2 should exist");
-        assert_eq!(report_v2.schema_version, "2");
-        assert_eq!(report_v2.tool_name, "hl7v2-server-grpc");
+        assert_eq!(report_v2.schema_version, fixture.expected_v2_schema_version);
+        assert_eq!(report_v2.tool_name, fixture.tool_names.grpc);
         assert_eq!(report_v2.tool_version, env!("CARGO_PKG_VERSION"));
         assert!(!report_v2.valid);
-        assert_eq!(report_v2.message_type, "ADT^A01");
-        assert_eq!(report_v2.profile.as_deref(), Some("ADT_A01"));
+        assert_eq!(report_v2.message_type, fixture.validation.message_type);
+        assert_eq!(
+            report_v2.profile.as_deref(),
+            Some(fixture.validation.profile_label.as_str())
+        );
         let identity = report_v2
             .profile_identity
             .expect("Profile identity should exist");
-        assert_eq!(identity.label, "ADT_A01");
-        assert_eq!(identity.message_structure.as_deref(), Some("ADT_A01"));
-        assert_eq!(identity.version.as_deref(), Some("2.5"));
-        assert_eq!(report_v2.issues[0].code, "missing_required_field");
+        assert_eq!(identity.label, fixture.validation.profile_label);
+        assert_eq!(
+            identity.message_structure.as_deref(),
+            Some(fixture.validation.profile_label.as_str())
+        );
+        assert_eq!(
+            identity.version.as_deref(),
+            Some(fixture.validation.profile_version.as_str())
+        );
+        assert_eq!(
+            report_v2.issues[0].code,
+            fixture.validation.required_issue_code
+        );
     }
 
     #[tokio::test]
@@ -1069,13 +1218,14 @@ reason = "hash patient identifier"
     #[tokio::test]
     async fn test_grpc_validate_redacted_rejects_unsupported_schema_versions() {
         let service = service();
+        let fixture = schema_version_parity_fixture().unwrap();
         let request = Request::new(ValidateRedactedRequest {
             message: PHI_MESSAGE.as_bytes().to_vec(),
             profile: PROFILE.to_string(),
             redaction_policy: REDACTION_POLICY.to_string(),
             mllp_framed: false,
             include_redacted_hl7: false,
-            report_schema_version: 3,
+            report_schema_version: fixture.unsupported_report_schema_version.into(),
             redaction_receipt_schema_version: 0,
             quarantine_schema_version: 0,
         });
@@ -1088,7 +1238,10 @@ reason = "hash patient identifier"
         assert_eq!(err.code(), Code::InvalidArgument);
         assert_eq!(
             err.message(),
-            "unsupported validation report schema version 3; expected 1 or 2"
+            format!(
+                "unsupported validation report schema version {}; expected {}",
+                fixture.unsupported_report_schema_version, fixture.unsupported_error_contains
+            )
         );
     }
 
@@ -1528,6 +1681,137 @@ reason = "hash patient identifier"
     }
 
     #[tokio::test]
+    async fn test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow() {
+        let root = TempRoot::new("dirty-z-workflow");
+        let bundle_id = "dirty-z-grpc-workflow";
+        let service = service_with_bundle_output_root(root.path().to_path_buf());
+        let message = dirty_z_segment_message();
+
+        let validate_redacted = service
+            .validate_redacted(Request::new(ValidateRedactedRequest {
+                message: message.clone(),
+                profile: DIRTY_ADT_PROFILE.to_string(),
+                redaction_policy: DIRTY_SAFE_ANALYSIS_POLICY.to_string(),
+                mllp_framed: false,
+                include_redacted_hl7: true,
+                report_schema_version: 2,
+                redaction_receipt_schema_version: 2,
+                quarantine_schema_version: 0,
+            }))
+            .await
+            .expect("ValidateRedacted should succeed")
+            .into_inner();
+        let validate_debug = format!("{validate_redacted:?}");
+
+        let report = validate_redacted
+            .validation_report
+            .as_ref()
+            .expect("Validation report should exist");
+        assert!(report.valid);
+        assert_eq!(report.message_type, "ADT^A01");
+        let report_v2 = validate_redacted
+            .validation_report_v2
+            .as_ref()
+            .expect("Validation report v2 should exist");
+        assert_eq!(report_v2.schema_version, "2");
+
+        let receipt = validate_redacted
+            .redaction_receipt
+            .as_ref()
+            .expect("Redaction receipt should exist");
+        assert!(receipt.phi_removed);
+        let receipt_v2 = validate_redacted
+            .redaction_receipt_v2
+            .as_ref()
+            .expect("Redaction receipt v2 should exist");
+        assert_eq!(receipt_v2.schema_version, "2");
+
+        let redacted_hl7 = String::from_utf8(
+            validate_redacted
+                .redacted_hl7
+                .expect("Redacted HL7 should be included"),
+        )
+        .expect("Redacted HL7 should be UTF-8");
+        assert!(redacted_hl7.contains("hash:sha256:"));
+        assert!(redacted_hl7.contains("ZPV|legacy-room|dirty interface note"));
+        for unsafe_value in ["MRN-Z", "Example^Zed", "19700101"] {
+            assert!(!validate_debug.contains(unsafe_value));
+            assert!(!redacted_hl7.contains(unsafe_value));
+        }
+
+        let bundle = service
+            .create_evidence_bundle(Request::new(CreateEvidenceBundleRequest {
+                message: message.clone(),
+                profile: DIRTY_ADT_PROFILE.to_string(),
+                redaction_policy: DIRTY_SAFE_ANALYSIS_POLICY.to_string(),
+                bundle_id: bundle_id.to_string(),
+                mllp_framed: false,
+                bundle_artifact_schema_version: 2,
+            }))
+            .await
+            .expect("CreateEvidenceBundle should succeed")
+            .into_inner();
+        let bundle_debug = format!("{bundle:?}");
+        let summary = bundle
+            .summary
+            .as_ref()
+            .expect("bundle summary should exist");
+
+        assert_eq!(summary.message_type, "ADT^A01");
+        assert!(summary.validation_valid);
+        assert!(summary.redaction_phi_removed);
+        assert!(!bundle_debug.contains(root.path().to_string_lossy().as_ref()));
+        assert!(!bundle_debug.contains(bundle_id));
+        for unsafe_value in ["MRN-Z", "Example^Zed", "19700101"] {
+            assert!(!bundle_debug.contains(unsafe_value));
+        }
+
+        let bundle_dir = root.path().join(bundle_id);
+        let redacted_message = fs::read_to_string(bundle_dir.join("message.redacted.hl7"))
+            .expect("redacted message should be readable");
+        assert!(redacted_message.contains("hash:sha256:"));
+        assert!(redacted_message.contains("ZPV|legacy-room|dirty interface note"));
+        for unsafe_value in ["MRN-Z", "Example^Zed", "19700101"] {
+            assert!(!redacted_message.contains(unsafe_value));
+        }
+
+        let replay = service
+            .replay_evidence_bundle(Request::new(ReplayEvidenceBundleRequest {
+                bundle_id: bundle_id.to_string(),
+                replay_report_schema_version: 2,
+            }))
+            .await
+            .expect("ReplayEvidenceBundle should succeed")
+            .into_inner();
+        let replay_debug = format!("{replay:?}");
+        let replay_report = replay
+            .replay_report
+            .as_ref()
+            .expect("replay report should exist");
+
+        assert_eq!(replay_report.message_type.as_deref(), Some("ADT^A01"));
+        assert!(replay_report.reproduced);
+        assert_eq!(replay_report.validation_valid, Some(true));
+        assert!(
+            replay_report
+                .checks
+                .iter()
+                .all(|check| check.status == evidence_replay_check::Status::Pass as i32)
+        );
+
+        let replay_v2 = replay
+            .replay_report_v2
+            .as_ref()
+            .expect("replay report v2 should exist");
+        assert_eq!(replay_v2.schema_version, "2");
+        assert!(!replay_debug.contains(root.path().to_string_lossy().as_ref()));
+        assert!(!replay_debug.contains(bundle_id));
+        for unsafe_value in ["MRN-Z", "Example^Zed", "19700101"] {
+            assert!(!replay_debug.contains(unsafe_value));
+        }
+    }
+
+    #[tokio::test]
     async fn test_grpc_replay_evidence_bundle_fails_without_configured_output_root() {
         let service = service();
         let err = service
@@ -1594,6 +1878,134 @@ reason = "hash patient identifier"
             err.message(),
             "unsupported replay report schema version 3; expected 1 or 2"
         );
+    }
+
+    #[tokio::test]
+    async fn test_grpc_corpus_commands_share_dirty_real_world_fixture_categories() {
+        let service = service();
+
+        let summary = service
+            .corpus_summarize(Request::new(CorpusSummarizeRequest {
+                messages: dirty_after_corpus_messages(),
+                summary_schema_version: 2,
+            }))
+            .await
+            .expect("CorpusSummarize should succeed")
+            .into_inner();
+        let summary_debug = format!("{summary:?}");
+
+        let summary_report = summary.summary.expect("summary should exist");
+        assert_eq!(summary_report.root, "<inline-corpus>");
+        assert_eq!(summary_report.file_count, 6);
+        assert_eq!(summary_report.message_count, 4);
+        assert_eq!(summary_report.parse_error_count, 2);
+        assert!(
+            summary_report
+                .message_types
+                .iter()
+                .any(|entry| entry.value == "ADT^A08" && entry.count == 1)
+        );
+        assert!(
+            summary_report
+                .message_types
+                .iter()
+                .any(|entry| entry.value == "ADT^A04" && entry.count == 1)
+        );
+        assert!(
+            summary_report
+                .segments
+                .iter()
+                .any(|entry| entry.value == "ZPV" && entry.count == 1)
+        );
+        assert!(
+            summary_report
+                .parse_errors
+                .iter()
+                .any(|entry| entry.path == "malformed-delimiters.hl7")
+        );
+        assert!(
+            summary_report
+                .parse_errors
+                .iter()
+                .any(|entry| entry.path == "partial-batch.hl7")
+        );
+        assert!(!summary_debug.contains("MRN-DIRTY"));
+
+        let fingerprint = service
+            .corpus_fingerprint(Request::new(CorpusFingerprintRequest {
+                messages: dirty_after_corpus_messages(),
+                profile: None,
+                fingerprint_schema_version: 2,
+            }))
+            .await
+            .expect("CorpusFingerprint should succeed")
+            .into_inner();
+        let fingerprint_debug = format!("{fingerprint:?}");
+
+        let fingerprint_report = fingerprint.fingerprint.expect("fingerprint should exist");
+        assert_eq!(fingerprint_report.root, "<inline-corpus>");
+        assert_eq!(fingerprint_report.file_count, 6);
+        assert_eq!(fingerprint_report.message_count, 4);
+        assert_eq!(fingerprint_report.parse_error_count, 2);
+        assert!(
+            fingerprint_report
+                .field_cardinality
+                .iter()
+                .any(|entry| entry.path == "OBX.5"
+                    && entry.max_per_message == 20
+                    && entry.total_occurrences == 20)
+        );
+        assert!(
+            fingerprint_report
+                .field_cardinality
+                .iter()
+                .any(|entry| entry.path == "ZPV.1" && entry.total_occurrences == 1)
+        );
+        assert!(!fingerprint_debug.contains("MRN-DIRTY"));
+
+        let diff = service
+            .corpus_diff(Request::new(CorpusDiffRequest {
+                before: dirty_corpus_messages("before"),
+                after: dirty_after_corpus_messages(),
+                profile: None,
+                diff_schema_version: 2,
+            }))
+            .await
+            .expect("CorpusDiff should succeed")
+            .into_inner();
+        let diff_debug = format!("{diff:?}");
+
+        let diff_report = diff.diff.expect("diff should exist");
+        assert_eq!(
+            diff_report
+                .file_count
+                .expect("file count should exist")
+                .delta,
+            4
+        );
+        assert_eq!(
+            diff_report
+                .message_count
+                .expect("message count should exist")
+                .delta,
+            2
+        );
+        assert_eq!(
+            diff_report
+                .parse_error_count
+                .expect("parse error count should exist")
+                .delta,
+            2
+        );
+        assert!(
+            diff_report
+                .field_cardinality
+                .iter()
+                .any(|entry| entry.path == "OBX.5"
+                    && entry.max_per_message_delta == 15
+                    && entry.total_occurrences_delta == 15)
+        );
+        assert!(!diff_debug.contains("MRN-DIRTY"));
     }
 
     #[tokio::test]

@@ -32,18 +32,22 @@
 //! assert_eq!(parsed.seed, 42);
 //! ```
 
-use crate::model::{Atom, Error, Field, Message};
-use crate::parser::{parse, parse_mllp};
-use crate::transport::mllp::is_mllp_framed;
-use crate::writer::write;
+use crate::model::{Atom, Field, Message};
 use chrono::{DateTime, Utc};
 use rand::{RngExt, SeedableRng};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+mod diff;
+mod hash;
+mod source;
+
+pub use diff::{diff_corpus_fingerprints, diff_corpus_paths};
+pub use hash::{compute_message_hash, compute_sha256};
+use source::{collect_corpus_files, parse_corpus_message_bytes, relative_corpus_path};
 
 /// Configuration for corpus generation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -663,22 +667,6 @@ fn rounded_ratio_count(total: usize, ratio: f64) -> usize {
     }
 }
 
-/// Compute SHA-256 hash of a string
-pub fn compute_sha256(content: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(content.as_bytes());
-    let hash_result = hasher.finalize();
-    format!("{hash_result:x}")
-}
-
-/// Compute SHA-256 hash of a message
-pub fn compute_message_hash(message: &Message) -> String {
-    let message_bytes = write(message);
-    // Convert bytes to string for hashing (HL7 messages are ASCII-based)
-    let message_string = String::from_utf8_lossy(&message_bytes);
-    compute_sha256(&message_string)
-}
-
 /// Error type for corpus operations
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CorpusError {
@@ -730,13 +718,7 @@ pub fn summarize_corpus_path(path: impl AsRef<Path>) -> Result<CorpusSummary, Co
             fs::read(file).map_err(|e| CorpusError::IoError(format!("{relative_path}: {e}")))?;
         total_bytes = total_bytes.saturating_add(bytes.len());
 
-        let parsed = if is_mllp_framed(&bytes) {
-            parse_mllp(&bytes)
-        } else {
-            parse(&bytes)
-        };
-
-        match parsed {
+        match parse_corpus_message_bytes(&bytes) {
             Ok(message) => {
                 message_count = message_count.saturating_add(1);
                 increment_count(&mut message_type_counts, extract_message_type(&message));
@@ -839,67 +821,6 @@ pub fn summarize_corpus_messages(
     }
 }
 
-/// Diff two file or directory corpora of HL7 v2 messages.
-///
-/// This fingerprints both inputs using [`fingerprint_corpus_path`] and returns
-/// before/after counts plus signed deltas for stable corpus dimensions.
-///
-/// # Errors
-///
-/// Returns [`CorpusError::InvalidConfig`] if either input is neither a regular
-/// file nor a directory. Returns [`CorpusError::IoError`] if traversal or file
-/// reading fails.
-pub fn diff_corpus_paths(
-    before: impl AsRef<Path>,
-    after: impl AsRef<Path>,
-) -> Result<CorpusDiffReport, CorpusError> {
-    let before_fingerprint = fingerprint_corpus_path(before)?;
-    let after_fingerprint = fingerprint_corpus_path(after)?;
-    Ok(diff_corpus_fingerprints(
-        &before_fingerprint,
-        &after_fingerprint,
-    ))
-}
-
-/// Diff two already-computed corpus fingerprints.
-pub fn diff_corpus_fingerprints(
-    before: &CorpusFingerprint,
-    after: &CorpusFingerprint,
-) -> CorpusDiffReport {
-    let message_type_counts = diff_counts(&before.message_type_counts, &after.message_type_counts);
-    let segment_counts = diff_counts(&before.segment_counts, &after.segment_counts);
-
-    CorpusDiffReport {
-        diff_version: "1".to_string(),
-        tool_version: env!("CARGO_PKG_VERSION").to_string(),
-        before_root: before.root.clone(),
-        after_root: after.root.clone(),
-        profile: before.profile.clone().or_else(|| after.profile.clone()),
-        file_count: total_diff(before.file_count, after.file_count),
-        message_count: total_diff(before.message_count, after.message_count),
-        parse_error_count: total_diff(before.parse_error_count, after.parse_error_count),
-        new_message_types: new_values(&message_type_counts),
-        removed_message_types: removed_values(&message_type_counts),
-        new_segments: new_values(&segment_counts),
-        removed_segments: removed_values(&segment_counts),
-        message_type_counts,
-        segment_counts,
-        field_presence: diff_field_presence(&before.field_presence, &after.field_presence),
-        field_cardinality: diff_field_cardinality(
-            &before.field_cardinality,
-            &after.field_cardinality,
-        ),
-        value_shape_stats: diff_value_shape_stats(
-            &before.value_shape_stats,
-            &after.value_shape_stats,
-        ),
-        validation_issue_code_counts: diff_counts(
-            &before.validation_issue_code_counts,
-            &after.validation_issue_code_counts,
-        ),
-    }
-}
-
 /// Fingerprint a file or directory of HL7 v2 messages.
 ///
 /// The fingerprint is a compact deterministic feed signature derived from the
@@ -980,12 +901,7 @@ fn collect_fingerprint_details(
         let relative_path = relative_corpus_path(root, file);
         let bytes =
             fs::read(file).map_err(|e| CorpusError::IoError(format!("{relative_path}: {e}")))?;
-        let parsed = if is_mllp_framed(&bytes) {
-            parse_mllp(&bytes)
-        } else {
-            parse(&bytes)
-        };
-        let Ok(message) = parsed else {
+        let Ok(message) = parse_corpus_message_bytes(&bytes) else {
             continue;
         };
 
@@ -1079,49 +995,6 @@ fn collect_fingerprint_details_from_messages(
     value_shape_stats.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
 
     (cardinality, value_shape_stats)
-}
-
-fn collect_corpus_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), CorpusError> {
-    if path.is_file() {
-        files.push(path.to_path_buf());
-        return Ok(());
-    }
-
-    if !path.is_dir() {
-        return Err(CorpusError::InvalidConfig(format!(
-            "{} is not a file or directory",
-            path.display()
-        )));
-    }
-
-    for entry in fs::read_dir(path).map_err(|e| CorpusError::IoError(e.to_string()))? {
-        let entry = entry.map_err(|e| CorpusError::IoError(e.to_string()))?;
-        let child = entry.path();
-        if child.is_dir() {
-            collect_corpus_files(&child, files)?;
-        } else if child.is_file() {
-            files.push(child);
-        }
-    }
-
-    Ok(())
-}
-
-fn parse_corpus_message_bytes(message_bytes: &[u8]) -> Result<Message, Error> {
-    if is_mllp_framed(message_bytes) {
-        parse_mllp(message_bytes)
-    } else {
-        parse(message_bytes)
-    }
-}
-
-fn relative_corpus_path(root: &Path, file: &Path) -> String {
-    let relative = if root.is_dir() {
-        file.strip_prefix(root).unwrap_or(file)
-    } else {
-        file.file_name().map(Path::new).unwrap_or(file)
-    };
-    relative.to_string_lossy().replace('\\', "/")
 }
 
 fn record_message_shape(
@@ -1282,7 +1155,7 @@ fn is_hl7_timestamp_shape(text: &str) -> bool {
     matches!(text.len(), 8 | 12 | 14) && text.chars().all(|character| character.is_ascii_digit())
 }
 
-fn compare_field_paths(left: &str, right: &str) -> Ordering {
+pub(super) fn compare_field_paths(left: &str, right: &str) -> Ordering {
     let (left_segment, left_index) = split_field_path(left);
     let (right_segment, right_index) = split_field_path(right);
 
@@ -1290,255 +1163,6 @@ fn compare_field_paths(left: &str, right: &str) -> Ordering {
         .cmp(right_segment)
         .then(left_index.cmp(&right_index))
         .then(left.cmp(right))
-}
-
-fn total_diff(before: usize, after: usize) -> CorpusTotalDiff {
-    CorpusTotalDiff {
-        before,
-        after,
-        delta: signed_delta(before, after),
-    }
-}
-
-fn diff_counts(before: &[CorpusCount], after: &[CorpusCount]) -> Vec<CorpusCountDiff> {
-    let before_counts = count_map(before);
-    let after_counts = count_map(after);
-    let mut values = BTreeSet::new();
-
-    for value in before_counts.keys() {
-        values.insert(value.as_str());
-    }
-    for value in after_counts.keys() {
-        values.insert(value.as_str());
-    }
-
-    values
-        .into_iter()
-        .map(|value| {
-            let before = before_counts.get(value).copied().unwrap_or_default();
-            let after = after_counts.get(value).copied().unwrap_or_default();
-            CorpusCountDiff {
-                value: value.to_string(),
-                before,
-                after,
-                delta: signed_delta(before, after),
-            }
-        })
-        .filter(|count| count.delta != 0)
-        .collect()
-}
-
-fn count_map(counts: &[CorpusCount]) -> BTreeMap<String, usize> {
-    counts
-        .iter()
-        .map(|count| (count.value.clone(), count.count))
-        .collect()
-}
-
-fn new_values(counts: &[CorpusCountDiff]) -> Vec<String> {
-    counts
-        .iter()
-        .filter(|count| count.before == 0 && count.after > 0)
-        .map(|count| count.value.clone())
-        .collect()
-}
-
-fn removed_values(counts: &[CorpusCountDiff]) -> Vec<String> {
-    counts
-        .iter()
-        .filter(|count| count.before > 0 && count.after == 0)
-        .map(|count| count.value.clone())
-        .collect()
-}
-
-fn diff_field_presence(
-    before: &[CorpusFieldPresence],
-    after: &[CorpusFieldPresence],
-) -> Vec<CorpusFieldPresenceDiff> {
-    let before_fields = field_presence_map(before);
-    let after_fields = field_presence_map(after);
-    let mut paths = BTreeSet::new();
-
-    for path in before_fields.keys() {
-        paths.insert(path.as_str());
-    }
-    for path in after_fields.keys() {
-        paths.insert(path.as_str());
-    }
-
-    let mut diffs: Vec<CorpusFieldPresenceDiff> = paths
-        .into_iter()
-        .map(|path| {
-            let before = before_fields.get(path);
-            let after = after_fields.get(path);
-            let before_message_count = before.map_or(0, |field| field.message_count);
-            let after_message_count = after.map_or(0, |field| field.message_count);
-            let before_occurrence_count = before.map_or(0, |field| field.occurrence_count);
-            let after_occurrence_count = after.map_or(0, |field| field.occurrence_count);
-
-            CorpusFieldPresenceDiff {
-                path: path.to_string(),
-                before_message_count,
-                after_message_count,
-                message_count_delta: signed_delta(before_message_count, after_message_count),
-                before_occurrence_count,
-                after_occurrence_count,
-                occurrence_count_delta: signed_delta(
-                    before_occurrence_count,
-                    after_occurrence_count,
-                ),
-            }
-        })
-        .filter(|field| field.message_count_delta != 0 || field.occurrence_count_delta != 0)
-        .collect();
-    diffs.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
-    diffs
-}
-
-fn field_presence_map(fields: &[CorpusFieldPresence]) -> BTreeMap<String, &CorpusFieldPresence> {
-    fields
-        .iter()
-        .map(|field| (field.path.clone(), field))
-        .collect()
-}
-
-fn diff_field_cardinality(
-    before: &[CorpusFieldCardinality],
-    after: &[CorpusFieldCardinality],
-) -> Vec<CorpusFieldCardinalityDiff> {
-    let before_fields = field_cardinality_map(before);
-    let after_fields = field_cardinality_map(after);
-    let mut paths = BTreeSet::new();
-
-    for path in before_fields.keys() {
-        paths.insert(path.as_str());
-    }
-    for path in after_fields.keys() {
-        paths.insert(path.as_str());
-    }
-
-    let mut diffs: Vec<CorpusFieldCardinalityDiff> = paths
-        .into_iter()
-        .map(|path| {
-            let before = before_fields.get(path);
-            let after = after_fields.get(path);
-            let before_min_per_message = before.map_or(0, |field| field.min_per_message);
-            let after_min_per_message = after.map_or(0, |field| field.min_per_message);
-            let before_max_per_message = before.map_or(0, |field| field.max_per_message);
-            let after_max_per_message = after.map_or(0, |field| field.max_per_message);
-            let before_total_occurrences = before.map_or(0, |field| field.total_occurrences);
-            let after_total_occurrences = after.map_or(0, |field| field.total_occurrences);
-            let before_message_count = before.map_or(0, |field| field.message_count);
-            let after_message_count = after.map_or(0, |field| field.message_count);
-
-            CorpusFieldCardinalityDiff {
-                path: path.to_string(),
-                before_min_per_message,
-                after_min_per_message,
-                min_per_message_delta: signed_delta(before_min_per_message, after_min_per_message),
-                before_max_per_message,
-                after_max_per_message,
-                max_per_message_delta: signed_delta(before_max_per_message, after_max_per_message),
-                before_total_occurrences,
-                after_total_occurrences,
-                total_occurrences_delta: signed_delta(
-                    before_total_occurrences,
-                    after_total_occurrences,
-                ),
-                before_message_count,
-                after_message_count,
-                message_count_delta: signed_delta(before_message_count, after_message_count),
-            }
-        })
-        .filter(|field| {
-            field.min_per_message_delta != 0
-                || field.max_per_message_delta != 0
-                || field.total_occurrences_delta != 0
-                || field.message_count_delta != 0
-        })
-        .collect();
-    diffs.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
-    diffs
-}
-
-fn field_cardinality_map(
-    fields: &[CorpusFieldCardinality],
-) -> BTreeMap<String, &CorpusFieldCardinality> {
-    fields
-        .iter()
-        .map(|field| (field.path.clone(), field))
-        .collect()
-}
-
-fn diff_value_shape_stats(
-    before: &[CorpusValueShapeStats],
-    after: &[CorpusValueShapeStats],
-) -> Vec<CorpusValueShapeStatsDiff> {
-    let before_shapes = value_shape_stats_map(before);
-    let after_shapes = value_shape_stats_map(after);
-    let mut paths = BTreeSet::new();
-
-    for path in before_shapes.keys() {
-        paths.insert(path.as_str());
-    }
-    for path in after_shapes.keys() {
-        paths.insert(path.as_str());
-    }
-
-    let mut diffs: Vec<CorpusValueShapeStatsDiff> = paths
-        .into_iter()
-        .map(|path| {
-            let before = before_shapes.get(path);
-            let after = after_shapes.get(path);
-            CorpusValueShapeStatsDiff {
-                path: path.to_string(),
-                coded_count: total_diff(
-                    before.map_or(0, |shape| shape.coded_count),
-                    after.map_or(0, |shape| shape.coded_count),
-                ),
-                timestamp_count: total_diff(
-                    before.map_or(0, |shape| shape.timestamp_count),
-                    after.map_or(0, |shape| shape.timestamp_count),
-                ),
-                numeric_count: total_diff(
-                    before.map_or(0, |shape| shape.numeric_count),
-                    after.map_or(0, |shape| shape.numeric_count),
-                ),
-                null_count: total_diff(
-                    before.map_or(0, |shape| shape.null_count),
-                    after.map_or(0, |shape| shape.null_count),
-                ),
-                text_count: total_diff(
-                    before.map_or(0, |shape| shape.text_count),
-                    after.map_or(0, |shape| shape.text_count),
-                ),
-            }
-        })
-        .filter(|shape| {
-            shape.coded_count.delta != 0
-                || shape.timestamp_count.delta != 0
-                || shape.numeric_count.delta != 0
-                || shape.null_count.delta != 0
-                || shape.text_count.delta != 0
-        })
-        .collect();
-    diffs.sort_by(|left, right| compare_field_paths(&left.path, &right.path));
-    diffs
-}
-
-fn value_shape_stats_map(
-    stats: &[CorpusValueShapeStats],
-) -> BTreeMap<String, &CorpusValueShapeStats> {
-    stats
-        .iter()
-        .map(|shape| (shape.path.clone(), shape))
-        .collect()
-}
-
-fn signed_delta(before: usize, after: usize) -> i128 {
-    let before = i128::try_from(before).unwrap_or(i128::MAX);
-    let after = i128::try_from(after).unwrap_or(i128::MAX);
-    after.saturating_sub(before)
 }
 
 fn split_field_path(path: &str) -> (&str, usize) {
@@ -1595,6 +1219,7 @@ mod summary_tests {
     )]
 
     use super::*;
+    use std::path::{Path, PathBuf};
 
     const ADT_A01: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605080101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M";
     const ORU_R01: &str = "MSH|^~\\&|LAB|LAB|EHR|HOSP|202605080101||ORU^R01|CTRL456|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\rOBR|1|ORD1|FILL1|CBC^Complete Blood Count\rOBX|1|NM|718-7^Hemoglobin||13.2|g/dL";
@@ -1609,14 +1234,57 @@ mod summary_tests {
         assert!(result.is_ok(), "test message should be written: {result:?}");
     }
 
-    fn large_obx_message(control_id: &str, obx_count: usize) -> String {
-        let mut message = format!(
-            "MSH|^~\\&|LAB|LEGACY|EHR|HOSP|202605140101||ORU^R01|{control_id}|P|2.3\rPID|1||MRN-LARGE^^^HOSP^MR||Example^Large||19700101|U\rOBR|1|ORD-LARGE|FILL-LARGE|CBC^Complete Blood Count"
+    fn dirty_real_world_fixture_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/dirty-real-world")
+    }
+
+    fn normalize_fixture_segments(bytes: &[u8]) -> Vec<u8> {
+        String::from_utf8_lossy(bytes)
+            .replace("\r\n", "\n")
+            .replace('\n', "\r")
+            .into_bytes()
+    }
+
+    fn materialize_dirty_corpus_dir(category: &str, target: &Path) {
+        let source = dirty_real_world_fixture_root().join(category);
+        let result = fs::create_dir_all(target);
+        assert!(
+            result.is_ok(),
+            "fixture target should be created: {result:?}"
         );
-        for index in 1..=obx_count {
-            message.push_str(&format!("\rOBX|{index}|NM|718-7^Hemoglobin||{index}|g/dL"));
+
+        let Ok(entries) = fs::read_dir(&source) else {
+            panic!("dirty fixture category should be readable: {source:?}");
+        };
+
+        for entry in entries {
+            let Ok(entry) = entry else {
+                panic!("dirty fixture entry should be readable");
+            };
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let Ok(bytes) = fs::read(&path) else {
+                panic!("dirty fixture file should be readable: {path:?}");
+            };
+            let Some(file_name) = path.file_name() else {
+                panic!("dirty fixture file should have a name: {path:?}");
+            };
+            write_message_bytes(&target.join(file_name), &normalize_fixture_segments(&bytes));
         }
-        message
+    }
+
+    fn add_generated_mllp_fixture(target: &Path) {
+        let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
+        let Ok(bytes) = fs::read(&source) else {
+            panic!("MLLP source fixture should be readable: {source:?}");
+        };
+        let normalized = normalize_fixture_segments(&bytes);
+        write_message_bytes(
+            &target.join("mllp-framed.hl7"),
+            &crate::wrap_mllp(&normalized),
+        );
     }
 
     #[test]
@@ -1725,24 +1393,9 @@ mod summary_tests {
             panic!("after temp dir should be created");
         };
 
-        let z_segment_message = "MSH|^~\\&|INTF|SITE|EHR|HOSP|202605140101||ADT^A01|CTRL-Z|P|2.5\rPID|1||MRN-Z^^^HOSP^MR||Example^Zed||19700101|U\rZPV|legacy-room|dirty interface note";
-        let odd_msh_message = "MSH|^~\\&|LEGACY||EHR||202605140102||ADT^A08|CTRL-ODD|P|2.3\rPID|1||MRN-ODD^^^HOSP^MR||Example^Odd||19600101|";
-        let large_before = large_obx_message("CTRL-LARGE-BEFORE", 5);
-        let large_after = large_obx_message("CTRL-LARGE-AFTER", 20);
-        let malformed_delimiters =
-            b"MSH|^^^^|BROKEN|SITE|EHR|HOSP|202605140103||ADT^A01|MRN-DIRTY|P|2.5\rPID|1";
-        let mllp_after = crate::wrap_mllp(odd_msh_message.as_bytes());
-
-        write_message(&before.path().join("z-segment.hl7"), z_segment_message);
-        write_message(&before.path().join("large-obx.hl7"), &large_before);
-
-        write_message(&after.path().join("z-segment.hl7"), z_segment_message);
-        write_message(&after.path().join("large-obx.hl7"), &large_after);
-        write_message_bytes(&after.path().join("mllp-framed.hl7"), &mllp_after);
-        write_message_bytes(
-            &after.path().join("malformed-delimiters.hl7"),
-            malformed_delimiters,
-        );
+        materialize_dirty_corpus_dir("before", before.path());
+        materialize_dirty_corpus_dir("after", after.path());
+        add_generated_mllp_fixture(after.path());
 
         let Ok(summary) = summarize_corpus_path(after.path()) else {
             panic!("dirty corpus should summarize");
@@ -1754,10 +1407,10 @@ mod summary_tests {
             panic!("dirty corpus should diff");
         };
 
-        assert_eq!(summary.file_count, 4);
-        assert_eq!(summary.message_count, 3);
-        assert_eq!(summary.parse_error_count, 1);
-        assert!(summary.total_bytes > large_after.len());
+        assert_eq!(summary.file_count, 6);
+        assert_eq!(summary.message_count, 4);
+        assert_eq!(summary.parse_error_count, 2);
+        assert!(summary.total_bytes > 1_000);
         assert!(
             summary
                 .message_types
@@ -1769,6 +1422,12 @@ mod summary_tests {
                 .message_types
                 .iter()
                 .any(|count| count.value == "ADT^A08" && count.count == 1)
+        );
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ADT^A04" && count.count == 1)
         );
         assert!(
             summary
@@ -1788,15 +1447,28 @@ mod summary_tests {
                 .iter()
                 .any(|count| count.value == "OBX" && count.count == 20)
         );
-        let Some(parse_failure) = summary.parse_errors.first() else {
-            panic!("malformed delimiter failure should be recorded");
-        };
-        assert_eq!(parse_failure.path, "malformed-delimiters.hl7");
-        assert!(!parse_failure.error.contains("MRN-DIRTY"));
+        assert!(
+            summary
+                .parse_errors
+                .iter()
+                .any(|failure| failure.path == "malformed-delimiters.hl7")
+        );
+        assert!(
+            summary
+                .parse_errors
+                .iter()
+                .any(|failure| failure.path == "partial-batch.hl7")
+        );
+        assert!(
+            summary
+                .parse_errors
+                .iter()
+                .all(|failure| !failure.error.contains("MRN-DIRTY"))
+        );
 
-        assert_eq!(fingerprint.file_count, 4);
-        assert_eq!(fingerprint.message_count, 3);
-        assert_eq!(fingerprint.parse_error_count, 1);
+        assert_eq!(fingerprint.file_count, 6);
+        assert_eq!(fingerprint.message_count, 4);
+        assert_eq!(fingerprint.parse_error_count, 2);
         assert!(
             fingerprint
                 .field_cardinality
@@ -1813,9 +1485,9 @@ mod summary_tests {
         );
 
         assert_eq!(diff.file_count.before, 2);
-        assert_eq!(diff.file_count.after, 4);
-        assert_eq!(diff.message_count.delta, 1);
-        assert_eq!(diff.parse_error_count.delta, 1);
+        assert_eq!(diff.file_count.after, 6);
+        assert_eq!(diff.message_count.delta, 2);
+        assert_eq!(diff.parse_error_count.delta, 2);
         assert!(
             diff.field_cardinality
                 .iter()

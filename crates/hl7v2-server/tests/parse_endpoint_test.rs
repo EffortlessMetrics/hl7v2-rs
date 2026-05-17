@@ -9,6 +9,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use hl7v2_test_utils::safe_error_phi_parity_fixture;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -150,9 +151,10 @@ async fn test_parse_minimal_valid_message() {
 #[tokio::test]
 async fn test_parse_malformed_message_returns_error() {
     let app = common::create_test_router();
+    let fixture = safe_error_phi_parity_fixture().unwrap();
 
     let request_body = json!({
-        "message": common::fixtures::INVALID_MALFORMED,
+        "message": &fixture.malformed_message.message,
         "mllp_framed": false
     });
 
@@ -187,25 +189,27 @@ async fn test_parse_malformed_message_returns_error() {
     let body_json: Value = serde_json::from_str(&body_text).unwrap();
     assert_eq!(
         body_json.get("code").and_then(Value::as_str),
-        Some("PARSE_ERROR")
+        Some(fixture.malformed_message.rest_code.as_str())
     );
     assert_eq!(
         body_json.get("location").and_then(Value::as_str),
-        Some("message")
+        Some(fixture.malformed_message.rest_location.as_str())
     );
     assert!(
         body_json
             .get("safe_detail")
             .and_then(Value::as_str)
-            .is_some_and(|detail| detail.contains("Raw message content is not echoed"))
+            .is_some_and(
+                |detail| detail.contains(&fixture.malformed_message.rest_safe_detail_contains)
+            )
     );
     assert!(
         body_json
             .get("suggested_next_action")
             .and_then(Value::as_str)
-            .is_some_and(|action| action.contains("MSH segment"))
+            .is_some_and(|action| action.contains(&fixture.malformed_message.rest_action_contains))
     );
-    assert!(!body_text.contains(common::fixtures::INVALID_MALFORMED));
+    fixture.assert_no_forbidden("REST parse safe error", &body_text);
 }
 
 #[tokio::test]

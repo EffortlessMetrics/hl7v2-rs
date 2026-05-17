@@ -1,0 +1,3 @@
+MSH|^~\&|INTF|SITE|EHR|HOSP|202605140101||ADT^A01|CTRL-Z|P|2.5
+PID|1||MRN-Z^^^HOSP^MR||Example^Zed||19700101|U
+ZPV|legacy-room|dirty interface note

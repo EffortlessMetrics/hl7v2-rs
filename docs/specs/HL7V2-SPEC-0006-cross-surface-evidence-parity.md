@@ -70,6 +70,19 @@ Every parity claim must map to at least one local or hosted receipt:
 | Evidence artifact | Schema validation against `schemas/evidence/` and golden fixture coverage |
 | Publish or registry claim | Upload plus registry-resolution or install-back proof |
 
+The machine-readable parity manifest lives in
+[`policy/evidence-parity.toml`](../../policy/evidence-parity.toml). It records
+the current surface state, proof commands, fixture families, and known gaps so
+future PRs can update parity state without scraping audit prose. The manifest
+does not create a new release, registry, or runtime claim by itself. Use
+`cargo run -p xtask -- check-evidence-parity` to verify the manifest keeps the
+required surfaces, contracts, proof links, and non-claim boundaries.
+Use `cargo run -p xtask -- check-evidence-parity-acceptance` as the default
+local Rust/CLI/REST/gRPC acceptance suite for the implemented parity runners.
+Pass `--include-python` only after a local `hl7v2` wheel is installed; Python
+registry availability remains governed by the separate TestPyPI/PyPI proof
+lane.
+
 ## Fixture Rules
 
 Parity fixtures should be shared across surfaces where practical. A fixture set
@@ -89,6 +102,62 @@ Required fixture families:
 - evidence bundle creation and replay;
 - v1 and v2 `schema_version` behavior where an artifact supports both;
 - malformed input that proves safe diagnostics without echoing raw PHI.
+
+The shared dirty-corpus fixture family lives in
+`test_data/dirty-real-world/`. It currently proves Rust core, CLI, REST server,
+gRPC server, and local Python wheel corpus summary, fingerprint, and diff parity
+for Z-segments, large OBX expansion, legacy encoding declarations, malformed
+delimiters, partial batch-like input, and generated MLLP-framed input.
+It also proves CLI, REST, and gRPC validate/redact/bundle/replay workflows
+against the shared Z-segment fixture so dirty-corpus evidence is not limited to
+feed-level corpus commands. The local Python wheel proof uses the same
+Z-segment fixture for validate, redact, bundle, and replay semantics when the
+Python smoke lane is included.
+TypeScript parity must use the same fixture family or explicitly explain why a
+transport-specific fixture is required.
+The default acceptance runner is
+`cargo run -p xtask -- check-dirty-corpus-parity`; it composes the existing
+Rust, CLI, REST, and gRPC dirty-corpus checks. Pass `--include-python` only
+after a local `hl7v2` wheel is installed; that adds the Python dirty-corpus
+smoke and dirty validate/redact/bundle/replay smoke, but Python package
+availability remains governed by the separate TestPyPI/PyPI proof lane.
+
+The shared safe-error and PHI sentinel fixture lives in
+`test_data/security/safe-error-phi-parity.json`. It supplies the synthetic PHI
+message, safe-analysis policy, malformed-input payload, malformed-profile
+payload, expected safe diagnostics, and forbidden sentinel values used by Rust
+core, CLI, REST, gRPC, and local Python proof. Surface tests may stay
+transport-specific, but they must use this fixture when claiming safe-error or
+PHI sentinel parity. The default acceptance runner is
+`cargo run -p xtask -- check-safe-error-phi-parity`; it composes the
+fixture-backed Rust, CLI, REST, and gRPC checks. Pass `--include-python` only
+after a local `hl7v2` wheel is installed, because Python package availability
+remains governed by the separate TestPyPI/PyPI proof lane.
+
+The shared schema-version fixture lives in
+`test_data/evidence/schema-version-parity.json`. It records the accepted v2
+request value, expected v2 artifact `schema_version`, unsupported request
+version, unsupported-version diagnostic fragment, surface tool names, and the
+validation shape used by representative CLI, REST, gRPC, and local Python
+proof. Artifact-specific tests may remain near their surfaces, but they should
+consume this fixture when claiming schema-version behavior parity.
+The default acceptance runner is
+`cargo run -p xtask -- check-schema-version-parity`; it composes the
+fixture-backed Rust, CLI, REST, and gRPC checks plus evidence schema
+validation. Pass `--include-python` only after a local `hl7v2` wheel is
+installed, because Python package availability remains governed by the
+separate TestPyPI/PyPI proof lane.
+
+The default bundle/replay acceptance runner is
+`cargo run -p xtask -- check-bundle-replay-parity`; it composes the existing
+Rust, CLI, REST, and gRPC bundle/replay checks. Pass `--include-python` only
+after a local `hl7v2` wheel is installed, because Python package availability
+remains governed by the separate TestPyPI/PyPI proof lane.
+
+The default aggregate local acceptance runner is
+`cargo run -p xtask -- check-evidence-parity-acceptance`. It verifies the
+manifest and then runs the shared safe-error/PHI, schema-version, dirty-corpus,
+and bundle/replay parity runners for Rust, CLI, REST, and gRPC.
 
 ## Non-Goals
 
@@ -137,6 +206,12 @@ an inline profile and inline fixture messages, returns the shared profile test
 report fields, supports opt-in v2 provenance if claimed, rejects unsupported
 schema versions, avoids request filesystem reads, avoids raw profile echo in
 malformed-profile diagnostics, and passes gRPC contract tests.
+
+`GenerateAck` can be described as gRPC ACK parity when the proto contract
+accepts application ACK codes `AA`, `AE`, and `AR` plus commit ACK codes `CA`,
+`CE`, and `CR`, returns an ACK payload whose `MSA.1` and `MSA.2` preserve the
+requested code and original control ID, returns a parsed ACK shape for
+verification, and passes gRPC contract tests.
 
 `CreateEvidenceBundle` can be described as gRPC evidence bundle creation parity
 when the RPC accepts inline message, profile, and redaction policy inputs,
