@@ -9,7 +9,7 @@
 
 use crate::model::{Batch, Delims, Error, FileBatch};
 
-use super::message::parse;
+use super::message::{parse, segment_lines};
 use super::segment::parse_segment;
 
 /// Parse HL7 v2 batch from bytes.
@@ -23,7 +23,7 @@ use super::segment::parse_segment;
 /// The parsed `Batch`, or an error if parsing fails
 pub fn parse_batch(bytes: &[u8]) -> Result<Batch, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
-    let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
+    let lines = segment_lines(text);
 
     if lines.is_empty() {
         return Err(Error::InvalidSegmentId);
@@ -57,7 +57,7 @@ pub fn parse_batch(bytes: &[u8]) -> Result<Batch, Error> {
 /// The parsed `FileBatch`, or an error if parsing fails
 pub fn parse_file_batch(bytes: &[u8]) -> Result<FileBatch, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
-    let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
+    let lines = segment_lines(text);
 
     if lines.is_empty() {
         return Err(Error::InvalidSegmentId);

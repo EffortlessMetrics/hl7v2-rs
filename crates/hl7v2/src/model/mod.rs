@@ -177,8 +177,15 @@ impl Delims {
         let esc_char = msh.chars().nth(6).ok_or(Error::BadDelimLength)?;
         let sub_char = msh.chars().nth(7).ok_or(Error::BadDelimLength)?;
 
-        // Check that all delimiters are distinct
         let delimiters = [field_sep, comp_char, rep_char, esc_char, sub_char];
+        if delimiters
+            .iter()
+            .any(|delimiter| !delimiter.is_ascii() || matches!(delimiter, '\r' | '\n'))
+        {
+            return Err(Error::BadDelimLength);
+        }
+
+        // Check that all delimiters are distinct
         for i in 0..delimiters.len() {
             for j in (i + 1)..delimiters.len() {
                 if delimiters[i] == delimiters[j] {

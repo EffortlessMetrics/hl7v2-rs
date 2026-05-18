@@ -30,7 +30,24 @@ pub(super) fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Erro
         }
     }
 
-    let fields_str = line.get(4..).unwrap_or("");
+    let mut field_sep_buf = [0; 4];
+    let field_sep = delims.field.encode_utf8(&mut field_sep_buf);
+    let fields_str = if line.len() == 3 {
+        ""
+    } else if field_sep.len() == 1 && line.as_bytes().get(3) == field_sep.as_bytes().first() {
+        let Some(fields_str) = line.get(4..) else {
+            std::hint::cold_path();
+            return Err(Error::InvalidFieldFormat {
+                details: "Segment field separator must end at a UTF-8 boundary".to_string(),
+            });
+        };
+        fields_str
+    } else {
+        std::hint::cold_path();
+        return Err(Error::InvalidFieldFormat {
+            details: "Segment fields must start with the configured field separator".to_string(),
+        });
+    };
 
     let mut fields = parse_fields(fields_str, delims).map_err(|e| Error::ParseError {
         segment_id: String::from_utf8_lossy(&id).to_string(),

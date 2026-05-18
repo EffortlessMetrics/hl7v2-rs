@@ -34,7 +34,7 @@ use super::segment::parse_segment;
 /// ```
 pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
-    let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
+    let lines = segment_lines(text);
 
     if lines.is_empty() {
         std::hint::cold_path();
@@ -103,4 +103,11 @@ pub fn parse_mllp(bytes: &[u8]) -> Result<Message, Error> {
     let hl7_content =
         crate::transport::mllp::unwrap_mllp(bytes).map_err(|e| Error::Framing(e.to_string()))?;
     parse(hl7_content)
+}
+
+pub(super) fn segment_lines(text: &str) -> Vec<&str> {
+    text.split('\r')
+        .map(|line| line.strip_prefix('\n').unwrap_or(line))
+        .filter(|line| !line.is_empty())
+        .collect()
 }
