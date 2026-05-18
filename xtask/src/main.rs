@@ -4833,6 +4833,7 @@ fn check_full_evidence_receipt_cli_recipe() -> Result<()> {
         "environment.json",
         "manifest.json",
         "README.md",
+        "SAFE-SHARING.md",
         "replay.ps1",
         "replay.sh",
     ] {
@@ -4961,6 +4962,7 @@ fn check_safe_support_bundle_guide() -> Result<()> {
         "replay.sh",
         "replay.ps1",
         "README.md",
+        "SAFE-SHARING.md",
         "manifest.json",
     ] {
         ensure_json_array_contains_string(&summary, &["artifacts"], artifact, &summary_label)?;
@@ -5325,6 +5327,7 @@ fn check_evidence_artifacts_guide() -> Result<()> {
         "environment.json",
         "manifest.json",
         "README.md",
+        "SAFE-SHARING.md",
         "replay.ps1",
         "replay.sh",
     ] {

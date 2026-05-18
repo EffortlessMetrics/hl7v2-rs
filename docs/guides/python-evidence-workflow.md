@@ -245,7 +245,7 @@ Expected output has the same evidence semantics as the CLI and server:
 {
   "ack_msa": true,
   "after_message_count": 1,
-  "bundle_artifacts": 10,
+  "bundle_artifacts": 11,
   "diff_field_presence_deltas": 0,
   "generated_message_count": 2,
   "profile_explain_segments": 2,
@@ -278,8 +278,9 @@ target/hl7v2-python-evidence/issue-bundle/
 ```
 
 The bundle contains the redacted HL7 message, validation report, field-path
-trace, redaction receipt, environment metadata, manifest, README, and replay
-scripts. Replay verifies the manifest hashes before trusting bundle artifacts.
+trace, redaction receipt, environment metadata, manifest, README,
+`SAFE-SHARING.md`, and replay scripts. Replay verifies the manifest hashes
+before trusting bundle artifacts.
 
 ## Safety Notes
 

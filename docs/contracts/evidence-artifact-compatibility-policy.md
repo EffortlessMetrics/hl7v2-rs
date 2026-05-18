@@ -97,6 +97,9 @@ Rules:
   did not opt into v2 bundle artifacts.
 - A bundle may contain multiple artifact families, but each artifact's schema
   version is interpreted independently.
+- Newer bundles may include manifest-hashed advisory files such as
+  `SAFE-SHARING.md`. Replay must continue to accept older manifests that lack
+  advisory support text as long as required evidence artifacts still verify.
 
 ## Stable Versus Advisory Fields
 

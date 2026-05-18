@@ -2,7 +2,7 @@ use super::hash::compute_sha256_bytes;
 use super::models::{
     EvidenceBundleManifest, EvidenceReplayCheck, EvidenceReplayCheckStatus, EvidenceReplayReport,
 };
-use super::{BUNDLE_ARTIFACT_SPECS, REPLAY_VERSION};
+use super::{BUNDLE_ARTIFACT_SPECS, BUNDLE_REQUIRED_ARTIFACT_SPECS, REPLAY_VERSION};
 use crate::conformance::profile::{load_profile_checked, validate};
 use crate::conformance::validation::ValidationReport;
 use crate::parser::parse;
@@ -318,7 +318,8 @@ fn verify_bundle_manifest_catalog(
     manifest: &EvidenceBundleManifest,
     checks: &mut Vec<EvidenceReplayCheck>,
 ) -> bool {
-    let expected = BUNDLE_ARTIFACT_SPECS;
+    let allowed = BUNDLE_ARTIFACT_SPECS;
+    let required = BUNDLE_REQUIRED_ARTIFACT_SPECS;
     let mut errors = Vec::new();
     let mut seen_paths = BTreeSet::new();
 
@@ -333,7 +334,7 @@ fn verify_bundle_manifest_catalog(
         if !is_lower_sha256_hex(&artifact.sha256) {
             errors.push(format!("{} has invalid sha256", artifact.path));
         }
-        if !expected
+        if !allowed
             .iter()
             .any(|(path, role)| *path == artifact.path.as_str() && *role == artifact.role.as_str())
         {
@@ -344,7 +345,7 @@ fn verify_bundle_manifest_catalog(
         }
     }
 
-    for (expected_path, expected_role) in expected {
+    for (expected_path, expected_role) in required {
         if !manifest
             .artifacts
             .iter()

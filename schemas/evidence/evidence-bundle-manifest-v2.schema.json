@@ -57,7 +57,8 @@
             "environment",
             "replay_shell_script",
             "replay_powershell_script",
-            "bundle_readme"
+            "bundle_readme",
+            "safe_sharing_checklist"
           ]
         },
         "sha256": {

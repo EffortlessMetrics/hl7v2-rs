@@ -619,6 +619,7 @@ Expected fields:
     "replay.sh",
     "replay.ps1",
     "README.md",
+    "SAFE-SHARING.md",
     "manifest.json"
   ]
 }

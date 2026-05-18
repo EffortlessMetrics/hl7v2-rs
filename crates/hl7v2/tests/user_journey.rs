@@ -152,6 +152,7 @@ fn journey_rust_validate_redact_bundle_replay_produces_shareable_receipts()
         "field-paths.json",
         "redaction-receipt.json",
         "environment.json",
+        "SAFE-SHARING.md",
         "manifest.json",
     ] {
         shareable_artifacts.push_str(&fs::read_to_string(bundle_dir.join(artifact))?);

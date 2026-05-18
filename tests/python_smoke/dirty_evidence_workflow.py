@@ -169,6 +169,7 @@ def main() -> int:
             "manifest.json",
             "environment.json",
             "README.md",
+            "SAFE-SHARING.md",
             "replay.sh",
             "replay.ps1",
         ]
