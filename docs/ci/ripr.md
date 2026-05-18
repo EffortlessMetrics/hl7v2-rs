@@ -30,10 +30,12 @@ The first calibration pass over hosted PR artifacts is recorded in
 [`docs/audits/ripr-calibration-2026-05-15.md`](../audits/ripr-calibration-2026-05-15.md).
 A later post-parity traffic sample is recorded in
 [`docs/audits/ripr-calibration-2026-05-17.md`](../audits/ripr-calibration-2026-05-17.md).
-Those audits keep `ripr` advisory: severe-gap and impacted-evidence output can
-route review and targeted mutation, but branch protection must not depend on
-`ripr` until artifact counter semantics, traffic patterns, and the observed
-cost/latency envelope are better understood.
+The support-bundle and Python-proof traffic sample is recorded in
+[`docs/audits/ripr-calibration-2026-05-18.md`](../audits/ripr-calibration-2026-05-18.md).
+Those audits keep `ripr` advisory: severe-gap, annotation, stale-artifact, and
+impacted-evidence output can route review and targeted mutation, but branch
+protection must not depend on `ripr` until artifact counter semantics, traffic
+patterns, and the observed cost/latency envelope are better understood.
 
 ## CI Economics
 

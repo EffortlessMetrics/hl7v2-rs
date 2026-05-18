@@ -19,7 +19,7 @@ nightly, release readiness, and high-risk changes.
 | Coverage | no | main, dispatch, `coverage`, or `full-ci` |
 | Contracts | no | OpenAPI, proto, schema, and evidence validation |
 | Python wheels and publish proof | no | Python-lane workflows and receipts |
-| `ripr` static exposure | advisory | JSON, SARIF, markdown, badge, and impacted-evidence artifacts; see the [2026-05-15 calibration audit](../audits/ripr-calibration-2026-05-15.md) |
+| `ripr` static exposure | advisory | JSON, SARIF, markdown, badge, and impacted-evidence artifacts; see the [2026-05-18 calibration audit](../audits/ripr-calibration-2026-05-18.md) |
 | Runtime mutation | targeted advisory | high-risk path changes, `mutation`, `full-ci`, `release-check`, nightly, and release readiness |
 
 ## Rust 1.95 Target
