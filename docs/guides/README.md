@@ -9,6 +9,7 @@ For the broader documentation map and historical receipt boundaries, see
 | Guide | Use when |
 | --- | --- |
 | [First Use By Surface](first-use-by-surface.md) | You need the right first install/import path for Rust, CLI, server, or Python without learning the workspace layout. |
+| [Full Evidence Receipt Path](full-evidence-receipt-path.md) | You have one HL7 message and need to validate, redact, bundle, replay, and interpret the evidence across current surfaces. |
 | [First 10 Minutes](first-10-minutes.md) | You want to verify the CLI, validate a message, inspect a tiny corpus, and create a replayable evidence bundle. |
 | [Evidence Artifacts For Operators](evidence-artifacts-for-operators.md) | You have a report, receipt, bundle, replay result, or corpus artifact and need to know what it proves, what it does not prove, and whether it is safe to share. |
 | [Operator Error Guidance](operator-error-guidance.md) | A parse, validation, redaction, bundle, replay, server, or Python workflow failed and you need the next PHI-safe action. |

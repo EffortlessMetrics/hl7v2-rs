@@ -50,6 +50,7 @@ proposal, spec, plan, or receipt documents.
 | Guide | Workflow |
 | --- | --- |
 | [First Use By Surface](guides/first-use-by-surface.md) | Choose the first Rust, CLI, server, or Python receipt without learning the workspace layout. |
+| [Full Evidence Receipt Path](guides/full-evidence-receipt-path.md) | Validate, redact, bundle, replay, and interpret one message across the current Rust, CLI, server, and local Python proof paths. |
 | [First 10 Minutes](guides/first-10-minutes.md) | Install, diagnose, validate, summarize, bundle, and replay. |
 | [Evidence Artifacts For Operators](guides/evidence-artifacts-for-operators.md) | Interpret reports, receipts, bundles, replay output, corpus artifacts, PHI posture, and safe sharing limits. |
 | [Operator Error Guidance](guides/operator-error-guidance.md) | Interpret parse, validation, redaction, bundle, replay, server, and Python failures without exposing PHI. |

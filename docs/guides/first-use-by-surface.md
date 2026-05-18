@@ -229,6 +229,10 @@ message.hl7
   -> evidence summary
 ```
 
+Use [Full Evidence Receipt Path](full-evidence-receipt-path.md) for the
+single job-first guide that composes validation, redaction, support bundle,
+replay, and interpretation across current surfaces.
+
 | Surface | Start here | What it gives you |
 | --- | --- | --- |
 | CLI | [First 10 Minutes](first-10-minutes.md) and [Safe Support Bundle](safe-support-bundle.md) | Copy/paste commands for validation, redaction, bundle creation, replay, and shareable operator evidence. |
