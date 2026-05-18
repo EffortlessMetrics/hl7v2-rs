@@ -11,9 +11,10 @@
 
 ## Development Standards
 
-- **Rust Version:** Target **Rust 2024** and **MSRV 1.93**.
-- **Microcrate Architecture:** Follow the microcrate architecture (SRP-focused crates in `crates/`). New features should typically live in their own crate.
+- **Rust Version:** Target **Rust 2024** and **MSRV 1.95**.
+- **Crate Boundaries:** Keep the primary Rust product graph focused on `hl7v2`, `hl7v2-server`, and `hl7v2-cli`. Binding backend crates such as `hl7v2-python` are packaging/provenance surfaces for language packages, not the recommended Rust API.
+- **No Microcrate Relapse:** Do not split parser, model, redaction, MLLP, batch, or stream internals back into public Rust microcrates. Prefer SRP modules inside the existing product crates unless a future accepted ADR/spec explicitly changes the crate boundary.
 - **Security First:** Adhere to the security practices outlined in `SECURITY.md`, including constant-time comparisons (`subtle::ct_eq`) for sensitive operations like API key validation.
 - **Performance:** Prioritize stack-allocated buffers and efficient string scanning (`str::contains` fast-paths) for core parsing logic.
-- **Ecosystem Sync:** Ensure OpenAPI specifications (`schemas/openapi/`) are always in sync with the actual implementation in `crates/hl7v2-server`.
+- **Ecosystem Sync:** Ensure OpenAPI, protobuf, evidence schemas, and generated examples stay in sync with the implementation in `crates/hl7v2-server`, `crates/hl7v2-cli`, and `schemas/evidence`.
 - **Licensing:** Use AGPL-3.0-or-later for all new source files. No permissive licenses without explicit approval.
