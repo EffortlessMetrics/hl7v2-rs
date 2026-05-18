@@ -55,6 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask check-sidecar-guide` to start a local HTTP sidecar and prove the
   deployment guide's readiness, redacted validation, invalid-message quarantine,
   bundle, replay, ACK policy, metrics, corpus diff, and PHI-sentinel path.
+- Hardened `xtask check-sidecar-guide` to use an ephemeral loopback port for
+  the executable smoke proof while leaving the manual sidecar guide on its fixed
+  local example port.
 - Added generated `SAFE-SHARING.md` checklists to CLI, Python/core, and server
   evidence bundles so support packets carry a reviewed pre-share checklist.
 - Added gRPC evidence replay parity with configured-root bundle replay,
@@ -89,7 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recorded executable safe support-bundle guide smoke proof for the
   operator-facing support packet workflow.
 - Recorded executable sidecar guide smoke proof for the HTTP deployment
-  walkthrough.
+  walkthrough, with follow-up hardening so the executable check chooses an
+  ephemeral loopback port instead of depending on the manual example port.
 - Updated the current-main TestPyPI publishing-mode proof retry after the
   v1.5.0 refactor cleanup readiness refresh; wheel smoke passed, while upload
   remains blocked by TestPyPI Trusted Publisher setup.

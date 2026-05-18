@@ -2127,13 +2127,15 @@ non_claims = [
 [[work_item]]
 id = "sidecar-guide-smoke-runner"
 status = "done"
-goal = "Add one executable source-checkout command for the HTTP deployment sidecar guide recipe."
+goal = "Add one executable source-checkout command for the HTTP deployment sidecar guide recipe, then harden it to choose an ephemeral loopback port for the automated proof."
 receipt = "docs/audits/sidecar-guide-smoke-2026-05-18.md"
 commands = [
   "cargo +1.95.0 fmt --all -- --check",
   "cargo +1.95.0 run -p xtask -- check-sidecar-guide",
   "cargo +1.95.0 clippy -p xtask --all-targets --locked -- -D warnings",
   "cargo +1.95.0 test -p xtask check_sidecar_guide --locked",
+  "cargo +1.95.0 test -p xtask sidecar_guide_config_uses_selected_port --locked",
+  "cargo +1.95.0 test -p xtask ensure_tcp_port_available_rejects_bound_address --locked",
   "cargo +1.95.0 test -p xtask --locked",
   "cargo +1.95.0 run -p xtask -- check-doc-links",
   "cargo +1.95.0 run -p xtask -- check-file-policy",
