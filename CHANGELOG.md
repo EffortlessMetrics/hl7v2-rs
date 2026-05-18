@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask python-local-wheel-proof` to build, install, import, and
   smoke-test the local Python `hl7v2` wheel without claiming TestPyPI or PyPI
   availability.
+- Added `xtask python-public-registry-proof` to install `hl7v2` from TestPyPI
+  or PyPI in a scratch venv and run the same Python smoke/evidence scripts
+  after public registry upload succeeds.
 - Added local Python dirty real-world validate/redact/bundle/replay workflow
   proof using the shared Z-segment fixture.
 - Added the dirty real-world Python evidence workflow smoke to the hosted

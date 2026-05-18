@@ -64,6 +64,19 @@ and `tests/python_smoke/dirty_evidence_workflow.py`.
 It is a local wheel proof only; TestPyPI success still requires upload and
 install-back from TestPyPI.
 
+After TestPyPI upload succeeds, the install-back smoke can also be reproduced
+from a source checkout with:
+
+```powershell
+cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --version <workspace version>
+```
+
+That command creates a scratch virtual environment, installs
+`hl7v2==<workspace version>` from `https://test.pypi.org/simple/` with
+`--no-deps --force-reinstall`, imports `hl7v2`, and runs the same three Python
+smoke/evidence scripts. It is a TestPyPI install-back proof only after the
+package is actually visible on TestPyPI; it is not a production PyPI claim.
+
 ## Manual TestPyPI Proof
 
 Run the **Python TestPyPI Proof** workflow manually.
@@ -123,6 +136,9 @@ A TestPyPI proof is complete only when all of these are true:
   `tests/python_smoke/smoke.py`,
   `tests/python_smoke/evidence_workflow_guide.py`, and
   `tests/python_smoke/dirty_evidence_workflow.py` successfully.
+- Optional local reproduction with
+  `cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --version <workspace version>`
+  also installs from TestPyPI and runs the same smoke scripts.
 
 This is still not a production PyPI release. Treat it as packaging evidence for
 the separate Python lane. A crates.io binding-backend publish, if later

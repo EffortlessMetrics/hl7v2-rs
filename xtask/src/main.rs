@@ -7,7 +7,7 @@ mod verification_surface;
 use anyhow::{Result, anyhow};
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 use clap::Parser;
-use cli::{Cli, Commands, NoPanicAction};
+use cli::{Cli, Commands, NoPanicAction, PythonPackageIndex};
 use publish::package_is_publishable;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
@@ -65,6 +65,13 @@ fn main() -> Result<()> {
             rust_toolchain,
             keep_existing,
         } => python_local_wheel_proof(root, &python, &rust_toolchain, keep_existing)?,
+        Commands::PythonPublicRegistryProof {
+            root,
+            python,
+            index,
+            version,
+            keep_existing,
+        } => python_public_registry_proof(root, &python, index, version, keep_existing)?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
         Commands::CheckEvidenceParityAcceptance { include_python } => {
@@ -4452,6 +4459,7 @@ reason = "administrative sex is required to reproduce the validation issue"
 const GUIDE_PHI_SENTINELS: &[&str] = &["123456^^^HOSP^MR", "123456", "19800101"];
 
 const PYTHON_LOCAL_WHEEL_PROOF_DEFAULT_ROOT: &str = "target/hl7v2-python-local-wheel-proof";
+const PYTHON_PUBLIC_REGISTRY_PROOF_DEFAULT_ROOT: &str = "target/hl7v2-python-public-registry-proof";
 const PYTHON_LOCAL_WHEEL_MATURIN_REQUIREMENT: &str = "maturin==1.13.1";
 
 fn python_local_wheel_proof(
@@ -4563,6 +4571,127 @@ fn python_local_wheel_proof(
     Ok(())
 }
 
+fn python_public_registry_proof(
+    root: Option<PathBuf>,
+    python: &str,
+    index: PythonPackageIndex,
+    version: Option<String>,
+    keep_existing: bool,
+) -> Result<()> {
+    let metadata = MetadataCommand::new().no_deps().exec()?;
+    let version = match version {
+        Some(version) => version,
+        None => hl7v2_python_package_version(&metadata)?,
+    };
+    let workspace_root = metadata.workspace_root.into_std_path_buf();
+    let root = prepare_python_public_registry_proof_root(root, keep_existing, &workspace_root)?;
+    let venv = root.join("venv");
+
+    recreate_dir(&venv)?;
+
+    let venv_arg = path_to_arg(&venv)?;
+    println!(
+        "Creating Python public-registry proof virtualenv at {}",
+        venv.display()
+    );
+    run_program_with_env_in_dir(
+        python,
+        &["-m", "venv", &venv_arg],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    let venv_python = python_executable_in_venv(&venv);
+    println!("Upgrading pip in proof virtualenv...");
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["-m", "pip", "install", "--upgrade", "pip"],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    let index_url = python_package_index_url(index);
+    let package = format!("hl7v2=={version}");
+    println!(
+        "Installing public Python package {package} from {}...",
+        python_package_index_label(index)
+    );
+    run_command_with_env_in_dir(
+        &venv_python,
+        &[
+            "-m",
+            "pip",
+            "install",
+            "--index-url",
+            index_url,
+            "--no-deps",
+            "--force-reinstall",
+            &package,
+        ],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    println!("Checking import and Python evidence helpers from installed public package...");
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["-c", "import hl7v2; print(hl7v2.__version__)"],
+        &[],
+        Some(&workspace_root),
+    )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/smoke.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/evidence_workflow_guide.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
+    run_command_with_env_in_dir(
+        &venv_python,
+        &["tests/python_smoke/dirty_evidence_workflow.py"],
+        &[],
+        Some(&workspace_root),
+    )?;
+
+    println!(
+        "Python public-registry proof passed for {} {package} at {}.",
+        python_package_index_label(index),
+        root.display()
+    );
+    println!(
+        "This proves install-back only for the selected index and does not claim the other index."
+    );
+    Ok(())
+}
+
+fn hl7v2_python_package_version(metadata: &Metadata) -> Result<String> {
+    let package = metadata
+        .packages
+        .iter()
+        .find(|package| package.name.as_str() == "hl7v2-python")
+        .ok_or_else(|| anyhow!("cargo metadata did not include hl7v2-python"))?;
+    Ok(package.version.to_string())
+}
+
+fn python_package_index_url(index: PythonPackageIndex) -> &'static str {
+    match index {
+        PythonPackageIndex::Testpypi => "https://test.pypi.org/simple/",
+        PythonPackageIndex::Pypi => "https://pypi.org/simple/",
+    }
+}
+
+fn python_package_index_label(index: PythonPackageIndex) -> &'static str {
+    match index {
+        PythonPackageIndex::Testpypi => "TestPyPI",
+        PythonPackageIndex::Pypi => "PyPI",
+    }
+}
+
 fn prepare_python_local_wheel_root(
     root: Option<PathBuf>,
     keep_existing: bool,
@@ -4583,6 +4712,45 @@ fn prepare_python_local_wheel_root(
             "refusing to use scratch root '{}': final component must contain 'hl7v2', 'python', and 'proof'",
             absolute.display()
         ));
+    }
+
+    if let Some(parent) = absolute.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    if absolute.exists() && !keep_existing {
+        fs::remove_dir_all(&absolute)?;
+    }
+    fs::create_dir_all(&absolute)?;
+
+    Ok(absolute)
+}
+
+fn prepare_python_public_registry_proof_root(
+    root: Option<PathBuf>,
+    keep_existing: bool,
+    workspace_root: &Path,
+) -> Result<PathBuf> {
+    let requested =
+        root.unwrap_or_else(|| PathBuf::from(PYTHON_PUBLIC_REGISTRY_PROOF_DEFAULT_ROOT));
+    let absolute = if requested.is_absolute() {
+        requested
+    } else {
+        workspace_root.join(requested)
+    };
+    let leaf = absolute
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| {
+            anyhow!("Python public-registry proof root must have a final path component")
+        })?;
+    for required in ["hl7v2", "python", "registry", "proof"] {
+        if !leaf.contains(required) {
+            return Err(anyhow!(
+                "refusing to use scratch root '{}': final component must contain '{required}'",
+                absolute.display()
+            ));
+        }
     }
 
     if let Some(parent) = absolute.parent() {
@@ -9781,6 +9949,102 @@ mod tests {
 
         remove_doc_link_temp_root(&workspace_root)?;
         Ok(())
+    }
+
+    #[test]
+    fn python_public_registry_proof_command_defaults_to_testpypi() -> Result<()> {
+        let cli = Cli::try_parse_from([
+            "xtask",
+            "python-public-registry-proof",
+            "--version",
+            "1.5.0",
+        ])?;
+        match cli.command {
+            Commands::PythonPublicRegistryProof { index, version, .. } => {
+                if index != PythonPackageIndex::Testpypi {
+                    return Err(anyhow!("python public proof should default to TestPyPI"));
+                }
+                if version.as_deref() != Some("1.5.0") {
+                    return Err(anyhow!("python public proof should preserve version"));
+                }
+                Ok(())
+            }
+            _ => Err(anyhow!("expected python-public-registry-proof command")),
+        }
+    }
+
+    #[test]
+    fn python_public_registry_proof_accepts_pypi_index() -> Result<()> {
+        let cli =
+            Cli::try_parse_from(["xtask", "python-public-registry-proof", "--index", "pypi"])?;
+        match cli.command {
+            Commands::PythonPublicRegistryProof { index, .. } => {
+                if index == PythonPackageIndex::Pypi {
+                    Ok(())
+                } else {
+                    Err(anyhow!("python public proof should parse --index pypi"))
+                }
+            }
+            _ => Err(anyhow!("expected python-public-registry-proof command")),
+        }
+    }
+
+    #[test]
+    fn python_public_registry_package_index_urls_are_explicit() {
+        assert_eq!(
+            python_package_index_url(PythonPackageIndex::Testpypi),
+            "https://test.pypi.org/simple/"
+        );
+        assert_eq!(
+            python_package_index_url(PythonPackageIndex::Pypi),
+            "https://pypi.org/simple/"
+        );
+    }
+
+    #[test]
+    fn python_public_registry_root_resolves_relative_to_workspace_root() -> Result<()> {
+        let workspace_root = doc_link_temp_root("python-registry-proof-workspace")?;
+        let requested = PathBuf::from("target/hl7v2-python-registry-proof-test");
+        let expected = workspace_root.join(&requested);
+        let actual =
+            prepare_python_public_registry_proof_root(Some(requested), false, &workspace_root)?;
+
+        if actual != expected {
+            return Err(anyhow!(
+                "expected proof root {}, got {}",
+                expected.display(),
+                actual.display()
+            ));
+        }
+        if !actual.exists() {
+            return Err(anyhow!(
+                "proof root should be created at {}",
+                actual.display()
+            ));
+        }
+
+        remove_doc_link_temp_root(&workspace_root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn python_public_registry_root_requires_registry_marker() -> Result<()> {
+        let workspace_root = doc_link_temp_root("python-registry-proof-workspace-bad")?;
+        match prepare_python_public_registry_proof_root(
+            Some(PathBuf::from("target/hl7v2-python-proof-test")),
+            false,
+            &workspace_root,
+        ) {
+            Ok(path) => Err(anyhow!(
+                "unexpectedly accepted public registry proof root {}",
+                path.display()
+            )),
+            Err(error) if error.to_string().contains("registry") => {
+                remove_doc_link_temp_root(&workspace_root)?;
+                Ok(())
+            }
+            Err(error) => Err(anyhow!("unexpected root validation error: {error}")),
+        }
     }
 
     #[test]
