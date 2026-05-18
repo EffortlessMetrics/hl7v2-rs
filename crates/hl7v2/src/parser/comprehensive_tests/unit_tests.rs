@@ -279,6 +279,12 @@ fn test_error_invalid_segment_id() {
 }
 
 #[test]
+fn test_error_segment_rejects_non_delimiter_after_segment_id() {
+    let result = parse(b"MSH|^~\\&|App|Fac\rPIDx1||123||Test\r");
+    assert!(result.is_err());
+}
+
+#[test]
 fn test_error_invalid_charset() {
     // Non-UTF8 bytes should fail
     let result = parse(&[0xFF, 0xFE, 0xFD]);
@@ -391,10 +397,26 @@ fn test_msh_encoding_characters_field() {
 
 #[test]
 fn test_charset_extraction() {
-    let hl7 = b"MSH|^~\\&|App|Fac|||20250128120000||ADT^A01|1|P|2.5|||||||ASCII\r";
+    let hl7 = b"MSH|^~\\&|App|Fac|||20250128120000||ADT^A01|1|P|2.5||||||ASCII\r";
     let message = parse(hl7).unwrap();
 
     assert_eq!(message.charsets, vec!["ASCII"]);
+}
+
+#[test]
+fn test_charset_extraction_uses_msh_18_not_msh_19() {
+    let hl7 = b"MSH|^~\\&|App|Fac|||20250128120000||ADT^A01|1|P|2.5|||||||NOT_A_CHARSET\r";
+    let message = parse(hl7).unwrap();
+
+    assert!(message.charsets.is_empty());
+}
+
+#[test]
+fn test_charset_extraction_handles_repetitions() {
+    let hl7 = b"MSH|^~\\&|App|Fac|||20250128120000||ADT^A01|1|P|2.5||||||ASCII~UNICODE UTF-8\r";
+    let message = parse(hl7).unwrap();
+
+    assert_eq!(message.charsets, vec!["ASCII", "UNICODE UTF-8"]);
 }
 
 #[test]

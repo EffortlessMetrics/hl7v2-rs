@@ -245,11 +245,19 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
         }
     }
 
-    // Parse fields
-    let fields_str = if line.len() > 4 {
-        &line[4..] // Skip segment ID and field separator
-    } else {
-        ""
+    // Parse fields. If a segment has content beyond the three-byte segment ID,
+    // it must be introduced by the configured field separator.
+    let fields_str = match line.get(3..) {
+        Some("") | None => "",
+        Some(after_id) => {
+            if !after_id.starts_with(delims.field) {
+                return Err(Error::InvalidFieldFormat {
+                    details: "Segment fields must start with the configured field separator"
+                        .to_string(),
+                });
+            }
+            &after_id[delims.field.len_utf8()..]
+        }
     };
 
     let mut fields = parse_fields(fields_str, delims).map_err(|e| Error::ParseError {
@@ -412,27 +420,34 @@ fn parse_atom(atom_str: &str, delims: &Delims) -> Result<Atom, Error> {
 
 /// Extract character sets from MSH-18 field
 fn extract_charsets(segments: &[Segment]) -> Vec<String> {
-    // Look for the MSH segment (should be the first one)
-    if let Some(msh_segment) = segments.first()
-        && &msh_segment.id == b"MSH"
-        && msh_segment.fields.len() > 17
-        && let field_18 = &msh_segment.fields[17]
-        && !field_18.reps.is_empty()
-    {
-        let rep = &field_18.reps[0];
+    // Parsed MSH fields start at MSH-2 because MSH-1 is the field separator,
+    // so MSH-18 is stored at zero-based index 16.
+    const MSH_18_INDEX: usize = 16;
 
-        let mut charsets = Vec::new();
-        for comp in &rep.comps {
-            if let Some(Atom::Text(text)) = comp.subs.first()
-                && !text.is_empty()
-            {
-                charsets.push(text.clone());
-            }
-        }
-
-        return charsets;
+    let Some(msh_segment) = segments.first() else {
+        return vec![];
+    };
+    if &msh_segment.id != b"MSH" {
+        return vec![];
     }
-    vec![]
+
+    let Some(field_18) = msh_segment.fields.get(MSH_18_INDEX) else {
+        return vec![];
+    };
+
+    field_18
+        .reps
+        .iter()
+        .filter_map(|rep| {
+            rep.comps
+                .first()
+                .and_then(|comp| comp.subs.first())
+                .and_then(|atom| match atom {
+                    Atom::Text(text) if !text.is_empty() => Some(text.clone()),
+                    _ => None,
+                })
+        })
+        .collect()
 }
 
 /// Parse a batch that starts with BHS
