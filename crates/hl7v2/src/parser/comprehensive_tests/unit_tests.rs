@@ -63,6 +63,31 @@ fn test_parse_adt_a04() {
     assert_eq!(get(&message, "PID.5.2"), Some("Jane"));
 }
 
+#[test]
+fn test_parse_accepts_crlf_and_lf_segment_separators() {
+    let crlf = b"MSH|^~\\&|App|Fac|Recv|Fac|20260516120000||ADT^A01|CTRL|P|2.5\r\nPID|1||12345^^^HOSP^MR||Doe^Jane\r\n";
+    let crlf_message = parse(crlf).unwrap();
+    assert_eq!(crlf_message.segments.len(), 2);
+    assert_eq!(get(&crlf_message, "PID.5.2"), Some("Jane"));
+
+    let lf = b"MSH|^~\\&|App|Fac|Recv|Fac|20260516120000||ADT^A01|CTRL|P|2.5\nPID|1||12345^^^HOSP^MR||Doe^John\n";
+    let lf_message = parse(lf).unwrap();
+    assert_eq!(lf_message.segments.len(), 2);
+    assert_eq!(get(&lf_message, "PID.5.2"), Some("John"));
+}
+
+#[test]
+fn test_parse_rejects_segment_without_configured_field_separator() {
+    let missing_separator = b"MSH|^~\\&|App|Fac\rPID1||12345^^^HOSP^MR||Doe^Jane\r";
+    assert!(parse(missing_separator).is_err());
+}
+
+#[test]
+fn test_parse_rejects_multibyte_delimiters_without_panicking() {
+    let multibyte_delimiter = "MSH§^~\\&§App§Fac\r";
+    assert!(parse(multibyte_delimiter.as_bytes()).is_err());
+}
+
 // =============================================================================
 // Delimiter Tests
 // =============================================================================

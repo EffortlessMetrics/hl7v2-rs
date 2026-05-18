@@ -73,7 +73,7 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
 
     // Split into lines (segments)
-    let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
+    let lines = segment_lines(text);
 
     if lines.is_empty() {
         std::hint::cold_path();
@@ -161,7 +161,7 @@ pub fn parse_batch(bytes: &[u8]) -> Result<Batch, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
 
     // Split into lines (segments)
-    let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
+    let lines = segment_lines(text);
 
     if lines.is_empty() {
         return Err(Error::InvalidSegmentId);
@@ -198,7 +198,7 @@ pub fn parse_file_batch(bytes: &[u8]) -> Result<FileBatch, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
 
     // Split into lines (segments)
-    let lines: Vec<&str> = text.split('\r').filter(|line| !line.is_empty()).collect();
+    let lines = segment_lines(text);
 
     if lines.is_empty() {
         return Err(Error::InvalidSegmentId);
@@ -225,6 +225,19 @@ pub fn parse_file_batch(bytes: &[u8]) -> Result<FileBatch, Error> {
 // Internal parsing functions
 // ============================================================================
 
+/// Split raw HL7 text into non-empty segment lines.
+///
+/// HL7 messages are commonly delimited by carriage returns, but file-oriented
+/// transports and fixtures may normalize segment separators to LF or CRLF.
+/// Treat either byte as a segment boundary so the parser accepts all three
+/// common line-ending forms while still rejecting embedded line breaks through
+/// segment ID validation when they do not start a valid segment.
+fn segment_lines(text: &str) -> Vec<&str> {
+    text.split(['\r', '\n'])
+        .filter(|line| !line.is_empty())
+        .collect()
+}
+
 /// Parse a single segment
 fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
     if line.len() < 3 {
@@ -245,11 +258,16 @@ fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Error> {
         }
     }
 
-    // Parse fields
-    let fields_str = if line.len() > 4 {
+    // Parse fields. If a segment has fields, byte 4 must be the configured
+    // single-byte field separator. A bare three-character segment ID is allowed
+    // as an empty segment.
+    let fields_str = if line.len() == 3 {
+        ""
+    } else if line.as_bytes().get(3) == Some(&(delims.field as u8)) {
         &line[4..] // Skip segment ID and field separator
     } else {
-        ""
+        std::hint::cold_path();
+        return Err(Error::InvalidSegmentId);
     };
 
     let mut fields = parse_fields(fields_str, delims).map_err(|e| Error::ParseError {
