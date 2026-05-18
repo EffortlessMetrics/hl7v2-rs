@@ -96,6 +96,7 @@ canonical_sources = [
   "docs/audits/sidecar-guide-smoke-2026-05-18.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-public-registry-proof-command-2026-05-18.md",
+  "docs/audits/python-public-registry-proof-workflow-routing-2026-05-18.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-16.md",
   "docs/audits/python-testpypi-publish-attempt-2026-05-16.md",
@@ -152,6 +153,35 @@ commands = [
   "cargo +1.95.0 run -p xtask -- check-doc-links",
   "cargo +1.95.0 run -p xtask -- check-file-policy",
   "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back success claim.",
+  "No PyPI upload.",
+  "No PyPI install-back success claim.",
+  "No token fallback.",
+  "No skip-existing.",
+  "No npm package.",
+  "No new crates.io release.",
+]
+
+[[work_item]]
+id = "python-public-registry-proof-workflow-routing"
+status = "done"
+goal = "Route TestPyPI and PyPI hosted install-back jobs through the shared python-public-registry-proof command so workflow proof and local reproduction use one proof boundary."
+receipt = "docs/audits/python-public-registry-proof-workflow-routing-2026-05-18.md"
+commands = [
+  "cargo +1.95.0 fmt --all -- --check",
+  "cargo +1.95.0 test -p xtask python_publish_policy --locked",
+  "cargo +1.95.0 test -p xtask python_public_registry --locked",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 clippy -p xtask --all-targets --locked -- -D warnings",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
   "cargo +1.95.0 run -p xtask -- badges --check",
   "cargo +1.95.0 run -p xtask -- impacted-evidence",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",

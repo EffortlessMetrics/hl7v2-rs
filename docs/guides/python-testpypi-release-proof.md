@@ -119,6 +119,17 @@ This does three things:
    `tests/python_smoke/evidence_workflow_guide.py`, and
    `tests/python_smoke/dirty_evidence_workflow.py`.
 
+The hosted install-back job runs the same proof boundary as the local
+reproduction command:
+
+```bash
+cargo run -p xtask -- python-public-registry-proof --index testpypi --version "${PACKAGE_VERSION}"
+```
+
+This keeps the workflow proof and local reproduction path aligned. A passing
+install-back job proves only the TestPyPI package for the selected version; it
+does not claim production PyPI availability.
+
 TestPyPI does not allow overwriting an existing file for the same version. If
 the upload fails because the version already exists, stop and choose a new
 workspace version for the next proof attempt. Do not use `skip-existing` for
