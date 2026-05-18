@@ -306,14 +306,17 @@ action = "retain"
 reason = "administrative sex is needed for validation"
 ```
 
-Build the evidence bundle:
+Build the support evidence bundle:
 
 ```bash
-hl7v2-cli bundle test_data/valid_message.hl7 \
+hl7v2-cli support-bundle test_data/valid_message.hl7 \
   --profile profiles/generic.yaml \
   --redact-policy target/hl7v2-first-10-minutes/safe-analysis.toml \
   --out target/hl7v2-first-10-minutes/issue-bundle
 ```
+
+`support-bundle` is the operator-focused spelling for the bundle workflow.
+`bundle` remains available as the compatibility command.
 
 Expected output:
 
