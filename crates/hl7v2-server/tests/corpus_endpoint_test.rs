@@ -113,8 +113,8 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(summary["schema_version"], "2");
     assert_eq!(summary["tool_name"], "hl7v2-server");
     assert_eq!(summary["root"], "<inline-corpus>");
-    assert_eq!(summary["file_count"], 8);
-    assert_eq!(summary["message_count"], 5);
+    assert_eq!(summary["file_count"], 9);
+    assert_eq!(summary["message_count"], 6);
     assert_eq!(summary["parse_error_count"], 3);
     assert!(
         summary["message_types"]
@@ -138,11 +138,25 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
             .any(|entry| entry["value"] == "ADT^A03" && entry["count"] == 1)
     );
     assert!(
+        summary["message_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["value"] == "ORU^R01" && entry["count"] == 2)
+    );
+    assert!(
         summary["segments"]
             .as_array()
             .unwrap()
             .iter()
             .any(|entry| entry["value"] == "ZPV" && entry["count"] == 1)
+    );
+    assert!(
+        summary["segments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["value"] == "NTE" && entry["count"] == 1)
     );
     assert!(
         summary["parse_errors"]
@@ -179,8 +193,8 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(fingerprint["schema_version"], "2");
     assert_eq!(fingerprint["tool_name"], "hl7v2-server");
-    assert_eq!(fingerprint["file_count"], 8);
-    assert_eq!(fingerprint["message_count"], 5);
+    assert_eq!(fingerprint["file_count"], 9);
+    assert_eq!(fingerprint["message_count"], 6);
     assert_eq!(fingerprint["parse_error_count"], 3);
     assert!(
         fingerprint["field_cardinality"]
@@ -189,7 +203,7 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
             .iter()
             .any(|entry| entry["path"] == "OBX.5"
                 && entry["max_per_message"] == 20
-                && entry["total_occurrences"] == 20)
+                && entry["total_occurrences"] == 22)
     );
     assert!(
         fingerprint["field_cardinality"]
@@ -203,7 +217,16 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|entry| entry["path"] == "MSH.3" && entry["total_occurrences"] == 5)
+            .any(|entry| entry["path"] == "MSH.3" && entry["total_occurrences"] == 6)
+    );
+    assert!(
+        fingerprint["value_shape_stats"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "OBX.5"
+                && entry["null_count"] == 1
+                && entry["text_count"].as_u64().unwrap_or_default() >= 1)
     );
     assert!(!fingerprint_text.contains("MRN-DIRTY"));
 
@@ -220,8 +243,8 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(diff["schema_version"], "2");
     assert_eq!(diff["tool_name"], "hl7v2-server");
-    assert_eq!(diff["file_count"]["delta"], 6);
-    assert_eq!(diff["message_count"]["delta"], 3);
+    assert_eq!(diff["file_count"]["delta"], 7);
+    assert_eq!(diff["message_count"]["delta"], 4);
     assert_eq!(diff["parse_error_count"]["delta"], 3);
     assert!(
         diff["field_cardinality"]
@@ -230,7 +253,16 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
             .iter()
             .any(|entry| entry["path"] == "OBX.5"
                 && entry["max_per_message_delta"] == 15
-                && entry["total_occurrences_delta"] == 15)
+                && entry["total_occurrences_delta"] == 17)
+    );
+    assert!(
+        diff["value_shape_stats"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "OBX.5"
+                && entry["null_count"]["delta"] == 1
+                && entry["text_count"]["delta"].as_i64().unwrap_or_default() >= 1)
     );
     assert!(!diff_text.contains("MRN-DIRTY"));
 }

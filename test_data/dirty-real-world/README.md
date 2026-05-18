@@ -12,6 +12,7 @@ shape that appears in real HL7 v2 operations.
 | Large OBX expansion | `before/large-obx.hl7`, `after/large-obx.hl7` | Proves corpus diff records field-cardinality growth. |
 | Legacy encoding declaration | `after/legacy-encoding.hl7` | Keeps older MSH metadata and encoding declarations parseable. |
 | Odd MSH metadata | `after/weird-msh-fields.hl7` | Keeps componentized sender, facility, receiver, and routing metadata visible without treating it as PHI. |
+| Vendor ORU null/text result | `after/vendor-oru-null-text.hl7` | Covers narrative ORU text, NTE support notes, escaped delimiters, and explicit HL7 null observations in aggregate corpus shape proof. |
 | Malformed delimiters | `after/malformed-delimiters.hl7` | Proves parse failures are counted without echoing raw PHI markers. |
 | Partial batch | `after/partial-batch.hl7` | Proves batch-like non-message input is counted as a safe parse failure. |
 | MLLP source | `sources/mllp-source.hl7` | Tests generate valid and truncated MLLP frames from this source before adding them to the after corpus. |

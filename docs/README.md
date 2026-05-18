@@ -92,6 +92,7 @@ proposal, spec, plan, or receipt documents.
 | [Dirty real-world Python corpus parity proof](audits/dirty-real-world-python-corpus-parity-2026-05-16.md) | Local Python wheel corpus parity proof using the shared dirty real-world fixture categories. |
 | [Dirty real-world Python evidence workflow proof](audits/dirty-real-world-python-evidence-workflow-2026-05-17.md) | Local Python wheel validate/redact/bundle/replay proof using the shared dirty Z-segment fixture. |
 | [Dirty real-world odd MSH metadata parity proof](audits/dirty-real-world-odd-msh-parity-2026-05-18.md) | Rust, CLI, REST, and gRPC corpus parity proof for componentized MSH sender/receiver metadata. |
+| [Dirty real-world vendor ORU null/text parity proof](audits/dirty-real-world-vendor-oru-null-text-parity-2026-05-18.md) | Rust, CLI, REST, gRPC, and local Python corpus parity proof for narrative ORU text, escaped delimiters, NTE notes, and explicit HL7 null observations. |
 | [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
 | [First-use guide smoke](audits/first-use-guide-smoke-2026-05-18.md) | Executable `xtask check-first-use-guides` proof for the documented full evidence receipt path. |
 | [Safe support-bundle guide smoke](audits/safe-support-bundle-guide-smoke-2026-05-18.md) | Executable `xtask check-safe-support-bundle-guide` proof for the operator support packet recipe. |

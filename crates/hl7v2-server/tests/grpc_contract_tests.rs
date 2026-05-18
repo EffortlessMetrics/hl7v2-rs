@@ -1905,8 +1905,8 @@ reason = "hash patient identifier"
 
         let summary_report = summary.summary.expect("summary should exist");
         assert_eq!(summary_report.root, "<inline-corpus>");
-        assert_eq!(summary_report.file_count, 8);
-        assert_eq!(summary_report.message_count, 5);
+        assert_eq!(summary_report.file_count, 9);
+        assert_eq!(summary_report.message_count, 6);
         assert_eq!(summary_report.parse_error_count, 3);
         assert!(
             summary_report
@@ -1928,9 +1928,21 @@ reason = "hash patient identifier"
         );
         assert!(
             summary_report
+                .message_types
+                .iter()
+                .any(|entry| entry.value == "ORU^R01" && entry.count == 2)
+        );
+        assert!(
+            summary_report
                 .segments
                 .iter()
                 .any(|entry| entry.value == "ZPV" && entry.count == 1)
+        );
+        assert!(
+            summary_report
+                .segments
+                .iter()
+                .any(|entry| entry.value == "NTE" && entry.count == 1)
         );
         assert!(
             summary_report
@@ -1965,8 +1977,8 @@ reason = "hash patient identifier"
 
         let fingerprint_report = fingerprint.fingerprint.expect("fingerprint should exist");
         assert_eq!(fingerprint_report.root, "<inline-corpus>");
-        assert_eq!(fingerprint_report.file_count, 8);
-        assert_eq!(fingerprint_report.message_count, 5);
+        assert_eq!(fingerprint_report.file_count, 9);
+        assert_eq!(fingerprint_report.message_count, 6);
         assert_eq!(fingerprint_report.parse_error_count, 3);
         assert!(
             fingerprint_report
@@ -1974,7 +1986,7 @@ reason = "hash patient identifier"
                 .iter()
                 .any(|entry| entry.path == "OBX.5"
                     && entry.max_per_message == 20
-                    && entry.total_occurrences == 20)
+                    && entry.total_occurrences == 22)
         );
         assert!(
             fingerprint_report
@@ -1986,7 +1998,15 @@ reason = "hash patient identifier"
             fingerprint_report
                 .field_cardinality
                 .iter()
-                .any(|entry| entry.path == "MSH.3" && entry.total_occurrences == 5)
+                .any(|entry| entry.path == "MSH.3" && entry.total_occurrences == 6)
+        );
+        assert!(
+            fingerprint_report
+                .value_shape_stats
+                .iter()
+                .any(|entry| entry.path == "OBX.5"
+                    && entry.null_count == 1
+                    && entry.text_count >= 1)
         );
         assert!(!fingerprint_debug.contains("MRN-DIRTY"));
 
@@ -2008,14 +2028,14 @@ reason = "hash patient identifier"
                 .file_count
                 .expect("file count should exist")
                 .delta,
-            6
+            7
         );
         assert_eq!(
             diff_report
                 .message_count
                 .expect("message count should exist")
                 .delta,
-            3
+            4
         );
         assert_eq!(
             diff_report
@@ -2030,8 +2050,19 @@ reason = "hash patient identifier"
                 .iter()
                 .any(|entry| entry.path == "OBX.5"
                     && entry.max_per_message_delta == 15
-                    && entry.total_occurrences_delta == 15)
+                    && entry.total_occurrences_delta == 17)
         );
+        assert!(diff_report.value_shape_stats.iter().any(|entry| {
+            entry.path == "OBX.5"
+                && entry
+                    .null_count
+                    .as_ref()
+                    .is_some_and(|count| count.delta == 1)
+                && entry
+                    .text_count
+                    .as_ref()
+                    .is_some_and(|count| count.delta >= 1)
+        }));
         assert!(!diff_debug.contains("MRN-DIRTY"));
     }
 
