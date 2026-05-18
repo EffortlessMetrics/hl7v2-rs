@@ -136,6 +136,75 @@ fn test_get_missing_segment() {
 }
 
 #[test]
+fn test_get_subcomponent_field() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![create_test_segment(
+            "PID",
+            vec![
+                create_text_field(vec!["1"]),
+                create_text_field(vec![""]),
+                create_component_field(vec![vec!["MRN", "Hosp", "MR"]]),
+            ],
+        )],
+        charsets: vec![],
+    };
+
+    assert_eq!(get(&message, "PID.3.1.1"), Some("MRN"));
+    assert_eq!(get(&message, "PID.3.1.2"), Some("Hosp"));
+    assert_eq!(get(&message, "PID.3.1.3"), Some("MR"));
+}
+
+#[test]
+fn test_get_subcomponent_with_repetition() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![create_test_segment(
+            "PID",
+            vec![Field {
+                reps: vec![
+                    Rep {
+                        comps: vec![Comp {
+                            subs: vec![Atom::Text("first".to_string())],
+                        }],
+                    },
+                    Rep {
+                        comps: vec![Comp {
+                            subs: vec![
+                                Atom::Text("second-id".to_string()),
+                                Atom::Text("second-authority".to_string()),
+                            ],
+                        }],
+                    },
+                ],
+            }],
+        )],
+        charsets: vec![],
+    };
+
+    assert_eq!(get(&message, "PID.1[2].1.1"), Some("second-id"));
+    assert_eq!(get(&message, "PID.1[2].1.2"), Some("second-authority"));
+}
+
+#[test]
+fn test_get_invalid_subcomponent_paths() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![create_test_segment(
+            "PID",
+            vec![create_component_field(vec![vec!["one", "two"]])],
+        )],
+        charsets: vec![],
+    };
+
+    assert!(get(&message, "PID.1.1.0").is_none());
+    assert!(get(&message, "PID.1.1.3").is_none());
+    assert!(get(&message, "PID.1.1.abc").is_none());
+    assert!(get(&message, "PID.1.1.1.extra").is_none());
+    assert!(get(&message, "PID.1[1]extra.1").is_none());
+}
+
+#[test]
 fn test_get_missing_field() {
     let message = Message {
         delims: Delims::default(),
@@ -373,6 +442,26 @@ fn test_presence_msh_field_1() {
         Presence::Value(val) => assert_eq!(val, "|"),
         _ => panic!("Expected Value"),
     }
+}
+
+#[test]
+fn test_presence_for_subcomponent_paths() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![create_test_segment(
+            "PID",
+            vec![create_component_field(vec![vec!["", "\"\"", "value"]])],
+        )],
+        charsets: vec![],
+    };
+
+    assert_eq!(get_presence(&message, "PID.1.1.1"), Presence::Empty);
+    assert_eq!(get_presence(&message, "PID.1.1.2"), Presence::Null);
+    assert_eq!(
+        get_presence(&message, "PID.1.1.3"),
+        Presence::Value("value".to_string())
+    );
+    assert_eq!(get_presence(&message, "PID.1.1.4"), Presence::Missing);
 }
 
 // =============================================================================

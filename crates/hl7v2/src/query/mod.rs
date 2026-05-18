@@ -7,10 +7,11 @@
 //!
 //! # Path Format
 //!
-//! Paths use the format: `SEGMENT.FIELD\[REP\].COMPONENT`
+//! Paths use the format: `SEGMENT.FIELD\[REP\].COMPONENT.SUBCOMPONENT`
 //!
 //! Examples:
 //! - `PID.5.1` - First component of 5th field in PID segment (first repetition)
+//! - `PID.5.1.2` - Second subcomponent of the first component of PID-5
 //! - `PID.5[2].1` - First component of 5th field, second repetition
 //! - `MSH.9` - 9th field of MSH segment
 //! - `MSH.9.1` - First component of 9th field of MSH segment
@@ -43,7 +44,7 @@ use crate::model::{Atom, Message, Presence, Segment};
 /// # Arguments
 ///
 /// * `msg` - The message to query
-/// * `path` - The path to the field (e.g., `PID.5.1`, `PID.5[1].1`, `MSH.9`)
+/// * `path` - The path to the field (e.g., `PID.5.1`, `PID.5.1.2`, `PID.5[1].1`, `MSH.9`)
 ///
 /// # Returns
 ///
@@ -67,8 +68,8 @@ use crate::model::{Atom, Message, Presence, Segment};
 /// ```
 pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     // Parse the path
-    // Format: SEGMENT.FIELD\[REP\].COMPONENT
-    // Examples: `PID.5.1`, `PID.5[1].1`, `MSH.9`
+    // Format: SEGMENT.FIELD\[REP\].COMPONENT.SUBCOMPONENT
+    // Examples: `PID.5.1`, `PID.5.1.2`, `PID.5[1].1`, `MSH.9`
 
     let mut parts = path.split('.');
     let segment_id = parts.next()?;
@@ -166,15 +167,13 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
 /// Parse field and repetition indices from a string like `5` or `5[1]`.
 fn parse_field_and_rep(field_str: &str) -> Option<(usize, usize)> {
     if let Some(bracket_pos) = field_str.find('[') {
-        // Has repetition index
+        // Has repetition index. Require the closing bracket to be the final
+        // character so malformed paths like `5[1]extra` do not silently
+        // resolve to the first repetition.
         let field_index = field_str[..bracket_pos].parse::<usize>().ok()?;
-        let rep_part = &field_str[bracket_pos + 1..];
-        if let Some(end_bracket) = rep_part.find(']') {
-            let rep_index = rep_part[..end_bracket].parse::<usize>().ok()?;
-            Some((field_index, rep_index))
-        } else {
-            None
-        }
+        let rep_part = field_str[bracket_pos + 1..].strip_suffix(']')?;
+        let rep_index = rep_part.parse::<usize>().ok()?;
+        Some((field_index, rep_index))
     } else {
         // No repetition index, default to 1
         let field_index = field_str.parse::<usize>().ok()?;
@@ -182,12 +181,36 @@ fn parse_field_and_rep(field_str: &str) -> Option<(usize, usize)> {
     }
 }
 
+/// Parse optional component and subcomponent selectors from the remaining path.
+fn parse_component_and_subcomponent(
+    mut parts: std::str::Split<'_, char>,
+) -> Option<(usize, usize)> {
+    let comp_index = if let Some(comp_part) = parts.next() {
+        comp_part.parse::<usize>().ok()?
+    } else {
+        1 // Default to first component
+    };
+
+    let sub_index = if let Some(sub_part) = parts.next() {
+        sub_part.parse::<usize>().ok()?
+    } else {
+        1 // Default to first subcomponent
+    };
+
+    // More than FIELD.COMPONENT.SUBCOMPONENT is not a valid query path.
+    if parts.next().is_some() {
+        return None;
+    }
+
+    Some((comp_index, sub_index))
+}
+
 /// Get field value from a non-MSH segment
 fn get_field<'a>(
     segment: &'a Segment,
     field_index: usize,
     rep_index: usize,
-    mut parts: std::str::Split<char>,
+    parts: std::str::Split<char>,
 ) -> Option<&'a str> {
     // Convert to 0-based indexing
     if field_index == 0 {
@@ -207,25 +230,18 @@ fn get_field<'a>(
     }
     let rep = &field.reps[rep_index - 1];
 
-    // Parse component index if provided
-    let comp_index = if let Some(comp_part) = parts.next() {
-        comp_part.parse::<usize>().ok()?
-    } else {
-        1 // Default to first component
-    };
+    let (comp_index, sub_index) = parse_component_and_subcomponent(parts)?;
 
-    // Get the component
     if comp_index == 0 || comp_index > rep.comps.len() {
         return None;
     }
     let comp = &rep.comps[comp_index - 1];
 
-    // Get the first subcomponent as text
-    if comp.subs.is_empty() {
+    if sub_index == 0 || sub_index > comp.subs.len() {
         return None;
     }
 
-    match &comp.subs[0] {
+    match &comp.subs[sub_index - 1] {
         Atom::Text(text) => Some(text.as_str()),
         Atom::Null => None,
     }
@@ -237,7 +253,7 @@ fn get_msh_field<'a>(
     segment: &'a Segment,
     field_index: usize,
     rep_index: usize,
-    mut parts: std::str::Split<char>,
+    parts: std::str::Split<char>,
 ) -> Option<&'a str> {
     if field_index == 1 {
         // MSH-1 is the field separator character
@@ -252,19 +268,15 @@ fn get_msh_field<'a>(
             return None;
         }
         let rep = &field.reps[rep_index - 1];
-        let comp_index = if let Some(comp_part) = parts.next() {
-            comp_part.parse::<usize>().ok()?
-        } else {
-            1
-        };
+        let (comp_index, sub_index) = parse_component_and_subcomponent(parts)?;
         if comp_index == 0 || comp_index > rep.comps.len() {
             return None;
         }
         let comp = &rep.comps[comp_index - 1];
-        if comp.subs.is_empty() {
+        if sub_index == 0 || sub_index > comp.subs.len() {
             return None;
         }
-        match &comp.subs[0] {
+        match &comp.subs[sub_index - 1] {
             Atom::Text(text) => Some(text.as_str()),
             Atom::Null => None,
         }
@@ -279,19 +291,15 @@ fn get_msh_field<'a>(
             return None;
         }
         let rep = &field.reps[rep_index - 1];
-        let comp_index = if let Some(comp_part) = parts.next() {
-            comp_part.parse::<usize>().ok()?
-        } else {
-            1
-        };
+        let (comp_index, sub_index) = parse_component_and_subcomponent(parts)?;
         if comp_index == 0 || comp_index > rep.comps.len() {
             return None;
         }
         let comp = &rep.comps[comp_index - 1];
-        if comp.subs.is_empty() {
+        if sub_index == 0 || sub_index > comp.subs.len() {
             return None;
         }
-        match &comp.subs[0] {
+        match &comp.subs[sub_index - 1] {
             Atom::Text(text) => Some(text.as_str()),
             Atom::Null => None,
         }
@@ -303,7 +311,7 @@ fn get_field_presence(
     segment: &Segment,
     field_index: usize,
     rep_index: usize,
-    mut parts: std::str::Split<char>,
+    parts: std::str::Split<char>,
 ) -> Presence {
     if field_index == 0 {
         return Presence::Missing;
@@ -320,13 +328,8 @@ fn get_field_presence(
     }
     let rep = &field.reps[rep_index - 1];
 
-    let comp_index = if let Some(comp_part) = parts.next() {
-        match comp_part.parse::<usize>() {
-            Ok(index) => index,
-            Err(_) => return Presence::Missing,
-        }
-    } else {
-        1
+    let Some((comp_index, sub_index)) = parse_component_and_subcomponent(parts) else {
+        return Presence::Missing;
     };
 
     if comp_index == 0 || comp_index > rep.comps.len() {
@@ -334,11 +337,11 @@ fn get_field_presence(
     }
     let comp = &rep.comps[comp_index - 1];
 
-    if comp.subs.is_empty() {
+    if sub_index == 0 || sub_index > comp.subs.len() {
         return Presence::Missing;
     }
 
-    match &comp.subs[0] {
+    match &comp.subs[sub_index - 1] {
         Atom::Text(text) => {
             if text.is_empty() {
                 Presence::Empty
@@ -356,7 +359,7 @@ fn get_msh_field_presence(
     segment: &Segment,
     field_index: usize,
     rep_index: usize,
-    mut parts: std::str::Split<char>,
+    parts: std::str::Split<char>,
 ) -> Presence {
     if field_index == 1 {
         // MSH-1 is the field separator character
@@ -370,22 +373,17 @@ fn get_msh_field_presence(
             return Presence::Missing;
         }
         let rep = &field.reps[rep_index - 1];
-        let comp_index = if let Some(comp_part) = parts.next() {
-            match comp_part.parse::<usize>() {
-                Ok(index) => index,
-                Err(_) => return Presence::Missing,
-            }
-        } else {
-            1
+        let Some((comp_index, sub_index)) = parse_component_and_subcomponent(parts) else {
+            return Presence::Missing;
         };
         if comp_index == 0 || comp_index > rep.comps.len() {
             return Presence::Missing;
         }
         let comp = &rep.comps[comp_index - 1];
-        if comp.subs.is_empty() {
+        if sub_index == 0 || sub_index > comp.subs.len() {
             return Presence::Missing;
         }
-        match &comp.subs[0] {
+        match &comp.subs[sub_index - 1] {
             Atom::Text(text) => {
                 if text.is_empty() {
                     Presence::Empty
@@ -405,22 +403,17 @@ fn get_msh_field_presence(
             return Presence::Missing;
         }
         let rep = &field.reps[rep_index - 1];
-        let comp_index = if let Some(comp_part) = parts.next() {
-            match comp_part.parse::<usize>() {
-                Ok(index) => index,
-                Err(_) => return Presence::Missing,
-            }
-        } else {
-            1
+        let Some((comp_index, sub_index)) = parse_component_and_subcomponent(parts) else {
+            return Presence::Missing;
         };
         if comp_index == 0 || comp_index > rep.comps.len() {
             return Presence::Missing;
         }
         let comp = &rep.comps[comp_index - 1];
-        if comp.subs.is_empty() {
+        if sub_index == 0 || sub_index > comp.subs.len() {
             return Presence::Missing;
         }
-        match &comp.subs[0] {
+        match &comp.subs[sub_index - 1] {
             Atom::Text(text) => {
                 if text.is_empty() {
                     Presence::Empty
