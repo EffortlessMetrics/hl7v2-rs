@@ -67,6 +67,10 @@ fn main() -> Result<()> {
         Commands::CheckEvidenceParityAcceptance { include_python } => {
             check_evidence_parity_acceptance(include_python)?;
         }
+        Commands::CheckFirstUseGuides {
+            include_python,
+            include_public_crates,
+        } => check_first_use_guides(include_python, include_public_crates)?,
         Commands::CheckSafeErrorPhiParity { include_python } => {
             check_safe_error_phi_parity(include_python)?;
         }
@@ -953,6 +957,47 @@ fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn run_command_owned(cmd: &str, args: &[String]) -> Result<()> {
+    run_command_owned_allow_codes(cmd, args, &[0])
+}
+
+fn run_command_owned_allow_codes(cmd: &str, args: &[String], allowed_codes: &[i32]) -> Result<()> {
+    let status = Command::new(cmd)
+        .args(args)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()?;
+
+    let code = status.code();
+    if !matches!(code, Some(code) if allowed_codes.contains(&code)) {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}",
+            cmd,
+            args.join(" "),
+            code
+        ));
+    }
+
+    Ok(())
+}
+
+fn run_command_capture_owned(cmd: &str, args: &[String]) -> Result<String> {
+    let output = Command::new(cmd).args(args).output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}\nstdout:\n{}\nstderr:\n{}",
+            cmd,
+            args.join(" "),
+            output.status.code(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
 }
 
 fn run_command_with_env_in_dir(
@@ -4323,6 +4368,29 @@ const EVIDENCE_PARITY_ALLOWED_PYTHON_STATES: &[&str] = &[
     "required-for-claimed-artifacts",
 ];
 
+const FIRST_USE_RECEIPT_ROOT: &str = "target/hl7v2-receipt";
+const FIRST_USE_REDACTION_POLICY: &str = r#"[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "PID.8"
+action = "retain"
+reason = "administrative sex is required to reproduce validation"
+"#;
+const FIRST_USE_PHI_SENTINELS: &[&str] = &["123456^^^HOSP^MR", "123456", "19800101"];
+
 const PYTHON_LOCAL_WHEEL_PROOF_DEFAULT_ROOT: &str = "target/hl7v2-python-local-wheel-proof";
 const PYTHON_LOCAL_WHEEL_MATURIN_REQUIREMENT: &str = "maturin==1.13.1";
 
@@ -4531,6 +4599,325 @@ fn check_evidence_parity_acceptance(include_python: bool) -> Result<()> {
     check_dirty_corpus_parity(include_python)?;
     check_bundle_replay_parity(include_python)?;
     println!("✅ Cross-surface evidence parity acceptance checks passed!");
+    Ok(())
+}
+
+fn check_first_use_guides(include_python: bool, include_public_crates: bool) -> Result<()> {
+    println!("ðŸ”Ž Checking executable first-use guides...");
+    check_full_evidence_receipt_cli_recipe()?;
+
+    println!("Checking Rust user journey acceptance test...");
+    run_command(
+        "cargo",
+        &[
+            "test",
+            "-p",
+            "hl7v2",
+            "--test",
+            "user_journey",
+            "--all-features",
+            "--locked",
+        ],
+    )?;
+
+    println!("Checking CLI support-bundle user journey acceptance test...");
+    run_command(
+        "cargo",
+        &[
+            "test",
+            "-p",
+            "hl7v2-cli",
+            "--test",
+            "integration_tests",
+            "journey_cli_validate_redact_support_bundle_replay_produces_shareable_receipts",
+            "--locked",
+        ],
+    )?;
+
+    if include_python {
+        println!("Checking Python local-wheel first-use scripts...");
+        run_command("python", &["tests/python_smoke/smoke.py"])?;
+        run_command("python", &["tests/python_smoke/evidence_workflow_guide.py"])?;
+        run_command("python", &["tests/python_smoke/dirty_evidence_workflow.py"])?;
+    } else {
+        println!(
+            "Python local-wheel first-use scripts skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    if include_public_crates {
+        let version = workspace_crate_version("hl7v2")?;
+        println!("Checking public crates.io first-use install-back for v{version}...");
+        run_command(
+            "python",
+            &[
+                "tests/public_crates_smoke/smoke.py",
+                "--version",
+                version.as_str(),
+            ],
+        )?;
+    } else {
+        println!(
+            "Public crates.io install-back smoke skipped; pass --include-public-crates when registry proof is needed."
+        );
+    }
+
+    println!("âœ… Executable first-use guide checks passed!");
+    Ok(())
+}
+
+fn check_full_evidence_receipt_cli_recipe() -> Result<()> {
+    println!("Checking Full Evidence Receipt Path CLI recipe...");
+    let workspace_root = env::current_dir()?;
+    let receipt_root = workspace_root.join(FIRST_USE_RECEIPT_ROOT);
+    let target_root = workspace_root.join("target");
+    if !receipt_root.starts_with(&target_root) {
+        return Err(anyhow!(
+            "refusing to prepare first-use receipt outside target/: {}",
+            receipt_root.display()
+        ));
+    }
+    if receipt_root.exists() {
+        fs::remove_dir_all(&receipt_root)?;
+    }
+
+    let reports = receipt_root.join("reports");
+    fs::create_dir_all(&reports)?;
+
+    let policy = receipt_root.join("safe-analysis.toml");
+    fs::write(&policy, FIRST_USE_REDACTION_POLICY)?;
+
+    let message = workspace_root.join("test_data/invalid_message.hl7");
+    let profile = workspace_root.join("profiles/generic.yaml");
+    let validation_report = reports.join("validation-report.json");
+    let redaction_preview = reports.join("redaction-preview.json");
+    let bundle = receipt_root.join("issue-bundle");
+    let bundle_summary = reports.join("bundle-summary.json");
+    let replay_report = reports.join("replay-report.json");
+
+    ensure_existing_file(&message)?;
+    ensure_existing_file(&profile)?;
+
+    let doctor = run_cli_guide_command_capture(
+        "CLI doctor",
+        vec![
+            "doctor".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let doctor_json: serde_json::Value = serde_json::from_str(&doctor)?;
+    ensure_json_has_key(&doctor_json, "version", "doctor output")?;
+    ensure_json_has_key(&doctor_json, "checks", "doctor output")?;
+
+    run_cli_guide_command_allow_codes(
+        "CLI validation report",
+        vec![
+            "val".to_string(),
+            path_to_arg(&message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&validation_report)?,
+        ],
+        &[0, 1],
+    )?;
+    let validation = read_json_file(&validation_report)?;
+    ensure_json_has_key(&validation, "valid", &path_to_arg(&validation_report)?)?;
+    ensure_json_bool(
+        &validation,
+        "valid",
+        false,
+        &path_to_arg(&validation_report)?,
+    )?;
+    ensure_json_has_key(
+        &validation,
+        "issue_count",
+        &path_to_arg(&validation_report)?,
+    )?;
+
+    run_cli_guide_command(
+        "CLI redaction preview",
+        vec![
+            "redact".to_string(),
+            path_to_arg(&message)?,
+            "--policy".to_string(),
+            path_to_arg(&policy)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&redaction_preview)?,
+        ],
+    )?;
+    let redaction = read_json_file(&redaction_preview)?;
+    ensure_json_has_key(&redaction, "receipt", &path_to_arg(&redaction_preview)?)?;
+    ensure_file_lacks_phi_sentinels(&redaction_preview)?;
+
+    run_cli_guide_command(
+        "CLI support bundle",
+        vec![
+            "support-bundle".to_string(),
+            path_to_arg(&message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--redact-policy".to_string(),
+            path_to_arg(&policy)?,
+            "--out".to_string(),
+            path_to_arg(&bundle)?,
+            "--output".to_string(),
+            path_to_arg(&bundle_summary)?,
+        ],
+    )?;
+    let summary = read_json_file(&bundle_summary)?;
+    ensure_json_has_key(&summary, "validation_valid", &path_to_arg(&bundle_summary)?)?;
+    ensure_json_has_key(
+        &summary,
+        "redaction_phi_removed",
+        &path_to_arg(&bundle_summary)?,
+    )?;
+
+    for artifact in [
+        "message.redacted.hl7",
+        "validation-report.json",
+        "field-paths.json",
+        "redaction-receipt.json",
+        "environment.json",
+        "manifest.json",
+        "README.md",
+        "replay.ps1",
+        "replay.sh",
+    ] {
+        let path = bundle.join(artifact);
+        ensure_existing_file(&path)?;
+        ensure_file_lacks_phi_sentinels(&path)?;
+    }
+
+    run_cli_guide_command(
+        "CLI replay report",
+        vec![
+            "replay".to_string(),
+            path_to_arg(&bundle)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&replay_report)?,
+        ],
+    )?;
+    let replay = read_json_file(&replay_report)?;
+    ensure_json_bool(&replay, "reproduced", true, &path_to_arg(&replay_report)?)?;
+    ensure_file_lacks_phi_sentinels(&replay_report)?;
+
+    println!(
+        "Full Evidence Receipt Path CLI recipe wrote {}",
+        receipt_root.display()
+    );
+    Ok(())
+}
+
+fn run_cli_guide_command(label: &str, args: Vec<String>) -> Result<()> {
+    println!("Checking {label}...");
+    run_command_owned("cargo", &cargo_run_hl7v2_cli_args(args))
+}
+
+fn run_cli_guide_command_allow_codes(
+    label: &str,
+    args: Vec<String>,
+    allowed_codes: &[i32],
+) -> Result<()> {
+    println!("Checking {label}...");
+    let cargo_args = cargo_run_hl7v2_cli_args(args);
+    let output = Command::new("cargo").args(&cargo_args).output()?;
+    let code = output.status.code();
+    if !matches!(code, Some(code) if allowed_codes.contains(&code)) {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}\nstdout:\n{}\nstderr:\n{}",
+            "cargo",
+            cargo_args.join(" "),
+            code,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    if code != Some(0) {
+        println!("{label} completed with expected exit code {code:?}; verifying receipt file.");
+    }
+    Ok(())
+}
+
+fn run_cli_guide_command_capture(label: &str, args: Vec<String>) -> Result<String> {
+    println!("Checking {label}...");
+    run_command_capture_owned("cargo", &cargo_run_hl7v2_cli_args(args))
+}
+
+fn cargo_run_hl7v2_cli_args(args: Vec<String>) -> Vec<String> {
+    let mut cargo_args = vec![
+        "run".to_string(),
+        "--quiet".to_string(),
+        "-p".to_string(),
+        "hl7v2-cli".to_string(),
+        "--".to_string(),
+    ];
+    cargo_args.extend(args);
+    cargo_args
+}
+
+fn workspace_crate_version(crate_name: &str) -> Result<String> {
+    let metadata = MetadataCommand::new().no_deps().exec()?;
+    let package = metadata
+        .packages
+        .iter()
+        .find(|package| package.name.as_str() == crate_name)
+        .ok_or_else(|| anyhow!("cargo metadata did not include crate `{crate_name}`"))?;
+    Ok(package.version.to_string())
+}
+
+fn ensure_existing_file(path: &Path) -> Result<()> {
+    if !path.is_file() {
+        return Err(anyhow!("expected file to exist: {}", path.display()));
+    }
+    Ok(())
+}
+
+fn read_json_file(path: &Path) -> Result<serde_json::Value> {
+    let text = fs::read_to_string(path)?;
+    serde_json::from_str(&text)
+        .map_err(|error| anyhow!("{} is not valid JSON: {error}", path.display()))
+}
+
+fn ensure_json_has_key(value: &serde_json::Value, key: &str, label: &str) -> Result<()> {
+    if value.get(key).is_none() {
+        return Err(anyhow!("{label} did not include expected JSON key `{key}`"));
+    }
+    Ok(())
+}
+
+fn ensure_json_bool(
+    value: &serde_json::Value,
+    key: &str,
+    expected: bool,
+    label: &str,
+) -> Result<()> {
+    match value.get(key).and_then(serde_json::Value::as_bool) {
+        Some(actual) if actual == expected => Ok(()),
+        Some(actual) => Err(anyhow!(
+            "{label} JSON key `{key}` was {actual}, expected {expected}"
+        )),
+        None => Err(anyhow!("{label} did not include boolean JSON key `{key}`")),
+    }
+}
+
+fn ensure_file_lacks_phi_sentinels(path: &Path) -> Result<()> {
+    let text = fs::read_to_string(path)?;
+    for sentinel in FIRST_USE_PHI_SENTINELS {
+        if text.contains(sentinel) {
+            return Err(anyhow!(
+                "{} leaked first-use PHI sentinel `{sentinel}`",
+                path.display()
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -7015,6 +7402,49 @@ mod tests {
         assert_eq!(command_program("cargo"), "cargo.cmd");
         #[cfg(not(windows))]
         assert_eq!(command_program("cargo"), "cargo");
+    }
+
+    #[test]
+    fn check_first_use_guides_command_defaults_to_local_only() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-first-use-guides"])?;
+        match cli.command {
+            Commands::CheckFirstUseGuides {
+                include_python,
+                include_public_crates,
+            } => {
+                if include_python || include_public_crates {
+                    return Err(anyhow!(
+                        "check-first-use-guides should default to local non-registry proof"
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err(anyhow!("expected check-first-use-guides command")),
+        }
+    }
+
+    #[test]
+    fn check_first_use_guides_accepts_optional_surface_flags() -> Result<()> {
+        let cli = Cli::try_parse_from([
+            "xtask",
+            "check-first-use-guides",
+            "--include-python",
+            "--include-public-crates",
+        ])?;
+        match cli.command {
+            Commands::CheckFirstUseGuides {
+                include_python,
+                include_public_crates,
+            } => {
+                if !(include_python && include_public_crates) {
+                    return Err(anyhow!(
+                        "check-first-use-guides should preserve optional surface flags"
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err(anyhow!("expected check-first-use-guides command")),
+        }
     }
 
     #[test]

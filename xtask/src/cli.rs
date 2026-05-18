@@ -128,6 +128,15 @@ pub(crate) enum Commands {
         #[arg(long)]
         include_python: bool,
     },
+    /// Run executable first-use guide checks for the documented receipt path
+    CheckFirstUseGuides {
+        /// Also run Python local-wheel smoke checks when hl7v2 is installed
+        #[arg(long)]
+        include_python: bool,
+        /// Also run public crates.io install-back smoke checks
+        #[arg(long)]
+        include_public_crates: bool,
+    },
     /// Run fixture-backed safe-error and PHI parity acceptance checks
     CheckSafeErrorPhiParity {
         /// Also run Python local-wheel smoke checks when hl7v2 is installed

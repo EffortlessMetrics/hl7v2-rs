@@ -22,6 +22,18 @@ I have an HL7 message. Is it valid, can I safely share a diagnostic packet,
 and can someone else replay the result?
 ```
 
+From a source checkout, the executable guide smoke is:
+
+```powershell
+cargo +1.95.0 run -p xtask -- check-first-use-guides
+```
+
+That command runs the CLI receipt recipe below into
+`target/hl7v2-receipt`, checks the Rust and CLI user-journey acceptance
+tests, and keeps Python registry and npm proof as explicit non-claims. Use
+`--include-python` only after installing a local `hl7v2` wheel, and use
+`--include-public-crates` only when refreshing crates.io install-back proof.
+
 ## Current Release Boundary
 
 Rust, CLI, and server users can use the published v1.5.0 crates:
@@ -87,6 +99,8 @@ reason = "administrative sex is required to reproduce validation"
 
 The CLI is the shortest operator path. It proves local tool health, validates
 the message, previews redaction, creates a support bundle, and replays it.
+The sample message is intentionally invalid, so the validation command may
+return a non-zero exit code while still writing `validation-report.json`.
 
 ```powershell
 hl7v2-cli doctor --format json
@@ -151,6 +165,15 @@ $env:HL7V2_PROFILE_PATHS = "profiles/generic.yaml"
 
 hl7v2-server --print-config
 hl7v2-server
+```
+
+The guide smoke does not start a server by default. Server first-use proof is
+owned by the sidecar smoke path: start the sidecar from
+[Deploy Validation Sidecar](deploy-validation-sidecar.md), then run:
+
+```powershell
+$env:HL7V2_SERVER_URL = "http://127.0.0.1:18080"
+python tests/server_smoke/smoke.py
 ```
 
 Then, in another shell:
@@ -282,4 +305,3 @@ fields have been reviewed.
   absence.
 - Future TypeScript users should install `@effortlessmetrics/hl7v2`; no npm
   package is claimed here.
-
