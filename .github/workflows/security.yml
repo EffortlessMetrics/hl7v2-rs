@@ -12,6 +12,13 @@ permissions:
   contents: read
   security-events: write
 
+# Cancellation policy:
+# - PR synchronize events cancel stale runs for the same PR.
+# - Push and scheduled scans do NOT cancel in-progress security checks.
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+
 jobs:
   audit:
     name: Dependency Audit
