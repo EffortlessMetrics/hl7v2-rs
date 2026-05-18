@@ -76,6 +76,13 @@ artifacts as `ripr-pr-evidence`. The lane remains advisory: findings route
 review and mutation decisions, while contract/tooling drift is the failure mode
 to repair.
 
+If the workflow fails because `badges/ripr.json` or `badges/ripr-plus.json` is
+stale, regenerate the public badge endpoints with
+`cargo run -p xtask -- badges`, rerun `cargo run -p xtask -- badges --check`,
+and commit only the resulting `badges/` endpoint diff. This is repository
+evidence-artifact drift, not proof that product behavior changed and not a
+runtime mutation result.
+
 Do not treat any single artifact as the whole truth. The initial calibration
 found that `repo-exposure.json` summary counters and generated Markdown review
 guidance can use different counter semantics. Reviewer decisions should inspect

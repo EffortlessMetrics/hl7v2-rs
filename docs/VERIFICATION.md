@@ -27,6 +27,25 @@ The badge boundary is deliberately narrow:
 `target/xtask/badges/` so CI can upload the generated view without mutating the
 committed endpoints.
 
+## Badge Drift
+
+If `cargo run -p xtask -- badges --check` reports that `badges/ripr.json` or
+`badges/ripr-plus.json` is stale, treat that as repository evidence-artifact
+drift. It means the checked-in badge endpoint no longer matches the generated
+repo-scoped view.
+
+The repair is deliberately mechanical:
+
+```bash
+cargo run -p xtask -- badges
+cargo run -p xtask -- badges --check
+```
+
+Commit the changed file under `badges/` only when the generated diff matches
+the PR's intended verification-surface change. Do not use badge drift as a
+shortcut for product behavior proof, and do not treat a badge refresh as runtime
+mutation, coverage, release readiness, TestPyPI, PyPI, or npm evidence.
+
 ## PR evidence
 
 The PR evidence cockpit is diff-scoped and generated under `target/`:
