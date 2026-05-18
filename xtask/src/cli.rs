@@ -142,6 +142,8 @@ pub(crate) enum Commands {
     CheckFirst10MinutesGuide,
     /// Run the executable Vendor Upgrade Diff guide smoke
     CheckVendorUpgradeDiffGuide,
+    /// Run the executable operator error guidance smoke
+    CheckOperatorErrorGuidanceGuide,
     /// Run the executable safe support-bundle guide smoke
     CheckSafeSupportBundleGuide,
     /// Run the executable evidence-artifact interpretation guide smoke

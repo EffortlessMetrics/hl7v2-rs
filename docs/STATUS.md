@@ -261,6 +261,10 @@ The vendor-upgrade before/after corpus drift guide is now executable with
 `cargo run -p xtask -- check-vendor-upgrade-diff-guide`; it proves the guide's
 profile lint, summary, fingerprint, diff, validation issue delta,
 field-presence delta, profile hash, and PHI-sentinel checks.
+The operator error guidance guide is now executable with
+`cargo run -p xtask -- check-operator-error-guidance-guide`; it proves
+representative REST parse/profile/bundle safe-error fields and CLI validation
+issue report fields without creating a registry or release claim.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
 upload and install-back proof before any Python release claim. The latest
 publishing-mode TestPyPI attempt ran on current `main` commit

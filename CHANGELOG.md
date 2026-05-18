@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a source checkout.
 - Added `xtask check-vendor-upgrade-diff-guide` to prove the before/after
   corpus drift workflow from the vendor upgrade guide.
+- Added `xtask check-operator-error-guidance-guide` to prove representative
+  REST safe-error fields and CLI validation report guidance from the operator
+  error guide.
 - Added `xtask check-schema-version-parity` to run the shared schema-version
   acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added `xtask check-safe-error-phi-parity` to run the shared safe-error and
