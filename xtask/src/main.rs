@@ -7502,10 +7502,11 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
             .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
             .to_path_buf();
         let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
-        let broken = text.replace(
-            "  \"cargo run -p xtask -- python-local-wheel-proof\",\n",
-            "",
-        );
+        let broken = text
+            .lines()
+            .filter(|line| !line.contains("cargo run -p xtask -- python-local-wheel-proof"))
+            .collect::<Vec<_>>()
+            .join("\n");
 
         match check_evidence_parity_manifest_text(&broken) {
             Ok(()) => Err(anyhow!(
