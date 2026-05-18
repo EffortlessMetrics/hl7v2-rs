@@ -140,6 +140,8 @@ pub(crate) enum Commands {
     /// Run the executable First 10 Minutes guide smoke
     #[command(name = "check-first-10-minutes-guide")]
     CheckFirst10MinutesGuide,
+    /// Run the executable Vendor Upgrade Diff guide smoke
+    CheckVendorUpgradeDiffGuide,
     /// Run the executable safe support-bundle guide smoke
     CheckSafeSupportBundleGuide,
     /// Run the executable evidence-artifact interpretation guide smoke

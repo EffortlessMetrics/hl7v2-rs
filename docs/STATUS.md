@@ -257,6 +257,10 @@ The operator evidence-artifacts interpretation guide is now executable with
 profile, validation, corpus, redaction, support-bundle, manifest,
 environment, field-path, and replay artifacts and verifies the reader fields
 and PHI-sentinel boundaries that guide asks operators to inspect.
+The vendor-upgrade before/after corpus drift guide is now executable with
+`cargo run -p xtask -- check-vendor-upgrade-diff-guide`; it proves the guide's
+profile lint, summary, fingerprint, diff, validation issue delta,
+field-presence delta, profile hash, and PHI-sentinel checks.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
 upload and install-back proof before any Python release claim. The latest
 publishing-mode TestPyPI attempt ran on current `main` commit

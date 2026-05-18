@@ -49,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask check-first-10-minutes-guide` and wired it into
   `check-first-use-guides` so the job-first CLI onboarding path is executable
   from a source checkout.
+- Added `xtask check-vendor-upgrade-diff-guide` to prove the before/after
+  corpus drift workflow from the vendor upgrade guide.
 - Added `xtask check-schema-version-parity` to run the shared schema-version
   acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added `xtask check-safe-error-phi-parity` to run the shared safe-error and
