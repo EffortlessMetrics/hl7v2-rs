@@ -111,6 +111,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clarified current-state wording for the public Python `hl7v2`
   TestPyPI/PyPI blocker after the registry proof command, workflow routing,
   parity boundary, and gap audit landed without a new upload attempt.
+- Clarified the TestPyPI release-proof guide so the latest failed
+  publishing-mode run is no longer described as current `main` after later
+  registry proof scaffolding landed.
 - Refreshed the manifest-linked cross-surface evidence parity gap audit after
   guide smokes, dirty-corpus expansion, and Python public-registry proof
   boundaries landed on `main`.

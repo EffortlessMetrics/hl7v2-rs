@@ -159,16 +159,20 @@ After the upload/install-back proof passes, use
 [Python PyPI Release](python-pypi-release.md) for the guarded production PyPI
 release path.
 
-Current status: the non-publishing proof is complete on current `main` for
-public package `hl7v2`. A 2026-05-10 publishing-mode run from `main` built and
+Current status: the non-publishing proof is complete for public package
+`hl7v2`. A 2026-05-10 publishing-mode run from `main` built and
 smoke-tested the wheel, then failed during Trusted Publishing token exchange
 with `invalid-publisher`; see
 [docs/audits/python-testpypi-publish-attempt-2026-05-10.md](../audits/python-testpypi-publish-attempt-2026-05-10.md).
-A 2026-05-17 publishing-mode run from current `main` commit
+A 2026-05-17 publishing-mode run at commit
 `764647e79ab61cd9814d07a777cbf1eed27a5ee8` again built and smoke-tested the
-wheel successfully, then failed at the same Trusted Publishing exchange boundary
-with `repo:EffortlessMetrics/hl7v2-rs:environment:testpypi`; see
+wheel successfully, then failed at the same Trusted Publishing exchange
+boundary with `repo:EffortlessMetrics/hl7v2-rs:environment:testpypi`; see
 [docs/audits/python-testpypi-publish-attempt-2026-05-17.md](../audits/python-testpypi-publish-attempt-2026-05-17.md).
+Current `main` has since added the shared public-registry proof command,
+hosted install-back routing, parity-manifest registry boundaries, and the
+current parity gap audit without rerunning the upload, because external
+Trusted Publisher setup remains unproven.
 The TestPyPI upload/install-back proof remains incomplete until the TestPyPI
 Trusted Publisher is configured for project `hl7v2` and a rerun passes. Track
 the external setup blocker in
