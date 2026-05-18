@@ -92,7 +92,7 @@ validation through `xtask evidence-schema-check`, server replay and inline
 corpus endpoints, redacted structured evidence logs, Docker sidecar smoke
 coverage, broader PHI sentinel tests, Python/TestPyPI proof rails, the server
 bundle replay message-type fix, Rust 1.95 policy ratchets, profile evidence,
-Python profile helpers, gRPC profile lint/explain/test, configured-root
+Python profile helpers, REST and gRPC profile lint/explain/test, configured-root
 evidence bundle creation/replay, and inline corpus summary/fingerprint/diff
 parity, advisory `ripr`, RIPR evidence endpoints, targeted mutation routing,
 the cross-surface evidence parity spec, dirty real-world corpus proof, the

@@ -191,23 +191,25 @@ supports optional inline profile validation issue-code deltas, supports opt-in
 v2 provenance if claimed, rejects unsupported schema versions, avoids request
 filesystem reads, and passes gRPC contract tests.
 
-`ProfileLint` can be described as gRPC profile lint parity when the RPC accepts
-inline profile YAML, returns the shared profile lint report fields, supports
-opt-in v2 provenance if claimed, rejects unsupported schema versions, avoids
-raw profile echo in malformed-profile diagnostics, and passes gRPC contract
-tests.
+REST `/hl7/profile/lint` and gRPC `ProfileLint` can be described as profile
+lint parity when the surface accepts inline profile YAML, returns the shared
+profile lint report fields, supports opt-in v2 provenance if claimed, rejects
+unsupported schema versions, avoids raw profile echo in malformed-profile
+diagnostics, and passes its surface contract tests.
 
-`ProfileExplain` can be described as gRPC profile explain parity when the RPC
-accepts inline profile YAML, returns the shared profile explain report fields,
-supports opt-in v2 provenance if claimed, rejects unsupported schema versions,
-avoids raw profile echo in malformed-profile diagnostics, and passes gRPC
-contract tests.
+REST `/hl7/profile/explain` and gRPC `ProfileExplain` can be described as
+profile explain parity when the surface accepts inline profile YAML, returns
+the shared profile explain report fields, supports opt-in v2 provenance if
+claimed, rejects unsupported schema versions, treats profile identity as a safe
+label rather than a filesystem path, avoids raw profile echo in
+malformed-profile diagnostics, and passes its surface contract tests.
 
-`ProfileTest` can be described as gRPC profile test parity when the RPC accepts
-an inline profile and inline fixture messages, returns the shared profile test
-report fields, supports opt-in v2 provenance if claimed, rejects unsupported
-schema versions, avoids request filesystem reads, avoids raw profile echo in
-malformed-profile diagnostics, and passes gRPC contract tests.
+REST `/hl7/profile/test` and gRPC `ProfileTest` can be described as profile
+test parity when the surface accepts an inline profile and inline fixture
+messages, returns the shared profile test report fields, supports opt-in v2
+provenance if claimed, rejects unsupported schema versions, avoids request
+filesystem reads, avoids raw profile or fixture payload echo in diagnostics,
+and passes its surface contract tests.
 
 `GenerateAck` can be described as gRPC ACK parity when the proto contract
 accepts application ACK codes `AA`, `AE`, and `AR` plus commit ACK codes `CA`,

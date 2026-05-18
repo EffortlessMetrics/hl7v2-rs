@@ -18,7 +18,8 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::handlers::{
     ack_handler, ack_policy_handler, bundle_handler, corpus_diff_handler,
     corpus_fingerprint_handler, corpus_summarize_handler, health_handler, normalize_handler,
-    parse_handler, ready_handler, replay_handler, validate_handler, validate_redacted_handler,
+    parse_handler, profile_explain_handler, profile_lint_handler, profile_test_handler,
+    ready_handler, replay_handler, validate_handler, validate_redacted_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
 use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
@@ -48,6 +49,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/corpus/summarize", post(corpus_summarize_handler))
         .route("/corpus/fingerprint", post(corpus_fingerprint_handler))
         .route("/corpus/diff", post(corpus_diff_handler))
+        .route("/profile/lint", post(profile_lint_handler))
+        .route("/profile/explain", post(profile_explain_handler))
+        .route("/profile/test", post(profile_test_handler))
         .route("/ack", post(ack_handler))
         .route("/ack-policy", post(ack_policy_handler))
         .route("/normalize", post(normalize_handler));

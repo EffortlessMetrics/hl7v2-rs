@@ -49,6 +49,24 @@ pub(super) fn requested_corpus_diff_schema_version(version: Option<u8>) -> Resul
     requested_schema_version(version, "corpus diff")
 }
 
+pub(super) fn requested_profile_lint_report_schema_version(
+    version: Option<u8>,
+) -> Result<u8, AppError> {
+    requested_schema_version(version, "profile lint report")
+}
+
+pub(super) fn requested_profile_explain_report_schema_version(
+    version: Option<u8>,
+) -> Result<u8, AppError> {
+    requested_schema_version(version, "profile explain report")
+}
+
+pub(super) fn requested_profile_test_report_schema_version(
+    version: Option<u8>,
+) -> Result<u8, AppError> {
+    requested_schema_version(version, "profile test report")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,6 +107,18 @@ mod tests {
         (
             "corpus diff",
             requested_corpus_diff_schema_version as Validator,
+        ),
+        (
+            "profile lint report",
+            requested_profile_lint_report_schema_version as Validator,
+        ),
+        (
+            "profile explain report",
+            requested_profile_explain_report_schema_version as Validator,
+        ),
+        (
+            "profile test report",
+            requested_profile_test_report_schema_version as Validator,
         ),
     ];
 
@@ -204,6 +234,18 @@ mod tests {
             (
                 requested_corpus_diff_schema_version as Validator,
                 "corpus diff",
+            ),
+            (
+                requested_profile_lint_report_schema_version as Validator,
+                "profile lint report",
+            ),
+            (
+                requested_profile_explain_report_schema_version as Validator,
+                "profile explain report",
+            ),
+            (
+                requested_profile_test_report_schema_version as Validator,
+                "profile test report",
             ),
         ];
 
