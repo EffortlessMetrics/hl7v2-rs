@@ -1,7 +1,7 @@
 //! Command-line interface definitions for the xtask binary.
 
 use crate::publish::PublishSurface;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
 #[command(name = "xtask")]
@@ -114,6 +114,24 @@ pub(crate) enum Commands {
         /// Rust toolchain used by maturin when building the wheel
         #[arg(long, default_value = "1.95.0")]
         rust_toolchain: String,
+        /// Keep the previous scratch root instead of deleting it first
+        #[arg(long)]
+        keep_existing: bool,
+    },
+    /// Install public Python hl7v2 from TestPyPI/PyPI and run smoke proof
+    PythonPublicRegistryProof {
+        /// Scratch root for the proof virtualenv
+        #[arg(long)]
+        root: Option<std::path::PathBuf>,
+        /// Python launcher/interpreter used to create the proof virtualenv
+        #[arg(long, default_value = "python")]
+        python: String,
+        /// Package index to install from
+        #[arg(long, value_enum, default_value = "testpypi")]
+        index: PythonPackageIndex,
+        /// Public hl7v2 package version to install; defaults to the workspace version
+        #[arg(long)]
+        version: Option<String>,
         /// Keep the previous scratch root instead of deleting it first
         #[arg(long)]
         keep_existing: bool,
@@ -247,6 +265,14 @@ pub(crate) enum Commands {
         #[arg(long)]
         check: bool,
     },
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub(crate) enum PythonPackageIndex {
+    /// Install from TestPyPI
+    Testpypi,
+    /// Install from production PyPI
+    Pypi,
 }
 
 #[derive(Subcommand)]

@@ -35,6 +35,8 @@ Before running the production publish mode, verify all of these are true:
   ran `tests/python_smoke/smoke.py` plus
   `tests/python_smoke/evidence_workflow_guide.py` plus
   `tests/python_smoke/dirty_evidence_workflow.py`.
+- Optional local TestPyPI install-back reproduction passes with
+  `cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --version <workspace version>`.
 - You have the successful **Python TestPyPI Proof** workflow run URL for this
   exact version.
 - The current version is not already present on production PyPI.
@@ -126,6 +128,8 @@ A production PyPI release is complete only when all of these are true:
   PyPI package.
 - `tests/python_smoke/dirty_evidence_workflow.py` passes against the installed
   PyPI package.
+- Optional local production install-back reproduction passes with
+  `cargo +1.95.0 run -p xtask -- python-public-registry-proof --index pypi --version <workspace version>`.
 - A release receipt records the workflow run URL, version, package URL, and
   install-back result.
 

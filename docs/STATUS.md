@@ -270,7 +270,10 @@ The operator error guidance guide is now executable with
 representative REST parse/profile/bundle safe-error fields and CLI validation
 issue report fields without creating a registry or release claim.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
-upload and install-back proof before any Python release claim. The latest
+upload and install-back proof before any Python release claim. Once a public
+index contains the package,
+`cargo run -p xtask -- python-public-registry-proof` can reproduce the
+install-back/import/smoke checks from TestPyPI or PyPI. The latest
 publishing-mode TestPyPI attempt ran on current `main` commit
 `764647e79ab61cd9814d07a777cbf1eed27a5ee8` and is
 [`docs/audits/python-testpypi-publish-attempt-2026-05-17.md`](audits/python-testpypi-publish-attempt-2026-05-17.md).
