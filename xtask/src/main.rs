@@ -6318,6 +6318,8 @@ fn check_evidence_artifacts_guide() -> Result<()> {
     ensure_existing_file(&profile)?;
     ensure_existing_file(&valid_message)?;
     ensure_existing_file(&invalid_message)?;
+    let dirty_before_file_count = count_regular_files(&dirty_before)?;
+    let dirty_after_file_count = count_regular_files(&dirty_after)?;
 
     fs::copy(&valid_message, valid_fixtures.join("valid-message.hl7"))?;
     fs::copy(
@@ -6513,10 +6515,30 @@ fn check_evidence_artifacts_guide() -> Result<()> {
     let diff = read_json_file(&corpus_diff)?;
     let diff_label = path_to_arg(&corpus_diff)?;
     ensure_json_path_string(&diff, &["diff_version"], "1", &diff_label)?;
-    ensure_json_path_u64(&diff, &["file_count", "before"], 2, &diff_label)?;
-    ensure_json_path_u64(&diff, &["file_count", "after"], 5, &diff_label)?;
-    ensure_json_path_u64(&diff, &["parse_error_count", "before"], 2, &diff_label)?;
-    ensure_json_path_u64(&diff, &["parse_error_count", "after"], 5, &diff_label)?;
+    ensure_json_path_u64(
+        &diff,
+        &["file_count", "before"],
+        dirty_before_file_count,
+        &diff_label,
+    )?;
+    ensure_json_path_u64(
+        &diff,
+        &["file_count", "after"],
+        dirty_after_file_count,
+        &diff_label,
+    )?;
+    ensure_json_path_u64(
+        &diff,
+        &["parse_error_count", "before"],
+        dirty_before_file_count,
+        &diff_label,
+    )?;
+    ensure_json_path_u64(
+        &diff,
+        &["parse_error_count", "after"],
+        dirty_after_file_count,
+        &diff_label,
+    )?;
     ensure_file_lacks_phi_sentinels(&corpus_diff)?;
 
     let redaction_preview = reports.join("redaction-preview.json");
@@ -7011,6 +7033,23 @@ fn ensure_existing_file(path: &Path) -> Result<()> {
         return Err(anyhow!("expected file to exist: {}", path.display()));
     }
     Ok(())
+}
+
+fn count_regular_files(path: &Path) -> Result<u64> {
+    if !path.is_dir() {
+        return Err(anyhow!("expected directory to exist: {}", path.display()));
+    }
+
+    let mut count = 0_u64;
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        if entry.file_type()?.is_file() {
+            count = count
+                .checked_add(1)
+                .ok_or_else(|| anyhow!("too many files to count under {}", path.display()))?;
+        }
+    }
+    Ok(count)
 }
 
 fn read_json_file(path: &Path) -> Result<serde_json::Value> {

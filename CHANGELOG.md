@@ -108,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed the evidence-artifacts guide smoke so corpus diff count assertions use
+  the current dirty real-world fixture directories instead of stale after-counts.
 - Added synchronize-only concurrency controls to the API Contracts and Security
   workflows so stale PR updates can be canceled without canceling push,
   scheduled, or manual proof runs.
