@@ -10,6 +10,13 @@ For artifact interpretation, use
 the first command to run on each surface, use
 [First Use By Surface](first-use-by-surface.md).
 
+From a source checkout, the representative error guidance checks are
+executable:
+
+```bash
+cargo +1.95.0 run -p xtask -- check-operator-error-guidance-guide
+```
+
 ## Safe Failure Shape
 
 Every operator-facing failure should answer:

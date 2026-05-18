@@ -76,6 +76,7 @@ fn main() -> Result<()> {
         } => check_first_use_guides(include_python, include_public_crates)?,
         Commands::CheckFirst10MinutesGuide => check_first_10_minutes_guide()?,
         Commands::CheckVendorUpgradeDiffGuide => check_vendor_upgrade_diff_guide()?,
+        Commands::CheckOperatorErrorGuidanceGuide => check_operator_error_guidance_guide()?,
         Commands::CheckSafeSupportBundleGuide => check_safe_support_bundle_guide()?,
         Commands::CheckEvidenceArtifactsGuide => check_evidence_artifacts_guide()?,
         Commands::CheckSidecarGuide => check_sidecar_guide()?,
@@ -4379,6 +4380,7 @@ const EVIDENCE_PARITY_ALLOWED_PYTHON_STATES: &[&str] = &[
 const FIRST_USE_RECEIPT_ROOT: &str = "target/hl7v2-receipt";
 const FIRST_10_MINUTES_GUIDE_ROOT: &str = "target/hl7v2-first-10-minutes";
 const VENDOR_UPGRADE_DIFF_GUIDE_ROOT: &str = "target/hl7v2-vendor-upgrade-diff";
+const OPERATOR_ERROR_GUIDANCE_ROOT: &str = "target/hl7v2-operator-error-guidance";
 const FIRST_USE_REDACTION_POLICY: &str = r#"[[rules]]
 path = "PID.3"
 action = "hash"
@@ -5442,6 +5444,166 @@ fn check_vendor_upgrade_diff_guide() -> Result<()> {
 
     println!(
         "Vendor Upgrade Diff guide recipe wrote {}",
+        guide_root.display()
+    );
+    Ok(())
+}
+
+fn check_operator_error_guidance_guide() -> Result<()> {
+    println!("Checking Operator Error Guidance recipe...");
+    let workspace_root = env::current_dir()?;
+    let guide_root = workspace_root.join(OPERATOR_ERROR_GUIDANCE_ROOT);
+    let target_root = workspace_root.join("target");
+    if !guide_root.starts_with(&target_root) {
+        return Err(anyhow!(
+            "refusing to prepare operator error guidance output outside target/: {}",
+            guide_root.display()
+        ));
+    }
+    if guide_root.exists() {
+        fs::remove_dir_all(&guide_root)?;
+    }
+
+    let reports = guide_root.join("reports");
+    fs::create_dir_all(&reports)?;
+
+    let server_error_tests: &[(&str, &[&str])] = &[
+        (
+            "REST parse safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "parse_endpoint_test",
+                "test_parse_malformed_message_returns_error",
+                "--locked",
+            ],
+        ),
+        (
+            "REST validate parse safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_endpoint_test",
+                "test_validate_malformed_message_returns_error",
+                "--locked",
+            ],
+        ),
+        (
+            "REST profile-load safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "validate_endpoint_test",
+                "test_validate_invalid_profile_yaml_returns_error",
+                "--locked",
+            ],
+        ),
+        (
+            "REST unsafe bundle id safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "bundle_endpoint_test",
+                "test_bundle_endpoint_rejects_unsafe_bundle_id_without_writing",
+                "--locked",
+            ],
+        ),
+        (
+            "REST missing bundle root safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "bundle_endpoint_test",
+                "test_bundle_endpoint_fails_closed_without_configured_output_root",
+                "--locked",
+            ],
+        ),
+    ];
+    for (label, args) in server_error_tests {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    let message = workspace_root.join("test_data/invalid_message.hl7");
+    let profile = workspace_root.join("profiles/generic.yaml");
+    ensure_existing_file(&message)?;
+    ensure_existing_file(&profile)?;
+
+    let cli_validation = reports.join("cli-validation-report.json");
+    run_cli_guide_command_allow_codes(
+        "operator error CLI validation report",
+        vec![
+            "val".to_string(),
+            path_to_arg(&message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&cli_validation)?,
+        ],
+        &[0, 1],
+    )?;
+    let validation = read_json_file(&cli_validation)?;
+    let validation_label = path_to_arg(&cli_validation)?;
+    ensure_json_path_bool(&validation, &["valid"], false, &validation_label)?;
+    ensure_json_path_u64(&validation, &["issue_count"], 1, &validation_label)?;
+    ensure_json_object_array_contains_fields(
+        &validation,
+        &["issues"],
+        &[
+            ("code", "value_not_in_set"),
+            ("path", "PID.8"),
+            ("severity", "error"),
+        ],
+        &validation_label,
+    )?;
+    ensure_file_lacks_phi_sentinels(&cli_validation)?;
+
+    let summary = reports.join("operator-error-guidance.json");
+    let summary_json = serde_json::json!({
+        "guide": "docs/guides/operator-error-guidance.md",
+        "checks": [
+            "rest_parse_safe_error_shape",
+            "rest_validate_parse_safe_error_shape",
+            "rest_profile_load_safe_error_shape",
+            "rest_unsafe_bundle_id_safe_error_shape",
+            "rest_missing_bundle_root_safe_error_shape",
+            "cli_validation_issue_report"
+        ],
+        "verified_fields": [
+            "code",
+            "safe_detail",
+            "location",
+            "suggested_next_action",
+            "valid",
+            "issue_count",
+            "issues.code",
+            "issues.path",
+            "issues.severity"
+        ],
+        "non_claims": [
+            "no TestPyPI upload",
+            "no PyPI upload",
+            "no npm package",
+            "no new crates.io release"
+        ]
+    });
+    fs::write(&summary, serde_json::to_string_pretty(&summary_json)?)?;
+    ensure_file_lacks_phi_sentinels(&summary)?;
+
+    println!(
+        "Operator Error Guidance smoke wrote {}",
         guide_root.display()
     );
     Ok(())
@@ -9280,6 +9442,17 @@ mod tests {
         match cli.command {
             Commands::CheckVendorUpgradeDiffGuide => Ok(()),
             _ => Err(anyhow!("expected check-vendor-upgrade-diff-guide command")),
+        }
+    }
+
+    #[test]
+    fn check_operator_error_guidance_guide_command_parses() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-operator-error-guidance-guide"])?;
+        match cli.command {
+            Commands::CheckOperatorErrorGuidanceGuide => Ok(()),
+            _ => Err(anyhow!(
+                "expected check-operator-error-guidance-guide command"
+            )),
         }
     }
 
