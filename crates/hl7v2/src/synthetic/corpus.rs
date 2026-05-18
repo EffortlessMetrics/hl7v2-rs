@@ -1408,8 +1408,8 @@ mod summary_tests {
             panic!("dirty corpus should diff");
         };
 
-        assert_eq!(summary.file_count, 7);
-        assert_eq!(summary.message_count, 4);
+        assert_eq!(summary.file_count, 8);
+        assert_eq!(summary.message_count, 5);
         assert_eq!(summary.parse_error_count, 3);
         assert!(summary.total_bytes > 1_000);
         assert!(
@@ -1429,6 +1429,12 @@ mod summary_tests {
                 .message_types
                 .iter()
                 .any(|count| count.value == "ADT^A04" && count.count == 1)
+        );
+        assert!(
+            summary
+                .message_types
+                .iter()
+                .any(|count| count.value == "ADT^A03" && count.count == 1)
         );
         assert!(
             summary
@@ -1473,8 +1479,8 @@ mod summary_tests {
                 .all(|failure| !failure.error.contains("MRN-DIRTY"))
         );
 
-        assert_eq!(fingerprint.file_count, 7);
-        assert_eq!(fingerprint.message_count, 4);
+        assert_eq!(fingerprint.file_count, 8);
+        assert_eq!(fingerprint.message_count, 5);
         assert_eq!(fingerprint.parse_error_count, 3);
         assert!(
             fingerprint
@@ -1490,10 +1496,16 @@ mod summary_tests {
                 .iter()
                 .any(|field| field.path == "ZPV.1" && field.total_occurrences == 1)
         );
+        assert!(
+            fingerprint
+                .field_cardinality
+                .iter()
+                .any(|field| field.path == "MSH.3" && field.total_occurrences == 5)
+        );
 
         assert_eq!(diff.file_count.before, 2);
-        assert_eq!(diff.file_count.after, 7);
-        assert_eq!(diff.message_count.delta, 2);
+        assert_eq!(diff.file_count.after, 8);
+        assert_eq!(diff.message_count.delta, 3);
         assert_eq!(diff.parse_error_count.delta, 3);
         assert!(
             diff.field_cardinality

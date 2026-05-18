@@ -1905,8 +1905,8 @@ reason = "hash patient identifier"
 
         let summary_report = summary.summary.expect("summary should exist");
         assert_eq!(summary_report.root, "<inline-corpus>");
-        assert_eq!(summary_report.file_count, 7);
-        assert_eq!(summary_report.message_count, 4);
+        assert_eq!(summary_report.file_count, 8);
+        assert_eq!(summary_report.message_count, 5);
         assert_eq!(summary_report.parse_error_count, 3);
         assert!(
             summary_report
@@ -1919,6 +1919,12 @@ reason = "hash patient identifier"
                 .message_types
                 .iter()
                 .any(|entry| entry.value == "ADT^A04" && entry.count == 1)
+        );
+        assert!(
+            summary_report
+                .message_types
+                .iter()
+                .any(|entry| entry.value == "ADT^A03" && entry.count == 1)
         );
         assert!(
             summary_report
@@ -1959,8 +1965,8 @@ reason = "hash patient identifier"
 
         let fingerprint_report = fingerprint.fingerprint.expect("fingerprint should exist");
         assert_eq!(fingerprint_report.root, "<inline-corpus>");
-        assert_eq!(fingerprint_report.file_count, 7);
-        assert_eq!(fingerprint_report.message_count, 4);
+        assert_eq!(fingerprint_report.file_count, 8);
+        assert_eq!(fingerprint_report.message_count, 5);
         assert_eq!(fingerprint_report.parse_error_count, 3);
         assert!(
             fingerprint_report
@@ -1975,6 +1981,12 @@ reason = "hash patient identifier"
                 .field_cardinality
                 .iter()
                 .any(|entry| entry.path == "ZPV.1" && entry.total_occurrences == 1)
+        );
+        assert!(
+            fingerprint_report
+                .field_cardinality
+                .iter()
+                .any(|entry| entry.path == "MSH.3" && entry.total_occurrences == 5)
         );
         assert!(!fingerprint_debug.contains("MRN-DIRTY"));
 
@@ -1996,14 +2008,14 @@ reason = "hash patient identifier"
                 .file_count
                 .expect("file count should exist")
                 .delta,
-            5
+            6
         );
         assert_eq!(
             diff_report
                 .message_count
                 .expect("message count should exist")
                 .delta,
-            2
+            3
         );
         assert_eq!(
             diff_report
