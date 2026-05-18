@@ -25,7 +25,7 @@ pub(crate) use replay::{json_string, read_bundle_json_value};
 pub(crate) const BUNDLE_VERSION: &str = "1";
 pub(crate) const REPLAY_VERSION: &str = "1";
 pub(crate) const REPLAY_COMMAND: &str = "hl7v2 replay . --format json";
-pub(crate) const BUNDLE_ARTIFACT_SPECS: [(&str, &str); 9] = [
+pub(crate) const BUNDLE_REQUIRED_ARTIFACT_SPECS: [(&str, &str); 9] = [
     ("message.redacted.hl7", "redacted_message"),
     ("validation-report.json", "validation_report"),
     ("field-paths.json", "field_path_trace"),
@@ -35,6 +35,19 @@ pub(crate) const BUNDLE_ARTIFACT_SPECS: [(&str, &str); 9] = [
     ("replay.sh", "replay_shell_script"),
     ("replay.ps1", "replay_powershell_script"),
     ("README.md", "bundle_readme"),
+];
+
+pub(crate) const BUNDLE_ARTIFACT_SPECS: [(&str, &str); 10] = [
+    ("message.redacted.hl7", "redacted_message"),
+    ("validation-report.json", "validation_report"),
+    ("field-paths.json", "field_path_trace"),
+    ("profile.yaml", "profile"),
+    ("redaction-receipt.json", "redaction_receipt"),
+    ("environment.json", "environment"),
+    ("replay.sh", "replay_shell_script"),
+    ("replay.ps1", "replay_powershell_script"),
+    ("README.md", "bundle_readme"),
+    ("SAFE-SHARING.md", "safe_sharing_checklist"),
 ];
 
 #[cfg(test)]
@@ -114,6 +127,13 @@ reason = "Date of birth"
                 .any(|artifact| artifact == "manifest.json"),
             "expected manifest artifact",
         )?;
+        ensure(
+            summary
+                .artifacts
+                .iter()
+                .any(|artifact| artifact == "SAFE-SHARING.md"),
+            "expected safe-sharing checklist artifact",
+        )?;
         let summary_v2 = summary.to_v2("hl7v2-python", "1.3.0");
         ensure(
             summary_v2.schema_version == "2",
@@ -157,6 +177,7 @@ reason = "Date of birth"
             "field-paths.json",
             "redaction-receipt.json",
             "environment.json",
+            "SAFE-SHARING.md",
             "manifest.json",
         ] {
             artifact_text.push_str(&std::fs::read_to_string(bundle_dir.join(artifact))?);
@@ -211,6 +232,48 @@ reason = "Date of birth"
 
         let replay = replay_evidence_bundle(&bundle_dir, "hl7v2-python");
         ensure(replay.reproduced, "expected v2 bundle artifacts to replay")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn replay_accepts_legacy_bundle_without_safe_sharing_checklist()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let bundle_dir = temp.path().join("legacy-bundle");
+        write_safe_analysis_bundle(
+            raw_message(),
+            profile_yaml(),
+            policy_toml(),
+            &bundle_dir,
+            "hl7v2-python",
+        )?;
+
+        let manifest_path = bundle_dir.join("manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&manifest_path)?)?;
+        let artifacts = manifest
+            .get_mut("artifacts")
+            .and_then(serde_json::Value::as_array_mut)
+            .ok_or_else(|| std::io::Error::other("manifest artifacts should be an array"))?;
+        artifacts.retain(|artifact| {
+            artifact.get("path").and_then(serde_json::Value::as_str) != Some("SAFE-SHARING.md")
+        });
+        std::fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?)?;
+        std::fs::remove_file(bundle_dir.join("SAFE-SHARING.md"))?;
+
+        let replay = replay_evidence_bundle(&bundle_dir, "hl7v2-python");
+        ensure(
+            replay.reproduced,
+            "expected legacy bundle without SAFE-SHARING.md to replay",
+        )?;
+        ensure(
+            replay.checks.iter().any(|check| {
+                check.name == "manifest-artifacts"
+                    && check.status == EvidenceReplayCheckStatus::Pass
+            }),
+            "expected legacy manifest catalog to pass",
+        )?;
 
         Ok(())
     }

@@ -181,6 +181,7 @@ async fn test_quarantine_hook_writes_bundle_for_failed_redacted_validation() {
         "replay.sh",
         "replay.ps1",
         "README.md",
+        "SAFE-SHARING.md",
         "manifest.json",
     ] {
         assert!(

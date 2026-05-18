@@ -862,6 +862,7 @@ reason = "Patient identifier"
             "replay.sh",
             "replay.ps1",
             "README.md",
+            "SAFE-SHARING.md",
             "manifest.json",
         ]:
             if artifact not in bundle["artifacts"] or not (bundle_dir / artifact).is_file():
@@ -973,6 +974,7 @@ reason = "Patient identifier"
                 "replay.sh",
                 "replay.ps1",
                 "README.md",
+                "SAFE-SHARING.md",
             ]
         )
         evidence_text += json.dumps(replay)

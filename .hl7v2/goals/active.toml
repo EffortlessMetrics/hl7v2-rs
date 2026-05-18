@@ -86,6 +86,7 @@ canonical_sources = [
   "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/audits/first-use-guide-smoke-2026-05-18.md",
   "docs/audits/safe-support-bundle-guide-smoke-2026-05-18.md",
+  "docs/audits/support-bundle-safe-sharing-checklist-2026-05-18.md",
   "docs/audits/evidence-artifacts-guide-smoke-2026-05-18.md",
   "docs/audits/sidecar-guide-smoke-2026-05-18.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
@@ -871,6 +872,50 @@ non_claims = [
   "No TestPyPI or PyPI upload.",
   "No npm package.",
   "No tag or GitHub release.",
+]
+
+[[work_item]]
+id = "support-bundle-safe-sharing-checklist"
+status = "done"
+goal = "Generate a manifest-hashed safe-sharing checklist in CLI, core/Python, REST, and gRPC support bundles while keeping replay compatible with older bundles that lack the advisory file."
+receipt = "docs/audits/support-bundle-safe-sharing-checklist-2026-05-18.md"
+commands = [
+  "cargo +1.95.0 fmt --all -- --check",
+  "cargo +1.95.0 test -p hl7v2 evidence::tests::bundle_and_replay_keep_phi_out_of_reports --all-features --locked",
+  "cargo +1.95.0 test -p hl7v2 evidence::tests::replay_accepts_legacy_bundle_without_safe_sharing_checklist --all-features --locked",
+  "cargo +1.95.0 test -p hl7v2-cli test_bundle_writes_redacted_replayable_evidence_artifacts --test integration_tests --locked",
+  "cargo +1.95.0 test -p hl7v2-cli test_replay_accepts_legacy_bundle_without_safe_sharing_checklist --test integration_tests --locked",
+  "cargo +1.95.0 test -p hl7v2-server test_bundle_endpoint_writes_redacted_evidence_bundle --test bundle_endpoint_test --locked",
+  "cargo +1.95.0 test -p hl7v2-server test_grpc_validate_redacted_writes_quarantine_for_failed_validation --test grpc_contract_tests --locked",
+  "cargo +1.95.0 test -p hl7v2-server test_grpc_create_evidence_bundle_writes_redacted_bundle_and_v2_artifacts --test grpc_contract_tests --locked",
+  "cargo +1.95.0 test -p hl7v2-server test_quarantine_hook_writes_bundle_for_failed_redacted_validation --test quarantine_output_hooks_test --locked",
+  "cargo +1.95.0 test -p xtask --locked",
+  "cargo +1.95.0 clippy -p hl7v2 -p hl7v2-cli -p hl7v2-server --all-targets --locked -- -D warnings",
+  "cargo +1.95.0 run -p xtask -- check-safe-support-bundle-guide",
+  "cargo +1.95.0 run -p xtask -- check-evidence-artifacts-guide",
+  "cargo +1.95.0 run -p xtask -- check-first-use-guides",
+  "cargo +1.95.0 run -p xtask -- check-sidecar-guide",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- python-local-wheel-proof",
+  "cargo +1.95.0 run -p xtask -- evidence-schema-check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- check-lint-policy",
+  "cargo +1.95.0 run -p xtask -- check-no-panic-family",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- policy-report",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "python -c \"import tomllib, pathlib; tomllib.loads(pathlib.Path('.hl7v2/goals/active.toml').read_text(encoding='utf-8'))\"",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No new crates.io release.",
+  "No Python public-registry install-back proof.",
 ]
 
 [[work_item]]

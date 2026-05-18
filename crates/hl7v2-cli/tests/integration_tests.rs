@@ -2793,6 +2793,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "replay.sh",
             "replay.ps1",
             "README.md",
+            "SAFE-SHARING.md",
             "manifest.json",
         ] {
             assert!(
@@ -2817,6 +2818,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "replay.sh",
             "replay.ps1",
             "README.md",
+            "SAFE-SHARING.md",
             "manifest.json",
         ] {
             let content = std::fs::read_to_string(bundle_dir.join(artifact)).unwrap();
@@ -2878,7 +2880,13 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         assert!(readme.contains("HL7v2 Evidence Bundle"));
         assert!(readme.contains("hl7v2 replay . --format json"));
         assert!(readme.contains("write `replay-report.json`"));
+        assert!(readme.contains("SAFE-SHARING.md"));
         assert!(!readme.contains(dir.path().to_string_lossy().as_ref()));
+        let safe_sharing = std::fs::read_to_string(bundle_dir.join("SAFE-SHARING.md")).unwrap();
+        assert!(safe_sharing.contains("Safe Sharing Checklist"));
+        assert!(safe_sharing.contains("not universal PHI clearance"));
+        assert!(safe_sharing.contains("hl7v2 replay . --format json"));
+        assert!(!safe_sharing.contains(dir.path().to_string_lossy().as_ref()));
 
         let manifest: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(bundle_dir.join("manifest.json")).unwrap(),
@@ -2887,7 +2895,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         assert_eq!(manifest["bundle_version"], "1");
         assert_eq!(manifest["tool_name"], "hl7v2-cli");
         let artifacts = manifest["artifacts"].as_array().unwrap();
-        assert_eq!(artifacts.len(), 9);
+        assert_eq!(artifacts.len(), 10);
         assert!(artifacts.iter().any(|artifact| {
             artifact["path"] == "message.redacted.hl7"
                 && artifact["role"] == "redacted_message"
@@ -2901,6 +2909,11 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         assert!(artifacts.iter().any(|artifact| {
             artifact["path"] == "README.md"
                 && artifact["role"] == "bundle_readme"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
+        }));
+        assert!(artifacts.iter().any(|artifact| {
+            artifact["path"] == "SAFE-SHARING.md"
+                && artifact["role"] == "safe_sharing_checklist"
                 && artifact["sha256"].as_str().is_some_and(is_sha256_hex)
         }));
     }
@@ -2997,6 +3010,7 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "replay.sh",
             "replay.ps1",
             "README.md",
+            "SAFE-SHARING.md",
             "manifest.json",
         ] {
             let content = std::fs::read_to_string(bundle_dir.join(artifact)).unwrap();
@@ -3333,6 +3347,62 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
                 .iter()
                 .any(|check| check["name"] == "manifest" && check["status"] == "fail")
         );
+    }
+
+    #[test]
+    fn test_replay_accepts_legacy_bundle_without_safe_sharing_checklist()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = create_temp_dir();
+        let bundle_dir = create_replayable_bundle(&dir);
+        let manifest_path = bundle_dir.join("manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&manifest_path)?)?;
+        let artifacts = manifest
+            .get_mut("artifacts")
+            .and_then(serde_json::Value::as_array_mut)
+            .ok_or_else(|| std::io::Error::other("manifest artifacts should be an array"))?;
+        artifacts.retain(|artifact| {
+            artifact.get("path").and_then(serde_json::Value::as_str) != Some("SAFE-SHARING.md")
+        });
+        std::fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest)?)?;
+        std::fs::remove_file(bundle_dir.join("SAFE-SHARING.md"))?;
+
+        let bundle_arg = bundle_dir
+            .to_str()
+            .ok_or_else(|| std::io::Error::other("bundle path should be valid UTF-8"))?;
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["replay", bundle_arg, "--format", "json"])
+            .output()
+            .map_err(|error| std::io::Error::other(format!("Failed to execute replay: {error}")))?;
+
+        if !output.status.success() {
+            return Err(std::io::Error::other("legacy replay command failed").into());
+        }
+        let stdout = String::from_utf8(output.stdout)?;
+        let report: serde_json::Value = serde_json::from_str(&stdout)?;
+        if report
+            .get("reproduced")
+            .and_then(serde_json::Value::as_bool)
+            != Some(true)
+        {
+            return Err(std::io::Error::other("legacy replay did not reproduce").into());
+        }
+        let manifest_catalog_passed = report
+            .get("checks")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|checks| {
+                checks.iter().any(|check| {
+                    check.get("name").and_then(serde_json::Value::as_str)
+                        == Some("manifest-artifacts")
+                        && check.get("status").and_then(serde_json::Value::as_str) == Some("pass")
+                })
+            });
+        if !manifest_catalog_passed {
+            return Err(std::io::Error::other("legacy manifest catalog did not pass").into());
+        }
+
+        Ok(())
     }
 
     #[test]
@@ -5248,6 +5318,7 @@ reason = "message type is needed for analysis"
             "field-paths.json",
             "redaction-receipt.json",
             "environment.json",
+            "SAFE-SHARING.md",
             "manifest.json",
         ] {
             let text = std::fs::read_to_string(bundle.join(artifact))

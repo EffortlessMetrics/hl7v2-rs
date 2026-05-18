@@ -1346,6 +1346,7 @@ reason = "hash patient identifier"
             "replay.sh",
             "replay.ps1",
             "README.md",
+            "SAFE-SHARING.md",
             "manifest.json",
         ] {
             let artifact_path = quarantine_dir.join(artifact);
@@ -1501,6 +1502,7 @@ reason = "hash patient identifier"
             "replay.sh",
             "replay.ps1",
             "README.md",
+            "SAFE-SHARING.md",
             "manifest.json",
         ] {
             assert!(

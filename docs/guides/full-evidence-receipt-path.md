@@ -273,7 +273,9 @@ After any route, inspect the artifacts in this order:
 3. `bundle-summary.json`: confirm artifact list, validation status, and
    redaction status.
 4. `manifest.json`: confirm bundle-relative paths and hashes.
-5. `replay-report.json`: require `reproduced = true` before treating the
+5. `SAFE-SHARING.md`: review replay, retained-field, profile, raw-input, and
+   whole-bundle sharing checks.
+6. `replay-report.json`: require `reproduced = true` before treating the
    bundle as shareable proof.
 
 Use [Evidence Artifacts For Operators](evidence-artifacts-for-operators.md) to

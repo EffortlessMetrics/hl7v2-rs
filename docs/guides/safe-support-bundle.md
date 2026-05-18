@@ -37,6 +37,7 @@ handoff packet for a vendor, support engineer, data team, or agent.
 | `issue-bundle/environment.json` | Tool version, input/profile/policy hashes, and replay command. |
 | `issue-bundle/manifest.json` | Bundle-relative artifact paths, roles, and SHA-256 hashes. |
 | `issue-bundle/README.md` | Human-readable explanation of the bundle and its limits. |
+| `issue-bundle/SAFE-SHARING.md` | Operator checklist for review before attaching the packet to a ticket. |
 | `replay-report.json` | Replay verification report. |
 
 These artifacts are intended for support tickets and regression evidence. They
@@ -185,6 +186,7 @@ Expected summary fields:
     "replay.sh",
     "replay.ps1",
     "README.md",
+    "SAFE-SHARING.md",
     "manifest.json"
   ]
 }
@@ -207,6 +209,7 @@ Open these artifacts before attaching the bundle to a ticket:
 | `environment.json` | Tool version, hashes, and replay command are present. |
 | `manifest.json` | Every artifact has a bundle-relative path, role, and SHA-256 hash. |
 | `README.md` | The packet explains how to replay it and what safety limits remain. |
+| `SAFE-SHARING.md` | The packet carries the exact pre-share checklist for replay, retained fields, profile review, and PHI limits. |
 
 For this fixture, the validation report should include:
 

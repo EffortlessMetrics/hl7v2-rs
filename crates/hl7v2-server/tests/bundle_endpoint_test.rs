@@ -177,6 +177,7 @@ async fn test_bundle_endpoint_writes_redacted_evidence_bundle() {
         "replay.sh",
         "replay.ps1",
         "README.md",
+        "SAFE-SHARING.md",
         "manifest.json",
     ] {
         assert!(
@@ -197,6 +198,7 @@ async fn test_bundle_endpoint_writes_redacted_evidence_bundle() {
         "replay.sh",
         "replay.ps1",
         "README.md",
+        "SAFE-SHARING.md",
         "manifest.json",
     ] {
         let content = fs::read_to_string(bundle_dir.join(artifact)).unwrap();
@@ -225,6 +227,15 @@ async fn test_bundle_endpoint_writes_redacted_evidence_bundle() {
             .iter()
             .any(|artifact| artifact["path"] == "message.redacted.hl7"
                 && artifact["role"] == "redacted_message"
+                && artifact["sha256"].as_str().is_some_and(is_sha256_hex))
+    );
+    assert!(
+        manifest["artifacts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|artifact| artifact["path"] == "SAFE-SHARING.md"
+                && artifact["role"] == "safe_sharing_checklist"
                 && artifact["sha256"].as_str().is_some_and(is_sha256_hex))
     );
 

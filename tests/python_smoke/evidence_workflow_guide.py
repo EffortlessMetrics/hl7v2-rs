@@ -191,7 +191,7 @@ def main() -> int:
     expected = {
         "ack_msa": True,
         "after_message_count": 1,
-        "bundle_artifacts": 10,
+        "bundle_artifacts": 11,
         "diff_field_presence_deltas": 0,
         "generated_message_count": 2,
         "profile_explain_segments": 2,

@@ -55,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask check-sidecar-guide` to start a local HTTP sidecar and prove the
   deployment guide's readiness, redacted validation, invalid-message quarantine,
   bundle, replay, ACK policy, metrics, corpus diff, and PHI-sentinel path.
+- Added generated `SAFE-SHARING.md` checklists to CLI, Python/core, and server
+  evidence bundles so support packets carry a reviewed pre-share checklist.
 - Added gRPC evidence replay parity with configured-root bundle replay,
   fail-closed missing/unsafe bundle handling, shared replay reports, and opt-in
   v2 replay provenance.

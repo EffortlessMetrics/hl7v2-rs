@@ -18,9 +18,9 @@ cargo +1.95.0 run -p xtask -- check-evidence-artifacts-guide
 ```
 
 That command generates representative doctor, profile, validation, corpus,
-redaction, bundle, manifest, environment, field-path, and replay artifacts
-under `target/hl7v2-evidence-artifacts/` and checks the reader fields this
-guide tells operators to inspect.
+redaction, bundle, manifest, environment, field-path, safe-sharing, and replay
+artifacts under `target/hl7v2-evidence-artifacts/` and checks the reader fields
+this guide tells operators to inspect.
 
 ## Quick Routing
 
@@ -40,6 +40,7 @@ guide tells operators to inspect.
 | Evidence bundle summary | You need a top-level bundle receipt. | Usually. It should not expose local roots. | Validation status, redaction status, output ID, and artifact list. |
 | Bundle manifest | You need integrity proof for bundle files. | Yes if bundle-relative paths are acceptable. | Every artifact has a role, relative path, and SHA-256 hash. |
 | Bundle environment | You need tool/version/hash provenance. | Review first. It may reveal operational metadata. | Tool version, input/profile/policy hashes, and replay command. |
+| Safe-sharing checklist | You need the human pre-send review steps for a support packet. | Advisory only. Review and follow it before sharing. | Replay is reproduced, retained fields are justified, and the original raw HL7 is not attached. |
 | Replay report | You need proof that a bundle still reproduces. | Usually. It should not dump artifact contents. | `reproduced` and checks such as manifest hashes and report match. |
 | Quarantine output summary | You need server-side failed-validation evidence. | Usually, after confirming root-relative IDs only. | Reason, issue count, artifact names, and no configured root path. |
 
@@ -288,6 +289,27 @@ Version behavior: bundle artifacts default to v1 unless bundle schema version
 
 Next action when red: if tool or hash provenance is missing, regenerate the
 bundle with the current release before using it as a support receipt.
+
+### Safe-Sharing Checklist
+
+What it proves: the bundle carries the operator pre-send review checklist that
+was generated with the rest of the packet.
+
+What it does not prove: it is not machine-readable proof that a human completed
+the review, and it is not a blanket PHI clearance.
+
+PHI and sharing: the checklist should not contain raw HL7, configured roots, or
+raw bundle IDs. It tells operators to run replay, review retained fields, review
+the supplied profile, avoid attaching raw inputs or secrets, and share the whole
+bundle so manifest hashes remain useful.
+
+Version behavior: this file is advisory human text. Its presence in newer
+bundles is manifest-hashed, but the exact English text is not a stable
+automation contract.
+
+Next action when red: if the checklist is missing from a newer bundle, replay
+can still validate legacy bundles, but regenerate the packet before sending it
+as a current support receipt.
 
 ### Replay Report
 
