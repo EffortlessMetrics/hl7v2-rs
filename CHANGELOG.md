@@ -108,6 +108,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Refreshed the manifest-linked cross-surface evidence parity gap audit after
+  guide smokes, dirty-corpus expansion, and Python public-registry proof
+  boundaries landed on `main`.
 - Recorded a second hosted-traffic calibration audit for the advisory `ripr`
   evidence surface after evidence-parity and Python-proof PR traffic, keeping
   the lane non-blocking.
