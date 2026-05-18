@@ -91,6 +91,9 @@ fn main() -> Result<()> {
         Commands::CheckSafeErrorPhiParity { include_python } => {
             check_safe_error_phi_parity(include_python)?;
         }
+        Commands::CheckProfileParity { include_python } => {
+            check_profile_parity(include_python)?;
+        }
         Commands::CheckSchemaVersionParity { include_python } => {
             check_schema_version_parity(include_python)?;
         }
@@ -4823,6 +4826,7 @@ fn check_evidence_parity_acceptance(include_python: bool) -> Result<()> {
     println!("🔎 Checking cross-surface evidence parity acceptance...");
     check_evidence_parity()?;
     check_safe_error_phi_parity(include_python)?;
+    check_profile_parity(include_python)?;
     check_schema_version_parity(include_python)?;
     check_dirty_corpus_parity(include_python)?;
     check_bundle_replay_parity(include_python)?;
@@ -7396,6 +7400,80 @@ fn check_safe_error_phi_parity(include_python: bool) -> Result<()> {
     Ok(())
 }
 
+fn check_profile_parity(include_python: bool) -> Result<()> {
+    println!("ðŸ”Ž Checking profile lint/explain/test parity acceptance...");
+
+    let commands: &[(&str, &[&str])] = &[
+        (
+            "Rust profile facade evidence behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2",
+                "--test",
+                "conformance_facade",
+                "--all-features",
+                "--locked",
+                "profile_facade",
+            ],
+        ),
+        (
+            "CLI profile lint/explain/test behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-cli",
+                "--test",
+                "integration_tests",
+                "--locked",
+                "profile_command",
+            ],
+        ),
+        (
+            "REST profile endpoint behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "profile_endpoint_test",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC profile RPC behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "--locked",
+                "profile",
+            ],
+        ),
+    ];
+
+    for (label, args) in commands {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
+    if include_python {
+        println!("Checking Python local-wheel profile smoke...");
+        run_command("python", &["tests/python_smoke/smoke.py"])?;
+        println!("Checking Python evidence workflow guide...");
+        run_command("python", &["tests/python_smoke/evidence_workflow_guide.py"])?;
+    } else {
+        println!(
+            "Python local-wheel smoke skipped; pass --include-python after installing the hl7v2 wheel."
+        );
+    }
+
+    println!("âœ… Profile lint/explain/test parity acceptance checks passed!");
+    Ok(())
+}
+
 fn check_schema_version_parity(include_python: bool) -> Result<()> {
     println!("🔎 Checking schema-version parity acceptance...");
 
@@ -8048,6 +8126,21 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         contracts,
         "schema-version-behavior",
         "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_separates_errors_from_warnings --locked",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "normalize",
+        "cargo test -p hl7v2-server --test http_runtime_contract_test",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "profile-lint-explain-test",
+        "cargo run -p xtask -- check-profile-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "profile-lint-explain-test",
+        "cargo test -p hl7v2-server --test profile_endpoint_test",
     )?;
     ensure_contract_proof_contains(
         contracts,
@@ -10751,6 +10844,69 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
                 "evidence parity policy should reject a missing safe-error/PHI runner"
             )),
             Err(err) if err.to_string().contains("check-safe-error-phi-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_normalize_http_proof() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo test -p hl7v2-server --test http_runtime_contract_test\",",
+            "\"cargo test -p hl7v2-server --test old_runtime_contract_test\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject missing normalize HTTP proof"
+            )),
+            Err(err) if err.to_string().contains("http_runtime_contract_test") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_profile_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-profile-parity\",",
+            "\"cargo run -p xtask -- old-profile-parity\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing profile runner"
+            )),
+            Err(err) if err.to_string().contains("check-profile-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_rest_profile_proof() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo test -p hl7v2-server --test profile_endpoint_test\",",
+            "\"cargo test -p hl7v2-server --test old_profile_endpoint_test\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing REST profile proof"
+            )),
+            Err(err) if err.to_string().contains("profile_endpoint_test") => Ok(()),
             Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
         }
     }
