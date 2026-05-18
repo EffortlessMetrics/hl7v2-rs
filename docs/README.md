@@ -93,6 +93,7 @@ proposal, spec, plan, or receipt documents.
 | [Dirty real-world Python evidence workflow proof](audits/dirty-real-world-python-evidence-workflow-2026-05-17.md) | Local Python wheel validate/redact/bundle/replay proof using the shared dirty Z-segment fixture. |
 | [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
 | [First-use guide smoke](audits/first-use-guide-smoke-2026-05-18.md) | Executable `xtask check-first-use-guides` proof for the documented full evidence receipt path. |
+| [Safe support-bundle guide smoke](audits/safe-support-bundle-guide-smoke-2026-05-18.md) | Executable `xtask check-safe-support-bundle-guide` proof for the operator support packet recipe. |
 | [Public crates install and first-use smoke](audits/public-crates-install-first-use-2026-05-16.md) | Repeatable crates.io install-back smoke for `hl7v2`, `hl7v2-cli`, and `hl7v2-server` v1.5.0 first-use paths. |
 | [gRPC enhanced ACK parity receipt](audits/grpc-enhanced-ack-parity-2026-05-16.md) | gRPC `GenerateAck` parity for all six supported ACK codes: `AA`, `AE`, `AR`, `CA`, `CE`, and `CR`. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |

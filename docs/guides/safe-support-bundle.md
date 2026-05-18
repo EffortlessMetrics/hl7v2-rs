@@ -13,6 +13,12 @@ instead:
 cargo run -q -p hl7v2-cli -- support-bundle failing.hl7 --profile profile.yaml --redact-policy safe-analysis.toml --out issue-bundle/
 ```
 
+Source checkouts can verify the copy/paste recipe with:
+
+```bash
+cargo +1.95.0 run -p xtask -- check-safe-support-bundle-guide
+```
+
 `support-bundle` is the operator-focused alias for `bundle`. Both commands
 produce the same evidence packet; use `support-bundle` when the job is a safe
 handoff packet for a vendor, support engineer, data team, or agent.
