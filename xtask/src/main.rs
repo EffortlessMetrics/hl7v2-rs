@@ -5162,6 +5162,13 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         "issues/563",
         EVIDENCE_PARITY_MANIFEST_PATH,
     )?;
+    ensure_pyproject_array_contains(
+        &manifest,
+        "[surface.python]",
+        "proof",
+        "cargo run -p xtask -- python-local-wheel-proof",
+        EVIDENCE_PARITY_MANIFEST_PATH,
+    )?;
     ensure_pyproject_string_value(
         &manifest,
         "[surface.typescript]",
@@ -7481,6 +7488,33 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
             Err(err)
                 if err.to_string().contains("python state")
                     && err.to_string().contains("public registry claim") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_python_local_wheel_proof_command() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "  \"cargo run -p xtask -- python-local-wheel-proof\",\n",
+            "",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should require the Python local wheel proof command"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("cargo run -p xtask -- python-local-wheel-proof") =>
             {
                 Ok(())
             }

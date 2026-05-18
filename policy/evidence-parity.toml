@@ -65,6 +65,7 @@ backend_crate = "hl7v2-python"
 tier = "experimental-local-wheel"
 role = "Python user package backed by hl7v2-python; public registry proof is blocked by TestPyPI Trusted Publisher setup."
 proof = [
+  "cargo run -p xtask -- python-local-wheel-proof",
   "python tests/python_smoke/smoke.py",
   "python tests/python_smoke/evidence_workflow_guide.py",
 ]
