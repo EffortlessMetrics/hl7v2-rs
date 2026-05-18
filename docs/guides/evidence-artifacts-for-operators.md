@@ -11,6 +11,17 @@ schema files themselves, use [schemas/README.md](../../schemas/README.md). For
 stable/advisory field rules and semver expectations, use the
 [Evidence Artifact Compatibility Policy](../contracts/evidence-artifact-compatibility-policy.md).
 
+Executable source-checkout smoke:
+
+```text
+cargo +1.95.0 run -p xtask -- check-evidence-artifacts-guide
+```
+
+That command generates representative doctor, profile, validation, corpus,
+redaction, bundle, manifest, environment, field-path, and replay artifacts
+under `target/hl7v2-evidence-artifacts/` and checks the reader fields this
+guide tells operators to inspect.
+
 ## Quick Routing
 
 | Artifact | Use when | Safe to share by default? | First check |

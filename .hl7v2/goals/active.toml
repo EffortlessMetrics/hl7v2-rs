@@ -86,6 +86,7 @@ canonical_sources = [
   "docs/audits/user-journey-acceptance-2026-05-15.md",
   "docs/audits/first-use-guide-smoke-2026-05-18.md",
   "docs/audits/safe-support-bundle-guide-smoke-2026-05-18.md",
+  "docs/audits/evidence-artifacts-guide-smoke-2026-05-18.md",
   "docs/audits/sidecar-guide-smoke-2026-05-18.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
@@ -118,6 +119,7 @@ proof_commands = [
   "cargo +1.95.0 run -p xtask -- check-evidence-parity",
   "cargo +1.95.0 run -p xtask -- check-first-use-guides",
   "cargo +1.95.0 run -p xtask -- check-safe-support-bundle-guide",
+  "cargo +1.95.0 run -p xtask -- check-evidence-artifacts-guide",
   "cargo +1.95.0 run -p xtask -- check-sidecar-guide",
   "cargo +1.95.0 run -p xtask -- badges --check",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
@@ -2032,6 +2034,36 @@ commands = [
   "cargo +1.95.0 run -p xtask -- check-first-use-guides",
   "cargo +1.95.0 run -p xtask -- check-doc-links",
   "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No new crates.io release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "evidence-artifacts-guide-smoke-runner"
+status = "done"
+goal = "Add one executable source-checkout command for the operator evidence artifact interpretation guide."
+receipt = "docs/audits/evidence-artifacts-guide-smoke-2026-05-18.md"
+commands = [
+  "cargo +1.95.0 fmt --all -- --check",
+  "cargo +1.95.0 run -p xtask -- check-evidence-artifacts-guide",
+  "cargo +1.95.0 clippy -p xtask --all-targets --locked -- -D warnings",
+  "cargo +1.95.0 test -p xtask check_evidence_artifacts_guide --locked",
+  "cargo +1.95.0 test -p xtask --locked",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- check-no-panic-family",
+  "cargo +1.95.0 run -p xtask -- check-lint-policy",
   "cargo +1.95.0 run -p xtask -- badges --check",
   "cargo +1.95.0 run -p xtask -- impacted-evidence",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",

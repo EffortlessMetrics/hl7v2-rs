@@ -75,6 +75,7 @@ fn main() -> Result<()> {
             include_public_crates,
         } => check_first_use_guides(include_python, include_public_crates)?,
         Commands::CheckSafeSupportBundleGuide => check_safe_support_bundle_guide()?,
+        Commands::CheckEvidenceArtifactsGuide => check_evidence_artifacts_guide()?,
         Commands::CheckSidecarGuide => check_sidecar_guide()?,
         Commands::CheckSafeErrorPhiParity { include_python } => {
             check_safe_error_phi_parity(include_python)?;
@@ -4395,6 +4396,7 @@ action = "retain"
 reason = "administrative sex is required to reproduce validation"
 "#;
 const SAFE_SUPPORT_BUNDLE_GUIDE_ROOT: &str = "target/hl7v2-safe-support-bundle";
+const EVIDENCE_ARTIFACTS_GUIDE_ROOT: &str = "target/hl7v2-evidence-artifacts";
 const SIDECAR_GUIDE_ROOT: &str = "target/hl7v2-sidecar";
 const SIDECAR_GUIDE_CONFIG: &str = r#"[server]
 host = "127.0.0.1"
@@ -5014,6 +5016,391 @@ fn check_safe_support_bundle_guide() -> Result<()> {
 
     println!(
         "Safe Support Bundle guide recipe wrote {}",
+        guide_root.display()
+    );
+    Ok(())
+}
+
+fn check_evidence_artifacts_guide() -> Result<()> {
+    println!("Checking Evidence Artifacts For Operators guide recipe...");
+    let workspace_root = env::current_dir()?;
+    let guide_root = workspace_root.join(EVIDENCE_ARTIFACTS_GUIDE_ROOT);
+    let target_root = workspace_root.join("target");
+    if !guide_root.starts_with(&target_root) {
+        return Err(anyhow!(
+            "refusing to prepare evidence artifact guide output outside target/: {}",
+            guide_root.display()
+        ));
+    }
+    if guide_root.exists() {
+        fs::remove_dir_all(&guide_root)?;
+    }
+
+    let reports = guide_root.join("reports");
+    let fixtures = guide_root.join("profile-fixtures");
+    let valid_fixtures = fixtures.join("valid");
+    let invalid_fixtures = fixtures.join("invalid");
+    fs::create_dir_all(&reports)?;
+    fs::create_dir_all(&valid_fixtures)?;
+    fs::create_dir_all(&invalid_fixtures)?;
+
+    let policy = guide_root.join("safe-analysis.toml");
+    fs::write(&policy, SAFE_SUPPORT_BUNDLE_REDACTION_POLICY)?;
+
+    let profile = workspace_root.join("profiles/generic.yaml");
+    let valid_message = workspace_root.join("test_data/valid_message.hl7");
+    let invalid_message = workspace_root.join("test_data/invalid_message.hl7");
+    let dirty_before = workspace_root.join("test_data/dirty-real-world/before");
+    let dirty_after = workspace_root.join("test_data/dirty-real-world/after");
+    ensure_existing_file(&profile)?;
+    ensure_existing_file(&valid_message)?;
+    ensure_existing_file(&invalid_message)?;
+
+    fs::copy(&valid_message, valid_fixtures.join("valid-message.hl7"))?;
+    fs::copy(
+        &invalid_message,
+        invalid_fixtures.join("invalid-message.hl7"),
+    )?;
+
+    let doctor = run_cli_guide_command_capture(
+        "operator artifacts doctor report",
+        vec![
+            "doctor".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let doctor_json: serde_json::Value = serde_json::from_str(&doctor)?;
+    ensure_json_has_key(&doctor_json, "version", "operator artifacts doctor report")?;
+    ensure_json_has_key(&doctor_json, "checks", "operator artifacts doctor report")?;
+
+    let profile_lint = reports.join("profile-lint.json");
+    run_cli_guide_command(
+        "operator artifacts profile lint report",
+        vec![
+            "profile".to_string(),
+            "lint".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&profile_lint)?,
+        ],
+    )?;
+    let lint = read_json_file(&profile_lint)?;
+    let lint_label = path_to_arg(&profile_lint)?;
+    ensure_json_path_bool(&lint, &["valid"], true, &lint_label)?;
+    ensure_json_path_u64(&lint, &["error_count"], 0, &lint_label)?;
+    ensure_json_path_u64(&lint, &["issue_count"], 0, &lint_label)?;
+
+    let profile_explain = reports.join("profile-explain.json");
+    run_cli_guide_command(
+        "operator artifacts profile explain report",
+        vec![
+            "profile".to_string(),
+            "explain".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&profile_explain)?,
+        ],
+    )?;
+    let explain = read_json_file(&profile_explain)?;
+    let explain_label = path_to_arg(&profile_explain)?;
+    ensure_json_path_string(&explain, &["message_structure"], "GENERIC", &explain_label)?;
+    ensure_json_path_u64(
+        &explain,
+        &["summary", "required_field_count"],
+        1,
+        &explain_label,
+    )?;
+    ensure_json_object_array_contains_fields(
+        &explain,
+        &["required_fields"],
+        &[("path", "PID.3")],
+        &explain_label,
+    )?;
+    ensure_json_object_array_contains_fields(
+        &explain,
+        &["value_sets"],
+        &[("path", "PID.8"), ("name", "HL70001")],
+        &explain_label,
+    )?;
+
+    let profile_test = reports.join("profile-test.json");
+    run_cli_guide_command(
+        "operator artifacts profile test report",
+        vec![
+            "profile".to_string(),
+            "test".to_string(),
+            path_to_arg(&profile)?,
+            path_to_arg(&fixtures)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&profile_test)?,
+        ],
+    )?;
+    let test_report = read_json_file(&profile_test)?;
+    let test_label = path_to_arg(&profile_test)?;
+    ensure_json_path_bool(&test_report, &["valid"], true, &test_label)?;
+    ensure_json_path_u64(&test_report, &["case_count"], 2, &test_label)?;
+    ensure_json_path_u64(&test_report, &["failed_count"], 0, &test_label)?;
+
+    let validation_report = reports.join("validation-report.json");
+    run_cli_guide_command_allow_codes(
+        "operator artifacts validation report",
+        vec![
+            "val".to_string(),
+            path_to_arg(&invalid_message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&validation_report)?,
+        ],
+        &[0, 1],
+    )?;
+    let validation = read_json_file(&validation_report)?;
+    let validation_label = path_to_arg(&validation_report)?;
+    ensure_json_path_bool(&validation, &["valid"], false, &validation_label)?;
+    ensure_json_path_u64(&validation, &["issue_count"], 1, &validation_label)?;
+    ensure_json_object_array_contains_fields(
+        &validation,
+        &["issues"],
+        &[
+            ("code", "value_not_in_set"),
+            ("path", "PID.8"),
+            ("severity", "error"),
+        ],
+        &validation_label,
+    )?;
+    ensure_file_lacks_phi_sentinels(&validation_report)?;
+
+    let corpus_summary = reports.join("corpus-summary.json");
+    run_cli_guide_command(
+        "operator artifacts corpus summary",
+        vec![
+            "corpus".to_string(),
+            "summarize".to_string(),
+            path_to_arg(&dirty_before)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&corpus_summary)?,
+        ],
+    )?;
+    let summary = read_json_file(&corpus_summary)?;
+    let summary_label = path_to_arg(&corpus_summary)?;
+    ensure_json_path_u64(&summary, &["file_count"], 2, &summary_label)?;
+    ensure_json_path_u64(&summary, &["parse_error_count"], 2, &summary_label)?;
+    ensure_file_lacks_phi_sentinels(&corpus_summary)?;
+
+    let corpus_fingerprint = reports.join("corpus-fingerprint.json");
+    run_cli_guide_command(
+        "operator artifacts corpus fingerprint",
+        vec![
+            "corpus".to_string(),
+            "fingerprint".to_string(),
+            path_to_arg(&dirty_before)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&corpus_fingerprint)?,
+        ],
+    )?;
+    let fingerprint = read_json_file(&corpus_fingerprint)?;
+    let fingerprint_label = path_to_arg(&corpus_fingerprint)?;
+    ensure_json_path_string(
+        &fingerprint,
+        &["fingerprint_version"],
+        "1",
+        &fingerprint_label,
+    )?;
+    ensure_json_path_u64(&fingerprint, &["file_count"], 2, &fingerprint_label)?;
+    ensure_json_path_u64(&fingerprint, &["parse_error_count"], 2, &fingerprint_label)?;
+    ensure_json_path_string(
+        &fingerprint,
+        &["profile", "version"],
+        "2.5.1",
+        &fingerprint_label,
+    )?;
+    ensure_file_lacks_phi_sentinels(&corpus_fingerprint)?;
+
+    let corpus_diff = reports.join("corpus-diff.json");
+    run_cli_guide_command(
+        "operator artifacts corpus diff",
+        vec![
+            "corpus".to_string(),
+            "diff".to_string(),
+            path_to_arg(&dirty_before)?,
+            path_to_arg(&dirty_after)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&corpus_diff)?,
+        ],
+    )?;
+    let diff = read_json_file(&corpus_diff)?;
+    let diff_label = path_to_arg(&corpus_diff)?;
+    ensure_json_path_string(&diff, &["diff_version"], "1", &diff_label)?;
+    ensure_json_path_u64(&diff, &["file_count", "before"], 2, &diff_label)?;
+    ensure_json_path_u64(&diff, &["file_count", "after"], 5, &diff_label)?;
+    ensure_json_path_u64(&diff, &["parse_error_count", "before"], 2, &diff_label)?;
+    ensure_json_path_u64(&diff, &["parse_error_count", "after"], 5, &diff_label)?;
+    ensure_file_lacks_phi_sentinels(&corpus_diff)?;
+
+    let redaction_preview = reports.join("redaction-preview.json");
+    run_cli_guide_command(
+        "operator artifacts redaction preview",
+        vec![
+            "redact".to_string(),
+            path_to_arg(&invalid_message)?,
+            "--policy".to_string(),
+            path_to_arg(&policy)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&redaction_preview)?,
+        ],
+    )?;
+    let redaction = read_json_file(&redaction_preview)?;
+    let redaction_label = path_to_arg(&redaction_preview)?;
+    ensure_json_path_bool(
+        &redaction,
+        &["receipt", "phi_removed"],
+        true,
+        &redaction_label,
+    )?;
+    ensure_json_object_array_contains_fields(
+        &redaction,
+        &["receipt", "actions"],
+        &[("path", "PID.8"), ("action", "retain")],
+        &redaction_label,
+    )?;
+    ensure_file_lacks_phi_sentinels(&redaction_preview)?;
+
+    let bundle = guide_root.join("issue-bundle");
+    let bundle_summary = reports.join("bundle-summary.json");
+    run_cli_guide_command(
+        "operator artifacts support bundle",
+        vec![
+            "support-bundle".to_string(),
+            path_to_arg(&invalid_message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--redact-policy".to_string(),
+            path_to_arg(&policy)?,
+            "--out".to_string(),
+            path_to_arg(&bundle)?,
+            "--output".to_string(),
+            path_to_arg(&bundle_summary)?,
+        ],
+    )?;
+    let bundle_summary_json = read_json_file(&bundle_summary)?;
+    let bundle_summary_label = path_to_arg(&bundle_summary)?;
+    ensure_json_path_bool(
+        &bundle_summary_json,
+        &["validation_valid"],
+        false,
+        &bundle_summary_label,
+    )?;
+    ensure_json_path_bool(
+        &bundle_summary_json,
+        &["redaction_phi_removed"],
+        true,
+        &bundle_summary_label,
+    )?;
+    for artifact in [
+        "message.redacted.hl7",
+        "validation-report.json",
+        "field-paths.json",
+        "redaction-receipt.json",
+        "environment.json",
+        "manifest.json",
+        "README.md",
+        "replay.ps1",
+        "replay.sh",
+    ] {
+        ensure_json_array_contains_string(
+            &bundle_summary_json,
+            &["artifacts"],
+            artifact,
+            &bundle_summary_label,
+        )?;
+        let artifact_path = bundle.join(artifact);
+        ensure_existing_file(&artifact_path)?;
+        ensure_file_lacks_phi_sentinels(&artifact_path)?;
+    }
+    ensure_file_lacks_phi_sentinels(&bundle_summary)?;
+
+    let manifest = read_json_file(&bundle.join("manifest.json"))?;
+    let manifest_label = path_to_arg(&bundle.join("manifest.json"))?;
+    ensure_json_path_string(&manifest, &["bundle_version"], "1", &manifest_label)?;
+    ensure_json_object_array_contains_fields(
+        &manifest,
+        &["artifacts"],
+        &[
+            ("role", "redacted_message"),
+            ("path", "message.redacted.hl7"),
+        ],
+        &manifest_label,
+    )?;
+    ensure_json_object_array_contains_fields(
+        &manifest,
+        &["artifacts"],
+        &[("role", "replay_shell_script"), ("path", "replay.sh")],
+        &manifest_label,
+    )?;
+
+    let environment = read_json_file(&bundle.join("environment.json"))?;
+    let environment_label = path_to_arg(&bundle.join("environment.json"))?;
+    ensure_json_has_key(&environment, "tool_version", &environment_label)?;
+    ensure_json_has_key(&environment, "input_sha256", &environment_label)?;
+    ensure_json_has_key(&environment, "replay_command", &environment_label)?;
+
+    let field_paths = read_json_file(&bundle.join("field-paths.json"))?;
+    let field_paths_label = path_to_arg(&bundle.join("field-paths.json"))?;
+    ensure_json_object_array_contains_fields(
+        &field_paths,
+        &["fields"],
+        &[("canonical_path", "PID.8"), ("redaction_action", "retain")],
+        &field_paths_label,
+    )?;
+
+    let replay_report = reports.join("replay-report.json");
+    run_cli_guide_command(
+        "operator artifacts replay report",
+        vec![
+            "replay".to_string(),
+            path_to_arg(&bundle)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&replay_report)?,
+        ],
+    )?;
+    let replay = read_json_file(&replay_report)?;
+    let replay_label = path_to_arg(&replay_report)?;
+    ensure_json_path_bool(&replay, &["reproduced"], true, &replay_label)?;
+    for check_name in ["manifest-hashes", "report-match", "environment-match"] {
+        ensure_json_object_array_contains_fields(
+            &replay,
+            &["checks"],
+            &[("name", check_name), ("status", "pass")],
+            &replay_label,
+        )?;
+    }
+    ensure_file_lacks_phi_sentinels(&replay_report)?;
+
+    println!(
+        "Evidence Artifacts For Operators guide recipe wrote {}",
         guide_root.display()
     );
     Ok(())
@@ -8021,6 +8408,15 @@ mod tests {
         match cli.command {
             Commands::CheckSafeSupportBundleGuide => Ok(()),
             _ => Err(anyhow!("expected check-safe-support-bundle-guide command")),
+        }
+    }
+
+    #[test]
+    fn check_evidence_artifacts_guide_command_parses() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-evidence-artifacts-guide"])?;
+        match cli.command {
+            Commands::CheckEvidenceArtifactsGuide => Ok(()),
+            _ => Err(anyhow!("expected check-evidence-artifacts-guide command")),
         }
     }
 

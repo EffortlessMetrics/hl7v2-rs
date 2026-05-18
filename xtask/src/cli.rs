@@ -139,6 +139,8 @@ pub(crate) enum Commands {
     },
     /// Run the executable safe support-bundle guide smoke
     CheckSafeSupportBundleGuide,
+    /// Run the executable evidence-artifact interpretation guide smoke
+    CheckEvidenceArtifactsGuide,
     /// Start a local sidecar and run the executable deployment guide smoke
     CheckSidecarGuide,
     /// Run fixture-backed safe-error and PHI parity acceptance checks

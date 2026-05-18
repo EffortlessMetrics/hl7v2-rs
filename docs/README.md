@@ -95,6 +95,7 @@ proposal, spec, plan, or receipt documents.
 | [First-use guide smoke](audits/first-use-guide-smoke-2026-05-18.md) | Executable `xtask check-first-use-guides` proof for the documented full evidence receipt path. |
 | [Safe support-bundle guide smoke](audits/safe-support-bundle-guide-smoke-2026-05-18.md) | Executable `xtask check-safe-support-bundle-guide` proof for the operator support packet recipe. |
 | [Sidecar guide smoke](audits/sidecar-guide-smoke-2026-05-18.md) | Executable `xtask check-sidecar-guide` proof for the HTTP deployment sidecar guide. |
+| [Evidence artifact guide smoke](audits/evidence-artifacts-guide-smoke-2026-05-18.md) | Executable `xtask check-evidence-artifacts-guide` proof for the operator artifact interpretation guide. |
 | [Public crates install and first-use smoke](audits/public-crates-install-first-use-2026-05-16.md) | Repeatable crates.io install-back smoke for `hl7v2`, `hl7v2-cli`, and `hl7v2-server` v1.5.0 first-use paths. |
 | [gRPC enhanced ACK parity receipt](audits/grpc-enhanced-ack-parity-2026-05-16.md) | gRPC `GenerateAck` parity for all six supported ACK codes: `AA`, `AE`, `AR`, `CA`, `CE`, and `CR`. |
 | [Cross-surface evidence parity spec](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Contract map for Rust, CLI, REST/gRPC, Python, and future TypeScript evidence semantics. |
