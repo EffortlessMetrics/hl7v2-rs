@@ -629,8 +629,8 @@ constraints:
         if (
             dirty_summary["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
             or dirty_summary["tool_name"] != PYTHON_TOOL_NAME
-            or dirty_summary["message_count"] != 4
-            or dirty_summary["file_count"] != 7
+            or dirty_summary["message_count"] != 5
+            or dirty_summary["file_count"] != 8
             or dirty_summary["parse_error_count"] != 3
         ):
             print(
@@ -642,6 +642,7 @@ constraints:
             has_count(dirty_summary["message_types"], "ADT^A01", 1)
             and has_count(dirty_summary["message_types"], "ADT^A08", 1)
             and has_count(dirty_summary["message_types"], "ADT^A04", 1)
+            and has_count(dirty_summary["message_types"], "ADT^A03", 1)
             and has_count(dirty_summary["message_types"], "ORU^R01", 1)
             and has_count(dirty_summary["segments"], "ZPV", 1)
             and has_count(dirty_summary["segments"], "OBX", 20)
@@ -667,8 +668,8 @@ constraints:
             dirty_fingerprint["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
             or dirty_fingerprint["tool_name"] != PYTHON_TOOL_NAME
             or dirty_fingerprint["fingerprint_version"] != "1"
-            or dirty_fingerprint["message_count"] != 4
-            or dirty_fingerprint["file_count"] != 7
+            or dirty_fingerprint["message_count"] != 5
+            or dirty_fingerprint["file_count"] != 8
             or dirty_fingerprint["parse_error_count"] != 3
         ):
             print(
@@ -696,6 +697,15 @@ constraints:
                 file=sys.stderr,
             )
             return 1
+        if not any(
+            field["path"] == "MSH.3" and field["total_occurrences"] == 5
+            for field in dirty_fingerprint["field_cardinality"]
+        ):
+            print(
+                "dirty corpus fingerprint did not preserve MSH.3 cardinality",
+                file=sys.stderr,
+            )
+            return 1
 
         dirty_diff = hl7v2.corpus_diff(
             str(dirty_before),
@@ -707,9 +717,9 @@ constraints:
             or dirty_diff["tool_name"] != PYTHON_TOOL_NAME
             or dirty_diff["diff_version"] != "1"
             or dirty_diff["file_count"]["before"] != 2
-            or dirty_diff["file_count"]["after"] != 7
-            or dirty_diff["file_count"]["delta"] != 5
-            or dirty_diff["message_count"]["delta"] != 2
+            or dirty_diff["file_count"]["after"] != 8
+            or dirty_diff["file_count"]["delta"] != 6
+            or dirty_diff["message_count"]["delta"] != 3
             or dirty_diff["parse_error_count"]["delta"] != 3
         ):
             print(
