@@ -238,6 +238,31 @@ mod cli_unit_tests {
         }
 
         #[test]
+        fn test_support_bundle_alias_parses_as_bundle_command() {
+            use crate::{Cli, Commands};
+            use clap::Parser;
+
+            let parsed = Cli::try_parse_from([
+                "hl7v2-cli",
+                "support-bundle",
+                "message.hl7",
+                "--profile",
+                "profile.yaml",
+                "--redact-policy",
+                "safe-analysis.toml",
+                "--out",
+                "issue-bundle",
+            ]);
+
+            assert!(matches!(
+                parsed,
+                Ok(Cli {
+                    command: Commands::Bundle { .. }
+                })
+            ));
+        }
+
+        #[test]
         fn test_replay_command_exists() {
             use crate::Cli;
             let schema = Cli::command();

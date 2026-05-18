@@ -260,6 +260,7 @@ pub(crate) enum Commands {
     },
 
     /// Create a redacted support/debug evidence bundle
+    #[command(visible_alias = "support-bundle")]
     Bundle {
         /// Input HL7 file
         input: PathBuf,
