@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a dirty real-world vendor ORU narrative/null observation fixture and
   parity assertions for Rust core, CLI, REST, gRPC, and local Python smoke
   expectations.
+- Added `xtask check-first-10-minutes-guide` and wired it into
+  `check-first-use-guides` so the job-first CLI onboarding path is executable
+  from a source checkout.
 - Added `xtask check-schema-version-parity` to run the shared schema-version
   acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added `xtask check-safe-error-phi-parity` to run the shared safe-error and

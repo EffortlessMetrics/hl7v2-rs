@@ -4,6 +4,12 @@ This guide proves the local CLI can turn HL7 input into evidence artifacts:
 diagnostics, profile checks, validation reports, corpus summaries, fingerprints,
 diffs, a redacted bundle, and replay verification.
 
+From a source checkout, the full recipe is executable:
+
+```bash
+cargo +1.95.0 run -p xtask -- check-first-10-minutes-guide
+```
+
 The examples use the v1.5.0 installed CLI binary name `hl7v2-cli`. Install it
 with:
 

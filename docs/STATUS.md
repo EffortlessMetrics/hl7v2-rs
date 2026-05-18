@@ -143,7 +143,7 @@ For current parity states, proof commands, fixture families, and known gaps, see
 
 | Area | Status | Notes |
 |------|--------|-------|
-| First-run diagnostics | ✅ Stable | `hl7v2 doctor` verifies CLI version, sample parse, profile loading, JSON output, optional server reachability, and optional Python binding presence. |
+| First-run diagnostics | ✅ Stable | `hl7v2 doctor` verifies CLI version, sample parse, profile loading, JSON output, optional server reachability, and optional Python binding presence. The `First 10 Minutes` CLI onboarding path is executable with `cargo run -p xtask -- check-first-10-minutes-guide`. |
 | Typed validation evidence | ✅ Stable | `ValidationReport` is shared by library, CLI, server validation, and Python bindings. |
 | Profiles as code | ✅ Stable | `profile lint`, `profile test`, and `profile explain` produce machine-readable profile evidence. |
 | Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. Current proof includes shared dirty-corpus coverage for Z-segments, odd MSH sender/receiver metadata, vendor ORU narrative/null observations, legacy MSH/encoding fields, generated MLLP bytes, large OBX expansion, malformed delimiters, partial batch-like input, safe parse-error output across Rust core, CLI, REST server, gRPC server, and local Python wheel surfaces, plus CLI, REST, and gRPC validate/redact/bundle/replay workflows over the shared Z-segment fixture. |

@@ -74,6 +74,7 @@ fn main() -> Result<()> {
             include_python,
             include_public_crates,
         } => check_first_use_guides(include_python, include_public_crates)?,
+        Commands::CheckFirst10MinutesGuide => check_first_10_minutes_guide()?,
         Commands::CheckSafeSupportBundleGuide => check_safe_support_bundle_guide()?,
         Commands::CheckEvidenceArtifactsGuide => check_evidence_artifacts_guide()?,
         Commands::CheckSidecarGuide => check_sidecar_guide()?,
@@ -4375,6 +4376,7 @@ const EVIDENCE_PARITY_ALLOWED_PYTHON_STATES: &[&str] = &[
 ];
 
 const FIRST_USE_RECEIPT_ROOT: &str = "target/hl7v2-receipt";
+const FIRST_10_MINUTES_GUIDE_ROOT: &str = "target/hl7v2-first-10-minutes";
 const FIRST_USE_REDACTION_POLICY: &str = r#"[[rules]]
 path = "PID.3"
 action = "hash"
@@ -4656,6 +4658,7 @@ fn check_evidence_parity_acceptance(include_python: bool) -> Result<()> {
 
 fn check_first_use_guides(include_python: bool, include_public_crates: bool) -> Result<()> {
     println!("ðŸ”Ž Checking executable first-use guides...");
+    check_first_10_minutes_guide()?;
     check_full_evidence_receipt_cli_recipe()?;
 
     println!("Checking Rust user journey acceptance test...");
@@ -4715,6 +4718,496 @@ fn check_first_use_guides(include_python: bool, include_public_crates: bool) -> 
     }
 
     println!("âœ… Executable first-use guide checks passed!");
+    Ok(())
+}
+
+fn check_first_10_minutes_guide() -> Result<()> {
+    println!("Checking First 10 Minutes guide recipe...");
+    let workspace_root = env::current_dir()?;
+    let guide_root = workspace_root.join(FIRST_10_MINUTES_GUIDE_ROOT);
+    let target_root = workspace_root.join("target");
+    if !guide_root.starts_with(&target_root) {
+        return Err(anyhow!(
+            "refusing to prepare First 10 Minutes guide output outside target/: {}",
+            guide_root.display()
+        ));
+    }
+    if guide_root.exists() {
+        fs::remove_dir_all(&guide_root)?;
+    }
+
+    let reports = guide_root.join("reports");
+    let fixtures = guide_root.join("fixtures");
+    let valid_fixtures = fixtures.join("valid");
+    let invalid_fixtures = fixtures.join("invalid");
+    fs::create_dir_all(&reports)?;
+    fs::create_dir_all(&valid_fixtures)?;
+    fs::create_dir_all(&invalid_fixtures)?;
+
+    let profile = workspace_root.join("profiles/generic.yaml");
+    let valid_message = workspace_root.join("test_data/valid_message.hl7");
+    let invalid_message = workspace_root.join("test_data/invalid_message.hl7");
+    let sample = guide_root.join("sample.hl7");
+    let policy = guide_root.join("safe-analysis.toml");
+    let bundle = guide_root.join("issue-bundle");
+
+    ensure_existing_file(&profile)?;
+    ensure_existing_file(&valid_message)?;
+    ensure_existing_file(&invalid_message)?;
+
+    fs::copy(&valid_message, valid_fixtures.join("valid_message.hl7"))?;
+    fs::copy(
+        &invalid_message,
+        invalid_fixtures.join("invalid_message.hl7"),
+    )?;
+    fs::write(&policy, FIRST_USE_REDACTION_POLICY)?;
+
+    let doctor = run_cli_guide_command_capture(
+        "First 10 Minutes doctor",
+        vec![
+            "doctor".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let doctor_json: serde_json::Value = serde_json::from_str(&doctor)?;
+    ensure_json_has_key(&doctor_json, "version", "First 10 Minutes doctor")?;
+    ensure_json_has_key(&doctor_json, "checks", "First 10 Minutes doctor")?;
+
+    run_cli_guide_command(
+        "First 10 Minutes sample generation",
+        vec![
+            "sample".to_string(),
+            "--type".to_string(),
+            "ADT_A01".to_string(),
+            "--output".to_string(),
+            path_to_arg(&sample)?,
+        ],
+    )?;
+    ensure_existing_file(&sample)?;
+
+    let validate_sample = run_cli_guide_command_capture(
+        "First 10 Minutes sample validation",
+        vec![
+            "validate-sample".to_string(),
+            "--type".to_string(),
+            "ADT_A01".to_string(),
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--schema-version".to_string(),
+            "2".to_string(),
+        ],
+    )?;
+    let validate_sample_json: serde_json::Value = serde_json::from_str(&validate_sample)?;
+    ensure_json_path_string(
+        &validate_sample_json,
+        &["schema_version"],
+        "2",
+        "First 10 Minutes sample validation",
+    )?;
+    ensure_json_path_string(
+        &validate_sample_json,
+        &["tool_name"],
+        "hl7v2-cli",
+        "First 10 Minutes sample validation",
+    )?;
+    ensure_json_path_bool(
+        &validate_sample_json,
+        &["valid"],
+        true,
+        "First 10 Minutes sample validation",
+    )?;
+    ensure_json_path_string(
+        &validate_sample_json,
+        &["message_type"],
+        "ADT^A01",
+        "First 10 Minutes sample validation",
+    )?;
+
+    let profile_lint = run_cli_guide_command_capture(
+        "First 10 Minutes profile lint",
+        vec![
+            "profile".to_string(),
+            "lint".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let lint_json: serde_json::Value = serde_json::from_str(&profile_lint)?;
+    ensure_json_path_bool(
+        &lint_json,
+        &["valid"],
+        true,
+        "First 10 Minutes profile lint",
+    )?;
+    ensure_json_path_u64(
+        &lint_json,
+        &["error_count"],
+        0,
+        "First 10 Minutes profile lint",
+    )?;
+    ensure_json_path_u64(
+        &lint_json,
+        &["warning_count"],
+        0,
+        "First 10 Minutes profile lint",
+    )?;
+
+    let profile_explain = run_cli_guide_command_capture(
+        "First 10 Minutes profile explain",
+        vec![
+            "profile".to_string(),
+            "explain".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let explain_json: serde_json::Value = serde_json::from_str(&profile_explain)?;
+    ensure_json_path_string(
+        &explain_json,
+        &["message_structure"],
+        "GENERIC",
+        "First 10 Minutes profile explain",
+    )?;
+    ensure_json_path_u64(
+        &explain_json,
+        &["summary", "required_field_count"],
+        1,
+        "First 10 Minutes profile explain",
+    )?;
+    ensure_json_path_u64(
+        &explain_json,
+        &["summary", "value_set_count"],
+        1,
+        "First 10 Minutes profile explain",
+    )?;
+    ensure_json_object_array_contains_fields(
+        &explain_json,
+        &["required_fields"],
+        &[("path", "PID.3")],
+        "First 10 Minutes profile explain",
+    )?;
+
+    let valid_validation = run_cli_guide_command_capture(
+        "First 10 Minutes valid message validation",
+        vec![
+            "val".to_string(),
+            path_to_arg(&valid_message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let valid_validation_json: serde_json::Value = serde_json::from_str(&valid_validation)?;
+    ensure_json_path_bool(
+        &valid_validation_json,
+        &["valid"],
+        true,
+        "First 10 Minutes valid message validation",
+    )?;
+    ensure_json_path_string(
+        &valid_validation_json,
+        &["message_type"],
+        "ADT^A01",
+        "First 10 Minutes valid message validation",
+    )?;
+    ensure_json_path_u64(
+        &valid_validation_json,
+        &["issue_count"],
+        0,
+        "First 10 Minutes valid message validation",
+    )?;
+
+    let invalid_validation = run_cli_guide_command_capture_allow_codes(
+        "First 10 Minutes invalid message validation",
+        vec![
+            "val".to_string(),
+            path_to_arg(&invalid_message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+        ],
+        &[1],
+    )?;
+    let invalid_validation_json: serde_json::Value = serde_json::from_str(&invalid_validation)?;
+    ensure_json_path_bool(
+        &invalid_validation_json,
+        &["valid"],
+        false,
+        "First 10 Minutes invalid message validation",
+    )?;
+    ensure_json_path_u64(
+        &invalid_validation_json,
+        &["issue_count"],
+        1,
+        "First 10 Minutes invalid message validation",
+    )?;
+    ensure_json_object_array_contains_fields(
+        &invalid_validation_json,
+        &["issues"],
+        &[("code", "value_not_in_set"), ("path", "PID.8")],
+        "First 10 Minutes invalid message validation",
+    )?;
+
+    let profile_test = run_cli_guide_command_capture(
+        "First 10 Minutes profile fixture test",
+        vec![
+            "profile".to_string(),
+            "test".to_string(),
+            path_to_arg(&profile)?,
+            path_to_arg(&fixtures)?,
+            "--report".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let profile_test_json: serde_json::Value = serde_json::from_str(&profile_test)?;
+    ensure_json_path_bool(
+        &profile_test_json,
+        &["valid"],
+        true,
+        "First 10 Minutes profile fixture test",
+    )?;
+    ensure_json_path_u64(
+        &profile_test_json,
+        &["case_count"],
+        2,
+        "First 10 Minutes profile fixture test",
+    )?;
+    ensure_json_path_u64(
+        &profile_test_json,
+        &["passed_count"],
+        2,
+        "First 10 Minutes profile fixture test",
+    )?;
+    ensure_json_path_u64(
+        &profile_test_json,
+        &["failed_count"],
+        0,
+        "First 10 Minutes profile fixture test",
+    )?;
+
+    let summary = run_cli_guide_command_capture(
+        "First 10 Minutes corpus summary",
+        vec![
+            "corpus".to_string(),
+            "summarize".to_string(),
+            path_to_arg(&fixtures)?,
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let summary_json: serde_json::Value = serde_json::from_str(&summary)?;
+    ensure_json_path_u64(
+        &summary_json,
+        &["file_count"],
+        2,
+        "First 10 Minutes corpus summary",
+    )?;
+    ensure_json_path_u64(
+        &summary_json,
+        &["message_count"],
+        2,
+        "First 10 Minutes corpus summary",
+    )?;
+    ensure_json_path_u64(
+        &summary_json,
+        &["parse_error_count"],
+        0,
+        "First 10 Minutes corpus summary",
+    )?;
+    ensure_json_object_array_contains_string_u64_field(
+        &summary_json,
+        &["message_types"],
+        "value",
+        "ADT^A01^ADT_A01",
+        "count",
+        2,
+        "First 10 Minutes corpus summary",
+    )?;
+
+    let fingerprint = run_cli_guide_command_capture(
+        "First 10 Minutes corpus fingerprint",
+        vec![
+            "corpus".to_string(),
+            "fingerprint".to_string(),
+            path_to_arg(&fixtures)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let fingerprint_json: serde_json::Value = serde_json::from_str(&fingerprint)?;
+    ensure_json_path_string(
+        &fingerprint_json,
+        &["fingerprint_version"],
+        "1",
+        "First 10 Minutes corpus fingerprint",
+    )?;
+    ensure_json_path_u64(
+        &fingerprint_json,
+        &["message_count"],
+        2,
+        "First 10 Minutes corpus fingerprint",
+    )?;
+    ensure_json_path_u64(
+        &fingerprint_json,
+        &["parse_error_count"],
+        0,
+        "First 10 Minutes corpus fingerprint",
+    )?;
+    ensure_json_object_array_contains_string_u64_field(
+        &fingerprint_json,
+        &["validation_issue_code_counts"],
+        "value",
+        "value_not_in_set",
+        "count",
+        1,
+        "First 10 Minutes corpus fingerprint",
+    )?;
+
+    let diff = run_cli_guide_command_capture(
+        "First 10 Minutes corpus diff",
+        vec![
+            "corpus".to_string(),
+            "diff".to_string(),
+            path_to_arg(&valid_fixtures)?,
+            path_to_arg(&invalid_fixtures)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let diff_json: serde_json::Value = serde_json::from_str(&diff)?;
+    ensure_json_path_string(
+        &diff_json,
+        &["diff_version"],
+        "1",
+        "First 10 Minutes corpus diff",
+    )?;
+    ensure_json_path_u64(
+        &diff_json,
+        &["parse_error_count", "delta"],
+        0,
+        "First 10 Minutes corpus diff",
+    )?;
+    ensure_json_object_array_contains_string_i64_field(
+        &diff_json,
+        &["field_presence"],
+        "path",
+        "PID.5",
+        "message_count_delta",
+        -1,
+        "First 10 Minutes corpus diff",
+    )?;
+    ensure_json_object_array_contains_string_i64_field(
+        &diff_json,
+        &["validation_issue_code_counts"],
+        "value",
+        "value_not_in_set",
+        "delta",
+        1,
+        "First 10 Minutes corpus diff",
+    )?;
+
+    let bundle_summary = run_cli_guide_command_capture(
+        "First 10 Minutes support bundle",
+        vec![
+            "support-bundle".to_string(),
+            path_to_arg(&valid_message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--redact-policy".to_string(),
+            path_to_arg(&policy)?,
+            "--out".to_string(),
+            path_to_arg(&bundle)?,
+        ],
+    )?;
+    let bundle_summary_json: serde_json::Value = serde_json::from_str(&bundle_summary)?;
+    ensure_json_path_string(
+        &bundle_summary_json,
+        &["bundle_version"],
+        "1",
+        "First 10 Minutes support bundle",
+    )?;
+    ensure_json_path_bool(
+        &bundle_summary_json,
+        &["validation_valid"],
+        true,
+        "First 10 Minutes support bundle",
+    )?;
+    ensure_json_path_bool(
+        &bundle_summary_json,
+        &["redaction_phi_removed"],
+        true,
+        "First 10 Minutes support bundle",
+    )?;
+    for artifact in [
+        "message.redacted.hl7",
+        "validation-report.json",
+        "field-paths.json",
+        "profile.yaml",
+        "redaction-receipt.json",
+        "environment.json",
+        "replay.sh",
+        "replay.ps1",
+        "README.md",
+        "SAFE-SHARING.md",
+        "manifest.json",
+    ] {
+        ensure_json_array_contains_string(
+            &bundle_summary_json,
+            &["artifacts"],
+            artifact,
+            "First 10 Minutes support bundle",
+        )?;
+        let artifact_path = bundle.join(artifact);
+        ensure_existing_file(&artifact_path)?;
+        ensure_file_lacks_phi_sentinels(&artifact_path)?;
+    }
+
+    let replay = run_cli_guide_command_capture(
+        "First 10 Minutes replay",
+        vec![
+            "replay".to_string(),
+            path_to_arg(&bundle)?,
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let replay_json: serde_json::Value = serde_json::from_str(&replay)?;
+    ensure_json_path_string(
+        &replay_json,
+        &["replay_version"],
+        "1",
+        "First 10 Minutes replay",
+    )?;
+    ensure_json_path_bool(
+        &replay_json,
+        &["reproduced"],
+        true,
+        "First 10 Minutes replay",
+    )?;
+    for check_name in ["manifest-hashes", "report-match", "environment-match"] {
+        ensure_json_object_array_contains_fields(
+            &replay_json,
+            &["checks"],
+            &[("name", check_name), ("status", "pass")],
+            "First 10 Minutes replay",
+        )?;
+    }
+
+    println!(
+        "First 10 Minutes guide recipe wrote {}",
+        guide_root.display()
+    );
     Ok(())
 }
 
@@ -5587,6 +6080,31 @@ fn run_cli_guide_command_capture(label: &str, args: Vec<String>) -> Result<Strin
     run_command_capture_owned("cargo", &cargo_run_hl7v2_cli_args(args))
 }
 
+fn run_cli_guide_command_capture_allow_codes(
+    label: &str,
+    args: Vec<String>,
+    allowed_codes: &[i32],
+) -> Result<String> {
+    println!("Checking {label}...");
+    let cargo_args = cargo_run_hl7v2_cli_args(args);
+    let output = Command::new("cargo").args(&cargo_args).output()?;
+    let code = output.status.code();
+    if !matches!(code, Some(code) if allowed_codes.contains(&code)) {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}\nstdout:\n{}\nstderr:\n{}",
+            "cargo",
+            cargo_args.join(" "),
+            code,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    if code != Some(0) {
+        println!("{label} completed with expected exit code {code:?}; verifying stdout receipt.");
+    }
+    Ok(String::from_utf8(output.stdout)?)
+}
+
 fn cargo_run_hl7v2_cli_args(args: Vec<String>) -> Vec<String> {
     let mut cargo_args = vec![
         "run".to_string(),
@@ -5881,6 +6399,64 @@ fn ensure_json_object_array_contains_fields(
         .join(", ");
     Err(anyhow!(
         "{label} JSON array `{}` did not contain object with {expected}",
+        path.join(".")
+    ))
+}
+
+fn ensure_json_object_array_contains_string_u64_field(
+    value: &serde_json::Value,
+    path: &[&str],
+    string_key: &str,
+    string_value: &str,
+    u64_key: &str,
+    u64_value: u64,
+    label: &str,
+) -> Result<()> {
+    let array = json_path(value, path, label)?
+        .as_array()
+        .ok_or_else(|| anyhow!("{label} JSON path `{}` was not an array", path.join(".")))?;
+    if array.iter().any(|item| {
+        item.get(string_key)
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|actual| actual == string_value)
+            && item
+                .get(u64_key)
+                .and_then(serde_json::Value::as_u64)
+                .is_some_and(|actual| actual == u64_value)
+    }) {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "{label} JSON array `{}` did not contain object with {string_key}={string_value}, {u64_key}={u64_value}",
+        path.join(".")
+    ))
+}
+
+fn ensure_json_object_array_contains_string_i64_field(
+    value: &serde_json::Value,
+    path: &[&str],
+    string_key: &str,
+    string_value: &str,
+    i64_key: &str,
+    i64_value: i64,
+    label: &str,
+) -> Result<()> {
+    let array = json_path(value, path, label)?
+        .as_array()
+        .ok_or_else(|| anyhow!("{label} JSON path `{}` was not an array", path.join(".")))?;
+    if array.iter().any(|item| {
+        item.get(string_key)
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|actual| actual == string_value)
+            && item
+                .get(i64_key)
+                .and_then(serde_json::Value::as_i64)
+                .is_some_and(|actual| actual == i64_value)
+    }) {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "{label} JSON array `{}` did not contain object with {string_key}={string_value}, {i64_key}={i64_value}",
         path.join(".")
     ))
 }
@@ -8421,6 +8997,15 @@ mod tests {
                 Ok(())
             }
             _ => Err(anyhow!("expected check-first-use-guides command")),
+        }
+    }
+
+    #[test]
+    fn check_first_10_minutes_guide_command_parses() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-first-10-minutes-guide"])?;
+        match cli.command {
+            Commands::CheckFirst10MinutesGuide => Ok(()),
+            _ => Err(anyhow!("expected check-first-10-minutes-guide command")),
         }
     }
 

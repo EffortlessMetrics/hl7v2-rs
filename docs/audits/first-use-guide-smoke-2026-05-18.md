@@ -16,6 +16,9 @@ cargo +1.95.0 run -p xtask -- check-first-use-guides
 
 The command proves the local, non-registry path:
 
+- runs the literal CLI onboarding recipe from
+  `docs/guides/first-10-minutes.md` into
+  `target/hl7v2-first-10-minutes`;
 - runs the literal CLI receipt recipe from
   `docs/guides/full-evidence-receipt-path.md` into
   `target/hl7v2-receipt`;
