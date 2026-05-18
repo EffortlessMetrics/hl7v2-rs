@@ -12,8 +12,11 @@ use publish::package_is_publishable;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fs;
+use std::net::TcpListener;
 use std::path::{Component, Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::thread;
+use std::time::Duration;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -72,6 +75,7 @@ fn main() -> Result<()> {
             include_public_crates,
         } => check_first_use_guides(include_python, include_public_crates)?,
         Commands::CheckSafeSupportBundleGuide => check_safe_support_bundle_guide()?,
+        Commands::CheckSidecarGuide => check_sidecar_guide()?,
         Commands::CheckSafeErrorPhiParity { include_python } => {
             check_safe_error_phi_parity(include_python)?;
         }
@@ -4391,6 +4395,25 @@ action = "retain"
 reason = "administrative sex is required to reproduce validation"
 "#;
 const SAFE_SUPPORT_BUNDLE_GUIDE_ROOT: &str = "target/hl7v2-safe-support-bundle";
+const SIDECAR_GUIDE_ROOT: &str = "target/hl7v2-sidecar";
+const SIDECAR_GUIDE_CONFIG: &str = r#"[server]
+host = "127.0.0.1"
+port = 18080
+bundle_output_root = "target/hl7v2-sidecar/bundles"
+
+[ack]
+mode = "original"
+accept_on = "valid"
+reject_on = ["parse_error", "validation_error"]
+include_error_text = true
+
+[quarantine]
+enabled = true
+path = "target/hl7v2-sidecar/quarantine"
+write_redacted = true
+write_report = true
+write_bundle = true
+"#;
 const SAFE_SUPPORT_BUNDLE_REDACTION_POLICY: &str = r#"[[rules]]
 path = "PID.3"
 action = "hash"
@@ -4996,6 +5019,141 @@ fn check_safe_support_bundle_guide() -> Result<()> {
     Ok(())
 }
 
+fn check_sidecar_guide() -> Result<()> {
+    println!("Checking Deploy Validation Sidecar guide recipe...");
+    let workspace_root = env::current_dir()?;
+    let sidecar_root = workspace_root.join(SIDECAR_GUIDE_ROOT);
+    let target_root = workspace_root.join("target");
+    if !sidecar_root.starts_with(&target_root) {
+        return Err(anyhow!(
+            "refusing to prepare sidecar guide output outside target/: {}",
+            sidecar_root.display()
+        ));
+    }
+    if sidecar_root.exists() {
+        fs::remove_dir_all(&sidecar_root)?;
+    }
+
+    let bundles = sidecar_root.join("bundles");
+    let quarantine = sidecar_root.join("quarantine");
+    let reports = sidecar_root.join("reports");
+    fs::create_dir_all(&bundles)?;
+    fs::create_dir_all(&quarantine)?;
+    fs::create_dir_all(&reports)?;
+
+    let config = sidecar_root.join("server.toml");
+    let policy = sidecar_root.join("safe-analysis.toml");
+    fs::write(&config, SIDECAR_GUIDE_CONFIG)?;
+    fs::write(&policy, SAFE_SUPPORT_BUNDLE_REDACTION_POLICY)?;
+
+    let profile = workspace_root.join("profiles/generic.yaml");
+    ensure_existing_file(&profile)?;
+
+    println!("Building hl7v2-server for sidecar guide smoke...");
+    run_command("cargo", &["build", "-p", "hl7v2-server", "--locked"])?;
+    let server_bin = built_binary_path(&workspace_root, "hl7v2-server");
+    ensure_existing_file(&server_bin)?;
+
+    let config_arg = path_to_arg(&config)?;
+    let profile_arg = path_to_arg(&profile)?;
+    let sidecar_env = [
+        ("HL7V2_CONFIG", config_arg.as_str()),
+        ("HL7V2_API_KEY", "dev-secret"),
+        ("HL7V2_PROFILE_PATHS", profile_arg.as_str()),
+    ];
+
+    let public_config = run_command_capture_with_env(
+        &server_bin,
+        &["--print-config"],
+        &sidecar_env,
+        Some(&workspace_root),
+    )?;
+    if public_config.contains("dev-secret") {
+        return Err(anyhow!("sidecar --print-config leaked the API key value"));
+    }
+    let public_config_json: serde_json::Value = serde_json::from_str(&public_config)?;
+    ensure_json_path_string(
+        &public_config_json,
+        &["bind_address"],
+        "127.0.0.1:18080",
+        "sidecar --print-config",
+    )?;
+    ensure_json_path_bool(
+        &public_config_json,
+        &["api_key_configured"],
+        true,
+        "sidecar --print-config",
+    )?;
+    ensure_json_path_bool(
+        &public_config_json,
+        &["bundle_output_root_configured"],
+        true,
+        "sidecar --print-config",
+    )?;
+    ensure_json_path_bool(
+        &public_config_json,
+        &["quarantine", "enabled"],
+        true,
+        "sidecar --print-config",
+    )?;
+    ensure_json_path_bool(
+        &public_config_json,
+        &["quarantine", "path_configured"],
+        true,
+        "sidecar --print-config",
+    )?;
+
+    ensure_tcp_port_available("127.0.0.1:18080")?;
+
+    println!("Starting hl7v2-server sidecar on 127.0.0.1:18080...");
+    let stdout = fs::File::create(sidecar_root.join("server.stdout.log"))?;
+    let stderr = fs::File::create(sidecar_root.join("server.stderr.log"))?;
+    let child = Command::new(&server_bin)
+        .current_dir(&workspace_root)
+        .env("HL7V2_CONFIG", config_arg.as_str())
+        .env("HL7V2_API_KEY", "dev-secret")
+        .env("HL7V2_PROFILE_PATHS", profile_arg.as_str())
+        .env("RUST_LOG", "hl7v2_server=warn")
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr))
+        .spawn()?;
+    let mut sidecar = ChildGuard::new(child);
+    thread::sleep(Duration::from_millis(500));
+    sidecar.ensure_running("hl7v2-server sidecar", &sidecar_root)?;
+
+    run_program_with_env_in_dir(
+        "python",
+        &["tests/server_smoke/smoke.py"],
+        &[
+            ("HL7V2_SERVER_URL", "http://127.0.0.1:18080"),
+            ("HL7V2_API_KEY", "dev-secret"),
+            ("HL7V2_SERVER_SMOKE_TIMEOUT", "45"),
+        ],
+        Some(&workspace_root),
+    )?;
+    sidecar.ensure_running("hl7v2-server sidecar", &sidecar_root)?;
+
+    run_program_with_env_in_dir(
+        "python",
+        &["tests/server_smoke/guide_quarantine.py"],
+        &[
+            ("HL7V2_SERVER_URL", "http://127.0.0.1:18080"),
+            ("HL7V2_API_KEY", "dev-secret"),
+            ("HL7V2_SIDECAR_GUIDE_ROOT", SIDECAR_GUIDE_ROOT),
+            ("HL7V2_SERVER_SMOKE_TIMEOUT", "45"),
+        ],
+        Some(&workspace_root),
+    )?;
+    sidecar.ensure_running("hl7v2-server sidecar", &sidecar_root)?;
+    sidecar.stop()?;
+
+    println!(
+        "Deploy Validation Sidecar guide smoke wrote {}",
+        sidecar_root.display()
+    );
+    Ok(())
+}
+
 fn run_cli_guide_command(label: &str, args: Vec<String>) -> Result<()> {
     println!("Checking {label}...");
     run_command_owned("cargo", &cargo_run_hl7v2_cli_args(args))
@@ -5041,6 +5199,111 @@ fn cargo_run_hl7v2_cli_args(args: Vec<String>) -> Vec<String> {
     ];
     cargo_args.extend(args);
     cargo_args
+}
+
+fn built_binary_path(workspace_root: &Path, name: &str) -> PathBuf {
+    let mut path = env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| workspace_root.join("target"));
+    path.push("debug");
+    if cfg!(windows) {
+        path.push(format!("{name}.exe"));
+    } else {
+        path.push(name);
+    }
+    path
+}
+
+fn ensure_tcp_port_available(bind_addr: &str) -> Result<()> {
+    let listener = TcpListener::bind(bind_addr).map_err(|error| {
+        anyhow!("sidecar guide smoke requires {bind_addr}, but it is not available: {error}")
+    })?;
+    drop(listener);
+    Ok(())
+}
+
+fn run_command_capture_with_env(
+    cmd: &Path,
+    args: &[&str],
+    envs: &[(&str, &str)],
+    cwd: Option<&Path>,
+) -> Result<String> {
+    let mut command = Command::new(cmd);
+    command.args(args);
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+    let output = command.output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!(
+            "Command '{} {}' failed with exit code: {:?}\nstdout:\n{}\nstderr:\n{}",
+            cmd.display(),
+            args.join(" "),
+            output.status.code(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+struct ChildGuard {
+    child: Option<Child>,
+}
+
+impl ChildGuard {
+    fn new(child: Child) -> Self {
+        Self { child: Some(child) }
+    }
+
+    fn stop(&mut self) -> Result<()> {
+        if let Some(mut child) = self.child.take() {
+            if child.try_wait()?.is_none() {
+                child.kill()?;
+            }
+            child.wait()?;
+        }
+        Ok(())
+    }
+
+    fn ensure_running(&mut self, label: &str, log_root: &Path) -> Result<()> {
+        let Some(child) = self.child.as_mut() else {
+            return Err(anyhow!("{label} process is no longer tracked"));
+        };
+        if let Some(status) = child.try_wait()? {
+            return Err(anyhow!(
+                "{label} exited before the smoke completed with status {status}; stdout:\n{}\nstderr:\n{}",
+                read_optional_log(&log_root.join("server.stdout.log"))?,
+                read_optional_log(&log_root.join("server.stderr.log"))?
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            if matches!(child.try_wait(), Ok(None)) && child.kill().is_err() {
+                return;
+            }
+            drop(child.wait());
+        }
+    }
+}
+
+fn read_optional_log(path: &Path) -> Result<String> {
+    match fs::read_to_string(path) {
+        Ok(content) if content.is_empty() => Ok("<empty>".to_string()),
+        Ok(content) => Ok(content),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok("<missing>".to_string()),
+        Err(error) => Err(error.into()),
+    }
 }
 
 fn workspace_crate_version(crate_name: &str) -> Result<String> {
@@ -7758,6 +8021,15 @@ mod tests {
         match cli.command {
             Commands::CheckSafeSupportBundleGuide => Ok(()),
             _ => Err(anyhow!("expected check-safe-support-bundle-guide command")),
+        }
+    }
+
+    #[test]
+    fn check_sidecar_guide_command_parses() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-sidecar-guide"])?;
+        match cli.command {
+            Commands::CheckSidecarGuide => Ok(()),
+            _ => Err(anyhow!("expected check-sidecar-guide command")),
         }
     }
 

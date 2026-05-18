@@ -12,6 +12,16 @@ use `cargo run -q -p hl7v2-server --` instead:
 cargo run -q -p hl7v2-server -- --print-config
 ```
 
+Source checkouts can verify the HTTP sidecar path in this guide with:
+
+```bash
+cargo +1.95.0 run -p xtask -- check-sidecar-guide
+```
+
+The check starts a local `hl7v2-server` sidecar, runs the standard server smoke,
+and then runs a guide-specific invalid-message smoke for quarantine output, ACK
+policy, corpus diff, metrics, and PHI sentinels.
+
 ## What You Will Prove
 
 | Surface | Purpose |

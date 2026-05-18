@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask check-safe-support-bundle-guide` to prove the operator
   support-bundle guide's redact, bundle, replay, artifact, and PHI-sentinel
   promises.
+- Added `xtask check-sidecar-guide` to start a local HTTP sidecar and prove the
+  deployment guide's readiness, redacted validation, invalid-message quarantine,
+  bundle, replay, ACK policy, metrics, corpus diff, and PHI-sentinel path.
 - Added gRPC evidence replay parity with configured-root bundle replay,
   fail-closed missing/unsafe bundle handling, shared replay reports, and opt-in
   v2 replay provenance.
@@ -79,6 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the lane non-blocking.
 - Recorded executable safe support-bundle guide smoke proof for the
   operator-facing support packet workflow.
+- Recorded executable sidecar guide smoke proof for the HTTP deployment
+  walkthrough.
 - Updated the current-main TestPyPI publishing-mode proof retry after the
   v1.5.0 refactor cleanup readiness refresh; wheel smoke passed, while upload
   remains blocked by TestPyPI Trusted Publisher setup.

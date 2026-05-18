@@ -246,6 +246,11 @@ synthetic value/CLI help cleanup landed through #740/#742/#743/#738.
 The operator safe support-bundle recipe is now executable with
 `cargo run -p xtask -- check-safe-support-bundle-guide` and records the exact
 redact/support-bundle/replay artifact path promised in the user guide.
+The HTTP deployment sidecar guide is now executable with
+`cargo run -p xtask -- check-sidecar-guide`; it prepares the guide config,
+starts `hl7v2-server`, runs the standard server smoke against
+`127.0.0.1:18080`, proves the guide invalid-message quarantine, ACK policy,
+metrics, corpus diff, and PHI-sentinel path, and shuts the sidecar down.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
 upload and install-back proof before any Python release claim. The latest
 publishing-mode TestPyPI attempt ran on current `main` commit
