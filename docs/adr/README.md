@@ -25,7 +25,7 @@ We use the format popularized by Michael Nygard:
 | [0003](0003-use-tokio-for-async-runtime.md) | Use Tokio for Async Runtime | Accepted | 2025-11-19 |
 | [0004](0004-schema-driven-validation.md) | Schema-Driven Validation | Accepted | 2025-11-19 |
 | [0005](0005-nix-for-reproducible-builds.md) | Nix for Reproducible Builds | Accepted | 2025-11-19 |
-| [0006](0006-opa-for-policy-enforcement.md) | OPA for Policy Enforcement | Accepted | 2025-11-19 |
+| [0006](0006-opa-for-policy-enforcement.md) | OPA for Policy Enforcement | Proposed | 2025-11-19 |
 | [0007](0007-axum-for-http-server.md) | Axum for HTTP Server | Accepted | 2025-11-19 |
 | [0008](0008-tonic-for-grpc.md) | Tonic for gRPC Server | Accepted | 2025-11-19 |
 | [0009](0009-serde-for-serialization.md) | Serde for Serialization | Accepted | 2025-11-19 |
