@@ -83,6 +83,18 @@ fn test_parse_custom_delimiters() {
 }
 
 #[test]
+fn test_parse_rejects_multibyte_delimiters_without_panicking() {
+    let hl7 = "MSH§^~\\&§App§Fac\r";
+
+    assert!(parse(hl7.as_bytes()).is_err());
+}
+
+#[test]
+fn test_parse_rejects_line_break_delimiter() {
+    assert!(Delims::parse_from_msh("MSH|^~\\\n").is_err());
+}
+
+#[test]
 fn test_default_delimiters() {
     let delims = Delims::default();
     assert_eq!(delims.field, '|');
@@ -391,10 +403,26 @@ fn test_msh_encoding_characters_field() {
 
 #[test]
 fn test_charset_extraction() {
-    let hl7 = b"MSH|^~\\&|App|Fac|||20250128120000||ADT^A01|1|P|2.5|||||||ASCII\r";
+    let hl7 = b"MSH|^~\\&|App|Fac|||20250128120000||ADT^A01|1|P|2.5||||||ASCII\r";
     let message = parse(hl7).unwrap();
 
     assert_eq!(message.charsets, vec!["ASCII"]);
+}
+
+#[test]
+fn test_charset_extraction_uses_msh_18_not_msh_19() {
+    let hl7 = b"MSH|^~\\&|App|Fac|||20250128120000||ADT^A01|1|P|2.5|||||||NOT_A_CHARSET\r";
+    let message = parse(hl7).unwrap();
+
+    assert!(message.charsets.is_empty());
+}
+
+#[test]
+fn test_charset_extraction_handles_repetitions() {
+    let hl7 = b"MSH|^~\\&|App|Fac|||20250128120000||ADT^A01|1|P|2.5||||||ASCII~UNICODE UTF-8\r";
+    let message = parse(hl7).unwrap();
+
+    assert_eq!(message.charsets, vec!["ASCII", "UNICODE UTF-8"]);
 }
 
 #[test]
@@ -425,6 +453,44 @@ fn test_trailing_carriage_return() {
     assert_eq!(message.segments.len(), 2);
 }
 
+#[test]
+fn test_parse_accepts_crlf_segment_separators() {
+    let hl7 = b"MSH|^~\\&|App|Fac\r\nPID|1||123||Test\r\n";
+    let message = parse(hl7).unwrap();
+
+    assert_eq!(message.segments.len(), 2);
+    assert_eq!(get(&message, "PID.5.1"), Some("Test"));
+}
+
+#[test]
+fn test_parse_rejects_bare_lf_segment_separators() {
+    let hl7 = b"MSH|^~\\&|App|Fac\nPID|1||123||Test\n";
+
+    assert!(parse(hl7).is_err());
+}
+
+#[test]
+fn test_parse_batch_accepts_crlf_segment_separators() {
+    let hl7 = b"BHS|^~\\&|BatchApp\r\nMSH|^~\\&|App|Fac\r\nPID|1||123||Test\r\nBTS|1\r\n";
+    let batch = parse_batch(hl7).unwrap();
+
+    assert_eq!(batch.messages.len(), 1);
+    assert_eq!(get(&batch.messages[0], "PID.5.1"), Some("Test"));
+}
+
+#[test]
+fn test_parse_file_batch_accepts_crlf_segment_separators() {
+    let hl7 = b"FHS|^~\\&|FileApp\r\nBHS|^~\\&|BatchApp\r\nMSH|^~\\&|App|Fac\r\nPID|1||123||Test\r\nBTS|1\r\nFTS|1\r\n";
+    let file_batch = parse_file_batch(hl7).unwrap();
+
+    assert_eq!(file_batch.batches.len(), 1);
+    assert_eq!(file_batch.batches[0].messages.len(), 1);
+    assert_eq!(
+        get(&file_batch.batches[0].messages[0], "PID.5.1"),
+        Some("Test")
+    );
+}
+
 // =============================================================================
 // Segment ID Validation Tests
 // =============================================================================
@@ -449,4 +515,11 @@ fn test_numeric_segment_id() {
 
     assert_eq!(message.segments.len(), 2);
     assert_eq!(&message.segments[1].id, b"Z01");
+}
+
+#[test]
+fn test_parse_rejects_segment_without_configured_field_separator() {
+    let hl7 = b"MSH|^~\\&|App|Fac\rPIDx1||123||Test\r";
+
+    assert!(parse(hl7).is_err());
 }
