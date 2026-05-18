@@ -156,10 +156,17 @@ Rust, CLI, REST, and gRPC bundle/replay checks. Pass `--include-python` only
 after a local `hl7v2` wheel is installed, because Python package availability
 remains governed by the separate TestPyPI/PyPI proof lane.
 
+The default profile acceptance runner is
+`cargo run -p xtask -- check-profile-parity`; it composes the existing Rust
+profile facade tests, CLI profile lint/explain/test command tests, REST profile
+endpoint tests, and gRPC profile RPC tests. Pass `--include-python` only after
+a local `hl7v2` wheel is installed, because Python package availability
+remains governed by the separate TestPyPI/PyPI proof lane.
+
 The default aggregate local acceptance runner is
 `cargo run -p xtask -- check-evidence-parity-acceptance`. It verifies the
-manifest and then runs the shared safe-error/PHI, schema-version, dirty-corpus,
-and bundle/replay parity runners for Rust, CLI, REST, and gRPC.
+manifest and then runs the shared safe-error/PHI, profile, schema-version,
+dirty-corpus, and bundle/replay parity runners for Rust, CLI, REST, and gRPC.
 
 ## Non-Goals
 

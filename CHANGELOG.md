@@ -69,6 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added `xtask check-safe-error-phi-parity` to run the shared safe-error and
   PHI sentinel acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
+- Added `xtask check-profile-parity` to run the shared profile
+  lint/explain/test acceptance proof across Rust core, CLI, REST, and gRPC
+  surfaces.
 - Added `xtask check-safe-support-bundle-guide` to prove the operator
   support-bundle guide's redact, bundle, replay, artifact, and PHI-sentinel
   promises.
