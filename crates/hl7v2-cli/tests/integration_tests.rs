@@ -1328,21 +1328,23 @@ mod corpus_command {
         create_temp_file(target, target_name, &normalize_fixture_segments(&bytes))
     }
 
-    fn add_generated_mllp_fixture(target: &std::path::Path) {
+    fn add_generated_mllp_fixtures(target: &std::path::Path) {
         let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
         let bytes = std::fs::read(&source).expect("MLLP source fixture should be readable");
         let normalized = normalize_fixture_segments(&bytes);
-        std::fs::write(
-            target.join("mllp-framed.hl7"),
-            hl7v2::wrap_mllp(&normalized),
-        )
-        .expect("generated MLLP dirty corpus file should be materialized");
+        let wrapped = hl7v2::wrap_mllp(&normalized);
+        std::fs::write(target.join("mllp-framed.hl7"), &wrapped)
+            .expect("generated MLLP dirty corpus file should be materialized");
+        let mut truncated = wrapped;
+        let _ = truncated.pop();
+        std::fs::write(target.join("mllp-truncated.hl7"), truncated)
+            .expect("generated truncated MLLP dirty corpus file should be materialized");
     }
 
     fn materialize_dirty_real_world_corpus(before: &std::path::Path, after: &std::path::Path) {
         materialize_dirty_corpus_dir("before", before);
         materialize_dirty_corpus_dir("after", after);
-        add_generated_mllp_fixture(after);
+        add_generated_mllp_fixtures(after);
     }
 
     const DIRTY_ADT_PROFILE: &str = r#"
@@ -1939,9 +1941,16 @@ constraints:
         assert!(is_valid_json(&summary_output.stdout));
         let summary: serde_json::Value =
             serde_json::from_slice(&summary_output.stdout).expect("summary output should be JSON");
-        assert_eq!(summary["file_count"], 6);
+        assert_eq!(summary["file_count"], 7);
         assert_eq!(summary["message_count"], 4);
-        assert_eq!(summary["parse_error_count"], 2);
+        assert_eq!(summary["parse_error_count"], 3);
+        assert!(
+            summary["parse_errors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["path"] == "mllp-truncated.hl7")
+        );
         assert!(
             summary["message_types"]
                 .as_array()
@@ -1980,9 +1989,9 @@ constraints:
         assert!(is_valid_json(&fingerprint_output.stdout));
         let fingerprint: serde_json::Value = serde_json::from_slice(&fingerprint_output.stdout)
             .expect("fingerprint output should be JSON");
-        assert_eq!(fingerprint["file_count"], 6);
+        assert_eq!(fingerprint["file_count"], 7);
         assert_eq!(fingerprint["message_count"], 4);
-        assert_eq!(fingerprint["parse_error_count"], 2);
+        assert_eq!(fingerprint["parse_error_count"], 3);
         assert!(
             fingerprint["field_cardinality"]
                 .as_array()
@@ -2010,9 +2019,9 @@ constraints:
         assert!(is_valid_json(&diff_output.stdout));
         let diff: serde_json::Value =
             serde_json::from_slice(&diff_output.stdout).expect("diff output should be JSON");
-        assert_eq!(diff["file_count"]["delta"], 4);
+        assert_eq!(diff["file_count"]["delta"], 5);
         assert_eq!(diff["message_count"]["delta"], 2);
-        assert_eq!(diff["parse_error_count"]["delta"], 2);
+        assert_eq!(diff["parse_error_count"]["delta"], 3);
         assert!(
             diff["field_cardinality"]
                 .as_array()

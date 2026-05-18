@@ -62,9 +62,13 @@ fn dirty_after_corpus_messages() -> Vec<Value> {
     let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
     let bytes = std::fs::read(&source).expect("MLLP source fixture should be readable");
     let normalized = normalize_fixture_segments(&bytes);
-    let message =
-        String::from_utf8(hl7v2::wrap_mllp(&normalized)).expect("MLLP fixture should be UTF-8");
-    messages.push(json!({ "id": "mllp-framed.hl7", "message": message }));
+    let wrapped = hl7v2::wrap_mllp(&normalized);
+    let framed = String::from_utf8(wrapped.clone()).expect("MLLP fixture should be UTF-8");
+    messages.push(json!({ "id": "mllp-framed.hl7", "message": framed }));
+    let mut truncated = wrapped;
+    let _ = truncated.pop();
+    let truncated = String::from_utf8(truncated).expect("truncated MLLP fixture should be UTF-8");
+    messages.push(json!({ "id": "mllp-truncated.hl7", "message": truncated }));
     messages
 }
 
@@ -109,9 +113,9 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(summary["schema_version"], "2");
     assert_eq!(summary["tool_name"], "hl7v2-server");
     assert_eq!(summary["root"], "<inline-corpus>");
-    assert_eq!(summary["file_count"], 6);
+    assert_eq!(summary["file_count"], 7);
     assert_eq!(summary["message_count"], 4);
-    assert_eq!(summary["parse_error_count"], 2);
+    assert_eq!(summary["parse_error_count"], 3);
     assert!(
         summary["message_types"]
             .as_array()
@@ -147,6 +151,13 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
             .iter()
             .any(|entry| entry["path"] == "partial-batch.hl7")
     );
+    assert!(
+        summary["parse_errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "mllp-truncated.hl7")
+    );
     assert!(!summary_text.contains("MRN-DIRTY"));
 
     let (status, fingerprint, fingerprint_text) = post_corpus(
@@ -161,9 +172,9 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(fingerprint["schema_version"], "2");
     assert_eq!(fingerprint["tool_name"], "hl7v2-server");
-    assert_eq!(fingerprint["file_count"], 6);
+    assert_eq!(fingerprint["file_count"], 7);
     assert_eq!(fingerprint["message_count"], 4);
-    assert_eq!(fingerprint["parse_error_count"], 2);
+    assert_eq!(fingerprint["parse_error_count"], 3);
     assert!(
         fingerprint["field_cardinality"]
             .as_array()
@@ -195,9 +206,9 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(diff["schema_version"], "2");
     assert_eq!(diff["tool_name"], "hl7v2-server");
-    assert_eq!(diff["file_count"]["delta"], 4);
+    assert_eq!(diff["file_count"]["delta"], 5);
     assert_eq!(diff["message_count"]["delta"], 2);
-    assert_eq!(diff["parse_error_count"]["delta"], 2);
+    assert_eq!(diff["parse_error_count"]["delta"], 3);
     assert!(
         diff["field_cardinality"]
             .as_array()
