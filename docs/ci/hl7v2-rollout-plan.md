@@ -1,6 +1,12 @@
 # hl7v2-rs CI Economics Rollout Plan
 
-## Current State (as of 2026-05-09)
+> Historical rollout note: this document records the CI economics plan that
+> started from the pre-v1.5.0 Rust 1.93 baseline. Current status lives in
+> [`docs/STATUS.md`](../STATUS.md), lane routing in
+> [`test-evidence-lanes.md`](test-evidence-lanes.md), RIPR status in
+> [`ripr.md`](ripr.md), and CI policy ledgers under [`policy/`](../../policy/).
+
+## Starting State (as of 2026-05-09)
 
 `hl7v2-rs` already satisfies the following baseline:
 
@@ -17,10 +23,10 @@
 - Pre-commit hook: `cargo run -p xtask -- lint-fix`
 - Pre-push hook: `cargo run -p xtask -- gate --check`
 
-## Assumptions
+## Original Assumptions
 
 - `hl7v2-rs` already satisfies the MSRV 1.93 strict-lint baseline.
-- The current rollout focuses on CI lane economics, lane inventory, risk routing, ripr
+- The original rollout focused on CI lane economics, lane inventory, risk routing, ripr
   advisory, and actuals — not adding stricter Clippy enforcement.
 - The ordinary PR target is below 35 LEM where possible.
 - Full matrix, Python wheel, coverage, full property tests, release/publish, OpenAPI/gRPC
@@ -47,7 +53,7 @@ Making CI economics explicit so that:
 5. ripr provides oracle-gap signal at static-analysis prices.
 6. LEM actuals feed back into learned estimates.
 
-## PR Stack
+## Original PR Stack
 
 | PR | Title                                              | Status  |
 | -- | -------------------------------------------------- | ------- |
@@ -81,7 +87,7 @@ Making CI economics explicit so that:
 
 Independent: 06, 07, 08, 10, 11, 12
 
-## Immediate Highest-Value Changes
+## Original Highest-Value Changes
 
 1. Move platform matrix off ordinary PR path (PR 07)
 2. Add PR Plan + LEM (PR 04)

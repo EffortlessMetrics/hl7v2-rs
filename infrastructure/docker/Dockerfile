@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for the standalone HL7v2 validation sidecar.
 
-FROM rust:1.93-bookworm AS builder
+FROM rust:1.95-bookworm AS builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libssl-dev pkg-config \
