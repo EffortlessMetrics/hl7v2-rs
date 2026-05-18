@@ -169,19 +169,16 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: 1.95.0
+
       - name: Install published wheel from TestPyPI
         shell: bash
         env:
           PACKAGE_VERSION: ${{ needs.wheel_proof.outputs.package_version }}
         run: |
-          python -m venv .venv-testpypi
-          . .venv-testpypi/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install \
-            --index-url https://test.pypi.org/simple/ \
-            --no-deps \
-            --force-reinstall \
-            "hl7v2==${PACKAGE_VERSION}"
-          python tests/python_smoke/smoke.py
-          python tests/python_smoke/evidence_workflow_guide.py
-          python tests/python_smoke/dirty_evidence_workflow.py
+          cargo run -p xtask -- python-public-registry-proof \
+            --index testpypi \
+            --version "${PACKAGE_VERSION}"

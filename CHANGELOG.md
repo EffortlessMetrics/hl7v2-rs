@@ -38,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask python-public-registry-proof` to install `hl7v2` from TestPyPI
   or PyPI in a scratch venv and run the same Python smoke/evidence scripts
   after public registry upload succeeds.
+- Routed TestPyPI/PyPI install-back workflow jobs through
+  `xtask python-public-registry-proof` so hosted public-registry proof and
+  local reproduction use the same command boundary.
 - Added local Python dirty real-world validate/redact/bundle/replay workflow
   proof using the shared Z-segment fixture.
 - Added the dirty real-world Python evidence workflow smoke to the hosted

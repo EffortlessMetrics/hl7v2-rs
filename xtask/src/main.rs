@@ -8289,7 +8289,7 @@ struct PythonPublishWorkflowPolicy {
     install_job: &'static str,
     environment_name: &'static str,
     artifact_name: &'static str,
-    package_index_url: &'static str,
+    package_index_arg: &'static str,
     publish_repository_url: Option<&'static str>,
     publish_step_name: &'static str,
 }
@@ -8304,7 +8304,7 @@ const PYTHON_PUBLISH_WORKFLOWS: &[PythonPublishWorkflowPolicy] = &[
         install_job: "install_from_testpypi",
         environment_name: "testpypi",
         artifact_name: "python-testpypi-wheel",
-        package_index_url: "https://test.pypi.org/simple/",
+        package_index_arg: "testpypi",
         publish_repository_url: Some("https://test.pypi.org/legacy/"),
         publish_step_name: "Publish package distributions to TestPyPI",
     },
@@ -8317,7 +8317,7 @@ const PYTHON_PUBLISH_WORKFLOWS: &[PythonPublishWorkflowPolicy] = &[
         install_job: "install_from_pypi",
         environment_name: "pypi",
         artifact_name: "python-pypi-wheel",
-        package_index_url: "https://pypi.org/simple/",
+        package_index_arg: "pypi",
         publish_repository_url: None,
         publish_step_name: "Publish package distributions to PyPI",
     },
@@ -9058,6 +9058,16 @@ fn ensure_python_install_back_job(
     ensure_yaml_sequence_contains(needs, policy.path, "needs", policy.publish_job)?;
 
     let steps = yaml_child_sequence(install_job, policy.path, "steps")?;
+    let rust_toolchain = yaml_step_named(steps, policy.path, "Install Rust toolchain")?;
+    ensure_yaml_string(
+        rust_toolchain,
+        policy.path,
+        "uses",
+        "dtolnay/rust-toolchain@v1",
+    )?;
+    let rust_toolchain_with = yaml_child_mapping(rust_toolchain, policy.path, "with")?;
+    ensure_yaml_string(rust_toolchain_with, policy.path, "toolchain", "1.95.0")?;
+
     let install = steps
         .iter()
         .filter_map(serde_yaml::Value::as_mapping)
@@ -9068,13 +9078,10 @@ fn ensure_python_install_back_job(
         .ok_or_else(|| anyhow!("{} is missing install-back step", policy.path))?;
     let run = yaml_mapping_string(install, policy.path, "run")?;
     for expected in [
-        policy.package_index_url,
-        "--no-deps",
-        "--force-reinstall",
-        "hl7v2==${PACKAGE_VERSION}",
-        "tests/python_smoke/smoke.py",
-        "tests/python_smoke/evidence_workflow_guide.py",
-        "tests/python_smoke/dirty_evidence_workflow.py",
+        "cargo run -p xtask -- python-public-registry-proof",
+        "--index",
+        policy.package_index_arg,
+        "--version \"${PACKAGE_VERSION}\"",
     ] {
         if !run.contains(expected) {
             return Err(anyhow!(
@@ -10948,6 +10955,59 @@ bindings = "pyo3"
             {
                 Ok(())
             }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_requires_public_registry_install_back_command() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace(
+            "cargo run -p xtask -- python-public-registry-proof",
+            "python -m pip install --index-url https://test.pypi.org/simple/",
+        );
+        if broken == workflow {
+            return Err(anyhow!(
+                "test setup should remove the public-registry proof command"
+            ));
+        }
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject install-back jobs that bypass xtask public-registry proof"
+            )),
+            Err(err) if err.to_string().contains("python-public-registry-proof") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_wrong_public_registry_index() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace("--index testpypi", "--index pypi");
+        if broken == workflow {
+            return Err(anyhow!("test setup should change the install-back index"));
+        }
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject install-back jobs that use the wrong public index"
+            )),
+            Err(err) if err.to_string().contains("testpypi") => Ok(()),
             Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
         }
     }

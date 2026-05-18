@@ -111,6 +111,18 @@ This does three things:
    virtual environment and reruns the Python smoke, evidence workflow guide,
    and dirty evidence workflow smoke.
 
+The hosted install-back job runs the same proof boundary as the local
+reproduction command:
+
+```bash
+cargo run -p xtask -- python-public-registry-proof --index pypi --version "${PACKAGE_VERSION}"
+```
+
+This keeps the workflow proof and local reproduction path aligned. A passing
+install-back job proves only the production PyPI package for the selected
+version; it does not retroactively prove TestPyPI unless the same-commit
+TestPyPI receipt is already linked.
+
 PyPI does not allow overwriting an existing file for the same version. If the
 upload fails because the version already exists, stop and choose a new workspace
 version for the next proof attempt. Do not use `skip-existing` for release
