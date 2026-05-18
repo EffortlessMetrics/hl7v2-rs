@@ -71,6 +71,7 @@ fn main() -> Result<()> {
             include_python,
             include_public_crates,
         } => check_first_use_guides(include_python, include_public_crates)?,
+        Commands::CheckSafeSupportBundleGuide => check_safe_support_bundle_guide()?,
         Commands::CheckSafeErrorPhiParity { include_python } => {
             check_safe_error_phi_parity(include_python)?;
         }
@@ -4389,7 +4390,28 @@ path = "PID.8"
 action = "retain"
 reason = "administrative sex is required to reproduce validation"
 "#;
-const FIRST_USE_PHI_SENTINELS: &[&str] = &["123456^^^HOSP^MR", "123456", "19800101"];
+const SAFE_SUPPORT_BUNDLE_GUIDE_ROOT: &str = "target/hl7v2-safe-support-bundle";
+const SAFE_SUPPORT_BUNDLE_REDACTION_POLICY: &str = r#"[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier is needed for correlation without raw MRN"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name is not needed for support analysis"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth is not needed for support analysis"
+
+[[rules]]
+path = "PID.8"
+action = "retain"
+reason = "administrative sex is required to reproduce the validation issue"
+"#;
+const GUIDE_PHI_SENTINELS: &[&str] = &["123456^^^HOSP^MR", "123456", "19800101"];
 
 const PYTHON_LOCAL_WHEEL_PROOF_DEFAULT_ROOT: &str = "target/hl7v2-python-local-wheel-proof";
 const PYTHON_LOCAL_WHEEL_MATURIN_REQUIREMENT: &str = "maturin==1.13.1";
@@ -4816,6 +4838,164 @@ fn check_full_evidence_receipt_cli_recipe() -> Result<()> {
     Ok(())
 }
 
+fn check_safe_support_bundle_guide() -> Result<()> {
+    println!("Checking Safe Support Bundle guide recipe...");
+    let workspace_root = env::current_dir()?;
+    let guide_root = workspace_root.join(SAFE_SUPPORT_BUNDLE_GUIDE_ROOT);
+    let target_root = workspace_root.join("target");
+    if !guide_root.starts_with(&target_root) {
+        return Err(anyhow!(
+            "refusing to prepare safe support bundle outside target/: {}",
+            guide_root.display()
+        ));
+    }
+    if guide_root.exists() {
+        fs::remove_dir_all(&guide_root)?;
+    }
+
+    let reports = guide_root.join("reports");
+    fs::create_dir_all(&reports)?;
+
+    let policy = guide_root.join("safe-analysis.toml");
+    fs::write(&policy, SAFE_SUPPORT_BUNDLE_REDACTION_POLICY)?;
+
+    let message = workspace_root.join("test_data/invalid_message.hl7");
+    let profile = workspace_root.join("profiles/generic.yaml");
+    let redaction_preview = reports.join("redaction-preview.json");
+    let bundle = guide_root.join("issue-bundle");
+    let bundle_summary = reports.join("bundle-summary.json");
+    let replay_report = reports.join("replay-report.json");
+
+    ensure_existing_file(&message)?;
+    ensure_existing_file(&profile)?;
+
+    run_cli_guide_command(
+        "safe support bundle redaction preview",
+        vec![
+            "redact".to_string(),
+            path_to_arg(&message)?,
+            "--policy".to_string(),
+            path_to_arg(&policy)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&redaction_preview)?,
+        ],
+    )?;
+    let redaction = read_json_file(&redaction_preview)?;
+    let redaction_label = path_to_arg(&redaction_preview)?;
+    ensure_json_path_bool(
+        &redaction,
+        &["receipt", "phi_removed"],
+        true,
+        &redaction_label,
+    )?;
+    for (path, action) in [
+        ("PID.3", "hash"),
+        ("PID.5", "drop"),
+        ("PID.7", "drop"),
+        ("PID.8", "retain"),
+    ] {
+        ensure_json_object_array_contains_fields(
+            &redaction,
+            &["receipt", "actions"],
+            &[("path", path), ("action", action)],
+            &redaction_label,
+        )?;
+    }
+    ensure_file_lacks_phi_sentinels(&redaction_preview)?;
+
+    run_cli_guide_command(
+        "safe support bundle creation",
+        vec![
+            "support-bundle".to_string(),
+            path_to_arg(&message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--redact-policy".to_string(),
+            path_to_arg(&policy)?,
+            "--out".to_string(),
+            path_to_arg(&bundle)?,
+            "--output".to_string(),
+            path_to_arg(&bundle_summary)?,
+        ],
+    )?;
+    let summary = read_json_file(&bundle_summary)?;
+    let summary_label = path_to_arg(&bundle_summary)?;
+    ensure_json_path_string(&summary, &["bundle_version"], "1", &summary_label)?;
+    ensure_json_path_bool(&summary, &["validation_valid"], false, &summary_label)?;
+    ensure_json_path_u64(&summary, &["validation_issue_count"], 1, &summary_label)?;
+    ensure_json_path_bool(&summary, &["redaction_phi_removed"], true, &summary_label)?;
+    for artifact in [
+        "message.redacted.hl7",
+        "validation-report.json",
+        "field-paths.json",
+        "profile.yaml",
+        "redaction-receipt.json",
+        "environment.json",
+        "replay.sh",
+        "replay.ps1",
+        "README.md",
+        "manifest.json",
+    ] {
+        ensure_json_array_contains_string(&summary, &["artifacts"], artifact, &summary_label)?;
+        let artifact_path = bundle.join(artifact);
+        ensure_existing_file(&artifact_path)?;
+        ensure_file_lacks_phi_sentinels(&artifact_path)?;
+    }
+    ensure_file_lacks_phi_sentinels(&bundle_summary)?;
+
+    let validation_report = bundle.join("validation-report.json");
+    let validation = read_json_file(&validation_report)?;
+    let validation_label = path_to_arg(&validation_report)?;
+    ensure_json_path_bool(&validation, &["valid"], false, &validation_label)?;
+    ensure_json_path_u64(&validation, &["issue_count"], 1, &validation_label)?;
+    ensure_json_object_array_contains_fields(
+        &validation,
+        &["issues"],
+        &[
+            ("code", "value_not_in_set"),
+            ("path", "PID.8"),
+            ("severity", "error"),
+        ],
+        &validation_label,
+    )?;
+
+    run_cli_guide_command(
+        "safe support bundle replay",
+        vec![
+            "replay".to_string(),
+            path_to_arg(&bundle)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&replay_report)?,
+        ],
+    )?;
+    let replay = read_json_file(&replay_report)?;
+    let replay_label = path_to_arg(&replay_report)?;
+    ensure_json_path_string(&replay, &["replay_version"], "1", &replay_label)?;
+    ensure_json_path_string(&replay, &["bundle_version"], "1", &replay_label)?;
+    ensure_json_path_bool(&replay, &["reproduced"], true, &replay_label)?;
+    ensure_json_path_bool(&replay, &["validation_valid"], false, &replay_label)?;
+    ensure_json_path_u64(&replay, &["validation_issue_count"], 1, &replay_label)?;
+    for check_name in ["manifest-hashes", "report-match", "environment-match"] {
+        ensure_json_object_array_contains_fields(
+            &replay,
+            &["checks"],
+            &[("name", check_name), ("status", "pass")],
+            &replay_label,
+        )?;
+    }
+    ensure_file_lacks_phi_sentinels(&replay_report)?;
+
+    println!(
+        "Safe Support Bundle guide recipe wrote {}",
+        guide_root.display()
+    );
+    Ok(())
+}
+
 fn run_cli_guide_command(label: &str, args: Vec<String>) -> Result<()> {
     println!("Checking {label}...");
     run_command_owned("cargo", &cargo_run_hl7v2_cli_args(args))
@@ -4908,12 +5088,137 @@ fn ensure_json_bool(
     }
 }
 
+fn json_path<'a>(
+    value: &'a serde_json::Value,
+    path: &[&str],
+    label: &str,
+) -> Result<&'a serde_json::Value> {
+    let mut current = value;
+    for key in path {
+        current = current.get(key).ok_or_else(|| {
+            anyhow!(
+                "{label} did not include expected JSON path `{}`",
+                path.join(".")
+            )
+        })?;
+    }
+    Ok(current)
+}
+
+fn ensure_json_path_bool(
+    value: &serde_json::Value,
+    path: &[&str],
+    expected: bool,
+    label: &str,
+) -> Result<()> {
+    match json_path(value, path, label)?.as_bool() {
+        Some(actual) if actual == expected => Ok(()),
+        Some(actual) => Err(anyhow!(
+            "{label} JSON path `{}` was {actual}, expected {expected}",
+            path.join(".")
+        )),
+        None => Err(anyhow!(
+            "{label} did not include boolean JSON path `{}`",
+            path.join(".")
+        )),
+    }
+}
+
+fn ensure_json_path_string(
+    value: &serde_json::Value,
+    path: &[&str],
+    expected: &str,
+    label: &str,
+) -> Result<()> {
+    match json_path(value, path, label)?.as_str() {
+        Some(actual) if actual == expected => Ok(()),
+        Some(actual) => Err(anyhow!(
+            "{label} JSON path `{}` was `{actual}`, expected `{expected}`",
+            path.join(".")
+        )),
+        None => Err(anyhow!(
+            "{label} did not include string JSON path `{}`",
+            path.join(".")
+        )),
+    }
+}
+
+fn ensure_json_path_u64(
+    value: &serde_json::Value,
+    path: &[&str],
+    expected: u64,
+    label: &str,
+) -> Result<()> {
+    match json_path(value, path, label)?.as_u64() {
+        Some(actual) if actual == expected => Ok(()),
+        Some(actual) => Err(anyhow!(
+            "{label} JSON path `{}` was {actual}, expected {expected}",
+            path.join(".")
+        )),
+        None => Err(anyhow!(
+            "{label} did not include unsigned integer JSON path `{}`",
+            path.join(".")
+        )),
+    }
+}
+
+fn ensure_json_array_contains_string(
+    value: &serde_json::Value,
+    path: &[&str],
+    expected: &str,
+    label: &str,
+) -> Result<()> {
+    let array = json_path(value, path, label)?
+        .as_array()
+        .ok_or_else(|| anyhow!("{label} JSON path `{}` was not an array", path.join(".")))?;
+    if array
+        .iter()
+        .any(|value| value.as_str().is_some_and(|actual| actual == expected))
+    {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "{label} JSON array `{}` did not contain `{expected}`",
+        path.join(".")
+    ))
+}
+
+fn ensure_json_object_array_contains_fields(
+    value: &serde_json::Value,
+    path: &[&str],
+    fields: &[(&str, &str)],
+    label: &str,
+) -> Result<()> {
+    let array = json_path(value, path, label)?
+        .as_array()
+        .ok_or_else(|| anyhow!("{label} JSON path `{}` was not an array", path.join(".")))?;
+    let found = array.iter().any(|item| {
+        fields.iter().all(|(key, expected)| {
+            item.get(key)
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|actual| actual == *expected)
+        })
+    });
+    if found {
+        return Ok(());
+    }
+    let expected = fields
+        .iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Err(anyhow!(
+        "{label} JSON array `{}` did not contain object with {expected}",
+        path.join(".")
+    ))
+}
+
 fn ensure_file_lacks_phi_sentinels(path: &Path) -> Result<()> {
     let text = fs::read_to_string(path)?;
-    for sentinel in FIRST_USE_PHI_SENTINELS {
+    for sentinel in GUIDE_PHI_SENTINELS {
         if text.contains(sentinel) {
             return Err(anyhow!(
-                "{} leaked first-use PHI sentinel `{sentinel}`",
+                "{} leaked guide PHI sentinel `{sentinel}`",
                 path.display()
             ));
         }
@@ -7444,6 +7749,15 @@ mod tests {
                 Ok(())
             }
             _ => Err(anyhow!("expected check-first-use-guides command")),
+        }
+    }
+
+    #[test]
+    fn check_safe_support_bundle_guide_command_parses() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-safe-support-bundle-guide"])?;
+        match cli.command {
+            Commands::CheckSafeSupportBundleGuide => Ok(()),
+            _ => Err(anyhow!("expected check-safe-support-bundle-guide command")),
         }
     }
 

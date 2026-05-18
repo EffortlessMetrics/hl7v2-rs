@@ -45,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added `xtask check-safe-error-phi-parity` to run the shared safe-error and
   PHI sentinel acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
+- Added `xtask check-safe-support-bundle-guide` to prove the operator
+  support-bundle guide's redact, bundle, replay, artifact, and PHI-sentinel
+  promises.
 - Added gRPC evidence replay parity with configured-root bundle replay,
   fail-closed missing/unsafe bundle handling, shared replay reports, and opt-in
   v2 replay provenance.
@@ -74,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recorded a second hosted-traffic calibration audit for the advisory `ripr`
   evidence surface after evidence-parity and Python-proof PR traffic, keeping
   the lane non-blocking.
+- Recorded executable safe support-bundle guide smoke proof for the
+  operator-facing support packet workflow.
 - Updated the current-main TestPyPI publishing-mode proof retry after the
   v1.5.0 refactor cleanup readiness refresh; wheel smoke passed, while upload
   remains blocked by TestPyPI Trusted Publisher setup.

@@ -137,6 +137,8 @@ pub(crate) enum Commands {
         #[arg(long)]
         include_public_crates: bool,
     },
+    /// Run the executable safe support-bundle guide smoke
+    CheckSafeSupportBundleGuide,
     /// Run fixture-backed safe-error and PHI parity acceptance checks
     CheckSafeErrorPhiParity {
         /// Also run Python local-wheel smoke checks when hl7v2 is installed

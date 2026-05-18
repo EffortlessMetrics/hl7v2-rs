@@ -2,7 +2,7 @@
 
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
-> **Last Updated**: 2026-05-17
+> **Last Updated**: 2026-05-18
 > **Project Status**: v1.5.0 is published to crates.io for the selected Rust graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is published only as binding backend infrastructure for the public Python `hl7v2` package, not as the recommended Rust API.
 
 ## Core Components
@@ -147,7 +147,7 @@ For current parity states, proof commands, fixture families, and known gaps, see
 | Typed validation evidence | ✅ Stable | `ValidationReport` is shared by library, CLI, server validation, and Python bindings. |
 | Profiles as code | ✅ Stable | `profile lint`, `profile test`, and `profile explain` produce machine-readable profile evidence. |
 | Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. Current proof includes shared dirty-corpus coverage for Z-segments, legacy MSH/encoding fields, generated MLLP bytes, large OBX expansion, malformed delimiters, partial batch-like input, safe parse-error output across Rust core, CLI, REST server, gRPC server, and local Python wheel surfaces, plus CLI, REST, and gRPC validate/redact/bundle/replay workflows over the shared Z-segment fixture. |
-| Safe support packets | ✅ Stable | `redact`, `bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. |
+| Safe support packets | ✅ Stable | `redact`, `support-bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. The operator guide is executable with `cargo run -p xtask -- check-safe-support-bundle-guide`. |
 | Evidence contracts | ✅ Stable | v1.4.0 ships opt-in v2 provenance schemas/producers and an `xtask evidence-schema-check` gate. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
 | Server edge guard | ✅ Stable | v1.4.0 ships `/hl7/replay`, inline-message corpus endpoints that do not read request filesystem paths, bundle artifact schema opt-in, redacted structured evidence logs with hashed message-control and bundle identifiers, evidence metrics, Docker smoke coverage, and the bundle replay message-type fix. Current `main` also includes gRPC configured-root evidence bundle creation and replay parity. |
@@ -243,6 +243,9 @@ and the post-release current-main readiness refresh at
 `06d237eeefa1d22fc3ed7c4e46d11f3f6adce777` after the Python wheel dirty
 evidence smoke, Windows policy guard, server validation-helper refactor, and
 synthetic value/CLI help cleanup landed through #740/#742/#743/#738.
+The operator safe support-bundle recipe is now executable with
+`cargo run -p xtask -- check-safe-support-bundle-guide` and records the exact
+redact/support-bundle/replay artifact path promised in the user guide.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
 upload and install-back proof before any Python release claim. The latest
 publishing-mode TestPyPI attempt ran on current `main` commit
