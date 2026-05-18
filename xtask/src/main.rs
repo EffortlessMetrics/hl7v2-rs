@@ -75,6 +75,7 @@ fn main() -> Result<()> {
             include_public_crates,
         } => check_first_use_guides(include_python, include_public_crates)?,
         Commands::CheckFirst10MinutesGuide => check_first_10_minutes_guide()?,
+        Commands::CheckFirstUseBySurfaceGuide => check_first_use_by_surface_guide()?,
         Commands::CheckVendorUpgradeDiffGuide => check_vendor_upgrade_diff_guide()?,
         Commands::CheckOperatorErrorGuidanceGuide => check_operator_error_guidance_guide()?,
         Commands::CheckSafeSupportBundleGuide => check_safe_support_bundle_guide()?,
@@ -4379,6 +4380,7 @@ const EVIDENCE_PARITY_ALLOWED_PYTHON_STATES: &[&str] = &[
 
 const FIRST_USE_RECEIPT_ROOT: &str = "target/hl7v2-receipt";
 const FIRST_10_MINUTES_GUIDE_ROOT: &str = "target/hl7v2-first-10-minutes";
+const FIRST_USE_BY_SURFACE_GUIDE_ROOT: &str = "target/hl7v2-first-use-by-surface";
 const VENDOR_UPGRADE_DIFF_GUIDE_ROOT: &str = "target/hl7v2-vendor-upgrade-diff";
 const OPERATOR_ERROR_GUIDANCE_ROOT: &str = "target/hl7v2-operator-error-guidance";
 const FIRST_USE_REDACTION_POLICY: &str = r#"[[rules]]
@@ -5210,6 +5212,197 @@ fn check_first_10_minutes_guide() -> Result<()> {
 
     println!(
         "First 10 Minutes guide recipe wrote {}",
+        guide_root.display()
+    );
+    Ok(())
+}
+
+fn check_first_use_by_surface_guide() -> Result<()> {
+    println!("Checking First Use By Surface guide recipe...");
+    let workspace_root = env::current_dir()?;
+    let guide_root = workspace_root.join(FIRST_USE_BY_SURFACE_GUIDE_ROOT);
+    let target_root = workspace_root.join("target");
+    if !guide_root.starts_with(&target_root) {
+        return Err(anyhow!(
+            "refusing to prepare first-use-by-surface output outside target/: {}",
+            guide_root.display()
+        ));
+    }
+    if guide_root.exists() {
+        fs::remove_dir_all(&guide_root)?;
+    }
+
+    let reports = guide_root.join("reports");
+    fs::create_dir_all(&reports)?;
+
+    println!("Checking First Use By Surface Rust route...");
+    run_command(
+        "cargo",
+        &[
+            "test",
+            "-p",
+            "hl7v2",
+            "--test",
+            "user_journey",
+            "journey_rust_validate_redact_bundle_replay_produces_shareable_receipts",
+            "--all-features",
+            "--locked",
+        ],
+    )?;
+
+    let doctor = run_cli_guide_command_capture(
+        "First Use By Surface CLI doctor",
+        vec![
+            "doctor".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+    )?;
+    let doctor_report = reports.join("cli-doctor.json");
+    fs::write(&doctor_report, &doctor)?;
+    let doctor_json: serde_json::Value = serde_json::from_str(&doctor)?;
+    let doctor_label = path_to_arg(&doctor_report)?;
+    ensure_json_has_key(&doctor_json, "version", &doctor_label)?;
+    ensure_json_has_key(&doctor_json, "checks", &doctor_label)?;
+    ensure_file_lacks_phi_sentinels(&doctor_report)?;
+
+    let profile = workspace_root.join("profiles/generic.yaml");
+    let valid_message = workspace_root.join("test_data/valid_message.hl7");
+    ensure_existing_file(&profile)?;
+    ensure_existing_file(&valid_message)?;
+
+    let profile_lint = reports.join("cli-profile-lint.json");
+    run_cli_guide_command(
+        "First Use By Surface CLI profile lint",
+        vec![
+            "profile".to_string(),
+            "lint".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&profile_lint)?,
+        ],
+    )?;
+    let lint = read_json_file(&profile_lint)?;
+    let lint_label = path_to_arg(&profile_lint)?;
+    ensure_json_path_bool(&lint, &["valid"], true, &lint_label)?;
+    ensure_json_path_u64(&lint, &["error_count"], 0, &lint_label)?;
+    ensure_file_lacks_phi_sentinels(&profile_lint)?;
+
+    let validation_report = reports.join("cli-validation-report.json");
+    run_cli_guide_command(
+        "First Use By Surface CLI validation report",
+        vec![
+            "val".to_string(),
+            path_to_arg(&valid_message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&validation_report)?,
+        ],
+    )?;
+    let validation = read_json_file(&validation_report)?;
+    let validation_label = path_to_arg(&validation_report)?;
+    ensure_json_path_bool(&validation, &["valid"], true, &validation_label)?;
+    ensure_json_has_key(&validation, "message_type", &validation_label)?;
+    ensure_json_path_u64(&validation, &["issue_count"], 0, &validation_label)?;
+    ensure_file_lacks_phi_sentinels(&validation_report)?;
+
+    let corpus_summary = reports.join("cli-corpus-summary.json");
+    run_cli_guide_command(
+        "First Use By Surface CLI corpus summary",
+        vec![
+            "corpus".to_string(),
+            "summarize".to_string(),
+            "test_data".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&corpus_summary)?,
+        ],
+    )?;
+    let summary = read_json_file(&corpus_summary)?;
+    let summary_label = path_to_arg(&corpus_summary)?;
+    ensure_json_path_u64(&summary, &["file_count"], 37, &summary_label)?;
+    ensure_json_path_u64(&summary, &["message_count"], 14, &summary_label)?;
+    ensure_json_path_u64(&summary, &["parse_error_count"], 23, &summary_label)?;
+    ensure_json_has_key(&summary, "message_types", &summary_label)?;
+    ensure_file_lacks_phi_sentinels(&corpus_summary)?;
+
+    let server_config = run_command_capture_owned(
+        "cargo",
+        &[
+            "run".to_string(),
+            "--quiet".to_string(),
+            "-p".to_string(),
+            "hl7v2-server".to_string(),
+            "--".to_string(),
+            "--print-config".to_string(),
+        ],
+    )?;
+    let server_config_report = reports.join("server-print-config.json");
+    fs::write(&server_config_report, &server_config)?;
+    let server_config_json: serde_json::Value = serde_json::from_str(&server_config)?;
+    let server_config_label = path_to_arg(&server_config_report)?;
+    ensure_json_path_string(
+        &server_config_json,
+        &["bind_address"],
+        "0.0.0.0:8080",
+        &server_config_label,
+    )?;
+    ensure_json_path_bool(
+        &server_config_json,
+        &["api_key_configured"],
+        false,
+        &server_config_label,
+    )?;
+    ensure_json_path_bool(
+        &server_config_json,
+        &["bundle_output_root_configured"],
+        false,
+        &server_config_label,
+    )?;
+    ensure_json_path_bool(
+        &server_config_json,
+        &["quarantine", "enabled"],
+        false,
+        &server_config_label,
+    )?;
+    ensure_file_lacks_phi_sentinels(&server_config_report)?;
+
+    let proof = reports.join("first-use-by-surface.json");
+    let proof_json = serde_json::json!({
+        "guide": "docs/guides/first-use-by-surface.md",
+        "source_checkout_routes": [
+            "rust_user_journey",
+            "cli_doctor",
+            "cli_profile_lint",
+            "cli_validation_report",
+            "cli_corpus_summary",
+            "server_print_config"
+        ],
+        "delegated_routes": [
+            {
+                "surface": "python",
+                "proof": "cargo +1.95.0 run -p xtask -- python-local-wheel-proof",
+                "reason": "public TestPyPI/PyPI proof remains blocked by issue #563"
+            }
+        ],
+        "non_claims": [
+            "no TestPyPI upload",
+            "no PyPI upload",
+            "no npm package",
+            "no new crates.io release"
+        ]
+    });
+    fs::write(&proof, serde_json::to_string_pretty(&proof_json)?)?;
+    ensure_file_lacks_phi_sentinels(&proof)?;
+
+    println!(
+        "First Use By Surface guide recipe wrote {}",
         guide_root.display()
     );
     Ok(())
@@ -9433,6 +9626,15 @@ mod tests {
         match cli.command {
             Commands::CheckFirst10MinutesGuide => Ok(()),
             _ => Err(anyhow!("expected check-first-10-minutes-guide command")),
+        }
+    }
+
+    #[test]
+    fn check_first_use_by_surface_guide_command_parses() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-first-use-by-surface-guide"])?;
+        match cli.command {
+            Commands::CheckFirstUseBySurfaceGuide => Ok(()),
+            _ => Err(anyhow!("expected check-first-use-by-surface-guide command")),
         }
     }
 

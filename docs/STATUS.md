@@ -243,6 +243,10 @@ and the post-release current-main readiness refresh at
 `06d237eeefa1d22fc3ed7c4e46d11f3f6adce777` after the Python wheel dirty
 evidence smoke, Windows policy guard, server validation-helper refactor, and
 synthetic value/CLI help cleanup landed through #740/#742/#743/#738.
+The first-use-by-surface routing guide is now executable with
+`cargo run -p xtask -- check-first-use-by-surface-guide`; it proves the local
+Rust, CLI, and server first-use routes while delegating Python public-registry
+proof to the existing TestPyPI/PyPI blocker.
 The operator safe support-bundle recipe is now executable with
 `cargo run -p xtask -- check-safe-support-bundle-guide` and records the exact
 redact/support-bundle/replay artifact path promised in the user guide.

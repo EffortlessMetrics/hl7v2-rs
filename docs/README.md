@@ -94,6 +94,7 @@ proposal, spec, plan, or receipt documents.
 | [Dirty real-world odd MSH metadata parity proof](audits/dirty-real-world-odd-msh-parity-2026-05-18.md) | Rust, CLI, REST, and gRPC corpus parity proof for componentized MSH sender/receiver metadata. |
 | [Dirty real-world vendor ORU null/text parity proof](audits/dirty-real-world-vendor-oru-null-text-parity-2026-05-18.md) | Rust, CLI, REST, gRPC, and local Python corpus parity proof for narrative ORU text, escaped delimiters, NTE notes, and explicit HL7 null observations. |
 | [User journey acceptance proof](audits/user-journey-acceptance-2026-05-15.md) | First-use acceptance map for Rust, CLI, server, and Python evidence workflows. |
+| [First use by surface guide smoke](audits/first-use-by-surface-guide-smoke-2026-05-18.md) | Executable `xtask check-first-use-by-surface-guide` proof for the Rust, CLI, and server first-use routing guide. |
 | [First 10 Minutes guide smoke](audits/first-10-minutes-guide-smoke-2026-05-18.md) | Executable `xtask check-first-10-minutes-guide` proof for the job-first CLI onboarding guide. |
 | [First-use guide smoke](audits/first-use-guide-smoke-2026-05-18.md) | Executable `xtask check-first-use-guides` proof for the documented full evidence receipt path. |
 | [Vendor upgrade diff guide smoke](audits/vendor-upgrade-diff-guide-smoke-2026-05-18.md) | Executable `xtask check-vendor-upgrade-diff-guide` proof for the before/after corpus drift guide. |

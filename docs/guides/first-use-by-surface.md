@@ -12,6 +12,16 @@ The repository may contain binding backend crates such as `hl7v2-python`, but
 those are packaging and provenance surfaces. They are not the recommended Rust
 API and they are not the Python package name.
 
+From a source checkout, the Rust, CLI, and server routes in this guide are
+executable:
+
+```bash
+cargo +1.95.0 run -p xtask -- check-first-use-by-surface-guide
+```
+
+Python public-registry proof remains separate until TestPyPI/PyPI upload and
+install-back receipts exist.
+
 ## Current Release Boundary
 
 `v1.5.0` is published to crates.io for the selected Rust graph:
