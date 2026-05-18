@@ -8,5 +8,5 @@
   "redaction_policy_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "validation_valid": true,
   "validation_issue_count": 0,
-  "replay_command": "hl7v2 val message.redacted.hl7 --profile profile.yaml --report json"
+  "replay_command": "hl7v2 replay . --format json"
 }

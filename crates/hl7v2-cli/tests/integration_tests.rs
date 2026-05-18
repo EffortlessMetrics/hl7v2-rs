@@ -2855,12 +2855,20 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         assert_eq!(environment["tool_name"], "hl7v2-cli");
         assert_eq!(
             environment["replay_command"],
-            "hl7v2 val message.redacted.hl7 --profile profile.yaml --report json"
+            "hl7v2 replay . --format json"
         );
+
+        let replay_sh = std::fs::read_to_string(bundle_dir.join("replay.sh")).unwrap();
+        assert!(replay_sh.contains("hl7v2 replay . --format json > replay-report.json"));
+        assert!(!replay_sh.contains("validation-report.replayed.json"));
+        let replay_ps1 = std::fs::read_to_string(bundle_dir.join("replay.ps1")).unwrap();
+        assert!(replay_ps1.contains("hl7v2 replay . --format json > .\\replay-report.json"));
+        assert!(!replay_ps1.contains("validation-report.replayed.json"));
 
         let readme = std::fs::read_to_string(bundle_dir.join("README.md")).unwrap();
         assert!(readme.contains("HL7v2 Evidence Bundle"));
         assert!(readme.contains("hl7v2 replay . --format json"));
+        assert!(readme.contains("write `replay-report.json`"));
         assert!(!readme.contains(dir.path().to_string_lossy().as_ref()));
 
         let manifest: serde_json::Value = serde_json::from_str(
@@ -5224,6 +5232,26 @@ reason = "message type is needed for analysis"
         assert!(!redacted_message.contains("Journey^Patient"));
         assert!(!redacted_message.contains("19700101"));
 
+        let mut shareable_artifacts = String::new();
+        for artifact in [
+            "message.redacted.hl7",
+            "validation-report.json",
+            "field-paths.json",
+            "redaction-receipt.json",
+            "environment.json",
+            "manifest.json",
+        ] {
+            let text = std::fs::read_to_string(bundle.join(artifact))
+                .expect("shareable bundle artifact should be readable");
+            shareable_artifacts.push_str(&text);
+        }
+        for sentinel in ["MRN-JOURNEY", "Journey^Patient", "19700101"] {
+            assert!(
+                !shareable_artifacts.contains(sentinel),
+                "shareable bundle artifacts leaked PHI sentinel {sentinel}"
+            );
+        }
+
         let replay_report = dir.path().join("replay-report.json");
         let mut cmd = cli_command();
         let output = cmd
@@ -5254,6 +5282,14 @@ reason = "message type is needed for analysis"
                 .iter()
                 .all(|check| check["status"] == "pass")
         );
+        let replay_text =
+            std::fs::read_to_string(&replay_report).expect("replay report should be readable");
+        for sentinel in ["MRN-JOURNEY", "Journey^Patient", "19700101"] {
+            assert!(
+                !replay_text.contains(sentinel),
+                "replay report leaked PHI sentinel {sentinel}"
+            );
+        }
     }
 }
 
