@@ -143,6 +143,43 @@ proof_commands = [
 ]
 
 [[work_item]]
+id = "python-registry-blocker-current-state-clarification"
+status = "done"
+goal = "Clarify the public Python registry blocker after current-main proof routing landed, preserving the historical TestPyPI publishing attempt as blocked evidence rather than current-main success."
+commit = "897b21506038d88e13b33a04d9ce664944c678c5"
+issue_comment = "https://github.com/EffortlessMetrics/hl7v2-rs/issues/563#issuecomment-4480780543"
+receipts = [
+  "docs/STATUS.md",
+  "docs/guides/python-testpypi-release-proof.md",
+  "CHANGELOG.md",
+]
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "git diff --check",
+  "curl -s -o NUL -w \"%{http_code}\" https://test.pypi.org/pypi/hl7v2/json",
+  "curl -s -o NUL -w \"%{http_code}\" https://pypi.org/pypi/hl7v2/json",
+]
+result = [
+  "#789 and #790 clarified that the 2026-05-17 publishing-mode TestPyPI run at 764647e79ab61cd9814d07a777cbf1eed27a5ee8 is historical blocked evidence, not current-main TestPyPI proof.",
+  "TestPyPI and PyPI hl7v2 JSON endpoints still returned 404.",
+  "No publishing-mode rerun was started because TestPyPI Trusted Publisher setup has not been evidenced.",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back success claim.",
+  "No PyPI upload.",
+  "No PyPI install-back success claim.",
+  "No token fallback.",
+  "No skip-existing.",
+  "No npm package.",
+  "No new crates.io release.",
+  "No tag or GitHub release.",
+]
+
+[[work_item]]
 id = "cross-surface-parity-gap-audit-refresh"
 status = "done"
 goal = "Refresh the manifest-linked cross-surface evidence parity gap audit after guide smokes, dirty-corpus expansion, and Python public-registry proof boundaries landed."
