@@ -137,7 +137,7 @@ guides, start with [the documentation index](README.md). For the current
 final source-tree gap audit after the local workbench split, see
 [`docs/audits/current-source-tree-evidence-objective-gap-audit.md`](audits/current-source-tree-evidence-objective-gap-audit.md).
 For the current cross-surface evidence parity gap map, see
-[`docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md`](audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md).
+[`docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-18.md`](audits/cross-surface-evidence-parity-gap-audit-2026-05-18.md).
 For current parity states, proof commands, fixture families, and known gaps, see
 [`policy/evidence-parity.toml`](../policy/evidence-parity.toml).
 
