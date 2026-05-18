@@ -248,9 +248,10 @@ The operator safe support-bundle recipe is now executable with
 redact/support-bundle/replay artifact path promised in the user guide.
 The HTTP deployment sidecar guide is now executable with
 `cargo run -p xtask -- check-sidecar-guide`; it prepares the guide config,
-starts `hl7v2-server`, runs the standard server smoke against
-`127.0.0.1:18080`, proves the guide invalid-message quarantine, ACK policy,
-metrics, corpus diff, and PHI-sentinel path, and shuts the sidecar down.
+chooses an ephemeral loopback port, starts `hl7v2-server`, runs the standard
+server smoke against the spawned sidecar, proves the guide invalid-message
+quarantine, ACK policy, metrics, corpus diff, and PHI-sentinel path, and shuts
+the sidecar down.
 The operator evidence-artifacts interpretation guide is now executable with
 `cargo run -p xtask -- check-evidence-artifacts-guide`; it generates doctor,
 profile, validation, corpus, redaction, support-bundle, manifest,

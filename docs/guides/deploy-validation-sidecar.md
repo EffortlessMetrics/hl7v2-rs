@@ -20,7 +20,9 @@ cargo +1.95.0 run -p xtask -- check-sidecar-guide
 
 The check starts a local `hl7v2-server` sidecar, runs the standard server smoke,
 and then runs a guide-specific invalid-message smoke for quarantine output, ACK
-policy, corpus diff, metrics, and PHI sentinels.
+policy, corpus diff, metrics, and PHI sentinels. The executable check chooses an
+ephemeral loopback port so it does not depend on the manual `18080` example port
+being free.
 
 ## What You Will Prove
 

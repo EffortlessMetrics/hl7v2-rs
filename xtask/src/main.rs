@@ -4398,9 +4398,11 @@ reason = "administrative sex is required to reproduce validation"
 const SAFE_SUPPORT_BUNDLE_GUIDE_ROOT: &str = "target/hl7v2-safe-support-bundle";
 const EVIDENCE_ARTIFACTS_GUIDE_ROOT: &str = "target/hl7v2-evidence-artifacts";
 const SIDECAR_GUIDE_ROOT: &str = "target/hl7v2-sidecar";
-const SIDECAR_GUIDE_CONFIG: &str = r#"[server]
+fn sidecar_guide_config(port: u16) -> String {
+    format!(
+        r#"[server]
 host = "127.0.0.1"
-port = 18080
+port = {port}
 bundle_output_root = "target/hl7v2-sidecar/bundles"
 
 [ack]
@@ -4415,7 +4417,10 @@ path = "target/hl7v2-sidecar/quarantine"
 write_redacted = true
 write_report = true
 write_bundle = true
-"#;
+"#
+    )
+}
+
 const SAFE_SUPPORT_BUNDLE_REDACTION_POLICY: &str = r#"[[rules]]
 path = "PID.3"
 action = "hash"
@@ -5433,7 +5438,10 @@ fn check_sidecar_guide() -> Result<()> {
 
     let config = sidecar_root.join("server.toml");
     let policy = sidecar_root.join("safe-analysis.toml");
-    fs::write(&config, SIDECAR_GUIDE_CONFIG)?;
+    let port = allocate_loopback_port()?;
+    let bind_addr = format!("127.0.0.1:{port}");
+    let server_url = format!("http://{bind_addr}");
+    fs::write(&config, sidecar_guide_config(port))?;
     fs::write(&policy, SAFE_SUPPORT_BUNDLE_REDACTION_POLICY)?;
 
     let profile = workspace_root.join("profiles/generic.yaml");
@@ -5465,7 +5473,7 @@ fn check_sidecar_guide() -> Result<()> {
     ensure_json_path_string(
         &public_config_json,
         &["bind_address"],
-        "127.0.0.1:18080",
+        &bind_addr,
         "sidecar --print-config",
     )?;
     ensure_json_path_bool(
@@ -5493,9 +5501,9 @@ fn check_sidecar_guide() -> Result<()> {
         "sidecar --print-config",
     )?;
 
-    ensure_tcp_port_available("127.0.0.1:18080")?;
+    ensure_tcp_port_available(&bind_addr)?;
 
-    println!("Starting hl7v2-server sidecar on 127.0.0.1:18080...");
+    println!("Starting hl7v2-server sidecar on {bind_addr}...");
     let stdout = fs::File::create(sidecar_root.join("server.stdout.log"))?;
     let stderr = fs::File::create(sidecar_root.join("server.stderr.log"))?;
     let child = Command::new(&server_bin)
@@ -5515,7 +5523,7 @@ fn check_sidecar_guide() -> Result<()> {
         "python",
         &["tests/server_smoke/smoke.py"],
         &[
-            ("HL7V2_SERVER_URL", "http://127.0.0.1:18080"),
+            ("HL7V2_SERVER_URL", server_url.as_str()),
             ("HL7V2_API_KEY", "dev-secret"),
             ("HL7V2_SERVER_SMOKE_TIMEOUT", "45"),
         ],
@@ -5527,7 +5535,7 @@ fn check_sidecar_guide() -> Result<()> {
         "python",
         &["tests/server_smoke/guide_quarantine.py"],
         &[
-            ("HL7V2_SERVER_URL", "http://127.0.0.1:18080"),
+            ("HL7V2_SERVER_URL", server_url.as_str()),
             ("HL7V2_API_KEY", "dev-secret"),
             ("HL7V2_SIDECAR_GUIDE_ROOT", SIDECAR_GUIDE_ROOT),
             ("HL7V2_SERVER_SMOKE_TIMEOUT", "45"),
@@ -5610,6 +5618,17 @@ fn ensure_tcp_port_available(bind_addr: &str) -> Result<()> {
     })?;
     drop(listener);
     Ok(())
+}
+
+fn allocate_loopback_port() -> Result<u16> {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .map_err(|error| anyhow!("failed to allocate sidecar guide smoke port: {error}"))?;
+    let port = listener
+        .local_addr()
+        .map_err(|error| anyhow!("failed to read sidecar guide smoke port: {error}"))?
+        .port();
+    drop(listener);
+    Ok(port)
 }
 
 fn run_command_capture_with_env(
@@ -8430,6 +8449,27 @@ mod tests {
             Commands::CheckSidecarGuide => Ok(()),
             _ => Err(anyhow!("expected check-sidecar-guide command")),
         }
+    }
+
+    #[test]
+    fn sidecar_guide_config_uses_selected_port() {
+        let config = sidecar_guide_config(49152);
+        assert!(config.contains("host = \"127.0.0.1\""));
+        assert!(config.contains("port = 49152"));
+        assert!(config.contains("bundle_output_root = \"target/hl7v2-sidecar/bundles\""));
+    }
+
+    #[test]
+    fn ensure_tcp_port_available_rejects_bound_address() -> Result<()> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let addr = listener.local_addr()?;
+        let Err(error) = ensure_tcp_port_available(&addr.to_string()) else {
+            return Err(anyhow!("bound port should fail availability check"));
+        };
+        if !error.to_string().contains("sidecar guide smoke requires") {
+            return Err(anyhow!("unexpected availability error: {error}"));
+        }
+        Ok(())
     }
 
     #[test]

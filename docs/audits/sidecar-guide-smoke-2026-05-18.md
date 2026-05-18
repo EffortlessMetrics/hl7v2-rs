@@ -21,9 +21,12 @@ The command proves the local, non-registry sidecar path:
 - builds `hl7v2-server`;
 - verifies `hl7v2-server --print-config` reports sanitized configuration
   without leaking the API key value;
-- fails closed when `127.0.0.1:18080` is already occupied instead of passing
-  against a stale sidecar;
-- starts a local HTTP sidecar on `127.0.0.1:18080`;
+- chooses an ephemeral loopback port for the executable proof, while the manual
+  guide keeps `127.0.0.1:18080` as a copy/paste example;
+- verifies the generated config reports that exact ephemeral bind address;
+- still fails closed when a selected bind address is occupied instead of
+  passing against a stale sidecar;
+- starts a local HTTP sidecar on the selected loopback address;
 - runs `tests/server_smoke/smoke.py` against that sidecar with the guide API
   key and URL;
 - runs `tests/server_smoke/guide_quarantine.py` against the same sidecar to
@@ -52,6 +55,8 @@ and PHI-sentinel checks against the running sidecar.
 cargo +1.95.0 fmt --all -- --check
 cargo +1.95.0 clippy -p xtask --all-targets --locked -- -D warnings
 cargo +1.95.0 test -p xtask check_sidecar_guide --locked
+cargo +1.95.0 test -p xtask sidecar_guide_config_uses_selected_port --locked
+cargo +1.95.0 test -p xtask ensure_tcp_port_available_rejects_bound_address --locked
 cargo +1.95.0 test -p xtask --locked
 cargo +1.95.0 run -p xtask -- check-sidecar-guide
 cargo +1.95.0 run -p xtask -- check-doc-links
