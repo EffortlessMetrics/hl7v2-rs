@@ -1275,16 +1275,17 @@ mod summary_tests {
         }
     }
 
-    fn add_generated_mllp_fixture(target: &Path) {
+    fn add_generated_mllp_fixtures(target: &Path) {
         let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
         let Ok(bytes) = fs::read(&source) else {
             panic!("MLLP source fixture should be readable: {source:?}");
         };
         let normalized = normalize_fixture_segments(&bytes);
-        write_message_bytes(
-            &target.join("mllp-framed.hl7"),
-            &crate::wrap_mllp(&normalized),
-        );
+        let wrapped = crate::wrap_mllp(&normalized);
+        write_message_bytes(&target.join("mllp-framed.hl7"), &wrapped);
+        let mut truncated = wrapped;
+        let _ = truncated.pop();
+        write_message_bytes(&target.join("mllp-truncated.hl7"), &truncated);
     }
 
     #[test]
@@ -1395,7 +1396,7 @@ mod summary_tests {
 
         materialize_dirty_corpus_dir("before", before.path());
         materialize_dirty_corpus_dir("after", after.path());
-        add_generated_mllp_fixture(after.path());
+        add_generated_mllp_fixtures(after.path());
 
         let Ok(summary) = summarize_corpus_path(after.path()) else {
             panic!("dirty corpus should summarize");
@@ -1407,9 +1408,9 @@ mod summary_tests {
             panic!("dirty corpus should diff");
         };
 
-        assert_eq!(summary.file_count, 6);
+        assert_eq!(summary.file_count, 7);
         assert_eq!(summary.message_count, 4);
-        assert_eq!(summary.parse_error_count, 2);
+        assert_eq!(summary.parse_error_count, 3);
         assert!(summary.total_bytes > 1_000);
         assert!(
             summary
@@ -1463,12 +1464,18 @@ mod summary_tests {
             summary
                 .parse_errors
                 .iter()
+                .any(|failure| failure.path == "mllp-truncated.hl7")
+        );
+        assert!(
+            summary
+                .parse_errors
+                .iter()
                 .all(|failure| !failure.error.contains("MRN-DIRTY"))
         );
 
-        assert_eq!(fingerprint.file_count, 6);
+        assert_eq!(fingerprint.file_count, 7);
         assert_eq!(fingerprint.message_count, 4);
-        assert_eq!(fingerprint.parse_error_count, 2);
+        assert_eq!(fingerprint.parse_error_count, 3);
         assert!(
             fingerprint
                 .field_cardinality
@@ -1485,9 +1492,9 @@ mod summary_tests {
         );
 
         assert_eq!(diff.file_count.before, 2);
-        assert_eq!(diff.file_count.after, 6);
+        assert_eq!(diff.file_count.after, 7);
         assert_eq!(diff.message_count.delta, 2);
-        assert_eq!(diff.parse_error_count.delta, 2);
+        assert_eq!(diff.parse_error_count.delta, 3);
         assert!(
             diff.field_cardinality
                 .iter()

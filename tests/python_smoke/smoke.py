@@ -84,9 +84,11 @@ def materialize_dirty_corpus_dir(source: Path, target: Path) -> None:
             (target / path.name).write_bytes(normalize_fixture_segments(path.read_bytes()))
 
 
-def add_generated_mllp_fixture(source: Path, target: Path) -> None:
+def add_generated_mllp_fixtures(source: Path, target: Path) -> None:
     normalized = normalize_fixture_segments(source.read_bytes())
-    (target / "mllp-framed.hl7").write_bytes(b"\x0b" + normalized + b"\x1c\r")
+    framed = b"\x0b" + normalized + b"\x1c\r"
+    (target / "mllp-framed.hl7").write_bytes(framed)
+    (target / "mllp-truncated.hl7").write_bytes(framed[:-1])
 
 
 def has_count(entries: list[dict[str, object]], value: str, count: int) -> bool:
@@ -616,7 +618,7 @@ constraints:
         dirty_after = dirty_root / "after"
         materialize_dirty_corpus_dir(dirty_fixture_root / "before", dirty_before)
         materialize_dirty_corpus_dir(dirty_fixture_root / "after", dirty_after)
-        add_generated_mllp_fixture(
+        add_generated_mllp_fixtures(
             dirty_fixture_root / "sources" / "mllp-source.hl7",
             dirty_after,
         )
@@ -628,8 +630,8 @@ constraints:
             dirty_summary["schema_version"] != EXPECTED_V2_SCHEMA_VERSION
             or dirty_summary["tool_name"] != PYTHON_TOOL_NAME
             or dirty_summary["message_count"] != 4
-            or dirty_summary["file_count"] != 6
-            or dirty_summary["parse_error_count"] != 2
+            or dirty_summary["file_count"] != 7
+            or dirty_summary["parse_error_count"] != 3
         ):
             print(
                 "dirty corpus summary did not preserve expected aggregate counts",
@@ -647,7 +649,11 @@ constraints:
             print("dirty corpus summary did not preserve expected shape counts", file=sys.stderr)
             return 1
         parse_error_paths = {item["path"] for item in dirty_summary["parse_errors"]}
-        if parse_error_paths != {"malformed-delimiters.hl7", "partial-batch.hl7"}:
+        if parse_error_paths != {
+            "malformed-delimiters.hl7",
+            "mllp-truncated.hl7",
+            "partial-batch.hl7",
+        }:
             print(
                 f"unexpected dirty corpus parse-error paths: {parse_error_paths}",
                 file=sys.stderr,
@@ -662,8 +668,8 @@ constraints:
             or dirty_fingerprint["tool_name"] != PYTHON_TOOL_NAME
             or dirty_fingerprint["fingerprint_version"] != "1"
             or dirty_fingerprint["message_count"] != 4
-            or dirty_fingerprint["file_count"] != 6
-            or dirty_fingerprint["parse_error_count"] != 2
+            or dirty_fingerprint["file_count"] != 7
+            or dirty_fingerprint["parse_error_count"] != 3
         ):
             print(
                 "dirty corpus fingerprint did not preserve expected aggregate counts",
@@ -701,10 +707,10 @@ constraints:
             or dirty_diff["tool_name"] != PYTHON_TOOL_NAME
             or dirty_diff["diff_version"] != "1"
             or dirty_diff["file_count"]["before"] != 2
-            or dirty_diff["file_count"]["after"] != 6
-            or dirty_diff["file_count"]["delta"] != 4
+            or dirty_diff["file_count"]["after"] != 7
+            or dirty_diff["file_count"]["delta"] != 5
             or dirty_diff["message_count"]["delta"] != 2
-            or dirty_diff["parse_error_count"]["delta"] != 2
+            or dirty_diff["parse_error_count"]["delta"] != 3
         ):
             print(
                 "dirty corpus diff did not preserve expected aggregate deltas",

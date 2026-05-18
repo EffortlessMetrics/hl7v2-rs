@@ -244,9 +244,16 @@ reason = "synthetic dirty-corpus note is useful for support triage"
         let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
         let bytes = fs::read(&source).expect("MLLP source fixture should be readable");
         let normalized = normalize_fixture_segments(&bytes);
+        let wrapped = hl7v2::wrap_mllp(&normalized);
         messages.push(CorpusMessageInput {
             id: Some("mllp-framed.hl7".to_string()),
-            message: hl7v2::wrap_mllp(&normalized),
+            message: wrapped.clone(),
+        });
+        let mut truncated = wrapped;
+        let _ = truncated.pop();
+        messages.push(CorpusMessageInput {
+            id: Some("mllp-truncated.hl7".to_string()),
+            message: truncated,
         });
         messages
     }
@@ -1896,9 +1903,9 @@ reason = "hash patient identifier"
 
         let summary_report = summary.summary.expect("summary should exist");
         assert_eq!(summary_report.root, "<inline-corpus>");
-        assert_eq!(summary_report.file_count, 6);
+        assert_eq!(summary_report.file_count, 7);
         assert_eq!(summary_report.message_count, 4);
-        assert_eq!(summary_report.parse_error_count, 2);
+        assert_eq!(summary_report.parse_error_count, 3);
         assert!(
             summary_report
                 .message_types
@@ -1929,6 +1936,12 @@ reason = "hash patient identifier"
                 .iter()
                 .any(|entry| entry.path == "partial-batch.hl7")
         );
+        assert!(
+            summary_report
+                .parse_errors
+                .iter()
+                .any(|entry| entry.path == "mllp-truncated.hl7")
+        );
         assert!(!summary_debug.contains("MRN-DIRTY"));
 
         let fingerprint = service
@@ -1944,9 +1957,9 @@ reason = "hash patient identifier"
 
         let fingerprint_report = fingerprint.fingerprint.expect("fingerprint should exist");
         assert_eq!(fingerprint_report.root, "<inline-corpus>");
-        assert_eq!(fingerprint_report.file_count, 6);
+        assert_eq!(fingerprint_report.file_count, 7);
         assert_eq!(fingerprint_report.message_count, 4);
-        assert_eq!(fingerprint_report.parse_error_count, 2);
+        assert_eq!(fingerprint_report.parse_error_count, 3);
         assert!(
             fingerprint_report
                 .field_cardinality
@@ -1981,7 +1994,7 @@ reason = "hash patient identifier"
                 .file_count
                 .expect("file count should exist")
                 .delta,
-            4
+            5
         );
         assert_eq!(
             diff_report
@@ -1995,7 +2008,7 @@ reason = "hash patient identifier"
                 .parse_error_count
                 .expect("parse error count should exist")
                 .delta,
-            2
+            3
         );
         assert!(
             diff_report
