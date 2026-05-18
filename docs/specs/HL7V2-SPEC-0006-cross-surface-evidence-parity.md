@@ -108,7 +108,8 @@ The shared dirty-corpus fixture family lives in
 gRPC server, and local Python wheel corpus summary, fingerprint, and diff parity
 for Z-segments, large OBX expansion, legacy encoding declarations, malformed
 delimiters, partial batch-like input, odd MSH sender/receiver metadata,
-generated MLLP-framed input, and generated truncated-MLLP failure input.
+vendor-shaped ORU narrative/null observations, generated MLLP-framed input,
+and generated truncated-MLLP failure input.
 It also proves CLI, REST, and gRPC validate/redact/bundle/replay workflows
 against the shared Z-segment fixture so dirty-corpus evidence is not limited to
 feed-level corpus commands. The local Python wheel proof uses the same

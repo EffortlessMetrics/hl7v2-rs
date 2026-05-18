@@ -1408,8 +1408,8 @@ mod summary_tests {
             panic!("dirty corpus should diff");
         };
 
-        assert_eq!(summary.file_count, 8);
-        assert_eq!(summary.message_count, 5);
+        assert_eq!(summary.file_count, 9);
+        assert_eq!(summary.message_count, 6);
         assert_eq!(summary.parse_error_count, 3);
         assert!(summary.total_bytes > 1_000);
         assert!(
@@ -1440,7 +1440,7 @@ mod summary_tests {
             summary
                 .message_types
                 .iter()
-                .any(|count| count.value == "ORU^R01" && count.count == 1)
+                .any(|count| count.value == "ORU^R01" && count.count == 2)
         );
         assert!(
             summary
@@ -1452,7 +1452,13 @@ mod summary_tests {
             summary
                 .segments
                 .iter()
-                .any(|count| count.value == "OBX" && count.count == 20)
+                .any(|count| count.value == "OBX" && count.count == 22)
+        );
+        assert!(
+            summary
+                .segments
+                .iter()
+                .any(|count| count.value == "NTE" && count.count == 1)
         );
         assert!(
             summary
@@ -1479,8 +1485,8 @@ mod summary_tests {
                 .all(|failure| !failure.error.contains("MRN-DIRTY"))
         );
 
-        assert_eq!(fingerprint.file_count, 8);
-        assert_eq!(fingerprint.message_count, 5);
+        assert_eq!(fingerprint.file_count, 9);
+        assert_eq!(fingerprint.message_count, 6);
         assert_eq!(fingerprint.parse_error_count, 3);
         assert!(
             fingerprint
@@ -1488,7 +1494,7 @@ mod summary_tests {
                 .iter()
                 .any(|field| field.path == "OBX.5"
                     && field.max_per_message == 20
-                    && field.total_occurrences == 20)
+                    && field.total_occurrences == 22)
         );
         assert!(
             fingerprint
@@ -1500,19 +1506,34 @@ mod summary_tests {
             fingerprint
                 .field_cardinality
                 .iter()
-                .any(|field| field.path == "MSH.3" && field.total_occurrences == 5)
+                .any(|field| field.path == "MSH.3" && field.total_occurrences == 6)
+        );
+        assert!(
+            fingerprint
+                .value_shape_stats
+                .iter()
+                .any(|shape| shape.path == "OBX.5"
+                    && shape.null_count == 1
+                    && shape.text_count >= 1)
         );
 
         assert_eq!(diff.file_count.before, 2);
-        assert_eq!(diff.file_count.after, 8);
-        assert_eq!(diff.message_count.delta, 3);
+        assert_eq!(diff.file_count.after, 9);
+        assert_eq!(diff.message_count.delta, 4);
         assert_eq!(diff.parse_error_count.delta, 3);
         assert!(
             diff.field_cardinality
                 .iter()
                 .any(|field| field.path == "OBX.5"
                     && field.max_per_message_delta == 15
-                    && field.total_occurrences_delta == 15)
+                    && field.total_occurrences_delta == 17)
+        );
+        assert!(
+            diff.value_shape_stats
+                .iter()
+                .any(|shape| shape.path == "OBX.5"
+                    && shape.null_count.delta == 1
+                    && shape.text_count.delta >= 1)
         );
     }
 

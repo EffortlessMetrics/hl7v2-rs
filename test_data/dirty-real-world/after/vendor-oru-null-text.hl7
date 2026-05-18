@@ -1,0 +1,6 @@
+MSH|^~\&|VENDORLAB|REMOTE-SITE|EHR|HOSP|202605140108||ORU^R01|CTRL-VENDOR-ORU|P|2.5
+PID|1||SYNTH-ORU-NULL^^^HOSP^MR||Synthetic^Vendor||19751212|U
+OBR|1|ORD-VENDOR|FILL-VENDOR|LABTXT^Narrative Panel
+OBX|1|TX|NOTE^Narrative Result^L||Line one\.br\Line two with escaped delimiters \F\ \S\ \T\||||||F
+OBX|2|ST|COMMENT^Comment^L||""||||||F
+NTE|1|L|Synthetic vendor note with wrapped observation text
