@@ -16,6 +16,7 @@ mod corpus;
 mod error;
 mod metadata;
 mod parsing;
+mod profile;
 mod quarantine;
 mod schema_versions;
 mod validation;
@@ -27,6 +28,7 @@ use metadata::extract_metadata;
 #[cfg(test)]
 use metadata::joined_components;
 use parsing::*;
+pub(crate) use profile::*;
 use quarantine::*;
 use schema_versions::*;
 use validation::*;

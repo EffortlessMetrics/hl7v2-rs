@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for corpus summary, fingerprint, and diff.
 - Added REST and gRPC server dirty-corpus parity coverage using the shared dirty
   real-world fixture categories.
+- Added REST profile lint, explain, and inline fixture-test endpoints that emit
+  the shared profile evidence report shapes with opt-in v2 provenance.
 - Added local Python wheel dirty-corpus parity coverage using the shared dirty
   real-world fixture categories.
 - Added `xtask check-dirty-corpus-parity` to run the shared dirty-corpus

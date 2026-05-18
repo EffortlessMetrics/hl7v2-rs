@@ -45,6 +45,7 @@ proof = [
   "cargo test -p hl7v2-server --test parse_endpoint_test",
   "cargo test -p hl7v2-server --test validate_endpoint_test",
   "cargo test -p hl7v2-server --test validate_redacted_endpoint_test",
+  "cargo test -p hl7v2-server --test profile_endpoint_test",
   "cargo test -p hl7v2-server --test bundle_endpoint_test",
   "cargo test -p hl7v2-server --test replay_endpoint_test",
   "cargo test -p hl7v2-server --test http_runtime_contract_test",
@@ -136,6 +137,7 @@ typescript = "planned"
 proof = [
   "cargo test -p hl7v2 --all-features",
   "cargo test -p hl7v2-cli --test integration_tests",
+  "cargo test -p hl7v2-server --test profile_endpoint_test",
   "cargo test -p hl7v2-server --test grpc_contract_tests",
   "python tests/python_smoke/smoke.py",
 ]
@@ -302,6 +304,7 @@ proof = [
   "cargo test -p hl7v2-test-utils schema_version --locked",
   "cargo test -p hl7v2-cli --test integration_tests test_validate_sample_json_schema_version_two --locked",
   "cargo test -p hl7v2-server --test validate_endpoint_test test_validate_report_schema_v2_returns_nested_provenance_report --locked",
+  "cargo test -p hl7v2-server --test profile_endpoint_test test_profile_lint_schema_v2_adds_server_provenance --locked",
   "cargo test -p hl7v2-server --test grpc_contract_tests test_grpc_validate_separates_errors_from_warnings --locked",
   "cargo run -p xtask -- evidence-schema-check",
   "cargo test -p hl7v2-server --test grpc_contract_tests",

@@ -7530,6 +7530,30 @@ fn check_schema_version_parity(include_python: bool) -> Result<()> {
             ],
         ),
         (
+            "REST profile v2 schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "profile_endpoint_test",
+                "--locked",
+                "schema_v2",
+            ],
+        ),
+        (
+            "REST profile unsupported schema-version behavior",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "profile_endpoint_test",
+                "--locked",
+                "schema_versions",
+            ],
+        ),
+        (
             "REST quarantine v2 schema-version behavior",
             &[
                 "test",
@@ -8014,6 +8038,11 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         contracts,
         "schema-version-behavior",
         "cargo test -p hl7v2-server --test validate_endpoint_test test_validate_report_schema_v2_returns_nested_provenance_report --locked",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "schema-version-behavior",
+        "cargo test -p hl7v2-server --test profile_endpoint_test test_profile_lint_schema_v2_adds_server_provenance --locked",
     )?;
     ensure_contract_proof_contains(
         contracts,

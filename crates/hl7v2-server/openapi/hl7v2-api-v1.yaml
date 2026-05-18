@@ -386,6 +386,105 @@ paths:
         '401':
           description: Unauthorized
 
+  /hl7/profile/lint:
+    post:
+      summary: Lint inline conformance profile
+      description: |
+        Lint caller-supplied profile YAML and return a PHI-safe profile lint evidence report. Malformed YAML returns a lint report rather than echoing raw profile content.
+      tags: [hl7]
+      operationId: lintInlineProfile
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileLintRequest'
+      responses:
+        '200':
+          description: Profile lint report generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ProfileLintReport'
+                  - $ref: '#/components/schemas/ProfileLintReportV2'
+        '400':
+          description: Invalid schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
+  /hl7/profile/explain:
+    post:
+      summary: Explain inline conformance profile
+      description: |
+        Load and explain caller-supplied profile YAML without echoing the raw profile. The optional profile_name is a safe label, not a filesystem path.
+      tags: [hl7]
+      operationId: explainInlineProfile
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileExplainRequest'
+      responses:
+        '200':
+          description: Profile explain report generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ProfileExplainReport'
+                  - $ref: '#/components/schemas/ProfileExplainReportV2'
+        '400':
+          description: Invalid profile, label, or schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
+  /hl7/profile/test:
+    post:
+      summary: Test inline profile fixtures
+      description: |
+        Validate caller-supplied inline HL7 fixtures against an inline profile and return a profile test evidence report. Fixture labels are safe labels and are never read as filesystem paths.
+      tags: [hl7]
+      operationId: testInlineProfileFixtures
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileTestRequest'
+      responses:
+        '200':
+          description: Profile fixture test report generated
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ProfileTestReport'
+                  - $ref: '#/components/schemas/ProfileTestReportV2'
+        '400':
+          description: Invalid profile, fixture, expected report, or schema version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+
   /hl7/ack:
     post:
       summary: Generate HL7 ACK
@@ -957,6 +1056,295 @@ components:
           enum: [1, 2]
           default: 1
           description: Opt into the v2 corpus diff response shape
+
+    ProfileLintRequest:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          type: string
+          description: Inline profile YAML content to lint
+        report_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 profile lint response shape
+
+    ProfileExplainRequest:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          type: string
+          description: Inline profile YAML content to explain
+        profile_name:
+          type: string
+          nullable: true
+          description: Safe profile label recorded in the report; not interpreted as a filesystem path
+        report_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 profile explain response shape
+
+    ProfileTestRequest:
+      type: object
+      required: [profile, fixtures]
+      properties:
+        profile:
+          type: string
+          description: Inline profile YAML content to test
+        fixtures:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ProfileTestFixtureInput'
+        report_schema_version:
+          type: integer
+          enum: [1, 2]
+          default: 1
+          description: Opt into the v2 profile test response shape
+
+    ProfileTestFixtureInput:
+      type: object
+      required: [message, expectation]
+      properties:
+        name:
+          type: string
+          nullable: true
+          description: Safe fixture label; never interpreted as a filesystem path
+        message:
+          type: string
+          description: Raw HL7 fixture message content
+        expectation:
+          type: string
+          enum: [valid, invalid]
+          description: Expected validation outcome for the fixture
+        mllp_framed:
+          type: boolean
+          default: false
+          description: Whether the fixture message is MLLP framed
+        expected_report_json:
+          type: string
+          nullable: true
+          description: Optional expected validation report JSON subset
+
+    ProfileLintReport:
+      type: object
+      required: [valid, error_count, warning_count, issue_count, issues]
+      properties:
+        valid:
+          type: boolean
+        error_count:
+          type: integer
+          minimum: 0
+        warning_count:
+          type: integer
+          minimum: 0
+        issue_count:
+          type: integer
+          minimum: 0
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileLintIssue'
+
+    ProfileLintReportV2:
+      allOf:
+        - type: object
+          required: [schema_version, tool_name, tool_version]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
+            tool_version:
+              type: string
+        - $ref: '#/components/schemas/ProfileLintReport'
+
+    ProfileLintIssue:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum: [error, warning]
+        path:
+          type: string
+          nullable: true
+        message:
+          type: string
+
+    ProfileExplainReport:
+      type: object
+      required:
+        - profile
+        - profile_sha256
+        - message_structure
+        - version
+        - summary
+        - segments
+        - required_fields
+        - field_constraints
+        - length_rules
+        - datatype_rules
+        - value_sets
+        - rules
+        - hl7_tables
+        - table_precedence
+        - expression_guardrails
+        - lint
+      properties:
+        profile:
+          type: string
+          description: Producer-supplied safe profile label
+        profile_sha256:
+          type: string
+          description: SHA-256 digest of the source profile YAML
+        message_structure:
+          type: string
+        version:
+          type: string
+        message_type:
+          type: string
+          nullable: true
+        parent:
+          type: string
+          nullable: true
+        summary:
+          type: object
+        segments:
+          type: array
+          items:
+            type: object
+        required_fields:
+          type: array
+          items:
+            type: object
+        field_constraints:
+          type: array
+          items:
+            type: object
+        length_rules:
+          type: array
+          items:
+            type: object
+        datatype_rules:
+          type: array
+          items:
+            type: object
+        value_sets:
+          type: array
+          items:
+            type: object
+        rules:
+          type: object
+        hl7_tables:
+          type: array
+          items:
+            type: object
+        table_precedence:
+          type: array
+          items:
+            type: string
+        expression_guardrails:
+          type: object
+        lint:
+          type: object
+
+    ProfileExplainReportV2:
+      allOf:
+        - type: object
+          required: [schema_version, tool_name, tool_version]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
+            tool_version:
+              type: string
+        - $ref: '#/components/schemas/ProfileExplainReport'
+
+    ProfileTestReport:
+      type: object
+      required: [profile, fixtures, valid, case_count, passed_count, failed_count, cases]
+      properties:
+        profile:
+          type: string
+        fixtures:
+          type: string
+        valid:
+          type: boolean
+        case_count:
+          type: integer
+          minimum: 0
+        passed_count:
+          type: integer
+          minimum: 0
+        failed_count:
+          type: integer
+          minimum: 0
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileTestCaseReport'
+
+    ProfileTestReportV2:
+      allOf:
+        - type: object
+          required: [schema_version, tool_name, tool_version]
+          properties:
+            schema_version:
+              type: string
+              enum: ['2']
+            tool_name:
+              type: string
+              enum: [hl7v2-server]
+            tool_version:
+              type: string
+        - $ref: '#/components/schemas/ProfileTestReport'
+
+    ProfileTestCaseReport:
+      type: object
+      required: [name, path, expectation, passed, message]
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        expectation:
+          type: string
+          enum: [valid, invalid]
+        passed:
+          type: boolean
+        message:
+          type: string
+        validation_report:
+          allOf:
+            - $ref: '#/components/schemas/ValidationReport'
+          nullable: true
+        expected_report:
+          allOf:
+            - $ref: '#/components/schemas/ExpectedReportComparison'
+          nullable: true
+
+    ExpectedReportComparison:
+      type: object
+      required: [path, matched]
+      properties:
+        path:
+          type: string
+        matched:
+          type: boolean
+        message:
+          type: string
+          nullable: true
 
     CorpusCount:
       type: object

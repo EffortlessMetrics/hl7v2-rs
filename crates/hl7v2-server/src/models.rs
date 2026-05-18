@@ -6,7 +6,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use hl7v2::{ValidationReport, ValidationReportIssue, ValidationReportV2};
+use hl7v2::{
+    ProfileFixtureExpectation, ValidationReport, ValidationReportIssue, ValidationReportV2,
+};
 
 /// Health check response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -377,6 +379,74 @@ pub struct CorpusDiffRequest {
     /// v2 diff report shape with embedded evidence provenance.
     #[serde(default)]
     pub diff_schema_version: Option<u8>,
+}
+
+/// Inline profile lint request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileLintRequest {
+    /// Inline profile YAML content to lint.
+    pub profile: String,
+    /// Optional profile lint report schema version.
+    ///
+    /// Omitted or `1` preserves the default report shape. `2` returns the v2
+    /// profile lint report shape with embedded evidence provenance.
+    #[serde(default)]
+    pub report_schema_version: Option<u8>,
+}
+
+/// Inline profile explain request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileExplainRequest {
+    /// Inline profile YAML content to explain.
+    pub profile: String,
+    /// Optional safe profile label recorded in the evidence report.
+    ///
+    /// When omitted, the server uses `<inline-profile>`. Values are treated as
+    /// labels, not filesystem paths.
+    #[serde(default)]
+    pub profile_name: Option<String>,
+    /// Optional profile explain report schema version.
+    ///
+    /// Omitted or `1` preserves the default report shape. `2` returns the v2
+    /// profile explain report shape with embedded evidence provenance.
+    #[serde(default)]
+    pub report_schema_version: Option<u8>,
+}
+
+/// Inline fixture supplied to the profile test endpoint.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileTestFixtureInput {
+    /// Optional caller-facing fixture label.
+    ///
+    /// Empty labels are replaced with `fixture-N`. Labels are never
+    /// interpreted as filesystem paths.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Raw HL7 fixture message content.
+    pub message: String,
+    /// Expected validation outcome for this fixture.
+    pub expectation: ProfileFixtureExpectation,
+    /// Whether the fixture message is MLLP framed.
+    #[serde(default)]
+    pub mllp_framed: bool,
+    /// Optional expected validation report JSON subset for this fixture.
+    #[serde(default)]
+    pub expected_report_json: Option<String>,
+}
+
+/// Inline profile fixture test request body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileTestRequest {
+    /// Inline profile YAML content to test.
+    pub profile: String,
+    /// Inline HL7 fixtures to validate against the profile.
+    pub fixtures: Vec<ProfileTestFixtureInput>,
+    /// Optional profile test report schema version.
+    ///
+    /// Omitted or `1` preserves the default report shape. `2` returns the v2
+    /// profile test report shape with embedded evidence provenance.
+    #[serde(default)]
+    pub report_schema_version: Option<u8>,
 }
 
 /// Evidence bundle summary response body.
