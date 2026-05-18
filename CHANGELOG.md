@@ -11,6 +11,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added gRPC enhanced ACK parity for commit ACK codes `CA`, `CE`, and `CR`
+  alongside the existing `AA`, `AE`, and `AR` application ACK codes.
+- Added shared dirty real-world corpus fixture categories and CLI parity coverage
+  for corpus summary, fingerprint, and diff.
+- Added REST and gRPC server dirty-corpus parity coverage using the shared dirty
+  real-world fixture categories.
+- Added local Python wheel dirty-corpus parity coverage using the shared dirty
+  real-world fixture categories.
+- Added `xtask check-dirty-corpus-parity` to run the shared dirty-corpus
+  acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
+- Added a CLI dirty real-world validate/redact/bundle/replay workflow to the
+  shared dirty-corpus parity runner.
+- Added a REST dirty real-world validate-redacted/bundle/replay workflow to the
+  shared dirty-corpus parity runner.
+- Added a gRPC dirty real-world validate-redacted/bundle/replay workflow to the
+  shared dirty-corpus parity runner.
+- Added `xtask check-bundle-replay-parity` to run the shared bundle/replay
+  acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
+- Added `xtask check-evidence-parity-acceptance` as the aggregate local
+  Rust/CLI/REST/gRPC parity acceptance suite, with optional local Python wheel
+  smoke.
+- Added `xtask python-local-wheel-proof` to build, install, import, and
+  smoke-test the local Python `hl7v2` wheel without claiming TestPyPI or PyPI
+  availability.
+- Added local Python dirty real-world validate/redact/bundle/replay workflow
+  proof using the shared Z-segment fixture.
+- Added the dirty real-world Python evidence workflow smoke to the hosted
+  Python Wheels workflow and policy guard.
+- Added a shared schema-version parity fixture and manifest guard for
+  representative CLI, REST, gRPC, and local Python evidence proof.
+- Added `xtask check-schema-version-parity` to run the shared schema-version
+  acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
+- Added `xtask check-safe-error-phi-parity` to run the shared safe-error and
+  PHI sentinel acceptance proof across Rust core, CLI, REST, and gRPC surfaces.
 - Added gRPC evidence replay parity with configured-root bundle replay,
   fail-closed missing/unsafe bundle handling, shared replay reports, and opt-in
   v2 replay provenance.
@@ -37,6 +71,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Recorded a second hosted-traffic calibration audit for the advisory `ripr`
+  evidence surface after evidence-parity and Python-proof PR traffic, keeping
+  the lane non-blocking.
+- Updated the current-main TestPyPI publishing-mode proof retry after the
+  v1.5.0 refactor cleanup readiness refresh; wheel smoke passed, while upload
+  remains blocked by TestPyPI Trusted Publisher setup.
+- Recorded a post-release current-main readiness refresh after the Python wheel
+  dirty evidence smoke, Windows policy guard, server validation-helper refactor,
+  and synthetic value/CLI help cleanup landed through #740/#742/#743/#738.
+- Recorded a post-release current-main readiness refresh after REST and gRPC
+  dirty real-world validate-redacted/bundle/replay workflows landed through
+  #734.
+- Recorded a current-main TestPyPI publishing-mode proof retry for public
+  Python package `hl7v2`; wheel smoke passed, while upload remains blocked by
+  TestPyPI Trusted Publisher setup.
+- Recorded a post-release current-main readiness refresh after gRPC enhanced ACK
+  parity landed through #705.
+- Recorded a current-main TestPyPI publishing-mode proof attempt for public
+  Python package `hl7v2`; wheel smoke passed, while upload remains blocked by
+  TestPyPI Trusted Publisher setup.
+- Added a repeatable public crates.io install-back smoke script and receipt for
+  the v1.5.0 Rust library, CLI, and server first-use paths.
+- Recorded a post-release current-main readiness refresh after normalization
+  and CLI ACK parity landed through #698.
+- Recorded a post-release current-main readiness refresh after shared
+  Rust/CLI/server/Python dirty-corpus parity landed through #695.
+- Recorded the shared dirty real-world corpus fixture proof for Rust core and
+  CLI corpus evidence commands.
+- Recorded the server dirty real-world corpus parity proof for REST and gRPC
+  corpus evidence commands.
+- Recorded the local Python wheel dirty real-world corpus parity proof.
+- Recorded a post-release current-main readiness refresh after the focused SRP
+  module split train landed through #691.
+- Recorded a fresh hosted non-publishing `Python TestPyPI Proof` receipt on
+  current `main` and confirmed public Python `hl7v2` is still absent from
+  TestPyPI and PyPI.
 - Recorded a post-release v1.5.0 objective audit showing that the crates.io,
   tag, GitHub release, and Rust/CLI/server install-back portions are now
   complete while public Python TestPyPI/PyPI proof remains blocked or

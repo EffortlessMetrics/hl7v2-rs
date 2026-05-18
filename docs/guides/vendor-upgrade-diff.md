@@ -264,11 +264,14 @@ If a specific failing message needs to travel with the ticket, create a redacted
 bundle:
 
 ```bash
-hl7v2-cli bundle failing.hl7 \
+hl7v2-cli support-bundle failing.hl7 \
   --profile profiles/generic.yaml \
   --redact-policy safe-analysis.toml \
   --out issue-bundle/
 ```
+
+`support-bundle` is the operator-focused spelling for this support escalation
+workflow. `bundle` remains available as the compatibility command.
 
 Then verify it:
 

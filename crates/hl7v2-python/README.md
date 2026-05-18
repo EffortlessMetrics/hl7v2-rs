@@ -18,24 +18,14 @@ The Rust/PyO3 backend crate remains `hl7v2-python`.
 
 ## Build
 
-```bash
-python -m pip install "maturin==1.13.1"
-PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin build --release --out dist
-python -m pip install dist/*.whl
-python tests/python_smoke/smoke.py
-python tests/python_smoke/evidence_workflow_guide.py
-```
-
-On PowerShell:
-
 ```powershell
-python -m pip install "maturin==1.13.1"
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
-maturin build --release --out dist
-python -m pip install (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
-python tests\python_smoke\smoke.py
-python tests\python_smoke\evidence_workflow_guide.py
+cargo +1.95.0 run -p xtask -- python-local-wheel-proof
 ```
+
+The proof command creates a scratch virtual environment, installs
+`maturin==1.13.1`, builds the `hl7v2` wheel, installs it, imports `hl7v2`, and
+runs the Python smoke, evidence workflow, and dirty Z-segment evidence workflow
+scripts. It does not claim TestPyPI or PyPI availability.
 
 ## Current API
 

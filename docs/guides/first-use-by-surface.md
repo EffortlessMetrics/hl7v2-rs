@@ -166,11 +166,7 @@ python -c "import hl7v2; print(hl7v2.__version__)"
 Current source-checkout proof uses a local wheel:
 
 ```powershell
-python -m pip install --upgrade pip "maturin==1.13.1"
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1"
-maturin build --release --out dist
-python -m pip install --force-reinstall (Get-ChildItem dist\*.whl | Select-Object -First 1).FullName
-python -c "import hl7v2; print(hl7v2.__version__)"
+cargo +1.95.0 run -p xtask -- python-local-wheel-proof
 ```
 
 Minimal Python shape:
@@ -218,6 +214,31 @@ First useful receipt:
 ```text
 import smoke + validation report dict + corpus summary dict
 ```
+
+## Full Receipt Path By Surface
+
+If your first job is the complete evidence loop, route by surface instead of
+learning repository internals:
+
+```text
+message.hl7
+  -> validate
+  -> redact
+  -> bundle
+  -> replay
+  -> evidence summary
+```
+
+| Surface | Start here | What it gives you |
+| --- | --- | --- |
+| CLI | [First 10 Minutes](first-10-minutes.md) and [Safe Support Bundle](safe-support-bundle.md) | Copy/paste commands for validation, redaction, bundle creation, replay, and shareable operator evidence. |
+| Python | [Python Evidence Workflow](python-evidence-workflow.md) | The same evidence job from a local wheel install until public `hl7v2` TestPyPI/PyPI proof lands. |
+| Server | [Deploy Validation Sidecar](deploy-validation-sidecar.md) | REST/gRPC sidecar routes for readiness, redacted validation, evidence bundles, replay, and operational checks. |
+| Rust | [Rust Library](#rust-library), [Evidence artifact architecture](../architecture/evidence-artifacts.md), and [HL7V2-SPEC-0006](../specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Embed the shared evidence contracts directly in an application; use the CLI guide as the operational reference for the full support-bundle path. |
+
+Use [Evidence Artifacts For Operators](evidence-artifacts-for-operators.md)
+after any route above to interpret what each receipt proves, what it does not
+prove, and whether it is safe to share.
 
 ## What Not To Infer
 

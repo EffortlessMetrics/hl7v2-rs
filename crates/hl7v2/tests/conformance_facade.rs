@@ -35,7 +35,7 @@ fn require(condition: bool, message: &'static str) -> Result<(), Box<dyn Error>>
 
 #[test]
 fn datetime_facade_preserves_precision_and_fractional_seconds() -> Result<(), Box<dyn Error>> {
-    let timestamp = parse_hl7_ts_with_precision("20250128152312.123456")?;
+    let timestamp = parse_hl7_ts_with_precision("20250128152312.1234")?;
 
     require_eq(
         timestamp.precision,
@@ -44,8 +44,13 @@ fn datetime_facade_preserves_precision_and_fractional_seconds() -> Result<(), Bo
     )?;
     require_eq(
         timestamp.fractional_seconds,
-        Some(123456),
+        Some(123400),
         "fractional seconds",
+    )?;
+    require_eq(
+        timestamp.to_hl7_string(),
+        "20250128152312.1234".to_string(),
+        "HL7 string",
     )?;
     require_eq(timestamp.datetime.year(), 2025, "year")?;
     require_eq(timestamp.datetime.month(), 1, "month")?;

@@ -23,7 +23,8 @@ use common::{
 };
 use hl7v2_test_utils::{
     PHI_LEAK_SENTINEL_MESSAGE, PHI_LEAK_SENTINEL_POLICY, RAW_INPUT_FILE_SENTINEL,
-    RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels_or_paths,
+    RAW_POLICY_FILE_SENTINEL, assert_no_phi_leak_sentinels_or_paths, safe_error_phi_parity_fixture,
+    schema_version_parity_fixture,
 };
 
 fn is_sha256_hex(value: &str) -> bool {
@@ -40,182 +41,65 @@ fn is_sha256_hex(value: &str) -> bool {
 mod help_and_version {
     use super::*;
 
-    #[test]
-    fn test_help_flag() {
+    fn assert_help_contains(args: &[&str], expected: &str) {
         let mut cmd = cli_command();
-        cmd.arg("--help")
+        cmd.args(args)
             .assert()
             .success()
-            .stdout(predicate::str::contains("HL7 v2 parser"));
-    }
-
-    // Note: --version flag is not configured in the CLI, skip this test
-
-    #[test]
-    fn test_parse_help() {
-        let mut cmd = cli_command();
-        cmd.args(["parse", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Parse HL7 v2 message"));
+            .stdout(predicate::str::contains(expected));
     }
 
     #[test]
-    fn test_norm_help() {
-        let mut cmd = cli_command();
-        cmd.args(["norm", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Normalize"));
-    }
-
-    #[test]
-    fn test_val_help() {
-        let mut cmd = cli_command();
-        cmd.args(["val", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Validate"));
-    }
-
-    #[test]
-    fn test_profile_help() {
-        let mut cmd = cli_command();
-        cmd.args(["profile", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Inspect and lint"));
-    }
-
-    #[test]
-    fn test_profile_lint_help() {
-        let mut cmd = cli_command();
-        cmd.args(["profile", "lint", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Lint a profile YAML file"));
-    }
-
-    #[test]
-    fn test_profile_test_help() {
-        let mut cmd = cli_command();
-        cmd.args(["profile", "test", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+    fn help_text_mentions_expected_command_purpose() {
+        const CASES: &[(&[&str], &str)] = &[
+            (&["--help"], "HL7 v2 parser"),
+            (&["parse", "--help"], "Parse HL7 v2 message"),
+            (&["norm", "--help"], "Normalize"),
+            (&["val", "--help"], "Validate"),
+            (&["profile", "--help"], "Inspect and lint"),
+            (&["profile", "lint", "--help"], "Lint a profile YAML file"),
+            (
+                &["profile", "test", "--help"],
                 "Test a profile against valid/invalid",
-            ));
-    }
-
-    #[test]
-    fn test_profile_explain_help() {
-        let mut cmd = cli_command();
-        cmd.args(["profile", "explain", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Explain the loaded profile"));
-    }
-
-    #[test]
-    fn test_corpus_help() {
-        let mut cmd = cli_command();
-        cmd.args(["corpus", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Inspect message corpora"));
-    }
-
-    #[test]
-    fn test_corpus_summarize_help() {
-        let mut cmd = cli_command();
-        cmd.args(["corpus", "summarize", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["profile", "explain", "--help"],
+                "Explain the loaded profile",
+            ),
+            (&["corpus", "--help"], "Inspect message corpora"),
+            (
+                &["corpus", "summarize", "--help"],
                 "Summarize a directory or file corpus",
-            ));
-    }
-
-    #[test]
-    fn test_corpus_diff_help() {
-        let mut cmd = cli_command();
-        cmd.args(["corpus", "diff", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["corpus", "diff", "--help"],
                 "Diff two directory or file corpora",
-            ));
-    }
-
-    #[test]
-    fn test_corpus_fingerprint_help() {
-        let mut cmd = cli_command();
-        cmd.args(["corpus", "fingerprint", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["corpus", "fingerprint", "--help"],
                 "Create a deterministic feed fingerprint",
-            ));
-    }
-
-    #[test]
-    fn test_redact_help() {
-        let mut cmd = cli_command();
-        cmd.args(["redact", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["redact", "--help"],
                 "Redact an HL7 v2 message using a safe-analysis policy",
-            ));
-    }
-
-    #[test]
-    fn test_bundle_help() {
-        let mut cmd = cli_command();
-        cmd.args(["bundle", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
+            ),
+            (
+                &["bundle", "--help"],
                 "Create a redacted support/debug evidence bundle",
-            ));
-    }
+            ),
+            (
+                &["support-bundle", "--help"],
+                "Create a redacted support/debug evidence bundle",
+            ),
+            (&["replay", "--help"], "Replay a redacted evidence bundle"),
+            (&["ack", "--help"], "Generate ACK"),
+            (&["gen", "--help"], "Generate synthetic"),
+            (&["doctor", "--help"], "Run first-use diagnostics"),
+        ];
 
-    #[test]
-    fn test_replay_help() {
-        let mut cmd = cli_command();
-        cmd.args(["replay", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains(
-                "Replay a redacted evidence bundle",
-            ));
-    }
-
-    #[test]
-    fn test_ack_help() {
-        let mut cmd = cli_command();
-        cmd.args(["ack", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Generate ACK"));
-    }
-
-    #[test]
-    fn test_gen_help() {
-        let mut cmd = cli_command();
-        cmd.args(["gen", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Generate synthetic"));
-    }
-
-    #[test]
-    fn test_doctor_help() {
-        let mut cmd = cli_command();
-        cmd.args(["doctor", "--help"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("Run first-use diagnostics"));
+        for (args, expected) in CASES {
+            assert_help_contains(args, expected);
+        }
     }
 }
 
@@ -387,9 +271,11 @@ constraints:
 
     #[test]
     fn test_validate_sample_json_schema_version_two() {
+        let fixture = schema_version_parity_fixture().unwrap();
         let dir = create_temp_dir();
         let profile = create_temp_profile(&dir, "profile.yaml", ADT_PROFILE);
         let report_file = dir.path().join("sample-validation.json");
+        let schema_version = fixture.v2_report_schema_version.to_string();
 
         let mut cmd = cli_command();
         let output = cmd
@@ -402,7 +288,7 @@ constraints:
                 "--report",
                 "json",
                 "--schema-version",
-                "2",
+                schema_version.as_str(),
                 "--output",
                 report_file.to_str().unwrap(),
                 "--quiet",
@@ -415,15 +301,18 @@ constraints:
         assert!(output.stdout.is_empty());
         let report: serde_json::Value =
             serde_json::from_slice(&read_file(&report_file)).expect("report should be JSON");
-        assert_eq!(report["schema_version"], "2");
+        assert_eq!(report["schema_version"], fixture.expected_v2_schema_version);
+        assert_eq!(report["tool_name"], fixture.tool_names.cli);
         assert_eq!(report["valid"], true);
-        assert_eq!(report["message_type"], "ADT^A01");
+        assert_eq!(report["message_type"], fixture.validation.message_type);
     }
 
     #[test]
     fn test_validate_sample_text_rejects_schema_version_two() {
+        let fixture = schema_version_parity_fixture().unwrap();
         let dir = create_temp_dir();
         let profile = create_temp_profile(&dir, "profile.yaml", ADT_PROFILE);
+        let schema_version = fixture.v2_report_schema_version.to_string();
 
         let mut cmd = cli_command();
         let output = cmd
@@ -434,7 +323,7 @@ constraints:
                 "--profile",
                 profile.to_str().unwrap(),
                 "--schema-version",
-                "2",
+                schema_version.as_str(),
             ])
             .output()
             .expect("validate-sample should run");
@@ -534,6 +423,44 @@ mod parse_command {
         cmd.args(["parse", invalid_file.to_str().unwrap()])
             .assert()
             .failure();
+    }
+
+    #[test]
+    fn test_parse_safe_error_does_not_emit_manifest_phi_sentinels() {
+        let fixture = safe_error_phi_parity_fixture().unwrap();
+        let dir = create_temp_dir();
+        let invalid_file = create_temp_file(
+            &dir,
+            &fixture.phi.raw_input_file,
+            fixture.malformed_message.message.as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["parse", invalid_file.to_str().unwrap()])
+            .output()
+            .expect("Failed to execute parse");
+
+        assert!(!output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        let combined = format!("{stdout}\n{stderr}");
+        for expected in &fixture.malformed_message.expected_error_substrings {
+            assert!(
+                combined.contains(expected),
+                "CLI parse error omitted expected safe context: {expected}; got: {combined}"
+            );
+        }
+        fixture.assert_no_forbidden("CLI parse safe error stdout", &stdout);
+        fixture.assert_no_forbidden("CLI parse safe error stderr", &stderr);
+        assert!(
+            !combined.contains(&fixture.phi.raw_input_file),
+            "CLI parse safe error leaked raw input file name"
+        );
+        assert!(
+            !combined.contains(invalid_file.to_string_lossy().as_ref()),
+            "CLI parse safe error leaked raw input file path"
+        );
     }
 
     #[test]
@@ -683,6 +610,46 @@ mod norm_command {
         let normalized_msg = hl7v2::parse(&normalized_content).expect("Normalized should parse");
 
         assert_eq!(original_msg.segments.len(), normalized_msg.segments.len());
+    }
+
+    #[test]
+    fn test_norm_canonical_delimiters_matches_shared_fixture() {
+        let dir = create_temp_dir();
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../test_data/custom_delimiters.hl7");
+        let fixture_content = std::fs::read_to_string(fixture).unwrap();
+        let custom_file = create_temp_file(
+            &dir,
+            "custom-delimiters.hl7",
+            fixture_content.trim_end_matches(['\r', '\n']).as_bytes(),
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args(["norm", custom_file.to_str().unwrap(), "--canonical-delims"])
+            .output()
+            .expect("Failed to execute norm");
+
+        assert!(output.status.success());
+        let canonical = String::from_utf8(output.stdout).unwrap();
+        assert!(canonical.starts_with("MSH|^~\\&|"));
+        assert!(canonical.contains("ADT^A01"));
+        assert!(!canonical.contains("MSH*%$!?*"));
+        assert!(!canonical.contains("ADT%A01"));
+
+        let canonical_file = create_temp_file(&dir, "canonical.hl7", canonical.as_bytes());
+        let mut second_cmd = cli_command();
+        let second_output = second_cmd
+            .args([
+                "norm",
+                canonical_file.to_str().unwrap(),
+                "--canonical-delims",
+            ])
+            .output()
+            .expect("Failed to execute second norm");
+
+        assert!(second_output.status.success());
+        assert_eq!(canonical, String::from_utf8(second_output.stdout).unwrap());
     }
 }
 
@@ -1317,6 +1284,118 @@ rules: []
 mod corpus_command {
     use super::*;
 
+    fn dirty_real_world_fixture_root() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/dirty-real-world")
+    }
+
+    fn normalize_fixture_segments(bytes: &[u8]) -> Vec<u8> {
+        String::from_utf8_lossy(bytes)
+            .replace("\r\n", "\n")
+            .replace('\n', "\r")
+            .into_bytes()
+    }
+
+    fn materialize_dirty_corpus_dir(category: &str, target: &std::path::Path) {
+        let source = dirty_real_world_fixture_root().join(category);
+        std::fs::create_dir_all(target).expect("dirty corpus target should be created");
+
+        for entry in std::fs::read_dir(&source).expect("dirty corpus source should be readable") {
+            let entry = entry.expect("dirty corpus entry should be readable");
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let bytes = std::fs::read(&path).expect("dirty corpus file should be readable");
+            let file_name = path
+                .file_name()
+                .expect("dirty corpus file should have a file name");
+            let destination = target.join(file_name);
+            std::fs::write(&destination, normalize_fixture_segments(&bytes))
+                .expect("dirty corpus file should be materialized");
+        }
+    }
+
+    fn materialize_dirty_fixture_file(
+        category: &str,
+        file_name: &str,
+        target: &tempfile::TempDir,
+        target_name: &str,
+    ) -> std::path::PathBuf {
+        let source = dirty_real_world_fixture_root()
+            .join(category)
+            .join(file_name);
+        let bytes = std::fs::read(&source).expect("dirty corpus file should be readable");
+        create_temp_file(target, target_name, &normalize_fixture_segments(&bytes))
+    }
+
+    fn add_generated_mllp_fixture(target: &std::path::Path) {
+        let source = dirty_real_world_fixture_root().join("sources/mllp-source.hl7");
+        let bytes = std::fs::read(&source).expect("MLLP source fixture should be readable");
+        let normalized = normalize_fixture_segments(&bytes);
+        std::fs::write(
+            target.join("mllp-framed.hl7"),
+            hl7v2::wrap_mllp(&normalized),
+        )
+        .expect("generated MLLP dirty corpus file should be materialized");
+    }
+
+    fn materialize_dirty_real_world_corpus(before: &std::path::Path, after: &std::path::Path) {
+        materialize_dirty_corpus_dir("before", before);
+        materialize_dirty_corpus_dir("after", after);
+        add_generated_mllp_fixture(after);
+    }
+
+    const DIRTY_ADT_PROFILE: &str = r#"
+message_structure: ADT_A01
+version: "2.5"
+segments:
+  - id: MSH
+  - id: PID
+  - id: ZPV
+constraints:
+  - path: MSH.9
+    required: true
+  - path: PID.3
+    required: true
+"#;
+
+    const DIRTY_SAFE_ANALYSIS_POLICY: &str = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "patient identifier"
+
+[[rules]]
+path = "PID.5"
+action = "drop"
+reason = "patient name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "date of birth"
+
+[[rules]]
+path = "MSH.9"
+action = "retain"
+reason = "message type is needed for analysis"
+
+[[rules]]
+path = "MSH.10"
+action = "retain"
+reason = "control id is needed for replay correlation"
+
+[[rules]]
+path = "ZPV.1"
+action = "retain"
+reason = "synthetic room marker is useful for dirty-corpus analysis"
+
+[[rules]]
+path = "ZPV.2"
+action = "retain"
+reason = "synthetic dirty-corpus note is useful for support triage"
+"#;
+
     #[test]
     fn test_corpus_summarize_text_counts_messages_and_errors() {
         let dir = create_temp_dir();
@@ -1712,6 +1791,237 @@ constraints:
         assert_eq!(report["fingerprint_version"], "1");
         assert_eq!(report["file_count"], 1);
         assert_eq!(report["message_count"], 1);
+    }
+
+    #[test]
+    fn test_dirty_real_world_validate_redact_bundle_replay_workflow() {
+        let dir = create_temp_dir();
+        let message_file =
+            materialize_dirty_fixture_file("after", "z-segment.hl7", &dir, "dirty-z.hl7");
+        let profile_file = create_temp_profile(&dir, "dirty-profile.yaml", DIRTY_ADT_PROFILE);
+        let policy_file = create_temp_file(
+            &dir,
+            "dirty-safe-analysis.toml",
+            DIRTY_SAFE_ANALYSIS_POLICY.as_bytes(),
+        );
+
+        let mut validate = cli_command();
+        let validate_output = validate
+            .args([
+                "val",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--report",
+                "json",
+            ])
+            .output()
+            .expect("dirty fixture validation should run");
+
+        assert!(validate_output.status.success());
+        let validate_stdout = String::from_utf8(validate_output.stdout).unwrap();
+        let validate_report: serde_json::Value =
+            serde_json::from_str(&validate_stdout).expect("validation report should be JSON");
+        assert_eq!(validate_report["valid"], true);
+        assert_eq!(validate_report["message_type"], "ADT^A01");
+        assert_eq!(validate_report["issue_count"], 0);
+        assert!(!validate_stdout.contains("MRN-Z"));
+        assert!(!validate_stdout.contains("Example^Zed"));
+        assert!(!validate_stdout.contains("19700101"));
+
+        let mut redact = cli_command();
+        let redact_output = redact
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("dirty fixture redaction should run");
+
+        assert!(redact_output.status.success());
+        let redact_stdout = String::from_utf8(redact_output.stdout).unwrap();
+        let redact_report: serde_json::Value =
+            serde_json::from_str(&redact_stdout).expect("redaction report should be JSON");
+        assert_eq!(redact_report["message_type"], "ADT^A01");
+        assert_eq!(redact_report["receipt"]["phi_removed"], true);
+        assert!(redact_stdout.contains("hash:sha256:"));
+        assert!(!redact_stdout.contains("MRN-Z"));
+        assert!(!redact_stdout.contains("Example^Zed"));
+        assert!(!redact_stdout.contains("19700101"));
+
+        let bundle_dir = dir.path().join("dirty-support-bundle");
+        let mut bundle = cli_command();
+        let bundle_output = bundle
+            .args([
+                "support-bundle",
+                message_file.to_str().unwrap(),
+                "--profile",
+                profile_file.to_str().unwrap(),
+                "--redact-policy",
+                policy_file.to_str().unwrap(),
+                "--out",
+                bundle_dir.to_str().unwrap(),
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("dirty fixture support-bundle should run");
+
+        assert!(bundle_output.status.success());
+        let bundle_stdout = String::from_utf8(bundle_output.stdout).unwrap();
+        let bundle_summary: serde_json::Value =
+            serde_json::from_str(&bundle_stdout).expect("bundle summary should be JSON");
+        assert_eq!(bundle_summary["schema_version"], "2");
+        assert_eq!(bundle_summary["message_type"], "ADT^A01");
+        assert_eq!(bundle_summary["validation_valid"], true);
+        assert_eq!(bundle_summary["redaction_phi_removed"], true);
+        assert!(!bundle_stdout.contains("MRN-Z"));
+        assert!(!bundle_stdout.contains("Example^Zed"));
+        assert!(!bundle_stdout.contains("19700101"));
+
+        let redacted_message =
+            std::fs::read_to_string(bundle_dir.join("message.redacted.hl7")).unwrap();
+        assert!(redacted_message.contains("hash:sha256:"));
+        assert!(redacted_message.contains("ZPV|legacy-room|dirty interface note"));
+        assert!(!redacted_message.contains("MRN-Z"));
+        assert!(!redacted_message.contains("Example^Zed"));
+        assert!(!redacted_message.contains("19700101"));
+
+        let mut replay = cli_command();
+        let replay_output = replay
+            .args([
+                "replay",
+                bundle_dir.to_str().unwrap(),
+                "--format",
+                "json",
+                "--schema-version",
+                "2",
+            ])
+            .output()
+            .expect("dirty fixture replay should run");
+
+        assert!(replay_output.status.success());
+        let replay_stdout = String::from_utf8(replay_output.stdout).unwrap();
+        let replay_report: serde_json::Value =
+            serde_json::from_str(&replay_stdout).expect("replay report should be JSON");
+        assert_eq!(replay_report["schema_version"], "2");
+        assert_eq!(replay_report["message_type"], "ADT^A01");
+        assert_eq!(replay_report["reproduced"], true);
+        assert_eq!(replay_report["validation_valid"], true);
+        assert!(!replay_stdout.contains("MRN-Z"));
+        assert!(!replay_stdout.contains("Example^Zed"));
+        assert!(!replay_stdout.contains("19700101"));
+    }
+
+    #[test]
+    fn test_corpus_commands_share_dirty_real_world_fixture_categories() {
+        let before = create_temp_dir();
+        let after = create_temp_dir();
+        materialize_dirty_real_world_corpus(before.path(), after.path());
+
+        let mut summarize = cli_command();
+        let summary_output = summarize
+            .args([
+                "corpus",
+                "summarize",
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("corpus summarize should run");
+
+        assert!(summary_output.status.success());
+        assert!(is_valid_json(&summary_output.stdout));
+        let summary: serde_json::Value =
+            serde_json::from_slice(&summary_output.stdout).expect("summary output should be JSON");
+        assert_eq!(summary["file_count"], 6);
+        assert_eq!(summary["message_count"], 4);
+        assert_eq!(summary["parse_error_count"], 2);
+        assert!(
+            summary["message_types"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["value"] == "ADT^A08" && entry["count"] == 1)
+        );
+        assert!(
+            summary["segments"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["value"] == "ZPV" && entry["count"] == 1)
+        );
+        assert!(
+            summary["parse_errors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|entry| !entry["error"].as_str().unwrap().contains("MRN-DIRTY"))
+        );
+
+        let mut fingerprint = cli_command();
+        let fingerprint_output = fingerprint
+            .args([
+                "corpus",
+                "fingerprint",
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("corpus fingerprint should run");
+
+        assert!(fingerprint_output.status.success());
+        assert!(is_valid_json(&fingerprint_output.stdout));
+        let fingerprint: serde_json::Value = serde_json::from_slice(&fingerprint_output.stdout)
+            .expect("fingerprint output should be JSON");
+        assert_eq!(fingerprint["file_count"], 6);
+        assert_eq!(fingerprint["message_count"], 4);
+        assert_eq!(fingerprint["parse_error_count"], 2);
+        assert!(
+            fingerprint["field_cardinality"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["path"] == "OBX.5"
+                    && entry["max_per_message"] == 20
+                    && entry["total_occurrences"] == 20)
+        );
+
+        let mut diff = cli_command();
+        let diff_output = diff
+            .args([
+                "corpus",
+                "diff",
+                before.path().to_str().unwrap(),
+                after.path().to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("corpus diff should run");
+
+        assert!(diff_output.status.success());
+        assert!(is_valid_json(&diff_output.stdout));
+        let diff: serde_json::Value =
+            serde_json::from_slice(&diff_output.stdout).expect("diff output should be JSON");
+        assert_eq!(diff["file_count"]["delta"], 4);
+        assert_eq!(diff["message_count"]["delta"], 2);
+        assert_eq!(diff["parse_error_count"]["delta"], 2);
+        assert!(
+            diff["field_cardinality"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["path"] == "OBX.5"
+                    && entry["max_per_message_delta"] == 15
+                    && entry["total_occurrences_delta"] == 15)
+        );
     }
 }
 
@@ -3722,88 +4032,44 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
 mod ack_command {
     use super::*;
 
+    const ACK_PARITY_MESSAGE: &str = "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John\r";
+
+    fn ack_parity_file(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        create_temp_hl7_with_content(dir, "ack-parity.hl7", ACK_PARITY_MESSAGE)
+    }
+
+    fn assert_ack_contains_code_and_control_id(stdout: &[u8], code: &str) {
+        let ack = String::from_utf8(stdout.to_vec()).unwrap();
+        assert!(
+            ack.contains(&format!("MSA|{}|CTRL123", code)),
+            "ACK did not preserve code/control id: {}",
+            ack
+        );
+        assert!(
+            ack.lines().any(|line| {
+                let line = line.trim_start_matches('\u{0b}');
+                line.starts_with("MSH|") && line.contains("|ACK^")
+            }),
+            "ACK message type missing from MSH-9: {}",
+            ack
+        );
+    }
+
+    fn assert_mllp_frame(stdout: &[u8]) {
+        assert_eq!(stdout.first(), Some(&0x0B), "MLLP frame missing VT start");
+        assert!(
+            stdout.ends_with(&[0x1C, 0x0D]),
+            "MLLP frame missing FS CR terminator"
+        );
+    }
+
     #[test]
     fn test_generate_ack_aa() {
         let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
+        let hl7_file = ack_parity_file(&dir);
 
         let mut cmd = cli_command();
-        // ACK generation may fail due to escape sequences - just verify it runs
-        let result = cmd
-            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AA"])
-            .output();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_ae() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
-            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AE"])
-            .output();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_ar() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
-            .args(["ack", hl7_file.to_str().unwrap(), "--code", "AR"])
-            .output();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_with_mllp_output() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
-            .args([
-                "ack",
-                hl7_file.to_str().unwrap(),
-                "--code",
-                "AA",
-                "--mllp-out",
-            ])
-            .output();
-
-        // Just verify the command runs
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_with_summary() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
-            .args([
-                "ack",
-                hl7_file.to_str().unwrap(),
-                "--code",
-                "AA",
-                "--summary",
-            ])
-            .output();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_generate_ack_original_mode() {
-        let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
-
-        let mut cmd = cli_command();
-        let result = cmd
+        let output = cmd
             .args([
                 "ack",
                 hl7_file.to_str().unwrap(),
@@ -3812,17 +4078,133 @@ mod ack_command {
                 "--code",
                 "AA",
             ])
-            .output();
-        assert!(result.is_ok());
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AA");
+    }
+
+    #[test]
+    fn test_generate_ack_ae() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AE",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AE");
+    }
+
+    #[test]
+    fn test_generate_ack_ar() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AR",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AR");
+    }
+
+    #[test]
+    fn test_generate_ack_with_mllp_output() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AA",
+                "--mllp-out",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_mllp_frame(&output.stdout);
+        assert_ack_contains_code_and_control_id(&output.stdout, "AA");
+    }
+
+    #[test]
+    fn test_generate_ack_with_summary() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AA",
+                "--summary",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AA");
+    }
+
+    #[test]
+    fn test_generate_ack_original_mode() {
+        let dir = create_temp_dir();
+        let hl7_file = ack_parity_file(&dir);
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "ack",
+                hl7_file.to_str().unwrap(),
+                "--mode",
+                "original",
+                "--code",
+                "AA",
+            ])
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "AA");
     }
 
     #[test]
     fn test_generate_ack_enhanced_mode() {
         let dir = create_temp_dir();
-        let hl7_file = create_temp_hl7_file(&dir, "test.hl7");
+        let hl7_file = ack_parity_file(&dir);
 
         let mut cmd = cli_command();
-        let result = cmd
+        let output = cmd
             .args([
                 "ack",
                 hl7_file.to_str().unwrap(),
@@ -3831,16 +4213,26 @@ mod ack_command {
                 "--code",
                 "CA",
             ])
-            .output();
-        assert!(result.is_ok());
+            .output()
+            .expect("Failed to execute ack");
+
+        assert!(output.status.success());
+        assert_ack_contains_code_and_control_id(&output.stdout, "CA");
     }
 
     #[test]
     fn test_generate_ack_missing_file() {
         let mut cmd = cli_command();
-        cmd.args(["ack", "/nonexistent/file.hl7", "--code", "AA"])
-            .assert()
-            .failure();
+        cmd.args([
+            "ack",
+            "/nonexistent/file.hl7",
+            "--mode",
+            "original",
+            "--code",
+            "AA",
+        ])
+        .assert()
+        .failure();
     }
 }
 
@@ -4749,7 +5141,7 @@ reason = "message type is needed for analysis"
     }
 
     #[test]
-    fn journey_cli_validate_redact_bundle_replay_produces_shareable_receipts() {
+    fn journey_cli_validate_redact_support_bundle_replay_produces_shareable_receipts() {
         let dir = create_temp_dir();
         let message = create_temp_hl7_with_content(&dir, "message.hl7", JOURNEY_MESSAGE);
         let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
@@ -4808,7 +5200,7 @@ reason = "message type is needed for analysis"
         let bundle = dir.path().join("journey-bundle");
         let bundle_summary = run_json(
             &[
-                "bundle".to_string(),
+                "support-bundle".to_string(),
                 message.to_string_lossy().into_owned(),
                 "--profile".to_string(),
                 profile.to_string_lossy().into_owned(),

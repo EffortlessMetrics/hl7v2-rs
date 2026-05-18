@@ -10,8 +10,12 @@ source checkout, use `cargo run -q -p hl7v2-cli --` before each command
 instead:
 
 ```bash
-cargo run -q -p hl7v2-cli -- bundle failing.hl7 --profile profile.yaml --redact-policy safe-analysis.toml --out issue-bundle/
+cargo run -q -p hl7v2-cli -- support-bundle failing.hl7 --profile profile.yaml --redact-policy safe-analysis.toml --out issue-bundle/
 ```
+
+`support-bundle` is the operator-focused alias for `bundle`. Both commands
+produce the same evidence packet; use `support-bundle` when the job is a safe
+handoff packet for a vendor, support engineer, data team, or agent.
 
 ## What You Will Produce
 
@@ -148,7 +152,7 @@ why `PID.8 = X` violates the profile value set.
 Create the bundle. The output directory must not already exist:
 
 ```bash
-hl7v2-cli bundle test_data/invalid_message.hl7 \
+hl7v2-cli support-bundle test_data/invalid_message.hl7 \
   --profile profiles/generic.yaml \
   --redact-policy target/hl7v2-safe-support-bundle/safe-analysis.toml \
   --out target/hl7v2-safe-support-bundle/issue-bundle \

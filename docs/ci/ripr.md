@@ -28,10 +28,12 @@ The initial lane is advisory:
 
 The first calibration pass over hosted PR artifacts is recorded in
 [`docs/audits/ripr-calibration-2026-05-15.md`](../audits/ripr-calibration-2026-05-15.md).
-That audit keeps `ripr` advisory: severe-gap and impacted-evidence output can
+A later post-parity traffic sample is recorded in
+[`docs/audits/ripr-calibration-2026-05-17.md`](../audits/ripr-calibration-2026-05-17.md).
+Those audits keep `ripr` advisory: severe-gap and impacted-evidence output can
 route review and targeted mutation, but branch protection must not depend on
-`ripr` until artifact counter semantics and traffic patterns are better
-understood.
+`ripr` until artifact counter semantics, traffic patterns, and the observed
+cost/latency envelope are better understood.
 
 ## CI Economics
 

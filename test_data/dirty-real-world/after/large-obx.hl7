@@ -1,0 +1,23 @@
+MSH|^~\&|LAB|LEGACY|EHR|HOSP|202605140101||ORU^R01|CTRL-LARGE-AFTER|P|2.3
+PID|1||MRN-LARGE^^^HOSP^MR||Example^Large||19700101|U
+OBR|1|ORD-LARGE|FILL-LARGE|CBC^Complete Blood Count
+OBX|1|NM|718-7^Hemoglobin||1|g/dL
+OBX|2|NM|718-7^Hemoglobin||2|g/dL
+OBX|3|NM|718-7^Hemoglobin||3|g/dL
+OBX|4|NM|718-7^Hemoglobin||4|g/dL
+OBX|5|NM|718-7^Hemoglobin||5|g/dL
+OBX|6|NM|718-7^Hemoglobin||6|g/dL
+OBX|7|NM|718-7^Hemoglobin||7|g/dL
+OBX|8|NM|718-7^Hemoglobin||8|g/dL
+OBX|9|NM|718-7^Hemoglobin||9|g/dL
+OBX|10|NM|718-7^Hemoglobin||10|g/dL
+OBX|11|NM|718-7^Hemoglobin||11|g/dL
+OBX|12|NM|718-7^Hemoglobin||12|g/dL
+OBX|13|NM|718-7^Hemoglobin||13|g/dL
+OBX|14|NM|718-7^Hemoglobin||14|g/dL
+OBX|15|NM|718-7^Hemoglobin||15|g/dL
+OBX|16|NM|718-7^Hemoglobin||16|g/dL
+OBX|17|NM|718-7^Hemoglobin||17|g/dL
+OBX|18|NM|718-7^Hemoglobin||18|g/dL
+OBX|19|NM|718-7^Hemoglobin||19|g/dL
+OBX|20|NM|718-7^Hemoglobin||20|g/dL

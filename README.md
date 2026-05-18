@@ -85,9 +85,17 @@ cargo install hl7v2-server
 
 ## Quick Start
 
+If you are choosing an install/runtime surface first, start with
+[First Use By Surface](docs/guides/first-use-by-surface.md). It routes Rust,
+CLI, server, and Python users to the first useful receipt without requiring
+the workspace topology.
+
 For a task-focused walkthrough from local diagnostics to validation reports,
 corpus fingerprint/diff output, and replayable redacted bundles, start with the
 [First 10 Minutes guide](docs/guides/first-10-minutes.md).
+To interpret validation reports, redaction receipts, corpus fingerprints,
+bundles, replay output, and PHI-sharing posture, use
+[Evidence Artifacts For Operators](docs/guides/evidence-artifacts-for-operators.md).
 For migration and vendor-change review, see the
 [Vendor Upgrade Diff guide](docs/guides/vendor-upgrade-diff.md).
 For support escalation without raw message PHI, see the
@@ -242,11 +250,13 @@ hl7v2-cli redact <input.hl7> --policy safe-analysis.toml --format json
 
 ```bash
 # Create a PHI-safe evidence packet for support or replay
-hl7v2-cli bundle failing.hl7 --profile profiles/oru_r01.yaml --redact-policy safe-analysis.toml --out issue-bundle/
+hl7v2-cli support-bundle failing.hl7 --profile profiles/oru_r01.yaml --redact-policy safe-analysis.toml --out issue-bundle/
 
 # Re-run the redacted bundle and verify the stored validation report reproduces
 hl7v2-cli replay issue-bundle/ --format json
 ```
+
+`hl7v2-cli bundle` remains available as the compatibility command.
 
 ### Generate Messages
 

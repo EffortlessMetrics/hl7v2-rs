@@ -1,10 +1,14 @@
 # Source-of-Truth Stack Plan
 
-Status: Active
+Status: Closed / implemented
 Proposal: [HL7V2-PROP-0001](../../docs/proposals/HL7V2-PROP-0001-source-of-truth-and-release-governance.md)
 Spec: [HL7V2-SPEC-0001](../../docs/specs/HL7V2-SPEC-0001-source-of-truth-stack.md)
 ADRs: [ADR-0001](../../docs/adr/HL7V2-ADR-0001-evidence-artifacts-are-contracts.md),
 [ADR-0002](../../docs/adr/HL7V2-ADR-0002-python-is-separate-distribution-lane.md)
+
+Historical note: the source-of-truth stack is now implemented and current
+execution state lives in `.hl7v2/goals/active.toml`. This file is retained as
+the original PR-sequencing plan, not as the active work queue.
 
 ## Goal
 

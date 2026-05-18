@@ -384,3 +384,129 @@ fn create_err_segment(error_message: &str) -> Segment {
         fields,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::parse;
+    use crate::query::get;
+    use std::fmt::Debug;
+
+    fn sample_message() -> Result<Message, Box<dyn std::error::Error>> {
+        Ok(parse(
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ORM^O01|CTRL123|T|2.4\r\
+PID|1||123456^^^HOSP^MR||Doe^John\r",
+        )?)
+    }
+
+    fn require_eq<T>(actual: T, expected: T, label: &str) -> Result<(), Box<dyn std::error::Error>>
+    where
+        T: PartialEq + Debug,
+    {
+        if actual == expected {
+            Ok(())
+        } else {
+            Err(
+                std::io::Error::other(format!("{label}: expected {expected:?}, got {actual:?}"))
+                    .into(),
+            )
+        }
+    }
+
+    fn require(condition: bool, message: &'static str) -> Result<(), Box<dyn std::error::Error>> {
+        if condition {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(message).into())
+        }
+    }
+
+    #[test]
+    fn ack_code_display_matches_hl7_code() -> Result<(), Box<dyn std::error::Error>> {
+        let cases = [
+            (AckCode::AA, "AA"),
+            (AckCode::AE, "AE"),
+            (AckCode::AR, "AR"),
+            (AckCode::CA, "CA"),
+            (AckCode::CE, "CE"),
+            (AckCode::CR, "CR"),
+        ];
+
+        for (code, expected) in cases {
+            require_eq(code.as_str(), expected, "ACK code string")?;
+            require_eq(code.to_string(), expected.to_string(), "ACK code display")?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn ack_uses_original_delimiters_and_routing_metadata() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let original = sample_message()?;
+        let response = ack(&original, AckCode::CA)?;
+
+        require_eq(&response.delims, &original.delims, "ACK delimiters")?;
+        require_eq(get(&response, "MSH.3"), Some("RECVAPP"), "MSH-3")?;
+        require_eq(get(&response, "MSH.4"), Some("RECVFAC"), "MSH-4")?;
+        require_eq(get(&response, "MSH.5"), Some("SENDAPP"), "MSH-5")?;
+        require_eq(get(&response, "MSH.6"), Some("SENDFAC"), "MSH-6")?;
+        require_eq(get(&response, "MSA.1"), Some("CA"), "MSA-1")?;
+        require_eq(get(&response, "MSA.2"), Some("CTRL123"), "MSA-2")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn ack_with_error_omits_err_segment_when_message_is_none()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let original = sample_message()?;
+        let response = ack_with_error(&original, AckCode::AA, None)?;
+
+        require_eq(response.segments.len(), 2, "ACK segment count")?;
+        require(
+            response
+                .segments
+                .iter()
+                .all(|segment| segment.id != *b"ERR"),
+            "ACK without error text should not contain ERR",
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_field_value_handles_missing_zero_and_null_fields()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let segment = Segment {
+            id: *b"TST",
+            fields: vec![
+                Field {
+                    reps: vec![Rep {
+                        comps: vec![Comp {
+                            subs: vec![Atom::Text("present".to_string())],
+                        }],
+                    }],
+                },
+                Field {
+                    reps: vec![Rep {
+                        comps: vec![Comp {
+                            subs: vec![Atom::Null],
+                        }],
+                    }],
+                },
+            ],
+        };
+
+        require_eq(
+            get_field_value(&segment, 1),
+            Some("present".to_string()),
+            "present field",
+        )?;
+        require_eq(get_field_value(&segment, 0), None, "zero field")?;
+        require_eq(get_field_value(&segment, 2), None, "null field")?;
+        require_eq(get_field_value(&segment, 3), None, "missing field")?;
+
+        Ok(())
+    }
+}

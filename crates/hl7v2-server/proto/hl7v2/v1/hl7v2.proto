@@ -1537,11 +1537,14 @@ message GenerateAckRequest {
     ACK_CODE_AA = 1;  // Application Accept
     ACK_CODE_AE = 2;  // Application Error
     ACK_CODE_AR = 3;  // Application Reject
+    ACK_CODE_CA = 4;  // Commit Accept
+    ACK_CODE_CE = 5;  // Commit Error
+    ACK_CODE_CR = 6;  // Commit Reject
   }
 
   AckCode code = 2;
 
-  // Error message (for AE/AR)
+  // Error message (for AE/AR/CE/CR)
   optional string error_message = 3;
 }
 
