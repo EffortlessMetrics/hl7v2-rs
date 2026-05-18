@@ -139,6 +139,8 @@ pub(crate) enum Commands {
     },
     /// Run the executable safe support-bundle guide smoke
     CheckSafeSupportBundleGuide,
+    /// Start a local sidecar and run the executable deployment guide smoke
+    CheckSidecarGuide,
     /// Run fixture-backed safe-error and PHI parity acceptance checks
     CheckSafeErrorPhiParity {
         /// Also run Python local-wheel smoke checks when hl7v2 is installed
