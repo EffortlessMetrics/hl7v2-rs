@@ -113,6 +113,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Corrected the v1.5.0 readiness receipt so the public Python `hl7v2`
+  TestPyPI blocker points at the still-open Trusted Publisher issue #563
+  instead of describing it as closed.
 - Clarified current-state wording for the public Python `hl7v2`
   TestPyPI/PyPI blocker after the registry proof command, workflow routing,
   parity boundary, and gap audit landed without a new upload attempt.
