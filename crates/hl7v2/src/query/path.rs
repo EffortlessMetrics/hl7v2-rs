@@ -46,6 +46,10 @@ pub enum PathError {
     /// Repetition index is missing or outside the valid HL7 range.
     #[error("Invalid repetition index: {0}")]
     InvalidRepetitionIndex(String),
+
+    /// Subcomponent number is missing or outside the valid HL7 range.
+    #[error("Invalid subcomponent number: {0}")]
+    InvalidSubcomponentNumber(String),
 }
 
 /// Represents a parsed HL7 field path
@@ -182,6 +186,11 @@ pub fn parse_path(s: &str) -> Result<Path, PathError> {
     })?;
     let component_part = parts.next();
     let subcomponent_part = parts.next();
+    if parts.next().is_some() {
+        return Err(PathError::InvalidFormat(format!(
+            "Path has too many components, got: {s}"
+        )));
+    }
 
     // Parse segment ID (must be 3 characters, start with letter, rest alphanumeric)
     let segment = segment_part.to_uppercase();
@@ -218,11 +227,11 @@ pub fn parse_path(s: &str) -> Result<Path, PathError> {
     // Parse optional subcomponent
     if let Some(subcomponent_part) = subcomponent_part {
         let sub = subcomponent_part.parse::<usize>().map_err(|_parse_err| {
-            PathError::InvalidComponentNumber(subcomponent_part.to_string())
+            PathError::InvalidSubcomponentNumber(subcomponent_part.to_string())
         })?;
 
         if sub == 0 {
-            return Err(PathError::InvalidComponentNumber(
+            return Err(PathError::InvalidSubcomponentNumber(
                 "Subcomponent must be >= 1".to_string(),
             ));
         }
@@ -281,5 +290,30 @@ fn parse_field_part(s: &str) -> Result<(usize, Option<usize>), PathError> {
         }
 
         Ok((field, None))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_path_rejects_extra_components() {
+        assert!(matches!(
+            parse_path("PID.5.1.2.3"),
+            Err(PathError::InvalidFormat(_))
+        ));
+    }
+
+    #[test]
+    fn parse_path_reports_invalid_subcomponent_number() {
+        assert!(matches!(
+            parse_path("PID.5.1.abc"),
+            Err(PathError::InvalidSubcomponentNumber(_))
+        ));
+        assert!(matches!(
+            parse_path("PID.5.1.0"),
+            Err(PathError::InvalidSubcomponentNumber(_))
+        ));
     }
 }
