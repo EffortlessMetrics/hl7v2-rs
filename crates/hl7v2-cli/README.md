@@ -50,7 +50,7 @@ Redact a message for safe analysis:
 hl7v2-cli redact message.hl7 --policy safe-analysis.toml --format json
 hl7v2-cli redact message.hl7 --policy safe-analysis.toml --format json --schema-version 2
 hl7v2-cli redact message.hl7 --policy safe-analysis.toml --format hl7 > message.redacted.hl7
-hl7v2-cli bundle message.hl7 --profile profiles/adt_a01.yaml --redact-policy safe-analysis.toml --out issue-bundle/ --schema-version 2
+hl7v2-cli support-bundle message.hl7 --profile profiles/adt_a01.yaml --redact-policy safe-analysis.toml --out issue-bundle/ --schema-version 2
 hl7v2-cli replay issue-bundle/ --format json --schema-version 2
 ```
 
@@ -78,7 +78,9 @@ field unless `optional = true` is set. Built-in sensitive fields such as
 `PID.3`, `PID.5`, `PID.7`, `PID.11`, `PID.13`, `PID.19`, and next-of-kin
 fields must be protected when present and cannot be retained.
 
-`hl7v2-cli bundle` writes a redacted evidence packet containing:
+`hl7v2-cli support-bundle` is an operator-focused alias for
+`hl7v2-cli bundle`, which remains available as the compatibility spelling. It
+writes a redacted evidence packet containing:
 
 - `manifest.json`
 - `README.md`

@@ -87,6 +87,10 @@ mod help_and_version {
                 &["bundle", "--help"],
                 "Create a redacted support/debug evidence bundle",
             ),
+            (
+                &["support-bundle", "--help"],
+                "Create a redacted support/debug evidence bundle",
+            ),
             (&["replay", "--help"], "Replay a redacted evidence bundle"),
             (&["ack", "--help"], "Generate ACK"),
             (&["gen", "--help"], "Generate synthetic"),
