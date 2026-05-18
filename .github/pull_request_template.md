@@ -2,6 +2,31 @@
 
 <!-- Describe what this PR does and why. -->
 
+## Source-of-Truth Links
+
+Proposal:
+Spec:
+ADR:
+Plan item:
+Active goal:
+
+## Scope
+
+- [ ] Proposal / why
+- [ ] Spec / behavior contract
+- [ ] ADR / durable decision
+- [ ] Plan / sequencing
+- [ ] Active goal / current execution state
+- [ ] Runtime / implementation
+- [ ] Policy ledger
+- [ ] Support-tier update
+- [ ] Generated status / receipt
+- [ ] Maintenance-only / direct proof
+
+## Non-Goals
+
+<!-- What this PR explicitly does not do. -->
+
 ## Assumptions
 
 <!-- State any assumptions you made that reviewers should know. -->
@@ -32,3 +57,15 @@
 ```bash
 # paste relevant commands here
 ```
+
+## Results
+
+<!-- What passed? What failed? What could not run? -->
+
+## Claim Boundary
+
+<!-- What may be claimed after this PR? What may not be claimed yet? -->
+
+## Rollback
+
+<!-- How to revert safely. -->

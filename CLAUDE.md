@@ -31,6 +31,25 @@ CI Stage 1 uses xtask for fmt/clippy, then runs unit + doc tests separately:
 Enable repository hooks:
 - `just setup` (sets `core.hooksPath` to `.githooks`)
 
+## Source-of-Truth First Read
+
+Before making changes, read:
+
+1. `docs/reference/SPEC_SYSTEM.md`
+2. `.hl7v2/goals/active.toml`
+3. The linked implementation plan
+4. The linked spec for the selected work item
+5. Any linked ADRs
+
+Work on exactly one work item at a time. Do not broaden a docs-only change into
+runtime behavior, do not hand-edit generated status, and do not claim success
+without proof commands or an explicit unavailable-proof note.
+
+Stop and report instead of guessing when the active goal is missing or stale,
+linked source-of-truth files are missing, proof commands cannot run, generated
+status is dirty, unrelated staged changes exist, or the requested work conflicts
+with an ADR.
+
 ## Build & Development Commands
 
 ```bash
