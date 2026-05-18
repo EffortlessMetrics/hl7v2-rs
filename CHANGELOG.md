@@ -108,6 +108,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Added synchronize-only concurrency controls to the API Contracts and Security
+  workflows so stale PR updates can be canceled without canceling push,
+  scheduled, or manual proof runs.
 - Rejected non-finite float spellings such as `INF`, `Infinity`, and `NaN`
   from HL7 numeric validation.
 
