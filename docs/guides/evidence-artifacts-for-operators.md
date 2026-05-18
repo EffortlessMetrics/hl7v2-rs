@@ -7,7 +7,9 @@ needing the repository layout.
 
 For the normative schema and producer map, use the
 [Evidence Contract Index](../contracts/evidence-contract-index.md). For the
-schema files themselves, use [schemas/README.md](../../schemas/README.md).
+schema files themselves, use [schemas/README.md](../../schemas/README.md). For
+stable/advisory field rules and semver expectations, use the
+[Evidence Artifact Compatibility Policy](../contracts/evidence-artifact-compatibility-policy.md).
 
 ## Quick Routing
 
@@ -358,6 +360,7 @@ When you receive an artifact and are unsure what to do, use this order:
 ## Normative References
 
 - [Evidence Contract Index](../contracts/evidence-contract-index.md)
+- [Evidence Artifact Compatibility Policy](../contracts/evidence-artifact-compatibility-policy.md)
 - [Evidence artifact architecture](../architecture/evidence-artifacts.md)
 - [Evidence provenance and versioning](../architecture/evidence-provenance-versioning.md)
 - [Schema README](../../schemas/README.md)

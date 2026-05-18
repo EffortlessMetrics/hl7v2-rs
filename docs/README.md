@@ -13,7 +13,7 @@ with the current sources below before reading older planning documents.
 | Support tiers and proof commands | [status/SUPPORT_TIERS.md](status/SUPPORT_TIERS.md) |
 | Contributor workflow | [../CONTRIBUTING.md](../CONTRIBUTING.md), [../DEVELOPMENT.md](../DEVELOPMENT.md) |
 | Task-focused evidence workflows | [guides/README.md](guides/README.md) |
-| Machine-readable evidence artifacts | [contracts/evidence-contract-index.md](contracts/evidence-contract-index.md) |
+| Machine-readable evidence artifacts | [contracts/evidence-contract-index.md](contracts/evidence-contract-index.md), [contracts/evidence-artifact-compatibility-policy.md](contracts/evidence-artifact-compatibility-policy.md) |
 | Evidence artifact semantics and provenance | [guides/evidence-artifacts-for-operators.md](guides/evidence-artifacts-for-operators.md), [architecture/evidence-artifacts.md](architecture/evidence-artifacts.md), [architecture/evidence-provenance-versioning.md](architecture/evidence-provenance-versioning.md) |
 | JSON schemas | [../schemas/README.md](../schemas/README.md) |
 | Current Rust module and package surface | [architecture/module-map.md](architecture/module-map.md) |

@@ -264,6 +264,8 @@ Schemas are versioned with `-v1`, `-v2` suffixes. Breaking changes require:
 
 Evidence artifacts also have a dedicated provenance/versioning plan in
 [`docs/architecture/evidence-provenance-versioning.md`](../docs/architecture/evidence-provenance-versioning.md).
+The contract-level compatibility policy lives in
+[`docs/contracts/evidence-artifact-compatibility-policy.md`](../docs/contracts/evidence-artifact-compatibility-policy.md).
 For evidence contracts, adding embedded `schema_version`, `tool_name`, or
 `tool_version` fields to an already published `*-v1` JSON shape is a contract
 change because evidence schemas use `additionalProperties: false`. Add those

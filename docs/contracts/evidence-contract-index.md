@@ -4,6 +4,9 @@ This index maps the current machine-readable evidence artifacts to their
 producer surfaces, schemas, fixtures, default shapes, opt-in v2 controls, and
 PHI/logging notes. It is a routing document for maintainers and agents; the
 schemas remain the normative JSON contracts.
+Use the
+[Evidence Artifact Compatibility Policy](evidence-artifact-compatibility-policy.md)
+for stable/advisory field rules, semver expectations, and consumer guidance.
 
 Versioning rules:
 
@@ -100,6 +103,7 @@ on `hl7v2` for the primary Rust API.
 ## Related References
 
 - [Evidence artifacts](../architecture/evidence-artifacts.md)
+- [Evidence artifact compatibility policy](evidence-artifact-compatibility-policy.md)
 - [Evidence provenance and versioning](../architecture/evidence-provenance-versioning.md)
 - [Schema README](../../schemas/README.md)
 - [Safe support bundle guide](../guides/safe-support-bundle.md)
