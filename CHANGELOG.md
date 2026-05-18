@@ -113,6 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Corrected the ADR index status for ADR-0006 so it matches the proposed
+  OPA policy-enforcement ADR.
 - Corrected the v1.5.0 readiness receipt so the public Python `hl7v2`
   TestPyPI blocker points at the still-open Trusted Publisher issue #563
   instead of describing it as closed.
