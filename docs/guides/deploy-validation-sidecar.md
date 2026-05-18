@@ -193,6 +193,212 @@ The same Compose proof is available in GitHub Actions as the path-scoped
 **Server Docker Smoke** workflow. Use the manual trigger when you need hosted
 deployment proof without changing the main CI matrix.
 
+### Copy/Paste REST Smoke With Curl
+
+Use this compact curl path when you want a POSIX shell smoke that matches the
+PowerShell examples below. It creates request bodies with Python so multi-line
+HL7, profile YAML, and redaction policy content are JSON-escaped correctly:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+
+root = Path("target/hl7v2-sidecar")
+root.mkdir(parents=True, exist_ok=True)
+(root / "reports").mkdir(exist_ok=True)
+
+message = Path("test_data/invalid_message.hl7").read_text(encoding="utf-8")
+valid_message = Path("test_data/valid_message.hl7").read_text(encoding="utf-8")
+profile = Path("profiles/generic.yaml").read_text(encoding="utf-8")
+policy = (root / "safe-analysis.toml").read_text(encoding="utf-8")
+
+requests = {
+    "validate-redacted-request.json": {
+        "message": message,
+        "profile": profile,
+        "redaction_policy": policy,
+        "include_redacted_hl7": False,
+        "report_schema_version": 2,
+        "redaction_receipt_schema_version": 2,
+        "quarantine_schema_version": 2,
+    },
+    "bundle-request.json": {
+        "bundle_id": "case-001-curl",
+        "message": message,
+        "profile": profile,
+        "redaction_policy": policy,
+        "bundle_artifact_schema_version": 2,
+    },
+    "replay-request.json": {
+        "bundle_id": "case-001-curl",
+        "replay_report_schema_version": 2,
+    },
+    "ack-policy-request.json": {
+        "message": message,
+        "profile": profile,
+        "mllp_framed": False,
+        "mllp_frame": False,
+    },
+    "corpus-diff-request.json": {
+        "before": [{"id": "before-1", "message": message}],
+        "after": [{"id": "after-1", "message": valid_message}],
+        "profile": profile,
+        "diff_schema_version": 2,
+    },
+}
+
+for name, body in requests.items():
+    (root / name).write_text(json.dumps(body), encoding="utf-8")
+PY
+
+curl -fsS http://127.0.0.1:18080/health
+curl -fsS http://127.0.0.1:18080/ready
+
+curl -fsS \
+  -H "X-API-Key: dev-secret" \
+  -H "Content-Type: application/json" \
+  --data-binary @target/hl7v2-sidecar/validate-redacted-request.json \
+  http://127.0.0.1:18080/hl7/validate-redacted \
+  > target/hl7v2-sidecar/reports/validate-redacted-curl.json
+
+curl -fsS \
+  -H "X-API-Key: dev-secret" \
+  -H "Content-Type: application/json" \
+  --data-binary @target/hl7v2-sidecar/bundle-request.json \
+  http://127.0.0.1:18080/hl7/bundle \
+  > target/hl7v2-sidecar/reports/bundle-summary-curl.json
+
+curl -fsS \
+  -H "X-API-Key: dev-secret" \
+  -H "Content-Type: application/json" \
+  --data-binary @target/hl7v2-sidecar/replay-request.json \
+  http://127.0.0.1:18080/hl7/replay \
+  > target/hl7v2-sidecar/reports/replay-report-curl.json
+
+curl -fsS \
+  -H "X-API-Key: dev-secret" \
+  -H "Content-Type: application/json" \
+  --data-binary @target/hl7v2-sidecar/ack-policy-request.json \
+  http://127.0.0.1:18080/hl7/ack-policy \
+  > target/hl7v2-sidecar/reports/ack-policy-curl.json
+
+curl -fsS \
+  -H "X-API-Key: dev-secret" \
+  -H "Content-Type: application/json" \
+  --data-binary @target/hl7v2-sidecar/corpus-diff-request.json \
+  http://127.0.0.1:18080/hl7/corpus/diff \
+  > target/hl7v2-sidecar/reports/corpus-diff-curl.json
+```
+
+The request `bundle_id` values above are identifiers under the configured
+server bundle root. They are not filesystem paths. If you need a fresh run,
+choose a new safe identifier or clear the local bundle root.
+
+### Optional gRPC Smoke With grpcurl
+
+The Docker Compose stack runs the HTTP sidecar. To smoke the typed gRPC
+transport from a source checkout, run the CLI server entry point on a separate
+port with the same evidence roots:
+
+```bash
+export HL7V2_CONFIG=target/hl7v2-sidecar/server.toml
+export HL7V2_API_KEY=dev-secret
+export HL7V2_PROFILE_PATHS=profiles/generic.yaml
+
+cargo run -q -p hl7v2-cli -- serve --mode grpc --host 127.0.0.1 --port 50051
+```
+
+In another shell, create protobuf JSON request bodies. `grpcurl` expects
+protobuf `bytes` fields as base64 strings:
+
+```bash
+python - <<'PY'
+import base64
+import json
+from pathlib import Path
+
+root = Path("target/hl7v2-sidecar")
+root.mkdir(parents=True, exist_ok=True)
+
+message = Path("test_data/invalid_message.hl7").read_bytes()
+profile = Path("profiles/generic.yaml").read_text(encoding="utf-8")
+policy = (root / "safe-analysis.toml").read_text(encoding="utf-8")
+message_b64 = base64.b64encode(message).decode("ascii")
+
+requests = {
+    "grpc-validate-redacted-request.json": {
+        "message": message_b64,
+        "profile": profile,
+        "redaction_policy": policy,
+        "include_redacted_hl7": False,
+        "report_schema_version": 2,
+        "redaction_receipt_schema_version": 2,
+        "quarantine_schema_version": 2,
+    },
+    "grpc-bundle-request.json": {
+        "bundle_id": "case-001-grpc",
+        "message": message_b64,
+        "profile": profile,
+        "redaction_policy": policy,
+        "bundle_artifact_schema_version": 2,
+    },
+    "grpc-replay-request.json": {
+        "bundle_id": "case-001-grpc",
+        "replay_report_schema_version": 2,
+    },
+}
+
+for name, body in requests.items():
+    (root / name).write_text(json.dumps(body), encoding="utf-8")
+PY
+```
+
+Call the service with the checked-in protobuf contract. The gRPC service does
+not enable reflection, so pass `-import-path` and `-proto` explicitly:
+
+```bash
+grpcurl -plaintext \
+  -import-path api/proto \
+  -proto hl7v2/v1/hl7v2.proto \
+  -H "x-api-key: dev-secret" \
+  -d '{}' \
+  127.0.0.1:50051 \
+  hl7v2.v1.HL7Service/HealthCheck
+
+grpcurl -plaintext \
+  -import-path api/proto \
+  -proto hl7v2/v1/hl7v2.proto \
+  -H "x-api-key: dev-secret" \
+  -d @ \
+  127.0.0.1:50051 \
+  hl7v2.v1.HL7Service/ValidateRedacted \
+  < target/hl7v2-sidecar/grpc-validate-redacted-request.json
+
+grpcurl -plaintext \
+  -import-path api/proto \
+  -proto hl7v2/v1/hl7v2.proto \
+  -H "x-api-key: dev-secret" \
+  -d @ \
+  127.0.0.1:50051 \
+  hl7v2.v1.HL7Service/CreateEvidenceBundle \
+  < target/hl7v2-sidecar/grpc-bundle-request.json
+
+grpcurl -plaintext \
+  -import-path api/proto \
+  -proto hl7v2/v1/hl7v2.proto \
+  -H "x-api-key: dev-secret" \
+  -d @ \
+  127.0.0.1:50051 \
+  hl7v2.v1.HL7Service/ReplayEvidenceBundle \
+  < target/hl7v2-sidecar/grpc-replay-request.json
+```
+
+`HealthCheck` proves the gRPC process is serving. The evidence RPCs prove the
+same configured-root bundle and replay behavior as the REST sidecar. Keep the
+`x-api-key` metadata configured for protected RPCs; do not deploy the gRPC
+service without an external network boundary or API key.
+
 ## 4. Check Readiness
 
 Readiness is the deployment gate:
