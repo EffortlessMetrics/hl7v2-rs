@@ -69,6 +69,10 @@ proof = [
   "python tests/python_smoke/smoke.py",
   "python tests/python_smoke/evidence_workflow_guide.py",
 ]
+blocked_registry_proof = [
+  "cargo run -p xtask -- python-public-registry-proof --index testpypi --version <version>",
+  "cargo run -p xtask -- python-public-registry-proof --index pypi --version <version>",
+]
 blocked_by = "https://github.com/EffortlessMetrics/hl7v2-rs/issues/563"
 
 [surface.typescript]
