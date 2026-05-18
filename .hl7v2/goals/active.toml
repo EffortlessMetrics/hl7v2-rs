@@ -95,6 +95,7 @@ canonical_sources = [
   "docs/audits/evidence-artifacts-guide-smoke-2026-05-18.md",
   "docs/audits/sidecar-guide-smoke-2026-05-18.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
+  "docs/audits/python-registry-proof-parity-boundary-2026-05-18.md",
   "docs/audits/python-public-registry-proof-command-2026-05-18.md",
   "docs/audits/python-public-registry-proof-workflow-routing-2026-05-18.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
@@ -153,6 +154,34 @@ commands = [
   "cargo +1.95.0 run -p xtask -- check-doc-links",
   "cargo +1.95.0 run -p xtask -- check-file-policy",
   "cargo +1.95.0 run -p xtask -- check-python-publish-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back success claim.",
+  "No PyPI upload.",
+  "No PyPI install-back success claim.",
+  "No token fallback.",
+  "No skip-existing.",
+  "No npm package.",
+  "No new crates.io release.",
+]
+
+[[work_item]]
+id = "python-registry-proof-parity-boundary"
+status = "done"
+goal = "Record the blocked public Python registry install-back commands in the machine-readable evidence parity manifest and guard them with check-evidence-parity."
+receipt = "docs/audits/python-registry-proof-parity-boundary-2026-05-18.md"
+commands = [
+  "cargo +1.95.0 fmt --all -- --check",
+  "cargo +1.95.0 test -p xtask evidence_parity_policy --locked",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 clippy -p xtask --all-targets --locked -- -D warnings",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
   "cargo +1.95.0 run -p xtask -- badges --check",
   "cargo +1.95.0 run -p xtask -- impacted-evidence",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
