@@ -113,6 +113,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Added crate-local context for the canonical Rust `hl7v2` crate and the
+  `hl7v2-python` binding backend, preserving the Rust API versus Python
+  backend boundary for future maintenance.
 - Corrected the ADR index status for ADR-0006 so it matches the proposed
   OPA policy-enforcement ADR.
 - Corrected the v1.5.0 readiness receipt so the public Python `hl7v2`
