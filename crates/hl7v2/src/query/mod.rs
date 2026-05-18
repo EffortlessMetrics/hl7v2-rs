@@ -7,10 +7,11 @@
 //!
 //! # Path Format
 //!
-//! Paths use the format: `SEGMENT.FIELD\[REP\].COMPONENT`
+//! Paths use the format: `SEGMENT.FIELD\[REP\].COMPONENT.SUBCOMPONENT`
 //!
 //! Examples:
 //! - `PID.5.1` - First component of 5th field in PID segment (first repetition)
+//! - `PID.5.1.2` - Second subcomponent of the first component of PID-5
 //! - `PID.5[2].1` - First component of 5th field, second repetition
 //! - `MSH.9` - 9th field of MSH segment
 //! - `MSH.9.1` - First component of 9th field of MSH segment
@@ -43,7 +44,7 @@ use crate::model::{Atom, Message, Presence, Segment};
 /// # Arguments
 ///
 /// * `msg` - The message to query
-/// * `path` - The path to the field (e.g., `PID.5.1`, `PID.5[1].1`, `MSH.9`)
+/// * `path` - The path to the field (e.g., `PID.5.1`, `PID.5.1.2`, `PID.5[1].1`, `MSH.9`)
 ///
 /// # Returns
 ///
@@ -67,8 +68,8 @@ use crate::model::{Atom, Message, Presence, Segment};
 /// ```
 pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     // Parse the path
-    // Format: SEGMENT.FIELD\[REP\].COMPONENT
-    // Examples: `PID.5.1`, `PID.5[1].1`, `MSH.9`
+    // Format: SEGMENT.FIELD\[REP\].COMPONENT.SUBCOMPONENT
+    // Examples: `PID.5.1`, `PID.5.1.2`, `PID.5[1].1`, `MSH.9`
 
     let mut parts = path.split('.');
     let segment_id = parts.next()?;

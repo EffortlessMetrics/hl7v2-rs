@@ -46,10 +46,6 @@ pub enum PathError {
     /// Repetition index is missing or outside the valid HL7 range.
     #[error("Invalid repetition index: {0}")]
     InvalidRepetitionIndex(String),
-
-    /// Subcomponent number is missing or outside the valid HL7 range.
-    #[error("Invalid subcomponent number: {0}")]
-    InvalidSubcomponentNumber(String),
 }
 
 /// Represents a parsed HL7 field path
@@ -227,11 +223,11 @@ pub fn parse_path(s: &str) -> Result<Path, PathError> {
     // Parse optional subcomponent
     if let Some(subcomponent_part) = subcomponent_part {
         let sub = subcomponent_part.parse::<usize>().map_err(|_parse_err| {
-            PathError::InvalidSubcomponentNumber(subcomponent_part.to_string())
+            PathError::InvalidComponentNumber(subcomponent_part.to_string())
         })?;
 
         if sub == 0 {
-            return Err(PathError::InvalidSubcomponentNumber(
+            return Err(PathError::InvalidComponentNumber(
                 "Subcomponent must be >= 1".to_string(),
             ));
         }
@@ -306,14 +302,14 @@ mod tests {
     }
 
     #[test]
-    fn parse_path_reports_invalid_subcomponent_number() {
+    fn parse_path_reports_invalid_subcomponent_number_as_component_error() {
         assert!(matches!(
             parse_path("PID.5.1.abc"),
-            Err(PathError::InvalidSubcomponentNumber(_))
+            Err(PathError::InvalidComponentNumber(_))
         ));
         assert!(matches!(
             parse_path("PID.5.1.0"),
-            Err(PathError::InvalidSubcomponentNumber(_))
+            Err(PathError::InvalidComponentNumber(_))
         ));
     }
 }
