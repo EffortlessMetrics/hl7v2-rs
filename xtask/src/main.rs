@@ -75,6 +75,7 @@ fn main() -> Result<()> {
             include_public_crates,
         } => check_first_use_guides(include_python, include_public_crates)?,
         Commands::CheckFirst10MinutesGuide => check_first_10_minutes_guide()?,
+        Commands::CheckVendorUpgradeDiffGuide => check_vendor_upgrade_diff_guide()?,
         Commands::CheckSafeSupportBundleGuide => check_safe_support_bundle_guide()?,
         Commands::CheckEvidenceArtifactsGuide => check_evidence_artifacts_guide()?,
         Commands::CheckSidecarGuide => check_sidecar_guide()?,
@@ -4377,6 +4378,7 @@ const EVIDENCE_PARITY_ALLOWED_PYTHON_STATES: &[&str] = &[
 
 const FIRST_USE_RECEIPT_ROOT: &str = "target/hl7v2-receipt";
 const FIRST_10_MINUTES_GUIDE_ROOT: &str = "target/hl7v2-first-10-minutes";
+const VENDOR_UPGRADE_DIFF_GUIDE_ROOT: &str = "target/hl7v2-vendor-upgrade-diff";
 const FIRST_USE_REDACTION_POLICY: &str = r#"[[rules]]
 path = "PID.3"
 action = "hash"
@@ -5206,6 +5208,240 @@ fn check_first_10_minutes_guide() -> Result<()> {
 
     println!(
         "First 10 Minutes guide recipe wrote {}",
+        guide_root.display()
+    );
+    Ok(())
+}
+
+fn check_vendor_upgrade_diff_guide() -> Result<()> {
+    println!("Checking Vendor Upgrade Diff guide recipe...");
+    let workspace_root = env::current_dir()?;
+    let guide_root = workspace_root.join(VENDOR_UPGRADE_DIFF_GUIDE_ROOT);
+    let target_root = workspace_root.join("target");
+    if !guide_root.starts_with(&target_root) {
+        return Err(anyhow!(
+            "refusing to prepare Vendor Upgrade Diff guide output outside target/: {}",
+            guide_root.display()
+        ));
+    }
+    if guide_root.exists() {
+        fs::remove_dir_all(&guide_root)?;
+    }
+
+    let before = guide_root.join("before");
+    let after = guide_root.join("after");
+    let reports = guide_root.join("reports");
+    fs::create_dir_all(&before)?;
+    fs::create_dir_all(&after)?;
+    fs::create_dir_all(&reports)?;
+
+    let profile = workspace_root.join("profiles/generic.yaml");
+    let valid_message = workspace_root.join("test_data/valid_message.hl7");
+    let invalid_message = workspace_root.join("test_data/invalid_message.hl7");
+    ensure_existing_file(&profile)?;
+    ensure_existing_file(&valid_message)?;
+    ensure_existing_file(&invalid_message)?;
+
+    fs::copy(&valid_message, before.join("site-a-001.hl7"))?;
+    fs::copy(&invalid_message, after.join("site-a-001.hl7"))?;
+
+    let profile_lint = reports.join("profile-lint.json");
+    run_cli_guide_command(
+        "Vendor Upgrade Diff profile lint",
+        vec![
+            "profile".to_string(),
+            "lint".to_string(),
+            path_to_arg(&profile)?,
+            "--report".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&profile_lint)?,
+        ],
+    )?;
+    let lint = read_json_file(&profile_lint)?;
+    let lint_label = path_to_arg(&profile_lint)?;
+    ensure_json_path_bool(&lint, &["valid"], true, &lint_label)?;
+    ensure_json_path_u64(&lint, &["error_count"], 0, &lint_label)?;
+    ensure_json_path_u64(&lint, &["warning_count"], 0, &lint_label)?;
+
+    let before_summary = reports.join("before-summary.json");
+    run_cli_guide_command(
+        "Vendor Upgrade Diff before summary",
+        vec![
+            "corpus".to_string(),
+            "summarize".to_string(),
+            path_to_arg(&before)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&before_summary)?,
+        ],
+    )?;
+    let before_summary_json = read_json_file(&before_summary)?;
+    let before_summary_label = path_to_arg(&before_summary)?;
+    ensure_vendor_upgrade_summary(&before_summary_json, &before_summary_label)?;
+
+    let after_summary = reports.join("after-summary.json");
+    run_cli_guide_command(
+        "Vendor Upgrade Diff after summary",
+        vec![
+            "corpus".to_string(),
+            "summarize".to_string(),
+            path_to_arg(&after)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&after_summary)?,
+        ],
+    )?;
+    let after_summary_json = read_json_file(&after_summary)?;
+    let after_summary_label = path_to_arg(&after_summary)?;
+    ensure_vendor_upgrade_summary(&after_summary_json, &after_summary_label)?;
+
+    let before_fingerprint = reports.join("before-fingerprint.json");
+    run_cli_guide_command(
+        "Vendor Upgrade Diff before fingerprint",
+        vec![
+            "corpus".to_string(),
+            "fingerprint".to_string(),
+            path_to_arg(&before)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&before_fingerprint)?,
+        ],
+    )?;
+    let before_fingerprint_json = read_json_file(&before_fingerprint)?;
+    let before_fingerprint_label = path_to_arg(&before_fingerprint)?;
+    ensure_json_path_string(
+        &before_fingerprint_json,
+        &["fingerprint_version"],
+        "1",
+        &before_fingerprint_label,
+    )?;
+    ensure_json_path_u64(
+        &before_fingerprint_json,
+        &["message_count"],
+        1,
+        &before_fingerprint_label,
+    )?;
+    ensure_json_path_u64(
+        &before_fingerprint_json,
+        &["parse_error_count"],
+        0,
+        &before_fingerprint_label,
+    )?;
+    ensure_empty_json_array(
+        &before_fingerprint_json,
+        &["validation_issue_code_counts"],
+        &before_fingerprint_label,
+    )?;
+    let profile_hash = json_path(
+        &before_fingerprint_json,
+        &["profile", "sha256"],
+        &before_fingerprint_label,
+    )?
+    .as_str()
+    .ok_or_else(|| anyhow!("{before_fingerprint_label} profile.sha256 was not a string"))?
+    .to_string();
+
+    let after_fingerprint = reports.join("after-fingerprint.json");
+    run_cli_guide_command(
+        "Vendor Upgrade Diff after fingerprint",
+        vec![
+            "corpus".to_string(),
+            "fingerprint".to_string(),
+            path_to_arg(&after)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&after_fingerprint)?,
+        ],
+    )?;
+    let after_fingerprint_json = read_json_file(&after_fingerprint)?;
+    let after_fingerprint_label = path_to_arg(&after_fingerprint)?;
+    ensure_json_path_string(
+        &after_fingerprint_json,
+        &["fingerprint_version"],
+        "1",
+        &after_fingerprint_label,
+    )?;
+    ensure_json_path_u64(
+        &after_fingerprint_json,
+        &["message_count"],
+        1,
+        &after_fingerprint_label,
+    )?;
+    ensure_json_path_u64(
+        &after_fingerprint_json,
+        &["parse_error_count"],
+        0,
+        &after_fingerprint_label,
+    )?;
+    ensure_json_object_array_contains_string_u64_field(
+        &after_fingerprint_json,
+        &["validation_issue_code_counts"],
+        "value",
+        "value_not_in_set",
+        "count",
+        1,
+        &after_fingerprint_label,
+    )?;
+    ensure_json_path_string(
+        &after_fingerprint_json,
+        &["profile", "sha256"],
+        profile_hash.as_str(),
+        &after_fingerprint_label,
+    )?;
+
+    let corpus_diff = reports.join("corpus-diff.json");
+    run_cli_guide_command(
+        "Vendor Upgrade Diff corpus diff",
+        vec![
+            "corpus".to_string(),
+            "diff".to_string(),
+            path_to_arg(&before)?,
+            path_to_arg(&after)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&corpus_diff)?,
+        ],
+    )?;
+    let diff = read_json_file(&corpus_diff)?;
+    let diff_label = path_to_arg(&corpus_diff)?;
+    ensure_json_path_string(&diff, &["diff_version"], "1", &diff_label)?;
+    ensure_json_path_u64(&diff, &["parse_error_count", "before"], 0, &diff_label)?;
+    ensure_json_path_u64(&diff, &["parse_error_count", "after"], 0, &diff_label)?;
+    ensure_json_path_u64(&diff, &["parse_error_count", "delta"], 0, &diff_label)?;
+    ensure_json_object_array_contains_string_i64_field(
+        &diff,
+        &["field_presence"],
+        "path",
+        "PID.5",
+        "message_count_delta",
+        -1,
+        &diff_label,
+    )?;
+    ensure_json_object_array_contains_string_i64_field(
+        &diff,
+        &["validation_issue_code_counts"],
+        "value",
+        "value_not_in_set",
+        "delta",
+        1,
+        &diff_label,
+    )?;
+    ensure_file_lacks_phi_sentinels(&corpus_diff)?;
+
+    println!(
+        "Vendor Upgrade Diff guide recipe wrote {}",
         guide_root.display()
     );
     Ok(())
@@ -6371,6 +6607,35 @@ fn ensure_json_array_contains_string(
         "{label} JSON array `{}` did not contain `{expected}`",
         path.join(".")
     ))
+}
+
+fn ensure_empty_json_array(value: &serde_json::Value, path: &[&str], label: &str) -> Result<()> {
+    let array = json_path(value, path, label)?
+        .as_array()
+        .ok_or_else(|| anyhow!("{label} JSON path `{}` was not an array", path.join(".")))?;
+    if array.is_empty() {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "{label} JSON array `{}` contained {} item(s), expected empty",
+        path.join("."),
+        array.len()
+    ))
+}
+
+fn ensure_vendor_upgrade_summary(summary: &serde_json::Value, label: &str) -> Result<()> {
+    ensure_json_path_u64(summary, &["file_count"], 1, label)?;
+    ensure_json_path_u64(summary, &["message_count"], 1, label)?;
+    ensure_json_path_u64(summary, &["parse_error_count"], 0, label)?;
+    ensure_json_object_array_contains_string_u64_field(
+        summary,
+        &["message_types"],
+        "value",
+        "ADT^A01^ADT_A01",
+        "count",
+        1,
+        label,
+    )
 }
 
 fn ensure_json_object_array_contains_fields(
@@ -9006,6 +9271,15 @@ mod tests {
         match cli.command {
             Commands::CheckFirst10MinutesGuide => Ok(()),
             _ => Err(anyhow!("expected check-first-10-minutes-guide command")),
+        }
+    }
+
+    #[test]
+    fn check_vendor_upgrade_diff_guide_command_parses() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-vendor-upgrade-diff-guide"])?;
+        match cli.command {
+            Commands::CheckVendorUpgradeDiffGuide => Ok(()),
+            _ => Err(anyhow!("expected check-vendor-upgrade-diff-guide command")),
         }
     }
 

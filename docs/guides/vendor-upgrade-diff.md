@@ -13,6 +13,12 @@ instead:
 cargo run -q -p hl7v2-cli -- corpus diff before/ after/ --format json
 ```
 
+From a source checkout, the full recipe is executable:
+
+```bash
+cargo +1.95.0 run -p xtask -- check-vendor-upgrade-diff-guide
+```
+
 ## What You Will Produce
 
 | Artifact | Purpose |
