@@ -1857,7 +1857,7 @@ constraints:
         let mut bundle = cli_command();
         let bundle_output = bundle
             .args([
-                "bundle",
+                "support-bundle",
                 message_file.to_str().unwrap(),
                 "--profile",
                 profile_file.to_str().unwrap(),
@@ -1869,7 +1869,7 @@ constraints:
                 "2",
             ])
             .output()
-            .expect("dirty fixture bundle should run");
+            .expect("dirty fixture support-bundle should run");
 
         assert!(bundle_output.status.success());
         let bundle_stdout = String::from_utf8(bundle_output.stdout).unwrap();
@@ -5141,7 +5141,7 @@ reason = "message type is needed for analysis"
     }
 
     #[test]
-    fn journey_cli_validate_redact_bundle_replay_produces_shareable_receipts() {
+    fn journey_cli_validate_redact_support_bundle_replay_produces_shareable_receipts() {
         let dir = create_temp_dir();
         let message = create_temp_hl7_with_content(&dir, "message.hl7", JOURNEY_MESSAGE);
         let profile = create_temp_profile(&dir, "profile.yaml", PROFILE_REQUIRING_PID3);
@@ -5200,7 +5200,7 @@ reason = "message type is needed for analysis"
         let bundle = dir.path().join("journey-bundle");
         let bundle_summary = run_json(
             &[
-                "bundle".to_string(),
+                "support-bundle".to_string(),
                 message.to_string_lossy().into_owned(),
                 "--profile".to_string(),
                 profile.to_string_lossy().into_owned(),

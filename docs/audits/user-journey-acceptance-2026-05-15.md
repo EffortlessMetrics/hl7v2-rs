@@ -14,14 +14,15 @@ understanding the repo topology.
 | Surface | User job | Proof |
 | --- | --- | --- |
 | Rust library | Embed parse, validation, redaction, bundle, and replay evidence in an application. | `cargo +1.95.0 test -p hl7v2 --test user_journey --all-features --locked` |
-| CLI | Validate, redact, bundle, replay, and inspect shareable support evidence. | `cargo +1.95.0 test -p hl7v2-cli --test integration_tests journey_cli_validate_redact_bundle_replay_produces_shareable_receipts --locked` |
+| CLI | Validate, redact, create an operator `support-bundle`, replay, and inspect shareable support evidence. | `cargo +1.95.0 test -p hl7v2-cli --test integration_tests journey_cli_validate_redact_support_bundle_replay_produces_shareable_receipts --locked` |
 | Server REST sidecar | Run a validation sidecar and prove redacted validation, bundle, replay, and corpus diff over HTTP. | `tests/server_smoke/smoke.py` against a running sidecar; covered by the server smoke workflow. |
 | Python local wheel | Import `hl7v2`, run evidence helpers, validate schemas, redact, bundle, and replay through the installed wheel. | `tests/python_smoke/smoke.py` and `tests/python_smoke/evidence_workflow_guide.py` after local wheel install. |
 
 ## What The Journey Proves
 
-- the Rust and CLI paths produce validation reports, redaction receipts, evidence
-  bundles, and replay reports from one realistic HL7 message;
+- the Rust path and CLI operator `support-bundle` path produce validation
+  reports, redaction receipts, evidence bundles, and replay reports from one
+  realistic HL7 message;
 - shareable artifacts do not contain the configured PHI leak sentinels;
 - replay detects tampering instead of treating a bundle as trusted by existence;
 - Python and server first-use checks have explicit smoke scripts tied to their
@@ -36,7 +37,7 @@ Run on this branch:
 
 ```text
 cargo +1.95.0 test -p hl7v2 --test user_journey --all-features --locked
-cargo +1.95.0 test -p hl7v2-cli --test integration_tests journey_cli_validate_redact_bundle_replay_produces_shareable_receipts --locked
+cargo +1.95.0 test -p hl7v2-cli --test integration_tests journey_cli_validate_redact_support_bundle_replay_produces_shareable_receipts --locked
 cargo +1.95.0 run -p xtask -- check-doc-links
 cargo +1.95.0 run -p xtask -- badges --check
 cargo +1.95.0 run -p xtask -- impacted-evidence --check
