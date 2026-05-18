@@ -84,6 +84,7 @@ canonical_sources = [
   "docs/audits/grpc-enhanced-ack-parity-2026-05-16.md",
   "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-17.md",
   "docs/audits/user-journey-acceptance-2026-05-15.md",
+  "docs/audits/first-use-guide-smoke-2026-05-18.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md",
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-16.md",
@@ -113,6 +114,7 @@ proof_commands = [
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty",
   "cargo +1.95.0 run -p xtask -- evidence-schema-check",
   "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- check-first-use-guides",
   "cargo +1.95.0 run -p xtask -- badges --check",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check",
@@ -1980,6 +1982,33 @@ commands = [
 non_claims = [
   "No TestPyPI upload.",
   "No PyPI upload.",
+  "No npm package.",
+  "No new crates.io release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "first-use-guide-smoke-runner"
+status = "done"
+goal = "Add one executable source-checkout command for the documented full evidence receipt path and first-use user journey acceptance checks."
+receipt = "docs/audits/first-use-guide-smoke-2026-05-18.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-first-use-guides",
+  "cargo +1.95.0 clippy -p xtask --all-targets --locked -- -D warnings",
+  "cargo +1.95.0 test -p xtask check_first_use_guides --locked",
+  "cargo +1.95.0 test -p xtask --locked",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
   "No npm package.",
   "No new crates.io release.",
   "No Python public-registry install-back proof.",
