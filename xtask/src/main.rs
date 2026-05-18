@@ -7538,7 +7538,7 @@ fn check_schema_version_parity(include_python: bool) -> Result<()> {
                 "--test",
                 "profile_endpoint_test",
                 "--locked",
-                "schema_v2",
+                "schema_version_2",
             ],
         ),
         (
@@ -8042,7 +8042,7 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
     ensure_contract_proof_contains(
         contracts,
         "schema-version-behavior",
-        "cargo test -p hl7v2-server --test profile_endpoint_test test_profile_lint_schema_v2_adds_server_provenance --locked",
+        "cargo test -p hl7v2-server --test profile_endpoint_test test_profile_lint_schema_version_2_adds_server_provenance --locked",
     )?;
     ensure_contract_proof_contains(
         contracts,

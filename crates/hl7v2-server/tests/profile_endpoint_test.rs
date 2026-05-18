@@ -69,7 +69,7 @@ async fn test_profile_lint_returns_default_report_without_echoing_profile_yaml()
 }
 
 #[tokio::test]
-async fn test_profile_lint_schema_v2_adds_server_provenance() {
+async fn test_profile_lint_schema_version_2_adds_server_provenance() {
     let request_body = json!({
         "profile": common::profiles::ADT_A01_PROFILE,
         "report_schema_version": 2
@@ -105,7 +105,7 @@ async fn test_profile_lint_reports_yaml_errors_as_evidence() {
 }
 
 #[tokio::test]
-async fn test_profile_explain_schema_v2_explains_inline_profile() {
+async fn test_profile_explain_schema_version_2_explains_inline_profile() {
     let request_body = json!({
         "profile": common::profiles::ADT_A01_PROFILE,
         "profile_name": "adt-a01-inline",
@@ -165,7 +165,7 @@ async fn test_profile_explain_rejects_path_like_profile_name() {
 }
 
 #[tokio::test]
-async fn test_profile_test_schema_v2_runs_inline_fixtures_without_payload_echo() {
+async fn test_profile_test_schema_version_2_runs_inline_fixtures_without_payload_echo() {
     let request_body = json!({
         "profile": PROFILE_TEST_PROFILE,
         "fixtures": [
