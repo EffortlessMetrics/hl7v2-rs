@@ -7,10 +7,11 @@
 //!
 //! # Path Format
 //!
-//! Paths use the format: `SEGMENT.FIELD\[REP\].COMPONENT`
+//! Paths use the format: `SEGMENT.FIELD\[REP\].COMPONENT.SUBCOMPONENT`
 //!
 //! Examples:
 //! - `PID.5.1` - First component of 5th field in PID segment (first repetition)
+//! - `PID.5.1.2` - Second subcomponent of the first component of PID-5
 //! - `PID.5[2].1` - First component of 5th field, second repetition
 //! - `MSH.9` - 9th field of MSH segment
 //! - `MSH.9.1` - First component of 9th field of MSH segment
@@ -169,16 +170,80 @@ fn parse_field_and_rep(field_str: &str) -> Option<(usize, usize)> {
         // Has repetition index
         let field_index = field_str[..bracket_pos].parse::<usize>().ok()?;
         let rep_part = &field_str[bracket_pos + 1..];
-        if let Some(end_bracket) = rep_part.find(']') {
-            let rep_index = rep_part[..end_bracket].parse::<usize>().ok()?;
-            Some((field_index, rep_index))
-        } else {
-            None
+        let end_bracket = rep_part.find(']')?;
+        if end_bracket + 1 != rep_part.len() {
+            return None;
         }
+        let rep_index = rep_part[..end_bracket].parse::<usize>().ok()?;
+        Some((field_index, rep_index))
     } else {
         // No repetition index, default to 1
         let field_index = field_str.parse::<usize>().ok()?;
         Some((field_index, 1))
+    }
+}
+
+fn parse_component_and_subcomponent(mut parts: std::str::Split<char>) -> Option<(usize, usize)> {
+    let comp_index = if let Some(comp_part) = parts.next() {
+        comp_part.parse::<usize>().ok()?
+    } else {
+        1
+    };
+
+    let sub_index = if let Some(sub_part) = parts.next() {
+        sub_part.parse::<usize>().ok()?
+    } else {
+        1
+    };
+
+    if parts.next().is_some() {
+        return None;
+    }
+
+    Some((comp_index, sub_index))
+}
+
+fn get_rep_value<'a>(
+    rep: &'a crate::model::Rep,
+    parts: std::str::Split<'_, char>,
+) -> Option<&'a str> {
+    let (comp_index, sub_index) = parse_component_and_subcomponent(parts)?;
+    if comp_index == 0 || comp_index > rep.comps.len() {
+        return None;
+    }
+    let comp = &rep.comps[comp_index - 1];
+    if sub_index == 0 || sub_index > comp.subs.len() {
+        return None;
+    }
+
+    match &comp.subs[sub_index - 1] {
+        Atom::Text(text) => Some(text.as_str()),
+        Atom::Null => None,
+    }
+}
+
+fn get_rep_presence(rep: &crate::model::Rep, parts: std::str::Split<char>) -> Presence {
+    let Some((comp_index, sub_index)) = parse_component_and_subcomponent(parts) else {
+        return Presence::Missing;
+    };
+
+    if comp_index == 0 || comp_index > rep.comps.len() {
+        return Presence::Missing;
+    }
+    let comp = &rep.comps[comp_index - 1];
+    if sub_index == 0 || sub_index > comp.subs.len() {
+        return Presence::Missing;
+    }
+
+    match &comp.subs[sub_index - 1] {
+        Atom::Text(text) => {
+            if text.is_empty() {
+                Presence::Empty
+            } else {
+                Presence::Value(text.clone())
+            }
+        }
+        Atom::Null => Presence::Null,
     }
 }
 
@@ -187,7 +252,7 @@ fn get_field<'a>(
     segment: &'a Segment,
     field_index: usize,
     rep_index: usize,
-    mut parts: std::str::Split<char>,
+    parts: std::str::Split<char>,
 ) -> Option<&'a str> {
     // Convert to 0-based indexing
     if field_index == 0 {
@@ -207,28 +272,7 @@ fn get_field<'a>(
     }
     let rep = &field.reps[rep_index - 1];
 
-    // Parse component index if provided
-    let comp_index = if let Some(comp_part) = parts.next() {
-        comp_part.parse::<usize>().ok()?
-    } else {
-        1 // Default to first component
-    };
-
-    // Get the component
-    if comp_index == 0 || comp_index > rep.comps.len() {
-        return None;
-    }
-    let comp = &rep.comps[comp_index - 1];
-
-    // Get the first subcomponent as text
-    if comp.subs.is_empty() {
-        return None;
-    }
-
-    match &comp.subs[0] {
-        Atom::Text(text) => Some(text.as_str()),
-        Atom::Null => None,
-    }
+    get_rep_value(rep, parts)
 }
 
 /// Get field value from an MSH segment
@@ -237,7 +281,7 @@ fn get_msh_field<'a>(
     segment: &'a Segment,
     field_index: usize,
     rep_index: usize,
-    mut parts: std::str::Split<char>,
+    parts: std::str::Split<char>,
 ) -> Option<&'a str> {
     if field_index == 1 {
         // MSH-1 is the field separator character
@@ -252,22 +296,7 @@ fn get_msh_field<'a>(
             return None;
         }
         let rep = &field.reps[rep_index - 1];
-        let comp_index = if let Some(comp_part) = parts.next() {
-            comp_part.parse::<usize>().ok()?
-        } else {
-            1
-        };
-        if comp_index == 0 || comp_index > rep.comps.len() {
-            return None;
-        }
-        let comp = &rep.comps[comp_index - 1];
-        if comp.subs.is_empty() {
-            return None;
-        }
-        match &comp.subs[0] {
-            Atom::Text(text) => Some(text.as_str()),
-            Atom::Null => None,
-        }
+        get_rep_value(rep, parts)
     } else {
         // MSH-3 and beyond
         let adjusted_field_index = field_index - 2;
@@ -279,22 +308,7 @@ fn get_msh_field<'a>(
             return None;
         }
         let rep = &field.reps[rep_index - 1];
-        let comp_index = if let Some(comp_part) = parts.next() {
-            comp_part.parse::<usize>().ok()?
-        } else {
-            1
-        };
-        if comp_index == 0 || comp_index > rep.comps.len() {
-            return None;
-        }
-        let comp = &rep.comps[comp_index - 1];
-        if comp.subs.is_empty() {
-            return None;
-        }
-        match &comp.subs[0] {
-            Atom::Text(text) => Some(text.as_str()),
-            Atom::Null => None,
-        }
+        get_rep_value(rep, parts)
     }
 }
 
@@ -303,7 +317,7 @@ fn get_field_presence(
     segment: &Segment,
     field_index: usize,
     rep_index: usize,
-    mut parts: std::str::Split<char>,
+    parts: std::str::Split<char>,
 ) -> Presence {
     if field_index == 0 {
         return Presence::Missing;
@@ -320,34 +334,7 @@ fn get_field_presence(
     }
     let rep = &field.reps[rep_index - 1];
 
-    let comp_index = if let Some(comp_part) = parts.next() {
-        match comp_part.parse::<usize>() {
-            Ok(index) => index,
-            Err(_) => return Presence::Missing,
-        }
-    } else {
-        1
-    };
-
-    if comp_index == 0 || comp_index > rep.comps.len() {
-        return Presence::Missing;
-    }
-    let comp = &rep.comps[comp_index - 1];
-
-    if comp.subs.is_empty() {
-        return Presence::Missing;
-    }
-
-    match &comp.subs[0] {
-        Atom::Text(text) => {
-            if text.is_empty() {
-                Presence::Empty
-            } else {
-                Presence::Value(text.clone())
-            }
-        }
-        Atom::Null => Presence::Null,
-    }
+    get_rep_presence(rep, parts)
 }
 
 /// Get field presence from an MSH segment
@@ -356,7 +343,7 @@ fn get_msh_field_presence(
     segment: &Segment,
     field_index: usize,
     rep_index: usize,
-    mut parts: std::str::Split<char>,
+    parts: std::str::Split<char>,
 ) -> Presence {
     if field_index == 1 {
         // MSH-1 is the field separator character
@@ -370,31 +357,7 @@ fn get_msh_field_presence(
             return Presence::Missing;
         }
         let rep = &field.reps[rep_index - 1];
-        let comp_index = if let Some(comp_part) = parts.next() {
-            match comp_part.parse::<usize>() {
-                Ok(index) => index,
-                Err(_) => return Presence::Missing,
-            }
-        } else {
-            1
-        };
-        if comp_index == 0 || comp_index > rep.comps.len() {
-            return Presence::Missing;
-        }
-        let comp = &rep.comps[comp_index - 1];
-        if comp.subs.is_empty() {
-            return Presence::Missing;
-        }
-        match &comp.subs[0] {
-            Atom::Text(text) => {
-                if text.is_empty() {
-                    Presence::Empty
-                } else {
-                    Presence::Value(text.clone())
-                }
-            }
-            Atom::Null => Presence::Null,
-        }
+        get_rep_presence(rep, parts)
     } else {
         let adjusted_field_index = field_index - 2;
         if adjusted_field_index >= segment.fields.len() {
@@ -405,31 +368,109 @@ fn get_msh_field_presence(
             return Presence::Missing;
         }
         let rep = &field.reps[rep_index - 1];
-        let comp_index = if let Some(comp_part) = parts.next() {
-            match comp_part.parse::<usize>() {
-                Ok(index) => index,
-                Err(_) => return Presence::Missing,
-            }
-        } else {
-            1
+        get_rep_presence(rep, parts)
+    }
+}
+
+#[cfg(test)]
+mod edge_tests {
+    use super::*;
+    use crate::model::{Comp, Delims, Field, Rep};
+
+    fn test_segment(id: &str, fields: Vec<Field>) -> Segment {
+        let id_bytes = id.as_bytes();
+        let mut id_arr = [0u8; 3];
+        id_arr.copy_from_slice(&id_bytes[..3]);
+        Segment { id: id_arr, fields }
+    }
+
+    fn component_field(subs: Vec<Atom>) -> Field {
+        Field {
+            reps: vec![Rep {
+                comps: vec![Comp { subs }],
+            }],
+        }
+    }
+
+    #[test]
+    fn get_supports_subcomponent_paths() {
+        let message = Message {
+            delims: Delims::default(),
+            segments: vec![test_segment(
+                "PID",
+                vec![component_field(vec![
+                    Atom::Text("Family".to_string()),
+                    Atom::Text("Own".to_string()),
+                    Atom::Text("Prefix".to_string()),
+                ])],
+            )],
+            charsets: vec![],
         };
-        if comp_index == 0 || comp_index > rep.comps.len() {
-            return Presence::Missing;
+
+        assert_eq!(get(&message, "PID.1.1"), Some("Family"));
+        assert_eq!(get(&message, "PID.1.1.1"), Some("Family"));
+        assert_eq!(get(&message, "PID.1.1.2"), Some("Own"));
+        assert_eq!(get(&message, "PID.1.1.3"), Some("Prefix"));
+        assert_eq!(get(&message, "PID.1.1.4"), None);
+    }
+
+    #[test]
+    fn presence_supports_subcomponent_paths() {
+        let message = Message {
+            delims: Delims::default(),
+            segments: vec![test_segment(
+                "PID",
+                vec![component_field(vec![
+                    Atom::Text("Family".to_string()),
+                    Atom::Text(String::new()),
+                    Atom::Null,
+                ])],
+            )],
+            charsets: vec![],
+        };
+
+        match get_presence(&message, "PID.1.1.1") {
+            Presence::Value(val) => assert_eq!(val, "Family"),
+            _ => panic!("Expected Value"),
         }
-        let comp = &rep.comps[comp_index - 1];
-        if comp.subs.is_empty() {
-            return Presence::Missing;
+
+        match get_presence(&message, "PID.1.1.2") {
+            Presence::Empty => {}
+            _ => panic!("Expected Empty"),
         }
-        match &comp.subs[0] {
-            Atom::Text(text) => {
-                if text.is_empty() {
-                    Presence::Empty
-                } else {
-                    Presence::Value(text.clone())
-                }
-            }
-            Atom::Null => Presence::Null,
+
+        match get_presence(&message, "PID.1.1.3") {
+            Presence::Null => {}
+            _ => panic!("Expected Null"),
         }
+
+        match get_presence(&message, "PID.1.1.4") {
+            Presence::Missing => {}
+            _ => panic!("Expected Missing"),
+        }
+    }
+
+    #[test]
+    fn rejects_trailing_path_components_and_malformed_repetitions() {
+        let message = Message {
+            delims: Delims::default(),
+            segments: vec![test_segment(
+                "PID",
+                vec![component_field(vec![
+                    Atom::Text("Family".to_string()),
+                    Atom::Text("Own".to_string()),
+                ])],
+            )],
+            charsets: vec![],
+        };
+
+        assert_eq!(parse_field_and_rep("5[2]junk"), None);
+        assert_eq!(parse_field_and_rep("5[2][3]"), None);
+        assert_eq!(get(&message, "PID.1.1.1.1"), None);
+        assert!(matches!(
+            get_presence(&message, "PID.1.1.1.1"),
+            Presence::Missing
+        ));
     }
 }
 
