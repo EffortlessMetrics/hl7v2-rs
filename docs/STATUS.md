@@ -148,7 +148,7 @@ For current parity states, proof commands, fixture families, and known gaps, see
 | Profiles as code | ✅ Stable | `profile lint`, `profile test`, and `profile explain` produce machine-readable profile evidence. |
 | Corpus observability | ✅ Stable | `corpus summarize`, `corpus fingerprint`, and `corpus diff` produce feed-level evidence for regression and migration review. Current proof includes shared dirty-corpus coverage for Z-segments, legacy MSH/encoding fields, generated MLLP bytes, large OBX expansion, malformed delimiters, partial batch-like input, safe parse-error output across Rust core, CLI, REST server, gRPC server, and local Python wheel surfaces, plus CLI, REST, and gRPC validate/redact/bundle/replay workflows over the shared Z-segment fixture. |
 | Safe support packets | ✅ Stable | `redact`, `support-bundle`, and `replay` produce redacted evidence bundles with manifest checks and replay verification. The operator guide is executable with `cargo run -p xtask -- check-safe-support-bundle-guide`. |
-| Evidence contracts | ✅ Stable | v1.4.0 ships opt-in v2 provenance schemas/producers and an `xtask evidence-schema-check` gate. |
+| Evidence contracts | ✅ Stable | v1.4.0 ships opt-in v2 provenance schemas/producers and an `xtask evidence-schema-check` gate. The operator artifact interpretation guide is executable with `cargo run -p xtask -- check-evidence-artifacts-guide`. |
 | CLI automation contract | ✅ Stable | Evidence commands use stable exit codes, primary stdout, diagnostic stderr, and output-file/quiet/no-color flags. |
 | Server edge guard | ✅ Stable | v1.4.0 ships `/hl7/replay`, inline-message corpus endpoints that do not read request filesystem paths, bundle artifact schema opt-in, redacted structured evidence logs with hashed message-control and bundle identifiers, evidence metrics, Docker smoke coverage, and the bundle replay message-type fix. Current `main` also includes gRPC configured-root evidence bundle creation and replay parity. |
 | Python evidence lane | 🟡 Separate lane | Python wheel proof and minimum API parity cover parse, JSON export, normalize, ACK, generated fixtures, profile evidence helpers, validation, corpus, redaction, bundle, and replay. v1.4.0 adds v2 parity, PHI sentinel coverage, Python evidence docs, and a manual TestPyPI proof workflow. Python package proof remains separate from the primary Rust product graph. |
@@ -251,6 +251,11 @@ The HTTP deployment sidecar guide is now executable with
 starts `hl7v2-server`, runs the standard server smoke against
 `127.0.0.1:18080`, proves the guide invalid-message quarantine, ACK policy,
 metrics, corpus diff, and PHI-sentinel path, and shuts the sidecar down.
+The operator evidence-artifacts interpretation guide is now executable with
+`cargo run -p xtask -- check-evidence-artifacts-guide`; it generates doctor,
+profile, validation, corpus, redaction, support-bundle, manifest,
+environment, field-path, and replay artifacts and verifies the reader fields
+and PHI-sentinel boundaries that guide asks operators to inspect.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
 upload and install-back proof before any Python release claim. The latest
 publishing-mode TestPyPI attempt ran on current `main` commit

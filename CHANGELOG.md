@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask check-safe-support-bundle-guide` to prove the operator
   support-bundle guide's redact, bundle, replay, artifact, and PHI-sentinel
   promises.
+- Added `xtask check-evidence-artifacts-guide` to prove the operator artifact
+  interpretation guide's doctor, profile, validation, corpus, redaction,
+  bundle, manifest, environment, field-path, replay, and PHI-sentinel
+  promises.
 - Added `xtask check-sidecar-guide` to start a local HTTP sidecar and prove the
   deployment guide's readiness, redacted validation, invalid-message quarantine,
   bundle, replay, ACK policy, metrics, corpus diff, and PHI-sentinel path.
