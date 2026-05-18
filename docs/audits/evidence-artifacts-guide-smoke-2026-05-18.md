@@ -22,7 +22,8 @@ The command proves the local, non-registry artifact reader path:
 - generates a validation report for `test_data/invalid_message.hl7` and checks
   the expected `PID.8` validation issue;
 - generates corpus summary, fingerprint, and diff reports from the shared
-  dirty real-world fixtures;
+  dirty real-world fixtures, including the current direct fixture counts
+  for the before/after diff directories;
 - generates redaction preview evidence and checks retained-field receipt data;
 - creates a `support-bundle` packet and verifies bundle summary, manifest,
   environment, field-path, redaction receipt, replay scripts, README, and
