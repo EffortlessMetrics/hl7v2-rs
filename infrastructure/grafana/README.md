@@ -80,7 +80,7 @@ services:
       - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
       - GF_INSTALL_PLUGINS=
     ports:
       - "3000:3000"
@@ -109,6 +109,10 @@ Start the monitoring stack:
 export GRAFANA_ADMIN_PASSWORD="your-secure-password"
 docker-compose up -d
 ```
+
+The monitoring stack intentionally fails closed when `GRAFANA_ADMIN_PASSWORD`
+is missing; do not use a default Grafana admin password in shared or production
+environments.
 
 Access:
 - **Grafana**: http://localhost:3000 (admin / your-password)
