@@ -58,6 +58,7 @@ fn main() -> Result<()> {
         },
         Commands::CheckFilePolicy => check_file_policy()?,
         Commands::CheckDocLinks => check_doc_links()?,
+        Commands::CheckSpecPolicyLinks => check_spec_policy_links()?,
         Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
         Commands::PythonLocalWheelProof {
             root,
@@ -9952,6 +9953,68 @@ fn check_ci_lane_whitelist() -> Result<()> {
         exceptions.len(),
         warnings.len()
     );
+    Ok(())
+}
+
+fn check_spec_policy_links() -> Result<()> {
+    let specs_dir = Path::new("docs/specs");
+    let readme = fs::read_to_string(specs_dir.join("README.md"))?;
+    let spec_files: Vec<_> = fs::read_dir(specs_dir)?
+        .filter_map(std::result::Result::ok)
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("HL7V2-SPEC-") && n.ends_with(".md"))
+        })
+        .collect();
+    for path in &spec_files {
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| anyhow!("spec path missing UTF-8 file name: {}", path.display()))?;
+        if !readme.contains(name) {
+            return Err(anyhow!("spec README missing index entry for {name}"));
+        }
+        let text = fs::read_to_string(path)?;
+        if text.contains("Status: Accepted")
+            && !(text.contains("policy/") || text.contains("cargo "))
+        {
+            return Err(anyhow!(
+                "accepted spec {name} missing policy links or proof command"
+            ));
+        }
+        for line in text.lines() {
+            let mut search = line;
+            while let Some(start) = search.find("policy/") {
+                let fragment = search.get(start..).ok_or_else(|| {
+                    anyhow!("spec {name} has an invalid policy reference boundary")
+                })?;
+                let Some(end) = fragment.find(".toml") else {
+                    break;
+                };
+                let rel_end = end
+                    .checked_add(".toml".len())
+                    .ok_or_else(|| anyhow!("spec {name} policy reference is too large"))?;
+                let rel = fragment.get(..rel_end).ok_or_else(|| {
+                    anyhow!("spec {name} has an invalid policy reference boundary")
+                })?;
+                if rel.contains("*") || rel.contains("<") || rel.contains(">") {
+                    search = fragment.get(rel_end..).ok_or_else(|| {
+                        anyhow!("spec {name} has an invalid policy reference boundary")
+                    })?;
+                    continue;
+                }
+                if !Path::new(rel).exists() {
+                    return Err(anyhow!("spec {name} references missing policy file {rel}"));
+                }
+                search = fragment.get(rel_end..).ok_or_else(|| {
+                    anyhow!("spec {name} has an invalid policy reference boundary")
+                })?;
+            }
+        }
+    }
+    println!("spec index/policy links OK");
     Ok(())
 }
 
