@@ -95,10 +95,21 @@ the local Compose values in `infrastructure/docker/sidecar.env.example`.
 Apply the manifests:
 
 ```bash
-kubectl apply -f infrastructure/k8s/namespace.yaml
 kubectl apply -f infrastructure/k8s/deployment.yaml
-kubectl apply -f infrastructure/k8s/service.yaml
 ```
+
+`infrastructure/k8s/deployment.yaml` is a version-tagged example aligned to the
+workspace release. For production provenance receipts, render the digest-pinned
+template with an image digest from the release image receipt before applying:
+
+```bash
+HL7V2_IMAGE_DIGEST='ghcr.io/effortlessmetrics/hl7v2-rs@sha256:<receipted-digest>'
+envsubst < infrastructure/k8s/deployment.digest.example.yaml > target/hl7v2-deployment.digest.yaml
+kubectl apply -f target/hl7v2-deployment.digest.yaml
+```
+
+Do not use the digest template as a deployment success claim by itself. Record a
+deployment smoke receipt after the rendered manifest is applied.
 
 ### With Ingress
 

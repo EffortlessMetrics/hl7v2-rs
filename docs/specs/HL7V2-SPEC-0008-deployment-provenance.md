@@ -29,3 +29,11 @@ examples for floating image tags, untagged image references, and hl7v2 image
 tags that drift from the workspace version. Local Compose examples may use
 `hl7v2-server:local`; production/provenance examples should move to digest
 references when a release image is published and receipted.
+
+The checked-in Kubernetes deployment remains a version-tagged example so local
+and internal smoke deployments can follow the workspace version. Production
+provenance receipts should render
+`infrastructure/k8s/deployment.digest.example.yaml` with a registry image
+digest from the release image receipt before applying it. The digest example is
+also scanned by `check-deployment-provenance`, and its placeholder is accepted
+only because it requires an explicit digest-pinned image reference.
