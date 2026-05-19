@@ -70,6 +70,15 @@ reason = "Docker build-context ignore list keeps local artifacts and generated o
 covered_by = ["docker compose -f infrastructure/docker/docker-compose.yml config"]
 
 [[allow]]
+path = ".editorconfig"
+kind = "repo_config"
+owner = "EffortlessMetrics"
+surface = "developer-tooling"
+classification = "config"
+reason = "EditorConfig aligns editor defaults with repository formatting, line ending, and final-newline expectations."
+covered_by = ["cargo run -p xtask -- check-file-policy"]
+
+[[allow]]
 path = ".tokeignore"
 kind = "repo_config"
 owner = "EffortlessMetrics"
