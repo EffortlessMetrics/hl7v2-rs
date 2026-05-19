@@ -8500,6 +8500,7 @@ struct PythonPublishWorkflowPolicy {
     path: &'static str,
     workflow_name: &'static str,
     input_name: &'static str,
+    diagnostic_input_name: Option<&'static str>,
     testpypi_proof_input: Option<&'static str>,
     publish_job: &'static str,
     install_job: &'static str,
@@ -8515,6 +8516,7 @@ const PYTHON_PUBLISH_WORKFLOWS: &[PythonPublishWorkflowPolicy] = &[
         path: ".github/workflows/python-testpypi.yml",
         workflow_name: "Python TestPyPI Proof",
         input_name: "publish_to_testpypi",
+        diagnostic_input_name: Some("diagnose_trusted_publisher"),
         testpypi_proof_input: None,
         publish_job: "publish_testpypi",
         install_job: "install_from_testpypi",
@@ -8528,6 +8530,7 @@ const PYTHON_PUBLISH_WORKFLOWS: &[PythonPublishWorkflowPolicy] = &[
         path: ".github/workflows/python-pypi.yml",
         workflow_name: "Python PyPI Release Proof",
         input_name: "publish_to_pypi",
+        diagnostic_input_name: None,
         testpypi_proof_input: Some("testpypi_proof_url"),
         publish_job: "publish_pypi",
         install_job: "install_from_pypi",
@@ -9018,6 +9021,17 @@ fn ensure_workflow_dispatch_input(
     ensure_yaml_string(input, policy.path, "type", "boolean")?;
     ensure_yaml_bool(input, policy.path, "required", true)?;
     ensure_yaml_bool(input, policy.path, "default", false)?;
+    if let Some(diagnostic_input_name) = policy.diagnostic_input_name {
+        let input = yaml_mapping_child(
+            inputs,
+            policy.path,
+            "workflow_dispatch.inputs",
+            diagnostic_input_name,
+        )?;
+        ensure_yaml_string(input, policy.path, "type", "boolean")?;
+        ensure_yaml_bool(input, policy.path, "required", true)?;
+        ensure_yaml_bool(input, policy.path, "default", false)?;
+    }
     if let Some(testpypi_proof_input) = policy.testpypi_proof_input {
         let input = yaml_mapping_child(
             inputs,
@@ -9287,6 +9301,14 @@ fn ensure_python_publish_job(
             policy.input_name
         ));
     }
+    if let Some(diagnostic_input_name) = policy.diagnostic_input_name
+        && !condition.contains(diagnostic_input_name)
+    {
+        return Err(anyhow!(
+            "{} publish job must also support `{diagnostic_input_name}` for no-upload OIDC diagnostics",
+            policy.path
+        ));
+    }
 
     let environment = yaml_child_mapping(publish_job, policy.path, "environment")?;
     ensure_yaml_string(environment, policy.path, "name", policy.environment_name)?;
@@ -9323,6 +9345,22 @@ fn ensure_python_publish_job(
 
     let publish = yaml_step_named(steps, policy.path, policy.publish_step_name)?;
     let publish_index = yaml_step_index_named(steps, policy.path, policy.publish_step_name)?;
+    let publish_condition = yaml_mapping_string(publish, policy.path, "if")?;
+    if !publish_condition.contains(policy.input_name) {
+        return Err(anyhow!(
+            "{} upload step must be gated by `{}`",
+            policy.path,
+            policy.input_name
+        ));
+    }
+    if let Some(diagnostic_input_name) = policy.diagnostic_input_name
+        && publish_condition.contains(diagnostic_input_name)
+    {
+        return Err(anyhow!(
+            "{} upload step must not be gated by `{diagnostic_input_name}`; diagnostic mode must not upload",
+            policy.path
+        ));
+    }
     if !(download_index < diagnostic_index && diagnostic_index < publish_index) {
         return Err(anyhow!(
             "{} OIDC publisher claim diagnostic step must run after artifact download and before upload",
@@ -11554,6 +11592,68 @@ bindings = "pyo3"
                 if err
                     .to_string()
                     .contains("Record actual OIDC publisher claims") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_requires_testpypi_oidc_diagnostic_input() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .iter()
+            .find(|policy| policy.path == ".github/workflows/python-testpypi.yml")
+            .ok_or_else(|| anyhow!("expected TestPyPI workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace(
+            r#"      diagnose_trusted_publisher:
+        description: "Record TestPyPI trusted-publisher OIDC claims without uploading"
+        required: true
+        type: boolean
+        default: false
+"#,
+            "",
+        );
+        if broken == workflow {
+            return Err(anyhow!("test setup should remove diagnostic input"));
+        }
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should require the TestPyPI OIDC diagnostic input"
+            )),
+            Err(err) if err.to_string().contains("diagnose_trusted_publisher") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_requires_upload_step_gated_by_publish_input() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace("        if: ${{ inputs.publish_to_testpypi }}\n        uses: pypa/gh-action-pypi-publish@v1.14.0", "        uses: pypa/gh-action-pypi-publish@v1.14.0");
+        if broken == workflow {
+            return Err(anyhow!("test setup should remove upload step condition"));
+        }
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject upload steps without a publish input gate"
+            )),
+            Err(err)
+                if err.to_string().contains("upload step")
+                    || err.to_string().contains("missing `if`") =>
             {
                 Ok(())
             }

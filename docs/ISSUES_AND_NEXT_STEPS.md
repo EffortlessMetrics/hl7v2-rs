@@ -1,6 +1,6 @@
 # Issues, Blockers, Next Steps, and Friction Points
 
-> Last updated: 2026-05-18
+> Last updated: 2026-05-19
 
 This document is a current navigation aid for the remaining product gaps. It
 does not replace the status, support-tier, roadmap, parity, or receipt sources
@@ -32,6 +32,12 @@ The remaining blocker is external Trusted Publisher setup for TestPyPI:
 - Repository: `hl7v2-rs`
 - Workflow: `python-testpypi.yml`
 - Environment: `testpypi`
+
+The workflow can now be run from `main` with
+`diagnose_trusted_publisher=true` and `publish_to_testpypi=false` to record the
+actual GitHub `audience=pypi` OIDC claims through the `testpypi` environment
+without uploading. That is diagnostic evidence only; the blocker remains open
+until TestPyPI upload and install-back succeed.
 
 Required proof after setup:
 
