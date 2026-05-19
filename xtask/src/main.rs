@@ -8513,6 +8513,7 @@ const PYTHON_DISTRIBUTION_DESCRIPTION: &str =
     "Python package for HL7v2 parsing, validation, and evidence workflows backed by Rust.";
 const HL7V2_PYTHON_CRATE_DESCRIPTION: &str =
     "PyO3 extension crate backing the Python hl7v2 package. Rust users should depend on hl7v2.";
+const PYTHON_RELEASE_RUST_TOOLCHAIN: &str = "1.95.0";
 const PYTHON_WHEELS_WORKFLOW_PATH: &str = ".github/workflows/python-wheels.yml";
 
 fn check_python_publish_policy() -> Result<()> {
@@ -8744,6 +8745,7 @@ fn check_python_wheels_workflow_text(text: &str) -> Result<()> {
     let jobs = yaml_child_mapping(root_map, PYTHON_WHEELS_WORKFLOW_PATH, "jobs")?;
     let wheel_job = yaml_mapping_child(jobs, PYTHON_WHEELS_WORKFLOW_PATH, "jobs", "wheel-smoke")?;
     let steps = yaml_child_sequence(wheel_job, PYTHON_WHEELS_WORKFLOW_PATH, "steps")?;
+    ensure_python_release_rust_toolchain(steps, PYTHON_WHEELS_WORKFLOW_PATH)?;
 
     let build = yaml_step_named(steps, PYTHON_WHEELS_WORKFLOW_PATH, "Build wheel")?;
     let build_run = yaml_mapping_string(build, PYTHON_WHEELS_WORKFLOW_PATH, "run")?;
@@ -9113,6 +9115,8 @@ fn ensure_python_wheel_proof_job(
     wheel_job: &serde_yaml::Mapping,
 ) -> Result<()> {
     let steps = yaml_child_sequence(wheel_job, policy.path, "steps")?;
+    ensure_python_release_rust_toolchain(steps, policy.path)?;
+
     let install_maturin = yaml_step_named(steps, policy.path, "Install maturin")?;
     let install_maturin_run = yaml_mapping_string(install_maturin, policy.path, "run")?;
     if !install_maturin_run.contains("maturin==1.13.1") {
@@ -9148,6 +9152,13 @@ fn ensure_python_wheel_proof_job(
         }
     }
     Ok(())
+}
+
+fn ensure_python_release_rust_toolchain(steps: &[serde_yaml::Value], context: &str) -> Result<()> {
+    let rust_toolchain = yaml_step_named(steps, context, "Install Rust toolchain")?;
+    ensure_yaml_string(rust_toolchain, context, "uses", "dtolnay/rust-toolchain@v1")?;
+    let with = yaml_child_mapping(rust_toolchain, context, "with")?;
+    ensure_yaml_string(with, context, "toolchain", PYTHON_RELEASE_RUST_TOOLCHAIN)
 }
 
 fn ensure_python_publish_artifact(
@@ -9253,7 +9264,12 @@ fn ensure_python_install_back_job(
         "dtolnay/rust-toolchain@v1",
     )?;
     let rust_toolchain_with = yaml_child_mapping(rust_toolchain, policy.path, "with")?;
-    ensure_yaml_string(rust_toolchain_with, policy.path, "toolchain", "1.95.0")?;
+    ensure_yaml_string(
+        rust_toolchain_with,
+        policy.path,
+        "toolchain",
+        PYTHON_RELEASE_RUST_TOOLCHAIN,
+    )?;
 
     let install = steps
         .iter()
@@ -11297,6 +11313,37 @@ bindings = "pyo3"
     }
 
     #[test]
+    fn python_publish_policy_rejects_floating_wheel_build_toolchain() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replacen("toolchain: 1.95.0", "toolchain: stable", 1);
+        if broken == workflow {
+            return Err(anyhow!(
+                "test setup should change the wheel build toolchain"
+            ));
+        }
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject floating stable wheel build toolchains"
+            )),
+            Err(err)
+                if err.to_string().contains("toolchain")
+                    && err.to_string().contains(PYTHON_RELEASE_RUST_TOOLCHAIN) =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
     fn python_publish_policy_rejects_wrong_public_registry_index() -> Result<()> {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -11329,6 +11376,34 @@ bindings = "pyo3"
         let workflow = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
 
         check_python_wheels_workflow_text(&workflow)
+    }
+
+    #[test]
+    fn python_wheels_policy_rejects_floating_wheel_smoke_toolchain() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = fs::read_to_string(root.join(PYTHON_WHEELS_WORKFLOW_PATH))?;
+        let broken = workflow.replace("toolchain: 1.95.0", "toolchain: stable");
+        if broken == workflow {
+            return Err(anyhow!(
+                "test setup should change the Python Wheels toolchain"
+            ));
+        }
+
+        match check_python_wheels_workflow_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject Python Wheels floating stable toolchains"
+            )),
+            Err(err)
+                if err.to_string().contains("toolchain")
+                    && err.to_string().contains(PYTHON_RELEASE_RUST_TOOLCHAIN) =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected Python Wheels policy error: {err}")),
+        }
     }
 
     #[test]

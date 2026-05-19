@@ -114,6 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of the previous floating `latest` image reference.
 - Removed the remaining Grafana documentation example that defaulted the
   administrator password to `admin`.
+- Pinned Python wheel proof workflows to Rust 1.95.0 so public Python package
+  build and install-back evidence uses the declared release toolchain.
 - Aligned the e2e HTTP client test dependency on rustls so all-features
   workspace checks do not re-enable native TLS through `reqwest` defaults.
 - Added CPU and memory bounds to the Docker Compose validation sidecar smoke
