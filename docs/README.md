@@ -42,10 +42,13 @@ Use the smallest document type that owns the claim:
 
 Start new governance work in [proposals/](proposals/), define durable
 requirements in [specs/](specs/), use [adr/](adr/) only for architecture
-decisions, sequence execution in [../plans/1.4.1/](../plans/1.4.1/), and keep
-the current active state in [../.hl7v2/goals/](../.hl7v2/goals/). Current
-feature status still lives in [STATUS.md](STATUS.md); do not duplicate it in
-proposal, spec, plan, or receipt documents.
+decisions, sequence execution in a scoped `plans/<milestone>/` directory when
+a durable implementation plan is needed, and keep the current active state in
+[../.hl7v2/goals/](../.hl7v2/goals/). The historical
+[../plans/1.4.1/](../plans/1.4.1/) directory is closed and should not be used
+as the default target for new work. Current feature status still lives in
+[STATUS.md](STATUS.md); do not duplicate it in proposal, spec, plan, or receipt
+documents.
 
 ## Evidence Guides
 
