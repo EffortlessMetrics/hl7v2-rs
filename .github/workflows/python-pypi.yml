@@ -251,6 +251,7 @@ jobs:
         env:
           EXPECTED_SUBJECT: repo:${{ github.repository }}:environment:pypi
           EXPECTED_REPOSITORY: ${{ github.repository }}
+          EXPECTED_ENVIRONMENT: pypi
           EXPECTED_REF: refs/heads/main
         run: |
           python - <<'PY'
@@ -294,6 +295,7 @@ jobs:
           expected = {
               "sub": os.environ["EXPECTED_SUBJECT"],
               "repository": os.environ["EXPECTED_REPOSITORY"],
+              "environment": os.environ["EXPECTED_ENVIRONMENT"],
               "ref": os.environ["EXPECTED_REF"],
           }
           summary_fields = [
