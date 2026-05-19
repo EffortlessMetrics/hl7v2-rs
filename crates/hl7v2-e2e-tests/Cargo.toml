@@ -25,8 +25,13 @@ hl7v2-server = { version = "1.5.0", path = "../hl7v2-server" }
 # Async runtime
 tokio = { workspace = true, features = ["full", "test-util"] }
 
-# HTTP client for server API tests
-reqwest = { version = "0.12", features = ["json"] }
+# HTTP client for server API tests. Keep this aligned with the workspace
+# rustls posture so all-features test builds do not re-enable native-tls.
+reqwest = { version = "0.12", default-features = false, features = [
+    "http2",
+    "json",
+    "rustls-tls-webpki-roots",
+] }
 
 # Serialization
 serde = { workspace = true }

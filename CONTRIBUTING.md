@@ -32,13 +32,16 @@ contribution under **AGPL-3.0-or-later**.
 ### 1. Set Up Your Environment
 
 Follow [DEVELOPMENT.md](DEVELOPMENT.md) for detailed setup instructions.
+The Nix shell is the recommended path. Non-Nix contributors should install the
+Rust 1.95 toolchain and either `just` (`cargo install just`) or use the
+equivalent `cargo run -p xtask -- ...` commands documented there.
 
 ```bash
 # Quick start
 git clone https://github.com/EffortlessMetrics/hl7v2-rs.git
 cd hl7v2-rs
-cargo build
-cargo test
+cargo run -p xtask -- setup
+cargo run -p xtask -- gate
 ```
 
 ### 2. Understand the Project Status

@@ -2,6 +2,39 @@
 
 Get up and running with `hl7v2-rs` development.
 
+## Prerequisites
+
+The recommended path is the Nix development shell:
+
+```bash
+nix develop
+```
+
+It provides Rust 1.95, `cargo-nextest`, `cargo-deny`, `cargo-audit`, `just`,
+schema tooling, and the native libraries used by repository tooling.
+
+For a non-Nix setup, install:
+
+- Rust 1.95 with `rustfmt` and Clippy, or use the checked-in
+  `rust-toolchain.toml`.
+- `just`, if you want to run the documented short commands:
+  `cargo install just`.
+- Optional quality tools used by the local workflow:
+  `cargo install cargo-nextest cargo-deny cargo-audit`.
+
+Every `just <task>` entry in this guide has an equivalent
+`cargo run -p xtask -- <task>` form. For example, use
+`cargo run -p xtask -- setup` if `just` is not installed yet.
+
+The default workspace HTTP client path uses rustls. Fresh non-Nix builds should
+not need OpenSSL or `pkg-config` just to run the Rust test graph. If a platform
+or local feature reports an OpenSSL/pkg-config error, use `nix develop` or
+install the platform packages before retrying:
+
+- Ubuntu/Debian: `sudo apt-get install pkg-config libssl-dev`
+- Fedora/RHEL: `sudo dnf install pkgconf-pkg-config openssl-devel`
+- macOS/Homebrew: `brew install pkg-config openssl`
+
 ## Quick Start
 
 ### 1. Setup Environment
@@ -22,6 +55,8 @@ Activate the automated git hooks and prepare the workspace:
 
 ```bash
 just setup
+# or, without just:
+cargo run -p xtask -- setup
 ```
 
 ### 3. Verify Everything
@@ -30,6 +65,8 @@ Run the gate command to verify formatting, lints, and tests:
 
 ```bash
 just gate
+# or:
+cargo run -p xtask -- gate
 ```
 
 ## Unified Development Workflow

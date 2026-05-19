@@ -307,12 +307,24 @@ fn setup() -> Result<()> {
         }
     }
 
-    // Check for required tools
-    let tools = ["cargo-deny", "cargo-audit", "cargo-nextest", "just"];
-    for tool in tools {
-        if !command_exists(tool) {
-            println!("Note: '{tool}' not found. Consider installing it for full DevEx.");
+    let tools = [
+        ("cargo-deny", "cargo install cargo-deny"),
+        ("cargo-audit", "cargo install cargo-audit"),
+        ("cargo-nextest", "cargo install cargo-nextest"),
+        ("just", "cargo install just"),
+    ];
+    let missing_tools: Vec<_> = tools
+        .iter()
+        .filter(|(tool, _)| !command_exists(tool))
+        .collect();
+    if !missing_tools.is_empty() {
+        println!("Optional development tools are missing:");
+        for (tool, install_command) in missing_tools {
+            println!("  - {tool}: install with `{install_command}` or run `nix develop`");
         }
+        println!(
+            "The repository hooks are configured; missing optional tools only limit local DevEx commands."
+        );
     }
 
     println!("✅ Setup complete!");
