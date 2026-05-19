@@ -83,6 +83,15 @@ Pass `--include-python` only after a local `hl7v2` wheel is installed; Python
 registry availability remains governed by the separate TestPyPI/PyPI proof
 lane.
 
+
+## Python Parity Promotion Rule
+
+Python remains local-wheel-proven until TestPyPI or PyPI install-back proof passes from the target registry and runs shared parity smoke where claimed. Only then may policy promote Python to public-registry-proven for that specific registry and version.
+
+Promotion requires upload proof, install-back proof, expected version assertion, shared parity smoke coverage for claimed contracts, `policy/evidence-parity.toml` update, support-tier/status update, and an audit receipt.
+
+Local Python proof must not silently become public-registry proof.
+
 ## Fixture Rules
 
 Parity fixtures should be shared across surfaces where practical. A fixture set

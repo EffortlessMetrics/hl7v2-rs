@@ -17,19 +17,29 @@ use hl7v2::synthetic::corpus::{
 };
 use std::path::PathBuf;
 
+fn ensure_schema_format_support(
+    schema_version: u8,
+    format: &ReportFormat,
+    error_message: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if schema_version == 2 && *format == ReportFormat::Text {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error_message).into());
+    }
+
+    Ok(())
+}
+
 pub(super) fn summarize_command(
     path: &PathBuf,
     format: &ReportFormat,
     schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if schema_version == 2 && *format == ReportFormat::Text {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "corpus summary schema version is only available with --format json or --format yaml",
-        )
-        .into());
-    }
+    ensure_schema_format_support(
+        schema_version,
+        format,
+        "corpus summary schema version is only available with --format json or --format yaml",
+    )?;
 
     let summary = summarize_corpus_path(path)?;
     let output = format_corpus_summary(&summary, format, schema_version)?;
@@ -45,12 +55,11 @@ pub(super) fn diff_command(
     schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if schema_version == 2 && *format == ReportFormat::Text {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "corpus diff schema v2 is available only with --format json or --format yaml",
-        )));
-    }
+    ensure_schema_format_support(
+        schema_version,
+        format,
+        "corpus diff schema v2 is available only with --format json or --format yaml",
+    )?;
 
     let diff = if let Some(profile_path) = profile {
         let mut before_fingerprint = fingerprint_corpus_path(before)?;
@@ -78,12 +87,11 @@ pub(super) fn fingerprint_command(
     schema_version: u8,
     output_options: &OutputOptions<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if schema_version == 2 && *format == ReportFormat::Text {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "corpus fingerprint schema v2 is available only with --format json or --format yaml",
-        )));
-    }
+    ensure_schema_format_support(
+        schema_version,
+        format,
+        "corpus fingerprint schema v2 is available only with --format json or --format yaml",
+    )?;
 
     let mut fingerprint = fingerprint_corpus_path(path)?;
 

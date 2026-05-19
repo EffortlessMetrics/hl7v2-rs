@@ -102,6 +102,26 @@ Production proof must show:
 - smoke, evidence workflow, and dirty evidence workflow output is recorded;
 - receipt PR lands.
 
+
+### Install-Back Identity Assertions
+
+Python install-back proof must assert all of the following for the expected release version:
+
+- package name is `hl7v2`;
+- imported module is `hl7v2`;
+- imported package version equals the expected version;
+- `tests/python_smoke/smoke.py` passes;
+- `tests/python_smoke/evidence_workflow_guide.py` passes;
+- `tests/python_smoke/dirty_evidence_workflow.py` passes;
+- receipt declares whether proof source was local wheel or selected registry index.
+
+Machine rails:
+
+- `cargo +1.95.0 run -p xtask -- python-local-wheel-proof`
+- `cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --version <version>`
+- `cargo +1.95.0 run -p xtask -- python-public-registry-proof --index pypi --version <version>`
+- `cargo +1.95.0 run -p xtask -- check-python-publish-policy`
+
 ## Hard Rules
 
 - Do not publish `hl7v2-python` as part of Python TestPyPI or PyPI proof.
