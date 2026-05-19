@@ -575,6 +575,14 @@ fn test_unwrap_mllp_checked_success() {
 }
 
 #[test]
+fn test_unwrap_mllp_checked_content_without_trailing_cr() {
+    let hl7 = b"MSH|^~\\&|TEST";
+    let framed = wrap_mllp(hl7);
+    let unwrapped = unwrap_mllp_checked(&framed).unwrap();
+    assert_eq!(unwrapped, hl7);
+}
+
+#[test]
 fn test_unwrap_mllp_owned_checked_success() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
