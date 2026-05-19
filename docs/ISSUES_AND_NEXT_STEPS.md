@@ -39,6 +39,11 @@ actual GitHub `audience=pypi` OIDC claims through the `testpypi` environment
 without uploading. That is diagnostic evidence only; the blocker remains open
 until TestPyPI upload and install-back succeed.
 
+The first hosted no-upload diagnostic run passed on `2026-05-19` and proved
+the GitHub `testpypi` environment supplies the expected Trusted Publisher
+subject. See
+[`docs/audits/python-testpypi-oidc-diagnostic-2026-05-19.md`](audits/python-testpypi-oidc-diagnostic-2026-05-19.md).
+
 Required proof after setup:
 
 ```text
