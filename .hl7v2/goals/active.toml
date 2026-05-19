@@ -104,6 +104,7 @@ canonical_sources = [
   "docs/audits/python-testpypi-publish-attempt-2026-05-16.md",
   "docs/audits/python-testpypi-publish-attempt-2026-05-17.md",
   "docs/audits/python-trusted-publisher-diagnostics-2026-05-19.md",
+  "docs/audits/python-testpypi-oidc-diagnostic-2026-05-19.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
@@ -141,6 +142,41 @@ proof_commands = [
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
   "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- gate --check",
   "cargo +1.95.0 run -p xtask -- policy-report",
+]
+
+[[work_item]]
+id = "python-testpypi-oidc-diagnostic"
+status = "done"
+goal = "Run and record the no-upload hosted TestPyPI OIDC diagnostic path so the current GitHub publisher subject can be verified without attempting upload."
+run = "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26103750173"
+receipt = "docs/audits/python-testpypi-oidc-diagnostic-2026-05-19.md"
+commit = "bc78d7a004925cdd1b3e3510d764440b4af40884"
+commands = [
+  "gh workflow run python-testpypi.yml --ref main -f publish_to_testpypi=false -f diagnose_trusted_publisher=true",
+  "gh run watch 26103750173 --exit-status",
+  "gh run view 26103750173 --json databaseId,headSha,conclusion,event,status,url,workflowName,createdAt,updatedAt,jobs",
+  "gh api repos/EffortlessMetrics/hl7v2-rs/actions/jobs/76762238565",
+  "curl -I https://test.pypi.org/pypi/hl7v2/json",
+  "curl -I https://pypi.org/pypi/hl7v2/json",
+]
+result = [
+  "Hosted wheel build and local wheel smoke passed.",
+  "The TestPyPI environment OIDC diagnostic job passed.",
+  "The OIDC diagnostic step verified the expected sub, repository, and ref claims.",
+  "The TestPyPI upload step was skipped because publish_to_testpypi=false.",
+  "The TestPyPI install-back job was skipped because no upload was attempted.",
+  "TestPyPI and PyPI hl7v2 JSON endpoints still returned 404.",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back success claim.",
+  "No PyPI upload.",
+  "No PyPI install-back success claim.",
+  "No token fallback.",
+  "No skip-existing.",
+  "No npm package.",
+  "No new crates.io release.",
+  "No tag or GitHub release.",
 ]
 
 [[work_item]]
