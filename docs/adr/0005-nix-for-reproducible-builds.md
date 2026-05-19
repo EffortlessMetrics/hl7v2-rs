@@ -227,9 +227,13 @@ It includes only the Rust toolchain, OpenSSL, pkg-config, and ajv-cli for schema
 Container images are built using Nix's `dockerTools.buildLayeredImage`, which produces layered images without a base OS:
 
 ```nix
+let
+  cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+  workspaceVersion = cargoToml.workspace.package.version;
+in
 packages.docker = pkgs.dockerTools.buildLayeredImage {
   name = "hl7v2-rs";
-  tag = "latest";
+  tag = workspaceVersion;
   contents = [ self.packages.${system}.default ];
   config = {
     Cmd = [ "${self.packages.${system}.default}/bin/hl7v2-server" ];

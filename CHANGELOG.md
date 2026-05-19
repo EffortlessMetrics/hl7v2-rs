@@ -108,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Derived the Nix package version and Docker image tag from the workspace
+  version so the flake no longer emits a floating `latest` image tag.
 - Aligned the e2e HTTP client test dependency on rustls so all-features
   workspace checks do not re-enable native TLS through `reqwest` defaults.
 - Added CPU and memory bounds to the Docker Compose validation sidecar smoke

@@ -10,12 +10,14 @@
   outputs = { self, nixpkgs, rust-overlay, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+        workspaceVersion = cargoToml.workspace.package.version;
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
 
-        # Pin Rust version to match MSRV (1.92 = edition 2024)
+        # Rust toolchain for Nix builds.
         # Note: Using stable Rust toolchain from rust-overlay
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
@@ -80,7 +82,7 @@
         # Default package
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "hl7v2-rs";
-          version = "1.2.0";
+          version = workspaceVersion;
 
           src = ./.;
 
@@ -175,7 +177,7 @@ EOF
         # Docker image
         packages.docker = pkgs.dockerTools.buildLayeredImage {
           name = "hl7v2-rs";
-          tag = "latest";
+          tag = workspaceVersion;
 
           contents = [ self.packages.${system}.default ];
 
