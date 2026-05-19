@@ -569,7 +569,6 @@ pub enum RedactionActionStatus {
     NotFound,
 }
 
-
 fn default_true() -> bool {
     true
 }

@@ -3,8 +3,8 @@
 //! These models follow JSON:API conventions where appropriate and align
 //! with the OpenAPI specification in `api/openapi/hl7v2-api-v1.yaml`.
 
-use serde::{Deserialize, Serialize};
 use hl7v2::{ValidationReport, ValidationReportIssue, ValidationReportV2};
+use serde::{Deserialize, Serialize};
 
 use super::{
     QuarantineOutputSummary, QuarantineOutputSummaryV2, RedactionReceipt, RedactionReceiptV2,
@@ -285,4 +285,3 @@ pub struct ValidateRedactedResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacted_hl7: Option<String>,
 }
-
