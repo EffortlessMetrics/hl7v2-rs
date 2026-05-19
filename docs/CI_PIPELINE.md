@@ -70,6 +70,11 @@ Runs comprehensive testing every night at 2:00 AM UTC.
    - Builds API documentation
    - Uploads as artifact
 
+The `nightly-summary` job runs after the main nightly proof jobs and fails the
+workflow when any required nightly job reports `failure`. This keeps scheduled
+deep-verification failures visible while still allowing the summary step to run
+with `if: always()`.
+
 ### `.github/workflows/coverage.yml` - Coverage Reports
 
 Dedicated workflow for code coverage analysis.
@@ -293,10 +298,15 @@ All workflows use concurrency groups to:
 
 ### Continue on Error
 
-The following jobs use `continue-on-error: true`:
+Some exploratory or advisory steps use `continue-on-error: true` inside their
+jobs:
 - Benchmarks (performance tracking shouldn't block CI)
 - Fuzz tests (exploratory testing)
 - Mutation tests (informational)
+
+Nightly job failures that reach the workflow dependency graph are aggregated by
+the `nightly-summary` job and fail the workflow instead of being downgraded to
+warnings.
 
 ## Required Secrets
 

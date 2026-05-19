@@ -274,5 +274,5 @@ jobs:
       - name: Check for failures
         if: contains(needs.*.result, 'failure')
         run: |
-          echo "::warning::Some nightly tests failed. Check the job results for details."
-          exit 0  # Don't fail the workflow, just warn
+          echo "::error::Some nightly tests failed. Check the job results for details."
+          exit 1
