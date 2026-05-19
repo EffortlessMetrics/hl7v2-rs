@@ -1,0 +1,12 @@
+[[guide]]
+path = "docs/guides/first-10-minutes.md"
+claim = "first useful evidence receipt"
+proof = "cargo +1.95.0 run -p xtask -- check-first-10-minutes-guide"
+status = "executable"
+
+[[guide]]
+path = "docs/guides/python-testpypi-release-proof.md"
+claim = "public Python registry proof process"
+proof = "cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --version <version>"
+status = "blocked-external"
+blocker = "#563"
