@@ -122,6 +122,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   blocker map for public Python proof, evidence parity, operator workflows,
   dirty corpus expansion, gRPC hardening, RIPR calibration, and later
   TypeScript/WASM work.
+- Corrected the documentation index so new planning work no longer defaults to
+  the closed historical `plans/1.4.1/` directory.
 - Added crate-local context for the canonical Rust `hl7v2` crate and the
   `hl7v2-python` binding backend, preserving the Rust API versus Python
   backend boundary for future maintenance.
