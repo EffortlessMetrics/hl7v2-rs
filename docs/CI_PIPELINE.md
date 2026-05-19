@@ -41,9 +41,16 @@ The primary CI workflow that runs on every push and pull request.
    - Coverage report generation
    - Codecov upload
 
-5. **benchmarks** - Performance tracking (main branch only)
+5. **benchmarks** - Routed performance tracking (main branch or label)
    - Runs all benchmarks
    - Stores results for comparison
+   - Fails when the routed benchmark command fails
+
+6. **ci-success** - Required CI summary
+   - Aggregates required fast, standard, MSRV, and matrix lane results
+   - Allows the routed matrix lane to skip cleanly when not selected
+   - Leaves optional deep lanes such as extended tests and benchmarks to report
+     through their own jobs
 
 ### `.github/workflows/nightly.yml` - Nightly Tests
 
@@ -300,13 +307,17 @@ All workflows use concurrency groups to:
 
 Some exploratory or advisory steps use `continue-on-error: true` inside their
 jobs:
-- Benchmarks (performance tracking shouldn't block CI)
 - Fuzz tests (exploratory testing)
 - Mutation tests (informational)
 
 Nightly job failures that reach the workflow dependency graph are aggregated by
 the `nightly-summary` job and fail the workflow instead of being downgraded to
 warnings.
+
+Benchmarks are not a default ordinary-PR lane, but once the benchmark lane is
+routed on `main`, manual dispatch, or a labeled PR, benchmark command failures
+fail the `Benchmarks` job. They are not aggregated into `CI Success`, so
+routing benchmarks does not change the required branch-protection summary.
 
 ## Required Secrets
 
