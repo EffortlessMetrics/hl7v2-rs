@@ -9246,6 +9246,12 @@ fn ensure_python_oidc_claim_diagnostic(
         "EXPECTED_REPOSITORY",
         "${{ github.repository }}",
     )?;
+    ensure_yaml_string(
+        env,
+        policy.path,
+        "EXPECTED_ENVIRONMENT",
+        policy.environment_name,
+    )?;
     ensure_yaml_string(env, policy.path, "EXPECTED_REF", "refs/heads/main")?;
 
     let run = yaml_mapping_string(diagnostic, policy.path, "run")?;
@@ -9257,6 +9263,7 @@ fn ensure_python_oidc_claim_diagnostic(
         "GITHUB_STEP_SUMMARY",
         "\"sub\": os.environ[\"EXPECTED_SUBJECT\"]",
         "\"repository\": os.environ[\"EXPECTED_REPOSITORY\"]",
+        "\"environment\": os.environ[\"EXPECTED_ENVIRONMENT\"]",
         "\"ref\": os.environ[\"EXPECTED_REF\"]",
         "claims.get(claim)",
         "OIDC publisher claim mismatch",
@@ -11684,6 +11691,36 @@ bindings = "pyo3"
                 "python publish policy should reject OIDC diagnostics without the subject check"
             )),
             Err(err) if err.to_string().contains("EXPECTED_SUBJECT") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_oidc_claim_diagnostic_without_environment_check() -> Result<()>
+    {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace(
+            "\"environment\": os.environ[\"EXPECTED_ENVIRONMENT\"]",
+            "\"environment\": os.environ.get(\"EXPECTED_ENVIRONMENT_DISABLED\", \"\")",
+        );
+        if broken == workflow {
+            return Err(anyhow!(
+                "test setup should break the OIDC environment check"
+            ));
+        }
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject OIDC diagnostics without the environment check"
+            )),
+            Err(err) if err.to_string().contains("EXPECTED_ENVIRONMENT") => Ok(()),
             Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
         }
     }
