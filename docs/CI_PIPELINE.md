@@ -42,7 +42,7 @@ The primary CI workflow that runs on every push and pull request.
    - Codecov upload
 
 5. **benchmarks** - Routed performance tracking (main branch or label)
-   - Runs all benchmarks
+   - Runs the `hl7v2-bench` harness with a bounded Criterion sample
    - Stores results for comparison
    - Fails when the routed benchmark command fails
 
@@ -317,7 +317,10 @@ warnings.
 Benchmarks are not a default ordinary-PR lane, but once the benchmark lane is
 routed on `main`, manual dispatch, or a labeled PR, benchmark command failures
 fail the `Benchmarks` job. They are not aggregated into `CI Success`, so
-routing benchmarks does not change the required branch-protection summary.
+routing benchmarks does not change the required branch-protection summary. CI
+uses a bounded Criterion sample to prove the benchmark harness still compiles
+and runs; maintainers can run longer local benchmark sessions when comparing
+performance in detail.
 
 ## Required Secrets
 

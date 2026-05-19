@@ -287,7 +287,8 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          cargo bench --workspace 2>&1 | tee benchmark-results.txt
+          set -o pipefail
+          cargo bench -p hl7v2-bench -- --sample-size 10 --warm-up-time 1 --measurement-time 1 --noplot 2>&1 | tee benchmark-results.txt
         timeout-minutes: 10
 
       - name: Upload benchmark artifact
