@@ -27,6 +27,9 @@ on:
       - 'xtask/**'
       - '.github/workflows/contracts.yml'
 
+permissions:
+  contents: read
+
 # Cancellation policy:
 # - PR synchronize events cancel stale runs for the same PR.
 # - Push and manual runs do NOT cancel in-progress contract validation.

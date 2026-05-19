@@ -9891,6 +9891,45 @@ fn workflow_declares_job(workflow_text: &str, job: &str) -> bool {
     false
 }
 
+fn workflow_declares_top_level_permissions(workflow_text: &str) -> bool {
+    workflow_text.lines().any(|line| {
+        !line.starts_with(' ') && !line.starts_with('\t') && line.trim_end() == "permissions:"
+    })
+}
+
+fn workflow_permission_errors(root: &Path) -> Result<Vec<String>> {
+    let workflows_dir = root.join(".github").join("workflows");
+    let mut errors = Vec::new();
+    for entry in fs::read_dir(&workflows_dir).map_err(|e| {
+        anyhow!(
+            "cannot read workflow directory {}: {e}",
+            workflows_dir.display()
+        )
+    })? {
+        let entry = entry?;
+        let path = entry.path();
+        let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
+            continue;
+        };
+        if !matches!(extension, "yml" | "yaml") {
+            continue;
+        }
+        let text = fs::read_to_string(&path)
+            .map_err(|e| anyhow!("cannot read workflow {}: {e}", path.display()))?;
+        if !workflow_declares_top_level_permissions(&text) {
+            let display_path = path
+                .strip_prefix(root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            errors.push(format!(
+                "workflow '{display_path}' is missing a top-level `permissions:` block"
+            ));
+        }
+    }
+    Ok(errors)
+}
+
 fn today_iso() -> String {
     if let Ok(d) = env::var("CI_TODAY") {
         return d;
@@ -9936,6 +9975,7 @@ fn check_ci_lane_whitelist() -> Result<()> {
 
     let mut warnings: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
+    errors.extend(workflow_permission_errors(&root)?);
 
     for lane in &lanes {
         if !lane_ids.insert(lane.id.clone()) {
@@ -10611,6 +10651,15 @@ mod tests {
         assert_eq!(command_program("cargo"), "cargo.cmd");
         #[cfg(not(windows))]
         assert_eq!(command_program("cargo"), "cargo");
+    }
+
+    #[test]
+    fn workflow_permissions_must_be_top_level() {
+        let workflow = "name: CI\non: push\npermissions:\n  contents: read\njobs:\n";
+        assert!(workflow_declares_top_level_permissions(workflow));
+
+        let nested = "name: CI\non: push\njobs:\n  test:\n    permissions:\n      contents: read\n";
+        assert!(!workflow_declares_top_level_permissions(nested));
     }
 
     #[test]
