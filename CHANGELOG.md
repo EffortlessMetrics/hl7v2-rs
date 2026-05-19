@@ -130,6 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Removed stale `cargo-tarpaulin` coverage workflow references from CI/testing
+  docs so they match the current `cargo-llvm-cov` coverage lane.
 - Replaced the stale issues and next-steps planning snapshot with a current
   blocker map for public Python proof, evidence parity, operator workflows,
   dirty corpus expansion, gRPC hardening, RIPR calibration, and later
