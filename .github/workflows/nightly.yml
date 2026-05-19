@@ -114,33 +114,77 @@ jobs:
           shared-key: mutation-nightly
 
       - name: Install cargo-mutants
-        run: cargo install cargo-mutants
+        run: cargo install cargo-mutants --version 26.1.2 --locked
 
       - name: Run mutation tests
         run: |
-          # Run mutation tests on core crates
+          set +e
           cargo mutants \
             --workspace \
             --timeout 300 \
-            --output-dir mutants-out/ \
-            --no-shuffle \
-            || echo "Mutation tests completed with some misses"
-        continue-on-error: true
+            --output target/nightly-mutation \
+            --no-shuffle
+          mutation_status=$?
+          set -e
+
+          case "$mutation_status" in
+            0)
+              echo "::notice::cargo-mutants caught every tested viable mutant."
+              ;;
+            1)
+              echo "::error::cargo-mutants failed because of invalid command-line arguments."
+              ;;
+            2)
+              echo "::error::cargo-mutants found missed mutants. Review the mutation report artifact."
+              ;;
+            3)
+              echo "::error::cargo-mutants reported timed-out tests. Review the mutation report artifact."
+              ;;
+            4)
+              echo "::error::cargo-mutants baseline tests failed before mutation."
+              ;;
+            5|6)
+              echo "::error::cargo-mutants diff input was invalid."
+              ;;
+            70)
+              echo "::error::cargo-mutants reported an internal error."
+              ;;
+            *)
+              echo "::error::cargo-mutants returned unexpected status ${mutation_status}."
+              ;;
+          esac
+
+          exit "$mutation_status"
         timeout-minutes: 60
 
       - name: Upload mutation report
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: mutation-report
-          path: mutants-out/
+          path: target/nightly-mutation/mutants.out/
           retention-days: 30
 
       - name: Parse mutation results
+        if: always()
         run: |
           echo "## Mutation Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f mutants-out/summary.md ]; then
-            cat mutants-out/summary.md >> $GITHUB_STEP_SUMMARY
+          out_dir="target/nightly-mutation/mutants.out"
+          if [ -d "$out_dir" ]; then
+            echo "| Outcome | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "| --- | ---: |" >> $GITHUB_STEP_SUMMARY
+            for outcome in caught missed timeout unviable; do
+              file="$out_dir/${outcome}.txt"
+              if [ -f "$file" ]; then
+                count=$(grep -cve '^[[:space:]]*$' "$file" || true)
+              else
+                count=0
+              fi
+              echo "| ${outcome} | ${count} |" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "See the uploaded mutation report artifact for `outcomes.json`, logs, and diffs." >> $GITHUB_STEP_SUMMARY
           else
             echo "Mutation test results not available in expected format." >> $GITHUB_STEP_SUMMARY
           fi
@@ -198,18 +242,16 @@ jobs:
           shared-key: security-audit
 
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        run: cargo install cargo-audit --version 0.22.1 --locked
 
       - name: Install cargo-deny
-        run: cargo install cargo-deny
+        run: cargo install cargo-deny --version 0.19.6 --locked
 
       - name: Run cargo audit
-        run: cargo audit
-        continue-on-error: true
+        run: cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0097 --deny warnings
 
       - name: Run cargo deny
         run: cargo deny check advisories licenses bans sources
-        continue-on-error: true
 
   # ============================================================================
   # Documentation Generation
