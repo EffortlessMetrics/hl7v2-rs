@@ -8,6 +8,11 @@ on:
         required: true
         type: boolean
         default: false
+      diagnose_trusted_publisher:
+        description: "Record TestPyPI trusted-publisher OIDC claims without uploading"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -100,7 +105,7 @@ jobs:
   publish_testpypi:
     name: Publish to TestPyPI
     needs: wheel_proof
-    if: ${{ inputs.publish_to_testpypi }}
+    if: ${{ inputs.publish_to_testpypi || inputs.diagnose_trusted_publisher }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -130,7 +135,8 @@ jobs:
           {
             echo "## TestPyPI Trusted Publisher"
             echo
-            echo "This job publishes \`hl7v2==${PACKAGE_VERSION}\` to TestPyPI using OIDC Trusted Publishing."
+            echo "This job records the actual GitHub OIDC publisher claims for \`hl7v2==${PACKAGE_VERSION}\`."
+            echo "It uploads to TestPyPI only when \`publish_to_testpypi=true\`."
             echo
             echo "| Field | Expected value |"
             echo "| --- | --- |"
@@ -225,6 +231,7 @@ jobs:
           PY
 
       - name: Publish package distributions to TestPyPI
+        if: ${{ inputs.publish_to_testpypi }}
         uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           repository-url: https://test.pypi.org/legacy/

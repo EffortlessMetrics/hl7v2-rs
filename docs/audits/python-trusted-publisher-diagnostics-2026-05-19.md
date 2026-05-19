@@ -97,6 +97,18 @@ The publish jobs fail before upload if the actual `sub`, `repository`, or
 `cargo run -p xtask -- check-python-publish-policy` now rejects removing,
 weakening, or moving that diagnostic after upload.
 
+The TestPyPI proof workflow also has a no-upload diagnostic mode:
+
+```text
+publish_to_testpypi = false
+diagnose_trusted_publisher = true
+```
+
+That mode enters the same `testpypi` GitHub environment and records the actual
+`audience=pypi` OIDC claims, but the upload step remains gated on
+`publish_to_testpypi=true`. It is a diagnostic rail only; it does not prove
+TestPyPI upload or install-back.
+
 ## Remaining Blocker
 
 The GitHub-side `testpypi` environment exists. The public package indexes still

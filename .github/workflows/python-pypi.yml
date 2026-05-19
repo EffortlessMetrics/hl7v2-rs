@@ -326,6 +326,7 @@ jobs:
           PY
 
       - name: Publish package distributions to PyPI
+        if: ${{ inputs.publish_to_pypi }}
         uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           packages-dir: dist/

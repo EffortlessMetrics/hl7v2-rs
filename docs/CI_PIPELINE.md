@@ -135,12 +135,14 @@ environment, runs `tests/python_smoke/smoke.py` plus the Python evidence guide
 and dirty evidence workflow smokes, and uploads the wheel as a short-retention
 artifact without publishing.
 
-When `publish_to_testpypi=true` is selected, the workflow publishes to TestPyPI
-using Trusted Publishing from the `testpypi` GitHub environment, then installs
-`hl7v2==<workspace version>` back from TestPyPI and reruns the smoke and
-evidence workflows. The workflow uses `id-token: write` only for the publish
-job and does not use repository PyPI tokens. Publishing mode fails early unless
-the workflow is running from `refs/heads/main`.
+When `diagnose_trusted_publisher=true` is selected, the workflow enters the
+`testpypi` GitHub environment and records the actual `audience=pypi` OIDC
+claims without uploading to TestPyPI. When `publish_to_testpypi=true` is
+selected, the same guarded job publishes to TestPyPI using Trusted Publishing,
+then installs `hl7v2==<workspace version>` back from TestPyPI and reruns the
+smoke and evidence workflows. The workflow uses `id-token: write` only for the
+guarded TestPyPI job and does not use repository PyPI tokens. Publishing mode
+fails early unless the workflow is running from `refs/heads/main`.
 
 ### `.github/workflows/python-pypi.yml` - Python PyPI Release Proof
 

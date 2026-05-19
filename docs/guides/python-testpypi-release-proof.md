@@ -88,6 +88,7 @@ First run with:
 
 ```text
 publish_to_testpypi = false
+diagnose_trusted_publisher = false
 ```
 
 This builds the wheel, installs it into a fresh virtual environment, runs the
@@ -98,10 +99,25 @@ The current hosted non-publishing proof passed on `main` after the v1.5.0
 release and public `hl7v2` package retarget; see
 [`docs/audits/python-testpypi-nonpublish-proof-2026-05-15.md`](../audits/python-testpypi-nonpublish-proof-2026-05-15.md).
 
+If the TestPyPI Trusted Publisher setup still needs diagnosis, run the same
+workflow from `main` with:
+
+```text
+publish_to_testpypi = false
+diagnose_trusted_publisher = true
+```
+
+That route enters the `testpypi` GitHub environment, requests the same
+`audience=pypi` OIDC token used by Trusted Publishing, records the decoded
+publisher claims in the job summary, and skips the upload step. It is useful
+for confirming the actual GitHub `sub` claim without creating or overwriting a
+TestPyPI release. It does not prove TestPyPI upload or install-back.
+
 After the local wheel proof and non-publishing workflow pass, rerun with:
 
 ```text
 publish_to_testpypi = true
+diagnose_trusted_publisher = false
 ```
 
 Run publishing mode from `main`. The workflow fails early if
