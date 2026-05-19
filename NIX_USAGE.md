@@ -82,8 +82,10 @@ Build Docker image with Nix:
 ```bash
 nix build .#docker
 docker load < result
-docker run -p 8080:8080 hl7v2-rs:latest
+docker run -p 8080:8080 hl7v2-rs:1.5.0
 ```
+
+The Nix Docker image tag follows the workspace package version.
 
 ### Checks
 
