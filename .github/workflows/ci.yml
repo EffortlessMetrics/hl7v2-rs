@@ -251,7 +251,8 @@ jobs:
 
   # ============================================================================
   # Stage 3 (Parallel): Benchmarks (~15 LEM)
-  # Non-failing, tracks performance regressions
+  # Routed performance checks. Not a default PR tax, but failures are visible
+  # on main, manual runs, and labeled PRs that request this lane.
   # ============================================================================
   benchmarks:
     name: Benchmarks
@@ -286,9 +287,8 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          cargo bench --workspace 2>&1 | tee benchmark-results.txt || true
+          cargo bench --workspace 2>&1 | tee benchmark-results.txt
         timeout-minutes: 10
-        continue-on-error: true
 
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
