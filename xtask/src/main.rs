@@ -10167,6 +10167,8 @@ const DEPLOYMENT_PROVENANCE_PATHS: &[&str] = &[
     "infrastructure/k8s/deployment.yaml",
 ];
 
+const KYVERNO_EXCEPTION_PATHS: &[&str] = &["infrastructure/kyverno-policies/exemptions.yaml"];
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct DeploymentProvenanceFinding {
     path: String,
@@ -10192,9 +10194,11 @@ fn check_deployment_provenance() -> Result<()> {
         ));
     }
 
+    let kyverno_files_checked = check_kyverno_exception_provenance(&root)?;
     println!(
-        "deployment provenance OK: {} file(s) checked against workspace version {}",
+        "deployment provenance OK: {} image file(s) and {} Kyverno exception file(s) checked against workspace version {}",
         DEPLOYMENT_PROVENANCE_PATHS.len(),
+        kyverno_files_checked,
         workspace_version
     );
     Ok(())
@@ -10392,6 +10396,180 @@ fn is_hl7v2_image(image: &str) -> bool {
         .map(|(name, _)| name)
         .unwrap_or(last_segment);
     name == "hl7v2-rs" || name.starts_with("hl7v2-")
+}
+
+fn check_kyverno_exception_provenance(root: &Path) -> Result<usize> {
+    for path in KYVERNO_EXCEPTION_PATHS {
+        let text = fs::read_to_string(root.join(path))?;
+        check_kyverno_exception_file(path, &text)?;
+    }
+    Ok(KYVERNO_EXCEPTION_PATHS.len())
+}
+
+fn check_kyverno_exception_file(path: &str, text: &str) -> Result<()> {
+    let mut checked = 0usize;
+    for (index, document) in yaml_documents(text).into_iter().enumerate() {
+        let document_number = index.saturating_add(1);
+        let value: serde_yaml::Value = serde_yaml::from_str(&document).map_err(|error| {
+            anyhow!("{path} document {document_number} is not valid YAML: {error}")
+        })?;
+        if value.is_null() {
+            continue;
+        }
+        let context = format!("{path} document {document_number}");
+        check_kyverno_policy_exception(&context, &value)?;
+        checked = checked.saturating_add(1);
+    }
+
+    if checked == 0 {
+        Err(anyhow!("{path} must contain at least one PolicyException"))
+    } else {
+        Ok(())
+    }
+}
+
+fn yaml_documents(text: &str) -> Vec<String> {
+    text.lines()
+        .collect::<Vec<_>>()
+        .split(|line| line.trim() == "---")
+        .filter_map(|lines| {
+            let start = lines.iter().position(|line| {
+                let trimmed = line.trim();
+                !trimmed.is_empty() && !trimmed.starts_with('#')
+            })?;
+            lines
+                .get(start..)
+                .map(|document_lines| document_lines.join("\n"))
+        })
+        .collect()
+}
+
+fn check_kyverno_policy_exception(context: &str, value: &serde_yaml::Value) -> Result<()> {
+    let root = yaml_mapping(value, context)?;
+    ensure_yaml_string(root, context, "apiVersion", "kyverno.io/v2beta1")?;
+    ensure_yaml_string(root, context, "kind", "PolicyException")?;
+
+    let metadata = yaml_child_mapping(root, context, "metadata")?;
+    let name = yaml_mapping_string(metadata, context, "name")?;
+    if name.trim().is_empty() {
+        return Err(anyhow!("{context} metadata.name must not be empty"));
+    }
+    ensure_yaml_string(metadata, context, "namespace", "kyverno")?;
+
+    let annotations = yaml_child_mapping(metadata, context, "annotations")?;
+    let purpose = yaml_mapping_string(annotations, context, "purpose")?;
+    let risk_level = yaml_mapping_string(annotations, context, "risk-level")?;
+    let review_cycle = yaml_mapping_string(annotations, context, "review-cycle")?;
+    ensure_non_empty_yaml_text(context, "metadata.annotations.purpose", purpose)?;
+    ensure_allowed_yaml_text(
+        context,
+        "metadata.annotations.risk-level",
+        risk_level,
+        &["low", "medium", "high"],
+    )?;
+    ensure_non_empty_yaml_text(context, "metadata.annotations.review-cycle", review_cycle)?;
+
+    let spec = yaml_child_mapping(root, context, "spec")?;
+    ensure_yaml_bool(spec, context, "background", true)?;
+    ensure_kyverno_exception_match_scope(context, spec)?;
+    ensure_kyverno_exceptions(context, spec, risk_level)?;
+    Ok(())
+}
+
+fn ensure_kyverno_exception_match_scope(context: &str, spec: &serde_yaml::Mapping) -> Result<()> {
+    let match_block = yaml_child_mapping(spec, context, "match")?;
+    let any = yaml_child_sequence(match_block, context, "any")?;
+    if any.is_empty() {
+        return Err(anyhow!("{context} spec.match.any must not be empty"));
+    }
+
+    let mut scoped = false;
+    for (index, entry) in any.iter().enumerate() {
+        let entry_number = index.saturating_add(1);
+        let entry_context = format!("{context} spec.match.any[{entry_number}]");
+        let entry = yaml_mapping(entry, &entry_context)?;
+        let resources = yaml_child_mapping(entry, &entry_context, "resources")?;
+        ensure_non_empty_yaml_string_sequence(resources, &entry_context, "kinds")?;
+        ensure_non_empty_yaml_string_sequence(resources, &entry_context, "namespaces")?;
+        scoped = true;
+    }
+
+    if scoped {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} PolicyException must scope matches by resource kind and namespace"
+        ))
+    }
+}
+
+fn ensure_kyverno_exceptions(
+    context: &str,
+    spec: &serde_yaml::Mapping,
+    risk_level: &str,
+) -> Result<()> {
+    let exceptions = yaml_child_sequence(spec, context, "exceptions")?;
+    if exceptions.is_empty() {
+        return Err(anyhow!("{context} spec.exceptions must not be empty"));
+    }
+
+    for (index, exception) in exceptions.iter().enumerate() {
+        let exception_number = index.saturating_add(1);
+        let exception_context = format!("{context} spec.exceptions[{exception_number}]");
+        let exception = yaml_mapping(exception, &exception_context)?;
+        let policy_name = yaml_mapping_string(exception, &exception_context, "policyName")?;
+        ensure_non_empty_yaml_text(&exception_context, "policyName", policy_name)?;
+        let rule_names =
+            ensure_non_empty_yaml_string_sequence(exception, &exception_context, "ruleNames")?;
+        if rule_names.contains(&"*") && risk_level == "low" {
+            return Err(anyhow!(
+                "{exception_context} wildcard ruleNames require medium or high risk-level annotation"
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn ensure_non_empty_yaml_string_sequence<'a>(
+    mapping: &'a serde_yaml::Mapping,
+    context: &str,
+    key: &str,
+) -> Result<Vec<&'a str>> {
+    let sequence = yaml_child_sequence(mapping, context, key)?;
+    if sequence.is_empty() {
+        return Err(anyhow!("{context} `{key}` must not be empty"));
+    }
+
+    sequence
+        .iter()
+        .map(|value| {
+            let text = value
+                .as_str()
+                .ok_or_else(|| anyhow!("{context} `{key}` entries must be strings"))?;
+            ensure_non_empty_yaml_text(context, key, text)?;
+            Ok(text)
+        })
+        .collect()
+}
+
+fn ensure_non_empty_yaml_text(context: &str, key: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        Err(anyhow!("{context} `{key}` must not be empty"))
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_allowed_yaml_text(context: &str, key: &str, value: &str, allowed: &[&str]) -> Result<()> {
+    if allowed.contains(&value) {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{context} `{key}` must be one of {}; found `{value}`",
+            allowed.join(", ")
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -10608,6 +10786,119 @@ docker run -p 8080:8080 hl7v2-rs:1.5.0
             "1.5.0",
         );
         assert_eq!(findings, Vec::new());
+    }
+
+    #[test]
+    fn kyverno_exception_provenance_accepts_scoped_reviewed_exception() -> Result<()> {
+        let text = r#"
+---
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: infrastructure-tools-exception
+  namespace: kyverno
+  annotations:
+    purpose: "Infrastructure tooling privileged access"
+    risk-level: "medium"
+    review-cycle: "quarterly"
+spec:
+  background: true
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        namespaces:
+        - infrastructure
+  exceptions:
+  - policyName: require-non-root
+    ruleNames:
+    - "*"
+"#;
+
+        check_kyverno_exception_file("infrastructure/kyverno-policies/exemptions.yaml", text)
+    }
+
+    #[test]
+    fn kyverno_exception_provenance_rejects_unscoped_exception() -> Result<()> {
+        let text = r#"
+---
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: unscoped-exception
+  namespace: kyverno
+  annotations:
+    purpose: "Missing namespace scoping"
+    risk-level: "medium"
+    review-cycle: "quarterly"
+spec:
+  background: true
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+  exceptions:
+  - policyName: require-non-root
+    ruleNames:
+    - check-runasnonroot
+"#;
+
+        let error = match check_kyverno_exception_file(
+            "infrastructure/kyverno-policies/exemptions.yaml",
+            text,
+        ) {
+            Ok(()) => return Err(anyhow!("unscoped PolicyException should fail")),
+            Err(error) => error,
+        };
+
+        if !error.to_string().contains("namespaces") {
+            return Err(anyhow!("unexpected error: {error}"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn kyverno_exception_provenance_rejects_low_risk_wildcard_exception() -> Result<()> {
+        let text = r#"
+---
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: broad-low-risk-exception
+  namespace: kyverno
+  annotations:
+    purpose: "Broad exception without matching risk label"
+    risk-level: "low"
+    review-cycle: "quarterly"
+spec:
+  background: true
+  match:
+    any:
+    - resources:
+        kinds:
+        - Deployment
+        namespaces:
+        - infrastructure
+  exceptions:
+  - policyName: require-non-root
+    ruleNames:
+    - "*"
+"#;
+
+        let error = match check_kyverno_exception_file(
+            "infrastructure/kyverno-policies/exemptions.yaml",
+            text,
+        ) {
+            Ok(()) => return Err(anyhow!("low-risk wildcard PolicyException should fail")),
+            Err(error) => error,
+        };
+
+        if !error.to_string().contains("medium or high") {
+            return Err(anyhow!("unexpected error: {error}"));
+        }
+        Ok(())
     }
 
     #[test]
