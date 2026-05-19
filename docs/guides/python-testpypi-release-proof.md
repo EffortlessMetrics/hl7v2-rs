@@ -107,11 +107,17 @@ publish_to_testpypi = true
 Run publishing mode from `main`. The workflow fails early if
 `publish_to_testpypi=true` is selected from any other ref.
 
-Before upload, the publish job writes the expected TestPyPI Trusted Publisher
-fields to the GitHub Actions job summary. If the upload fails with
-`invalid-publisher`, compare the summary fields to the TestPyPI pending
-publisher configuration and fix TestPyPI before rerunning. Do not switch to a
-repository token or `skip-existing` as a shortcut around Trusted Publishing.
+Before upload, the publish job writes both the expected TestPyPI Trusted
+Publisher fields and the actual decoded GitHub OIDC publisher claims to the
+GitHub Actions job summary. It fails before upload if the actual `sub`,
+`repository`, or `ref` does not match the expected trusted-publisher identity.
+
+If the upload still fails with `invalid-publisher` after the actual `sub` is
+`repo:EffortlessMetrics/hl7v2-rs:environment:testpypi`, the GitHub side is
+presenting the right identity and TestPyPI still needs the pending publisher
+configuration for project `hl7v2`. Fix TestPyPI before rerunning. Do not switch
+to a repository token or `skip-existing` as a shortcut around Trusted
+Publishing.
 
 This does three things:
 

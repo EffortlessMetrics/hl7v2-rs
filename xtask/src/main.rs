@@ -9203,6 +9203,78 @@ fn ensure_python_publish_artifact(
     Ok(())
 }
 
+fn ensure_python_oidc_claim_diagnostic(
+    policy: &PythonPublishWorkflowPolicy,
+    steps: &[serde_yaml::Value],
+) -> Result<usize> {
+    let diagnostic_index =
+        yaml_step_index_named(steps, policy.path, "Record actual OIDC publisher claims")?;
+    let diagnostic = steps
+        .get(diagnostic_index)
+        .and_then(serde_yaml::Value::as_mapping)
+        .ok_or_else(|| {
+            anyhow!(
+                "{} OIDC claim diagnostic step must be a mapping",
+                policy.path
+            )
+        })?;
+    ensure_yaml_string(diagnostic, policy.path, "shell", "bash")?;
+
+    let env = yaml_child_mapping(diagnostic, policy.path, "env")?;
+    let expected_subject = format!(
+        "repo:${{{{ github.repository }}}}:environment:{}",
+        policy.environment_name
+    );
+    ensure_yaml_string(env, policy.path, "EXPECTED_SUBJECT", &expected_subject)?;
+    ensure_yaml_string(
+        env,
+        policy.path,
+        "EXPECTED_REPOSITORY",
+        "${{ github.repository }}",
+    )?;
+    ensure_yaml_string(env, policy.path, "EXPECTED_REF", "refs/heads/main")?;
+
+    let run = yaml_mapping_string(diagnostic, policy.path, "run")?;
+    for expected in [
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+        "audience=pypi",
+        "base64.urlsafe_b64decode",
+        "GITHUB_STEP_SUMMARY",
+        "\"sub\": os.environ[\"EXPECTED_SUBJECT\"]",
+        "\"repository\": os.environ[\"EXPECTED_REPOSITORY\"]",
+        "\"ref\": os.environ[\"EXPECTED_REF\"]",
+        "claims.get(claim)",
+        "OIDC publisher claim mismatch",
+        "sys.exit(1)",
+    ] {
+        if !run.contains(expected) {
+            return Err(anyhow!(
+                "{} OIDC publisher claim diagnostic step must contain `{expected}`",
+                policy.path
+            ));
+        }
+    }
+    for forbidden in [
+        "secrets.",
+        "PYPI_API_TOKEN",
+        "TEST_PYPI_API_TOKEN",
+        "TWINE_PASSWORD",
+        "TWINE_USERNAME",
+        "print(token",
+        "echo \"$TOKEN\"",
+    ] {
+        if run.contains(forbidden) {
+            return Err(anyhow!(
+                "{} OIDC publisher claim diagnostic step must not contain `{forbidden}`",
+                policy.path
+            ));
+        }
+    }
+
+    Ok(diagnostic_index)
+}
+
 fn ensure_python_publish_job(
     policy: &PythonPublishWorkflowPolicy,
     publish_job: &serde_yaml::Mapping,
@@ -9235,7 +9307,10 @@ fn ensure_python_publish_job(
     )?;
 
     let steps = yaml_child_sequence(publish_job, policy.path, "steps")?;
+    let diagnostic_index = ensure_python_oidc_claim_diagnostic(policy, steps)?;
+
     let download = yaml_step_named(steps, policy.path, "Download wheel artifact")?;
+    let download_index = yaml_step_index_named(steps, policy.path, "Download wheel artifact")?;
     ensure_yaml_string(
         download,
         policy.path,
@@ -9247,6 +9322,13 @@ fn ensure_python_publish_job(
     ensure_yaml_string(download_with, policy.path, "path", "dist")?;
 
     let publish = yaml_step_named(steps, policy.path, policy.publish_step_name)?;
+    let publish_index = yaml_step_index_named(steps, policy.path, policy.publish_step_name)?;
+    if !(download_index < diagnostic_index && diagnostic_index < publish_index) {
+        return Err(anyhow!(
+            "{} OIDC publisher claim diagnostic step must run after artifact download and before upload",
+            policy.path
+        ));
+    }
     ensure_yaml_string(
         publish,
         policy.path,
@@ -9463,6 +9545,17 @@ fn yaml_step_named<'a>(
         .iter()
         .filter_map(serde_yaml::Value::as_mapping)
         .find(|step| yaml_mapping_string(step, context, "name").is_ok_and(|value| value == name))
+        .ok_or_else(|| anyhow!("{context} is missing step `{name}`"))
+}
+
+fn yaml_step_index_named(steps: &[serde_yaml::Value], context: &str, name: &str) -> Result<usize> {
+    steps
+        .iter()
+        .position(|step| {
+            step.as_mapping().is_some_and(|mapping| {
+                yaml_mapping_string(mapping, context, "name").is_ok_and(|value| value == name)
+            })
+        })
         .ok_or_else(|| anyhow!("{context} is missing step `{name}`"))
 }
 
@@ -11429,6 +11522,103 @@ bindings = "pyo3"
                 "python publish policy should reject install-back jobs that bypass xtask public-registry proof"
             )),
             Err(err) if err.to_string().contains("python-public-registry-proof") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_requires_oidc_claim_diagnostic() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace(
+            "- name: Record actual OIDC publisher claims",
+            "- name: Record intended OIDC publisher claims",
+        );
+        if broken == workflow {
+            return Err(anyhow!(
+                "test setup should remove the OIDC claim diagnostic"
+            ));
+        }
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should require the actual OIDC claim diagnostic"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("Record actual OIDC publisher claims") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_rejects_oidc_claim_diagnostic_without_subject_check() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let broken = workflow.replace(
+            "\"sub\": os.environ[\"EXPECTED_SUBJECT\"]",
+            "\"sub\": os.environ.get(\"EXPECTED_SUBJECT_DISABLED\", \"\")",
+        );
+        if broken == workflow {
+            return Err(anyhow!("test setup should break the OIDC subject check"));
+        }
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject OIDC diagnostics without the subject check"
+            )),
+            Err(err) if err.to_string().contains("EXPECTED_SUBJECT") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn python_publish_policy_requires_oidc_claim_diagnostic_before_upload() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let policy = PYTHON_PUBLISH_WORKFLOWS
+            .first()
+            .ok_or_else(|| anyhow!("expected at least one Python publish workflow policy"))?;
+        let workflow = read_policy_workflow_for_mutation(&root, policy)?;
+        let oidc_marker = "\n      - name: Record actual OIDC publisher claims";
+        let publish_marker = "\n      - name: Publish package distributions to TestPyPI";
+        let (before_oidc, after_oidc_marker) = workflow
+            .split_once(oidc_marker)
+            .ok_or_else(|| anyhow!("test setup should find OIDC claim diagnostic"))?;
+        let (oidc_body, after_oidc) = after_oidc_marker
+            .split_once(publish_marker)
+            .ok_or_else(|| anyhow!("test setup should find publish step after OIDC diagnostic"))?;
+        let oidc_block = format!("{oidc_marker}{oidc_body}");
+        let without_oidc = format!("{before_oidc}{publish_marker}{after_oidc}");
+        let broken = without_oidc.replacen(
+            "\n  install_from_testpypi:",
+            &format!("{oidc_block}\n  install_from_testpypi:"),
+            1,
+        );
+
+        match check_python_publish_workflow_text(policy, &broken) {
+            Ok(()) => Err(anyhow!(
+                "python publish policy should reject OIDC diagnostics after upload"
+            )),
+            Err(err) if err.to_string().contains("before upload") => Ok(()),
             Err(err) => Err(anyhow!("unexpected python publish policy error: {err}")),
         }
     }

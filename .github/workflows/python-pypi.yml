@@ -246,6 +246,85 @@ jobs:
           name: python-pypi-wheel
           path: dist
 
+      - name: Record actual OIDC publisher claims
+        shell: bash
+        env:
+          EXPECTED_SUBJECT: repo:${{ github.repository }}:environment:pypi
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+          EXPECTED_REF: refs/heads/main
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          import sys
+          import urllib.parse
+          import urllib.request
+
+          request_url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL")
+          request_token = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+          if not request_url or not request_token:
+              print(
+                  "::error::GitHub OIDC request environment is missing; publish job needs id-token: write",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          separator = "&" if urllib.parse.urlsplit(request_url).query else "?"
+          token_url = f"{request_url}{separator}audience=pypi"
+          request = urllib.request.Request(
+              token_url,
+              headers={"Authorization": f"Bearer {request_token}"},
+          )
+          with urllib.request.urlopen(request, timeout=20) as response:
+              token_response = json.load(response)
+          token = token_response.get("value")
+          if not token:
+              print("::error::GitHub OIDC response did not include a token value", file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              payload = token.split(".")[1]
+              payload += "=" * (-len(payload) % 4)
+              claims = json.loads(base64.urlsafe_b64decode(payload.encode("ascii")))
+          except (IndexError, json.JSONDecodeError, ValueError) as error:
+              print(f"::error::failed to decode GitHub OIDC claims: {error}", file=sys.stderr)
+              sys.exit(1)
+
+          expected = {
+              "sub": os.environ["EXPECTED_SUBJECT"],
+              "repository": os.environ["EXPECTED_REPOSITORY"],
+              "ref": os.environ["EXPECTED_REF"],
+          }
+          summary_fields = [
+              "sub",
+              "repository",
+              "repository_owner",
+              "ref",
+              "environment",
+              "workflow_ref",
+              "job_workflow_ref",
+              "sha",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("## Actual GitHub OIDC publisher claims\n\n")
+              summary.write("| Claim | Value |\n| --- | --- |\n")
+              for field in summary_fields:
+                  summary.write(f"| `{field}` | `{claims.get(field, '')}` |\n")
+              summary.write("\n")
+
+          errors = []
+          for claim, expected_value in expected.items():
+              actual = claims.get(claim)
+              if actual != expected_value:
+                  errors.append(f"{claim}: expected {expected_value!r}, got {actual!r}")
+
+          if errors:
+              for error in errors:
+                  print(f"::error::OIDC publisher claim mismatch: {error}", file=sys.stderr)
+              sys.exit(1)
+          PY
+
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@v1.14.0
         with:

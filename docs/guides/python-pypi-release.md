@@ -104,6 +104,11 @@ uploading unless `testpypi_proof_url` points at a successful manual
 the current version is visible on TestPyPI, and the current version is absent
 from production PyPI.
 
+Before upload, the publish job records the decoded GitHub OIDC publisher claims
+in the job summary and fails closed if the actual `sub`, `repository`, or `ref`
+does not match the production trusted-publisher identity
+`repo:EffortlessMetrics/hl7v2-rs:environment:pypi`.
+
 This does three things:
 
 1. Builds and smoke-tests the wheel.
