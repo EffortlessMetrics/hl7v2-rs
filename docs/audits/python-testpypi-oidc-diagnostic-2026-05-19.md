@@ -61,9 +61,10 @@ environment with these expected values configured:
 | --- | --- |
 | `sub` | `repo:EffortlessMetrics/hl7v2-rs:environment:testpypi` |
 | `repository` | `EffortlessMetrics/hl7v2-rs` |
+| `environment` | `testpypi` |
 | `ref` | `refs/heads/main` |
 
-The workflow step exits non-zero if any of those three claims differ. The
+The workflow step exits non-zero if any of those four claims differ. The
 successful step therefore proves that GitHub supplied a matching OIDC identity
 for the TestPyPI Trusted Publisher subject.
 
@@ -113,4 +114,3 @@ After that external setup, rerun **Python TestPyPI Proof** from `main` with
 - No `skip-existing` path was added or used.
 - No npm package was published.
 - No new crates.io release, tag, or GitHub release was created.
-
