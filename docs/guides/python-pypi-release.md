@@ -37,6 +37,7 @@ Before running the production publish mode, verify all of these are true:
   `tests/python_smoke/dirty_evidence_workflow.py`.
 - Optional local TestPyPI install-back reproduction passes with
   `cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --version <workspace version>`.
+  That proof installs wheel-only with pip cache disabled.
 - You have the successful **Python TestPyPI Proof** workflow run URL for this
   exact version.
 - The current version is not already present on production PyPI.
@@ -123,6 +124,8 @@ This keeps the workflow proof and local reproduction path aligned. A passing
 install-back job proves only the production PyPI package for the selected
 version; it does not retroactively prove TestPyPI unless the same-commit
 TestPyPI receipt is already linked.
+The proof installs with `--only-binary :all:` and `--no-cache-dir`, so it checks
+the selected public wheel rather than a source build or cached artifact.
 
 PyPI does not allow overwriting an existing file for the same version. If the
 upload fails because the version already exists, stop and choose a new workspace
