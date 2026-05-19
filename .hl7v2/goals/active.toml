@@ -162,7 +162,7 @@ commands = [
 result = [
   "Hosted wheel build and local wheel smoke passed.",
   "The TestPyPI environment OIDC diagnostic job passed.",
-  "The OIDC diagnostic step verified the expected sub, repository, and ref claims.",
+  "The OIDC diagnostic step verified the expected sub, repository, environment, and ref claims.",
   "The TestPyPI upload step was skipped because publish_to_testpypi=false.",
   "The TestPyPI install-back job was skipped because no upload was attempted.",
   "TestPyPI and PyPI hl7v2 JSON endpoints still returned 404.",
