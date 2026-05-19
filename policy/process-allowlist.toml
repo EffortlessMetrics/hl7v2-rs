@@ -69,7 +69,17 @@ id = "contract-tool-processes"
 owner = "api"
 surface = "contracts"
 behavior = "Node, AJV, Redocly, Spectral, and buf may run contract validation inside the contracts workflow."
-commands = ["npm install -g", "npx", "ajv", "redocly", "spectral", "buf"]
+commands = [
+  "npm install -g @stoplight/spectral-cli@6.16.0",
+  "npm install -g @redocly/cli@2.31.1",
+  "npm install -g ajv-cli@5.0.0 ajv-formats@3.0.1",
+  "go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1",
+  "npx -y @bufbuild/buf@1.69.0",
+  "ajv validate",
+  "ajv compile",
+  "redocly build-docs",
+  "spectral lint",
+]
 reason = "OpenAPI, protobuf, and schema contracts need ecosystem-native validators."
 covered_by = [".github/workflows/contracts.yml"]
 review_after = "2026-06-30"

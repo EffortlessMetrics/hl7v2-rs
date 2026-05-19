@@ -1303,16 +1303,16 @@ fn run_ajv_validate(schema: &Path, data: &Path) -> Result<()> {
         command.args([
             "-y",
             "-p",
-            "ajv-cli",
+            "ajv-cli@5.0.0",
             "-p",
-            "ajv-formats",
+            "ajv-formats@3.0.1",
             "ajv",
             "validate",
         ]);
         command
     } else {
         return Err(anyhow!(
-            "evidence schema check requires ajv-cli and ajv-formats; install with `npm install -g ajv-cli ajv-formats` or make npx available"
+            "evidence schema check requires ajv-cli 5.0.0 and ajv-formats 3.0.1; install with `npm install -g ajv-cli@5.0.0 ajv-formats@3.0.1` or make npx available"
         ));
     };
 
