@@ -25,5 +25,5 @@ rollback, and use `docs/STATUS.md` for current feature status.
 | [HL7V2-SPEC-0006](HL7V2-SPEC-0006-cross-surface-evidence-parity.md) | Cross-Surface Evidence Parity | Accepted |
 
 | [HL7V2-SPEC-0007](HL7V2-SPEC-0007-evidence-artifact-compatibility.md) | Evidence Artifact Compatibility | Accepted |
-| [HL7V2-SPEC-0008](HL7V2-SPEC-0008-deployment-provenance.md) | Deployment Provenance | Accepted |
+| [HL7V2-SPEC-0008](HL7V2-SPEC-0008-deployment-provenance.md) | Deployment Provenance | Proposed |
 | [HL7V2-SPEC-0009](HL7V2-SPEC-0009-user-journey-acceptance.md) | User Journey Acceptance | Accepted |
