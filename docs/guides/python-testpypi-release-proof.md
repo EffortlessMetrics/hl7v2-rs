@@ -126,7 +126,8 @@ Run publishing mode from `main`. The workflow fails early if
 Before upload, the publish job writes both the expected TestPyPI Trusted
 Publisher fields and the actual decoded GitHub OIDC publisher claims to the
 GitHub Actions job summary. It fails before upload if the actual `sub`,
-`repository`, or `ref` does not match the expected trusted-publisher identity.
+`repository`, `environment`, or `ref` does not match the expected
+trusted-publisher identity.
 
 If the upload still fails with `invalid-publisher` after the actual `sub` is
 `repo:EffortlessMetrics/hl7v2-rs:environment:testpypi`, the GitHub side is
