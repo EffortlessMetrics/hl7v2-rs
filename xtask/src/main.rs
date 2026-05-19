@@ -89,6 +89,7 @@ fn main() -> Result<()> {
         Commands::CheckSafeSupportBundleGuide => check_safe_support_bundle_guide()?,
         Commands::CheckEvidenceArtifactsGuide => check_evidence_artifacts_guide()?,
         Commands::CheckSidecarGuide => check_sidecar_guide()?,
+        Commands::CheckDeploymentProvenance => check_deployment_provenance()?,
         Commands::CheckSafeErrorPhiParity { include_python } => {
             check_safe_error_phi_parity(include_python)?;
         }
@@ -10156,6 +10157,240 @@ fn check_spec_policy_links() -> Result<()> {
     Ok(())
 }
 
+const DEPLOYMENT_PROVENANCE_PATHS: &[&str] = &[
+    "DEPLOYMENT.md",
+    "infrastructure/grafana/README.md",
+    "infrastructure/docker/docker-compose.yml",
+    "infrastructure/k8s/deployment.yaml",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeploymentProvenanceFinding {
+    path: String,
+    line: usize,
+    image: String,
+    reason: String,
+}
+
+fn check_deployment_provenance() -> Result<()> {
+    let root = env::current_dir()?;
+    let workspace_version = workspace_package_version(&root)?;
+    let findings = deployment_provenance_findings(&root, &workspace_version)?;
+    if !findings.is_empty() {
+        for finding in &findings {
+            eprintln!(
+                "{}:{}: {} ({})",
+                finding.path, finding.line, finding.image, finding.reason
+            );
+        }
+        return Err(anyhow!(
+            "deployment provenance check failed with {} floating or unpinned image reference(s)",
+            findings.len()
+        ));
+    }
+
+    println!(
+        "deployment provenance OK: {} file(s) checked against workspace version {}",
+        DEPLOYMENT_PROVENANCE_PATHS.len(),
+        workspace_version
+    );
+    Ok(())
+}
+
+fn workspace_package_version(root: &Path) -> Result<String> {
+    let workspace_text = fs::read_to_string(root.join("Cargo.toml"))?;
+    let workspace: toml::Value = toml::from_str(&workspace_text)
+        .map_err(|error| anyhow!("Cargo.toml is not valid TOML: {error}"))?;
+    let version = pyproject_value(&workspace, "[workspace.package]", "version", "Cargo.toml")?
+        .as_str()
+        .ok_or_else(|| anyhow!("Cargo.toml [workspace.package].version must be a string"))?;
+    Ok(version.to_string())
+}
+
+fn deployment_provenance_findings(
+    root: &Path,
+    workspace_version: &str,
+) -> Result<Vec<DeploymentProvenanceFinding>> {
+    let mut findings = Vec::new();
+    for path in DEPLOYMENT_PROVENANCE_PATHS {
+        let text = fs::read_to_string(root.join(path))?;
+        findings.extend(deployment_provenance_findings_for_text(
+            path,
+            &text,
+            workspace_version,
+        ));
+    }
+    Ok(findings)
+}
+
+fn deployment_provenance_findings_for_text(
+    path: &str,
+    text: &str,
+    workspace_version: &str,
+) -> Vec<DeploymentProvenanceFinding> {
+    let mut findings = Vec::new();
+    for (line_index, line) in text.lines().enumerate() {
+        let line_no = line_index.saturating_add(1);
+        for image in deployment_image_references_in_line(line) {
+            if let Some(reason) = deployment_image_violation(path, &image, workspace_version) {
+                findings.push(DeploymentProvenanceFinding {
+                    path: path.to_string(),
+                    line: line_no,
+                    image,
+                    reason,
+                });
+            }
+        }
+    }
+    findings
+}
+
+fn deployment_image_references_in_line(line: &str) -> Vec<String> {
+    let trimmed = line.trim();
+    let mut images = Vec::new();
+    if let Some(rest) = trimmed.strip_prefix("image:") {
+        images.push(clean_deployment_image_ref(rest));
+        return images;
+    }
+
+    if let Some(image) = docker_build_tag_image(trimmed) {
+        images.push(image);
+    }
+
+    if trimmed.starts_with("docker run ")
+        && let Some(image) = docker_run_image(trimmed)
+    {
+        images.push(image);
+    }
+
+    if is_standalone_hl7v2_image(trimmed) {
+        images.push(clean_deployment_image_ref(trimmed));
+    }
+
+    images
+        .into_iter()
+        .filter(|image| !image.is_empty())
+        .collect()
+}
+
+fn docker_build_tag_image(line: &str) -> Option<String> {
+    let mut tokens = line.split_whitespace();
+    while let Some(token) = tokens.next() {
+        if token == "-t" || token == "--tag" {
+            return tokens.next().map(clean_deployment_image_ref);
+        }
+        if let Some(image) = token.strip_prefix("--tag=") {
+            return Some(clean_deployment_image_ref(image));
+        }
+    }
+    None
+}
+
+fn docker_run_image(line: &str) -> Option<String> {
+    line.split_whitespace()
+        .rev()
+        .map(clean_deployment_image_ref)
+        .find(|token| is_docker_image_token(token))
+}
+
+fn clean_deployment_image_ref(raw: &str) -> String {
+    raw.trim()
+        .trim_end_matches('\\')
+        .trim()
+        .trim_end_matches(',')
+        .trim_matches('"')
+        .trim_matches('\'')
+        .trim()
+        .to_string()
+}
+
+fn is_docker_image_token(token: &str) -> bool {
+    if token.is_empty()
+        || token.starts_with('-')
+        || token.contains("://")
+        || token.contains("@latest")
+    {
+        return false;
+    }
+    token.starts_with("hl7v2") || token.contains('/')
+}
+
+fn is_standalone_hl7v2_image(line: &str) -> bool {
+    let cleaned = clean_deployment_image_ref(line);
+    !cleaned.contains(char::is_whitespace)
+        && cleaned.starts_with("hl7v2")
+        && !cleaned.ends_with(':')
+        && (image_tag(&cleaned).is_some() || image_has_digest(&cleaned))
+}
+
+fn deployment_image_violation(path: &str, image: &str, workspace_version: &str) -> Option<String> {
+    if image.starts_with("${") {
+        return deployment_image_placeholder_violation(image);
+    }
+
+    if image_has_latest_tag(image) {
+        return Some("uses floating `latest` tag".to_string());
+    }
+
+    if !image_has_digest(image) && image_tag(image).is_none() {
+        return Some("missing explicit version tag or digest".to_string());
+    }
+
+    if is_hl7v2_image(image) && !image_has_digest(image) {
+        let Some(tag) = image_tag(image) else {
+            return Some("missing workspace-aligned hl7v2 image tag".to_string());
+        };
+        if tag == "local" && path == "infrastructure/docker/docker-compose.yml" {
+            return None;
+        }
+        if tag != workspace_version {
+            return Some(format!(
+                "hl7v2 image tag must match workspace version `{workspace_version}` or use a digest"
+            ));
+        }
+    }
+
+    None
+}
+
+fn deployment_image_placeholder_violation(image: &str) -> Option<String> {
+    if image.contains(":?")
+        && (image.contains("versioned") || image.contains("digest") || image.contains("sha256"))
+    {
+        None
+    } else {
+        Some(
+            "image placeholder must require an explicit versioned or digest-pinned reference"
+                .to_string(),
+        )
+    }
+}
+
+fn image_has_digest(image: &str) -> bool {
+    image.contains("@sha256:")
+}
+
+fn image_has_latest_tag(image: &str) -> bool {
+    image_tag(image) == Some("latest")
+}
+
+fn image_tag(image: &str) -> Option<&str> {
+    let without_digest = image.split('@').next().unwrap_or(image);
+    let last_segment = without_digest.rsplit('/').next().unwrap_or(without_digest);
+    let (_, tag) = last_segment.rsplit_once(':')?;
+    if tag.is_empty() { None } else { Some(tag) }
+}
+
+fn is_hl7v2_image(image: &str) -> bool {
+    let without_digest = image.split('@').next().unwrap_or(image);
+    let last_segment = without_digest.rsplit('/').next().unwrap_or(without_digest);
+    let name = last_segment
+        .split_once(':')
+        .map(|(name, _)| name)
+        .unwrap_or(last_segment);
+    name == "hl7v2-rs" || name.starts_with("hl7v2-")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -10168,6 +10403,19 @@ mod tests {
     ) -> Result<String> {
         let workflow = fs::read_to_string(root.join(policy.path))?;
         Ok(workflow.replace("\r\n", "\n"))
+    }
+
+    fn single_deployment_provenance_finding(
+        findings: &[DeploymentProvenanceFinding],
+    ) -> Result<&DeploymentProvenanceFinding> {
+        if findings.len() != 1 {
+            return Err(anyhow!(
+                "expected one deployment provenance finding, got {findings:?}"
+            ));
+        }
+        findings
+            .first()
+            .ok_or_else(|| anyhow!("missing deployment provenance finding"))
     }
 
     #[test]
@@ -10290,6 +10538,73 @@ mod tests {
             Commands::CheckSidecarGuide => Ok(()),
             _ => Err(anyhow!("expected check-sidecar-guide command")),
         }
+    }
+
+    #[test]
+    fn check_deployment_provenance_command_parses() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-deployment-provenance"])?;
+        match cli.command {
+            Commands::CheckDeploymentProvenance => Ok(()),
+            _ => Err(anyhow!("expected check-deployment-provenance command")),
+        }
+    }
+
+    #[test]
+    fn deployment_provenance_rejects_latest_images() -> Result<()> {
+        let text = "services:\n  app:\n    image: hl7v2-server:latest\n";
+        let findings = deployment_provenance_findings_for_text("deployment.yml", text, "1.5.0");
+        let finding = single_deployment_provenance_finding(&findings)?;
+        if !finding.reason.contains("latest") {
+            return Err(anyhow!("unexpected finding reason: {}", finding.reason));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn deployment_provenance_rejects_untagged_images() -> Result<()> {
+        let text = "services:\n  prometheus:\n    image: prom/prometheus\n";
+        let findings = deployment_provenance_findings_for_text("deployment.yml", text, "1.5.0");
+        let finding = single_deployment_provenance_finding(&findings)?;
+        if !finding.reason.contains("missing explicit") {
+            return Err(anyhow!("unexpected finding reason: {}", finding.reason));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn deployment_provenance_rejects_hl7v2_version_drift() -> Result<()> {
+        let text = "docker run -p 8080:8080 hl7v2-rs:1.4.0\n";
+        let findings = deployment_provenance_findings_for_text("DEPLOYMENT.md", text, "1.5.0");
+        let finding = single_deployment_provenance_finding(&findings)?;
+        if !finding.reason.contains("workspace version") {
+            return Err(anyhow!("unexpected finding reason: {}", finding.reason));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn deployment_provenance_accepts_versioned_digest_placeholder_and_local_images() {
+        let text = r#"
+services:
+  prometheus:
+    image: "prom/prometheus:v3.0.0"
+  grafana:
+    image: "grafana/grafana@sha256:0123456789abcdef"
+  server:
+    image: "${HL7V2_IMAGE:?set HL7V2_IMAGE to a versioned or digest-pinned image}"
+docker build -t hl7v2-server:1.5.0 .
+docker run -p 8080:8080 hl7v2-rs:1.5.0
+"#;
+        let findings = deployment_provenance_findings_for_text("DEPLOYMENT.md", text, "1.5.0");
+        assert_eq!(findings, Vec::new());
+
+        let compose = "services:\n  server:\n    image: hl7v2-server:local\n";
+        let findings = deployment_provenance_findings_for_text(
+            "infrastructure/docker/docker-compose.yml",
+            compose,
+            "1.5.0",
+        );
+        assert_eq!(findings, Vec::new());
     }
 
     #[test]

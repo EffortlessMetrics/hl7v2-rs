@@ -172,6 +172,8 @@ pub(crate) enum Commands {
     CheckEvidenceArtifactsGuide,
     /// Start a local sidecar and run the executable deployment guide smoke
     CheckSidecarGuide,
+    /// Verify deployment examples avoid floating image tags
+    CheckDeploymentProvenance,
     /// Run fixture-backed safe-error and PHI parity acceptance checks
     CheckSafeErrorPhiParity {
         /// Also run Python local-wheel smoke checks when hl7v2 is installed

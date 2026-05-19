@@ -256,6 +256,10 @@ chooses an ephemeral loopback port, starts `hl7v2-server`, runs the standard
 server smoke against the spawned sidecar, proves the guide invalid-message
 quarantine, ACK policy, metrics, corpus diff, and PHI-sentinel path, and shuts
 the sidecar down.
+Deployment provenance examples are now governed by
+`cargo run -p xtask -- check-deployment-provenance`, which rejects floating
+image tags and keeps checked-in hl7v2 image examples aligned with the workspace
+version unless they use a digest.
 The operator evidence-artifacts interpretation guide is now executable with
 `cargo run -p xtask -- check-evidence-artifacts-guide`; it generates doctor,
 profile, validation, corpus, redaction, support-bundle, manifest,

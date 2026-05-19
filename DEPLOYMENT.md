@@ -46,13 +46,13 @@ export RUST_LOG="info"                    # Log level: trace, debug, info, warn,
 
 ```bash
 # Build Docker image
-docker build -t hl7v2-server:latest .
+docker build -t hl7v2-server:1.5.0 .
 
 # Run container
 docker run -p 8080:8080 \
   -e BIND_ADDRESS=0.0.0.0:8080 \
   -e RUST_LOG=info \
-  hl7v2-server:latest
+  hl7v2-server:1.5.0
 ```
 
 ### Using Nix-built Docker Image
@@ -63,7 +63,7 @@ nix build .#docker
 docker load < result
 
 # Run
-docker run -p 8080:8080 hl7v2-rs:latest
+docker run -p 8080:8080 hl7v2-rs:1.5.0
 ```
 
 ### Docker Compose
@@ -499,7 +499,7 @@ resources:
 **Docker:**
 
 ```bash
-docker run --cpus="1.0" --memory="512m" hl7v2-server:latest
+docker run --cpus="1.0" --memory="512m" hl7v2-server:1.5.0
 ```
 
 ### Benchmarking

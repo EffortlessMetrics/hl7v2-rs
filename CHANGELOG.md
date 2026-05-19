@@ -40,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `xtask python-public-registry-proof` to install `hl7v2` from TestPyPI
   or PyPI in a scratch venv and run the same Python smoke/evidence scripts
   after public registry upload succeeds.
+- Added `xtask check-deployment-provenance` to reject floating deployment
+  image examples and keep hl7v2 image tags aligned with the workspace version.
 - Routed TestPyPI/PyPI install-back workflow jobs through
   `xtask python-public-registry-proof` so hosted public-registry proof and
   local reproduction use the same command boundary.

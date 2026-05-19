@@ -1,6 +1,6 @@
 # HL7V2-SPEC-0008: Deployment Provenance
 
-Status: Proposed
+Status: Accepted
 Date: 2026-05-19
 Source-of-truth stack: [HL7V2-SPEC-0001](HL7V2-SPEC-0001-source-of-truth-stack.md)
 
@@ -20,8 +20,12 @@ Deployment examples must not use floating images.
 
 Current checks:
 
+- `cargo +1.95.0 run -p xtask -- check-deployment-provenance`
 - `cargo +1.95.0 run -p xtask -- check-file-policy`
 - `cargo +1.95.0 run -p xtask -- policy-report`
 
-Future acceptance requires a dedicated deployment-provenance checker before
-this spec may move to Accepted.
+The dedicated deployment-provenance checker scans checked-in deployment
+examples for floating image tags, untagged image references, and hl7v2 image
+tags that drift from the workspace version. Local Compose examples may use
+`hl7v2-server:local`; production/provenance examples should move to digest
+references when a release image is published and receipted.
