@@ -210,7 +210,8 @@ The smoke script exercises `/health`, `/ready`, `/hl7/validate-redacted`,
 `/hl7/bundle`, `/hl7/replay`, and `/hl7/corpus/diff` against the running
 container. It uses the local `dev-secret` API key from
 `infrastructure/docker/sidecar.env.example`; do not replace that with a real
-deployment secret.
+deployment secret. The Compose service is also CPU/memory bounded so local
+sidecar proof cannot consume unlimited host resources.
 
 ## Viewing CI Results
 
