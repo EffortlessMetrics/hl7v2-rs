@@ -103,6 +103,7 @@ canonical_sources = [
   "docs/audits/python-testpypi-nonpublish-proof-2026-05-16.md",
   "docs/audits/python-testpypi-publish-attempt-2026-05-16.md",
   "docs/audits/python-testpypi-publish-attempt-2026-05-17.md",
+  "docs/audits/python-trusted-publisher-diagnostics-2026-05-19.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-post-srp-refresh.md",
   "docs/guides/first-use-by-surface.md",
   "docs/specs/HL7V2-SPEC-0004-binding-backend-release-proof.md",
