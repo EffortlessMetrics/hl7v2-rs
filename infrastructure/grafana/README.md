@@ -50,13 +50,17 @@ Production-ready Grafana dashboards for monitoring HL7v2 message processing, val
 
 The easiest way to get started with monitoring:
 
+Set `PROMETHEUS_IMAGE` and `GRAFANA_IMAGE` to versioned or digest-pinned
+image references before running this stack. The placeholders intentionally fail
+if unset so the monitoring example does not drift back to floating tags.
+
 ```yaml
 # docker-compose.yml (monitoring stack)
 version: '3.8'
 
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: "${PROMETHEUS_IMAGE:?set PROMETHEUS_IMAGE to a versioned or digest-pinned prom/prometheus image}"
     volumes:
       - ./infrastructure/grafana/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./infrastructure/grafana/alerts:/etc/prometheus/alerts
@@ -73,7 +77,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: "${GRAFANA_IMAGE:?set GRAFANA_IMAGE to a versioned or digest-pinned grafana/grafana image}"
     volumes:
       - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./infrastructure/grafana/datasources:/etc/grafana/provisioning/datasources
@@ -89,7 +93,7 @@ services:
     restart: unless-stopped
 
   hl7v2-server:
-    image: hl7v2-server:latest
+    image: hl7v2-server:1.5.0
     ports:
       - "8080:8080"
     environment:
