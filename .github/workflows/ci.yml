@@ -17,6 +17,9 @@ on:
   merge_group:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 # Cancellation policy:
 # - PR synchronize events cancel stale runs for the same PR.
 # - Push, label, merge_group events do NOT cancel in-progress runs.
