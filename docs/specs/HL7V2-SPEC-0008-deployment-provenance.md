@@ -20,15 +20,18 @@ Deployment examples must not use floating images.
 
 Current checks:
 
+- `cargo +1.95.0 run -p xtask -- gate --check`
 - `cargo +1.95.0 run -p xtask -- check-deployment-provenance`
 - `cargo +1.95.0 run -p xtask -- check-file-policy`
 - `cargo +1.95.0 run -p xtask -- policy-report`
 
 The dedicated deployment-provenance checker scans checked-in deployment
 examples for floating image tags, untagged image references, and hl7v2 image
-tags that drift from the workspace version. Local Compose examples may use
-`hl7v2-server:local`; production/provenance examples should move to digest
-references when a release image is published and receipted.
+tags that drift from the workspace version. The full gate runs the same checker
+so deployment example drift cannot bypass the ordinary policy stack. Local
+Compose examples may use `hl7v2-server:local`; production/provenance examples
+should move to digest references when a release image is published and
+receipted.
 
 The checked-in Kubernetes deployment remains a version-tagged example so local
 and internal smoke deployments can follow the workspace version. Production
