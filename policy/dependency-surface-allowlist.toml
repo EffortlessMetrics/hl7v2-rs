@@ -2,7 +2,7 @@ schema_version = "1.0"
 policy = "dependency-surface-allowlist"
 owner = "EffortlessMetrics"
 status = "active"
-updated = "2026-05-13"
+updated = "2026-05-19"
 
 # Dependency surfaces are governed separately from file presence so package
 # managers and external toolchains remain reviewable.
@@ -44,11 +44,11 @@ review_after = "2026-06-30"
 id = "security-audit-tooling"
 owner = "release/ci"
 surface = "security"
-behavior = "Security policy may depend on cargo-deny advisory and license checks."
-paths = ["deny.toml"]
-dependencies = ["cargo-deny", "RustSec advisory database"]
+behavior = "Security and nightly policy may depend on pinned cargo-audit and cargo-deny advisory, vulnerability, and license checks."
+paths = ["deny.toml", ".github/workflows/security.yml", ".github/workflows/nightly.yml"]
+dependencies = ["cargo-audit 0.22.1", "cargo-deny 0.19.6", "RustSec advisory database"]
 reason = "Dependency and license gates require an explicit audit tool surface."
-covered_by = ["cargo run -p xtask -- audit"]
+covered_by = ["cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0097 --deny warnings", "cargo deny check advisories licenses bans sources"]
 review_after = "2026-06-30"
 
 [[allow]]
@@ -71,4 +71,15 @@ paths = [".github/workflows/mutation.yml", "policy/ci-risk-packs.toml"]
 dependencies = ["cargo-mutants 26.1.2"]
 reason = "cargo-mutants is the slower runtime backstop that complements ripr static exposure analysis."
 covered_by = [".github/workflows/mutation.yml"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "nightly-runtime-mutation"
+owner = "core/test"
+surface = "ci"
+behavior = "The nightly workflow may install cargo-mutants 26.1.2 for scheduled runtime mutation backstop proof."
+paths = [".github/workflows/nightly.yml"]
+dependencies = ["cargo-mutants 26.1.2"]
+reason = "Nightly mutation is the slower runtime backstop that complements ripr and targeted PR-time mutation routing."
+covered_by = [".github/workflows/nightly.yml"]
 review_after = "2026-06-30"

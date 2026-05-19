@@ -2,7 +2,7 @@ schema_version = "1.0"
 policy = "process-allowlist"
 owner = "EffortlessMetrics"
 status = "active"
-updated = "2026-05-13"
+updated = "2026-05-19"
 
 # Process execution is governed separately from script/config file presence.
 
@@ -85,6 +85,21 @@ covered_by = ["docker compose -f infrastructure/docker/docker-compose.yml config
 review_after = "2026-06-30"
 
 [[allow]]
+id = "security-audit-tooling"
+owner = "release/ci"
+surface = "security"
+behavior = "Security workflows may install pinned audit tooling and run dependency, advisory, license, and source checks."
+commands = [
+  "cargo install cargo-audit --version 0.22.1 --locked",
+  "cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0097 --deny warnings",
+  "cargo install cargo-deny --version 0.19.6 --locked",
+  "cargo deny check advisories licenses bans sources",
+]
+reason = "Security and nightly audit proof should fail on real dependency or policy violations without unpinned tool drift."
+covered_by = ["cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0097 --deny warnings", "cargo deny check advisories licenses bans sources"]
+review_after = "2026-06-30"
+
+[[allow]]
 id = "ripr-static-exposure"
 owner = "release/ci"
 surface = "ci"
@@ -119,4 +134,17 @@ commands = [
 ]
 reason = "Runtime mutation should remain a targeted risk proof without becoming default PR cost."
 covered_by = [".github/workflows/mutation.yml"]
+review_after = "2026-06-30"
+
+[[allow]]
+id = "nightly-runtime-mutation"
+owner = "core/test"
+surface = "ci"
+behavior = "The nightly lane may install pinned cargo-mutants and run the scheduled workspace mutation backstop."
+commands = [
+  "cargo install cargo-mutants --version 26.1.2 --locked",
+  "cargo mutants --workspace --timeout 300 --output target/nightly-mutation --no-shuffle",
+]
+reason = "Nightly runtime mutation should remain slower scheduled proof while surfacing missed mutants, timeouts, and tool failures."
+covered_by = [".github/workflows/nightly.yml"]
 review_after = "2026-06-30"
