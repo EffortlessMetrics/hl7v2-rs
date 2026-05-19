@@ -367,7 +367,10 @@ owner = "platform"
 surface = "deployment"
 classification = "tooling"
 reason = "Reference deployment manifests, dashboards, and policy bundles for hl7v2-server."
-covered_by = ["docs/CI_PIPELINE.md"]
+covered_by = [
+    "cargo run -p xtask -- check-deployment-provenance",
+    "cargo run -p xtask -- gate --check",
+]
 
 # ---------------------------------------------------------------------------
 # Scripts and developer tooling
