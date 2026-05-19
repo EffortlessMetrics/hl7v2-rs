@@ -22,6 +22,10 @@ For a non-Nix setup, install:
 - Optional quality tools used by the local workflow:
   `cargo install cargo-nextest cargo-deny cargo-audit`.
 
+The checked-in `.editorconfig` keeps editor defaults aligned with repository
+formatting: UTF-8, LF line endings, final newlines, rustfmt-compatible Rust
+indentation, and two-space YAML/JSON indentation.
+
 Every `just <task>` entry in this guide has an equivalent
 `cargo run -p xtask -- <task>` form. For example, use
 `cargo run -p xtask -- setup` if `just` is not installed yet.
