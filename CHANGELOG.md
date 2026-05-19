@@ -108,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Added CPU and memory bounds to the Docker Compose validation sidecar smoke
+  stack so local operator proof cannot consume unlimited host resources.
 - Pinned the API Contracts workflow's OpenAPI, schema, and proto toolchain
   installs to exact versions for reproducible contract validation.
 - Surfaced nightly mutation and security audit failures instead of masking them,

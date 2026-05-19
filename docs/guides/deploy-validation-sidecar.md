@@ -201,6 +201,11 @@ docker compose -f infrastructure/docker/docker-compose.yml down -v
 The smoke script exercises health, readiness, redacted validation, bundle,
 replay, and corpus diff against the running sidecar.
 
+The checked-in Compose stack is intentionally bounded for local sidecar proof:
+the `hl7v2-server` service reserves 0.25 CPU and 128 MiB, and limits itself to
+1 CPU and 512 MiB. Raise those limits in a copied deployment file only after
+measuring your corpus size and expected request concurrency.
+
 The same Compose proof is available in GitHub Actions as the path-scoped
 **Server Docker Smoke** workflow. Use the manual trigger when you need hosted
 deployment proof without changing the main CI matrix.
