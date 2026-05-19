@@ -108,8 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Made routed benchmark lane failures visible by removing benchmark command
-  masking from the CI workflow.
+- Made routed benchmark lane failures visible while bounding the CI benchmark
+  sample to the internal benchmark harness.
 - Made the nightly workflow summary fail the workflow when required nightly
   jobs report failures instead of downgrading them to warnings.
 - Fixed the evidence-artifacts guide smoke so corpus diff count assertions use
