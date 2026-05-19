@@ -37,6 +37,7 @@ Before running the production publish mode, verify all of these are true:
   `tests/python_smoke/dirty_evidence_workflow.py`.
 - Optional local TestPyPI install-back reproduction passes with
   `cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --version <workspace version>`.
+  That proof installs wheel-only with pip cache disabled.
 - You have the successful **Python TestPyPI Proof** workflow run URL for this
   exact version.
 - The current version is not already present on production PyPI.
@@ -108,8 +109,9 @@ This does three things:
 1. Builds and smoke-tests the wheel.
 2. Publishes the wheel to production PyPI using Trusted Publishing.
 3. Installs `hl7v2==<workspace version>` back from PyPI in a fresh
-   virtual environment and reruns the Python smoke, evidence workflow guide,
-   and dirty evidence workflow smoke.
+   virtual environment, verifies `hl7v2.__version__ == <workspace version>`,
+   and reruns the Python smoke, evidence workflow guide, and dirty evidence
+   workflow smoke.
 
 The hosted install-back job runs the same proof boundary as the local
 reproduction command:
@@ -122,6 +124,8 @@ This keeps the workflow proof and local reproduction path aligned. A passing
 install-back job proves only the production PyPI package for the selected
 version; it does not retroactively prove TestPyPI unless the same-commit
 TestPyPI receipt is already linked.
+The proof installs with `--only-binary :all:` and `--no-cache-dir`, so it checks
+the selected public wheel rather than a source build or cached artifact.
 
 PyPI does not allow overwriting an existing file for the same version. If the
 upload fails because the version already exists, stop and choose a new workspace
@@ -134,7 +138,8 @@ A production PyPI release is complete only when all of these are true:
 
 - The manual workflow with `publish_to_pypi=true` uploads the current workspace
   version to PyPI.
-- The install-back job installs from `https://pypi.org/simple/`.
+- The install-back job installs from `https://pypi.org/simple/` and verifies
+  `hl7v2.__version__ == <workspace version>`.
 - `tests/python_smoke/smoke.py` passes against the installed PyPI package.
 - `tests/python_smoke/evidence_workflow_guide.py` passes against the installed
   PyPI package.

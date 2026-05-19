@@ -4486,6 +4486,7 @@ fn python_local_wheel_proof(
     println!("Checking Python local-wheel proof...");
 
     let metadata = MetadataCommand::new().no_deps().exec()?;
+    let expected_version = hl7v2_python_package_version(&metadata)?;
     let workspace_root = metadata.workspace_root.into_std_path_buf();
     let root = prepare_python_local_wheel_root(root, keep_existing, &workspace_root)?;
     let venv = root.join("venv");
@@ -4553,10 +4554,11 @@ fn python_local_wheel_proof(
         Some(&workspace_root),
     )?;
 
-    println!("Checking import and Python evidence helpers...");
+    println!("Checking import, version, and Python evidence helpers...");
+    let version_check = python_import_version_check_script(&expected_version);
     run_command_with_env_in_dir(
         &venv_python,
-        &["-c", "import hl7v2; print(hl7v2.__version__)"],
+        &["-c", &version_check],
         &[],
         Some(&workspace_root),
     )?;
@@ -4633,24 +4635,18 @@ fn python_public_registry_proof(
     );
     run_command_with_env_in_dir(
         &venv_python,
-        &[
-            "-m",
-            "pip",
-            "install",
-            "--index-url",
-            index_url,
-            "--no-deps",
-            "--force-reinstall",
-            &package,
-        ],
+        &python_public_registry_pip_install_args(index_url, &package),
         &[],
         Some(&workspace_root),
     )?;
 
-    println!("Checking import and Python evidence helpers from installed public package...");
+    println!(
+        "Checking import, version, and Python evidence helpers from installed public package..."
+    );
+    let version_check = python_import_version_check_script(&version);
     run_command_with_env_in_dir(
         &venv_python,
-        &["-c", "import hl7v2; print(hl7v2.__version__)"],
+        &["-c", &version_check],
         &[],
         Some(&workspace_root),
     )?;
@@ -4691,6 +4687,38 @@ fn hl7v2_python_package_version(metadata: &Metadata) -> Result<String> {
         .find(|package| package.name.as_str() == "hl7v2-python")
         .ok_or_else(|| anyhow!("cargo metadata did not include hl7v2-python"))?;
     Ok(package.version.to_string())
+}
+
+fn python_import_version_check_script(expected_version: &str) -> String {
+    let expected_assignment = format!("expected = {expected_version:?}");
+    [
+        "import hl7v2",
+        "actual = hl7v2.__version__",
+        &expected_assignment,
+        "print(actual)",
+        "if actual != expected:",
+        "    raise SystemExit(f'expected hl7v2 version {expected}, got {actual}')",
+    ]
+    .join("\n")
+}
+
+fn python_public_registry_pip_install_args<'a>(
+    index_url: &'a str,
+    package: &'a str,
+) -> Vec<&'a str> {
+    vec![
+        "-m",
+        "pip",
+        "install",
+        "--index-url",
+        index_url,
+        "--no-deps",
+        "--only-binary",
+        ":all:",
+        "--no-cache-dir",
+        "--force-reinstall",
+        package,
+    ]
 }
 
 fn python_package_index_url(index: PythonPackageIndex) -> &'static str {
@@ -10209,6 +10237,36 @@ mod tests {
             python_package_index_url(PythonPackageIndex::Pypi),
             "https://pypi.org/simple/"
         );
+    }
+
+    #[test]
+    fn python_import_version_check_script_asserts_expected_version() {
+        let script = python_import_version_check_script("1.5.0");
+        assert!(script.contains("import hl7v2"));
+        assert!(script.contains("actual = hl7v2.__version__"));
+        assert!(script.contains("expected = \"1.5.0\""));
+        assert!(script.contains("actual != expected"));
+        assert!(script.contains("raise SystemExit"));
+    }
+
+    #[test]
+    fn python_public_registry_pip_install_is_wheel_only_and_cache_free() {
+        let args = python_public_registry_pip_install_args(
+            "https://test.pypi.org/simple/",
+            "hl7v2==1.5.0",
+        );
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["--index-url", "https://test.pypi.org/simple/"])
+        );
+        assert!(args.contains(&"--no-deps"));
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["--only-binary", ":all:"])
+        );
+        assert!(args.contains(&"--no-cache-dir"));
+        assert!(args.contains(&"--force-reinstall"));
+        assert_eq!(args.last(), Some(&"hl7v2==1.5.0"));
     }
 
     #[test]
