@@ -4635,16 +4635,7 @@ fn python_public_registry_proof(
     );
     run_command_with_env_in_dir(
         &venv_python,
-        &[
-            "-m",
-            "pip",
-            "install",
-            "--index-url",
-            index_url,
-            "--no-deps",
-            "--force-reinstall",
-            &package,
-        ],
+        &python_public_registry_pip_install_args(index_url, &package),
         &[],
         Some(&workspace_root),
     )?;
@@ -4709,6 +4700,25 @@ fn python_import_version_check_script(expected_version: &str) -> String {
         "    raise SystemExit(f'expected hl7v2 version {expected}, got {actual}')",
     ]
     .join("\n")
+}
+
+fn python_public_registry_pip_install_args<'a>(
+    index_url: &'a str,
+    package: &'a str,
+) -> Vec<&'a str> {
+    vec![
+        "-m",
+        "pip",
+        "install",
+        "--index-url",
+        index_url,
+        "--no-deps",
+        "--only-binary",
+        ":all:",
+        "--no-cache-dir",
+        "--force-reinstall",
+        package,
+    ]
 }
 
 fn python_package_index_url(index: PythonPackageIndex) -> &'static str {
@@ -10237,6 +10247,26 @@ mod tests {
         assert!(script.contains("expected = \"1.5.0\""));
         assert!(script.contains("actual != expected"));
         assert!(script.contains("raise SystemExit"));
+    }
+
+    #[test]
+    fn python_public_registry_pip_install_is_wheel_only_and_cache_free() {
+        let args = python_public_registry_pip_install_args(
+            "https://test.pypi.org/simple/",
+            "hl7v2==1.5.0",
+        );
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["--index-url", "https://test.pypi.org/simple/"])
+        );
+        assert!(args.contains(&"--no-deps"));
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["--only-binary", ":all:"])
+        );
+        assert!(args.contains(&"--no-cache-dir"));
+        assert!(args.contains(&"--force-reinstall"));
+        assert_eq!(args.last(), Some(&"hl7v2==1.5.0"));
     }
 
     #[test]

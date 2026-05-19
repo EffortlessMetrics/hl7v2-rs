@@ -16,8 +16,8 @@ cargo +1.95.0 run -p xtask -- python-public-registry-proof --index pypi --versio
 
 It creates a scratch virtual environment, installs
 `hl7v2==<version>` from the selected public package index with
-`--no-deps --force-reinstall`, imports `hl7v2`, verifies
-`hl7v2.__version__ == <version>`, and runs:
+`--no-deps --only-binary :all: --no-cache-dir --force-reinstall`,
+imports `hl7v2`, verifies `hl7v2.__version__ == <version>`, and runs:
 
 ```text
 tests/python_smoke/smoke.py

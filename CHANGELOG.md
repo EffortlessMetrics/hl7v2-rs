@@ -118,6 +118,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   build and install-back evidence uses the declared release toolchain.
 - Hardened Python wheel and public-registry proof commands to fail when the
   imported `hl7v2` module version does not match the expected package version.
+- Hardened public Python registry install-back proof to install wheel artifacts
+  only with pip caching disabled.
 - Aligned the e2e HTTP client test dependency on rustls so all-features
   workspace checks do not re-enable native TLS through `reqwest` defaults.
 - Added CPU and memory bounds to the Docker Compose validation sidecar smoke

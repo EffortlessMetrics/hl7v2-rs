@@ -74,10 +74,11 @@ cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --ve
 
 That command creates a scratch virtual environment, installs
 `hl7v2==<workspace version>` from `https://test.pypi.org/simple/` with
-`--no-deps --force-reinstall`, imports `hl7v2`, verifies
-`hl7v2.__version__ == <workspace version>`, and runs the same three Python
-smoke/evidence scripts. It is a TestPyPI install-back proof only after the
-package is actually visible on TestPyPI; it is not a production PyPI claim.
+`--no-deps --only-binary :all: --no-cache-dir --force-reinstall`, imports
+`hl7v2`, verifies `hl7v2.__version__ == <workspace version>`, and runs the
+same three Python smoke/evidence scripts. It is a TestPyPI install-back proof
+only after the package is actually visible on TestPyPI; it is not a production
+PyPI claim.
 
 ## Manual TestPyPI Proof
 
