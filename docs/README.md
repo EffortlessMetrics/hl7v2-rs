@@ -10,6 +10,7 @@ with the current sources below before reading older planning documents.
 | --- | --- |
 | Current release and feature status | [STATUS.md](STATUS.md) |
 | Current roadmap and next work | [../ROADMAP.md](../ROADMAP.md) |
+| Current blockers and issue map | [ISSUES_AND_NEXT_STEPS.md](ISSUES_AND_NEXT_STEPS.md) |
 | Support tiers and proof commands | [status/SUPPORT_TIERS.md](status/SUPPORT_TIERS.md) |
 | Contributor workflow | [../CONTRIBUTING.md](../CONTRIBUTING.md), [../DEVELOPMENT.md](../DEVELOPMENT.md) |
 | Task-focused evidence workflows | [guides/README.md](guides/README.md) |
@@ -151,7 +152,6 @@ for live navigation.
 | [TESTING_ARCHITECTURE.md](TESTING_ARCHITECTURE.md) | Historical testing architecture narrative. Examples are updated where practical, but the rollout story predates the crate collapse. |
 | [TESTING_ANALYSIS.md](TESTING_ANALYSIS.md) and [TESTING_SUMMARY.md](TESTING_SUMMARY.md) | Dated testing snapshots from the former microcrate topology. |
 | [MICROCRATE_ANALYSIS.md](MICROCRATE_ANALYSIS.md) | Historical analysis of the retired microcrate structure. |
-| [ISSUES_AND_NEXT_STEPS.md](ISSUES_AND_NEXT_STEPS.md) | Pre-release planning snapshot, not the current work queue. |
 | [TASK_COMPLETION_SUMMARY.md](TASK_COMPLETION_SUMMARY.md) | Earlier documentation alignment receipt. |
 | [../TESTING.md](../TESTING.md) | Historical root testing guide; current gates live in `DEVELOPMENT.md` and `docs/CI_PIPELINE.md`. |
 | [../SESSION_SUMMARY.md](../SESSION_SUMMARY.md) | Historical session receipt from 2025-11-19. |

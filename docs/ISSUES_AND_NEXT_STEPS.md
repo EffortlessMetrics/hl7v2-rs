@@ -1,119 +1,148 @@
 # Issues, Blockers, Next Steps, and Friction Points
 
-## Overview
-This document identifies current issues, blockers, next steps, and areas of friction in the hl7v2-rs project based on codebase analysis, documentation review, and implementation status.
+> Last updated: 2026-05-18
 
-## Current Issues and Blockers
+This document is a current navigation aid for the remaining product gaps. It
+does not replace the status, support-tier, roadmap, parity, or receipt sources
+of truth:
 
-### Test Coverage Gaps
-Based on the STATUS.md file (last updated 2026-03-05), several crates have test coverage below 90%, indicating potential gaps in testing:
+- [docs/STATUS.md](STATUS.md)
+- [docs/status/SUPPORT_TIERS.md](status/SUPPORT_TIERS.md)
+- [ROADMAP.md](../ROADMAP.md)
+- [policy/evidence-parity.toml](../policy/evidence-parity.toml)
+- [docs/guides/README.md](guides/README.md)
 
-- **hl7v2-cli**: 75% coverage (lowest)
-- **hl7v2-server**: 80% coverage
-- **hl7v2-gen**: 80% coverage
-- **hl7v2-validation**: 82% coverage
-- **hl7v2-prof**: 85% coverage
-- **hl7v2-query**: 90% coverage
-- **hl7v2-stream**: 88% coverage
-- **hl7v2-writer**: 94% coverage
-- **hl7v2-parser**: 95% coverage
-- **hl7v2-core**: 92% coverage
+The stale v1.2/v1.3 planning snapshot that previously lived here has been
+retired. It described gRPC, Python bindings, and enterprise evidence work as
+not started, which is no longer true for current `main`.
 
-**Impact**: Lower test coverage increases the risk of undetected bugs and reduces confidence in making changes to these components.
+## Current Blockers
 
-### Documentation Debt
-Several documentation files serve only as redirects:
-- `IMPLEMENTATION_PLAN.md`: States it has been superseded by ROADMAP.md
-- `IMPLEMENTATION_STATUS.md`: States it has moved to docs/STATUS.md
+### Public Python package proof
 
-While not critical, this creates minor friction for users seeking information.
+The public Python package is `hl7v2`; the crates.io crate `hl7v2-python` is
+only the PyO3 binding backend. The backend crate is published as binding
+infrastructure, but that does not prove the public Python package.
 
-### v1.3.0 Features Not Yet Implemented
-The ROADMAP.md indicates v1.3.0 is in the planning phase with the following features not yet started:
-- gRPC Support
-- Language Bindings (Python/Java)
-- WASM Target
-- Custom Field Rules
+The remaining blocker is external Trusted Publisher setup for TestPyPI:
 
-These represent significant upcoming work that hasn't begun implementation.
+- Issue: [#563](https://github.com/EffortlessMetrics/hl7v2-rs/issues/563)
+- Project: `hl7v2`
+- Owner: `EffortlessMetrics`
+- Repository: `hl7v2-rs`
+- Workflow: `python-testpypi.yml`
+- Environment: `testpypi`
 
-## Next Steps (Based on SESSION_SUMMARY.md)
+Required proof after setup:
 
-### Immediate Priorities (Current Sprint)
-According to the SESSION_SUMMARY.md file, the team has outlined an 8-week sprint plan:
+```text
+cargo +1.95.0 run -p xtask -- python-public-registry-proof --index testpypi --version <version>
+```
 
-**Weeks 1-2 (Now)**: Network Module Foundation
-- MLLP codec implementation
-- TCP server foundation
+The receipt must record upload, install-back, `import hl7v2`, Python smoke,
+evidence workflow, and dirty evidence workflow success. No token fallback and
+no `skip-existing` are allowed.
 
-**Weeks 3-4 (Next)**: Backpressure & Memory Bounds
-- Implementation of proper channel-based flow control
-- Configurable memory limits to prevent DoS
+### Production PyPI decision
 
-**Weeks 5-6 (Later)**: HTTP Server with Axum
-- Production-ready REST API implementation
-- OpenAPI/Swagger UI integration
+Production PyPI remains unreleased. It requires an explicit decision after
+same-commit TestPyPI proof exists. TestPyPI success must not silently become a
+production PyPI release.
 
-**Week 7**: Property-Based Testing
-- Implementation of property-based testing for edge cases
+Required proof after approval:
 
-**Week 8**: Documentation & Examples
-- Comprehensive documentation updates
-- Working examples for all features
+```text
+cargo +1.95.0 run -p xtask -- python-public-registry-proof --index pypi --version <version>
+```
 
-## Friction Points and Areas for Improvement
+### Public Python parity promotion
 
-### 1. Test Coverage Improvement
-The varying test coverage percentages suggest an opportunity to:
-- Establish minimum test coverage thresholds (e.g., 90% for all crates)
-- Focus testing efforts on lower-coverage crates (CLI, server, gen)
-- Consider property-based testing for complex validation logic
+Python evidence parity is strong for local wheel proof, but it remains
+local-wheel-scoped until TestPyPI or PyPI install-back succeeds. After public
+registry proof, update the parity state and support tiers to distinguish
+TestPyPI proof from production PyPI proof.
 
-### 2. Documentation Consistency
-While the ADR system is well-established, some older documents duplicate information:
-- Consider consolidating planning documents
-- Ensure all crate-specific READMEs and CLAUDE files are complete and up-to-date
+## Current Maintenance Work
 
-### 3. v1.3.0 Preparation
-Although v1.3.0 is still in planning, preliminary work could include:
-- Creating spike solutions for gRPC integration with Tonic
-- Researching WebAssembly target options for Rust
-- Defining initial language binding interfaces
-- Designing the custom field rules extension point
+### Evidence parity
 
-### 4. Performance Benchmarks
-The repository has a `hl7v2-bench` crate, but it would be beneficial to:
-- Establish baseline performance benchmarks for v1.2.0
-- Create performance regression tests
-- Document performance characteristics in the README or STATUS.md
+Keep parity claims mapped to executable proof commands rather than prose. The
+current shared semantics are tracked in
+[HL7V2-SPEC-0006](specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md) and
+[policy/evidence-parity.toml](../policy/evidence-parity.toml).
 
-### 5. Developer Onboarding
-While CONTRIBUTING.md exists, consider:
-- Creating a "Getting Started" guide for new contributors
-- Adding more detailed examples in the examples/ directory
-- Creating tutorial-style documentation for common use cases
+Core acceptance commands include:
 
-## Recommendations
+```text
+cargo +1.95.0 run -p xtask -- check-evidence-parity
+cargo +1.95.0 run -p xtask -- check-evidence-parity-acceptance
+cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity
+cargo +1.95.0 run -p xtask -- check-bundle-replay-parity
+cargo +1.95.0 run -p xtask -- check-safe-error-phi-parity
+cargo +1.95.0 run -p xtask -- check-schema-version-parity
+```
 
-### Short-term (Current Sprint)
-1. Focus on completing the Network Module Foundation (weeks 1-2)
-2. Begin implementing backpressure mechanisms (weeks 3-4)
-3. Address lowest test coverage areas (CLI first, then server/gen)
+### Operator workflows
 
-### Medium-term (v1.3.0 Preparation)
-1. Create technical spikes for gRPC/WASM/Language bindings
-2. Define clear interfaces for custom field rules
-3. Begin drafting ADRs for v1.3.0 architectural decisions
-4. Establish contribution guidelines for new feature areas
+The first-use, sidecar, safe support-bundle, artifact interpretation, vendor
+upgrade diff, and operator error guidance paths are now executable guide smokes.
+Keep future changes tied to the guide commands listed in
+[docs/status/SUPPORT_TIERS.md](status/SUPPORT_TIERS.md).
 
-### Long-term (v2.0.0 Vision)
-1. Monitor community feedback on v1.2.0 for HIPAA readiness requirements
-2. Research cloud storage integration patterns
-3. Explore analytics dashboard technologies
-4. Begin database integration prototypes
+### Dirty real-world corpus proof
 
-## Conclusion
+The dirty corpus should continue expanding with synthetic or redacted fixtures
+that represent vendor-shaped HL7, including:
 
-The hl7v2-rs project has successfully achieved v1.2.0 production readiness with strong foundational work completed. The primary focus should now be on executing the defined sprint plan to solidify the network and HTTP server capabilities, while beginning to lay the groundwork for v1.3.0 enterprise features.
+- Z-segments
+- odd MSH sender/receiver fields
+- malformed delimiters
+- legacy timestamp and encoding variants
+- partial batch-like inputs
+- large OBX payloads
+- MLLP wrapper and failure traces
+- redacted support bundles
 
-Addressing the test coverage gaps, particularly in the CLI and server components, will increase confidence in the codebase as it grows in complexity. The established ADR process provides an excellent mechanism for documenting architectural decisions as the project evolves toward v1.3.0 and beyond.
+New fixture classes should update the corpus receipts and keep Rust, CLI,
+REST/gRPC, and local Python wheel expectations aligned.
+
+### gRPC operational hardening
+
+gRPC evidence semantics are broadly covered by contract tests, but the support
+tier remains beta while transport lifecycle and operational deployment hardening
+catch up with the REST sidecar surface.
+
+### Advisory RIPR calibration
+
+RIPR remains advisory static mutation-exposure analysis. Continue calibrating it
+against real PR traffic before considering any blocking policy.
+
+## Later Work
+
+### TypeScript and WASM
+
+Do not start npm/WASM implementation until Python public proof is resolved or
+explicitly parked. The public npm package identity is:
+
+```text
+@effortlessmetrics/hl7v2
+```
+
+Do not use `hl7v2-rs` as the public npm package. Future backend crates such as
+`hl7v2-wasm` or `hl7v2-node` are binding infrastructure, not a return to public
+parser/model/redaction/MLLP microcrates.
+
+## No Longer Current
+
+The following old claims are no longer valid for current `main`:
+
+- v1.2.0 is the current production-readiness target.
+- v1.3.0 is still only planning.
+- gRPC support has not started.
+- language bindings have not started.
+- the old parser/model/redaction/MLLP microcrate topology is the product
+  surface.
+- local Python wheel proof should be treated as public TestPyPI or PyPI proof.
+
+Use [docs/STATUS.md](STATUS.md) and [ROADMAP.md](../ROADMAP.md) for current
+release and next-work truth before acting on older planning receipts.
