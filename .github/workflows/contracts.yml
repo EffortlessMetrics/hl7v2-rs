@@ -47,13 +47,13 @@ jobs:
           node-version: '24'
 
       - name: Install Spectral
-        run: npm install -g @stoplight/spectral-cli
+        run: npm install -g @stoplight/spectral-cli@6.16.0
 
       - name: Validate OpenAPI
         run: spectral lint api/openapi/hl7v2-api-v1.yaml --ruleset .spectral.yml
 
       - name: Install Redocly
-        run: npm install -g @redocly/cli
+        run: npm install -g @redocly/cli@2.31.1
 
       - name: Generate API Docs
         run: redocly build-docs api/openapi/hl7v2-api-v1.yaml -o docs/api-reference.html
@@ -78,7 +78,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: 'stable'
+          go-version: '1.26.3'
 
       - name: Install protoc-gen-doc
         run: go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
@@ -116,7 +116,7 @@ jobs:
           toolchain: stable
 
       - name: Install ajv-cli
-        run: npm install -g ajv-cli ajv-formats
+        run: npm install -g ajv-cli@5.0.0 ajv-formats@3.0.1
 
       - name: Validate Profile Schemas
         run: |

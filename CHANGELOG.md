@@ -108,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Pinned the API Contracts workflow's OpenAPI, schema, and proto toolchain
+  installs to exact versions for reproducible contract validation.
 - Surfaced nightly mutation and security audit failures instead of masking them,
   while pinning the nightly audit and mutation tools.
 - Pinned the Security workflow's `cargo-audit` install to a specific version
