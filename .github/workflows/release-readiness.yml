@@ -85,11 +85,16 @@ jobs:
               raise SystemExit(1)
           PY
 
-      - name: Check Rust publish graph
-        run: cargo run -p xtask -- publish-plan
+      - name: Check Rust publish surfaces
+        run: |
+          cargo run -p xtask -- publish-plan --surface primary
+          cargo run -p xtask -- publish-plan --surface bindings
+          cargo run -p xtask -- publish-plan --surface all-publishable
 
-      - name: Dry-run Rust publish graph
-        run: cargo run -p xtask -- publish-dry-run --workspace-patches --allow-dirty
+      - name: Dry-run Rust publish surfaces
+        run: |
+          cargo run -p xtask -- publish-dry-run --surface primary --workspace-patches --allow-dirty
+          cargo run -p xtask -- publish-dry-run --surface bindings --workspace-patches --allow-dirty
 
       - name: Check Python distribution boundary
         run: |
@@ -99,6 +104,9 @@ jobs:
             echo
             echo "- Public Python distribution: hl7v2"
             echo "- Internal Rust binding crate: hl7v2-python"
-            echo "- Rust crates.io publish graph remains hl7v2, hl7v2-server, hl7v2-cli"
+            echo "- Primary Rust product graph: hl7v2, hl7v2-server, hl7v2-cli"
+            echo "- Binding backend graph: hl7v2-python"
+            echo "- Selected v1.5.0 crates.io graph: hl7v2, hl7v2-python, hl7v2-server, hl7v2-cli"
+            echo "- hl7v2-python remains binding backend infrastructure, not the recommended Rust API"
             echo "- No TestPyPI/PyPI success is claimed by this Rust readiness workflow"
           } >> "$GITHUB_STEP_SUMMARY"
