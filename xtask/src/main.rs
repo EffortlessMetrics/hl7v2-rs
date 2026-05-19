@@ -10161,6 +10161,7 @@ const DEPLOYMENT_PROVENANCE_PATHS: &[&str] = &[
     "DEPLOYMENT.md",
     "infrastructure/grafana/README.md",
     "infrastructure/docker/docker-compose.yml",
+    "infrastructure/k8s/deployment.digest.example.yaml",
     "infrastructure/k8s/deployment.yaml",
 ];
 

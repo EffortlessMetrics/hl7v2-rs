@@ -1,0 +1,33 @@
+# Digest-pinned deployment image example.
+#
+# Render this file before applying it. Kubernetes does not expand the shell
+# placeholder below; it exists so deployment proof cannot silently fall back to
+# a floating or version-only image reference.
+#
+# Example:
+#
+#   HL7V2_IMAGE_DIGEST='ghcr.io/effortlessmetrics/hl7v2-rs@sha256:<receipted-digest>'
+#   envsubst < infrastructure/k8s/deployment.digest.example.yaml > target/hl7v2-deployment.digest.yaml
+#   kubectl apply -f target/hl7v2-deployment.digest.yaml
+#
+# Do not replace the digest placeholder with a tag-only image in production
+# provenance receipts.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hl7v2-server
+  labels:
+    app: hl7v2-server
+    version: v1.5.0
+spec:
+  template:
+    metadata:
+      labels:
+        app: hl7v2-server
+        version: v1.5.0
+    spec:
+      containers:
+      - name: hl7v2
+        image: "${HL7V2_IMAGE_DIGEST:?set HL7V2_IMAGE_DIGEST to a digest-pinned hl7v2 image reference}"
+        imagePullPolicy: IfNotPresent
