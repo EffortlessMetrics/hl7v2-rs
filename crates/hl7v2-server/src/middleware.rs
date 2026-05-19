@@ -52,11 +52,14 @@ pub async fn auth_middleware(
 ) -> std::result::Result<Response, StatusCode> {
     const API_KEY_HEADER: &str = "X-API-Key";
 
-    // If no API key is configured, allow all requests (this branch should not
-    // be hit if the middleware is applied correctly via build_router)
+    // ADR-013 requires fail-closed behavior if the authentication layer is
+    // active without a configured key.
     let expected_key = match &state.api_key {
         Some(key) => key,
-        None => return Ok(next.run(request).await),
+        None => {
+            tracing::error!("Authentication middleware active without configured API key");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
     };
 
     // Get provided API key from request
@@ -111,6 +114,13 @@ pub fn create_custom_concurrency_limit_layer(max: usize) -> tower::limit::Concur
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        metrics::init_metrics_recorder,
+        server::{AppState, ServerConfig},
+    };
+    use axum::{Router, body::Body, http::Request as HttpRequest, middleware, routing::get};
+    use std::{sync::Arc, time::Instant};
+    use tower::ServiceExt;
 
     #[test]
     fn test_create_concurrency_limit_layer() {
@@ -124,5 +134,39 @@ mod tests {
         // Test that we can create a custom concurrency limit layer
         let _layer = create_custom_concurrency_limit_layer(50);
         // No panic means success
+    }
+
+    #[tokio::test]
+    async fn auth_middleware_fails_closed_without_configured_api_key() {
+        let metrics_handle = init_metrics_recorder();
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
+            cors_allowed_origins: Default::default(),
+            readiness_checks: ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
+        });
+
+        let app = Router::new()
+            .route("/protected", get(|| async { StatusCode::OK }))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth_middleware,
+            ));
+
+        let response = app
+            .oneshot(
+                HttpRequest::builder()
+                    .uri("/protected")
+                    .body(Body::empty())
+                    .expect("test request should build"),
+            )
+            .await
+            .expect("middleware response should be returned");
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 }
