@@ -116,6 +116,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   administrator password to `admin`.
 - Pinned Python wheel proof workflows to Rust 1.95.0 so public Python package
   build and install-back evidence uses the declared release toolchain.
+- Hardened Python wheel and public-registry proof commands to fail when the
+  imported `hl7v2` module version does not match the expected package version.
 - Aligned the e2e HTTP client test dependency on rustls so all-features
   workspace checks do not re-enable native TLS through `reqwest` defaults.
 - Added CPU and memory bounds to the Docker Compose validation sidecar smoke

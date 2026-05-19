@@ -108,8 +108,9 @@ This does three things:
 1. Builds and smoke-tests the wheel.
 2. Publishes the wheel to production PyPI using Trusted Publishing.
 3. Installs `hl7v2==<workspace version>` back from PyPI in a fresh
-   virtual environment and reruns the Python smoke, evidence workflow guide,
-   and dirty evidence workflow smoke.
+   virtual environment, verifies `hl7v2.__version__ == <workspace version>`,
+   and reruns the Python smoke, evidence workflow guide, and dirty evidence
+   workflow smoke.
 
 The hosted install-back job runs the same proof boundary as the local
 reproduction command:
@@ -134,7 +135,8 @@ A production PyPI release is complete only when all of these are true:
 
 - The manual workflow with `publish_to_pypi=true` uploads the current workspace
   version to PyPI.
-- The install-back job installs from `https://pypi.org/simple/`.
+- The install-back job installs from `https://pypi.org/simple/` and verifies
+  `hl7v2.__version__ == <workspace version>`.
 - `tests/python_smoke/smoke.py` passes against the installed PyPI package.
 - `tests/python_smoke/evidence_workflow_guide.py` passes against the installed
   PyPI package.
