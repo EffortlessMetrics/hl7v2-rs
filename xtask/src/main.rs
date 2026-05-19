@@ -177,6 +177,8 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
         check_doc_links()?;
         println!("Checking Python publish policy...");
         check_python_publish_policy()?;
+        println!("Checking deployment provenance...");
+        check_deployment_provenance()?;
     } else if changed_docs_require_link_check {
         println!("Checking Markdown local links for crate-scoped doc changes...");
         check_doc_links()?;

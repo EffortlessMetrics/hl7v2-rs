@@ -259,11 +259,12 @@ the sidecar down.
 Deployment provenance examples are now governed by
 `cargo run -p xtask -- check-deployment-provenance`, which rejects floating
 image tags and keeps checked-in hl7v2 image examples aligned with the workspace
-version unless they use a digest. The Kubernetes sidecar manifest remains a
-version-tagged example for local/internal smoke use; production provenance
+version unless they use a digest. This checker is also part of
+`cargo run -p xtask -- gate --check`. The Kubernetes sidecar manifest remains
+a version-tagged example for local/internal smoke use; production provenance
 receipts should render `infrastructure/k8s/deployment.digest.example.yaml` with
-a registry digest before applying it. No deployment success is claimed without a
-separate deployment and smoke receipt.
+a registry digest before applying it. No deployment success is claimed without
+a separate deployment and smoke receipt.
 The operator evidence-artifacts interpretation guide is now executable with
 `cargo run -p xtask -- check-evidence-artifacts-guide`; it generates doctor,
 profile, validation, corpus, redaction, support-bundle, manifest,
