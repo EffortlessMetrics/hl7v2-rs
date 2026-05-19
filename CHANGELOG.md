@@ -42,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   after public registry upload succeeds.
 - Added `xtask check-deployment-provenance` to reject floating deployment
   image examples and keep hl7v2 image tags aligned with the workspace version.
+- Aligned legacy ADR toolchain and package-surface examples with the current
+  Rust 1.95 support boundary and post-demicrocrating product graph.
 - Routed TestPyPI/PyPI install-back workflow jobs through
   `xtask python-public-registry-proof` so hosted public-registry proof and
   local reproduction use the same command boundary.

@@ -23,14 +23,14 @@ The system has several hard requirements driven by the healthcare domain:
 
 ## Decision
 
-We will use **Rust** (edition 2024, MSRV 1.92) as the sole implementation language for all crates in the workspace, licensed under AGPL-3.0-or-later.
+We will use **Rust** (edition 2024, current MSRV 1.95) as the sole implementation language for all crates in the workspace, licensed under AGPL-3.0-or-later.
 
 **Rationale:**
 
 1. **Memory safety without garbage collection** -- Rust's ownership model and borrow checker eliminate entire classes of memory bugs (buffer overflows, dangling pointers, data races) at compile time, without introducing GC pauses. This is critical for a system processing PHI where memory corruption could expose sensitive data.
 2. **Zero-cost abstractions** -- Traits, generics, and iterators compile to the same machine code as hand-written equivalents, enabling high-throughput message processing without runtime overhead.
 3. **Strong type system** -- Algebraic data types (`enum`), pattern matching, and `Result<T, E>` error handling catch structural and logical errors at compile time. Each crate defines its own error type via `thiserror`, preserving error context through `#[source]` chains.
-4. **Cargo workspace** -- Cargo's native workspace support enables the microcrate architecture (28 crates organized in layers: microcrates, mid-level crates, application crates, testing crates) with centralized dependency management via `[workspace.dependencies]`.
+4. **Cargo workspace** -- Cargo's native workspace support enables a governed package graph, centralized dependency management via `[workspace.dependencies]`, and the current split between primary Rust product crates, binding backend crates, and internal test/tool crates.
 5. **Ecosystem maturity** -- Production-grade crates exist for every layer of the stack:
    - Async runtime: `tokio 1.50.0`
    - HTTP server: `axum 0.8.8`
@@ -50,7 +50,7 @@ We will use **Rust** (edition 2024, MSRV 1.92) as the sole implementation langua
 - **Eliminates memory safety vulnerabilities** -- No buffer overflows, use-after-free, or data races in safe Rust code; critical for PHI handling.
 - **Predictable latency** -- No GC pauses; deterministic memory management through RAII and ownership.
 - **Compile-time correctness** -- Strong typing catches field-access errors, delimiter mismatches, and protocol violations before runtime.
-- **Modular architecture** -- Cargo workspace supports 28 crates with clear dependency layers (`microcrates -> core -> prof/gen -> cli/server`), enabling consumers to depend on only what they need.
+- **Modular architecture** -- Cargo workspace supports the current product surfaces (`hl7v2`, `hl7v2-cli`, `hl7v2-server`), governed binding backend infrastructure (`hl7v2-python`), and internal test/bench/tool crates without making implementation modules public microcrates.
 - **Single binary deployment** -- Statically linked binaries simplify deployment in containerized healthcare environments.
 - **Performance ceiling** -- Zero-cost abstractions and no runtime overhead allow scaling to high message volumes without language-level bottlenecks.
 
@@ -136,13 +136,21 @@ Go's type system is too weak for modeling HL7v2's complex nested structure (mess
 - Undefined behavior is pervasive and difficult to audit.
 
 **Why not chosen:**
-Memory safety is non-negotiable for a system processing PHI. C++ offers equivalent performance to Rust but without safety guarantees. The lack of a standard package manager makes the 28-crate modular architecture impractical.
+Memory safety is non-negotiable for a system processing PHI. C++ offers equivalent performance to Rust but without safety guarantees. The lack of a standard package manager makes the governed Cargo workspace and package-boundary model impractical.
 
 ## Implementation Notes
 
 ### Workspace Structure
 
-The workspace is organized in `Cargo.toml` with 28 member crates following a layered dependency architecture:
+The original implementation used a larger layered microcrate workspace. That
+historical direction has since been superseded by
+[ADR-0015](0015-collapse-public-crate-surface.md): the current target keeps
+`hl7v2`, `hl7v2-cli`, and `hl7v2-server` as the primary Rust product graph,
+keeps binding backends such as `hl7v2-python` as language-boundary
+infrastructure, and keeps parser/model/redaction/MLLP implementation units as
+modules rather than public microcrates.
+
+The original workspace snapshot was:
 
 ```toml
 [workspace]
@@ -188,11 +196,11 @@ resolver = "2"
 ```toml
 [workspace.package]
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.95"
 license = "AGPL-3.0-or-later"
 ```
 
-Edition 2024 enables the latest language features. MSRV 1.92 ensures compatibility with recent stable toolchains while allowing use of newer features like improved `async` support.
+Edition 2024 enables the current language surface, and Rust 1.95 is the v1.5.0 support boundary. `rust-toolchain.toml`, CI MSRV smoke, and the workspace package metadata own the active toolchain truth.
 
 ### Error Handling Pattern
 

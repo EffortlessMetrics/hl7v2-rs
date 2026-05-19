@@ -68,7 +68,7 @@ and `schemas/evidence/`.
 Docs-only ADR changes use:
 
 ```powershell
-cargo +1.93.0 run -p xtask -- check-doc-links
-cargo +1.93.0 run -p xtask -- publish-plan
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.93.0 run -p xtask -- gate --check --changed
+cargo +1.95.0 run -p xtask -- check-doc-links
+cargo +1.95.0 run -p xtask -- publish-plan
+$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.95.0 run -p xtask -- gate --check --changed
 ```

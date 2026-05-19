@@ -12,7 +12,7 @@
 
 Building a healthcare integration system introduces several environmental challenges:
 
-1. **Toolchain drift**: Developers on different machines may have different Rust versions. The project targets Rust edition 2024 with MSRV 1.92, and even minor version differences can cause compilation failures or behavioral changes.
+1. **Toolchain drift**: Developers on different machines may have different Rust versions. The project targets Rust edition 2024 with MSRV 1.95, and even minor version differences can cause compilation failures or behavioral changes.
 
 2. **System library dependencies**: The project depends on OpenSSL for TLS support in MLLP and HTTP servers. OpenSSL versions and linking behavior vary across Linux distributions, macOS (which ships LibreSSL), and Windows.
 
@@ -168,7 +168,9 @@ The `flake.nix` is organized into four outputs:
 
 ### Pinned Rust Toolchain
 
-The Rust toolchain is pinned via `rust-overlay` with MSRV 1.92 parity:
+The Rust toolchain is supplied through the locked `rust-overlay`, while the
+active non-Nix local/CI toolchain boundary is pinned in `rust-toolchain.toml`
+to Rust 1.95.0:
 
 ```nix
 rustToolchain = pkgs.rust-bin.stable.latest.default.override {
@@ -176,7 +178,9 @@ rustToolchain = pkgs.rust-bin.stable.latest.default.override {
 };
 ```
 
-This ensures all developers and CI use the same compiler version with identical extensions.
+The Cargo workspace version also drives the Nix package and Docker image tag.
+This keeps Nix image metadata aligned with the published Rust release while
+the repository-level Rust 1.95.0 pin remains the active MSRV truth.
 
 ### Development Shell Tools
 

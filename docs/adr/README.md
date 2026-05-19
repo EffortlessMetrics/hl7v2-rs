@@ -46,6 +46,10 @@ We use the format popularized by Michael Nygard:
 
 ## Recent Closeouts
 
+- 2026-05-19: The early Rust/Nix ADRs now point at the current Rust 1.95
+  support boundary and the post-demicrocrating product graph. Historical
+  microcrate notes are superseded by ADR-0015, not reopened as the target
+  architecture.
 - 2026-05-14: #604-#608 closed the package-boundary policy train. The repo now
   distinguishes the primary Rust product graph from binding backend crates in
   ADRs, status docs, Python backend metadata, and `xtask publish-plan`
