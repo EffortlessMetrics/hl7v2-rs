@@ -108,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Made the nightly workflow summary fail the workflow when required nightly
+  jobs report failures instead of downgrading them to warnings.
 - Fixed the evidence-artifacts guide smoke so corpus diff count assertions use
   the current dirty real-world fixture directories instead of stale after-counts.
 - Added synchronize-only concurrency controls to the API Contracts and Security
