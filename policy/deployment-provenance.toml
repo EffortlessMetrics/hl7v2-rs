@@ -1,0 +1,3 @@
+[rules]
+forbid_latest = true
+warn_missing_digest_for_production = true

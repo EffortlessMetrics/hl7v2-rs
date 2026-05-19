@@ -58,6 +58,7 @@ fn main() -> Result<()> {
         },
         Commands::CheckFilePolicy => check_file_policy()?,
         Commands::CheckDocLinks => check_doc_links()?,
+        Commands::CheckSpecPolicyLinks => check_spec_policy_links()?,
         Commands::CheckPythonPublishPolicy => check_python_publish_policy()?,
         Commands::PythonLocalWheelProof {
             root,
@@ -12410,4 +12411,51 @@ mode = "blocking"
         }
         Ok(())
     }
+}
+
+fn check_spec_policy_links() -> Result<()> {
+    let specs_dir = Path::new("docs/specs");
+    let readme = fs::read_to_string(specs_dir.join("README.md"))?;
+    let spec_files: Vec<_> = fs::read_dir(specs_dir)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("HL7V2-SPEC-") && n.ends_with(".md"))
+        })
+        .collect();
+    for path in &spec_files {
+        let name = path.file_name().unwrap().to_string_lossy();
+        if !readme.contains(name.as_ref()) {
+            return Err(anyhow!("spec README missing index entry for {}", name));
+        }
+        let text = fs::read_to_string(path)?;
+        if text.contains("Status: Accepted")
+            && !(text.contains("policy/") || text.contains("cargo "))
+        {
+            return Err(anyhow!(
+                "accepted spec {} missing policy links or proof command",
+                name
+            ));
+        }
+        for cap in text.match_indices("policy/") {
+            let frag = &text[cap.0..];
+            if let Some(end) = frag.find(".toml") {
+                let rel = &frag[..end + 5];
+                if rel.contains("*") || rel.contains("<") || rel.contains(">") {
+                    continue;
+                }
+                if !Path::new(rel).exists() {
+                    return Err(anyhow!(
+                        "spec {} references missing policy file {}",
+                        name,
+                        rel
+                    ));
+                }
+            }
+        }
+    }
+    println!("spec index/policy links OK");
+    Ok(())
 }

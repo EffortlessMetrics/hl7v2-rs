@@ -72,6 +72,16 @@ enough for release posture.
 Cost-aware verification must route proof, not remove proof. The hard rules in
 the canonical CI policy remain binding.
 
+
+## Hard CI Visibility Rules
+
+- Required proof jobs must not hide command failures with `|| true`, `|| echo`, missing `pipefail`, or blanket `continue-on-error`.
+- Advisory jobs may use `continue-on-error` only when advisory status is documented in CI policy.
+- Routed benchmark lanes must be bounded and fail on real command failure.
+- Nightly summary jobs must fail the workflow when required nightly jobs fail.
+- CI-installed proof tools must be pinned when practical.
+- Any workflow using external installers must be represented in dependency/process/network policy ledgers.
+
 ## Acceptance Criteria
 
 - The canonical CI cost policy explains why deep and efficient verification are
@@ -90,9 +100,9 @@ the canonical CI policy remain binding.
 Docs-only CI economics PRs should run:
 
 ```powershell
-cargo +1.93.0 run -p xtask -- check-doc-links
-cargo +1.93.0 run -p xtask -- publish-plan
-$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.93.0 run -p xtask -- gate --check --changed
+cargo +1.95.0 run -p xtask -- check-doc-links
+cargo +1.95.0 run -p xtask -- publish-plan
+$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo +1.95.0 run -p xtask -- gate --check --changed
 ```
 
 ## Non-Goals
