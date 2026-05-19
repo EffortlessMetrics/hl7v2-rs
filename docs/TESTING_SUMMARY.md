@@ -84,11 +84,11 @@ The project has CI/CD configured with the following pipelines:
 - **Build:** cargo build --all-features
 - **Test:** cargo test --workspace
 - **Docs:** cargo doc --no-deps
-- **Coverage:** tarpaulin configured
+- **Coverage:** `cargo-llvm-cov` configured in the routed Coverage workflow
 
 ### Coverage Reporting
-- Coverage tooling configured via cargo-tarpaulin
-- Reports generated in Cobertura XML format
+- Coverage tooling is installed through `taiki-e/install-action@v2`
+- Reports generated as JSON, text summary, and LCOV
 
 ## Known Issues
 

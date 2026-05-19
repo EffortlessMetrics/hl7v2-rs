@@ -88,16 +88,12 @@ Dedicated workflow for code coverage analysis.
 
 #### Jobs:
 
-1. **tarpaulin** - Coverage with cargo-tarpaulin
-   - Generates XML and HTML reports
-   - Uploads to Codecov
-
-2. **llvm-cov** - Coverage with cargo-llvm-cov
-   - Faster alternative to tarpaulin
-   - Generates LCOV and HTML reports
-
-3. **coverage-diff** - PR coverage comparison
-   - Compares PR coverage against base branch
+1. **Codecov Coverage** - Coverage with `cargo-llvm-cov`
+   - Installs `cargo-llvm-cov` and `cargo-nextest` through
+     `taiki-e/install-action@v2`
+   - Generates `coverage.json`, `coverage.txt`, and `lcov.info`
+   - Uploads LCOV to Codecov when `CODECOV_TOKEN` is configured
+   - Writes a claim-bounded coverage receipt under `target/coverage/`
 
 ### `.github/workflows/droid.yml` - Factory Droid Manual Review
 
@@ -232,13 +228,11 @@ The following artifacts are generated and available for download:
 
 | Workflow | Artifact | Contents |
 |----------|----------|----------|
-| ci.yml | coverage-report | HTML coverage reports |
 | ci.yml | benchmark-results | Benchmark output |
 | nightly.yml | fuzz-crash-* | Fuzz test crash inputs |
 | nightly.yml | mutation-report | Mutation testing results |
 | nightly.yml | api-docs | Generated API documentation |
-| coverage.yml | tarpaulin-coverage | Tarpaulin coverage reports |
-| coverage.yml | llvm-coverage | LLVM coverage reports |
+| coverage.yml | coverage-report | `coverage.json`, `coverage.txt`, `lcov.info`, and the coverage receipt |
 | python-wheels.yml | python-wheel-* | Smoke-test wheels for the Python binding lane |
 | python-testpypi.yml | python-testpypi-wheel | Manual TestPyPI proof wheel artifact |
 | python-pypi.yml | python-pypi-wheel | Manual production PyPI release proof wheel artifact |
@@ -364,7 +358,8 @@ performance in detail.
 3. **Update workflow versions** quarterly:
    - Actions (e.g., `actions/checkout@v4`)
    - Rust toolchain
-   - Cargo tools (tarpaulin, llvm-cov, etc.)
+   - Cargo tools installed through workflow actions, including `cargo-llvm-cov`
+     and `cargo-nextest`
 
 ## Troubleshooting
 
