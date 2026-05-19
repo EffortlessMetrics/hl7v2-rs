@@ -4,7 +4,7 @@ metadata:
   name: hl7v2-server
   labels:
     app: hl7v2-server
-    version: v1.2.1
+    version: v1.5.0
 spec:
   replicas: 3
   selector:
@@ -19,7 +19,7 @@ spec:
     metadata:
       labels:
         app: hl7v2-server
-        version: v1.2.1
+        version: v1.5.0
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
@@ -33,7 +33,7 @@ spec:
 
       containers:
       - name: hl7v2
-        image: hl7v2-rs:latest
+        image: hl7v2-rs:1.5.0
         imagePullPolicy: IfNotPresent  # Kyverno compliance: pinned digest required
 
         ports:
