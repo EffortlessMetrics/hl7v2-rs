@@ -101,6 +101,8 @@ pub(crate) enum Commands {
     CheckFilePolicy,
     /// Verify explicit local Markdown links point at checked-in repository targets
     CheckDocLinks,
+    /// Verify spec index and spec-linked policy/proof references stay in sync
+    CheckSpecPolicyLinks,
     /// Verify Python TestPyPI/PyPI release workflow safety controls
     CheckPythonPublishPolicy,
     /// Build, install, and smoke-test the Python hl7v2 wheel in a local venv
