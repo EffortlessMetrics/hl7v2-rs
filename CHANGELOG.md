@@ -108,6 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Aligned the e2e HTTP client test dependency on rustls so all-features
+  workspace checks do not re-enable native TLS through `reqwest` defaults.
 - Added CPU and memory bounds to the Docker Compose validation sidecar smoke
   stack so local operator proof cannot consume unlimited host resources.
 - Pinned the API Contracts workflow's OpenAPI, schema, and proto toolchain
@@ -130,6 +132,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Clarified the non-Nix developer setup path, including `just` installation,
+  `xtask` fallbacks, optional local quality tools, and OpenSSL/pkg-config
+  troubleshooting boundaries.
 - Removed stale `cargo-tarpaulin` coverage workflow references from CI/testing
   docs so they match the current `cargo-llvm-cov` coverage lane.
 - Replaced the stale issues and next-steps planning snapshot with a current
