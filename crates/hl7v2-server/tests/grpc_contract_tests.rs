@@ -2484,6 +2484,49 @@ constraints:
     }
 
     #[tokio::test]
+    async fn test_grpc_transport_enforces_configured_max_message_size() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test listener should bind");
+        let addr = listener
+            .local_addr()
+            .expect("test listener should have a local address");
+        let server = hl7v2_server::Server::builder()
+            .bind(addr.to_string())
+            .max_body_size(32)
+            .build();
+        let server_task =
+            tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
+
+        let endpoint = format!("http://{addr}");
+        let mut client = None;
+        for _ in 0..20 {
+            match Hl7ServiceClient::connect(endpoint.clone()).await {
+                Ok(value) => {
+                    client = Some(value);
+                    break;
+                }
+                Err(_) => sleep(Duration::from_millis(25)).await,
+            }
+        }
+        let mut client = client.expect("gRPC transport server should accept connections");
+
+        let err = client
+            .parse(Request::new(ParseRequest {
+                message: SAMPLE_MSG.to_vec(),
+                mllp_framed: false,
+                options: None,
+            }))
+            .await
+            .expect_err("oversized gRPC request should be rejected by transport");
+
+        assert_eq!(err.code(), Code::OutOfRange);
+        assert_no_phi(err.message());
+
+        server_task.abort();
+    }
+
+    #[tokio::test]
     async fn test_grpc_transport_rejects_missing_api_key_when_configured() {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
