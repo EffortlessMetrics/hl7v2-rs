@@ -38,7 +38,7 @@ jobs:
       tier: ${{ steps.plan.outputs.tier }}
       matched_packs: ${{ steps.plan.outputs.matched_packs }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 

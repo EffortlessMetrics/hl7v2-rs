@@ -358,7 +358,7 @@ performance in detail.
 2. **Monitor benchmark results** for performance regressions
 
 3. **Update workflow versions** quarterly:
-   - Actions (e.g., `actions/checkout@v4`)
+   - Actions (e.g., `actions/checkout@v6`)
    - Rust toolchain
    - Cargo tools installed through workflow actions, including `cargo-llvm-cov`
      and `cargo-nextest`
