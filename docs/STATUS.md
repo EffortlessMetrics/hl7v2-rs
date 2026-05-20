@@ -219,7 +219,7 @@ Refactor cleanup readiness refresh:
 [`docs/audits/publish-dry-run-v1.5.0-2026-05-17-refactor-refresh.md`](audits/publish-dry-run-v1.5.0-2026-05-17-refactor-refresh.md).
 Publish receipt: [`docs/audits/publish-v1.5.0-2026-05-15.md`](audits/publish-v1.5.0-2026-05-15.md).
 Release graph decision: [`docs/audits/v1.5.0-release-graph-decision-2026-05-14.md`](audits/v1.5.0-release-graph-decision-2026-05-14.md).
-RIPR calibration: [`docs/audits/ripr-calibration-2026-05-18.md`](audits/ripr-calibration-2026-05-18.md).
+RIPR calibration: [`docs/audits/ripr-calibration-2026-05-20.md`](audits/ripr-calibration-2026-05-20.md).
 
 - ✅ **Published release**: workspace package versions are published as `1.5.0` for the selected Rust crates.io graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`.
 - ✅ **Rust floor**: MSRV is Rust 1.95 and `rust-toolchain.toml` pins Rust 1.95.0 with `rustfmt` and `clippy`.

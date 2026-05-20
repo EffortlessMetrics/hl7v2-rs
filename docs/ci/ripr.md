@@ -32,6 +32,8 @@ A later post-parity traffic sample is recorded in
 [`docs/audits/ripr-calibration-2026-05-17.md`](../audits/ripr-calibration-2026-05-17.md).
 The support-bundle and Python-proof traffic sample is recorded in
 [`docs/audits/ripr-calibration-2026-05-18.md`](../audits/ripr-calibration-2026-05-18.md).
+The dirty-corpus and evidence-parity guard traffic sample is recorded in
+[`docs/audits/ripr-calibration-2026-05-20.md`](../audits/ripr-calibration-2026-05-20.md).
 Those audits keep `ripr` advisory: severe-gap, annotation, stale-artifact, and
 impacted-evidence output can route review and targeted mutation, but branch
 protection must not depend on `ripr` until artifact counter semantics, traffic
