@@ -121,6 +121,7 @@ jobs:
 
       - name: Run mutation tests
         run: |
+          mkdir -p target/nightly-mutation
           set +e
           cargo mutants \
             --workspace \
