@@ -442,10 +442,28 @@ where
         ));
     }
 
-    let padded = format!("{fractional:0<6}");
-    padded
-        .parse()
-        .map_err(|_err| error("Invalid fractional seconds".to_string()))
+    let mut value = 0_u32;
+    for digit in fractional.bytes() {
+        let digit = digit
+            .checked_sub(b'0')
+            .ok_or_else(|| error("Invalid fractional seconds".to_string()))?;
+        value = value
+            .checked_mul(10)
+            .and_then(|acc| acc.checked_add(u32::from(digit)))
+            .ok_or_else(|| error("Invalid fractional seconds".to_string()))?;
+    }
+
+    let scale = match fractional.len() {
+        1 => 100_000,
+        2 => 10_000,
+        3 => 1_000,
+        4 => 100,
+        _ => return Err(error("Invalid fractional seconds".to_string())),
+    };
+
+    value
+        .checked_mul(scale)
+        .ok_or_else(|| error("Invalid fractional seconds".to_string()))
 }
 
 fn part<'a>(
@@ -655,6 +673,10 @@ mod tests {
         // 4 digits (HL7 TS/TM maximum fractional precision documented here)
         let (.., f4) = parse_hl7_tm("153045.1234").expect("4-digit fraction");
         assert_eq!(f4, Some(123400));
+        // Leading zeroes are significant when scaling to microseconds.
+        let (.., f4_with_leading_zeroes) =
+            parse_hl7_tm("153045.0001").expect("4-digit fraction with leading zeroes");
+        assert_eq!(f4_with_leading_zeroes, Some(100));
     }
 
     #[test]
@@ -834,6 +856,14 @@ mod tests {
         let ts = parse_hl7_ts_with_precision("20250715103456.123").expect("fractional precision");
         assert_eq!(ts.precision, TimestampPrecision::FractionalSecond);
         assert_eq!(ts.fractional_seconds, Some(123000));
+    }
+
+    #[test]
+    fn parse_hl7_ts_with_precision_fractional_scales_leading_zeroes() {
+        let ts = parse_hl7_ts_with_precision("20250715103456.0001")
+            .expect("fractional precision with leading zeroes");
+        assert_eq!(ts.precision, TimestampPrecision::FractionalSecond);
+        assert_eq!(ts.fractional_seconds, Some(100));
     }
 
     #[test]
