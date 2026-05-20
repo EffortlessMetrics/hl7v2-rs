@@ -130,6 +130,51 @@ async fn cli_grpc_serve_enforces_configured_api_key() {
     );
 }
 
+#[tokio::test]
+async fn cli_grpc_serve_enforces_configured_max_body_size() {
+    let port = unused_local_port().expect("test should allocate a local port");
+    let mut server = ChildGuard::new(
+        Command::new(assert_cmd::cargo::cargo_bin("hl7v2-cli"))
+            .args([
+                "serve",
+                "--mode",
+                "grpc",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                &port.to_string(),
+                "--max-body-size",
+                "32",
+            ])
+            .env_remove("HL7V2_API_KEY")
+            .env_remove("HL7V2_CONFIG")
+            .env_remove("HL7V2_CORS_ALLOWED_ORIGINS")
+            .env_remove("HL7V2_PROFILE_PATHS")
+            .env_remove("HL7V2_BUNDLE_OUTPUT_ROOT")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("test should spawn the canonical hl7v2 CLI binary"),
+    );
+
+    let endpoint = format!("http://127.0.0.1:{port}");
+    let mut client = connect_grpc(&endpoint, &mut server)
+        .await
+        .expect("CLI gRPC server should accept connections");
+
+    let err = client
+        .parse(ParseRequest {
+            message: SAMPLE_MSG.to_vec(),
+            mllp_framed: false,
+            options: None,
+        })
+        .await
+        .expect_err("CLI-configured oversized gRPC request should be rejected");
+
+    assert_eq!(err.code(), Code::OutOfRange);
+    assert_no_phi(err.message());
+}
+
 async fn connect_grpc(
     endpoint: &str,
     server: &mut ChildGuard,
@@ -153,4 +198,13 @@ async fn connect_grpc(
 fn unused_local_port() -> Result<u16, Box<dyn Error>> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     Ok(listener.local_addr()?.port())
+}
+
+fn assert_no_phi(message: &str) {
+    for sentinel in ["Doe", "John", "123456", "SENDING", "MSG0001"] {
+        assert!(
+            !message.contains(sentinel),
+            "gRPC transport error leaked sentinel {sentinel}: {message}"
+        );
+    }
 }
