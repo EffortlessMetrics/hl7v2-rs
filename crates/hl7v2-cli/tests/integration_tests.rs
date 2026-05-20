@@ -1941,8 +1941,8 @@ constraints:
         assert!(is_valid_json(&summary_output.stdout));
         let summary: serde_json::Value =
             serde_json::from_slice(&summary_output.stdout).expect("summary output should be JSON");
-        assert_eq!(summary["file_count"], 10);
-        assert_eq!(summary["message_count"], 7);
+        assert_eq!(summary["file_count"], 11);
+        assert_eq!(summary["message_count"], 8);
         assert_eq!(summary["parse_error_count"], 3);
         assert!(
             summary["parse_errors"]
@@ -1991,6 +1991,13 @@ constraints:
                 .as_array()
                 .unwrap()
                 .iter()
+                .any(|entry| entry["value"] == "ZSB" && entry["count"] == 1)
+        );
+        assert!(
+            summary["segments"]
+                .as_array()
+                .unwrap()
+                .iter()
                 .any(|entry| entry["value"] == "NTE" && entry["count"] == 1)
         );
         assert!(
@@ -2017,8 +2024,8 @@ constraints:
         assert!(is_valid_json(&fingerprint_output.stdout));
         let fingerprint: serde_json::Value = serde_json::from_slice(&fingerprint_output.stdout)
             .expect("fingerprint output should be JSON");
-        assert_eq!(fingerprint["file_count"], 10);
-        assert_eq!(fingerprint["message_count"], 7);
+        assert_eq!(fingerprint["file_count"], 11);
+        assert_eq!(fingerprint["message_count"], 8);
         assert_eq!(fingerprint["parse_error_count"], 3);
         assert!(
             fingerprint["field_cardinality"]
@@ -2034,7 +2041,14 @@ constraints:
                 .as_array()
                 .unwrap()
                 .iter()
-                .any(|entry| entry["path"] == "MSH.3" && entry["total_occurrences"] == 7)
+                .any(|entry| entry["path"] == "MSH.3" && entry["total_occurrences"] == 8)
+        );
+        assert!(
+            fingerprint["field_cardinality"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["path"] == "ZSB.1" && entry["total_occurrences"] == 1)
         );
         assert!(
             fingerprint["value_shape_stats"]
@@ -2043,6 +2057,14 @@ constraints:
                 .iter()
                 .any(|entry| entry["path"] == "PID.7"
                     && entry["numeric_count"].as_u64().unwrap_or_default() >= 1)
+        );
+        assert!(
+            fingerprint["value_shape_stats"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["path"] == "PID.3"
+                    && entry["text_count"].as_u64().unwrap_or_default() >= 1)
         );
         assert!(
             fingerprint["value_shape_stats"]
@@ -2071,8 +2093,8 @@ constraints:
         assert!(is_valid_json(&diff_output.stdout));
         let diff: serde_json::Value =
             serde_json::from_slice(&diff_output.stdout).expect("diff output should be JSON");
-        assert_eq!(diff["file_count"]["delta"], 8);
-        assert_eq!(diff["message_count"]["delta"], 5);
+        assert_eq!(diff["file_count"]["delta"], 9);
+        assert_eq!(diff["message_count"]["delta"], 6);
         assert_eq!(diff["parse_error_count"]["delta"], 3);
         assert!(
             diff["field_cardinality"]
