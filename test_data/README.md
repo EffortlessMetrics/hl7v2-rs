@@ -47,9 +47,10 @@ real-world corpus:
 | `dirty-real-world/README.md` | Detailed inventory for the synthetic dirty corpus categories. |
 
 The dirty corpus covers Z-segments, large OBX payloads, legacy encoding
-metadata, odd MSH metadata, vendor ORU null/text results, malformed delimiters,
-partial batch input, and generated MLLP frames. Keep additions synthetic or
-redacted, and update `dirty-real-world/README.md` when a new category is added.
+metadata, odd MSH metadata, vendor ORU null/text results, already-redacted
+support bundle payloads, malformed delimiters, partial batch input, and
+generated MLLP frames. Keep additions synthetic or redacted, and update
+`dirty-real-world/README.md` when a new category is added.
 
 ## Adding Fixtures
 

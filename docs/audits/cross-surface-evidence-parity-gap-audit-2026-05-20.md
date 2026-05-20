@@ -32,7 +32,8 @@ success.
 | [Deploy Validation Sidecar](../guides/deploy-validation-sidecar.md) | Source-checkout sidecar smoke for HTTP validation deployment. |
 | [User journey acceptance proof](user-journey-acceptance-2026-05-15.md) | Rust, CLI, server, and local Python first-use evidence workflow proof. |
 | [Public crates install smoke](public-crates-install-first-use-2026-05-16.md) | crates.io install-back for `hl7v2`, `hl7v2-cli`, and `hl7v2-server` v1.5.0. |
-| [Dirty real-world vendor ORU proof](dirty-real-world-vendor-oru-null-text-parity-2026-05-18.md) | Latest dirty-corpus fixture expansion and Rust/CLI/REST/gRPC/local Python parity counts. |
+| [Dirty real-world redacted support bundle proof](dirty-real-world-redacted-support-bundle-parity-2026-05-20.md) | Latest dirty-corpus fixture expansion and Rust/CLI/REST/gRPC/local Python parity counts. |
+| [Dirty real-world vendor ORU proof](dirty-real-world-vendor-oru-null-text-parity-2026-05-18.md) | Vendor-shaped ORU null/text fixture expansion and Rust/CLI/REST/gRPC/local Python parity counts. |
 | [Sidecar guide smoke](sidecar-guide-smoke-2026-05-18.md) | Ephemeral-loopback sidecar proof for guide deployment behavior. |
 | [Python public registry proof command](python-public-registry-proof-command-2026-05-18.md) | Local install-back proof command for TestPyPI/PyPI after public upload succeeds. |
 | [Python public registry workflow routing](python-public-registry-proof-workflow-routing-2026-05-18.md) | Hosted TestPyPI/PyPI install-back jobs route through the shared xtask proof command. |

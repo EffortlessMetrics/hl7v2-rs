@@ -73,6 +73,7 @@ canonical_sources = [
   "docs/audits/dirty-real-world-python-evidence-workflow-2026-05-17.md",
   "docs/audits/dirty-real-world-mllp-failure-parity-2026-05-18.md",
   "docs/audits/dirty-real-world-odd-msh-parity-2026-05-18.md",
+  "docs/audits/dirty-real-world-redacted-support-bundle-parity-2026-05-20.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-dirty-corpus-parity-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-normalization-ack-refresh.md",
   "docs/audits/publish-dry-run-v1.5.0-2026-05-16-evidence-parity-refresh.md",
@@ -430,6 +431,35 @@ commands = [
   "cargo +1.95.0 run -p xtask -- badges --check",
   "cargo +1.95.0 run -p xtask -- impacted-evidence",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "git diff --check",
+]
+non_claims = [
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No new crates.io release.",
+  "No tag or GitHub release.",
+  "No Python public-registry install-back proof.",
+]
+
+[[work_item]]
+id = "dirty-real-world-redacted-support-bundle-parity"
+status = "done"
+goal = "Expand the shared dirty real-world corpus with a synthetic already-redacted support-bundle payload and prove updated corpus summary, fingerprint, and diff parity across Rust core, CLI, REST, gRPC, and local Python smoke expectations."
+receipt = "docs/audits/dirty-real-world-redacted-support-bundle-parity-2026-05-20.md"
+commands = [
+  "cargo +1.95.0 test -p hl7v2 --all-features dirty_real_world --locked",
+  "cargo +1.95.0 test -p hl7v2-cli --test integration_tests test_corpus_commands_share_dirty_real_world_fixture_categories --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test corpus_endpoint_test test_corpus_endpoints_share_dirty_real_world_fixture_categories --locked",
+  "cargo +1.95.0 test -p hl7v2-server --test grpc_contract_tests test_grpc_corpus_commands_share_dirty_real_world_fixture_categories --locked",
+  "cargo +1.95.0 run -p xtask -- check-dirty-corpus-parity",
+  "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo +1.95.0 run -p xtask -- python-local-wheel-proof --root F:\\cargo-target\\hl7v2-python-proof-redacted-support --rust-toolchain 1.95.0",
+  "cargo +1.95.0 fmt --all -- --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
   "git diff --check",
 ]
 non_claims = [

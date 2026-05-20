@@ -12,6 +12,7 @@ shape that appears in real HL7 v2 operations.
 | Large OBX expansion | `before/large-obx.hl7`, `after/large-obx.hl7` | Proves corpus diff records field-cardinality growth. |
 | Legacy encoding declaration | `after/legacy-encoding.hl7` | Keeps older MSH metadata and encoding declarations parseable. |
 | Legacy timestamp variants | `after/legacy-timestamps.hl7` | Keeps partial MSH, EVN, and PID timestamp shapes visible in corpus value-shape evidence. |
+| Redacted support bundle artifact | `after/redacted-support-bundle.hl7` | Keeps an already-redacted support bundle payload parseable, fingerprintable, and PHI-safe in shared corpus proof. |
 | Odd MSH metadata | `after/weird-msh-fields.hl7` | Keeps componentized sender, facility, receiver, and routing metadata visible without treating it as PHI. |
 | Vendor ORU null/text result | `after/vendor-oru-null-text.hl7` | Covers narrative ORU text, NTE support notes, escaped delimiters, and explicit HL7 null observations in aggregate corpus shape proof. |
 | Malformed delimiters | `after/malformed-delimiters.hl7` | Proves parse failures are counted without echoing raw PHI markers. |

@@ -112,7 +112,7 @@ that represent vendor-shaped HL7, including:
 - partial batch-like inputs
 - large OBX payloads
 - MLLP wrapper and failure traces
-- redacted support bundles
+- additional redacted support-bundle variants as bundle formats evolve
 
 New fixture classes should update the corpus receipts and keep Rust, CLI,
 REST/gRPC, and local Python wheel expectations aligned.
