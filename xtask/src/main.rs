@@ -9930,6 +9930,31 @@ fn workflow_permission_errors(root: &Path) -> Result<Vec<String>> {
     Ok(errors)
 }
 
+fn nightly_mutation_output_dir_errors(root: &Path) -> Result<Vec<String>> {
+    let workflow = ".github/workflows/nightly.yml";
+    let path = root.join(workflow);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let text =
+        fs::read_to_string(&path).map_err(|e| anyhow!("cannot read workflow {workflow}: {e}"))?;
+    Ok(nightly_mutation_output_dir_text_errors(workflow, &text))
+}
+
+fn nightly_mutation_output_dir_text_errors(workflow: &str, workflow_text: &str) -> Vec<String> {
+    let mut errors = Vec::new();
+    if workflow_text.contains("cargo mutants")
+        && workflow_text.contains("--output target/nightly-mutation")
+        && !workflow_text.contains("mkdir -p target/nightly-mutation")
+    {
+        errors.push(format!(
+            "{workflow} runs cargo-mutants with `--output target/nightly-mutation` but does not create that directory first"
+        ));
+    }
+    errors
+}
+
 fn today_iso() -> String {
     if let Ok(d) = env::var("CI_TODAY") {
         return d;
@@ -9976,6 +10001,7 @@ fn check_ci_lane_whitelist() -> Result<()> {
     let mut warnings: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
     errors.extend(workflow_permission_errors(&root)?);
+    errors.extend(nightly_mutation_output_dir_errors(&root)?);
 
     for lane in &lanes {
         if !lane_ids.insert(lane.id.clone()) {
@@ -10660,6 +10686,51 @@ mod tests {
 
         let nested = "name: CI\non: push\njobs:\n  test:\n    permissions:\n      contents: read\n";
         assert!(!workflow_declares_top_level_permissions(nested));
+    }
+
+    #[test]
+    fn nightly_mutation_output_dir_accepts_checked_in_workflow() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = ".github/workflows/nightly.yml";
+        let text = fs::read_to_string(root.join(workflow))?;
+
+        let errors = nightly_mutation_output_dir_text_errors(workflow, &text);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!("unexpected nightly workflow errors: {errors:?}"))
+        }
+    }
+
+    #[test]
+    fn nightly_mutation_output_dir_requires_parent_creation() -> Result<()> {
+        let workflow = ".github/workflows/nightly.yml";
+        let text = "\
+name: Nightly Tests
+jobs:
+  mutation-tests:
+    steps:
+      - name: Run mutation tests
+        run: |
+          cargo mutants \\
+            --workspace \\
+            --output target/nightly-mutation
+";
+
+        let errors = nightly_mutation_output_dir_text_errors(workflow, text);
+        if errors
+            .iter()
+            .any(|error| error.contains("target/nightly-mutation"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "nightly mutation workflow should reject missing output directory creation: {errors:?}"
+            ))
+        }
     }
 
     #[test]
