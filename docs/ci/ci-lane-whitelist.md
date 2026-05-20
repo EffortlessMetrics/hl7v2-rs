@@ -55,7 +55,11 @@ The checker verifies:
 - `duplicate_of` references valid lane IDs.
 - Windows/macOS/Python/Docker runners have the correct multiplier.
 
-The checker is advisory until branch protection migrates to `PR Gate Success` (PR 16).
+The checker is advisory for branch-protection selection. The source repository
+currently requires `Fast Checks`; its intended normalized target is
+`PR Gate Success`. The swarm repository uses a separate routed target,
+`HL7v2 Rust Small Result`, only after the routed CX53, CX43 fallback, and
+GitHub-hosted fallback proofs are complete.
 
 ## Inventory
 
