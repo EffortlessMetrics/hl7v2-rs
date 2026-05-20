@@ -150,15 +150,6 @@ classification = "docs"
 reason = "Documented example configuration consumed by hl7v2-cli config tests."
 
 [[allow]]
-path = "Makefile.toml"
-kind = "build_config"
-owner = "EffortlessMetrics"
-surface = "developer-tooling"
-classification = "tooling"
-reason = "cargo-make task definitions for local DevEx."
-covered_by = ["cargo make"]
-
-[[allow]]
 path = "pyproject.toml"
 kind = "python_package_config"
 owner = "hl7v2-python"
