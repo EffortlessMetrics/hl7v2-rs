@@ -20,13 +20,13 @@ covered_by = ["cargo run -p xtask -- hook-pre-commit", "cargo run -p xtask -- ho
 review_after = "2026-06-30"
 
 [[allow]]
-id = "just-and-cargo-make"
+id = "just-task-runner"
 owner = "EffortlessMetrics"
 surface = "developer-tooling"
-behavior = "Task-runner files may invoke repository setup and validation commands."
-paths = ["justfile", "Makefile.toml"]
-commands = ["just setup", "cargo make"]
-reason = "These are local convenience entrypoints around governed xtask and Cargo commands."
+behavior = "The Just task-runner file may invoke repository setup and validation commands."
+paths = ["justfile"]
+commands = ["just setup"]
+reason = "The documented local convenience entrypoint wraps governed xtask and Cargo commands."
 covered_by = ["cargo run -p xtask -- check-file-policy"]
 review_after = "2026-06-30"
 

@@ -68,7 +68,7 @@ proto_idl                .proto files
 openapi_spec             OpenAPI definitions
 profile_data             HL7 profile YAML
 policy_data              policy/*.toml
-build_config             flake.nix, justfile, Makefile.toml
+build_config             flake.nix, justfile
 repo_config              clippy.toml, deny.toml, codecov.yml, etc.
 generated_metadata       checked-in generator output
 ```
