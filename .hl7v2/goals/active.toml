@@ -66,6 +66,8 @@ canonical_sources = [
   "docs/audits/publish-v1.5.0-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-15.md",
   "docs/audits/ripr-calibration-2026-05-17.md",
+  "docs/audits/ripr-calibration-2026-05-18.md",
+  "docs/audits/ripr-calibration-2026-05-20.md",
   "docs/audits/real-world-corpus-proof-2026-05-14.md",
   "docs/audits/dirty-real-world-corpus-shared-fixture-proof-2026-05-16.md",
   "docs/audits/dirty-real-world-server-corpus-parity-2026-05-16.md",
@@ -1114,6 +1116,32 @@ sampled_runs = [
 ]
 commands = [
   "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No branch-protection rule changed.",
+  "No required check added.",
+  "No runtime mutation run.",
+  "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
+]
+
+[[work_item]]
+id = "ripr-calibration-after-dirty-corpus-traffic"
+status = "done"
+goal = "Refresh the advisory ripr evidence calibration after dirty-corpus, CLI/gRPC limit, and evidence-parity guard PR traffic without making it branch-protection blocking."
+receipt = "docs/audits/ripr-calibration-2026-05-20.md"
+sampled_runs = [
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26156923501",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26159546424",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26162641373",
+  "https://github.com/EffortlessMetrics/hl7v2-rs/actions/runs/26166665858",
+]
+commands = [
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
   "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
   "cargo +1.95.0 run -p xtask -- check-doc-links",
   "cargo +1.95.0 run -p xtask -- check-file-policy",
