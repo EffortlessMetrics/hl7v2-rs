@@ -2,7 +2,7 @@
 
 This document provides a transparent view of which features are fully implemented, partially implemented, or planned.
 
-> **Last Updated**: 2026-05-18
+> **Last Updated**: 2026-05-20
 > **Project Status**: v1.5.0 is published to crates.io for the selected Rust graph: `hl7v2`, `hl7v2-python`, `hl7v2-server`, and `hl7v2-cli`. `hl7v2-python` is published only as binding backend infrastructure for the public Python `hl7v2` package, not as the recommended Rust API.
 
 ## Core Components
@@ -137,7 +137,7 @@ guides, start with [the documentation index](README.md). For the current
 final source-tree gap audit after the local workbench split, see
 [`docs/audits/current-source-tree-evidence-objective-gap-audit.md`](audits/current-source-tree-evidence-objective-gap-audit.md).
 For the current cross-surface evidence parity gap map, see
-[`docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-18.md`](audits/cross-surface-evidence-parity-gap-audit-2026-05-18.md).
+[`docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-20.md`](audits/cross-surface-evidence-parity-gap-audit-2026-05-20.md).
 For current parity states, proof commands, fixture families, and known gaps, see
 [`policy/evidence-parity.toml`](../policy/evidence-parity.toml).
 
