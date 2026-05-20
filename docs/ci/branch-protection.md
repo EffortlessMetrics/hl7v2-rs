@@ -67,6 +67,10 @@ required check unset until those proofs exist.
 
 ## Label Impact on Branch Protection
 
-Labels never change which checks are *required*. The `PR Gate Success` check aggregates the
-required surface. Optional lanes triggered by labels (`full-ci`, `platform-matrix`, etc.) are
-never blocking.
+Labels never change which checks are *required* by branch protection. In the
+source repository, labels can trigger optional lanes while `Fast Checks` remains
+the current required check. After the deliberate source migration, `PR Gate
+Success` should aggregate the required surface. In the swarm repository, the
+future required check is `HL7v2 Rust Small Result` only after the routed proofs
+exist. Optional lanes triggered by labels (`full-ci`, `platform-matrix`, etc.)
+are never blocking unless branch protection is explicitly changed.
