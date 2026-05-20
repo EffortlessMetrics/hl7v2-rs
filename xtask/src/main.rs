@@ -4858,6 +4858,9 @@ fn check_evidence_parity() -> Result<()> {
     let root = env::current_dir()?;
     let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
     check_evidence_parity_manifest_text(&text)?;
+    let support_map = evidence_parity_top_level_string(&text, "support_map")?;
+    let support_map_text = fs::read_to_string(root.join(&support_map))?;
+    check_evidence_parity_support_map_text(&text, &support_map_text)?;
     println!(
         "✅ evidence parity: {} surface(s), {} contract(s), and registry non-claim boundaries checked",
         EVIDENCE_PARITY_REQUIRED_SURFACES.len(),
@@ -8276,6 +8279,37 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
     Ok(())
 }
 
+fn check_evidence_parity_support_map_text(
+    manifest_text: &str,
+    support_map_text: &str,
+) -> Result<()> {
+    let source_audit = evidence_parity_top_level_string(manifest_text, "source_audit")?;
+    let source_audit_file = Path::new(&source_audit)
+        .file_name()
+        .and_then(std::ffi::OsStr::to_str)
+        .ok_or_else(|| {
+            anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} source_audit must be a file path")
+        })?;
+    if support_map_text.contains(source_audit_file) {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "{} must link the current evidence parity source_audit `{source_audit}`",
+            evidence_parity_top_level_string(manifest_text, "support_map")?
+        ))
+    }
+}
+
+fn evidence_parity_top_level_string(text: &str, key: &str) -> Result<String> {
+    let manifest: toml::Value = toml::from_str(text)
+        .map_err(|error| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} is not valid TOML: {error}"))?;
+    manifest
+        .get(key)
+        .and_then(toml::Value::as_str)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| anyhow!("{EVIDENCE_PARITY_MANIFEST_PATH} {key} must be a string"))
+}
+
 fn ensure_top_level_string_value(document: &toml::Value, key: &str, expected: &str) -> Result<()> {
     let actual = document
         .get(key)
@@ -11617,6 +11651,37 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
         let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
 
         check_evidence_parity_manifest_text(&text)
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_support_map_current_audit_link() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let support_map = evidence_parity_top_level_string(&text, "support_map")?;
+        let support_map_text = fs::read_to_string(root.join(support_map))?;
+        let broken = support_map_text.replace(
+            "cross-surface-evidence-parity-gap-audit-2026-05-20.md",
+            "cross-surface-evidence-parity-gap-audit-2026-05-18.md",
+        );
+
+        match check_evidence_parity_support_map_text(&text, &broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject stale support-map audit links"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("cross-surface-evidence-parity-gap-audit-2026-05-20.md") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(anyhow!(
+                "unexpected evidence parity support-map error: {err}"
+            )),
+        }
     }
 
     #[test]
