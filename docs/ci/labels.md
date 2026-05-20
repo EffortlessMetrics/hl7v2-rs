@@ -30,8 +30,13 @@ Labels are added in the GitHub UI on the PR sidebar. No CI file changes are need
 
 ## Label + Branch Protection
 
-Labels do not change which jobs are *required* by branch protection. The `PR Gate Success`
-check aggregates the required surface. Optional lanes triggered by labels are never blocking.
+Labels do not change which jobs are *required* by branch protection. In the
+source repository, `Fast Checks` is the current required check while
+`PR Gate Success` remains the intended normalized target. In the swarm
+repository, the future required check is `HL7v2 Rust Small Result` after CX53,
+CX43 fallback, and GitHub-hosted fallback are all proven. Optional lanes
+triggered by labels are never blocking unless branch protection is explicitly
+changed.
 
 ## Label Governance
 
