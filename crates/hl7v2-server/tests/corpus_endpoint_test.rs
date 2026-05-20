@@ -113,8 +113,8 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(summary["schema_version"], "2");
     assert_eq!(summary["tool_name"], "hl7v2-server");
     assert_eq!(summary["root"], "<inline-corpus>");
-    assert_eq!(summary["file_count"], 9);
-    assert_eq!(summary["message_count"], 6);
+    assert_eq!(summary["file_count"], 10);
+    assert_eq!(summary["message_count"], 7);
     assert_eq!(summary["parse_error_count"], 3);
     assert!(
         summary["message_types"]
@@ -136,6 +136,13 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
             .unwrap()
             .iter()
             .any(|entry| entry["value"] == "ADT^A03" && entry["count"] == 1)
+    );
+    assert!(
+        summary["message_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["value"] == "ADT^A31" && entry["count"] == 1)
     );
     assert!(
         summary["message_types"]
@@ -193,8 +200,8 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(fingerprint["schema_version"], "2");
     assert_eq!(fingerprint["tool_name"], "hl7v2-server");
-    assert_eq!(fingerprint["file_count"], 9);
-    assert_eq!(fingerprint["message_count"], 6);
+    assert_eq!(fingerprint["file_count"], 10);
+    assert_eq!(fingerprint["message_count"], 7);
     assert_eq!(fingerprint["parse_error_count"], 3);
     assert!(
         fingerprint["field_cardinality"]
@@ -217,7 +224,15 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|entry| entry["path"] == "MSH.3" && entry["total_occurrences"] == 6)
+            .any(|entry| entry["path"] == "MSH.3" && entry["total_occurrences"] == 7)
+    );
+    assert!(
+        fingerprint["value_shape_stats"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "PID.7"
+                && entry["numeric_count"].as_u64().unwrap_or_default() >= 1)
     );
     assert!(
         fingerprint["value_shape_stats"]
@@ -243,8 +258,8 @@ async fn test_corpus_endpoints_share_dirty_real_world_fixture_categories() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(diff["schema_version"], "2");
     assert_eq!(diff["tool_name"], "hl7v2-server");
-    assert_eq!(diff["file_count"]["delta"], 7);
-    assert_eq!(diff["message_count"]["delta"], 4);
+    assert_eq!(diff["file_count"]["delta"], 8);
+    assert_eq!(diff["message_count"]["delta"], 5);
     assert_eq!(diff["parse_error_count"]["delta"], 3);
     assert!(
         diff["field_cardinality"]
