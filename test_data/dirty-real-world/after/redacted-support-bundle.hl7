@@ -1,4 +1,3 @@
 MSH|^~\&|SUPPORTBUNDLE|SANITIZED|EHR|HOSP|202605140109||ADT^A01|CTRL-SAFE-BUNDLE|P|2.5
 PID|1||hash:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa||""||""|U
 ZSB|SAFE-SHARING|message.redacted.hl7|manifest-hashes-pass
-
