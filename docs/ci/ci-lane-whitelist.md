@@ -49,6 +49,8 @@ cargo run -p xtask -- check-ci-lane-whitelist
 The checker verifies:
 - Every checked-in workflow has an explicit top-level `permissions:` block.
 - Every governed lane points at an existing workflow and job id, or uses `*` for an aggregate workflow lane.
+- The Nightly mutation lane creates its `target/nightly-mutation` output
+  directory before invoking `cargo mutants`.
 - `default_pr = true` + `expensive = true` requires a valid exception.
 - No expired exceptions remain.
 - Required fields are present.
