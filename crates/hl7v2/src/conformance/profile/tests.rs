@@ -207,7 +207,7 @@ custom_rules:
 
 #[cfg(test)]
 mod profile_load_error_tests {
-    use super::super::{ProfileLoadError, load_profile_checked};
+    use super::super::{ProfileLoadError, load_profile_checked, load_profile_with_inheritance};
 
     #[test]
     fn test_load_profile_checked_valid() {
@@ -286,6 +286,45 @@ segments:
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
         let load_err: ProfileLoadError = io_err.into();
         assert!(matches!(load_err, ProfileLoadError::Io(_)));
+    }
+
+    #[test]
+    fn test_load_profile_with_inheritance_rejects_parent_cycle() {
+        let child = r#"
+message_structure: "CHILD"
+version: "2.5.1"
+parent: "base"
+segments:
+  - id: "MSH"
+"#;
+
+        let result = load_profile_with_inheritance(child, |name| match name {
+            "base" => load_profile_checked(
+                r#"
+message_structure: "BASE"
+version: "2.5.1"
+parent: "loop"
+segments:
+  - id: "MSH"
+"#,
+            ),
+            "loop" => load_profile_checked(
+                r#"
+message_structure: "LOOP"
+version: "2.5.1"
+parent: "base"
+segments:
+  - id: "MSH"
+"#,
+            ),
+            other => Err(ProfileLoadError::ParentNotFound(other.to_string())),
+        });
+
+        assert!(matches!(
+            result,
+            Err(ProfileLoadError::InheritanceCycle(ref cycle))
+                if cycle == "base -> loop -> base"
+        ));
     }
 }
 
