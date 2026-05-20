@@ -233,6 +233,64 @@ mod tests {
     }
 
     #[test]
+    fn prepare_metadata_uses_unknown_when_msh_control_id_missing() {
+        let hl7 = b"MSH|^~\\&|SENDER|FACILITY|RECEIVER|FACILITY|20250101120000||ADT^A01||P|2.5\r";
+        let message = Message::with_segments(vec![Segment::new(b"MSH")]);
+
+        let archive = MessageArchive::new(RetentionPolicy::default());
+        let metadata = archive.prepare_metadata(&message, hl7);
+
+        assert_eq!(metadata.message_id, "UNKNOWN");
+    }
+
+    #[test]
+    fn next_lifecycle_step_purges_directly_when_archiving_disabled() {
+        let archive = MessageArchive::new(RetentionPolicy {
+            active_duration: Duration::days(30),
+            archive_duration: Duration::days(365),
+            archive_after: false,
+        });
+
+        let now = Utc::now();
+        let metadata = ArchiveMetadata {
+            message_id: "TEST".to_string(),
+            state: MessageState::Active,
+            received_at: now,
+            updated_at: now,
+            next_action_date: add_duration(now, Duration::days(30)),
+            legal_hold: None,
+            message_hash: "hash".to_string(),
+        };
+
+        let (next_state, next_date) = archive.next_lifecycle_step(&metadata);
+
+        assert_eq!(next_state, MessageState::Purged);
+        assert_eq!(next_date, metadata.next_action_date);
+    }
+
+    #[test]
+    fn can_transition_requires_action_date_when_hold_inactive() {
+        let now = Utc::now();
+        let metadata = ArchiveMetadata {
+            message_id: "TEST".to_string(),
+            state: MessageState::Active,
+            received_at: now,
+            updated_at: now,
+            next_action_date: add_duration(now, Duration::hours(1)),
+            legal_hold: Some(LegalHold {
+                is_active: false,
+                reason: "Released".to_string(),
+                placed_by: "Compliance".to_string(),
+                placed_at: now,
+            }),
+            message_hash: "hash".to_string(),
+        };
+
+        assert!(!metadata.can_transition(now));
+        assert!(metadata.can_transition(add_duration(now, Duration::hours(1))));
+    }
+
+    #[test]
     fn serde_roundtrip_preserves_archive_metadata() {
         let now = Utc::now();
         let metadata = ArchiveMetadata {
