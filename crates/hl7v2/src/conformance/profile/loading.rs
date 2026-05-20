@@ -82,7 +82,12 @@ where
 
     // If there's a parent, recursively load and merge it
     if let Some(parent_name) = &profile.parent {
-        let parent_profile = load_profile_with_inheritance_recursive(parent_name, &profile_loader)?;
+        let mut inheritance_stack = Vec::new();
+        let parent_profile = load_profile_with_inheritance_recursive(
+            parent_name,
+            &profile_loader,
+            &mut inheritance_stack,
+        )?;
         return Ok(merge_profiles(parent_profile, profile));
     }
 
@@ -93,20 +98,38 @@ where
 fn load_profile_with_inheritance_recursive<F>(
     parent_name: &str,
     profile_loader: &F,
+    inheritance_stack: &mut Vec<String>,
 ) -> Result<Profile, ProfileLoadError>
 where
     F: Fn(&str) -> Result<Profile, ProfileLoadError>,
 {
-    let parent_profile = profile_loader(parent_name)?;
-
-    // If the parent also has a parent, recursively load and merge it
-    if let Some(grandparent_name) = &parent_profile.parent {
-        let grandparent_profile =
-            load_profile_with_inheritance_recursive(grandparent_name, profile_loader)?;
-        return Ok(merge_profiles(grandparent_profile, parent_profile));
+    if let Some(first_seen) = inheritance_stack
+        .iter()
+        .position(|seen_parent| seen_parent == parent_name)
+    {
+        let mut cycle = inheritance_stack[first_seen..].to_vec();
+        cycle.push(parent_name.to_string());
+        return Err(ProfileLoadError::InheritanceCycle(cycle.join(" -> ")));
     }
 
-    Ok(parent_profile)
+    inheritance_stack.push(parent_name.to_string());
+    let result = (|| {
+        let parent_profile = profile_loader(parent_name)?;
+
+        // If the parent also has a parent, recursively load and merge it
+        if let Some(grandparent_name) = parent_profile.parent.clone() {
+            let grandparent_profile = load_profile_with_inheritance_recursive(
+                &grandparent_name,
+                profile_loader,
+                inheritance_stack,
+            )?;
+            return Ok(merge_profiles(grandparent_profile, parent_profile));
+        }
+
+        Ok(parent_profile)
+    })();
+    inheritance_stack.pop();
+    result
 }
 
 /// Merge two profiles, with the child profile taking precedence
