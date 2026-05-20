@@ -2,10 +2,10 @@ schema_version = "1.0"
 policy = "evidence-parity"
 owner = "EffortlessMetrics"
 status = "active"
-last_reviewed = "2026-05-18"
+last_reviewed = "2026-05-20"
 
 source_spec = "docs/specs/HL7V2-SPEC-0006-cross-surface-evidence-parity.md"
-source_audit = "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-18.md"
+source_audit = "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-20.md"
 support_map = "docs/status/SUPPORT_TIERS.md"
 
 non_claims = [

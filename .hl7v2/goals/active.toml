@@ -1252,6 +1252,39 @@ non_claims = [
 ]
 
 [[work_item]]
+id = "cross-surface-parity-gap-audit-2026-05-20"
+status = "done"
+goal = "Refresh the manifest-linked cross-surface evidence parity gap audit after current-main source checks, public Python registry boundaries, and swarm runner blocker state were verified."
+receipt = "docs/audits/cross-surface-evidence-parity-gap-audit-2026-05-20.md"
+commands = [
+  "git status --short --branch",
+  "git rev-parse HEAD",
+  "gh run list --repo EffortlessMetrics/hl7v2-rs --branch main --limit 8 --json databaseId,workflowName,status,conclusion,headSha,createdAt",
+  "gh issue view 563 --repo EffortlessMetrics/hl7v2-rs --json number,state,title,url,updatedAt",
+  "gh issue view 5 --repo EffortlessMetrics/hl7v2-rs-swarm --json number,state,title,url,updatedAt",
+  "Invoke-WebRequest -Uri https://test.pypi.org/pypi/hl7v2/json -Method Head",
+  "Invoke-WebRequest -Uri https://pypi.org/pypi/hl7v2/json -Method Head",
+  "cargo +1.95.0 run -p xtask -- check-evidence-parity",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "cargo +1.95.0 run -p xtask -- badges --check",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence",
+  "cargo +1.95.0 run -p xtask -- impacted-evidence --check",
+  "python -c \"import pathlib,tomllib; tomllib.loads(pathlib.Path('policy/evidence-parity.toml').read_text(encoding='utf-8')); print('policy/evidence-parity.toml OK')\"",
+  "git diff --check",
+]
+non_claims = [
+  "No crates.io upload.",
+  "No TestPyPI upload or install-back.",
+  "No PyPI upload or install-back.",
+  "No npm package.",
+  "No tag or GitHub release.",
+  "No branch protection or self-hosted runner success claim.",
+  "No deployment success claim.",
+  "No new runtime feature claim.",
+]
+
+[[work_item]]
 id = "support-bundle-safe-sharing-checklist"
 status = "done"
 goal = "Generate a manifest-hashed safe-sharing checklist in CLI, core/Python, REST, and gRPC support bundles while keeping replay compatible with older bundles that lack the advisory file."
