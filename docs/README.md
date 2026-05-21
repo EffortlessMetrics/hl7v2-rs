@@ -102,7 +102,7 @@ documents.
 | [First 10 Minutes guide smoke](audits/first-10-minutes-guide-smoke-2026-05-18.md) | Executable `xtask check-first-10-minutes-guide` proof for the job-first CLI onboarding guide. |
 | [First-use guide smoke](audits/first-use-guide-smoke-2026-05-18.md) | Executable `xtask check-first-use-guides` proof for the documented full evidence receipt path. |
 | [Vendor upgrade diff guide smoke](audits/vendor-upgrade-diff-guide-smoke-2026-05-18.md) | Executable `xtask check-vendor-upgrade-diff-guide` proof for the before/after corpus drift guide. |
-| [Operator error guidance guide smoke](audits/operator-error-guidance-guide-smoke-2026-05-18.md) | Executable `xtask check-operator-error-guidance-guide` proof for representative REST and CLI safe-failure guidance. |
+| [Operator error guidance guide smoke](audits/operator-error-guidance-guide-smoke-2026-05-18.md) | Executable `xtask check-operator-error-guidance-guide` proof for representative REST, gRPC, and CLI safe-failure guidance. |
 | [Safe support-bundle guide smoke](audits/safe-support-bundle-guide-smoke-2026-05-18.md) | Executable `xtask check-safe-support-bundle-guide` proof for the operator support packet recipe. |
 | [Support bundle safe-sharing checklist receipt](audits/support-bundle-safe-sharing-checklist-2026-05-18.md) | CLI, core/Python, REST, and gRPC bundle proof for generated `SAFE-SHARING.md` checklists and legacy replay compatibility. |
 | [Sidecar guide smoke](audits/sidecar-guide-smoke-2026-05-18.md) | Executable `xtask check-sidecar-guide` proof for the HTTP deployment sidecar guide. |
