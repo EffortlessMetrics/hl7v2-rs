@@ -99,6 +99,7 @@ canonical_sources = [
   "docs/audits/support-bundle-safe-sharing-checklist-2026-05-18.md",
   "docs/audits/evidence-artifacts-guide-smoke-2026-05-18.md",
   "docs/audits/sidecar-guide-smoke-2026-05-18.md",
+  "docs/audits/sidecar-guide-grpc-smoke-2026-05-21.md",
   "docs/audits/python-local-wheel-proof-2026-05-15.md",
   "docs/audits/python-registry-proof-parity-boundary-2026-05-18.md",
   "docs/audits/python-public-registry-proof-command-2026-05-18.md",
@@ -2645,7 +2646,32 @@ non_claims = [
   "No npm package.",
   "No new crates.io release.",
   "No Python public-registry install-back proof.",
-  "No Docker or gRPC deployment proof.",
+  "No Docker deployment proof.",
+]
+
+[[work_item]]
+id = "sidecar-guide-grpc-smoke-runner"
+status = "done"
+goal = "Extend the executable source-checkout sidecar guide command with targeted gRPC transport and dirty validate/redact/bundle/replay contract proof."
+receipt = "docs/audits/sidecar-guide-grpc-smoke-2026-05-21.md"
+commands = [
+  "cargo +1.95.0 run -p xtask -- check-sidecar-guide",
+  "cargo +1.95.0 test -p xtask check_sidecar_guide --locked",
+  "cargo +1.95.0 fmt --all -- --check",
+  "cargo +1.95.0 run -p xtask -- check-doc-links",
+  "cargo +1.95.0 run -p xtask -- check-file-policy",
+  "git diff --check",
+]
+non_claims = [
+  "No deployed gRPC service proof outside the local source-checkout contract tests.",
+  "No grpcurl availability proof.",
+  "No TestPyPI upload.",
+  "No TestPyPI install-back.",
+  "No PyPI upload.",
+  "No PyPI install-back.",
+  "No npm package.",
+  "No new crates.io release.",
+  "No Python public-registry install-back proof.",
 ]
 
 [[work_item]]
