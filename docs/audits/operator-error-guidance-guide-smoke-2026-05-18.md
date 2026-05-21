@@ -5,9 +5,9 @@
 This receipt records an executable source-checkout smoke for
 [`docs/guides/operator-error-guidance.md`](../guides/operator-error-guidance.md).
 
-The smoke ties the guide to representative REST and CLI failure paths without
-changing runtime behavior. It verifies that operator-facing failures preserve
-safe fields, concrete next actions, and PHI-sentinel boundaries.
+The smoke ties the guide to representative REST, gRPC, and CLI failure paths
+without changing runtime behavior. It verifies that operator-facing failures
+preserve safe fields, concrete next actions, and PHI-sentinel boundaries.
 
 ## Command
 
@@ -26,6 +26,12 @@ The smoke verifies:
   to profile lint without echoing raw profile content.
 - REST unsafe bundle IDs fail closed with safe bundle-id guidance.
 - REST missing bundle roots fail closed with configuration guidance.
+- gRPC parse failures return typed parse errors without echoing forbidden
+  values.
+- gRPC profile-load failures return invalid-argument status without echoing raw
+  profile content.
+- gRPC unsafe bundle IDs and missing bundle roots fail closed through the
+  configured evidence-bundle contract tests.
 - CLI validation failures can be read from machine-readable JSON reports with
   stable `valid`, `issue_count`, `issues.code`, `issues.path`, and
   `issues.severity` fields.
@@ -36,8 +42,8 @@ The smoke verifies:
 
 This is not a TestPyPI, PyPI, npm, crates.io, tag, or GitHub release receipt.
 It does not prove public Python registry install-back. It only proves the
-source-checkout operator error guidance remains tied to executable local REST
-and CLI checks.
+source-checkout operator error guidance remains tied to executable local REST,
+gRPC, and CLI checks.
 
 ## Validation
 

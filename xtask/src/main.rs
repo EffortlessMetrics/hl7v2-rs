@@ -5946,6 +5946,61 @@ fn check_operator_error_guidance_guide() -> Result<()> {
         run_command("cargo", args)?;
     }
 
+    let grpc_error_tests: &[(&str, &[&str])] = &[
+        (
+            "gRPC parse safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_parse_invalid_hl7_returns_parse_error",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC profile-load safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_validate_invalid_profile_returns_invalid_argument",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC unsafe bundle id safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_create_evidence_bundle_rejects_unsafe_bundle_id_without_writing",
+                "--locked",
+            ],
+        ),
+        (
+            "gRPC missing bundle root safe error shape",
+            &[
+                "test",
+                "-p",
+                "hl7v2-server",
+                "--test",
+                "grpc_contract_tests",
+                "test_grpc_create_evidence_bundle_fails_without_configured_output_root",
+                "--locked",
+            ],
+        ),
+    ];
+    for (label, args) in grpc_error_tests {
+        println!("Checking {label}...");
+        run_command("cargo", args)?;
+    }
+
     let message = workspace_root.join("test_data/invalid_message.hl7");
     let profile = workspace_root.join("profiles/generic.yaml");
     ensure_existing_file(&message)?;
@@ -5991,6 +6046,10 @@ fn check_operator_error_guidance_guide() -> Result<()> {
             "rest_profile_load_safe_error_shape",
             "rest_unsafe_bundle_id_safe_error_shape",
             "rest_missing_bundle_root_safe_error_shape",
+            "grpc_parse_safe_error_shape",
+            "grpc_profile_load_safe_error_shape",
+            "grpc_unsafe_bundle_id_safe_error_shape",
+            "grpc_missing_bundle_root_safe_error_shape",
             "cli_validation_issue_report"
         ],
         "verified_fields": [

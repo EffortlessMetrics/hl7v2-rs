@@ -364,7 +364,7 @@ non_claims = [
 [[work_item]]
 id = "operator-error-guidance-guide-smoke"
 status = "done"
-goal = "Add an executable source-checkout smoke for the Operator Error Guidance guide and prove representative REST and CLI safe-failure fields."
+goal = "Add an executable source-checkout smoke for the Operator Error Guidance guide and prove representative REST, gRPC, and CLI safe-failure fields."
 receipt = "docs/audits/operator-error-guidance-guide-smoke-2026-05-18.md"
 commands = [
   "cargo +1.95.0 run -p xtask -- check-operator-error-guidance-guide",

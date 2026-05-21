@@ -17,6 +17,9 @@ executable:
 cargo +1.95.0 run -p xtask -- check-operator-error-guidance-guide
 ```
 
+The check exercises representative REST, gRPC, and CLI safe-failure paths. It
+does not require a deployed server or a public Python package.
+
 ## Safe Failure Shape
 
 Every operator-facing failure should answer:
