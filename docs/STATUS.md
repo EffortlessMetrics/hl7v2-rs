@@ -278,8 +278,8 @@ profile lint, summary, fingerprint, diff, validation issue delta,
 field-presence delta, profile hash, and PHI-sentinel checks.
 The operator error guidance guide is now executable with
 `cargo run -p xtask -- check-operator-error-guidance-guide`; it proves
-representative REST parse/profile/bundle safe-error fields and CLI validation
-issue report fields without creating a registry or release claim.
+representative REST, gRPC, and CLI safe-failure fields without creating a
+registry or release claim.
 The public Python `hl7v2` TestPyPI/PyPI lane remains separate and still needs
 upload and install-back proof before any Python release claim. Once a public
 index contains the package,

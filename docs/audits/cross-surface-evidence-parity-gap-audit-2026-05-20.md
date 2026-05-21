@@ -26,7 +26,7 @@ success.
 | [First Use By Surface](../guides/first-use-by-surface.md) | Rust, CLI, server, and Python first-use routing with Python public-registry boundary. |
 | [First 10 Minutes](../guides/first-10-minutes.md) | CLI onboarding path for doctor, validation, profile, corpus, support-bundle, and replay evidence. |
 | [Vendor Upgrade Diff](../guides/vendor-upgrade-diff.md) | Before/after corpus summary, fingerprint, and diff workflow. |
-| [Operator Error Guidance](../guides/operator-error-guidance.md) | Safe failure interpretation across representative CLI and REST surfaces. |
+| [Operator Error Guidance](../guides/operator-error-guidance.md) | Safe failure interpretation across representative CLI, REST, and gRPC surfaces. |
 | [Safe Support Bundle](../guides/safe-support-bundle.md) | Operator support packet recipe and safe-sharing checklist expectations. |
 | [Evidence Artifacts For Operators](../guides/evidence-artifacts-for-operators.md) | Artifact interpretation guide for reports, receipts, bundles, replay, and corpus evidence. |
 | [Deploy Validation Sidecar](../guides/deploy-validation-sidecar.md) | Source-checkout sidecar smoke for HTTP validation deployment. |
@@ -67,7 +67,7 @@ claim tiers for Rust, CLI, REST, gRPC, Python, or TypeScript.
 | redaction / quarantine | Rust, CLI, REST, gRPC `ValidateRedacted`, safe support-bundle guide smoke, and local Python redaction helper proof exist. | Python quarantine output is not a public package claim; public Python registry install-back is absent; TypeScript is unimplemented. | Do not claim Python quarantine unless a focused helper and smoke proof are added. |
 | bundle / replay | Rust, CLI, REST, gRPC, and local Python helper proof exist for bundle/replay semantics; `cargo run -p xtask -- check-bundle-replay-parity` composes the Rust/CLI/REST/gRPC acceptance path; first-use and support-bundle guide smokes exercise the operator path. | Public Python registry install-back is absent; TypeScript is unimplemented; Python remains local-wheel proof until registry install-back exists. | Python public proof before promoting Python registry parity; keep the shared runner current as bundle/replay surfaces change. |
 | corpus summary / fingerprint / diff | Rust core, CLI, REST, gRPC, and local Python dirty-corpus parity proof share `test_data/dirty-real-world/`; `cargo run -p xtask -- check-dirty-corpus-parity` composes the Rust/CLI/REST/gRPC acceptance path and now includes operator guide coverage for vendor upgrade diff. | TypeScript is unimplemented; Python remains local-wheel proof until registry install-back exists. | Keep Python dirty workflow proof local-wheel-scoped until TestPyPI/PyPI install-back exists; TypeScript/WASM later. |
-| safe error shape | `cargo run -p xtask -- check-safe-error-phi-parity` composes fixture-backed Rust, CLI, REST, and gRPC checks; `cargo run -p xtask -- check-operator-error-guidance-guide` proves representative user-facing CLI and REST safe-failure guidance. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep the runner current as new surfaces claim safe-error parity; add Python public proof after TestPyPI/PyPI receipts. |
+| safe error shape | `cargo run -p xtask -- check-safe-error-phi-parity` composes fixture-backed Rust, CLI, REST, and gRPC checks; `cargo run -p xtask -- check-operator-error-guidance-guide` proves representative user-facing REST, gRPC, and CLI safe-failure guidance. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep the runner current as new surfaces claim safe-error parity; add Python public proof after TestPyPI/PyPI receipts. |
 | `schema_version` behavior | Evidence schemas and surface-specific tests cover v1/v2 outputs where implemented, and `cargo run -p xtask -- check-schema-version-parity` composes the fixture-backed Rust, CLI, REST, and gRPC checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep the runner current as new surfaces claim schema-version parity; add Python public proof after TestPyPI/PyPI receipts. |
 | PHI sentinel behavior | PHI and quarantine sentinels are stable in support tiers, Python/local evidence receipts include PHI-safe checks, guide smokes include PHI-sentinel boundaries, and `cargo run -p xtask -- check-safe-error-phi-parity` covers Rust, CLI, REST, and gRPC PHI fixture checks. | Python remains local-wheel smoke until public registry install-back exists; TypeScript is unimplemented. | Keep PHI sentinel proof explicit when adding new artifact families or language surfaces. |
 | TypeScript / npm | Package identity is specified as `@effortlessmetrics/hl7v2`. | No npm package, WASM backend, pack/install/import proof, or parity fixtures exist. | Plan npm/WASM only after Python public proof is resolved or deliberately parked. |
@@ -84,8 +84,10 @@ claim tiers for Rust, CLI, REST, gRPC, Python, or TypeScript.
    current as the machine-readable parity manifest for proof commands, fixture
    families, supported surfaces, and known gaps.
 5. Use `cargo run -p xtask -- check-evidence-parity-acceptance` as the default
-   local Rust/CLI/REST/gRPC parity acceptance suite; use `--include-python`
-   only when a local Python wheel is installed.
+   local Rust/CLI/REST/gRPC parity acceptance suite. It includes the
+   operator-error guidance smoke so representative REST, gRPC, and CLI
+   safe-failure guidance cannot drift out of the aggregate proof. Use
+   `--include-python` only when a local Python wheel is installed.
 6. Keep the first-use and operator guide smokes current when docs or user
    workflows change: `check-first-use-guides`,
    `check-first-use-by-surface-guide`, `check-first-10-minutes-guide`,

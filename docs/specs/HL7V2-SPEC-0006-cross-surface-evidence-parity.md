@@ -176,7 +176,8 @@ remains governed by the separate TestPyPI/PyPI proof lane.
 The default aggregate local acceptance runner is
 `cargo run -p xtask -- check-evidence-parity-acceptance`. It verifies the
 manifest and then runs the shared safe-error/PHI, profile, schema-version,
-dirty-corpus, and bundle/replay parity runners for Rust, CLI, REST, and gRPC.
+operator-error guidance, dirty-corpus, and bundle/replay parity runners for
+Rust, CLI, REST, and gRPC.
 
 ## Non-Goals
 

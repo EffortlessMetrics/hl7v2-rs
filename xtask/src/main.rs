@@ -4873,6 +4873,7 @@ fn check_evidence_parity_acceptance(include_python: bool) -> Result<()> {
     println!("🔎 Checking cross-surface evidence parity acceptance...");
     check_evidence_parity()?;
     check_safe_error_phi_parity(include_python)?;
+    check_operator_error_guidance_guide()?;
     check_profile_parity(include_python)?;
     check_schema_version_parity(include_python)?;
     check_dirty_corpus_parity(include_python)?;
@@ -8317,6 +8318,11 @@ fn check_evidence_parity_manifest_text(text: &str) -> Result<()> {
         contracts,
         "safe-error-shape",
         "cargo run -p xtask -- check-safe-error-phi-parity",
+    )?;
+    ensure_contract_proof_contains(
+        contracts,
+        "safe-error-shape",
+        "cargo run -p xtask -- check-operator-error-guidance-guide",
     )?;
     ensure_contract_proof_contains(
         contracts,
@@ -12049,6 +12055,33 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2" }
                 "evidence parity policy should reject a missing safe-error/PHI runner"
             )),
             Err(err) if err.to_string().contains("check-safe-error-phi-parity") => Ok(()),
+            Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
+        }
+    }
+
+    #[test]
+    fn evidence_parity_policy_requires_operator_error_guidance_runner() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let text = fs::read_to_string(root.join(EVIDENCE_PARITY_MANIFEST_PATH))?;
+        let broken = text.replace(
+            "\"cargo run -p xtask -- check-operator-error-guidance-guide\",",
+            "\"cargo run -p xtask -- old-operator-error-guidance-guide\",",
+        );
+
+        match check_evidence_parity_manifest_text(&broken) {
+            Ok(()) => Err(anyhow!(
+                "evidence parity policy should reject a missing operator-error guidance runner"
+            )),
+            Err(err)
+                if err
+                    .to_string()
+                    .contains("check-operator-error-guidance-guide") =>
+            {
+                Ok(())
+            }
             Err(err) => Err(anyhow!("unexpected evidence parity policy error: {err}")),
         }
     }
