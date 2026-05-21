@@ -6870,6 +6870,32 @@ fn check_sidecar_guide() -> Result<()> {
     sidecar.ensure_running("hl7v2-server sidecar", &sidecar_root)?;
     sidecar.stop()?;
 
+    println!("Checking targeted gRPC sidecar guide contract coverage...");
+    run_command(
+        "cargo",
+        &[
+            "test",
+            "-p",
+            "hl7v2-server",
+            "--test",
+            "grpc_contract_tests",
+            "--locked",
+            "test_grpc_transport_server_serves_health_check",
+        ],
+    )?;
+    run_command(
+        "cargo",
+        &[
+            "test",
+            "-p",
+            "hl7v2-server",
+            "--test",
+            "grpc_contract_tests",
+            "--locked",
+            "test_grpc_dirty_real_world_validate_redact_bundle_replay_workflow",
+        ],
+    )?;
+
     println!(
         "Deploy Validation Sidecar guide smoke wrote {}",
         sidecar_root.display()

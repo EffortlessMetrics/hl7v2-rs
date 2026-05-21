@@ -106,6 +106,7 @@ documents.
 | [Safe support-bundle guide smoke](audits/safe-support-bundle-guide-smoke-2026-05-18.md) | Executable `xtask check-safe-support-bundle-guide` proof for the operator support packet recipe. |
 | [Support bundle safe-sharing checklist receipt](audits/support-bundle-safe-sharing-checklist-2026-05-18.md) | CLI, core/Python, REST, and gRPC bundle proof for generated `SAFE-SHARING.md` checklists and legacy replay compatibility. |
 | [Sidecar guide smoke](audits/sidecar-guide-smoke-2026-05-18.md) | Executable `xtask check-sidecar-guide` proof for the HTTP deployment sidecar guide. |
+| [Sidecar guide gRPC smoke](audits/sidecar-guide-grpc-smoke-2026-05-21.md) | Targeted gRPC transport and dirty evidence workflow proof for the sidecar guide. |
 | [Evidence artifact guide smoke](audits/evidence-artifacts-guide-smoke-2026-05-18.md) | Executable `xtask check-evidence-artifacts-guide` proof for the operator artifact interpretation guide. |
 | [Public crates install and first-use smoke](audits/public-crates-install-first-use-2026-05-16.md) | Repeatable crates.io install-back smoke for `hl7v2`, `hl7v2-cli`, and `hl7v2-server` v1.5.0 first-use paths. |
 | [gRPC enhanced ACK parity receipt](audits/grpc-enhanced-ack-parity-2026-05-16.md) | gRPC `GenerateAck` parity for all six supported ACK codes: `AA`, `AE`, `AR`, `CA`, `CE`, and `CR`. |

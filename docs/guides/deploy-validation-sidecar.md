@@ -12,17 +12,20 @@ use `cargo run -q -p hl7v2-server --` instead:
 cargo run -q -p hl7v2-server -- --print-config
 ```
 
-Source checkouts can verify the HTTP sidecar path in this guide with:
+Source checkouts can verify the HTTP sidecar path and the targeted gRPC
+contract path in this guide with:
 
 ```bash
 cargo +1.95.0 run -p xtask -- check-sidecar-guide
 ```
 
-The check starts a local `hl7v2-server` sidecar, runs the standard server smoke,
-and then runs a guide-specific invalid-message smoke for quarantine output, ACK
-policy, corpus diff, metrics, and PHI sentinels. The executable check chooses an
-ephemeral loopback port so it does not depend on the manual `18080` example port
-being free.
+The check starts a local `hl7v2-server` HTTP sidecar, runs the standard server
+smoke, and then runs a guide-specific invalid-message smoke for quarantine
+output, ACK policy, corpus diff, metrics, and PHI sentinels. It also runs
+targeted gRPC contract tests for transport health and the dirty
+validate/redact/bundle/replay evidence path documented below. The executable
+HTTP check chooses an ephemeral loopback port so it does not depend on the
+manual `18080` example port being free.
 
 ## What You Will Prove
 
