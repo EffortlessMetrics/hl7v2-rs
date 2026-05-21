@@ -105,9 +105,44 @@ pub fn parse_mllp(bytes: &[u8]) -> Result<Message, Error> {
     parse(hl7_content)
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct SegmentLine<'a> {
+    pub(super) text: &'a str,
+    pub(super) start: usize,
+    pub(super) end: usize,
+}
+
 pub(super) fn segment_lines(text: &str) -> Vec<&str> {
-    text.split('\r')
-        .map(|line| line.strip_prefix('\n').unwrap_or(line))
-        .filter(|line| !line.is_empty())
+    segment_line_spans(text)
+        .into_iter()
+        .map(|line| line.text)
         .collect()
+}
+
+pub(super) fn segment_line_spans(text: &str) -> Vec<SegmentLine<'_>> {
+    let mut lines = Vec::new();
+    let mut offset: usize = 0;
+
+    for line in text.split('\r') {
+        let raw_start = offset;
+        let raw_end = raw_start.checked_add(line.len()).unwrap_or(text.len());
+        offset = raw_end.checked_add(1).unwrap_or(raw_end);
+
+        let (stripped, start) = line
+            .strip_prefix('\n')
+            .map_or((line, raw_start), |stripped| {
+                (stripped, raw_start.checked_add(1).unwrap_or(raw_start))
+            });
+        if stripped.is_empty() {
+            continue;
+        }
+
+        lines.push(SegmentLine {
+            text: stripped,
+            start,
+            end: raw_end,
+        });
+    }
+
+    lines
 }

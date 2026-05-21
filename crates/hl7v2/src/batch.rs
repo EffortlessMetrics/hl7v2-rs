@@ -235,7 +235,7 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
     let text = std::str::from_utf8(data)
         .map_err(|_err| BatchError::InvalidStructure("Invalid UTF-8 data".to_string()))?;
 
-    let lines: Vec<&str> = text.split(['\r', '\n']).filter(|l| !l.is_empty()).collect();
+    let lines = batch_segment_lines(text);
 
     if lines.is_empty() {
         return Err(BatchError::InvalidStructure("Empty batch data".to_string()));
@@ -246,11 +246,11 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
         return Err(BatchError::InvalidStructure("Empty batch data".to_string()));
     };
 
-    if first_line.starts_with("FHS") {
-        parse_file_batch(&lines)
-    } else if first_line.starts_with("BHS") {
+    if first_line.text.starts_with("FHS") {
+        parse_file_batch(text, &lines)
+    } else if first_line.text.starts_with("BHS") {
         // Single batch without file wrapper
-        let batch = parse_single_batch(&lines)?;
+        let batch = parse_single_batch(text, &lines)?;
         let mut file_batch = FileBatch::new();
         // Override batch_type to Single for BHS-only batches
         file_batch.info.batch_type = BatchType::Single;
@@ -268,9 +268,9 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
         file_batch.info.trailer_comment = batch.info.trailer_comment.clone();
         file_batch.add_batch(batch);
         Ok(file_batch)
-    } else if first_line.starts_with("MSH") {
+    } else if first_line.text.starts_with("MSH") {
         // Not a batch, just messages
-        let messages = parse_messages(&lines)?;
+        let messages = parse_messages(text, &lines)?;
         let batch = Batch {
             header: None,
             messages,
@@ -283,26 +283,72 @@ pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
     } else {
         Err(BatchError::InvalidStructure(format!(
             "Unknown first segment: {}",
-            segment_prefix(first_line)
+            segment_prefix(first_line.text)
         )))
     }
 }
 
+#[derive(Clone, Copy)]
+struct BatchLine<'a> {
+    text: &'a str,
+    start: usize,
+    end: usize,
+}
+
+fn batch_segment_lines(text: &str) -> Vec<BatchLine<'_>> {
+    let mut lines = Vec::new();
+    let bytes = text.as_bytes();
+    let mut start = 0;
+    let mut index = 0;
+
+    while let Some(byte) = bytes.get(index).copied() {
+        match byte {
+            b'\r' | b'\n' => {
+                push_batch_line(text, start, index, &mut lines);
+                let next_index = index.checked_add(1).unwrap_or(bytes.len());
+                if byte == b'\r' && bytes.get(next_index) == Some(&b'\n') {
+                    index = next_index;
+                }
+                index = index.checked_add(1).unwrap_or(bytes.len());
+                start = index;
+            }
+            _ => index = index.checked_add(1).unwrap_or(bytes.len()),
+        }
+    }
+
+    push_batch_line(text, start, bytes.len(), &mut lines);
+    lines
+}
+
+fn push_batch_line<'a>(text: &'a str, start: usize, end: usize, lines: &mut Vec<BatchLine<'a>>) {
+    if start == end {
+        return;
+    }
+
+    if let Some(line) = text.get(start..end) {
+        lines.push(BatchLine {
+            text: line,
+            start,
+            end,
+        });
+    }
+}
+
 /// Parse a file batch (with FHS/FTS)
-fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
+fn parse_file_batch(source: &str, lines: &[BatchLine<'_>]) -> Result<FileBatch, BatchError> {
     let mut file_batch = FileBatch::new();
-    let mut current_batch_lines: Vec<&str> = Vec::new();
-    let mut current_message_lines: Vec<&str> = Vec::new();
+    let mut current_batch_lines: Vec<BatchLine<'_>> = Vec::new();
+    let mut current_message_lines: Vec<BatchLine<'_>> = Vec::new();
     let mut in_batch = false;
     let mut has_fhs = false;
 
     for line in lines {
-        if line.starts_with("FHS") {
-            add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+        if line.text.starts_with("FHS") {
+            add_unwrapped_message_batch(&mut file_batch, source, &current_message_lines)?;
             current_message_lines.clear();
             has_fhs = true;
-            file_batch.header = Some(parse_segment(line)?);
-            let info = extract_batch_info(line, "FHS")?;
+            file_batch.header = Some(parse_segment(line.text)?);
+            let info = extract_batch_info(line.text, "FHS")?;
             // Preserve batch_type which is already set to File
             file_batch.info.encoding_characters = info.encoding_characters;
             file_batch.info.sending_application = info.sending_application;
@@ -314,37 +360,37 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
             file_batch.info.field_separator = info.field_separator;
             file_batch.info.batch_name = info.batch_name;
             file_batch.info.batch_comment = info.batch_comment;
-        } else if line.starts_with("FTS") {
-            add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+        } else if line.text.starts_with("FTS") {
+            add_unwrapped_message_batch(&mut file_batch, source, &current_message_lines)?;
             current_message_lines.clear();
-            file_batch.trailer = Some(parse_segment(line)?);
+            file_batch.trailer = Some(parse_segment(line.text)?);
             // Extract message count from FTS-1
-            let info = extract_batch_info(line, "FTS")?;
+            let info = extract_batch_info(line.text, "FTS")?;
             file_batch.info.message_count = info.message_count;
             file_batch.info.trailer_comment = info.trailer_comment;
-        } else if line.starts_with("BHS") {
-            add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+        } else if line.text.starts_with("BHS") {
+            add_unwrapped_message_batch(&mut file_batch, source, &current_message_lines)?;
             current_message_lines.clear();
             in_batch = true;
-            current_batch_lines.push(line);
-        } else if line.starts_with("BTS") {
-            current_batch_lines.push(line);
-            let batch = parse_single_batch(&current_batch_lines)?;
+            current_batch_lines.push(*line);
+        } else if line.text.starts_with("BTS") {
+            current_batch_lines.push(*line);
+            let batch = parse_single_batch(source, &current_batch_lines)?;
             file_batch.add_batch(batch);
             current_batch_lines.clear();
             in_batch = false;
         } else if in_batch {
-            current_batch_lines.push(line);
-        } else if line.starts_with("MSH") {
-            add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+            current_batch_lines.push(*line);
+        } else if line.text.starts_with("MSH") {
+            add_unwrapped_message_batch(&mut file_batch, source, &current_message_lines)?;
             current_message_lines.clear();
-            current_message_lines.push(line);
+            current_message_lines.push(*line);
         } else if !current_message_lines.is_empty() {
-            current_message_lines.push(line);
+            current_message_lines.push(*line);
         }
     }
 
-    add_unwrapped_message_batch(&mut file_batch, &current_message_lines)?;
+    add_unwrapped_message_batch(&mut file_batch, source, &current_message_lines)?;
 
     // Validate that FHS is present for file batches
     if !has_fhs {
@@ -371,13 +417,14 @@ fn parse_file_batch(lines: &[&str]) -> Result<FileBatch, BatchError> {
 
 fn add_unwrapped_message_batch(
     file_batch: &mut FileBatch,
-    message_lines: &[&str],
+    source: &str,
+    message_lines: &[BatchLine<'_>],
 ) -> Result<(), BatchError> {
     if message_lines.is_empty() {
         return Ok(());
     }
 
-    let messages = parse_messages(message_lines)?;
+    let messages = parse_messages(source, message_lines)?;
     let batch = Batch {
         header: None,
         messages,
@@ -389,41 +436,39 @@ fn add_unwrapped_message_batch(
 }
 
 /// Parse a single batch (with BHS/BTS)
-fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
+fn parse_single_batch(source: &str, lines: &[BatchLine<'_>]) -> Result<Batch, BatchError> {
     let mut batch = Batch::new();
-    let mut message_lines: Vec<&str> = Vec::new();
+    let mut message_lines: Vec<BatchLine<'_>> = Vec::new();
     let mut has_bhs = false;
     let mut has_bts = false;
 
     for line in lines {
-        if line.starts_with("BHS") {
+        if line.text.starts_with("BHS") {
             has_bhs = true;
-            batch.header = Some(parse_segment(line)?);
-            batch.info = extract_batch_info(line, "BHS")?;
-        } else if line.starts_with("BTS") {
+            batch.header = Some(parse_segment(line.text)?);
+            batch.info = extract_batch_info(line.text, "BHS")?;
+        } else if line.text.starts_with("BTS") {
             has_bts = true;
-            batch.trailer = Some(parse_segment(line)?);
-            let info = extract_batch_info(line, "BTS")?;
+            batch.trailer = Some(parse_segment(line.text)?);
+            let info = extract_batch_info(line.text, "BTS")?;
             batch.info.message_count = info.message_count;
             batch.info.trailer_comment = info.trailer_comment;
-        } else if line.starts_with("MSH") {
+        } else if line.text.starts_with("MSH") {
             if !message_lines.is_empty() {
                 // Parse previous message
-                let msg_text = message_lines.join("\r");
-                let msg = parse(msg_text.as_bytes())?;
+                let msg = parse_message_lines(source, &message_lines)?;
                 batch.add_message(msg);
                 message_lines.clear();
             }
-            message_lines.push(line);
+            message_lines.push(*line);
         } else {
-            message_lines.push(line);
+            message_lines.push(*line);
         }
     }
 
     // Parse last message
     if !message_lines.is_empty() {
-        let msg_text = message_lines.join("\r");
-        let msg = parse(msg_text.as_bytes())?;
+        let msg = parse_message_lines(source, &message_lines)?;
         batch.add_message(msg);
     }
 
@@ -456,27 +501,76 @@ fn parse_single_batch(lines: &[&str]) -> Result<Batch, BatchError> {
 }
 
 /// Parse multiple messages from lines
-fn parse_messages(lines: &[&str]) -> Result<Vec<Message>, BatchError> {
+fn parse_messages(source: &str, lines: &[BatchLine<'_>]) -> Result<Vec<Message>, BatchError> {
     let mut messages = Vec::new();
-    let mut message_lines: Vec<&str> = Vec::new();
+    let mut message_lines: Vec<BatchLine<'_>> = Vec::new();
 
     for line in lines {
-        if line.starts_with("MSH") && !message_lines.is_empty() {
-            let msg_text = message_lines.join("\r");
-            let msg = parse(msg_text.as_bytes())?;
+        if line.text.starts_with("MSH") && !message_lines.is_empty() {
+            let msg = parse_message_lines(source, &message_lines)?;
             messages.push(msg);
             message_lines.clear();
         }
-        message_lines.push(line);
+        message_lines.push(*line);
     }
 
     if !message_lines.is_empty() {
-        let msg_text = message_lines.join("\r");
-        let msg = parse(msg_text.as_bytes())?;
+        let msg = parse_message_lines(source, &message_lines)?;
         messages.push(msg);
     }
 
     Ok(messages)
+}
+
+fn parse_message_lines(
+    source: &str,
+    message_lines: &[BatchLine<'_>],
+) -> Result<Message, BatchError> {
+    let window = batch_line_window(source, message_lines)?;
+    if contains_bare_lf(window) {
+        let normalized = normalize_message_lines(message_lines);
+        parse(normalized.as_bytes()).map_err(BatchError::from)
+    } else {
+        parse(window.as_bytes()).map_err(BatchError::from)
+    }
+}
+
+fn batch_line_window<'a>(source: &'a str, lines: &[BatchLine<'_>]) -> Result<&'a str, BatchError> {
+    let Some(first) = lines.first() else {
+        return Ok("");
+    };
+    let Some(last) = lines.last() else {
+        return Ok("");
+    };
+    source
+        .get(first.start..last.end)
+        .ok_or_else(|| BatchError::InvalidStructure("Invalid message bounds".to_string()))
+}
+
+fn contains_bare_lf(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.iter().enumerate().any(|(index, byte)| {
+        *byte == b'\n'
+            && index
+                .checked_sub(1)
+                .and_then(|prev| bytes.get(prev))
+                .is_none_or(|prev| *prev != b'\r')
+    })
+}
+
+fn normalize_message_lines(lines: &[BatchLine<'_>]) -> String {
+    let segment_bytes = lines.iter().map(|line| line.text.len()).sum::<usize>();
+    let capacity = segment_bytes
+        .checked_add(lines.len().saturating_sub(1))
+        .unwrap_or(segment_bytes);
+    let mut normalized = String::with_capacity(capacity);
+    for (index, line) in lines.iter().enumerate() {
+        if index > 0 {
+            normalized.push('\r');
+        }
+        normalized.push_str(line.text);
+    }
+    normalized
 }
 
 /// Parse a single segment line
@@ -765,6 +859,49 @@ mod tests {
             Some("John"),
             "first unwrapped message PID-5.2",
         )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_batch_accepts_crlf_segment_boundaries() -> Result<(), Box<dyn std::error::Error>> {
+        let data = "BHS|^~\\&|SEND|SFAC\r\n\
+MSH|^~\\&|APP|FAC|RCV|RCVFAC|202605030101||ADT^A01|CTRL1|P|2.5.1\r\n\
+PID|1||MRN^^^HOSP^MR||Doe^John\r\n\
+BTS|1\r\n";
+
+        let batch = parse_batch(data.as_bytes())?;
+
+        require_eq(batch.total_message_count(), 1, "message count")?;
+        let message = batch
+            .batches
+            .first()
+            .and_then(|batch| batch.messages.first())
+            .ok_or_else(|| std::io::Error::other("missing CRLF message"))?;
+        require_eq(message.segments.len(), 2, "CRLF message segment count")?;
+        require_eq(get(message, "PID.5.1"), Some("Doe"), "CRLF PID-5.1")?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_batch_preserves_lf_only_facade_compatibility() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let data = "BHS|^~\\&|SEND|SFAC\n\
+MSH|^~\\&|APP|FAC|RCV|RCVFAC|202605030101||ADT^A01|CTRL1|P|2.5.1\n\
+PID|1||MRN^^^HOSP^MR||Doe^John\n\
+BTS|1\n";
+
+        let batch = parse_batch(data.as_bytes())?;
+
+        require_eq(batch.total_message_count(), 1, "message count")?;
+        let message = batch
+            .batches
+            .first()
+            .and_then(|batch| batch.messages.first())
+            .ok_or_else(|| std::io::Error::other("missing LF-only message"))?;
+        require_eq(message.segments.len(), 2, "LF-only message segment count")?;
+        require_eq(get(message, "PID.5.1"), Some("Doe"), "LF-only PID-5.1")?;
 
         Ok(())
     }
