@@ -278,6 +278,7 @@ typescript = "planned"
 fixture_family = "test_data/security/safe-error-phi-parity.json"
 proof = [
   "cargo run -p xtask -- check-safe-error-phi-parity",
+  "cargo run -p xtask -- check-operator-error-guidance-guide",
   "cargo test -p hl7v2 --test safe_error_phi_parity --all-features",
   "cargo test -p hl7v2-cli --test integration_tests test_parse_safe_error_does_not_emit_manifest_phi_sentinels",
   "cargo test -p hl7v2-server --test parse_endpoint_test test_parse_malformed_message_returns_error",
