@@ -2519,6 +2519,94 @@ reason = "Remove family name"
     }
 
     #[test]
+    fn test_redact_json_accepts_segment_repetition_sensitive_policy() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(
+            &dir,
+            "nk1-message.hl7",
+            "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rNK1|1\rNK1|2|Kin^Jane\r",
+        );
+        let policy_file = create_temp_file(
+            &dir,
+            "nk1-policy.toml",
+            br#"
+[[rules]]
+path = "NK1[2]-2"
+action = "drop"
+reason = "Remove populated next-of-kin name"
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(!stdout.contains("Kin^Jane"));
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("redact output should be JSON");
+        let actions = report["receipt"]["actions"].as_array().unwrap();
+        assert!(actions.iter().any(|action| {
+            action["path"] == "NK1[2].2"
+                && action["action"] == "drop"
+                && action["matched_count"] == 1
+                && action["status"] == "applied"
+        }));
+    }
+
+    #[test]
+    fn test_redact_rejects_retain_for_segment_repetition_sensitive_field() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(
+            &dir,
+            "nk1-message.hl7",
+            "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rNK1|1\rNK1|2|Kin^Jane\r",
+        );
+        let policy_file = create_temp_file(
+            &dir,
+            "nk1-policy.toml",
+            br#"
+[[rules]]
+path = "NK1[2]-2"
+action = "retain"
+reason = "Unsafe retain"
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(!output.status.success());
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(
+            stderr.contains("redaction rule NK1[2].2 cannot retain a built-in sensitive field")
+        );
+        assert!(!stderr.contains("Kin^Jane"));
+        assert!(!stderr.contains("Kin"));
+        assert!(!stderr.contains("Jane"));
+    }
+
+    #[test]
     fn test_redact_json_schema_v2_returns_provenance_output_without_raw_phi() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
@@ -3214,6 +3302,78 @@ reason = "Remove family name"
                     && action["action"] == "drop"
                     && action["matched_count"] == 1)
         );
+    }
+
+    #[test]
+    fn test_bundle_accepts_segment_repetition_sensitive_policy() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(
+            &dir,
+            "nk1-message.hl7",
+            "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rNK1|1\rNK1|2|Kin^Jane\r",
+        );
+        let profile_file = create_temp_file(
+            &dir,
+            "profile.yaml",
+            br#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "NK1"
+    max_uses: 2
+"#,
+        );
+        let policy_file = create_temp_file(
+            &dir,
+            "nk1-policy.toml",
+            br#"
+[[rules]]
+path = "NK1[2]-2"
+action = "drop"
+reason = "Remove populated next-of-kin name"
+"#,
+        );
+        let bundle_dir = dir.path().join("nk1-bundle");
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "bundle",
+            message_file.to_str().unwrap(),
+            "--profile",
+            profile_file.to_str().unwrap(),
+            "--redact-policy",
+            policy_file.to_str().unwrap(),
+            "--out",
+            bundle_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+        let redacted_message =
+            std::fs::read_to_string(bundle_dir.join("message.redacted.hl7")).unwrap();
+        assert!(!redacted_message.contains("Kin^Jane"));
+
+        let receipt: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("redaction-receipt.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(receipt["actions"].as_array().unwrap().iter().any(|action| {
+            action["path"] == "NK1[2].2"
+                && action["action"] == "drop"
+                && action["matched_count"] == 1
+                && action["status"] == "applied"
+        }));
+
+        let field_paths: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("field-paths.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(field_paths["fields"].as_array().unwrap().iter().any(
+            |field| field["canonical_path"] == "NK1.2"
+                && field["redaction_action"] == "drop"
+                && field["value_shape"] == "empty"
+        ));
     }
 
     #[test]
