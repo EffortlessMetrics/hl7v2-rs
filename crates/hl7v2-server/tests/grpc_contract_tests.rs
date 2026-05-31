@@ -602,6 +602,7 @@ constraints:
             identity.version.as_deref(),
             Some(fixture.validation.profile_version.as_str())
         );
+        assert_eq!(identity.sha256.as_deref().unwrap().len(), 64);
         assert_eq!(
             report_v2.issues[0].code,
             fixture.validation.required_issue_code
