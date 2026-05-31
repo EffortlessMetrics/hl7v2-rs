@@ -125,20 +125,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let mut warnings = Vec::new();
 
         for issue in issues {
-            let location = issue.path.map(|p| {
-                let mut loc = Location::default();
-                let parts: Vec<&str> = p.split('.').collect();
-                if !parts.is_empty() {
-                    loc.segment = parts[0].to_string();
-                }
-                if parts.len() > 1 {
-                    loc.field = parts[1].parse().unwrap_or(0);
-                }
-                if parts.len() > 2 {
-                    loc.component = parts[2].parse().unwrap_or(0);
-                }
-                loc
-            });
+            let location = issue.path.as_deref().map(proto_location_from_issue_path);
 
             let proto_issue = ValidationIssue {
                 code: issue.code,
@@ -698,6 +685,42 @@ fn compute_sha256(input: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+fn proto_location_from_issue_path(path: &str) -> Location {
+    if let Ok(located) = hl7v2::parse_located_path(path) {
+        let repetition = located
+            .path
+            .repetition
+            .or(located.segment_repetition)
+            .map(usize_to_i32)
+            .unwrap_or_default();
+
+        return Location {
+            segment: located.path.segment,
+            field: usize_to_i32(located.path.field),
+            component: located.path.component.map(usize_to_i32).unwrap_or_default(),
+            repetition,
+            byte_offset: 0,
+        };
+    }
+
+    proto_location_from_legacy_issue_path(path)
+}
+
+fn proto_location_from_legacy_issue_path(path: &str) -> Location {
+    let mut loc = Location::default();
+    let parts: Vec<&str> = path.split('.').collect();
+    if !parts.is_empty() {
+        loc.segment = parts[0].to_string();
+    }
+    if parts.len() > 1 {
+        loc.field = parts[1].parse().unwrap_or(0);
+    }
+    if parts.len() > 2 {
+        loc.component = parts[2].parse().unwrap_or(0);
+    }
+    loc
 }
 
 struct GrpcRedactedQuarantineContext<'a> {
@@ -1297,6 +1320,10 @@ fn proto_corpus_value_shape_stats_from_rust(
 
 fn usize_to_u32(value: usize) -> u32 {
     u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn usize_to_i32(value: usize) -> i32 {
+    i32::try_from(value).unwrap_or(i32::MAX)
 }
 
 fn usize_to_u64(value: usize) -> u64 {
