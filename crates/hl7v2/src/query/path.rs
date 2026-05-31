@@ -1,13 +1,18 @@
 //! HL7 v2 field path parsing and resolution.
 //!
 //! This module provides path-based access to HL7 v2 message fields,
-//! supporting the standard path notation (e.g., `PID.5.1`, `MSH.9[1].2`).
+//! supporting legacy dot notation (e.g., `PID.5.1`) and diagnostic dash
+//! notation used by operator output (e.g., `PID-5.1`, `OBX[2]-5`).
 //!
 //! # Path Format
 //!
-//! - `SEGMENT.FIELD` - Access a field (e.g., `PID.5`)
-//! - `SEGMENT.FIELD.COMPONENT` - Access a component (e.g., `PID.5.1`)
-//! - `SEGMENT.FIELD[REP].COMPONENT` - Access with repetition (e.g., `PID.5[2].1`)
+//! - `SEGMENT.FIELD` or `SEGMENT-FIELD` - Access a field (e.g., `PID.5`, `PID-5`)
+//! - `SEGMENT.FIELD.COMPONENT` or `SEGMENT-FIELD.COMPONENT` - Access a component
+//!   (e.g., `PID.5.1`, `PID-5.1`)
+//! - `SEGMENT.FIELD[REP].COMPONENT` or `SEGMENT-FIELD[REP].COMPONENT` - Access
+//!   with field repetition (e.g., `PID.5[2].1`, `PID-5[2].1`)
+//! - `SEGMENT[REP].FIELD` or `SEGMENT[REP]-FIELD` - Access a repeated segment
+//!   (e.g., `OBX[3].5`, `OBX[3]-5`)
 //! - `SEGMENT.FIELD.COMPONENT.SUBCOMPONENT` - Access subcomponent
 //!
 //! # Example
@@ -46,6 +51,47 @@ pub enum PathError {
     /// Repetition index is missing or outside the valid HL7 range.
     #[error("Invalid repetition index: {0}")]
     InvalidRepetitionIndex(String),
+}
+
+/// Represents a parsed HL7 field path plus a segment repetition selector.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LocatedPath {
+    /// Segment repetition index (1-based), None means first/default.
+    pub segment_repetition: Option<usize>,
+    /// Field, field repetition, component, and subcomponent selector.
+    pub path: Path,
+}
+
+impl LocatedPath {
+    /// Format as a path string, preserving any segment repetition selector.
+    pub fn to_path_string(&self) -> String {
+        let mut result = self.path.segment.clone();
+        if let Some(rep) = self.segment_repetition {
+            result.push('[');
+            result.push_str(&rep.to_string());
+            result.push(']');
+        }
+        result.push('.');
+        result.push_str(&self.path.field.to_string());
+
+        if let Some(rep) = self.path.repetition {
+            result.push('[');
+            result.push_str(&rep.to_string());
+            result.push(']');
+        }
+
+        if let Some(comp) = self.path.component {
+            result.push('.');
+            result.push_str(&comp.to_string());
+        }
+
+        if let Some(sub) = self.path.subcomponent {
+            result.push('.');
+            result.push_str(&sub.to_string());
+        }
+
+        result
+    }
 }
 
 /// Represents a parsed HL7 field path
@@ -147,9 +193,13 @@ impl std::fmt::Display for Path {
 /// # Supported Formats
 ///
 /// - `SEGMENT.FIELD` - e.g., `PID.5`
+/// - `SEGMENT-FIELD` - e.g., `PID-5`
 /// - `SEGMENT.FIELD.COMPONENT` - e.g., `PID.5.1`
+/// - `SEGMENT-FIELD.COMPONENT` - e.g., `PID-5.1`
 /// - `SEGMENT.FIELD[REP]` - e.g., `PID.5[2]`
-/// - `SEGMENT.FIELD[REP].COMPONENT` - e.g., `PID.5[2].1`
+/// - `SEGMENT-FIELD[REP]` - e.g., `PID-5[2]`
+/// - `SEGMENT[REP].FIELD` - e.g., `OBX[3].5`
+/// - `SEGMENT[REP]-FIELD` - e.g., `OBX[3]-5`
 /// - `SEGMENT.FIELD.COMPONENT.SUBCOMPONENT` - e.g., `PID.5.1.1`
 ///
 /// # Errors
@@ -169,17 +219,36 @@ impl std::fmt::Display for Path {
 /// assert_eq!(path.component, Some(1));
 /// ```
 pub fn parse_path(s: &str) -> Result<Path, PathError> {
+    let located = parse_located_path(s)?;
+    if located.segment_repetition.is_some() {
+        return Err(PathError::InvalidFormat(
+            "Segment repetition requires parse_located_path".to_string(),
+        ));
+    }
+
+    Ok(located.path)
+}
+
+/// Parse an HL7 path that may include a segment repetition selector.
+///
+/// This accepts the same field forms as [`parse_path`] plus segment repetition
+/// selectors like `OBX[3]-5` or `NTE[1].3`.
+///
+/// # Errors
+///
+/// Returns [`PathError`] when the input is empty, missing the field component,
+/// has an invalid segment identifier, or contains zero/non-numeric segment,
+/// field, repetition, component, or subcomponent indexes.
+pub fn parse_located_path(s: &str) -> Result<LocatedPath, PathError> {
     let s = s.trim();
 
     if s.is_empty() {
         return Err(PathError::InvalidFormat("Path cannot be empty".to_string()));
     }
 
-    let mut parts = s.split('.');
-    let segment_part = parts.next().unwrap_or_default();
-    let field_part = parts.next().ok_or_else(|| {
-        PathError::InvalidFormat(format!("Path must have at least SEGMENT.FIELD, got: {s}"))
-    })?;
+    let (segment_part, field_and_component_part) = split_segment_and_field(s)?;
+    let mut parts = field_and_component_part.split('.');
+    let field_part = parts.next().unwrap_or_default();
     let component_part = parts.next();
     let subcomponent_part = parts.next();
     if parts.next().is_some() {
@@ -188,14 +257,7 @@ pub fn parse_path(s: &str) -> Result<Path, PathError> {
         )));
     }
 
-    // Parse segment ID (must be 3 characters, start with letter, rest alphanumeric)
-    let segment = segment_part.to_uppercase();
-    if segment.len() != 3
-        || !segment.starts_with(|c: char| c.is_ascii_alphabetic())
-        || !segment.chars().all(|c| c.is_ascii_alphanumeric())
-    {
-        return Err(PathError::InvalidSegmentId(segment));
-    }
+    let (segment, segment_repetition) = parse_segment_part(segment_part)?;
 
     // Parse field number (may include repetition)
     let (field, repetition) = parse_field_part(field_part)?;
@@ -235,7 +297,59 @@ pub fn parse_path(s: &str) -> Result<Path, PathError> {
         path = path.with_subcomponent(sub);
     }
 
-    Ok(path)
+    Ok(LocatedPath {
+        segment_repetition,
+        path,
+    })
+}
+
+fn split_segment_and_field(s: &str) -> Result<(&str, &str), PathError> {
+    if let Some((segment_part, field_part)) = s.split_once('-') {
+        if segment_part.is_empty() || field_part.is_empty() {
+            return Err(PathError::InvalidFormat(format!(
+                "Path must have SEGMENT-FIELD, got: {s}"
+            )));
+        }
+        return Ok((segment_part, field_part));
+    }
+
+    s.split_once('.').ok_or_else(|| {
+        PathError::InvalidFormat(format!("Path must have at least SEGMENT.FIELD, got: {s}"))
+    })
+}
+
+fn parse_segment_part(s: &str) -> Result<(String, Option<usize>), PathError> {
+    let (segment, repetition) = if s.contains('[') {
+        let stripped = s.strip_suffix(']').ok_or_else(|| {
+            PathError::InvalidFormat(format!("Invalid segment format, missing ']': {s}"))
+        })?;
+        let Some((segment_str, rep_str)) = stripped.split_once('[') else {
+            return Err(PathError::InvalidFormat(format!(
+                "Invalid segment format, missing '[': {s}"
+            )));
+        };
+        let rep = rep_str
+            .parse::<usize>()
+            .map_err(|_parse_err| PathError::InvalidRepetitionIndex(rep_str.to_string()))?;
+        if rep == 0 {
+            return Err(PathError::InvalidRepetitionIndex(
+                "Segment repetition must be >= 1".to_string(),
+            ));
+        }
+        (segment_str.to_uppercase(), Some(rep))
+    } else {
+        (s.to_uppercase(), None)
+    };
+
+    // Parse segment ID (must be 3 characters, start with letter, rest alphanumeric)
+    if segment.len() != 3
+        || !segment.starts_with(|c: char| c.is_ascii_alphabetic())
+        || !segment.chars().all(|c| c.is_ascii_alphanumeric())
+    {
+        return Err(PathError::InvalidSegmentId(segment));
+    }
+
+    Ok((segment, repetition))
 }
 
 /// Parse a field part which may include repetition index
@@ -291,7 +405,80 @@ fn parse_field_part(s: &str) -> Result<(usize, Option<usize>), PathError> {
 
 #[cfg(test)]
 mod tests {
+    #![expect(
+        clippy::panic,
+        reason = "path parser tests use explicit failure messages for unexpected parse errors"
+    )]
+
     use super::*;
+
+    #[test]
+    fn parse_path_accepts_dash_field_separator() {
+        let path = match parse_path("MSH-9.1") {
+            Ok(path) => path,
+            Err(err) => panic!("dash path should parse: {err}"),
+        };
+
+        assert_eq!(path.segment, "MSH");
+        assert_eq!(path.field, 9);
+        assert_eq!(path.repetition, None);
+        assert_eq!(path.component, Some(1));
+        assert_eq!(path.to_path_string(), "MSH.9.1");
+    }
+
+    #[test]
+    fn parse_path_accepts_dash_field_repetition() {
+        let path = match parse_path("PID-3[2].4") {
+            Ok(path) => path,
+            Err(err) => panic!("dash path should parse: {err}"),
+        };
+
+        assert_eq!(path.segment, "PID");
+        assert_eq!(path.field, 3);
+        assert_eq!(path.repetition, Some(2));
+        assert_eq!(path.component, Some(4));
+    }
+
+    #[test]
+    fn parse_path_accepts_segment_repetition() {
+        let path = match parse_located_path("OBX[3]-5") {
+            Ok(path) => path,
+            Err(err) => panic!("segment repetition should parse: {err}"),
+        };
+
+        assert_eq!(path.segment_repetition, Some(3));
+        assert_eq!(path.path.segment, "OBX");
+        assert_eq!(path.path.field, 5);
+        assert_eq!(path.to_path_string(), "OBX[3].5");
+    }
+
+    #[test]
+    fn parse_path_accepts_dot_segment_repetition_for_compatibility() {
+        let path = match parse_located_path("NTE[1].3") {
+            Ok(path) => path,
+            Err(err) => panic!("dot segment repetition should parse: {err}"),
+        };
+
+        assert_eq!(path.segment_repetition, Some(1));
+        assert_eq!(path.path.segment, "NTE");
+        assert_eq!(path.path.field, 3);
+    }
+
+    #[test]
+    fn parse_path_rejects_segment_repetition_without_dropping_it() {
+        assert!(matches!(
+            parse_path("OBX[3]-5"),
+            Err(PathError::InvalidFormat(_))
+        ));
+    }
+
+    #[test]
+    fn parse_path_rejects_zero_segment_repetition() {
+        assert!(matches!(
+            parse_located_path("OBX[0]-5"),
+            Err(PathError::InvalidRepetitionIndex(_))
+        ));
+    }
 
     #[test]
     fn parse_path_rejects_extra_components() {

@@ -38,6 +38,36 @@ PID|1||123456^^^HOSP^MR~ALT999^^^ALT^MR||Doe^John^A||19700101|M\r",
 }
 
 #[test]
+fn query_facade_reads_target_dash_paths_and_segment_repetitions() -> Result<(), Box<dyn Error>> {
+    let message = parse(
+        b"MSH|^~\\&|LAB|FAC|EHR|RF|202605030101||ORU^R01|CTRL456|P|2.5\r\
+PID|1||123456^^^HOSP^MR~ALT999^^^ALT^MR||Doe^John^A||19700101|M\r\
+OBR|1|ORD1|FILL1|CBC^Complete blood count\r\
+OBX|1|ST|NOTE^First note||Alpha\r\
+OBX|2|ST|NOTE^Second note||Beta\r\
+OBX|3|ST|NOTE^Third note||Gamma\r\
+NTE|1|L|operator note\r",
+    )?;
+
+    require_eq(get(&message, "MSH-9.1"), Some("ORU"), "message code")?;
+    require_eq(
+        get(&message, "PID-3[2].4"),
+        Some("ALT"),
+        "alternate assigning authority",
+    )?;
+    require_eq(get(&message, "OBX[3]-5"), Some("Gamma"), "third OBX value")?;
+    require(
+        matches!(
+            get_presence(&message, "NTE[1]-3"),
+            Presence::Value(value) if value == "operator note"
+        ),
+        "expected first NTE comment",
+    )?;
+
+    Ok(())
+}
+
+#[test]
 fn query_facade_distinguishes_empty_and_missing_presence() -> Result<(), Box<dyn Error>> {
     let message =
         parse(b"MSH|^~\\&|SEND|FAC|RECV|RF|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||\r")?;

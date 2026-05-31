@@ -83,7 +83,7 @@ pub use model::{
     Atom, Batch, Comp, Delims, Error, Field, FileBatch, Message, Presence, Rep, Segment,
 };
 pub use parser::{parse, parse_batch, parse_file_batch, parse_mllp};
-pub use query::path::{Path, parse_path};
+pub use query::path::{LocatedPath, Path, parse_located_path, parse_path};
 pub use query::{get, get_presence};
 pub use transport::mllp::{
     MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
