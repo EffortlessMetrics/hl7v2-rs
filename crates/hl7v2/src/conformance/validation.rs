@@ -311,17 +311,22 @@ fn message_type(message: &Message) -> String {
 }
 
 fn segment_index_for_path(message: &Message, path: &str) -> Option<usize> {
-    let segment_id = path.split('.').next()?;
+    let located = crate::query::path::parse_located_path(path).ok()?;
+    let segment_repetition = located.segment_repetition.unwrap_or(1);
+
     message
         .segments
         .iter()
-        .position(|segment| segment.id_str() == segment_id)
+        .enumerate()
+        .filter(|(_index, segment)| segment.id_str() == located.path.segment)
+        .nth(segment_repetition.checked_sub(1)?)
+        .map(|(index, _segment)| index)
 }
 
 fn field_index_for_path(path: &str) -> Option<usize> {
-    let field_part = path.split('.').nth(1)?;
-    let field_index = field_part.split('[').next()?;
-    field_index.parse().ok()
+    crate::query::path::parse_located_path(path)
+        .ok()
+        .map(|located| located.path.field)
 }
 
 // ============================================================================
@@ -1255,6 +1260,41 @@ mod legacy_tests {
         assert_eq!(report.issues[0].path.as_deref(), Some("PID.3"));
         assert_eq!(report.issues[0].segment_index, Some(1));
         assert_eq!(report.issues[0].field_index, Some(3));
+    }
+
+    #[test]
+    fn validation_report_infers_indices_from_diagnostic_paths() {
+        let message = crate::parser::parse(
+            b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ORU^R01|CTRL123|P|2.5\r\
+PID|1||123456^^^HOSP^MR~987654^^^ALT^MR||Doe^John\r\
+OBX|1|ST|CODE1^First||one\r\
+OBX|2|ST|CODE2^Second||two\r\
+OBX|3|ST|CODE3^Third||\r",
+        )
+        .unwrap_or_default();
+        let report = ValidationReport::from_issues(
+            &message,
+            Some("oru_r01.yaml".to_string()),
+            vec![
+                Issue::warning(
+                    "ASSIGNING_AUTHORITY_REVIEW",
+                    Some("PID-3[2].4".to_string()),
+                    "PID-3 second repetition assigning authority should be reviewed".to_string(),
+                ),
+                Issue::error(
+                    "MISSING_OBSERVATION_VALUE",
+                    Some("OBX[3]-5".to_string()),
+                    "Third OBX observation value is required".to_string(),
+                ),
+            ],
+        );
+
+        assert_eq!(report.issues[0].path.as_deref(), Some("PID-3[2].4"));
+        assert_eq!(report.issues[0].segment_index, Some(1));
+        assert_eq!(report.issues[0].field_index, Some(3));
+        assert_eq!(report.issues[1].path.as_deref(), Some("OBX[3]-5"));
+        assert_eq!(report.issues[1].segment_index, Some(4));
+        assert_eq!(report.issues[1].field_index, Some(5));
     }
 
     #[test]
