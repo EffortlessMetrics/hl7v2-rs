@@ -1,6 +1,7 @@
-use crate::model::{Field, Message, Segment};
+use crate::model::Message;
 
 use super::path::{modeled_field_index, parse_redaction_path};
+use super::target::replace_redaction_target;
 use super::types::RedactionConfig;
 
 /// Redact PHI from a message based on configuration.
@@ -23,17 +24,10 @@ pub fn redact(message: &mut Message, config: &RedactionConfig) {
             }
             if let Some(field_index) =
                 modeled_field_index(&parsed_path.segment_id, parsed_path.field_index)
+                && let Some(field) = segment.fields.get_mut(field_index)
             {
-                redact_field(segment, field_index, &config.replacement);
+                replace_redaction_target(field, &parsed_path, &config.replacement);
             }
         }
     }
-}
-
-fn redact_field(segment: &mut Segment, modeled_field_index: usize, replacement: &str) {
-    let Some(field) = segment.fields.get_mut(modeled_field_index) else {
-        return;
-    };
-
-    *field = Field::from_text(replacement);
 }

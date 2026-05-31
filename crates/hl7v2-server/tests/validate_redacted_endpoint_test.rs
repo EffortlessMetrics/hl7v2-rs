@@ -235,6 +235,58 @@ async fn test_validate_redacted_accepts_diagnostic_policy_paths_with_canonical_r
 }
 
 #[tokio::test]
+async fn test_validate_redacted_redacts_component_without_dropping_neighbor_components() {
+    let app = common::create_test_router();
+    let profile = r#"
+message_structure: "ORU_R01"
+version: "2.5"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "OBX"
+    required: true
+constraints:
+  - path: "OBX-5.2"
+    required: true
+"#;
+    let policy = r#"
+[[rules]]
+path = "OBX-5.1"
+action = "drop"
+reason = "Remove family name"
+"#;
+    let request_body = json!({
+        "message": "MSH|^~\\&|LAB|L|EHR|E|202605030101||ORU^R01|CTRL123|P|2.5\rOBX|1|XPN|PATIENT_NAME||Doe^Jane^A\r",
+        "profile": profile,
+        "redaction_policy": policy,
+        "include_redacted_hl7": true
+    });
+
+    let response = app
+        .oneshot(validate_redacted_request(request_body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    let redacted_hl7 = body_json["redacted_hl7"].as_str().unwrap();
+    let actions = body_json["redaction_receipt"]["actions"]
+        .as_array()
+        .unwrap();
+
+    assert!(redacted_hl7.contains("OBX|1|XPN|PATIENT_NAME||^Jane^A"));
+    assert!(!redacted_hl7.contains("Doe^Jane^A"));
+    assert!(actions.iter().any(|action| {
+        action["path"] == "OBX.5.1"
+            && action["action"] == "drop"
+            && action["matched_count"] == 1
+            && action["status"] == "applied"
+    }));
+    assert_eq!(body_json["validation_report"]["valid"], true);
+}
+
+#[tokio::test]
 async fn test_validate_redacted_rejects_unsupported_receipt_schema_version() {
     let app = common::create_test_router();
     let request_body = json!({

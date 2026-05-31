@@ -3,7 +3,7 @@
 use crate::models::{
     RedactionAction, RedactionActionReceipt, RedactionActionStatus, RedactionReceipt,
 };
-use hl7v2::{Atom, Field, Message};
+use hl7v2::{Atom, Comp, Field, Message, Rep};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -27,6 +27,9 @@ struct ParsedRedactionPath {
     segment_id: String,
     segment_repetition: Option<usize>,
     field_index: usize,
+    field_repetition: Option<usize>,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
     canonical_path: String,
 }
 
@@ -110,18 +113,11 @@ fn apply_safe_analysis_policy(
                 continue;
             };
 
-            matched_count = matched_count.saturating_add(1);
-            match rule.action {
-                RedactionAction::Hash => {
-                    let value = field_to_text(field, &message.delims);
-                    *field = Field::from_text(format!("hash:sha256:{}", compute_sha256(&value)));
+            if apply_redaction_target(field, &parsed_path, rule.action, &message.delims) {
+                matched_count = matched_count.saturating_add(1);
+                if rule.action != RedactionAction::Retain {
                     phi_removed = true;
                 }
-                RedactionAction::Drop => {
-                    *field = Field::new();
-                    phi_removed = true;
-                }
-                RedactionAction::Retain => {}
             }
         }
 
@@ -216,16 +212,6 @@ fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
         }
     })?;
 
-    if located.path.component.is_some() || located.path.subcomponent.is_some() {
-        return Err(format!(
-            "redaction path '{path}' must target a field, not a component"
-        ));
-    }
-    if located.path.repetition.is_some() {
-        return Err(format!(
-            "redaction path '{path}' must target a field, not a field repetition"
-        ));
-    }
     if located.path.segment == "MSH" && located.path.field < 3 {
         return Err(format!(
             "redaction path '{path}' targets MSH.1/MSH.2, which are delimiter metadata and not redacted by this command"
@@ -238,6 +224,9 @@ fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
         segment_id: located.path.segment,
         segment_repetition: located.segment_repetition,
         field_index: located.path.field,
+        field_repetition: located.path.repetition,
+        component: located.path.component,
+        subcomponent: located.path.subcomponent,
         canonical_path,
     })
 }
@@ -255,6 +244,87 @@ fn message_has_nonempty_field(message: &Message, segment_id: &str, field_index: 
         .any(|field| !field_to_text(field, &message.delims).is_empty())
 }
 
+fn apply_redaction_target(
+    field: &mut Field,
+    path: &ParsedRedactionPath,
+    action: RedactionAction,
+    delims: &hl7v2::Delims,
+) -> bool {
+    let Some(target) = select_target(field, path) else {
+        return false;
+    };
+
+    match action {
+        RedactionAction::Hash => target.hash(delims),
+        RedactionAction::Drop => target.replace_with_text(String::new()),
+        RedactionAction::Retain => {}
+    }
+
+    true
+}
+
+enum RedactionTarget<'a> {
+    Field(&'a mut Field),
+    Rep(&'a mut Rep),
+    Comp(&'a mut Comp),
+    Atom(&'a mut Atom),
+}
+
+impl RedactionTarget<'_> {
+    fn hash(self, delims: &hl7v2::Delims) {
+        let value = match &self {
+            Self::Field(field) => field_to_text(field, delims),
+            Self::Rep(rep) => rep_to_text(rep, delims),
+            Self::Comp(comp) => comp_to_text(comp, delims),
+            Self::Atom(atom) => atom_to_text(atom).to_string(),
+        };
+        self.replace_with_text(format!("hash:sha256:{}", compute_sha256(&value)));
+    }
+
+    fn replace_with_text(self, replacement: String) {
+        match self {
+            Self::Field(field) => {
+                *field = Field::from_text(replacement);
+            }
+            Self::Rep(rep) => {
+                *rep = Rep::from_text(replacement);
+            }
+            Self::Comp(comp) => {
+                *comp = Comp::from_text(replacement);
+            }
+            Self::Atom(atom) => {
+                *atom = Atom::Text(replacement);
+            }
+        }
+    }
+}
+
+fn select_target<'a>(
+    field: &'a mut Field,
+    path: &ParsedRedactionPath,
+) -> Option<RedactionTarget<'a>> {
+    if path.field_repetition.is_none() && path.component.is_none() {
+        return Some(RedactionTarget::Field(field));
+    }
+
+    let rep_index = path.field_repetition.unwrap_or(1).checked_sub(1)?;
+    let rep = field.reps.get_mut(rep_index)?;
+    let Some(component) = path.component else {
+        return Some(RedactionTarget::Rep(rep));
+    };
+
+    let component_index = component.checked_sub(1)?;
+    let comp = rep.comps.get_mut(component_index)?;
+    let Some(subcomponent) = path.subcomponent else {
+        return Some(RedactionTarget::Comp(comp));
+    };
+
+    let subcomponent_index = subcomponent.checked_sub(1)?;
+    comp.subs
+        .get_mut(subcomponent_index)
+        .map(RedactionTarget::Atom)
+}
+
 fn modeled_field_index(segment_id: &str, field_index: usize) -> Option<usize> {
     if segment_id == "MSH" {
         field_index.checked_sub(2)
@@ -267,24 +337,32 @@ fn field_to_text(field: &Field, delims: &hl7v2::Delims) -> String {
     field
         .reps
         .iter()
-        .map(|rep| {
-            rep.comps
-                .iter()
-                .map(|comp| {
-                    comp.subs
-                        .iter()
-                        .map(|atom| match atom {
-                            Atom::Text(text) => text.as_str(),
-                            Atom::Null => "\"\"",
-                        })
-                        .collect::<Vec<_>>()
-                        .join(&delims.sub.to_string())
-                })
-                .collect::<Vec<_>>()
-                .join(&delims.comp.to_string())
-        })
+        .map(|rep| rep_to_text(rep, delims))
         .collect::<Vec<_>>()
         .join(&delims.rep.to_string())
+}
+
+fn rep_to_text(rep: &Rep, delims: &hl7v2::Delims) -> String {
+    rep.comps
+        .iter()
+        .map(|comp| comp_to_text(comp, delims))
+        .collect::<Vec<_>>()
+        .join(&delims.comp.to_string())
+}
+
+fn comp_to_text(comp: &Comp, delims: &hl7v2::Delims) -> String {
+    comp.subs
+        .iter()
+        .map(atom_to_text)
+        .collect::<Vec<_>>()
+        .join(&delims.sub.to_string())
+}
+
+fn atom_to_text(atom: &Atom) -> &str {
+    match atom {
+        Atom::Text(text) => text.as_str(),
+        Atom::Null => "\"\"",
+    }
 }
 
 fn compute_sha256(value: &str) -> String {

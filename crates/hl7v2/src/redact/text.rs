@@ -1,27 +1,35 @@
-use crate::model::{Atom, Field, Message};
+use crate::model::{Atom, Comp, Field, Message, Rep};
 
 pub(crate) fn field_to_text(field: &Field, delims: &crate::Delims) -> String {
     field
         .reps
         .iter()
-        .map(|rep| {
-            rep.comps
-                .iter()
-                .map(|comp| {
-                    comp.subs
-                        .iter()
-                        .map(|atom| match atom {
-                            Atom::Text(text) => text.as_str(),
-                            Atom::Null => "\"\"",
-                        })
-                        .collect::<Vec<_>>()
-                        .join(&delims.sub.to_string())
-                })
-                .collect::<Vec<_>>()
-                .join(&delims.comp.to_string())
-        })
+        .map(|rep| rep_to_text(rep, delims))
         .collect::<Vec<_>>()
         .join(&delims.rep.to_string())
+}
+
+pub(crate) fn rep_to_text(rep: &Rep, delims: &crate::Delims) -> String {
+    rep.comps
+        .iter()
+        .map(|comp| comp_to_text(comp, delims))
+        .collect::<Vec<_>>()
+        .join(&delims.comp.to_string())
+}
+
+pub(crate) fn comp_to_text(comp: &Comp, delims: &crate::Delims) -> String {
+    comp.subs
+        .iter()
+        .map(atom_to_text)
+        .collect::<Vec<_>>()
+        .join(&delims.sub.to_string())
+}
+
+pub(crate) fn atom_to_text(atom: &Atom) -> &str {
+    match atom {
+        Atom::Text(text) => text.as_str(),
+        Atom::Null => "\"\"",
+    }
 }
 
 pub(crate) fn message_type(message: &Message) -> String {

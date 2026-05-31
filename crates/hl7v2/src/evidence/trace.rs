@@ -7,7 +7,7 @@ pub(crate) fn build_field_path_trace(
     message: &Message,
     receipt: &RedactionReceipt,
 ) -> FieldPathTraceReport {
-    let redaction_actions: BTreeMap<&str, RedactionAction> = receipt
+    let redaction_actions: Vec<(&str, RedactionAction)> = receipt
         .actions
         .iter()
         .map(|action| (action.path.as_str(), action.action))
@@ -41,10 +41,11 @@ pub(crate) fn build_field_path_trace(
                 field_index,
                 present: !field_text.is_empty(),
                 value_shape: field_value_shape(&field_text),
-                redaction_action: redaction_actions
-                    .get(occurrence_path.as_str())
-                    .or_else(|| redaction_actions.get(canonical_path.as_str()))
-                    .copied(),
+                redaction_action: redaction_action_for_field(
+                    &redaction_actions,
+                    &occurrence_path,
+                    &canonical_path,
+                ),
             });
         }
     }
@@ -54,6 +55,28 @@ pub(crate) fn build_field_path_trace(
         field_count: fields.len(),
         fields,
     }
+}
+
+fn redaction_action_for_field(
+    actions: &[(&str, RedactionAction)],
+    occurrence_path: &str,
+    canonical_path: &str,
+) -> Option<RedactionAction> {
+    actions.iter().find_map(|(action_path, action)| {
+        (path_targets_field(action_path, occurrence_path)
+            || path_targets_field(action_path, canonical_path))
+        .then_some(*action)
+    })
+}
+
+fn path_targets_field(action_path: &str, field_path: &str) -> bool {
+    if action_path == field_path {
+        return true;
+    }
+
+    action_path
+        .strip_prefix(field_path)
+        .is_some_and(|suffix| suffix.starts_with('.') || suffix.starts_with('['))
 }
 
 fn message_type(message: &Message) -> String {

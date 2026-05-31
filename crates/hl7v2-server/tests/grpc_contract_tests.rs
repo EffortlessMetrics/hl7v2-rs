@@ -1053,6 +1053,64 @@ unknown_top_level: "ignored"
     }
 
     #[tokio::test]
+    async fn test_grpc_validate_redacted_redacts_component_without_dropping_neighbor_components() {
+        let service = service();
+        let profile = r#"
+message_structure: "ORU_R01"
+version: "2.5"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "OBX"
+    required: true
+constraints:
+  - path: "OBX-5.2"
+    required: true
+"#;
+        let policy = r#"
+[[rules]]
+path = "OBX-5.1"
+action = "drop"
+reason = "Remove family name"
+"#;
+        let request = Request::new(ValidateRedactedRequest {
+            message: b"MSH|^~\\&|LAB|L|EHR|E|202605030101||ORU^R01|CTRL123|P|2.5\rOBX|1|XPN|PATIENT_NAME||Doe^Jane^A\r".to_vec(),
+            profile: profile.to_string(),
+            redaction_policy: policy.to_string(),
+            mllp_framed: false,
+            include_redacted_hl7: true,
+            report_schema_version: 0,
+            redaction_receipt_schema_version: 0,
+            quarantine_schema_version: 0,
+        });
+
+        let response = service
+            .validate_redacted(request)
+            .await
+            .expect("RPC should succeed");
+        let inner = response.into_inner();
+        let report = inner
+            .validation_report
+            .expect("Validation report should exist");
+        let receipt = inner
+            .redaction_receipt
+            .expect("Redaction receipt should exist");
+        let redacted_hl7 =
+            String::from_utf8(inner.redacted_hl7.expect("Redacted HL7 should be included"))
+                .expect("Redacted HL7 should be UTF-8");
+
+        assert!(report.valid);
+        assert!(redacted_hl7.contains("OBX|1|XPN|PATIENT_NAME||^Jane^A"));
+        assert!(!redacted_hl7.contains("Doe^Jane^A"));
+        assert!(receipt.actions.iter().any(|action| {
+            action.path == "OBX.5.1"
+                && action.action == "drop"
+                && action.matched_count == 1
+                && action.status == "applied"
+        }));
+    }
+
+    #[tokio::test]
     async fn test_grpc_validate_redacted_omits_redacted_hl7_unless_requested() {
         let service = service();
         let request = Request::new(ValidateRedactedRequest {

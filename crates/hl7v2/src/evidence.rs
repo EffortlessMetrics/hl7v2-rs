@@ -328,6 +328,86 @@ reason = "Targeted observation redaction"
     }
 
     #[test]
+    fn bundle_field_trace_marks_component_redaction_on_parent_field()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let bundle_dir = temp.path().join("component-redaction-bundle");
+        let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
+OBX|1|XPN|PATIENT_NAME||Doe^Jane^A";
+        let profile = r#"
+message_structure: "ORU_R01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "OBX"
+constraints:
+  - path: "OBX-5.2"
+    required: true
+"#;
+        let policy = r#"
+[[rules]]
+path = "OBX-5.1"
+action = "drop"
+reason = "Remove family name"
+"#;
+
+        write_safe_analysis_bundle(message, profile, policy, &bundle_dir, "hl7v2-python")?;
+
+        let receipt = read_bundle_json_value(&bundle_dir, "redaction-receipt.json")?;
+        let actions = receipt
+            .get("actions")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| std::io::Error::other("redaction receipt should contain actions"))?;
+        ensure(
+            actions.iter().any(|action| {
+                action.get("path").and_then(serde_json::Value::as_str) == Some("OBX.5.1")
+                    && action
+                        .get("matched_count")
+                        .and_then(serde_json::Value::as_u64)
+                        == Some(1)
+            }),
+            "expected canonical component redaction receipt",
+        )?;
+
+        let redacted_hl7 = std::fs::read_to_string(bundle_dir.join("message.redacted.hl7"))?;
+        ensure(
+            redacted_hl7.contains("OBX|1|XPN|PATIENT_NAME||^Jane^A"),
+            "expected only OBX-5.1 to be cleared",
+        )?;
+
+        let trace = read_bundle_json_value(&bundle_dir, "field-paths.json")?;
+        let fields = trace
+            .get("fields")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| std::io::Error::other("field trace should contain fields"))?;
+        let redacted_field = fields
+            .iter()
+            .find(|field| {
+                field
+                    .get("canonical_path")
+                    .and_then(serde_json::Value::as_str)
+                    == Some("OBX.5")
+            })
+            .ok_or_else(|| std::io::Error::other("expected OBX.5 field trace"))?;
+        ensure(
+            redacted_field
+                .get("redaction_action")
+                .and_then(serde_json::Value::as_str)
+                == Some("drop"),
+            "expected parent field trace to show component drop action",
+        )?;
+        ensure(
+            redacted_field
+                .get("value_shape")
+                .and_then(serde_json::Value::as_str)
+                == Some("present"),
+            "expected sibling components to keep field present",
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
     fn replay_accepts_legacy_bundle_without_safe_sharing_checklist()
     -> Result<(), Box<dyn std::error::Error>> {
         let temp = tempfile::tempdir()?;
