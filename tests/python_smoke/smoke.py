@@ -844,6 +844,79 @@ constraints:
         print(f"unexpected redaction actions: {receipt}", file=sys.stderr)
         return 1
 
+    segment_repetition_raw = (
+        "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\r"
+        "NK1|1\r"
+        "NK1|2|Kin^Jane\r"
+    )
+    segment_repetition_policy = """
+[[rules]]
+path = "NK1[2]-2"
+action = "drop"
+reason = "Remove populated next-of-kin name"
+"""
+    segment_repetition_redaction = hl7v2.redact(
+        segment_repetition_raw,
+        segment_repetition_policy,
+    )
+    segment_repetition_hl7 = segment_repetition_redaction["redacted_hl7"]
+    if "Kin^Jane" in segment_repetition_hl7 or "NK1|1" not in segment_repetition_hl7:
+        print(
+            "segment repetition redaction touched the wrong content: "
+            f"{segment_repetition_redaction}",
+            file=sys.stderr,
+        )
+        return 1
+    segment_repetition_actions = {
+        item["path"]: item
+        for item in segment_repetition_redaction["receipt"]["actions"]
+    }
+    segment_repetition_action = segment_repetition_actions.get("NK1[2].2")
+    if (
+        segment_repetition_action is None
+        or segment_repetition_action["action"] != "drop"
+        or segment_repetition_action["matched_count"] != 1
+        or segment_repetition_action["status"] != "applied"
+    ):
+        print(
+            "unexpected segment repetition redaction receipt: "
+            f"{segment_repetition_redaction}",
+            file=sys.stderr,
+        )
+        return 1
+
+    unsafe_segment_repetition_policy = """
+[[rules]]
+path = "NK1[2]-2"
+action = "retain"
+reason = "Unsafe retain"
+"""
+    try:
+        hl7v2.redact(segment_repetition_raw, unsafe_segment_repetition_policy)
+    except ValueError as exc:
+        error_text = str(exc)
+        if (
+            "redaction rule NK1[2].2 cannot retain a built-in sensitive field"
+            not in error_text
+        ):
+            print(
+                f"unexpected segment repetition retain failure: {exc}",
+                file=sys.stderr,
+            )
+            return 1
+        if "Kin^Jane" in error_text or "Kin" in error_text or "Jane" in error_text:
+            print(
+                f"segment repetition retain failure leaked PHI: {exc}",
+                file=sys.stderr,
+            )
+            return 1
+    else:
+        print(
+            "expected segment repetition retain policy to fail closed",
+            file=sys.stderr,
+        )
+        return 1
+
     redaction_v2 = hl7v2.redact(
         phi_raw, redaction_policy, schema_version=V2_REPORT_SCHEMA_VERSION
     )
