@@ -1114,7 +1114,7 @@ mod policy {
     pub(super) fn load_safe_analysis_policy(
         policy_text: &str,
     ) -> Result<SafeAnalysisPolicy, Box<dyn std::error::Error>> {
-        let policy: SafeAnalysisPolicy = toml::from_str(policy_text)?;
+        let mut policy: SafeAnalysisPolicy = toml::from_str(policy_text)?;
         if policy.rules.is_empty() {
             return Err(
                 std::io::Error::other("redaction policy must contain at least one rule").into(),
@@ -1122,8 +1122,9 @@ mod policy {
         }
 
         let mut seen_paths = BTreeSet::new();
-        for rule in &policy.rules {
-            parse_redaction_path(&rule.path).map_err(std::io::Error::other)?;
+        for rule in &mut policy.rules {
+            let parsed_path = parse_redaction_path(&rule.path).map_err(std::io::Error::other)?;
+            rule.path = parsed_path.canonical_path;
             if !seen_paths.insert(rule.path.clone()) {
                 return Err(std::io::Error::other(format!(
                     "redaction policy contains duplicate rule for {}",
@@ -1165,9 +1166,16 @@ mod policy {
         for rule in &policy.rules {
             let parsed_path = parse_redaction_path(&rule.path).map_err(std::io::Error::other)?;
             let mut matched_count = 0_usize;
+            let mut segment_match_count = 0_usize;
 
             for segment in &mut message.segments {
                 if segment.id_str() != parsed_path.segment_id {
+                    continue;
+                }
+                segment_match_count = segment_match_count.saturating_add(1);
+                if let Some(segment_repetition) = parsed_path.segment_repetition
+                    && segment_match_count != segment_repetition
+                {
                     continue;
                 }
 
@@ -1281,45 +1289,43 @@ mod policy {
 
     struct ParsedRedactionPath {
         segment_id: String,
+        segment_repetition: Option<usize>,
         field_index: usize,
+        canonical_path: String,
     }
 
     fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
-        let (segment_id, field_part) = path
-            .split_once('.')
-            .ok_or_else(|| format!("redaction path '{path}' must use SEG.field syntax"))?;
-        if segment_id.len() != 3
-            || !segment_id
-                .chars()
-                .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit())
-        {
-            return Err(format!(
-                "redaction path '{path}' must start with a three-character uppercase segment id"
-            ));
-        }
-        if field_part.contains('.') {
+        let located = hl7v2::parse_located_path(path).map_err(|error| {
+            if !path.contains('.') && !path.contains('-') {
+                format!("redaction path '{path}' must use SEG.field or SEG-FIELD syntax")
+            } else {
+                format!("redaction path '{path}' is invalid: {error}")
+            }
+        })?;
+
+        if located.path.component.is_some() || located.path.subcomponent.is_some() {
             return Err(format!(
                 "redaction path '{path}' must target a field, not a component"
             ));
         }
-
-        let field_index = field_part.parse::<usize>().map_err(|_err| {
-            format!("redaction path '{path}' must use a positive numeric field index")
-        })?;
-        if field_index == 0 {
+        if located.path.repetition.is_some() {
             return Err(format!(
-                "redaction path '{path}' must use a one-based field index"
+                "redaction path '{path}' must target a field, not a field repetition"
             ));
         }
-        if segment_id == "MSH" && field_index < 3 {
+        if located.path.segment == "MSH" && located.path.field < 3 {
             return Err(format!(
                 "redaction path '{path}' targets MSH.1/MSH.2, which are delimiter metadata and not redacted by this command"
             ));
         }
 
+        let canonical_path = located.to_path_string();
+
         Ok(ParsedRedactionPath {
-            segment_id: segment_id.to_string(),
-            field_index,
+            segment_id: located.path.segment,
+            segment_repetition: located.segment_repetition,
+            field_index: located.path.field,
+            canonical_path,
         })
     }
 
@@ -1361,12 +1367,26 @@ mod policy {
             .map(|action| (action.path.as_str(), action.action))
             .collect();
         let mut fields = Vec::new();
+        let mut segment_occurrences = BTreeMap::<String, usize>::new();
 
         for (segment_position, segment) in message.segments.iter().enumerate() {
             let segment_index = segment_position.saturating_add(1);
+            let segment_occurrence = {
+                let count = segment_occurrences
+                    .entry(segment.id_str().to_string())
+                    .or_insert(0);
+                *count = count.saturating_add(1);
+                *count
+            };
             for (modeled_index, field) in segment.fields.iter().enumerate() {
                 let field_index = hl7_field_index(segment.id_str(), modeled_index);
                 let canonical_path = format!("{}.{}", segment.id_str(), field_index);
+                let occurrence_path = format!(
+                    "{}[{}].{}",
+                    segment.id_str(),
+                    segment_occurrence,
+                    field_index
+                );
                 let field_text = field_to_text(field, &message.delims);
                 fields.push(FieldPathTrace {
                     path: format!("{}[{}].{}", segment.id_str(), segment_index, field_index),
@@ -1375,7 +1395,10 @@ mod policy {
                     field_index,
                     present: !field_text.is_empty(),
                     value_shape: field_value_shape(&field_text),
-                    redaction_action: redaction_actions.get(canonical_path.as_str()).copied(),
+                    redaction_action: redaction_actions
+                        .get(occurrence_path.as_str())
+                        .or_else(|| redaction_actions.get(canonical_path.as_str()))
+                        .copied(),
                 });
             }
         }

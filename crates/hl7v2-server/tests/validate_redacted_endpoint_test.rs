@@ -184,6 +184,57 @@ async fn test_validate_redacted_receipt_schema_v2_returns_nested_provenance_rece
 }
 
 #[tokio::test]
+async fn test_validate_redacted_accepts_diagnostic_policy_paths_with_canonical_receipts() {
+    let app = common::create_test_router();
+    let diagnostic_policy = REDACTION_POLICY
+        .replace("PID.3", "PID-3")
+        .replace("PID.5", "PID-5")
+        .replace("PID.7", "PID-7")
+        .replace("PID.11", "PID-11")
+        .replace("PID.13", "PID-13")
+        .replace("PID.14", "PID-14")
+        .replace("PID.19", "PID-19")
+        .replace("NK1.2", "NK1-2")
+        .replace("NK1.4", "NK1-4")
+        .replace("NK1.5", "NK1-5");
+    let request_body = json!({
+        "message": PHI_MESSAGE,
+        "profile": VALIDATION_PROFILE,
+        "redaction_policy": diagnostic_policy,
+        "include_redacted_hl7": true
+    });
+
+    let response = app
+        .oneshot(validate_redacted_request(request_body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let actions = body_json["redaction_receipt"]["actions"]
+        .as_array()
+        .unwrap();
+
+    assert!(actions.iter().any(|action| {
+        action["path"] == "PID.3" && action["action"] == "hash" && action["status"] == "applied"
+    }));
+    assert!(
+        actions
+            .iter()
+            .all(|action| !action["path"].as_str().unwrap().contains('-'))
+    );
+    assert!(
+        !body_json["redacted_hl7"]
+            .as_str()
+            .unwrap()
+            .contains("MRN-Z")
+    );
+    assert_no_phi(&body_text);
+}
+
+#[tokio::test]
 async fn test_validate_redacted_rejects_unsupported_receipt_schema_version() {
     let app = common::create_test_router();
     let request_body = json!({

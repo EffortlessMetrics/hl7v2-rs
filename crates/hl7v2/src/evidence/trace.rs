@@ -13,12 +13,26 @@ pub(crate) fn build_field_path_trace(
         .map(|action| (action.path.as_str(), action.action))
         .collect();
     let mut fields = Vec::new();
+    let mut segment_occurrences = BTreeMap::<String, usize>::new();
 
     for (segment_position, segment) in message.segments.iter().enumerate() {
         let segment_index = segment_position.saturating_add(1);
+        let segment_occurrence = {
+            let count = segment_occurrences
+                .entry(segment.id_str().to_string())
+                .or_insert(0);
+            *count = count.saturating_add(1);
+            *count
+        };
         for (modeled_index, field) in segment.fields.iter().enumerate() {
             let field_index = hl7_field_index(segment.id_str(), modeled_index);
             let canonical_path = format!("{}.{}", segment.id_str(), field_index);
+            let occurrence_path = format!(
+                "{}[{}].{}",
+                segment.id_str(),
+                segment_occurrence,
+                field_index
+            );
             let field_text = field_to_text(field, &message.delims);
             fields.push(FieldPathTrace {
                 path: format!("{}[{}].{}", segment.id_str(), segment_index, field_index),
@@ -27,7 +41,10 @@ pub(crate) fn build_field_path_trace(
                 field_index,
                 present: !field_text.is_empty(),
                 value_shape: field_value_shape(&field_text),
-                redaction_action: redaction_actions.get(canonical_path.as_str()).copied(),
+                redaction_action: redaction_actions
+                    .get(occurrence_path.as_str())
+                    .or_else(|| redaction_actions.get(canonical_path.as_str()))
+                    .copied(),
             });
         }
     }

@@ -25,7 +25,9 @@ struct SafeAnalysisPolicyRule {
 
 struct ParsedRedactionPath {
     segment_id: String,
+    segment_repetition: Option<usize>,
     field_index: usize,
+    canonical_path: String,
 }
 
 /// Apply a safe-analysis policy to a message and return a redaction receipt.
@@ -38,15 +40,16 @@ pub fn redact_message(
 }
 
 fn load_safe_analysis_policy(policy_text: &str) -> Result<SafeAnalysisPolicy, String> {
-    let policy: SafeAnalysisPolicy = toml::from_str(policy_text)
+    let mut policy: SafeAnalysisPolicy = toml::from_str(policy_text)
         .map_err(|error| format!("redaction policy is invalid TOML: {error}"))?;
     if policy.rules.is_empty() {
         return Err("redaction policy must contain at least one rule".to_string());
     }
 
     let mut seen_paths = BTreeSet::new();
-    for rule in &policy.rules {
-        parse_redaction_path(&rule.path)?;
+    for rule in &mut policy.rules {
+        let parsed_path = parse_redaction_path(&rule.path)?;
+        rule.path = parsed_path.canonical_path;
         if !seen_paths.insert(rule.path.clone()) {
             return Err(format!(
                 "redaction policy contains duplicate rule for {}",
@@ -85,9 +88,16 @@ fn apply_safe_analysis_policy(
     for rule in &policy.rules {
         let parsed_path = parse_redaction_path(&rule.path)?;
         let mut matched_count = 0_usize;
+        let mut segment_match_count = 0_usize;
 
         for segment in &mut message.segments {
             if segment.id_str() != parsed_path.segment_id {
+                continue;
+            }
+            segment_match_count = segment_match_count.saturating_add(1);
+            if let Some(segment_repetition) = parsed_path.segment_repetition
+                && segment_match_count != segment_repetition
+            {
                 continue;
             }
 
@@ -198,41 +208,37 @@ fn safe_analysis_sensitive_paths() -> BTreeSet<&'static str> {
 }
 
 fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
-    let (segment_id, field_part) = path
-        .split_once('.')
-        .ok_or_else(|| format!("redaction path '{path}' must use SEG.field syntax"))?;
-    if segment_id.len() != 3
-        || !segment_id
-            .chars()
-            .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit())
-    {
-        return Err(format!(
-            "redaction path '{path}' must start with a three-character uppercase segment id"
-        ));
-    }
-    if field_part.contains('.') {
+    let located = hl7v2::parse_located_path(path).map_err(|error| {
+        if !path.contains('.') && !path.contains('-') {
+            format!("redaction path '{path}' must use SEG.field or SEG-FIELD syntax")
+        } else {
+            format!("redaction path '{path}' is invalid: {error}")
+        }
+    })?;
+
+    if located.path.component.is_some() || located.path.subcomponent.is_some() {
         return Err(format!(
             "redaction path '{path}' must target a field, not a component"
         ));
     }
-
-    let field_index = field_part.parse::<usize>().map_err(|_err| {
-        format!("redaction path '{path}' must use a positive numeric field index")
-    })?;
-    if field_index == 0 {
+    if located.path.repetition.is_some() {
         return Err(format!(
-            "redaction path '{path}' must use a one-based field index"
+            "redaction path '{path}' must target a field, not a field repetition"
         ));
     }
-    if segment_id == "MSH" && field_index < 3 {
+    if located.path.segment == "MSH" && located.path.field < 3 {
         return Err(format!(
             "redaction path '{path}' targets MSH.1/MSH.2, which are delimiter metadata and not redacted by this command"
         ));
     }
 
+    let canonical_path = located.to_path_string();
+
     Ok(ParsedRedactionPath {
-        segment_id: segment_id.to_string(),
-        field_index,
+        segment_id: located.path.segment,
+        segment_repetition: located.segment_repetition,
+        field_index: located.path.field,
+        canonical_path,
     })
 }
 

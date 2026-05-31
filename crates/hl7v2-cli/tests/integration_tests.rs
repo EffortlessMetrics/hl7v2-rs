@@ -2420,6 +2420,58 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_redact_json_accepts_diagnostic_policy_paths_with_canonical_receipts() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
+        let diagnostic_policy = SAFE_ANALYSIS_POLICY
+            .replace("PID.3", "PID-3")
+            .replace("PID.5", "PID-5")
+            .replace("PID.7", "PID-7")
+            .replace("PID.11", "PID-11")
+            .replace("PID.13", "PID-13")
+            .replace("MSH.9", "MSH-9")
+            .replace("MSH.10", "MSH-10")
+            .replace("OBX.3", "OBX-3")
+            .replace("OBX.5", "OBX-5");
+        let policy_file =
+            create_temp_file(&dir, "safe-analysis.toml", diagnostic_policy.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(!stdout.contains("Doe^John"));
+        assert!(!stdout.contains("123456^^^HOSP^MR"));
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("redact output should be JSON");
+        let actions = report["receipt"]["actions"].as_array().unwrap();
+        assert!(actions.iter().any(|action| {
+            action["path"] == "PID.3" && action["action"] == "hash" && action["status"] == "applied"
+        }));
+        assert!(actions.iter().any(|action| {
+            action["path"] == "MSH.9"
+                && action["action"] == "retain"
+                && action["status"] == "retained"
+        }));
+        assert!(
+            actions
+                .iter()
+                .all(|action| !action["path"].as_str().unwrap().contains('-'))
+        );
+    }
+
+    #[test]
     fn test_redact_json_schema_v2_returns_provenance_output_without_raw_phi() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
