@@ -175,7 +175,7 @@ impl Hl7Service for Hl7ServiceImpl {
                     label: profile.message_structure.clone(),
                     message_structure: Some(profile.message_structure.clone()),
                     version: Some(profile.version.clone()),
-                    sha256: None,
+                    sha256: Some(compute_sha256(&req.profile)),
                 });
                 proto_validation_report_v2_from_rust(&report.to_v2(
                     "hl7v2-server-grpc",
