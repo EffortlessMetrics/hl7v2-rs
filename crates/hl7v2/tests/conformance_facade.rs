@@ -149,6 +149,46 @@ PID|1||123456^^^HOSP^MR||Longname^John||19700101|M\r",
 }
 
 #[test]
+fn profile_facade_accepts_diagnostic_segment_repetition_paths() -> Result<(), Box<dyn Error>> {
+    let yaml = r#"
+message_structure: "ORU_R01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "OBX"
+constraints:
+  - path: "OBX[3]-5"
+    required: true
+valuesets:
+  - path: "OBX[3]-2"
+    name: "ThirdObservationValueType"
+    codes: ["NM"]
+"#;
+    let lint = lint_profile_yaml(yaml);
+    require(lint.valid, "expected diagnostic paths to pass profile lint")?;
+
+    let profile = load_profile_checked(yaml)?;
+    let message = parse(
+        b"MSH|^~\\&|SEND|FAC|RECV|RF|202605030101||ORU^R01|CTRL123|P|2.5\r\
+OBX|1|NM|CODE1^First||1\r\
+OBX|2|NM|CODE2^Second||2\r\
+OBX|3|ST|CODE3^Third||third\r",
+    )?;
+    let issues = validate(&message, &profile);
+
+    require(
+        issues.iter().any(|issue| {
+            issue.severity == Severity::Error
+                && issue.path.as_deref() == Some("OBX[3]-2")
+                && issue.code == "VALUE_NOT_IN_SET"
+        }),
+        "expected diagnostic path value set violation",
+    )?;
+
+    Ok(())
+}
+
+#[test]
 fn profile_facade_explains_profile_contract_shape() -> Result<(), Box<dyn Error>> {
     let yaml = r#"
 message_structure: "ADT_A01"

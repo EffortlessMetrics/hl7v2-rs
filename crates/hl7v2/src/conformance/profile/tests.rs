@@ -357,6 +357,32 @@ constraints:
     }
 
     #[test]
+    fn test_lint_profile_yaml_accepts_diagnostic_segment_repetition_paths() {
+        let y = r#"
+message_structure: "ORU_R01"
+version: "2.5.1"
+segments:
+  - id: "MSH"
+  - id: "OBX"
+constraints:
+  - path: "OBX[3]-5"
+    required: true
+valuesets:
+  - path: "OBX[3]-2"
+    name: "ValueType"
+    codes: ["ST", "NM"]
+datatypes:
+  - path: "OBX[3]-14"
+    type: "TS"
+"#;
+
+        let report = lint_profile_yaml(y);
+
+        assert!(report.valid, "unexpected lint report: {report:?}");
+        assert_eq!(report.issue_count, 0);
+    }
+
+    #[test]
     fn test_lint_profile_yaml_reports_structural_errors() {
         let y = r#"
 message_structure: ""
