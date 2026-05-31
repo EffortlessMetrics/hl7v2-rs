@@ -52,7 +52,7 @@ fn load_safe_analysis_policy(policy_text: &str) -> Result<SafeAnalysisPolicy, St
     let mut seen_paths = BTreeSet::new();
     for rule in &mut policy.rules {
         let parsed_path = parse_redaction_path(&rule.path)?;
-        rule.path = parsed_path.canonical_path;
+        rule.path = parsed_path.canonical_path.clone();
         if !seen_paths.insert(rule.path.clone()) {
             return Err(format!(
                 "redaction policy contains duplicate rule for {}",
@@ -65,8 +65,8 @@ fn load_safe_analysis_policy(policy_text: &str) -> Result<SafeAnalysisPolicy, St
                 rule.path
             ));
         }
-        if safe_analysis_sensitive_paths().contains(rule.path.as_str())
-            && rule.action == RedactionAction::Retain
+        if rule.action == RedactionAction::Retain
+            && redaction_path_targets_builtin_sensitive_field(&parsed_path)
         {
             return Err(format!(
                 "redaction rule {} cannot retain a built-in sensitive field",
@@ -159,17 +159,21 @@ fn validate_safe_analysis_policy_covers_sensitive_fields(
     message: &Message,
     policy: &SafeAnalysisPolicy,
 ) -> Result<(), String> {
-    let protected_paths: BTreeSet<&str> = policy
+    let protected_paths: Vec<_> = policy
         .rules
         .iter()
         .filter(|rule| rule.action != RedactionAction::Retain)
-        .map(|rule| rule.path.as_str())
+        .filter_map(|rule| parse_redaction_path(&rule.path).ok())
         .collect();
     let present_sensitive_paths = present_sensitive_paths(message);
-    let missing_paths: Vec<&str> = present_sensitive_paths
+    let missing_paths: BTreeSet<_> = present_sensitive_paths
         .iter()
-        .copied()
-        .filter(|path| !protected_paths.contains(path))
+        .filter(|path| {
+            !protected_paths
+                .iter()
+                .any(|protected| protected_path_covers_sensitive_occurrence(protected, path))
+        })
+        .map(|path| path.base_path)
         .collect();
 
     if missing_paths.is_empty() {
@@ -178,20 +182,48 @@ fn validate_safe_analysis_policy_covers_sensitive_fields(
 
     Err(format!(
         "redaction policy does not protect present sensitive field(s): {}",
-        missing_paths.join(", ")
+        missing_paths.into_iter().collect::<Vec<_>>().join(", ")
     ))
 }
 
-fn present_sensitive_paths(message: &Message) -> BTreeSet<&'static str> {
-    safe_analysis_sensitive_paths()
-        .iter()
-        .copied()
-        .filter(|path| {
-            parse_redaction_path(path).ok().is_some_and(|parsed| {
-                message_has_nonempty_field(message, &parsed.segment_id, parsed.field_index)
-            })
-        })
-        .collect()
+struct PresentSensitivePath {
+    base_path: &'static str,
+    segment_id: String,
+    segment_repetition: usize,
+    field_index: usize,
+}
+
+fn present_sensitive_paths(message: &Message) -> Vec<PresentSensitivePath> {
+    let mut paths = Vec::new();
+    for base_path in safe_analysis_sensitive_paths() {
+        let Ok(parsed) = parse_redaction_path(base_path) else {
+            continue;
+        };
+        let Some(modeled_field_index) = modeled_field_index(&parsed.segment_id, parsed.field_index)
+        else {
+            continue;
+        };
+        let mut segment_repetition = 0_usize;
+        for segment in &message.segments {
+            if segment.id_str() != parsed.segment_id {
+                continue;
+            }
+            segment_repetition = segment_repetition.saturating_add(1);
+            let Some(field) = segment.fields.get(modeled_field_index) else {
+                continue;
+            };
+            if field_to_text(field, &message.delims).is_empty() {
+                continue;
+            }
+            paths.push(PresentSensitivePath {
+                base_path,
+                segment_id: parsed.segment_id.clone(),
+                segment_repetition,
+                field_index: parsed.field_index,
+            });
+        }
+    }
+    paths
 }
 
 fn safe_analysis_sensitive_paths() -> BTreeSet<&'static str> {
@@ -201,6 +233,39 @@ fn safe_analysis_sensitive_paths() -> BTreeSet<&'static str> {
     ]
     .into_iter()
     .collect()
+}
+
+fn redaction_path_targets_builtin_sensitive_field(path: &ParsedRedactionPath) -> bool {
+    if path.component.is_some() || path.subcomponent.is_some() {
+        return false;
+    }
+    safe_analysis_sensitive_paths()
+        .iter()
+        .filter_map(|sensitive_path| parse_redaction_path(sensitive_path).ok())
+        .any(|sensitive_path| {
+            path.segment_id == sensitive_path.segment_id
+                && path.field_index == sensitive_path.field_index
+        })
+}
+
+fn protected_path_covers_sensitive_occurrence(
+    protected: &ParsedRedactionPath,
+    sensitive: &PresentSensitivePath,
+) -> bool {
+    if protected.segment_id != sensitive.segment_id
+        || protected.field_index != sensitive.field_index
+    {
+        return false;
+    }
+    if protected.component.is_some()
+        || protected.subcomponent.is_some()
+        || protected.field_repetition.is_some()
+    {
+        return false;
+    }
+    protected
+        .segment_repetition
+        .is_none_or(|repetition| repetition == sensitive.segment_repetition)
 }
 
 fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
@@ -229,19 +294,6 @@ fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
         subcomponent: located.path.subcomponent,
         canonical_path,
     })
-}
-
-fn message_has_nonempty_field(message: &Message, segment_id: &str, field_index: usize) -> bool {
-    let Some(field_index) = modeled_field_index(segment_id, field_index) else {
-        return false;
-    };
-
-    message
-        .segments
-        .iter()
-        .filter(|segment| segment.id_str() == segment_id)
-        .filter_map(|segment| segment.fields.get(field_index))
-        .any(|field| !field_to_text(field, &message.delims).is_empty())
 }
 
 fn apply_redaction_target(
