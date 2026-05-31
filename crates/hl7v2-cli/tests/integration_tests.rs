@@ -2472,6 +2472,53 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
     }
 
     #[test]
+    fn test_redact_json_redacts_component_without_dropping_neighbor_components() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(
+            &dir,
+            "component-message.hl7",
+            "MSH|^~\\&|LAB|L|EHR|E|202605030101||ORU^R01|CTRL123|P|2.5\rOBX|1|XPN|PATIENT_NAME||Doe^Jane^A\r",
+        );
+        let policy = r#"
+[[rules]]
+path = "OBX-5.1"
+action = "drop"
+reason = "Remove family name"
+"#;
+        let policy_file = create_temp_file(&dir, "component-policy.toml", policy.as_bytes());
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "redact",
+                message_file.to_str().unwrap(),
+                "--policy",
+                policy_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute redact");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(!stdout.contains("Doe^Jane^A"));
+        let report: serde_json::Value =
+            serde_json::from_str(&stdout).expect("redact output should be JSON");
+        assert!(
+            report["redacted_hl7"]
+                .as_str()
+                .is_some_and(|hl7| hl7.contains("OBX|1|XPN|PATIENT_NAME||^Jane^A"))
+        );
+        assert!(report["receipt"]["actions"].as_array().unwrap().iter().any(
+            |action| action["path"] == "OBX.5.1"
+                && action["action"] == "drop"
+                && action["matched_count"] == 1
+                && action["status"] == "applied"
+        ));
+    }
+
+    #[test]
     fn test_redact_json_schema_v2_returns_provenance_output_without_raw_phi() {
         let dir = create_temp_dir();
         let message_file = create_temp_hl7_with_content(&dir, "message.hl7", PHI_MESSAGE);
@@ -2618,9 +2665,9 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
             "bad-policy.toml",
             br#"
 [[rules]]
-path = "PID.5.1"
+path = "PID.5.1.1.1"
 action = "drop"
-reason = "component targeting is not supported by this policy"
+reason = "malformed path"
 "#,
         );
 
@@ -2633,7 +2680,7 @@ reason = "component targeting is not supported by this policy"
         ])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("must target a field"));
+        .stderr(predicate::str::contains("invalid"));
     }
 
     #[test]
@@ -3089,6 +3136,84 @@ reason = "non-PHI synthetic observation value shape is needed for analysis"
         assert_eq!(report["output_dir"], ".");
         assert_eq!(report["message_type"], "ADT^A01");
         assert_eq!(report["validation_valid"], true);
+    }
+
+    #[test]
+    fn test_bundle_marks_component_redaction_on_parent_field_trace() {
+        let dir = create_temp_dir();
+        let message_file = create_temp_hl7_with_content(
+            &dir,
+            "component-message.hl7",
+            "MSH|^~\\&|LAB|L|EHR|E|202605030101||ORU^R01|CTRL123|P|2.5\rOBX|1|XPN|PATIENT_NAME||Doe^Jane^A\r",
+        );
+        let profile_file = create_temp_file(
+            &dir,
+            "profile.yaml",
+            br#"
+message_structure: "ORU_R01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "OBX"
+constraints:
+  - path: "OBX-5.2"
+    required: true
+"#,
+        );
+        let policy_file = create_temp_file(
+            &dir,
+            "component-policy.toml",
+            br#"
+[[rules]]
+path = "OBX-5.1"
+action = "drop"
+reason = "Remove family name"
+"#,
+        );
+        let bundle_dir = dir.path().join("component-bundle");
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "bundle",
+            message_file.to_str().unwrap(),
+            "--profile",
+            profile_file.to_str().unwrap(),
+            "--redact-policy",
+            policy_file.to_str().unwrap(),
+            "--out",
+            bundle_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+        let redacted_message =
+            std::fs::read_to_string(bundle_dir.join("message.redacted.hl7")).unwrap();
+        assert!(redacted_message.contains("OBX|1|XPN|PATIENT_NAME||^Jane^A"));
+        assert!(!redacted_message.contains("Doe^Jane^A"));
+
+        let field_paths: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("field-paths.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(field_paths["fields"].as_array().unwrap().iter().any(
+            |field| field["canonical_path"] == "OBX.5"
+                && field["redaction_action"] == "drop"
+                && field["value_shape"] == "present"
+        ));
+
+        let receipt: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(bundle_dir.join("redaction-receipt.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            receipt["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|action| action["path"] == "OBX.5.1"
+                    && action["action"] == "drop"
+                    && action["matched_count"] == 1)
+        );
     }
 
     #[test]

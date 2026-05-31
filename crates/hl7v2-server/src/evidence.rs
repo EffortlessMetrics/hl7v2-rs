@@ -5,7 +5,7 @@ use crate::models::{
     EvidenceBundleSummary, FieldPathTrace, FieldPathTraceReport, FieldValueShape, QuarantineConfig,
     QuarantineOutputSummary, QuarantineReason, RedactionAction, RedactionReceipt,
 };
-use hl7v2::{Atom, Field, Message, ValidationReport};
+use hl7v2::{Atom, Comp, Field, Message, Rep, ValidationReport};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -388,7 +388,7 @@ fn bundle_manifest_artifact(
 }
 
 fn build_field_path_trace(message: &Message, receipt: &RedactionReceipt) -> FieldPathTraceReport {
-    let redaction_actions: BTreeMap<&str, RedactionAction> = receipt
+    let redaction_actions: Vec<(&str, RedactionAction)> = receipt
         .actions
         .iter()
         .map(|action| (action.path.as_str(), action.action))
@@ -422,10 +422,11 @@ fn build_field_path_trace(message: &Message, receipt: &RedactionReceipt) -> Fiel
                 field_index,
                 present: !field_text.is_empty(),
                 value_shape: field_value_shape(&field_text),
-                redaction_action: redaction_actions
-                    .get(occurrence_path.as_str())
-                    .or_else(|| redaction_actions.get(canonical_path.as_str()))
-                    .copied(),
+                redaction_action: redaction_action_for_field(
+                    &redaction_actions,
+                    &occurrence_path,
+                    &canonical_path,
+                ),
             });
         }
     }
@@ -435,6 +436,28 @@ fn build_field_path_trace(message: &Message, receipt: &RedactionReceipt) -> Fiel
         field_count: fields.len(),
         fields,
     }
+}
+
+fn redaction_action_for_field(
+    actions: &[(&str, RedactionAction)],
+    occurrence_path: &str,
+    canonical_path: &str,
+) -> Option<RedactionAction> {
+    actions.iter().find_map(|(action_path, action)| {
+        (path_targets_field(action_path, occurrence_path)
+            || path_targets_field(action_path, canonical_path))
+        .then_some(*action)
+    })
+}
+
+fn path_targets_field(action_path: &str, field_path: &str) -> bool {
+    if action_path == field_path {
+        return true;
+    }
+
+    action_path
+        .strip_prefix(field_path)
+        .is_some_and(|suffix| suffix.starts_with('.') || suffix.starts_with('['))
 }
 
 fn message_type(message: &Message) -> String {
@@ -482,24 +505,32 @@ fn field_to_text(field: &Field, delims: &hl7v2::Delims) -> String {
     field
         .reps
         .iter()
-        .map(|rep| {
-            rep.comps
-                .iter()
-                .map(|comp| {
-                    comp.subs
-                        .iter()
-                        .map(|atom| match atom {
-                            Atom::Text(text) => text.as_str(),
-                            Atom::Null => "\"\"",
-                        })
-                        .collect::<Vec<_>>()
-                        .join(&delims.sub.to_string())
-                })
-                .collect::<Vec<_>>()
-                .join(&delims.comp.to_string())
-        })
+        .map(|rep| rep_to_text(rep, delims))
         .collect::<Vec<_>>()
         .join(&delims.rep.to_string())
+}
+
+fn rep_to_text(rep: &Rep, delims: &hl7v2::Delims) -> String {
+    rep.comps
+        .iter()
+        .map(|comp| comp_to_text(comp, delims))
+        .collect::<Vec<_>>()
+        .join(&delims.comp.to_string())
+}
+
+fn comp_to_text(comp: &Comp, delims: &hl7v2::Delims) -> String {
+    comp.subs
+        .iter()
+        .map(atom_to_text)
+        .collect::<Vec<_>>()
+        .join(&delims.sub.to_string())
+}
+
+fn atom_to_text(atom: &Atom) -> &str {
+    match atom {
+        Atom::Text(text) => text.as_str(),
+        Atom::Null => "\"\"",
+    }
 }
 
 fn compute_sha256(value: &str) -> String {

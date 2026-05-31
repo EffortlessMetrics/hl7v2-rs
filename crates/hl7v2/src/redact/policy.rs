@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
-use crate::model::{Field, Message};
+use crate::model::Message;
 
-use super::digest::compute_sha256;
 use super::path::{modeled_field_index, parse_redaction_path};
+use super::target::apply_redaction_target;
 use super::text::field_to_text;
 use super::types::{
     RedactionAction, RedactionActionReceipt, RedactionActionStatus, RedactionError,
@@ -103,18 +103,11 @@ fn apply_safe_analysis_policy(
                 continue;
             };
 
-            matched_count = matched_count.saturating_add(1);
-            match rule.action {
-                RedactionAction::Hash => {
-                    let value = field_to_text(field, &message.delims);
-                    *field = Field::from_text(format!("hash:sha256:{}", compute_sha256(&value)));
+            if apply_redaction_target(field, &parsed_path, rule.action, &message.delims) {
+                matched_count = matched_count.saturating_add(1);
+                if rule.action != RedactionAction::Retain {
                     phi_removed = true;
                 }
-                RedactionAction::Drop => {
-                    *field = Field::new();
-                    phi_removed = true;
-                }
-                RedactionAction::Retain => {}
             }
         }
 

@@ -9,6 +9,7 @@ mod digest;
 mod path;
 mod policy;
 mod safe_analysis;
+mod target;
 mod text;
 mod types;
 
@@ -90,6 +91,33 @@ mod tests {
     }
 
     #[test]
+    fn redacts_configured_component_without_replacing_whole_field()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut message = crate::parse(
+            b"MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ADT^A01|CTRL1|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John",
+        )?;
+        let config = RedactionConfig {
+            replacement: "XXX".to_string(),
+            fields: vec!["PID-5.1".to_string()],
+        };
+
+        redact(&mut message, &config);
+
+        let redacted_value = message
+            .segments
+            .iter()
+            .find(|segment| segment.id == *b"PID")
+            .and_then(|segment| segment.fields.get(4))
+            .map(|field| super::text::field_to_text(field, &message.delims));
+
+        ensure(
+            redacted_value.as_deref() == Some("XXX^John"),
+            "expected only PID-5.1 to be replaced",
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn hipaa_defaults_include_expected_fields() {
         let config = RedactionConfig::hipaa_defaults();
 
@@ -107,7 +135,6 @@ mod tests {
             fields: vec![
                 "PID".to_string(),
                 ".5".to_string(),
-                "PID.5.1".to_string(),
                 "PID.name".to_string(),
                 "PID.0".to_string(),
                 "PID.99".to_string(),
@@ -353,6 +380,159 @@ reason = "Targeted observation redaction"
         ensure(
             action.status == RedactionActionStatus::Applied,
             "expected targeted action to apply",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_redacts_only_targeted_field_repetition()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
+OBX|1|ST|A||Alpha~Beta~Gamma";
+        let policy = r#"
+[[rules]]
+path = "OBX-5[2]"
+action = "drop"
+reason = "Remove alternate observation value"
+"#;
+
+        let output = redact_hl7_safe_analysis(message, policy)?;
+
+        ensure(
+            output.redacted_hl7.contains("OBX|1|ST|A||Alpha~~Gamma"),
+            "expected only OBX-5 repetition 2 to be cleared",
+        )?;
+        ensure(
+            !output.redacted_hl7.contains("Beta"),
+            "redacted HL7 leaked targeted repetition",
+        )?;
+        ensure(
+            output
+                .receipt
+                .actions
+                .iter()
+                .any(|action| action.path == "OBX.5[2]" && action.matched_count == 1),
+            "expected canonical field-repetition receipt",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_redacts_component_without_dropping_neighbor_components()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
+OBX|1|XPN|PATIENT_NAME||Doe^Jane^A";
+        let policy = r#"
+[[rules]]
+path = "OBX-5.1"
+action = "drop"
+reason = "Remove family name"
+"#;
+
+        let output = redact_hl7_safe_analysis(message, policy)?;
+
+        ensure(
+            output
+                .redacted_hl7
+                .contains("OBX|1|XPN|PATIENT_NAME||^Jane^A"),
+            "expected only OBX-5.1 to be cleared",
+        )?;
+        ensure(
+            !output.redacted_hl7.contains("Doe"),
+            "redacted HL7 leaked component value",
+        )?;
+        let action = output
+            .receipt
+            .actions
+            .iter()
+            .find(|action| action.path == "OBX.5.1")
+            .ok_or_else(|| std::io::Error::other("expected OBX.5.1 receipt action"))?;
+        ensure(action.matched_count == 1, "expected one component match")?;
+        ensure(
+            action.status == RedactionActionStatus::Applied,
+            "expected component action to apply",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_hashes_subcomponent_without_dropping_sibling_subcomponents()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
+OBX|1|CX|ALT_ID||ABC&Issuer&MR";
+        let policy = r#"
+[[rules]]
+path = "OBX-5.1.1"
+action = "hash"
+reason = "Hash alternate identifier"
+"#;
+
+        let output = redact_hl7_safe_analysis(message, policy)?;
+
+        ensure(
+            output.redacted_hl7.contains("hash:sha256:"),
+            "expected hashed subcomponent marker",
+        )?;
+        ensure(
+            output.redacted_hl7.contains("&Issuer&MR"),
+            "expected sibling subcomponents to remain",
+        )?;
+        ensure(
+            !output.redacted_hl7.contains("ABC&Issuer&MR"),
+            "redacted HL7 leaked original subcomponent tuple",
+        )?;
+        ensure(
+            output
+                .receipt
+                .actions
+                .iter()
+                .any(|action| action.path == "OBX.5.1.1" && action.matched_count == 1),
+            "expected canonical subcomponent receipt",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_component_rule_does_not_cover_builtin_sensitive_field()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let policy = r#"
+[[rules]]
+path = "PID.3"
+action = "hash"
+reason = "Patient identifier"
+
+[[rules]]
+path = "PID.5.1"
+action = "drop"
+reason = "Only family name"
+
+[[rules]]
+path = "PID.7"
+action = "drop"
+reason = "Date of birth"
+
+[[rules]]
+path = "PID.11"
+action = "drop"
+reason = "Address"
+
+[[rules]]
+path = "PID.13"
+action = "drop"
+reason = "Phone"
+"#;
+
+        let Err(error) = redact_hl7_safe_analysis(safe_analysis_message(), policy) else {
+            return Err(std::io::Error::other(
+                "expected partial built-in sensitive-field coverage to fail",
+            )
+            .into());
+        };
+        ensure(
+            error
+                .to_string()
+                .contains("redaction policy does not protect present sensitive field(s): PID.5"),
+            "expected PID.5 coverage error",
         )?;
         Ok(())
     }
