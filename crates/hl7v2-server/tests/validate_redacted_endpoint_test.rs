@@ -235,6 +235,101 @@ async fn test_validate_redacted_accepts_diagnostic_policy_paths_with_canonical_r
 }
 
 #[tokio::test]
+async fn test_validate_redacted_accepts_segment_repetition_sensitive_policy() {
+    let app = common::create_test_router();
+    let profile = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "NK1"
+    required: true
+    max_uses: 2
+"#;
+    let policy = r#"
+[[rules]]
+path = "NK1[2]-2"
+action = "drop"
+reason = "Remove populated next-of-kin name"
+"#;
+    let request_body = json!({
+        "message": "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ADT^A01|CTRL1|P|2.5\rNK1|1\rNK1|2|Kin^Jane\r",
+        "profile": profile,
+        "redaction_policy": policy,
+        "include_redacted_hl7": true
+    });
+
+    let response = app
+        .oneshot(validate_redacted_request(request_body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_json: Value = serde_json::from_slice(&body).unwrap();
+    let redacted_hl7 = body_json["redacted_hl7"].as_str().unwrap();
+    let actions = body_json["redaction_receipt"]["actions"]
+        .as_array()
+        .unwrap();
+
+    assert!(!redacted_hl7.contains("Kin^Jane"));
+    assert!(actions.iter().any(|action| {
+        action["path"] == "NK1[2].2"
+            && action["matched_count"] == 1
+            && action["status"] == "applied"
+    }));
+}
+
+#[tokio::test]
+async fn test_validate_redacted_rejects_retain_for_segment_repetition_sensitive_policy() {
+    let app = common::create_test_router();
+    let profile = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "NK1"
+    required: true
+    max_uses: 2
+"#;
+    let policy = r#"
+[[rules]]
+path = "NK1[2]-2"
+action = "retain"
+reason = "Unsafe"
+"#;
+    let request_body = json!({
+        "message": "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ADT^A01|CTRL1|P|2.5\rNK1|1\rNK1|2|Kin^Jane\r",
+        "profile": profile,
+        "redaction_policy": policy,
+        "include_redacted_hl7": true
+    });
+
+    let response = app
+        .oneshot(validate_redacted_request(request_body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_text = String::from_utf8(body.to_vec()).unwrap();
+    let body_json: Value = serde_json::from_str(&body_text).unwrap();
+
+    assert_eq!(body_json["code"], "REDACTION_ERROR");
+    assert!(
+        body_json["message"]
+            .as_str()
+            .unwrap()
+            .contains("redaction rule NK1[2].2 cannot retain a built-in sensitive field")
+    );
+    assert!(!body_text.contains("Kin^Jane"));
+    assert!(!body_text.contains("Kin"));
+    assert!(!body_text.contains("Jane"));
+}
+
+#[tokio::test]
 async fn test_validate_redacted_redacts_component_without_dropping_neighbor_components() {
     let app = common::create_test_router();
     let profile = r#"

@@ -385,6 +385,39 @@ reason = "Targeted observation redaction"
     }
 
     #[test]
+    fn safe_analysis_accepts_segment_repetition_sensitive_rule_when_only_that_repetition_has_phi()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ADT^A01|CTRL1|P|2.5\r\
+NK1|1\r\
+NK1|2|Kin^Jane";
+        let policy = r#"
+[[rules]]
+path = "NK1[2]-2"
+action = "drop"
+reason = "Remove populated next-of-kin name"
+"#;
+
+        let output = redact_hl7_safe_analysis(message, policy)?;
+
+        ensure(
+            !output.redacted_hl7.contains("Kin^Jane"),
+            "redacted HL7 leaked NK1 name",
+        )?;
+        let action = output
+            .receipt
+            .actions
+            .iter()
+            .find(|action| action.path == "NK1[2].2")
+            .ok_or_else(|| std::io::Error::other("expected NK1[2].2 receipt action"))?;
+        ensure(action.matched_count == 1, "expected one NK1[2].2 match")?;
+        ensure(
+            action.status == RedactionActionStatus::Applied,
+            "expected targeted action to apply",
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn safe_analysis_redacts_only_targeted_field_repetition()
     -> Result<(), Box<dyn std::error::Error>> {
         let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
@@ -688,6 +721,31 @@ reason = "Unsafe"
                 .to_string()
                 .contains("redaction rule PID.5 cannot retain a built-in sensitive field"),
             "expected canonical retain-sensitive-field error",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_rejects_retaining_segment_repetition_builtin_sensitive_field()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let policy = r#"
+[[rules]]
+path = "NK1[2]-2"
+action = "retain"
+reason = "Unsafe"
+"#;
+
+        let Err(error) = load_safe_analysis_policy(policy) else {
+            return Err(std::io::Error::other(
+                "expected retaining a segment-specific built-in sensitive field to fail",
+            )
+            .into());
+        };
+        ensure(
+            error
+                .to_string()
+                .contains("redaction rule NK1[2].2 cannot retain a built-in sensitive field"),
+            "expected canonical segment-specific retain-sensitive-field error",
         )?;
         Ok(())
     }
