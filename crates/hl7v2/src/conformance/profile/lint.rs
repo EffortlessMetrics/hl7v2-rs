@@ -813,7 +813,7 @@ fn lint_custom_rules(profile: &Profile, issues: &mut Vec<ProfileLintIssue>) {
 }
 
 fn lint_hl7_path(path: &str, location: String, issues: &mut Vec<ProfileLintIssue>) {
-    if let Err(err) = crate::query::path::parse_path(path) {
+    if let Err(err) = crate::query::path::parse_located_path(path) {
         issues.push(ProfileLintIssue::error(
             "invalid_hl7_path",
             Some(location),
