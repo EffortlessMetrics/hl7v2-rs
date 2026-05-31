@@ -59,25 +59,49 @@ fn create_component_field(components: Vec<Vec<&str>>) -> Field {
 // =============================================================================
 
 #[test]
-fn test_parse_field_and_rep_simple() {
-    assert_eq!(parse_field_and_rep("5"), Some((5, 1)));
-    assert_eq!(parse_field_and_rep("1"), Some((1, 1)));
-    assert_eq!(parse_field_and_rep("10"), Some((10, 1)));
+fn test_parse_path_accepts_legacy_dot_notation() {
+    let path = match path::parse_path("PID.5[2].1") {
+        Ok(path) => path,
+        Err(err) => panic!("legacy path should parse: {err}"),
+    };
+
+    assert_eq!(path.segment, "PID");
+    assert_eq!(path.field, 5);
+    assert_eq!(path.repetition, Some(2));
+    assert_eq!(path.component, Some(1));
 }
 
 #[test]
-fn test_parse_field_and_rep_with_repetition() {
-    assert_eq!(parse_field_and_rep("5[1]"), Some((5, 1)));
-    assert_eq!(parse_field_and_rep("5[2]"), Some((5, 2)));
-    assert_eq!(parse_field_and_rep("10[5]"), Some((10, 5)));
+fn test_parse_path_accepts_target_dash_notation() {
+    let path = match path::parse_located_path("OBX[3]-5.1") {
+        Ok(path) => path,
+        Err(err) => panic!("dash path should parse: {err}"),
+    };
+
+    assert_eq!(path.segment_repetition, Some(3));
+    assert_eq!(path.path.segment, "OBX");
+    assert_eq!(path.path.field, 5);
+    assert_eq!(path.path.component, Some(1));
 }
 
 #[test]
-fn test_parse_field_and_rep_invalid() {
-    assert_eq!(parse_field_and_rep("abc"), None);
-    assert_eq!(parse_field_and_rep("5["), None);
-    assert_eq!(parse_field_and_rep("5[abc]"), None);
-    assert_eq!(parse_field_and_rep(""), None);
+fn test_parse_path_rejects_invalid_repetitions() {
+    assert!(matches!(
+        path::parse_located_path("PID-5[abc]"),
+        Err(path::PathError::InvalidRepetitionIndex(_))
+    ));
+    assert!(matches!(
+        path::parse_located_path("PID-5["),
+        Err(path::PathError::InvalidFormat(_))
+    ));
+    assert!(matches!(
+        path::parse_located_path("OBX[0]-5"),
+        Err(path::PathError::InvalidRepetitionIndex(_))
+    ));
+    assert!(matches!(
+        path::parse_located_path(""),
+        Err(path::PathError::InvalidFormat(_))
+    ));
 }
 
 // =============================================================================
@@ -122,6 +146,25 @@ fn test_get_component_field() {
 
     assert_eq!(get(&message, "PID.5.1"), Some("Doe"));
     assert_eq!(get(&message, "PID.5.2"), Some("John"));
+}
+
+#[test]
+fn test_get_accepts_dash_path_field_components() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![create_test_segment(
+            "PID",
+            vec![
+                create_text_field(vec!["1"]),
+                create_text_field(vec![""]),
+                create_component_field(vec![vec!["123456"], vec![""], vec![""], vec!["HOSP"]]),
+            ],
+        )],
+        charsets: vec![],
+    };
+
+    assert_eq!(get(&message, "PID-3.1"), Some("123456"));
+    assert_eq!(get(&message, "PID-3.4"), Some("HOSP"));
 }
 
 #[test]
@@ -276,6 +319,84 @@ fn test_get_with_repetitions() {
     // Invalid repetition
     assert_eq!(get(&message, "PID.1[4]"), None);
     assert_eq!(get(&message, "PID.1[0]"), None);
+}
+
+#[test]
+fn test_get_with_dash_field_repetition() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![create_test_segment(
+            "PID",
+            vec![Field {
+                reps: vec![
+                    Rep {
+                        comps: vec![Comp {
+                            subs: vec![Atom::Text("primary".to_string())],
+                        }],
+                    },
+                    Rep {
+                        comps: vec![
+                            Comp {
+                                subs: vec![Atom::Text("alternate".to_string())],
+                            },
+                            Comp {
+                                subs: vec![Atom::Text("authority".to_string())],
+                            },
+                        ],
+                    },
+                ],
+            }],
+        )],
+        charsets: vec![],
+    };
+
+    assert_eq!(get(&message, "PID-1[2].1"), Some("alternate"));
+    assert_eq!(get(&message, "PID-1[2].2"), Some("authority"));
+}
+
+#[test]
+fn test_get_with_segment_repetition() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![
+            create_test_segment(
+                "OBX",
+                vec![
+                    create_text_field(vec!["1"]),
+                    create_text_field(vec!["ST"]),
+                    create_text_field(vec!["FIRST"]),
+                    create_text_field(vec![""]),
+                    create_text_field(vec!["Alpha"]),
+                ],
+            ),
+            create_test_segment(
+                "OBX",
+                vec![
+                    create_text_field(vec!["2"]),
+                    create_text_field(vec!["ST"]),
+                    create_text_field(vec!["SECOND"]),
+                    create_text_field(vec![""]),
+                    create_text_field(vec!["Beta"]),
+                ],
+            ),
+            create_test_segment(
+                "OBX",
+                vec![
+                    create_text_field(vec!["3"]),
+                    create_text_field(vec!["ST"]),
+                    create_text_field(vec!["THIRD"]),
+                    create_text_field(vec![""]),
+                    create_text_field(vec!["Gamma"]),
+                ],
+            ),
+        ],
+        charsets: vec![],
+    };
+
+    assert_eq!(get(&message, "OBX[1]-5"), Some("Alpha"));
+    assert_eq!(get(&message, "OBX[2]-5"), Some("Beta"));
+    assert_eq!(get(&message, "OBX[3]-5"), Some("Gamma"));
+    assert_eq!(get(&message, "OBX[4]-5"), None);
 }
 
 // =============================================================================
@@ -462,6 +583,39 @@ fn test_presence_for_subcomponent_paths() {
         Presence::Value("value".to_string())
     );
     assert_eq!(get_presence(&message, "PID.1.1.4"), Presence::Missing);
+}
+
+#[test]
+fn test_presence_accepts_dash_and_segment_repetition_paths() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![
+            create_test_segment(
+                "NTE",
+                vec![
+                    create_text_field(vec!["1"]),
+                    create_text_field(vec!["L"]),
+                    create_text_field(vec!["First note"]),
+                ],
+            ),
+            create_test_segment(
+                "NTE",
+                vec![
+                    create_text_field(vec!["2"]),
+                    create_text_field(vec!["L"]),
+                    create_text_field(vec![""]),
+                ],
+            ),
+        ],
+        charsets: vec![],
+    };
+
+    assert_eq!(
+        get_presence(&message, "NTE[1]-3"),
+        Presence::Value("First note".to_string())
+    );
+    assert_eq!(get_presence(&message, "NTE[2]-3"), Presence::Empty);
+    assert_eq!(get_presence(&message, "NTE[3]-3"), Presence::Missing);
 }
 
 // =============================================================================
