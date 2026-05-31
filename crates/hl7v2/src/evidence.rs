@@ -237,6 +237,97 @@ reason = "Date of birth"
     }
 
     #[test]
+    fn bundle_field_trace_marks_segment_specific_redaction()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let bundle_dir = temp.path().join("targeted-redaction-bundle");
+        let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
+OBX|1|ST|A||Alpha\r\
+OBX|2|ST|B||Beta\r\
+OBX|3|ST|C||Gamma";
+        let profile = r#"
+message_structure: "ORU_R01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "OBX"
+constraints:
+  - path: "MSH.9"
+    required: true
+"#;
+        let policy = r#"
+[[rules]]
+path = "OBX[2]-5"
+action = "hash"
+reason = "Targeted observation redaction"
+"#;
+
+        write_safe_analysis_bundle(message, profile, policy, &bundle_dir, "hl7v2-python")?;
+
+        let receipt = read_bundle_json_value(&bundle_dir, "redaction-receipt.json")?;
+        let actions = receipt
+            .get("actions")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| std::io::Error::other("redaction receipt should contain actions"))?;
+        ensure(
+            actions.iter().any(|action| {
+                action.get("path").and_then(serde_json::Value::as_str) == Some("OBX[2].5")
+                    && action
+                        .get("matched_count")
+                        .and_then(serde_json::Value::as_u64)
+                        == Some(1)
+            }),
+            "expected canonical segment-specific redaction receipt",
+        )?;
+
+        let trace = read_bundle_json_value(&bundle_dir, "field-paths.json")?;
+        let fields = trace
+            .get("fields")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| std::io::Error::other("field trace should contain fields"))?;
+        let redacted_fields = fields
+            .iter()
+            .filter(|field| {
+                field
+                    .get("redaction_action")
+                    .and_then(serde_json::Value::as_str)
+                    == Some("hash")
+            })
+            .collect::<Vec<_>>();
+        ensure(
+            redacted_fields.len() == 1,
+            "expected one field trace redaction marker",
+        )?;
+        let redacted_field = redacted_fields
+            .first()
+            .copied()
+            .ok_or_else(|| std::io::Error::other("expected redacted field trace"))?;
+        ensure(
+            redacted_field
+                .get("canonical_path")
+                .and_then(serde_json::Value::as_str)
+                == Some("OBX.5"),
+            "expected OBX.5 trace path",
+        )?;
+        ensure(
+            redacted_field
+                .get("segment_index")
+                .and_then(serde_json::Value::as_u64)
+                == Some(3),
+            "expected second OBX absolute segment index",
+        )?;
+        ensure(
+            redacted_field
+                .get("value_shape")
+                .and_then(serde_json::Value::as_str)
+                == Some("hashed_sha256"),
+            "expected hashed trace value shape",
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
     fn replay_accepts_legacy_bundle_without_safe_sharing_checklist()
     -> Result<(), Box<dyn std::error::Error>> {
         let temp = tempfile::tempdir()?;

@@ -31,7 +31,7 @@ pub fn redact_message_safe_analysis(
 /// Returns [`RedactionError::Policy`] when TOML parsing fails or the policy is
 /// structurally unsafe.
 pub fn load_safe_analysis_policy(policy_text: &str) -> Result<SafeAnalysisPolicy, RedactionError> {
-    let policy: SafeAnalysisPolicy = toml::from_str(policy_text).map_err(|error| {
+    let mut policy: SafeAnalysisPolicy = toml::from_str(policy_text).map_err(|error| {
         RedactionError::Policy(format!("redaction policy is invalid TOML: {error}"))
     })?;
     if policy.rules.is_empty() {
@@ -42,8 +42,9 @@ pub fn load_safe_analysis_policy(policy_text: &str) -> Result<SafeAnalysisPolicy
 
     let sensitive_paths = safe_analysis_sensitive_paths();
     let mut seen_paths = BTreeSet::new();
-    for rule in &policy.rules {
-        parse_redaction_path(&rule.path).map_err(RedactionError::Policy)?;
+    for rule in &mut policy.rules {
+        let parsed_path = parse_redaction_path(&rule.path).map_err(RedactionError::Policy)?;
+        rule.path = parsed_path.canonical_path;
         if !seen_paths.insert(rule.path.clone()) {
             return Err(RedactionError::Policy(format!(
                 "redaction policy contains duplicate rule for {}",
@@ -80,9 +81,16 @@ fn apply_safe_analysis_policy(
     for rule in &policy.rules {
         let parsed_path = parse_redaction_path(&rule.path).map_err(RedactionError::Policy)?;
         let mut matched_count = 0_usize;
+        let mut segment_match_count = 0_usize;
 
         for segment in &mut message.segments {
             if segment.id_str() != parsed_path.segment_id {
+                continue;
+            }
+            segment_match_count = segment_match_count.saturating_add(1);
+            if let Some(segment_repetition) = parsed_path.segment_repetition
+                && segment_match_count != segment_repetition
+            {
                 continue;
             }
 

@@ -1,57 +1,43 @@
 #[derive(Debug)]
 pub(crate) struct ParsedRedactionPath {
     pub(crate) segment_id: String,
+    pub(crate) segment_repetition: Option<usize>,
     pub(crate) field_index: usize,
-}
-
-pub(crate) fn parse_segment_field_path(path: &str) -> Option<(&str, usize)> {
-    let (segment_id, field_part) = path.split_once('.')?;
-    if segment_id.is_empty() || field_part.contains('.') {
-        return None;
-    }
-
-    field_part
-        .parse::<usize>()
-        .ok()
-        .map(|field_index| (segment_id, field_index))
+    pub(crate) canonical_path: String,
 }
 
 pub(crate) fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
-    let (segment_id, field_part) = path
-        .split_once('.')
-        .ok_or_else(|| format!("redaction path '{path}' must use SEG.field syntax"))?;
-    if segment_id.len() != 3
-        || !segment_id
-            .chars()
-            .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit())
-    {
-        return Err(format!(
-            "redaction path '{path}' must start with a three-character uppercase segment id"
-        ));
-    }
-    if field_part.contains('.') {
+    let located = crate::query::path::parse_located_path(path).map_err(|error| {
+        if !path.contains('.') && !path.contains('-') {
+            format!("redaction path '{path}' must use SEG.field or SEG-FIELD syntax")
+        } else {
+            format!("redaction path '{path}' is invalid: {error}")
+        }
+    })?;
+
+    if located.path.component.is_some() || located.path.subcomponent.is_some() {
         return Err(format!(
             "redaction path '{path}' must target a field, not a component"
         ));
     }
-
-    let field_index = field_part.parse::<usize>().map_err(|_err| {
-        format!("redaction path '{path}' must use a positive numeric field index")
-    })?;
-    if field_index == 0 {
+    if located.path.repetition.is_some() {
         return Err(format!(
-            "redaction path '{path}' must use a one-based field index"
+            "redaction path '{path}' must target a field, not a field repetition"
         ));
     }
-    if segment_id == "MSH" && field_index < 3 {
+    if located.path.segment == "MSH" && located.path.field < 3 {
         return Err(format!(
             "redaction path '{path}' targets MSH.1/MSH.2, which are delimiter metadata and not redacted by this command"
         ));
     }
 
+    let canonical_path = located.to_path_string();
+
     Ok(ParsedRedactionPath {
-        segment_id: segment_id.to_string(),
-        field_index,
+        segment_id: located.path.segment,
+        segment_repetition: located.segment_repetition,
+        field_index: located.path.field,
+        canonical_path,
     })
 }
 

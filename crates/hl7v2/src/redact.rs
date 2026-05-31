@@ -22,13 +22,10 @@ pub use types::{
 };
 
 #[cfg(test)]
-pub(crate) use path::parse_segment_field_path;
-
-#[cfg(test)]
 mod tests {
     use super::{
-        RedactionAction, RedactionActionStatus, RedactionConfig, load_safe_analysis_policy,
-        parse_segment_field_path, redact, redact_hl7_safe_analysis,
+        RedactionAction, RedactionActionStatus, RedactionConfig, load_safe_analysis_policy, redact,
+        redact_hl7_safe_analysis,
     };
     use crate::{Delims, Field, Message, Segment};
 
@@ -73,6 +70,26 @@ mod tests {
     }
 
     #[test]
+    fn redacts_configured_dash_segment_field() {
+        let mut message = test_message_with_pid_names(&["Doe^John"]);
+        let config = RedactionConfig {
+            replacement: "XXX".to_string(),
+            fields: vec!["PID-5".to_string()],
+        };
+
+        redact(&mut message, &config);
+
+        let redacted_value = message
+            .segments
+            .iter()
+            .find(|segment| segment.id == *b"PID")
+            .and_then(|segment| segment.fields.get(4))
+            .and_then(Field::first_text);
+
+        assert_eq!(redacted_value, Some("XXX"));
+    }
+
+    #[test]
     fn hipaa_defaults_include_expected_fields() {
         let config = RedactionConfig::hipaa_defaults();
 
@@ -80,15 +97,6 @@ mod tests {
         assert_eq!(config.fields.len(), 9);
         assert!(config.fields.iter().any(|field| field == "PID.5"));
         assert!(config.fields.iter().any(|field| field == "NK1.5"));
-    }
-
-    #[test]
-    fn parse_segment_field_path_rejects_invalid_paths() {
-        assert_eq!(parse_segment_field_path("PID.5"), Some(("PID", 5)));
-        assert_eq!(parse_segment_field_path("PID"), None);
-        assert_eq!(parse_segment_field_path(".5"), None);
-        assert_eq!(parse_segment_field_path("PID.5.1"), None);
-        assert_eq!(parse_segment_field_path("PID.name"), None);
     }
 
     #[test]
@@ -241,6 +249,115 @@ optional = true
     }
 
     #[test]
+    fn safe_analysis_accepts_diagnostic_paths_and_canonicalizes_receipts()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let policy = r#"
+[[rules]]
+path = "PID-3"
+action = "hash"
+reason = "Patient identifier"
+
+[[rules]]
+path = "PID-5"
+action = "drop"
+reason = "Patient name"
+
+[[rules]]
+path = "PID-7"
+action = "drop"
+reason = "Date of birth"
+
+[[rules]]
+path = "PID-11"
+action = "drop"
+reason = "Address"
+
+[[rules]]
+path = "PID-13"
+action = "drop"
+reason = "Phone"
+"#;
+
+        let output = redact_hl7_safe_analysis(safe_analysis_message(), policy)?;
+
+        ensure(
+            !output.redacted_hl7.contains("Doe^John"),
+            "redacted HL7 leaked patient name",
+        )?;
+        ensure(
+            !output.redacted_hl7.contains("123456"),
+            "redacted HL7 leaked patient identifier",
+        )?;
+        ensure(
+            output.receipt.actions.iter().any(|action| {
+                action.path == "PID.3"
+                    && action.action == RedactionAction::Hash
+                    && action.status == RedactionActionStatus::Applied
+            }),
+            "expected canonical PID.3 hash receipt",
+        )?;
+        ensure(
+            output
+                .receipt
+                .actions
+                .iter()
+                .any(|action| action.path == "PID.13" && action.matched_count == 1),
+            "expected canonical PID.13 receipt",
+        )?;
+        ensure(
+            !output
+                .receipt
+                .actions
+                .iter()
+                .any(|action| action.path.contains('-')),
+            "expected canonical receipt paths",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_redacts_only_targeted_segment_repetition()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
+OBX|1|ST|A||Alpha\r\
+OBX|2|ST|B||Beta\r\
+OBX|3|ST|C||Gamma";
+        let policy = r#"
+[[rules]]
+path = "OBX[2]-5"
+action = "hash"
+reason = "Targeted observation redaction"
+"#;
+
+        let output = redact_hl7_safe_analysis(message, policy)?;
+
+        ensure(
+            output.redacted_hl7.contains("Alpha"),
+            "first OBX should be unchanged",
+        )?;
+        ensure(
+            !output.redacted_hl7.contains("Beta"),
+            "second OBX value should be redacted",
+        )?;
+        ensure(
+            output.redacted_hl7.contains("Gamma"),
+            "third OBX should be unchanged",
+        )?;
+        let action = output
+            .receipt
+            .actions
+            .iter()
+            .find(|action| action.path == "OBX[2].5")
+            .ok_or_else(|| std::io::Error::other("expected OBX[2].5 receipt action"))?;
+        ensure(action.matched_count == 1, "expected one OBX[2].5 match")?;
+        ensure(
+            action.status == RedactionActionStatus::Applied,
+            "expected targeted action to apply",
+        )?;
+        Ok(())
+    }
+
+    #[test]
     fn redaction_receipt_v2_embeds_tool_provenance() -> Result<(), Box<dyn std::error::Error>> {
         let output = redact_hl7_safe_analysis(safe_analysis_message(), safe_analysis_policy())?;
         let receipt_v2 = output.receipt.to_v2("hl7v2", "1.3.0");
@@ -366,6 +483,31 @@ reason = "Unsafe"
                 .to_string()
                 .contains("redaction rule PID.5 cannot retain a built-in sensitive field"),
             "expected retain-sensitive-field error",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_rejects_retaining_builtin_sensitive_field_alias()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let policy = r#"
+[[rules]]
+path = "PID-5"
+action = "retain"
+reason = "Unsafe"
+"#;
+
+        let Err(error) = load_safe_analysis_policy(policy) else {
+            return Err(std::io::Error::other(
+                "expected retaining a built-in sensitive field alias to fail",
+            )
+            .into());
+        };
+        ensure(
+            error
+                .to_string()
+                .contains("redaction rule PID.5 cannot retain a built-in sensitive field"),
+            "expected canonical retain-sensitive-field error",
         )?;
         Ok(())
     }
