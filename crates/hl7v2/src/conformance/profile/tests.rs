@@ -177,6 +177,92 @@ table_precedence:
     }
 
     #[test]
+    fn test_literal_in_constraint_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+constraints:
+  - path: "OBX.8"
+    in: ["N", "H"]
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~BAD|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(probs.len(), 1, "expected later repetition issue: {probs:?}");
+        assert_eq!(probs[0].code, "VALUE_NOT_IN_CONSTRAINT");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+    }
+
+    #[test]
+    fn test_inline_valueset_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+valuesets:
+  - path: "OBX.8"
+    name: "abnormal_flags"
+    codes: ["N", "H"]
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~BAD|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(probs.len(), 1, "expected later repetition issue: {probs:?}");
+        assert_eq!(probs[0].code, "VALUE_NOT_IN_SET");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+    }
+
+    #[test]
+    fn test_hl7_table_valueset_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+valuesets:
+  - path: "OBX.8"
+    name: "HL70078"
+hl7_tables:
+  - id: "HL70078"
+    name: "Abnormal Flags"
+    version: "2.5.1"
+    codes:
+      - value: "N"
+        description: "Normal"
+        status: "A"
+      - value: "H"
+        description: "High"
+        status: "A"
+table_precedence:
+  - "HL70078"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~BAD|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(probs.len(), 1, "expected later repetition issue: {probs:?}");
+        assert_eq!(probs[0].code, "VALUE_NOT_IN_HL7_TABLE");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+    }
+
+    #[test]
     fn test_expression_guardrails() {
         let y = r#"
 message_structure: "expression_guardrails"
