@@ -39,6 +39,16 @@ Common operations are available at the crate root:
 use hl7v2::{ack, get, normalize, parse, validate, write};
 ```
 
+For repeated queries, parse a path once and reuse it:
+
+```rust
+use hl7v2::{get_located, parse, parse_located_path};
+
+let msg = parse(b"MSH|^~\\&|App||Fac||20250128||ORU^R01|123|P|2.5.1\rOBX|1|ST|NOTE||Alpha\r").unwrap();
+let path = parse_located_path("OBX[1]-5").unwrap();
+assert_eq!(get_located(&msg, &path), Some("Alpha"));
+```
+
 Implementer APIs are grouped under modules such as `hl7v2::model`,
 `hl7v2::parser`, `hl7v2::writer`, `hl7v2::query`, `hl7v2::transport`,
 `hl7v2::conformance`, and `hl7v2::synthetic`.
