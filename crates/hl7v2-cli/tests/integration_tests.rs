@@ -613,6 +613,26 @@ mod norm_command {
     }
 
     #[test]
+    fn test_norm_without_canonical_preserves_wire_bytes() {
+        let dir = create_temp_dir();
+        let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\r\nPID|1||12345||\\H\\O\\N\\Brien^John||||\r\n";
+        let hl7_file = create_temp_file(&dir, "wire.hl7", hl7);
+        let output_file = dir.path().join("output.hl7");
+
+        let mut cmd = cli_command();
+        cmd.args([
+            "norm",
+            hl7_file.to_str().unwrap(),
+            "-o",
+            output_file.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+
+        assert_eq!(read_file(&output_file), hl7);
+    }
+
+    #[test]
     fn test_norm_canonical_delimiters_matches_shared_fixture() {
         let dir = create_temp_dir();
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
