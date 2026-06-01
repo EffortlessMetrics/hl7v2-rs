@@ -141,6 +141,13 @@ mod delims_tests {
     }
 
     #[test]
+    fn test_parse_from_msh_accepts_minimal_delimiter_prefix() {
+        let delims = Delims::parse_from_msh("MSH|^~\\&").unwrap();
+
+        assert_eq!(delims, Delims::default());
+    }
+
+    #[test]
     fn test_parse_from_msh_too_short() {
         // Too short
         let msh = "MSH|";
