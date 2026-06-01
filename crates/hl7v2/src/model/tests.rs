@@ -306,6 +306,38 @@ mod rep_tests {
     }
 
     #[test]
+    fn test_first_text_empty() {
+        let rep = Rep::new();
+
+        assert!(rep.first_text().is_none());
+    }
+
+    #[test]
+    fn test_first_text_with_value() {
+        let rep = Rep::from_text("test value");
+
+        assert_eq!(rep.first_text(), Some("test value"));
+    }
+
+    #[test]
+    fn test_first_text_with_empty_text() {
+        let rep = Rep::from_text("");
+
+        assert_eq!(rep.first_text(), Some(""));
+    }
+
+    #[test]
+    fn test_first_text_with_null() {
+        let rep = Rep {
+            comps: vec![Comp {
+                subs: vec![Atom::Null],
+            }],
+        };
+
+        assert!(rep.first_text().is_none());
+    }
+
+    #[test]
     fn test_add_comp() {
         let mut rep = Rep::new();
         rep.add_comp(Comp::from_text("component"));
@@ -341,6 +373,36 @@ mod comp_tests {
         let comp = Comp::from_text("test value");
 
         assert_eq!(comp.subs.len(), 1);
+    }
+
+    #[test]
+    fn test_first_text_empty() {
+        let comp = Comp::new();
+
+        assert!(comp.first_text().is_none());
+    }
+
+    #[test]
+    fn test_first_text_with_value() {
+        let comp = Comp::from_text("test value");
+
+        assert_eq!(comp.first_text(), Some("test value"));
+    }
+
+    #[test]
+    fn test_first_text_with_empty_text() {
+        let comp = Comp::from_text("");
+
+        assert_eq!(comp.first_text(), Some(""));
+    }
+
+    #[test]
+    fn test_first_text_with_null() {
+        let comp = Comp {
+            subs: vec![Atom::Null],
+        };
+
+        assert!(comp.first_text().is_none());
     }
 
     #[test]
@@ -461,5 +523,28 @@ mod presence_tests {
     fn test_value() {
         let presence = Presence::Value("test".to_string());
         assert!(matches!(presence, Presence::Value(_)));
+    }
+
+    #[test]
+    fn test_presence_helpers_cover_all_states() {
+        let cases = [
+            (Presence::Missing, true, false, false, None),
+            (Presence::Empty, false, true, false, None),
+            (Presence::Null, false, true, false, None),
+            (
+                Presence::Value("test value".to_string()),
+                false,
+                true,
+                true,
+                Some("test value"),
+            ),
+        ];
+
+        for (presence, is_missing, is_present, has_value, value) in cases {
+            assert_eq!(presence.is_missing(), is_missing);
+            assert_eq!(presence.is_present(), is_present);
+            assert_eq!(presence.has_value(), has_value);
+            assert_eq!(presence.value(), value);
+        }
     }
 }
