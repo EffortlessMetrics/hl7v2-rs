@@ -435,22 +435,115 @@ fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues:
 
 /// Validate that a field value does not exceed the maximum length
 fn validate_length_constraint(msg: &Message, length: &LengthConstraint, issues: &mut Vec<Issue>) {
-    if let Some(value) = crate::query::get(msg, &length.path) {
-        if let Some(max_length) = length.max {
-            if value.len() > max_length {
-                issues.push(Issue::error(
-                    "VALUE_TOO_LONG",
-                    Some(length.path.clone()),
-                    format!(
-                        "Value '{}' for {} exceeds maximum length of {} characters",
-                        value, length.path, max_length
-                    ),
-                ));
-            }
+    if let Some(max_length) = length.max {
+        if let Some(value) = path_text_values(msg, &length.path)
+            .into_iter()
+            .find(|value| value.len() > max_length)
+        {
+            issues.push(Issue::error(
+                "VALUE_TOO_LONG",
+                Some(length.path.clone()),
+                format!(
+                    "Value '{}' for {} exceeds maximum length of {} characters",
+                    value, length.path, max_length
+                ),
+            ));
         }
     }
     // Note: We don't report an error if the field is missing but has a length constraint
     // That would be handled by a separate presence constraint if needed
+}
+
+fn path_text_values<'a>(msg: &'a Message, path: &str) -> Vec<&'a str> {
+    let Ok(path) = crate::query::path::parse_located_path(path) else {
+        return Vec::new();
+    };
+
+    if path.path.is_msh() && path.path.field == 1 {
+        return crate::query::get_located(msg, &path).into_iter().collect();
+    }
+
+    let Some(segment) = required_segment(msg, &path) else {
+        return Vec::new();
+    };
+    let Some(field) = required_field(segment, &path.path) else {
+        return Vec::new();
+    };
+
+    field_text_values(
+        field,
+        path.path.repetition,
+        path.path.component,
+        path.path.subcomponent,
+    )
+}
+
+fn field_text_values(
+    field: &Field,
+    repetition: Option<usize>,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
+) -> Vec<&str> {
+    let mut values = Vec::new();
+
+    if let Some(repetition) = repetition {
+        if let Some(rep) = repetition
+            .checked_sub(1)
+            .and_then(|index| field.reps.get(index))
+        {
+            collect_rep_text_values(&mut values, rep, component, subcomponent);
+        }
+        return values;
+    }
+
+    for rep in &field.reps {
+        collect_rep_text_values(&mut values, rep, component, subcomponent);
+    }
+
+    values
+}
+
+fn collect_rep_text_values<'a>(
+    values: &mut Vec<&'a str>,
+    rep: &'a Rep,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
+) {
+    if let Some(component) = component {
+        if let Some(comp) = component
+            .checked_sub(1)
+            .and_then(|index| rep.comps.get(index))
+        {
+            collect_comp_text_values(values, comp, subcomponent);
+        }
+        return;
+    }
+
+    for comp in &rep.comps {
+        collect_comp_text_values(values, comp, subcomponent);
+    }
+}
+
+fn collect_comp_text_values<'a>(
+    values: &mut Vec<&'a str>,
+    comp: &'a Comp,
+    subcomponent: Option<usize>,
+) {
+    if let Some(subcomponent) = subcomponent {
+        if let Some(Atom::Text(text)) = subcomponent
+            .checked_sub(1)
+            .and_then(|index| comp.subs.get(index))
+        {
+            values.push(text.as_str());
+        }
+        return;
+    }
+
+    for atom in &comp.subs {
+        if let Atom::Text(text) = atom {
+            values.push(text.as_str());
+        }
+    }
 }
 
 /// Validate that a field value is in the allowed HL7 table

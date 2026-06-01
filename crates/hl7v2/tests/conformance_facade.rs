@@ -210,6 +210,40 @@ PID|1||123456^^^HOSP^MR||Longname^John||19700101|M\r",
 }
 
 #[test]
+fn profile_facade_reports_field_scoped_length_failures_in_later_components()
+-> Result<(), Box<dyn Error>> {
+    let profile = load_profile_checked(
+        r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "PID"
+lengths:
+  - path: "PID.5"
+    max: 5
+    policy: "no-truncate"
+"#,
+    )?;
+    let message = parse(
+        b"MSH|^~\\&|SEND|FAC|RECV|RF|202605030101||ADT^A01|CTRL123|P|2.5\r\
+PID|1||123456^^^HOSP^MR||Doe^Jonathan||19700101|M\r",
+    )?;
+    let issues = validate(&message, &profile);
+
+    require(
+        issues.iter().any(|issue| {
+            issue.severity == Severity::Error
+                && issue.path.as_deref() == Some("PID.5")
+                && issue.code == "VALUE_TOO_LONG"
+        }),
+        "expected PID.5 field-scoped length rule to inspect later components",
+    )?;
+
+    Ok(())
+}
+
+#[test]
 fn profile_facade_accepts_diagnostic_segment_repetition_paths() -> Result<(), Box<dyn Error>> {
     let yaml = r#"
 message_structure: "ORU_R01"
