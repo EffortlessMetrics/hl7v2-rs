@@ -250,6 +250,54 @@ async fn test_bundle_endpoint_writes_redacted_evidence_bundle() {
 }
 
 #[tokio::test]
+async fn test_bundle_endpoint_field_trace_path_uses_segment_occurrence() {
+    let root = TempRoot::new("occurrence-path");
+    let bundle_id = "occurrence-path-case";
+    let body = json!({
+        "message": "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rNK1|1\rNTE|1|L|Between contacts\rNK1|2|Kin^Jane\r",
+        "profile": r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "NK1"
+    max_uses: 2
+  - id: "NTE"
+"#,
+        "redaction_policy": r#"
+[[rules]]
+path = "NK1[2]-2"
+action = "drop"
+reason = "Remove populated next-of-kin name"
+"#,
+        "bundle_id": bundle_id
+    });
+
+    let response = test_router(Some(root.path().to_path_buf()))
+        .oneshot(bundle_request_with_body(body))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let bundle_dir = root.path().join(bundle_id);
+    let field_paths: Value =
+        serde_json::from_str(&fs::read_to_string(bundle_dir.join("field-paths.json")).unwrap())
+            .unwrap();
+
+    assert!(
+        field_paths["fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|field| field["canonical_path"] == "NK1.2"
+                && field["path"] == "NK1[2].2"
+                && field["segment_index"] == 4
+                && field["redaction_action"] == "drop"
+                && field["value_shape"] == "empty")
+    );
+}
+
+#[tokio::test]
 async fn test_bundle_endpoint_schema_version_two_writes_v2_internal_artifacts() {
     let root = TempRoot::new("v2-artifacts");
     let bundle_id = "MRN-SECRET-123";

@@ -248,6 +248,7 @@ reason = "Date of birth"
         let bundle_dir = temp.path().join("targeted-redaction-bundle");
         let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
 OBX|1|ST|A||Alpha\r\
+NTE|1|L|Between observations\r\
 OBX|2|ST|B||Beta\r\
 OBX|3|ST|C||Gamma";
         let profile = r#"
@@ -256,6 +257,7 @@ version: "2.5"
 segments:
   - id: "MSH"
   - id: "OBX"
+  - id: "NTE"
 constraints:
   - path: "MSH.9"
     required: true
@@ -316,9 +318,16 @@ reason = "Targeted observation redaction"
         )?;
         ensure(
             redacted_field
+                .get("path")
+                .and_then(serde_json::Value::as_str)
+                == Some("OBX[2].5"),
+            "expected second OBX occurrence-qualified trace path",
+        )?;
+        ensure(
+            redacted_field
                 .get("segment_index")
                 .and_then(serde_json::Value::as_u64)
-                == Some(3),
+                == Some(4),
             "expected second OBX absolute segment index",
         )?;
         ensure(
