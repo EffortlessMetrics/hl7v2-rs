@@ -169,16 +169,26 @@ impl Path {
         self.segment == "MSH"
     }
 
-    /// Get the adjusted field index for MSH segments
-    /// MSH-1 is the field separator (not stored)
-    /// MSH-2 is the encoding characters (stored in field 0)
-    /// MSH-3+ are stored starting at index 1
-    pub fn msh_adjusted_field(&self) -> usize {
-        if self.field <= 2 {
-            self.field.saturating_sub(1) // MSH-1 -> 0, MSH-2 -> 1
-        } else {
-            self.field.saturating_sub(2) // MSH-3 -> 1, MSH-4 -> 2, etc.
+    /// Get the stored field index for MSH segments.
+    ///
+    /// `MSH-1` is the field separator delimiter and is not stored as a field.
+    /// `MSH-2` is the encoding characters at `Segment::fields[0]`.
+    /// `MSH-3` and later fields follow from `Segment::fields[1]`.
+    pub fn msh_stored_field_index(&self) -> Option<usize> {
+        match self.field {
+            0 | 1 => None,
+            2 => Some(0),
+            field => Some(field.saturating_sub(2)),
         }
+    }
+
+    /// Get the adjusted field index for MSH segments.
+    ///
+    /// Prefer [`Path::msh_stored_field_index`] when callers need to distinguish
+    /// delimiter metadata (`MSH-1`) from stored fields. This legacy helper returns
+    /// `0` for `MSH-1` because there is no stored field index for the delimiter.
+    pub fn msh_adjusted_field(&self) -> usize {
+        self.msh_stored_field_index().unwrap_or(0)
     }
 }
 
@@ -424,6 +434,22 @@ mod tests {
         assert_eq!(path.repetition, None);
         assert_eq!(path.component, Some(1));
         assert_eq!(path.to_path_string(), "MSH.9.1");
+    }
+
+    #[test]
+    fn msh_stored_field_index_matches_segment_storage() {
+        assert_eq!(Path::new("MSH", 1).msh_stored_field_index(), None);
+        assert_eq!(Path::new("MSH", 2).msh_stored_field_index(), Some(0));
+        assert_eq!(Path::new("MSH", 3).msh_stored_field_index(), Some(1));
+        assert_eq!(Path::new("MSH", 9).msh_stored_field_index(), Some(7));
+    }
+
+    #[test]
+    fn msh_adjusted_field_keeps_legacy_delimiter_sentinel() {
+        assert_eq!(Path::new("MSH", 1).msh_adjusted_field(), 0);
+        assert_eq!(Path::new("MSH", 2).msh_adjusted_field(), 0);
+        assert_eq!(Path::new("MSH", 3).msh_adjusted_field(), 1);
+        assert_eq!(Path::new("MSH", 9).msh_adjusted_field(), 7);
     }
 
     #[test]
