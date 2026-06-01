@@ -320,6 +320,40 @@ OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~BAD|||F\r",
     }
 
     #[test]
+    fn test_component_constraint_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+constraints:
+  - path: "OBX.3"
+    components:
+      max: 2
+  - path: "OBX.6"
+    components:
+      min: 2
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count~WBC^White^Blood||7.2|10^9/L~BAD|4.0-11.0|N|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            2,
+            "expected component count issues for later repetitions: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "TOO_MANY_COMPONENTS");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.3"));
+        assert_eq!(probs[1].code, "TOO_FEW_COMPONENTS");
+        assert_eq!(probs[1].path.as_deref(), Some("OBX.6"));
+    }
+
+    #[test]
     fn test_expression_guardrails() {
         let y = r#"
 message_structure: "expression_guardrails"

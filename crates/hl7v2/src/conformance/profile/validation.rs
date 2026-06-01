@@ -26,6 +26,10 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
             if let Some(pattern) = &constraint.pattern {
                 validate_field_pattern_constraint(msg, &constraint.path, pattern, &mut issues);
             }
+
+            if let Some(components) = &constraint.components {
+                validate_field_component_constraint(msg, &constraint.path, components, &mut issues);
+            }
         }
     }
 
@@ -288,6 +292,74 @@ fn validate_field_pattern_constraint(
             ),
         ));
     }
+}
+
+fn validate_field_component_constraint(
+    msg: &Message,
+    path: &str,
+    components: &ComponentConstraint,
+    issues: &mut Vec<Issue>,
+) {
+    let Ok(path_ref) = crate::query::path::parse_located_path(path) else {
+        return;
+    };
+    let Some(segment) = required_segment(msg, &path_ref) else {
+        return;
+    };
+    let Some(field) = required_field(segment, &path_ref.path) else {
+        return;
+    };
+
+    if let Some((count, min)) = field_component_counts(field, path_ref.path.repetition)
+        .into_iter()
+        .find_map(|count| {
+            components
+                .min
+                .filter(|min| count < *min)
+                .map(|min| (count, min))
+        })
+    {
+        issues.push(Issue::error(
+            "TOO_FEW_COMPONENTS",
+            Some(path.to_string()),
+            format!(
+                "Field {} has {} components, fewer than minimum of {}",
+                path, count, min
+            ),
+        ));
+        return;
+    }
+
+    if let Some((count, max)) = field_component_counts(field, path_ref.path.repetition)
+        .into_iter()
+        .find_map(|count| {
+            components
+                .max
+                .filter(|max| count > *max)
+                .map(|max| (count, max))
+        })
+    {
+        issues.push(Issue::error(
+            "TOO_MANY_COMPONENTS",
+            Some(path.to_string()),
+            format!(
+                "Field {} has {} components, more than maximum of {}",
+                path, count, max
+            ),
+        ));
+    }
+}
+
+fn field_component_counts(field: &Field, repetition: Option<usize>) -> Vec<usize> {
+    if let Some(repetition) = repetition {
+        return repetition
+            .checked_sub(1)
+            .and_then(|index| field.reps.get(index))
+            .map(|rep| vec![rep.comps.len()])
+            .unwrap_or_default();
+    }
+
+    field.reps.iter().map(|rep| rep.comps.len()).collect()
 }
 
 /// Validate that a field value is in the allowed value set
