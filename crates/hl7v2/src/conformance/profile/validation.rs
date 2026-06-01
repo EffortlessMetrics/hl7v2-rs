@@ -112,10 +112,9 @@ fn check_condition(msg: &Message, condition: &Condition) -> bool {
             let field_path = &eq_conditions[0];
             let expected_value = &eq_conditions[1];
 
-            if let Some(actual_value) = crate::query::get(msg, field_path) {
-                return actual_value == expected_value;
-            }
-            return false;
+            return condition_text_values(msg, field_path)
+                .into_iter()
+                .any(|actual_value| actual_value == expected_value);
         }
     }
 
@@ -243,6 +242,71 @@ fn comp_has_required_value(comp: &Comp, subcomponent: Option<usize>) -> bool {
 
 fn atom_has_required_value(atom: &Atom) -> bool {
     matches!(atom, Atom::Text(text) if !text.is_empty())
+}
+
+fn condition_text_values<'a>(msg: &'a Message, path: &str) -> Vec<&'a str> {
+    let Ok(path) = crate::query::path::parse_located_path(path) else {
+        return Vec::new();
+    };
+
+    if path.path.is_msh() && path.path.field == 1 {
+        return crate::query::get_located(msg, &path).into_iter().collect();
+    }
+
+    let Some(segment) = required_segment(msg, &path) else {
+        return Vec::new();
+    };
+    let Some(field) = required_field(segment, &path.path) else {
+        return Vec::new();
+    };
+
+    field_condition_text_values(
+        field,
+        path.path.repetition,
+        path.path.component,
+        path.path.subcomponent,
+    )
+}
+
+fn field_condition_text_values(
+    field: &Field,
+    repetition: Option<usize>,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
+) -> Vec<&str> {
+    if let Some(repetition) = repetition {
+        return repetition
+            .checked_sub(1)
+            .and_then(|index| field.reps.get(index))
+            .and_then(|rep| rep_condition_text_value(rep, component, subcomponent))
+            .into_iter()
+            .collect();
+    }
+
+    field
+        .reps
+        .iter()
+        .filter_map(|rep| rep_condition_text_value(rep, component, subcomponent))
+        .collect()
+}
+
+fn rep_condition_text_value(
+    rep: &Rep,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
+) -> Option<&str> {
+    let component_index = component.unwrap_or(1).checked_sub(1)?;
+    let subcomponent_index = subcomponent.unwrap_or(1).checked_sub(1)?;
+    let atom = rep
+        .comps
+        .get(component_index)?
+        .subs
+        .get(subcomponent_index)?;
+
+    match atom {
+        Atom::Text(text) => Some(text.as_str()),
+        Atom::Null => None,
+    }
 }
 
 /// Validate that a field value is in the allowed values

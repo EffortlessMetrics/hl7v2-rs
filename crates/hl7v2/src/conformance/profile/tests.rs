@@ -354,6 +354,63 @@ OBX|1|NM|WBC^White Blood Count~WBC^White^Blood||7.2|10^9/L~BAD|4.0-11.0|N|||F\r"
     }
 
     #[test]
+    fn test_condition_eq_checks_later_repetitions() {
+        let y = r#"
+message_structure: "adt_identifier_condition"
+version: "2.5.1"
+segments:
+  - id: "PID"
+constraints:
+  - path: "PID.5"
+    required: true
+    when:
+      eq: ["PID.3.5", "MR"]
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|ADT|FAC|EHR|FAC|20250101000000||ADT^A01|MSG1|P|2.5.1\r\
+PID|1||111^^^HOSP^SS~222^^^HOSP^MR|||||||||||||||||||||||\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected conditional issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "MISSING_REQUIRED_FIELD");
+        assert_eq!(probs[0].path.as_deref(), Some("PID.5"));
+    }
+
+    #[test]
+    fn test_condition_eq_keeps_unqualified_path_scalar() {
+        let y = r#"
+message_structure: "adt_identifier_condition"
+version: "2.5.1"
+segments:
+  - id: "PID"
+constraints:
+  - path: "PID.5"
+    required: true
+    when:
+      eq: ["PID.3", "MR"]
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|ADT|FAC|EHR|FAC|20250101000000||ADT^A01|MSG1|P|2.5.1\r\
+PID|1||111^^^HOSP^MR|||||||||||||||||||||||\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert!(
+            probs.is_empty(),
+            "condition should not match later components for an unqualified path: {probs:?}"
+        );
+    }
+
+    #[test]
     fn test_expression_guardrails() {
         let y = r#"
 message_structure: "expression_guardrails"
