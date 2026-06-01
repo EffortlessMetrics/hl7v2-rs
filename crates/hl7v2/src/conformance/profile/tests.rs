@@ -471,6 +471,61 @@ OBX|1~2|NM|WBC^White Blood Count||\r",
     }
 
     #[test]
+    fn test_custom_rule_length_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_custom_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+custom_rules:
+  - id: "abnormal-flag-length"
+    description: ""
+    script: "field(OBX.8).length() > 1"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|OK~N|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected custom rule issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CUSTOM_RULE_VIOLATION");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+    }
+
+    #[test]
+    fn test_custom_rule_length_keeps_unqualified_path_scalar() {
+        let y = r#"
+message_structure: "oru_custom_scalar"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+custom_rules:
+  - id: "identifier-length"
+    description: ""
+    script: "field(OBX.3).length() > 2"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^X||7.2|10^9/L|4.0-11.0|N|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert!(
+            probs.is_empty(),
+            "custom rule should not match later components for an unqualified path: {probs:?}"
+        );
+    }
+
+    #[test]
     fn test_expression_guardrails() {
         let y = r#"
 message_structure: "expression_guardrails"
