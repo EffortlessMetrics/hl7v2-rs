@@ -84,7 +84,7 @@ pub use model::{
 };
 pub use parser::{parse, parse_batch, parse_file_batch, parse_mllp};
 pub use query::path::{LocatedPath, Path, parse_located_path, parse_path};
-pub use query::{get, get_located, get_presence, get_presence_located};
+pub use query::{QueryIndex, get, get_located, get_presence, get_presence_located};
 pub use transport::mllp::{
     MLLP_END_1, MLLP_END_2, MLLP_START, MllpFrameIterator, find_complete_mllp_message,
     is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,

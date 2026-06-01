@@ -40,6 +40,8 @@
 
 pub mod path;
 
+use std::collections::HashMap;
+
 use crate::model::{Atom, Message, Presence, Segment};
 
 /// Get value at path (e.g., `PID.5[1].1` or `PID-5[1].1`)
@@ -90,6 +92,105 @@ pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
 /// The value at the path, or `None` if not found.
 pub fn get_located<'a>(msg: &'a Message, path: &self::path::LocatedPath) -> Option<&'a str> {
     let segment = find_segment(msg, path)?;
+    get_located_in_segment(msg, segment, path)
+}
+
+/// Immutable segment index for repeated queries against one message.
+///
+/// `QueryIndex` is useful when callers need to inspect many paths from the same
+/// parsed message. It builds a small segment-position map once and then reuses
+/// it for segment repetition lookups. The index borrows the message immutably,
+/// so safe Rust code cannot mutate the segment list while indexed lookups are
+/// active.
+///
+/// # Example
+///
+/// ```
+/// use hl7v2::{QueryIndex, parse};
+///
+/// let message = parse(
+///     b"MSH|^~\\&|LAB|L|EHR|E|202606010101||ORU^R01|CTRL1|P|2.5\r\
+///       OBX|1|ST|A||first\r\
+///       OBX|2|ST|B||second",
+/// )
+/// .unwrap();
+/// let index = QueryIndex::new(&message);
+///
+/// assert_eq!(index.get("OBX[2]-5"), Some("second"));
+/// ```
+#[derive(Debug, Clone)]
+pub struct QueryIndex<'a> {
+    msg: &'a Message,
+    segment_offsets: HashMap<[u8; 3], Vec<usize>>,
+}
+
+impl<'a> QueryIndex<'a> {
+    /// Build an index for repeated lookups against `msg`.
+    #[must_use]
+    pub fn new(msg: &'a Message) -> Self {
+        let mut segment_offsets: HashMap<[u8; 3], Vec<usize>> = HashMap::new();
+        for (index, segment) in msg.segments.iter().enumerate() {
+            segment_offsets.entry(segment.id).or_default().push(index);
+        }
+
+        Self {
+            msg,
+            segment_offsets,
+        }
+    }
+
+    /// Return the message backing this index.
+    #[must_use]
+    pub fn message(&self) -> &'a Message {
+        self.msg
+    }
+
+    /// Get value at path using this index.
+    ///
+    /// This accepts the same path syntax as [`get`].
+    pub fn get(&self, path: &str) -> Option<&'a str> {
+        let parsed = self::path::parse_located_path(path).ok()?;
+        self.get_located(&parsed)
+    }
+
+    /// Get value at a pre-parsed path using this index.
+    ///
+    /// This is the indexed counterpart to [`get_located`].
+    pub fn get_located(&self, path: &self::path::LocatedPath) -> Option<&'a str> {
+        let segment = find_indexed_segment(self.msg, &self.segment_offsets, path)?;
+        get_located_in_segment(self.msg, segment, path)
+    }
+
+    /// Get presence semantics using this index.
+    ///
+    /// This accepts the same path syntax as [`get_presence`].
+    #[must_use]
+    pub fn get_presence(&self, path: &str) -> Presence {
+        let parsed = match self::path::parse_located_path(path) {
+            Ok(path) => path,
+            Err(_) => return Presence::Missing,
+        };
+        self.get_presence_located(&parsed)
+    }
+
+    /// Get presence semantics for a pre-parsed path using this index.
+    ///
+    /// This is the indexed counterpart to [`get_presence_located`].
+    #[must_use]
+    pub fn get_presence_located(&self, path: &self::path::LocatedPath) -> Presence {
+        let segment = match find_indexed_segment(self.msg, &self.segment_offsets, path) {
+            Some(segment) => segment,
+            None => return Presence::Missing,
+        };
+        get_presence_located_in_segment(self.msg, segment, path)
+    }
+}
+
+fn get_located_in_segment<'a>(
+    msg: &'a Message,
+    segment: &'a Segment,
+    path: &self::path::LocatedPath,
+) -> Option<&'a str> {
     let rep_index = path.path.repetition.unwrap_or(1);
 
     if path.path.segment == "MSH" {
@@ -169,6 +270,14 @@ pub fn get_presence_located(msg: &Message, path: &self::path::LocatedPath) -> Pr
         Some(segment) => segment,
         None => return Presence::Missing,
     };
+    get_presence_located_in_segment(msg, segment, path)
+}
+
+fn get_presence_located_in_segment(
+    msg: &Message,
+    segment: &Segment,
+    path: &self::path::LocatedPath,
+) -> Presence {
     let rep_index = path.path.repetition.unwrap_or(1);
 
     if path.path.segment == "MSH" {
@@ -205,6 +314,28 @@ fn find_segment<'a>(msg: &'a Message, path: &self::path::LocatedPath) -> Option<
         .iter()
         .filter(|segment| segment.id_str() == path.path.segment)
         .nth(segment_repetition - 1)
+}
+
+fn find_indexed_segment<'a>(
+    msg: &'a Message,
+    segment_offsets: &HashMap<[u8; 3], Vec<usize>>,
+    path: &self::path::LocatedPath,
+) -> Option<&'a Segment> {
+    let segment_repetition = path.segment_repetition.unwrap_or(1);
+    if segment_repetition == 0 {
+        return None;
+    }
+
+    let key = segment_key(&path.path.segment)?;
+    let segment_index = segment_offsets
+        .get(&key)?
+        .get(segment_repetition - 1)
+        .copied()?;
+    msg.segments.get(segment_index)
+}
+
+fn segment_key(segment: &str) -> Option<[u8; 3]> {
+    segment.as_bytes().try_into().ok()
 }
 
 fn component_and_subcomponent(
