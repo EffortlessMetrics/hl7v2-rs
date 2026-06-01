@@ -200,6 +200,7 @@ fn test_validate_data_type_pn() {
     assert!(validate_data_type("O'Brien", "PN"));
     assert!(validate_data_type("Mary-Jane", "PN"));
     assert!(validate_data_type("Dr. Smith", "PN"));
+    assert!(validate_data_type("Smith^John", "PN"));
 
     // Invalid person names (contains numbers)
     assert!(!validate_data_type("John123", "PN"));

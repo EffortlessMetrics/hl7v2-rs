@@ -471,11 +471,11 @@ pub fn is_coded_value(value: &str) -> bool {
     value.chars().all(|c| c.is_ascii() && !c.is_control())
 }
 
-/// Check if value is a person name (contains letters, spaces, hyphens, apostrophes)
+/// Check if value is a person name (allows HL7 component separators)
 pub fn is_person_name(value: &str) -> bool {
-    value
-        .chars()
-        .all(|c| c.is_alphabetic() || c.is_whitespace() || c == '-' || c == '\'' || c == '.')
+    value.chars().all(|c| {
+        c.is_alphabetic() || c.is_whitespace() || c == '-' || c == '\'' || c == '.' || c == '^'
+    })
 }
 
 /// Check if value is an extended ID (contains identifier characters)

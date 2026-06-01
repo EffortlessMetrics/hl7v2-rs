@@ -118,6 +118,38 @@ PID|1||123456^^^HOSP^MR||Doe^John||19700101|X\r",
 }
 
 #[test]
+fn profile_facade_accepts_person_name_datatype_components() -> Result<(), Box<dyn Error>> {
+    let profile = load_profile_checked(
+        r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "PID"
+datatypes:
+  - path: "PID.5"
+    type: "PN"
+"#,
+    )?;
+    let message = parse(
+        b"MSH|^~\\&|SEND|FAC|RECV|RF|202605030101||ADT^A01|CTRL123|P|2.5\r\
+PID|1||123456^^^HOSP^MR||Doe^John||19700101|M\r",
+    )?;
+    let issues = validate(&message, &profile);
+
+    require(
+        !issues.iter().any(|issue| {
+            issue.severity == Severity::Error
+                && issue.path.as_deref() == Some("PID.5")
+                && issue.code == "INVALID_DATA_TYPE"
+        }),
+        "expected PN datatype validation to accept HL7 person-name components",
+    )?;
+
+    Ok(())
+}
+
+#[test]
 fn profile_facade_rejects_empty_required_msh_fields() -> Result<(), Box<dyn Error>> {
     let profile = load_profile_checked(
         r#"
