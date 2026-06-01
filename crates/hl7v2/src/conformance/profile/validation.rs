@@ -838,23 +838,24 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let required_length: usize = captures[2].parse().map_err(|_| ())?;
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if value.len() <= required_length {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} length {} is not greater than {}",
-                                path,
-                                value.len(),
-                                required_length
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) = condition_text_values(msg, path)
+                .into_iter()
+                .find(|value| value.len() <= required_length)
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} length {} is not greater than {}",
+                            path,
+                            value.len(),
+                            required_length
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -1202,26 +1203,26 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
         // Pattern: "field(PATH).length() > N"
         if let Some(path_end) = rule.script.find(").length() > ") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = crate::query::get(msg, path) {
-                let length_str = &rule.script[path_end + 13..];
-                if let Ok(required_length) = length_str.parse::<usize>() {
-                    if value.len() <= required_length {
-                        issues.push(Issue::error(
-                            "CUSTOM_RULE_VIOLATION",
-                            Some(path.to_string()),
-                            if rule.description.is_empty() {
-                                format!(
-                                    "Field {} length {} is not greater than {}",
-                                    path,
-                                    value.len(),
-                                    required_length
-                                )
-                            } else {
-                                rule.description.clone()
-                            },
-                        ));
-                    }
-                }
+            let length_str = &rule.script[path_end + 13..];
+            if let Ok(required_length) = length_str.parse::<usize>()
+                && let Some(value) = condition_text_values(msg, path)
+                    .into_iter()
+                    .find(|value| value.len() <= required_length)
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} length {} is not greater than {}",
+                            path,
+                            value.len(),
+                            required_length
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
         }
     } else if rule.script.starts_with("field(") && rule.script.contains(") in [") {
