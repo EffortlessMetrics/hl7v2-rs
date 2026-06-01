@@ -29,6 +29,16 @@ PID|1||123456^^^HOSP^MR~ALT999^^^ALT^MR||Doe^John^A||19700101|M\r",
     )?;
 
     require_eq(get(&message, "MSH.10"), Some("CTRL123"), "control id")?;
+    require_eq(get(&message, "MSH.12"), Some("2.5"), "version id")?;
+    require_eq(get(&message, "MSH.13"), None, "missing field after version")?;
+    require(
+        matches!(get_presence(&message, "MSH.12"), Presence::Value(value) if value == "2.5"),
+        "expected MSH-12 version presence",
+    )?;
+    require(
+        matches!(get_presence(&message, "MSH.13"), Presence::Missing),
+        "expected missing MSH-13",
+    )?;
     require_eq(get(&message, "PID.3.1"), Some("123456"), "primary MRN")?;
     require_eq(get(&message, "PID.3[2].1"), Some("ALT999"), "alternate MRN")?;
     require_eq(get(&message, "PID.5.1"), Some("Doe"), "family name")?;
