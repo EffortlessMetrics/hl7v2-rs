@@ -288,17 +288,18 @@ fn validate_data_type_constraint(
     datatype: &DataTypeConstraint,
     issues: &mut Vec<Issue>,
 ) {
-    if let Some(value) = crate::query::get(msg, &datatype.path) {
-        if !validate_data_type(value, &datatype.r#type) {
-            issues.push(Issue::error(
-                "INVALID_DATA_TYPE",
-                Some(datatype.path.clone()),
-                format!(
-                    "Value '{}' for {} does not match expected data type {}",
-                    value, datatype.path, datatype.r#type
-                ),
-            ));
-        }
+    if let Some(value) = path_text_values(msg, &datatype.path)
+        .into_iter()
+        .find(|value| !validate_data_type(value, &datatype.r#type))
+    {
+        issues.push(Issue::error(
+            "INVALID_DATA_TYPE",
+            Some(datatype.path.clone()),
+            format!(
+                "Value '{}' for {} does not match expected data type {}",
+                value, datatype.path, datatype.r#type
+            ),
+        ));
     }
     // Note: We don't report an error if the field is missing but has a data type constraint
     // That would be handled by a separate presence constraint if needed
