@@ -1,4 +1,4 @@
-use crate::model::Message;
+use crate::model::{Atom, Comp, Field, Message, Rep, Segment};
 use regex::Regex;
 
 use super::*;
@@ -75,18 +75,7 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
 
 /// Validate that a required field is present
 fn validate_field_required(msg: &Message, path: &str, issues: &mut Vec<Issue>) {
-    // Use the query module to retrieve the value.
-    if let Some(value) = crate::query::get(msg, path) {
-        // If we get a value, check if it's empty
-        if value.is_empty() {
-            issues.push(Issue::error(
-                "MISSING_REQUIRED_FIELD",
-                Some(path.to_string()),
-                format!("Required field {} is missing", path),
-            ));
-        }
-    } else {
-        // If we get None, the field is truly missing
+    if !required_path_has_value(msg, path) {
         issues.push(Issue::error(
             "MISSING_REQUIRED_FIELD",
             Some(path.to_string()),
@@ -139,14 +128,113 @@ fn check_condition(msg: &Message, condition: &Condition) -> bool {
 /// Validate that a required MSH field is present
 fn validate_msh_field_required(msg: &Message, path: &str, issues: &mut Vec<Issue>) {
     let full_path = format!("MSH.{}", path);
-    // Use the query module to retrieve the value.
-    if crate::query::get(msg, &full_path).is_none_or(str::is_empty) {
+    if !required_path_has_value(msg, &full_path) {
         issues.push(Issue::error(
             "MISSING_REQUIRED_FIELD",
             Some(full_path),
             format!("Required MSH field {} is missing", path),
         ));
     }
+}
+
+fn required_path_has_value(msg: &Message, path: &str) -> bool {
+    let Ok(path) = crate::query::path::parse_located_path(path) else {
+        return false;
+    };
+    let Some(segment) = required_segment(msg, &path) else {
+        return false;
+    };
+
+    if path.path.is_msh() && path.path.field == 1 {
+        return true;
+    }
+
+    let Some(field) = required_field(segment, &path.path) else {
+        return false;
+    };
+
+    field_has_required_value(
+        field,
+        path.path.repetition,
+        path.path.component,
+        path.path.subcomponent,
+    )
+}
+
+fn required_segment<'a>(
+    msg: &'a Message,
+    path: &crate::query::path::LocatedPath,
+) -> Option<&'a Segment> {
+    let segment_repetition = path.segment_repetition.unwrap_or(1);
+    if segment_repetition == 0 {
+        return None;
+    }
+
+    msg.segments
+        .iter()
+        .filter(|segment| segment.id_str() == path.path.segment)
+        .nth(segment_repetition - 1)
+}
+
+fn required_field<'a>(segment: &'a Segment, path: &crate::query::path::Path) -> Option<&'a Field> {
+    let field_index = if path.is_msh() {
+        path.msh_stored_field_index()?
+    } else {
+        path.field.checked_sub(1)?
+    };
+
+    segment.fields.get(field_index)
+}
+
+fn field_has_required_value(
+    field: &Field,
+    repetition: Option<usize>,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
+) -> bool {
+    if let Some(repetition) = repetition {
+        return repetition
+            .checked_sub(1)
+            .and_then(|index| field.reps.get(index))
+            .is_some_and(|rep| rep_has_required_value(rep, component, subcomponent));
+    }
+
+    field
+        .reps
+        .iter()
+        .any(|rep| rep_has_required_value(rep, component, subcomponent))
+}
+
+fn rep_has_required_value(
+    rep: &Rep,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
+) -> bool {
+    if let Some(component) = component {
+        return component
+            .checked_sub(1)
+            .and_then(|index| rep.comps.get(index))
+            .is_some_and(|comp| comp_has_required_value(comp, subcomponent));
+    }
+
+    rep.comps
+        .iter()
+        .any(|comp| comp_has_required_value(comp, subcomponent))
+}
+
+fn comp_has_required_value(comp: &Comp, subcomponent: Option<usize>) -> bool {
+    if let Some(subcomponent) = subcomponent {
+        return subcomponent
+            .checked_sub(1)
+            .and_then(|index| comp.subs.get(index))
+            .is_some_and(atom_has_required_value);
+    }
+
+    comp.subs.iter().any(atom_has_required_value)
+}
+
+fn atom_has_required_value(atom: &Atom) -> bool {
+    matches!(atom, Atom::Text(text) if !text.is_empty())
 }
 
 /// Validate that a field value is in the allowed values

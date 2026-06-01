@@ -146,6 +146,39 @@ constraints:
 }
 
 #[test]
+fn profile_facade_accepts_required_composite_fields_with_later_components()
+-> Result<(), Box<dyn Error>> {
+    let profile = load_profile_checked(
+        r#"
+message_structure: "ORU_R01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "OBX"
+constraints:
+  - path: "OBX[1]-5"
+    required: true
+"#,
+    )?;
+    let message = parse(
+        b"MSH|^~\\&|LAB|FAC|EHR|RF|202605030101||ORU^R01|CTRL123|P|2.5\r\
+OBX|1|XPN|NAME^Patient name||^Jane^A\r",
+    )?;
+    let issues = validate(&message, &profile);
+
+    require(
+        !issues.iter().any(|issue| {
+            issue.severity == Severity::Error
+                && issue.path.as_deref() == Some("OBX[1]-5")
+                && issue.code == "MISSING_REQUIRED_FIELD"
+        }),
+        "expected later OBX-5 components to satisfy required field validation",
+    )?;
+
+    Ok(())
+}
+
+#[test]
 fn profile_facade_reports_length_constraint_failures() -> Result<(), Box<dyn Error>> {
     let profile = load_profile_checked(
         r#"
