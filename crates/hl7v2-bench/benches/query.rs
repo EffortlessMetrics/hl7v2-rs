@@ -27,7 +27,13 @@ OBR|1|ORDER1|FILL1|CBC^Complete blood count\r",
 
 fn parse_query_message(obx_count: usize) -> Message {
     let message = create_query_message(obx_count);
-    parse(message.as_bytes()).expect("query benchmark message should parse")
+    match parse(message.as_bytes()) {
+        Ok(message) => message,
+        Err(err) => {
+            eprintln!("query benchmark message failed to parse: {err}");
+            std::process::abort();
+        }
+    }
 }
 
 fn query_paths() -> [&'static str; 8] {
@@ -49,8 +55,13 @@ fn bench_parse_query_paths(c: &mut Criterion) {
     c.bench_function("query_parse_paths_mixed_formats", |b| {
         b.iter(|| {
             for path in paths {
-                let parsed =
-                    parse_located_path(black_box(path)).expect("query benchmark path should parse");
+                let parsed = match parse_located_path(black_box(path)) {
+                    Ok(parsed) => parsed,
+                    Err(err) => {
+                        eprintln!("query benchmark path failed to parse: {err}");
+                        std::process::abort();
+                    }
+                };
                 black_box(parsed);
             }
         });
