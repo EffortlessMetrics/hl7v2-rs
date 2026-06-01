@@ -81,7 +81,12 @@ pub fn to_json(msg: &Message) -> serde_json::Value {
                         None
                     } else {
                         let field_value = field_to_json(field);
-                        Some(((index + 1).to_string(), field_value))
+                        let field_number = if segment.id == *b"MSH" {
+                            index + 2
+                        } else {
+                            index + 1
+                        };
+                        Some((field_number.to_string(), field_value))
                     }
                 })
                 .collect();
