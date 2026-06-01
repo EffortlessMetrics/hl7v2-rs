@@ -67,6 +67,10 @@ name = "json"
 harness = false
 
 [[bench]]
+name = "query"
+harness = false
+
+[[bench]]
 name = "network"
 harness = false
 

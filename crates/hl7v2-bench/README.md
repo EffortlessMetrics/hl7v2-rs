@@ -20,6 +20,7 @@ This crate contains comprehensive benchmarks for the hl7v2-rs library using [Cri
 | `validation` | Profile and field validation performance |
 | `batch` | Batch file processing (FHS/BHS) |
 | `json` | JSON serialization/deserialization |
+| `query` | Path parsing and repeated field lookup |
 | `network` | MLLP client/server throughput |
 | `template` | Template-based message generation |
 
@@ -45,6 +46,9 @@ cargo bench --bench batch
 
 # JSON serialization benchmarks
 cargo bench --bench json
+
+# Query/path lookup benchmarks
+cargo bench --bench query
 
 # Network benchmarks
 cargo bench --bench network
@@ -114,6 +118,19 @@ JSON serialization performance:
 
 ```bash
 cargo bench --bench json
+```
+
+### query.rs
+
+Path parsing and query lookup performance:
+
+- **Path parsing**: Mixed legacy and diagnostic path formats
+- **Late segment lookup**: Repeated OBX/NTE selectors near the end of a message
+- **Mixed query set**: Common MSH, PID, PV1, OBX, and NTE lookups
+- **Segment count scaling**: Last OBX lookup against 10, 50, and 100 OBX/NTE pairs
+
+```bash
+cargo bench --bench query
 ```
 
 ### network.rs
