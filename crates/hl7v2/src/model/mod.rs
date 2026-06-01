@@ -177,6 +177,12 @@ impl Delims {
         let esc_char = msh.chars().nth(6).ok_or(Error::BadDelimLength)?;
         let sub_char = msh.chars().nth(7).ok_or(Error::BadDelimLength)?;
 
+        if let Some(next_char) = msh.chars().nth(8)
+            && next_char != field_sep
+        {
+            return Err(Error::MshFieldMalformed);
+        }
+
         let delimiters = [field_sep, comp_char, rep_char, esc_char, sub_char];
         if delimiters
             .iter()

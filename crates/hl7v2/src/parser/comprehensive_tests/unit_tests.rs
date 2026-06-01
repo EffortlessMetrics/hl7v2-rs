@@ -71,7 +71,7 @@ fn test_parse_adt_a04() {
 fn test_parse_custom_delimiters() {
     // Message with custom delimiters: #$*@!
     let hl7 =
-        b"MSH#$*@!App#Fac#Rec#RecFac#20250128120000##ADT$A01#1#P#2.5\rPID#1##123##Name$First\r";
+        b"MSH#$*@!#App#Fac#Rec#RecFac#20250128120000##ADT$A01#1#P#2.5\rPID#1##123##Name$First\r";
     let message = parse(hl7).unwrap();
 
     assert_eq!(message.delims.field, '#');
@@ -80,6 +80,15 @@ fn test_parse_custom_delimiters() {
     assert_eq!(message.delims.esc, '@');
     assert_eq!(message.delims.sub, '!');
     assert_eq!(message.segments.len(), 2);
+    assert_eq!(get(&message, "MSH.3"), Some("App"));
+}
+
+#[test]
+fn test_parse_rejects_unterminated_custom_msh_encoding_chars() {
+    let hl7 =
+        b"MSH#$*@!App#Fac#Rec#RecFac#20250128120000##ADT$A01#1#P#2.5\rPID#1##123##Name$First\r";
+
+    assert!(parse(hl7).is_err());
 }
 
 #[test]

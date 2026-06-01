@@ -687,7 +687,7 @@ values: {}
         #[test]
         fn test_canonical_delimiters_normalization() {
             // Create a message with non-canonical delimiters
-            let content = "MSH|@#$\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||12345^^^HOSP^MR||Doe^John\r";
+            let content = "MSH*%$!?*SendingApp*SendingFac*ReceivingApp*ReceivingFac*20250128152312**ADT%A01*ABC123*P*2.5.1\rPID*1**12345%%%HOSP%MR**Doe%John\r";
 
             // Parse and normalize with canonical delimiters
             let message = parse(content.as_bytes()).expect("Parse should succeed");

@@ -749,9 +749,9 @@ mod workflows {
 
         // Message with non-standard delimiters
         let custom_message = concat!(
-            "MSH#$*@!SendingApp#SendingFac#ReceivingApp#ReceivingFac#",
+            "MSH#$*@!#SendingApp#SendingFac#ReceivingApp#ReceivingFac#",
             "20250128152312##ADT$A01#ABC123#P#2.5.1\r",
-            "PID#1##123456^^^HOSP^MR##Doe$John$A##19800101#M###C#\r"
+            "PID#1##123456$$$HOSP$MR##Doe$John$A##19800101#M###C#\r"
         );
 
         let input_file = create_hl7_file(&dir, "custom.hl7", custom_message);

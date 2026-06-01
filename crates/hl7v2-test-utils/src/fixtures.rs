@@ -227,7 +227,7 @@ const EDGE_CASE_SPECIAL_CHARS: &str = concat!(
 );
 
 const EDGE_CASE_CUSTOM_DELIMS: &str = concat!(
-    "MSH#$*@!App#Fac#Rec#RecFac#20250128120000##ADT$A01#1#P#2.5\r",
+    "MSH#$*@!#App#Fac#Rec#RecFac#20250128120000##ADT$A01#1#P#2.5\r",
     "PID#1##123##Name$First\r"
 );
 
