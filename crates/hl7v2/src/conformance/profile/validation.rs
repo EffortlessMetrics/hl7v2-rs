@@ -314,87 +314,102 @@ fn validate_advanced_data_type(
     datatype: &AdvancedDataTypeConstraint,
     issues: &mut Vec<Issue>,
 ) {
-    if let Some(value) = crate::query::get(msg, &datatype.path) {
-        // First check basic data type
-        if !validate_data_type(value, &datatype.r#type) {
-            issues.push(Issue::error(
-                "INVALID_DATA_TYPE",
-                Some(datatype.path.clone()),
-                format!(
-                    "Value '{}' for {} does not match expected data type {}",
-                    value, datatype.path, datatype.r#type
-                ),
-            ));
-            return;
-        }
+    let values = path_text_values(msg, &datatype.path);
 
-        // Check length constraints
-        if let Some(min_length) = datatype.min_length {
-            if value.len() < min_length {
-                issues.push(Issue::error(
-                    "VALUE_TOO_SHORT",
-                    Some(datatype.path.clone()),
-                    format!(
-                        "Value '{}' for {} is shorter than minimum length of {} characters",
-                        value, datatype.path, min_length
-                    ),
-                ));
-            }
-        }
+    // First check basic data type
+    if let Some(value) = values
+        .iter()
+        .copied()
+        .find(|value| !validate_data_type(value, &datatype.r#type))
+    {
+        issues.push(Issue::error(
+            "INVALID_DATA_TYPE",
+            Some(datatype.path.clone()),
+            format!(
+                "Value '{}' for {} does not match expected data type {}",
+                value, datatype.path, datatype.r#type
+            ),
+        ));
+        return;
+    }
 
-        if let Some(max_length) = datatype.max_length {
-            if value.len() > max_length {
-                issues.push(Issue::error(
-                    "VALUE_TOO_LONG",
-                    Some(datatype.path.clone()),
-                    format!(
-                        "Value '{}' for {} exceeds maximum length of {} characters",
-                        value, datatype.path, max_length
-                    ),
-                ));
-            }
-        }
+    // Check length constraints
+    if let Some(min_length) = datatype.min_length
+        && let Some(value) = values
+            .iter()
+            .copied()
+            .find(|value| value.len() < min_length)
+    {
+        issues.push(Issue::error(
+            "VALUE_TOO_SHORT",
+            Some(datatype.path.clone()),
+            format!(
+                "Value '{}' for {} is shorter than minimum length of {} characters",
+                value, datatype.path, min_length
+            ),
+        ));
+    }
 
-        // Check regex pattern if specified
-        if let Some(pattern) = &datatype.pattern {
-            if let Ok(regex) = Regex::new(pattern) {
-                if !regex.is_match(value) {
-                    issues.push(Issue::error(
-                        "PATTERN_MISMATCH",
-                        Some(datatype.path.clone()),
-                        format!(
-                            "Value '{}' for {} does not match required pattern '{}'",
-                            value, datatype.path, pattern
-                        ),
-                    ));
-                }
-            }
-        }
+    if let Some(max_length) = datatype.max_length
+        && let Some(value) = values
+            .iter()
+            .copied()
+            .find(|value| value.len() > max_length)
+    {
+        issues.push(Issue::error(
+            "VALUE_TOO_LONG",
+            Some(datatype.path.clone()),
+            format!(
+                "Value '{}' for {} exceeds maximum length of {} characters",
+                value, datatype.path, max_length
+            ),
+        ));
+    }
 
-        // Check format if specified
-        if let Some(format) = &datatype.format {
-            if !matches_format(value, format, &datatype.r#type) {
-                issues.push(Issue::error(
-                    "FORMAT_MISMATCH",
-                    Some(datatype.path.clone()),
-                    format!(
-                        "Value '{}' for {} does not match required format '{}'",
-                        value, datatype.path, format
-                    ),
-                ));
-            }
-        }
+    // Check regex pattern if specified
+    if let Some(pattern) = &datatype.pattern
+        && let Ok(regex) = Regex::new(pattern)
+        && let Some(value) = values.iter().copied().find(|value| !regex.is_match(value))
+    {
+        issues.push(Issue::error(
+            "PATTERN_MISMATCH",
+            Some(datatype.path.clone()),
+            format!(
+                "Value '{}' for {} does not match required pattern '{}'",
+                value, datatype.path, pattern
+            ),
+        ));
+    }
 
-        // Check checksum if specified
-        if let Some(checksum) = &datatype.checksum {
-            if !validate_checksum(value, checksum) {
-                issues.push(Issue::error(
-                    "CHECKSUM_MISMATCH",
-                    Some(datatype.path.clone()),
-                    format!("Checksum validation failed for {}", datatype.path),
-                ));
-            }
-        }
+    // Check format if specified
+    if let Some(format) = &datatype.format
+        && let Some(value) = values
+            .iter()
+            .copied()
+            .find(|value| !matches_format(value, format, &datatype.r#type))
+    {
+        issues.push(Issue::error(
+            "FORMAT_MISMATCH",
+            Some(datatype.path.clone()),
+            format!(
+                "Value '{}' for {} does not match required format '{}'",
+                value, datatype.path, format
+            ),
+        ));
+    }
+
+    // Check checksum if specified
+    if let Some(checksum) = &datatype.checksum
+        && let Some(_value) = values
+            .iter()
+            .copied()
+            .find(|value| !validate_checksum(value, checksum))
+    {
+        issues.push(Issue::error(
+            "CHECKSUM_MISMATCH",
+            Some(datatype.path.clone()),
+            format!("Checksum validation failed for {}", datatype.path),
+        ));
     }
 }
 

@@ -263,6 +263,35 @@ OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~BAD|||F\r",
     }
 
     #[test]
+    fn test_advanced_datatype_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+advanced_datatypes:
+  - path: "OBX.8"
+    type: "ID"
+    max_length: 1
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~BAD|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected advanced datatype issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "VALUE_TOO_LONG");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+    }
+
+    #[test]
     fn test_expression_guardrails() {
         let y = r#"
 message_structure: "expression_guardrails"
