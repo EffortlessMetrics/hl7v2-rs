@@ -129,8 +129,8 @@ mod delims_tests {
 
     #[test]
     fn test_parse_from_msh_custom() {
-        // MSH*:+\&|...
-        let msh = "MSH*:+\\&|SendingApp|ReceivingApp|...";
+        // MSH*:+\&*...
+        let msh = "MSH*:+\\&*SendingApp*ReceivingApp*...";
         let delims = Delims::parse_from_msh(msh).unwrap();
 
         assert_eq!(delims.field, '*');
@@ -145,6 +145,13 @@ mod delims_tests {
         let delims = Delims::parse_from_msh("MSH|^~\\&").unwrap();
 
         assert_eq!(delims, Delims::default());
+    }
+
+    #[test]
+    fn test_parse_from_msh_rejects_unterminated_encoding_chars() {
+        let result = Delims::parse_from_msh("MSH#$*@!SendingApp#SendingFac");
+
+        assert!(matches!(result, Err(Error::MshFieldMalformed)));
     }
 
     #[test]
