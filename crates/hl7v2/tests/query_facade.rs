@@ -1,4 +1,4 @@
-use hl7v2::{Presence, get, get_located, get_presence, get_presence_located, parse};
+use hl7v2::{Presence, QueryIndex, get, get_located, get_presence, get_presence_located, parse};
 use std::error::Error;
 use std::fmt::Debug;
 
@@ -153,6 +153,44 @@ NTE|2|L|second note\r",
             Presence::Missing
         ),
         "expected missing parsed segment repetition",
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn query_facade_reuses_indexed_segment_paths() -> Result<(), Box<dyn Error>> {
+    let message = parse(
+        b"MSH|^~\\&|LAB|FAC|EHR|RF|202605030101||ORU^R01|CTRL999|P|2.5\r\
+OBX|1|ST|NOTE^First note||Alpha\r\
+NTE|1|L|first note\r\
+OBX|2|ST|NOTE^Second note||Beta\r\
+NTE|2|L|\r",
+    )?;
+    let index = QueryIndex::new(&message);
+    let second_obx_value = hl7v2::parse_located_path("OBX[2]-5")?;
+    let second_nte_comment = hl7v2::parse_located_path("NTE[2]-3")?;
+
+    require_eq(
+        index.get("MSH-1"),
+        get(&message, "MSH-1"),
+        "indexed MSH delimiter path matches string query",
+    )?;
+    require_eq(
+        index.get_located(&second_obx_value),
+        Some("Beta"),
+        "indexed segment repetition path",
+    )?;
+    require(
+        matches!(
+            index.get_presence_located(&second_nte_comment),
+            Presence::Empty
+        ),
+        "expected indexed empty presence",
+    )?;
+    require(
+        matches!(index.get_presence("OBX[3]-5"), Presence::Missing),
+        "expected indexed missing segment repetition",
     )?;
 
     Ok(())

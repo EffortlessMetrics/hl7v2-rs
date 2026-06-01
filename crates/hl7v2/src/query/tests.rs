@@ -399,6 +399,103 @@ fn test_get_with_segment_repetition() {
     assert_eq!(get(&message, "OBX[4]-5"), None);
 }
 
+#[test]
+fn test_query_index_gets_repeated_segments_and_preserves_free_api_behavior() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![
+            create_test_segment(
+                "OBX",
+                vec![
+                    create_text_field(vec!["1"]),
+                    create_text_field(vec!["ST"]),
+                    create_text_field(vec!["FIRST"]),
+                    create_text_field(vec![""]),
+                    create_text_field(vec!["Alpha"]),
+                ],
+            ),
+            create_test_segment(
+                "NTE",
+                vec![
+                    create_text_field(vec!["1"]),
+                    create_text_field(vec!["L"]),
+                    create_text_field(vec!["First note"]),
+                ],
+            ),
+            create_test_segment(
+                "OBX",
+                vec![
+                    create_text_field(vec!["2"]),
+                    create_text_field(vec!["ST"]),
+                    create_text_field(vec!["SECOND"]),
+                    create_text_field(vec![""]),
+                    create_text_field(vec!["Beta"]),
+                ],
+            ),
+            create_test_segment(
+                "NTE",
+                vec![
+                    create_text_field(vec!["2"]),
+                    create_text_field(vec!["L"]),
+                    create_text_field(vec![""]),
+                ],
+            ),
+        ],
+        charsets: vec![],
+    };
+    let index = QueryIndex::new(&message);
+
+    assert_eq!(index.message().segments.len(), message.segments.len());
+    assert_eq!(index.get("OBX[1]-5"), get(&message, "OBX[1]-5"));
+    assert_eq!(index.get("OBX[2]-5"), Some("Beta"));
+    assert_eq!(index.get("OBX[3]-5"), None);
+    assert_eq!(
+        index.get_presence("NTE[1]-3"),
+        Presence::Value("First note".to_string())
+    );
+    assert_eq!(index.get_presence("NTE[2]-3"), Presence::Empty);
+
+    let parsed = match path::parse_located_path("OBX[2]-5") {
+        Ok(path) => path,
+        Err(err) => panic!("indexed path should parse: {err}"),
+    };
+    assert_eq!(index.get_located(&parsed), Some("Beta"));
+    assert_eq!(
+        index.get_presence_located(&parsed),
+        Presence::Value("Beta".to_string())
+    );
+}
+
+#[test]
+fn test_query_index_preserves_msh_delimiter_fields() {
+    let message = Message {
+        delims: Delims {
+            field: '*',
+            comp: '^',
+            rep: '~',
+            esc: '\\',
+            sub: '&',
+        },
+        segments: vec![create_test_segment(
+            "MSH",
+            vec![
+                create_text_field(vec!["^~\\&"]),
+                create_component_field(vec![vec!["SendingApp"]]),
+            ],
+        )],
+        charsets: vec![],
+    };
+    let index = QueryIndex::new(&message);
+
+    assert_eq!(index.get("MSH-1"), Some("*"));
+    assert_eq!(index.get("MSH-2"), Some("^~\\&"));
+    assert_eq!(index.get("MSH-3"), Some("SendingApp"));
+    assert_eq!(
+        index.get_presence("MSH-1"),
+        Presence::Value("*".to_string())
+    );
+}
+
 // =============================================================================
 // MSH Segment Tests
 // =============================================================================
