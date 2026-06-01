@@ -221,6 +221,22 @@ fn component_and_subcomponent(
     }
 }
 
+fn ascii_delimiter_value(delimiter: char) -> Option<&'static str> {
+    static ASCII_STRINGS: std::sync::OnceLock<[String; 128]> = std::sync::OnceLock::new();
+
+    if !delimiter.is_ascii() {
+        return None;
+    }
+
+    let values = ASCII_STRINGS.get_or_init(|| {
+        std::array::from_fn(|index| match u8::try_from(index) {
+            Ok(byte) => char::from(byte).to_string(),
+            Err(_err) => String::new(),
+        })
+    });
+    Some(values[delimiter as usize].as_str())
+}
+
 /// Get field value from a non-MSH segment
 fn get_field(
     segment: &Segment,
@@ -266,7 +282,7 @@ fn get_field(
 
 /// Get field value from an MSH segment
 fn get_msh_field<'a>(
-    _msg: &'a Message,
+    msg: &'a Message,
     segment: &'a Segment,
     field_index: usize,
     rep_index: usize,
@@ -275,7 +291,7 @@ fn get_msh_field<'a>(
 ) -> Option<&'a str> {
     if field_index == 1 {
         // MSH-1 is the field separator character
-        None // We can't return a reference to a temporary
+        ascii_delimiter_value(msg.delims.field)
     } else if field_index == 2 {
         // MSH-2 is the encoding characters
         if segment.fields.is_empty() {

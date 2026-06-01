@@ -95,6 +95,19 @@ fn query_facade_distinguishes_empty_and_missing_presence() -> Result<(), Box<dyn
 }
 
 #[test]
+fn query_facade_returns_msh_field_separator_value() -> Result<(), Box<dyn Error>> {
+    let message = parse(b"MSH*^~\\&*SEND*FAC*RECV*RF*202605030101**ADT^A01*CTRL123*P*2.5\r")?;
+
+    require_eq(get(&message, "MSH.1"), Some("*"), "MSH-1 value")?;
+    require(
+        matches!(get_presence(&message, "MSH.1"), Presence::Value(value) if value == "*"),
+        "expected MSH-1 presence value",
+    )?;
+
+    Ok(())
+}
+
+#[test]
 fn query_facade_reuses_parsed_located_paths() -> Result<(), Box<dyn Error>> {
     let message = parse(
         b"MSH|^~\\&|LAB|FAC|EHR|RF|202605030101||ORU^R01|CTRL789|P|2.5\r\
