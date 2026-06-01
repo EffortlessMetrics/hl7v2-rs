@@ -367,30 +367,11 @@ pub fn is_identifier(value: &str) -> bool {
 
 /// Check if value is a valid date (YYYYMMDD format)
 pub fn is_date(value: &str) -> bool {
-    if value.len() != 8 {
+    if value.len() != 8 || !value.chars().all(|c| c.is_ascii_digit()) {
         return false;
     }
 
-    // Check if all characters are digits
-    if !value.chars().all(|c| c.is_ascii_digit()) {
-        return false;
-    }
-
-    // Extract year, month, day
-    let _year = &value[0..4];
-    let month = &value[4..6];
-    let day = &value[6..8];
-
-    // Basic validation
-    if !("01"..="12").contains(&month) {
-        return false;
-    }
-
-    if !("01"..="31").contains(&day) {
-        return false;
-    }
-
-    true
+    crate::conformance::datatype::datetime::parse_hl7_dt(value).is_ok()
 }
 
 /// Check if value is a valid time (HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\] format)
@@ -737,11 +718,7 @@ pub fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
             if parts[2].len() != 2 || !parts[2].chars().all(|c| c.is_ascii_digit()) {
                 return false;
             }
-            let day: u32 = parts[2].parse().unwrap_or(0);
-            if !(1..=31).contains(&day) {
-                return false;
-            }
-            true
+            NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok()
         }
         ("TM", "HH:MM:SS") => {
             // Check if value matches HH:MM:SS format
