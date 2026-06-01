@@ -35,7 +35,7 @@ pub(crate) fn build_field_path_trace(
             );
             let field_text = field_to_text(field, &message.delims);
             fields.push(FieldPathTrace {
-                path: format!("{}[{}].{}", segment.id_str(), segment_index, field_index),
+                path: occurrence_path.clone(),
                 canonical_path: canonical_path.clone(),
                 segment_index,
                 field_index,

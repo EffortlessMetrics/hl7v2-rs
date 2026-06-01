@@ -52,6 +52,7 @@
       ],
       "properties": {
         "path": {
+          "description": "Segment-occurrence-qualified path, for example OBX[2].5. The segment_index field keeps the absolute one-based segment position.",
           "type": "string"
         },
         "canonical_path": {

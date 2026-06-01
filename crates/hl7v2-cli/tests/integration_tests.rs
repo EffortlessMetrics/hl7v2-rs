@@ -3310,7 +3310,7 @@ reason = "Remove family name"
         let message_file = create_temp_hl7_with_content(
             &dir,
             "nk1-message.hl7",
-            "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rNK1|1\rNK1|2|Kin^Jane\r",
+            "MSH|^~\\&|LAB|L|EHR|E|202605030101||ADT^A01|CTRL123|P|2.5\rNK1|1\rNTE|1|L|Between contacts\rNK1|2|Kin^Jane\r",
         );
         let profile_file = create_temp_file(
             &dir,
@@ -3322,6 +3322,7 @@ segments:
   - id: "MSH"
   - id: "NK1"
     max_uses: 2
+  - id: "NTE"
 "#,
         );
         let policy_file = create_temp_file(
@@ -3371,6 +3372,8 @@ reason = "Remove populated next-of-kin name"
         .unwrap();
         assert!(field_paths["fields"].as_array().unwrap().iter().any(
             |field| field["canonical_path"] == "NK1.2"
+                && field["path"] == "NK1[2].2"
+                && field["segment_index"] == 4
                 && field["redaction_action"] == "drop"
                 && field["value_shape"] == "empty"
         ));

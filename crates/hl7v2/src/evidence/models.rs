@@ -190,11 +190,11 @@ pub struct FieldPathTraceReportV2 {
 /// Field path trace record.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FieldPathTrace {
-    /// Segment-position-qualified path.
+    /// Segment-occurrence-qualified path, such as `OBX[2].5`.
     pub path: String,
     /// Segment and HL7 field path, such as `PID.3`.
     pub canonical_path: String,
-    /// One-based segment index.
+    /// One-based absolute segment index.
     pub segment_index: usize,
     /// One-based HL7 field index.
     pub field_index: usize,
