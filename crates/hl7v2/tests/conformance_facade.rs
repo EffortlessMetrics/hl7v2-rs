@@ -118,6 +118,34 @@ PID|1||123456^^^HOSP^MR||Doe^John||19700101|X\r",
 }
 
 #[test]
+fn profile_facade_rejects_empty_required_msh_fields() -> Result<(), Box<dyn Error>> {
+    let profile = load_profile_checked(
+        r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+constraints:
+  - path: "MSH.10"
+    required: true
+"#,
+    )?;
+    let message = parse(b"MSH|^~\\&|SEND|FAC|RECV|RF|202605030101||ADT^A01||P|2.5\r")?;
+    let issues = validate(&message, &profile);
+
+    require(
+        issues.iter().any(|issue| {
+            issue.severity == Severity::Error
+                && issue.path.as_deref() == Some("MSH.10")
+                && issue.code == "MISSING_REQUIRED_FIELD"
+        }),
+        "expected empty MSH.10 to fail required validation",
+    )?;
+
+    Ok(())
+}
+
+#[test]
 fn profile_facade_reports_length_constraint_failures() -> Result<(), Box<dyn Error>> {
     let profile = load_profile_checked(
         r#"
