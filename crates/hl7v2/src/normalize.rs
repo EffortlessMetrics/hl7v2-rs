@@ -20,9 +20,10 @@ use crate::writer::write;
 
 /// Normalize HL7 v2 bytes.
 ///
-/// The message is parsed and rewritten using `hl7v2::writer`. When
-/// `canonical_delims` is `true`, the output message delimiters are rewritten
-/// to canonical HL7 delimiters (`|^~\&`).
+/// The message is parsed for validation. When `canonical_delims` is `false`,
+/// the original bytes are returned unchanged. When `canonical_delims` is `true`,
+/// the output message delimiters are rewritten to canonical HL7 delimiters
+/// (`|^~\&`) using `hl7v2::writer`.
 ///
 /// # Errors
 ///
@@ -30,9 +31,11 @@ use crate::writer::write;
 pub fn normalize(bytes: &[u8], canonical_delims: bool) -> Result<Vec<u8>, Error> {
     let mut message = parse(bytes)?;
 
-    if canonical_delims {
-        message.delims = Delims::default();
+    if !canonical_delims {
+        return Ok(bytes.to_vec());
     }
+
+    message.delims = Delims::default();
 
     Ok(write(&message))
 }

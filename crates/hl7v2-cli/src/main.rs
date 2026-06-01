@@ -25,7 +25,7 @@ use hl7v2::{
     AckCode as GenAckCode, Event, Message, Profile, ProfileLintIssue, ProfileLintReport,
     StreamParser, ValidationReport, ValidationReportProfileIdentity, ValidationReportV2, ack, get,
     is_mllp_framed, lint_profile_yaml, load_profile, load_profile_checked, normalize, parse,
-    parse_mllp, to_json, validate, wrap_mllp, write, write_mllp,
+    parse_mllp, to_json, unwrap_mllp, validate, wrap_mllp, write, write_mllp,
 };
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
@@ -1326,8 +1326,13 @@ fn norm_command(
     // Count segments before normalization
     let segment_count = message.segments.len();
 
-    // Normalize the message
-    let original_bytes = write(&message);
+    // Normalize the message. Without canonical delimiter rewriting, preserve the
+    // validated wire payload instead of parse/write normalizing escape bytes.
+    let original_bytes = if mllp_in {
+        unwrap_mllp(&contents)?.to_vec()
+    } else {
+        contents.clone()
+    };
     let normalized_bytes = if canonical_delims {
         // Use core normalization for canonical delimiters
         normalize(&original_bytes, true)?

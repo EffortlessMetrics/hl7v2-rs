@@ -117,6 +117,18 @@ fn normalize_preserves_escape_sequences() -> TestResult {
 }
 
 #[test]
+fn normalize_without_canonical_delimiters_preserves_wire_bytes() -> TestResult {
+    let hl7 = b"MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\r\nPID|1||12345||\\H\\O\\N\\Brien^John||||\r\n";
+
+    let normalized = normalize(hl7, false)?;
+
+    ensure(
+        normalized == hl7,
+        "non-canonical normalization changed validated wire bytes",
+    )
+}
+
+#[test]
 fn normalize_preserves_unicode_text() -> TestResult {
     let hl7 = "MSH|^~\\&|SendingApp|SendingFac|ReceivingApp|ReceivingFac|20250128152312||ADT^A01|ABC123|P|2.5.1\rPID|1||12345||Müller^Jöhn\r".as_bytes();
 
