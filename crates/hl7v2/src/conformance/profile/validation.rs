@@ -22,6 +22,10 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
             if let Some(allowed_values) = &constraint.r#in {
                 validate_field_in_constraint(msg, &constraint.path, allowed_values, &mut issues);
             }
+
+            if let Some(pattern) = &constraint.pattern {
+                validate_field_pattern_constraint(msg, &constraint.path, pattern, &mut issues);
+            }
         }
     }
 
@@ -255,6 +259,32 @@ fn validate_field_in_constraint(
             format!(
                 "Value '{}' for {} is not in allowed constraint values: {:?}",
                 value, path, allowed_values
+            ),
+        ));
+    }
+}
+
+/// Validate that a field value matches a regex pattern constraint
+fn validate_field_pattern_constraint(
+    msg: &Message,
+    path: &str,
+    pattern: &str,
+    issues: &mut Vec<Issue>,
+) {
+    let Ok(regex) = Regex::new(pattern) else {
+        return;
+    };
+
+    if let Some(value) = path_text_values(msg, path)
+        .into_iter()
+        .find(|value| !regex.is_match(value))
+    {
+        issues.push(Issue::error(
+            "PATTERN_MISMATCH",
+            Some(path.to_string()),
+            format!(
+                "Value '{}' for {} does not match required pattern '{}'",
+                value, path, pattern
             ),
         ));
     }
