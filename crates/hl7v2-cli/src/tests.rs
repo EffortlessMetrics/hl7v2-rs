@@ -843,8 +843,17 @@ constraints:
             assert!(stats.field_distributions.is_some());
             let dists = stats.field_distributions.unwrap();
             assert!(!dists.is_empty());
-            // Should contain MSH.3, etc. (skips MSH.0 as per logic)
-            assert!(dists.iter().any(|d| d.path == "MSH.3"));
+            let msh_3 = dists
+                .iter()
+                .find(|dist| dist.path == "MSH.3")
+                .expect("MSH.3 distribution should be present");
+            assert_eq!(msh_3.sample_values, vec!["SendingApp".to_string()]);
+
+            let pid_1 = dists
+                .iter()
+                .find(|dist| dist.path == "PID.1")
+                .expect("PID.1 distribution should be present");
+            assert_eq!(pid_1.sample_values, vec!["1".to_string()]);
         }
 
         #[test]

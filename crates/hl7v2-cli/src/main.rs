@@ -2508,11 +2508,12 @@ fn collect_stats(message: &Message, distributions: bool) -> StatsReport {
 
             // Get field values (simplified - just first few fields)
             for (field_idx, field) in segment.fields.iter().enumerate().take(5) {
-                if field_idx == 0 {
-                    continue; // Skip segment ID field
-                }
-
-                let path = format!("{}.{}", segment_id, field_idx);
+                let field_number = if segment_id == "MSH" {
+                    field_idx + 2
+                } else {
+                    field_idx + 1
+                };
+                let path = format!("{}.{}", segment_id, field_number);
                 // Get the first text value from the field
                 let value = field.first_text().unwrap_or("").to_string();
 
