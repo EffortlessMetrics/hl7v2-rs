@@ -1,6 +1,6 @@
 #![cfg(feature = "json")]
 
-use hl7v2::{Comp, Delims, Field, Message, Rep, Segment, to_json, to_json_string_pretty};
+use hl7v2::{Comp, Delims, Field, Message, Rep, Segment, parse, to_json, to_json_string_pretty};
 use std::error::Error;
 use std::fmt::Debug;
 
@@ -76,6 +76,35 @@ fn json_facade_pretty_output_is_valid_json() -> Result<(), Box<dyn Error>> {
 
     require(json.contains('\n'), "expected pretty JSON newlines")?;
     require(parsed.is_object(), "expected object JSON")?;
+
+    Ok(())
+}
+
+#[test]
+fn json_facade_preserves_msh_field_numbering() -> Result<(), Box<dyn Error>> {
+    let message = parse(b"MSH|^~\\&|SEND|FAC|RECV|RF|202605030101||ADT^A01|CTRL123|P|2.5\r")?;
+
+    let json = to_json(&message);
+    let segments = json
+        .get("segments")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| std::io::Error::other("missing segments"))?;
+    let fields = segments
+        .first()
+        .and_then(|segment| segment.get("fields"))
+        .ok_or_else(|| std::io::Error::other("missing MSH fields"))?;
+
+    let msh2 = serde_json::json!([[["^~\\&"]]]);
+    let msh3 = serde_json::json!([[["SEND"]]]);
+    let msh10 = serde_json::json!([[["CTRL123"]]]);
+
+    require(
+        fields.get("1").is_none(),
+        "MSH-1 should stay in delimiter metadata",
+    )?;
+    require_eq(fields.get("2"), Some(&msh2), "MSH-2 encoding characters")?;
+    require_eq(fields.get("3"), Some(&msh3), "MSH-3 sending application")?;
+    require_eq(fields.get("10"), Some(&msh10), "MSH-10 control id")?;
 
     Ok(())
 }
