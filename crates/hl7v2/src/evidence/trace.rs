@@ -80,9 +80,15 @@ fn path_targets_field(action_path: &str, field_path: &str) -> bool {
 }
 
 fn message_type(message: &Message) -> String {
-    crate::get(message, "MSH.9")
-        .unwrap_or("unknown")
-        .to_string()
+    let message_code = crate::get(message, "MSH.9.1")
+        .or_else(|| crate::get(message, "MSH.9"))
+        .unwrap_or("unknown");
+    let trigger_event = crate::get(message, "MSH.9.2");
+
+    trigger_event.map_or_else(
+        || message_code.to_string(),
+        |event| format!("{message_code}^{event}"),
+    )
 }
 
 fn hl7_field_index(segment_id: &str, modeled_index: usize) -> usize {

@@ -9,7 +9,9 @@ struct SafeErrorPhiParityFixture {
 
 #[derive(Debug, serde::Deserialize)]
 struct PhiFixture {
+    #[cfg(feature = "redact")]
     message: String,
+    #[cfg(feature = "redact")]
     policy: String,
     forbidden: Vec<String>,
 }
@@ -105,6 +107,7 @@ fn profile_lint_error_does_not_echo_manifest_profile_sentinels() -> TestResult {
 }
 
 #[test]
+#[cfg(feature = "redact")]
 fn redaction_output_does_not_echo_manifest_phi_sentinels() -> TestResult {
     let fixture = fixture()?;
     let output =
