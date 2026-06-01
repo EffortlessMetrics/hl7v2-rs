@@ -1,4 +1,4 @@
-use hl7v2::{Presence, get, get_presence, parse};
+use hl7v2::{Presence, get, get_located, get_presence, get_presence_located, parse};
 use std::error::Error;
 use std::fmt::Debug;
 
@@ -89,6 +89,57 @@ fn query_facade_distinguishes_empty_and_missing_presence() -> Result<(), Box<dyn
     require(
         matches!(get_presence(&message, "PID.9"), Presence::Missing),
         "expected missing PID-9",
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn query_facade_reuses_parsed_located_paths() -> Result<(), Box<dyn Error>> {
+    let message = parse(
+        b"MSH|^~\\&|LAB|FAC|EHR|RF|202605030101||ORU^R01|CTRL789|P|2.5\r\
+PID|1||123456^^^HOSP^MR~ALT999^^^ALT^MR||Doe^John^A||19700101|M\r\
+OBR|1|ORD1|FILL1|CBC^Complete blood count\r\
+OBX|1|ST|NOTE^First note||Alpha\r\
+NTE|1|L|first note\r\
+OBX|2|ST|NOTE^Second note||Beta\r\
+NTE|2|L|second note\r",
+    )?;
+
+    let message_code = hl7v2::parse_located_path("MSH-9.1")?;
+    let alternate_authority = hl7v2::parse_located_path("PID-3[2].4")?;
+    let second_obx_value = hl7v2::parse_located_path("OBX[2]-5")?;
+    let second_nte_comment = hl7v2::parse_located_path("NTE[2]-3")?;
+    let missing_obx_value = hl7v2::parse_located_path("OBX[3]-5")?;
+
+    require_eq(
+        get_located(&message, &message_code),
+        get(&message, "MSH-9.1"),
+        "parsed MSH path matches string query",
+    )?;
+    require_eq(
+        get_located(&message, &alternate_authority),
+        Some("ALT"),
+        "parsed field repetition path",
+    )?;
+    require_eq(
+        get_located(&message, &second_obx_value),
+        Some("Beta"),
+        "parsed segment repetition path",
+    )?;
+    require(
+        matches!(
+            get_presence_located(&message, &second_nte_comment),
+            Presence::Value(value) if value == "second note"
+        ),
+        "expected parsed presence path value",
+    )?;
+    require(
+        matches!(
+            get_presence_located(&message, &missing_obx_value),
+            Presence::Missing
+        ),
+        "expected missing parsed segment repetition",
     )?;
 
     Ok(())

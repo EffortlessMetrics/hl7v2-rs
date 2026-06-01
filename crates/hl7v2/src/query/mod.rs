@@ -3,6 +3,7 @@
 //! This module provides query functionality for HL7 v2 messages,
 //! including:
 //! - Path-based field access via [`get`]
+//! - Pre-parsed path access via [`get_located`]
 //! - Presence semantics via [`get_presence`]
 //!
 //! # Path Format
@@ -70,25 +71,43 @@ use crate::model::{Atom, Message, Presence, Segment};
 /// ```
 pub fn get<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     let parsed = self::path::parse_located_path(path).ok()?;
-    let segment = find_segment(msg, &parsed)?;
-    let rep_index = parsed.path.repetition.unwrap_or(1);
+    get_located(msg, &parsed)
+}
 
-    if parsed.path.segment == "MSH" {
+/// Get a value with a pre-parsed path.
+///
+/// This is the parse-once variant of [`get`]. Use it when the same path is
+/// applied repeatedly across messages or across multiple lookups of the same
+/// message.
+///
+/// # Arguments
+///
+/// * `msg` - The message to query
+/// * `path` - A path returned by [`path::parse_located_path`]
+///
+/// # Returns
+///
+/// The value at the path, or `None` if not found.
+pub fn get_located<'a>(msg: &'a Message, path: &self::path::LocatedPath) -> Option<&'a str> {
+    let segment = find_segment(msg, path)?;
+    let rep_index = path.path.repetition.unwrap_or(1);
+
+    if path.path.segment == "MSH" {
         get_msh_field(
             msg,
             segment,
-            parsed.path.field,
+            path.path.field,
             rep_index,
-            parsed.path.component,
-            parsed.path.subcomponent,
+            path.path.component,
+            path.path.subcomponent,
         )
     } else {
         get_field(
             segment,
-            parsed.path.field,
+            path.path.field,
             rep_index,
-            parsed.path.component,
-            parsed.path.subcomponent,
+            path.path.component,
+            path.path.subcomponent,
         )
     }
 }
@@ -129,28 +148,45 @@ pub fn get_presence(msg: &Message, path: &str) -> Presence {
         Ok(path) => path,
         Err(_) => return Presence::Missing,
     };
-    let segment = match find_segment(msg, &parsed) {
+    get_presence_located(msg, &parsed)
+}
+
+/// Get presence semantics with a pre-parsed path.
+///
+/// This is the parse-once variant of [`get_presence`]. It preserves the same
+/// missing/empty/null/value behavior as the string-path API.
+///
+/// # Arguments
+///
+/// * `msg` - The message to query
+/// * `path` - A path returned by [`path::parse_located_path`]
+///
+/// # Returns
+///
+/// The presence status of the field.
+pub fn get_presence_located(msg: &Message, path: &self::path::LocatedPath) -> Presence {
+    let segment = match find_segment(msg, path) {
         Some(segment) => segment,
         None => return Presence::Missing,
     };
-    let rep_index = parsed.path.repetition.unwrap_or(1);
+    let rep_index = path.path.repetition.unwrap_or(1);
 
-    if parsed.path.segment == "MSH" {
+    if path.path.segment == "MSH" {
         get_msh_field_presence(
             msg,
             segment,
-            parsed.path.field,
+            path.path.field,
             rep_index,
-            parsed.path.component,
-            parsed.path.subcomponent,
+            path.path.component,
+            path.path.subcomponent,
         )
     } else {
         get_field_presence(
             segment,
-            parsed.path.field,
+            path.path.field,
             rep_index,
-            parsed.path.component,
-            parsed.path.subcomponent,
+            path.path.component,
+            path.path.subcomponent,
         )
     }
 }

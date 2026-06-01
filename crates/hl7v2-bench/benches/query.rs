@@ -4,7 +4,10 @@
 //! indexing or compiled-path behavior.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use hl7v2::{Message, get, get_presence, parse, parse_located_path};
+use hl7v2::{
+    LocatedPath, Message, get, get_located, get_presence, get_presence_located, parse,
+    parse_located_path,
+};
 use std::hint::black_box;
 
 fn create_query_message(obx_count: usize) -> String {
@@ -49,19 +52,36 @@ fn query_paths() -> [&'static str; 8] {
     ]
 }
 
+fn parse_query_path(path: &str) -> LocatedPath {
+    match parse_located_path(path) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            eprintln!("query benchmark path failed to parse: {err}");
+            std::process::abort();
+        }
+    }
+}
+
+fn query_located_paths() -> [LocatedPath; 8] {
+    [
+        parse_query_path("MSH-10"),
+        parse_query_path("MSH-12"),
+        parse_query_path("PID-3[2].4"),
+        parse_query_path("PID-5.1"),
+        parse_query_path("PV1-7.2"),
+        parse_query_path("OBX[1]-5"),
+        parse_query_path("OBX[30]-5"),
+        parse_query_path("NTE[30]-3"),
+    ]
+}
+
 fn bench_parse_query_paths(c: &mut Criterion) {
     let paths = query_paths();
 
     c.bench_function("query_parse_paths_mixed_formats", |b| {
         b.iter(|| {
             for path in paths {
-                let parsed = match parse_located_path(black_box(path)) {
-                    Ok(parsed) => parsed,
-                    Err(err) => {
-                        eprintln!("query benchmark path failed to parse: {err}");
-                        std::process::abort();
-                    }
-                };
+                let parsed = parse_query_path(black_box(path));
                 black_box(parsed);
             }
         });
@@ -79,12 +99,36 @@ fn bench_repeated_late_segment_get(c: &mut Criterion) {
     });
 }
 
+fn bench_repeated_late_segment_get_located(c: &mut Criterion) {
+    let message = parse_query_message(60);
+    let path = parse_query_path("OBX[60]-5");
+
+    c.bench_function("query_get_located_late_repeated_segment", |b| {
+        b.iter(|| {
+            let value = get_located(black_box(&message), black_box(&path));
+            black_box(value);
+        });
+    });
+}
+
 fn bench_repeated_late_segment_presence(c: &mut Criterion) {
     let message = parse_query_message(60);
 
     c.bench_function("query_presence_late_repeated_segment", |b| {
         b.iter(|| {
             let presence = get_presence(black_box(&message), black_box("NTE[60]-3"));
+            black_box(presence);
+        });
+    });
+}
+
+fn bench_repeated_late_segment_presence_located(c: &mut Criterion) {
+    let message = parse_query_message(60);
+    let path = parse_query_path("NTE[60]-3");
+
+    c.bench_function("query_presence_located_late_repeated_segment", |b| {
+        b.iter(|| {
+            let presence = get_presence_located(black_box(&message), black_box(&path));
             black_box(presence);
         });
     });
@@ -98,6 +142,20 @@ fn bench_mixed_query_set(c: &mut Criterion) {
         b.iter(|| {
             for path in paths {
                 let value = get(black_box(&message), black_box(path));
+                black_box(value);
+            }
+        });
+    });
+}
+
+fn bench_mixed_located_query_set(c: &mut Criterion) {
+    let message = parse_query_message(60);
+    let paths = query_located_paths();
+
+    c.bench_function("query_get_mixed_located_path_set", |b| {
+        b.iter(|| {
+            for path in &paths {
+                let value = get_located(black_box(&message), black_box(path));
                 black_box(value);
             }
         });
@@ -126,13 +184,39 @@ fn bench_query_by_segment_count(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_located_query_by_segment_count(c: &mut Criterion) {
+    let mut group = c.benchmark_group("query_get_located_last_obx_by_segment_count");
+
+    for obx_count in [10_usize, 50, 100] {
+        let message = parse_query_message(obx_count);
+        let path = parse_query_path(&format!("OBX[{obx_count}]-5"));
+        group.throughput(Throughput::Elements(obx_count as u64));
+        group.bench_with_input(
+            BenchmarkId::from_parameter(obx_count),
+            &(message, path),
+            |b, (message, path)| {
+                b.iter(|| {
+                    let value = get_located(black_box(message), black_box(path));
+                    black_box(value);
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     query_benches,
     bench_parse_query_paths,
     bench_repeated_late_segment_get,
+    bench_repeated_late_segment_get_located,
     bench_repeated_late_segment_presence,
+    bench_repeated_late_segment_presence_located,
     bench_mixed_query_set,
+    bench_mixed_located_query_set,
     bench_query_by_segment_count,
+    bench_located_query_by_segment_count,
 );
 
 criterion_main!(query_benches);
