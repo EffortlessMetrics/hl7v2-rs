@@ -140,7 +140,7 @@ fn check_condition(msg: &Message, condition: &Condition) -> bool {
 fn validate_msh_field_required(msg: &Message, path: &str, issues: &mut Vec<Issue>) {
     let full_path = format!("MSH.{}", path);
     // Use the query module to retrieve the value.
-    if crate::query::get(msg, &full_path).is_none() {
+    if crate::query::get(msg, &full_path).is_none_or(str::is_empty) {
         issues.push(Issue::error(
             "MISSING_REQUIRED_FIELD",
             Some(full_path),
