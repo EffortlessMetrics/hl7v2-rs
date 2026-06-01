@@ -134,6 +134,11 @@ reason = "Date of birth"
                 .any(|artifact| artifact == "SAFE-SHARING.md"),
             "expected safe-sharing checklist artifact",
         )?;
+        let field_trace = read_bundle_json_value(&bundle_dir, "field-paths.json")?;
+        ensure(
+            json_string(&field_trace, "message_type").as_deref() == Some("ADT^A01"),
+            "expected field trace message type to match validation report",
+        )?;
         let summary_v2 = summary.to_v2("hl7v2-python", "1.3.0");
         ensure(
             summary_v2.schema_version == "2",
