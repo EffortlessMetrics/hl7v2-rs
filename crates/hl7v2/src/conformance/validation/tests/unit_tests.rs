@@ -100,10 +100,13 @@ fn test_validate_data_type_dt() {
     assert!(validate_data_type("20230101", "DT"));
     assert!(validate_data_type("19991231", "DT"));
     assert!(validate_data_type("20000101", "DT"));
+    assert!(validate_data_type("20240229", "DT")); // Leap day
 
     // Invalid dates
     assert!(!validate_data_type("20231301", "DT")); // Invalid month
     assert!(!validate_data_type("20230132", "DT")); // Invalid day
+    assert!(!validate_data_type("20230229", "DT")); // Non-leap-year Feb 29
+    assert!(!validate_data_type("20230231", "DT")); // Impossible calendar day
     assert!(!validate_data_type("2023010", "DT")); // Too short
     assert!(!validate_data_type("202301011", "DT")); // Too long
     assert!(!validate_data_type("abcdefgh", "DT")); // Non-numeric
@@ -132,9 +135,12 @@ fn test_validate_data_type_ts() {
     assert!(validate_data_type("20230101", "TS"));
     assert!(validate_data_type("202301011200", "TS"));
     assert!(validate_data_type("20230101120000", "TS"));
+    assert!(validate_data_type("20240229120000", "TS"));
 
     // Invalid timestamps
     assert!(!validate_data_type("2023", "TS")); // Too short
+    assert!(!validate_data_type("20230229120000", "TS")); // Invalid date part
+    assert!(!validate_data_type("20230231120000", "TS")); // Impossible date part
     assert!(!validate_data_type("invalid", "TS")); // Non-numeric
 }
 
@@ -254,8 +260,11 @@ fn test_is_date_edge_cases() {
     // Day boundaries
     assert!(is_date("20230101")); // Day 1
     assert!(is_date("20230131")); // Day 31
+    assert!(is_date("20240229")); // Leap day
     assert!(!is_date("20230001")); // Day 0
     assert!(!is_date("20230132")); // Day 32
+    assert!(!is_date("20230229")); // Non-leap-year Feb 29
+    assert!(!is_date("20230231")); // February never has 31 days
 }
 
 #[test]
@@ -290,6 +299,11 @@ fn test_is_timestamp_edge_cases() {
 
     // Date + hour + minute + second
     assert!(is_timestamp("20230101120000"));
+    assert!(is_timestamp("20240229120000"));
+
+    // Invalid date part
+    assert!(!is_timestamp("20230229120000"));
+    assert!(!is_timestamp("20230231120000"));
 
     // Too short
     assert!(!is_timestamp("2023"));
@@ -635,11 +649,14 @@ fn test_matches_format_date() {
     // YYYY-MM-DD format
     assert!(matches_format("2023-01-15", "YYYY-MM-DD", "DT"));
     assert!(matches_format("1999-12-31", "YYYY-MM-DD", "DT"));
+    assert!(matches_format("2024-02-29", "YYYY-MM-DD", "DT"));
 
     // Invalid format
     assert!(!matches_format("20230115", "YYYY-MM-DD", "DT")); // Wrong format
     assert!(!matches_format("2023-13-01", "YYYY-MM-DD", "DT")); // Invalid month
     assert!(!matches_format("2023-01-32", "YYYY-MM-DD", "DT")); // Invalid day
+    assert!(!matches_format("2023-02-29", "YYYY-MM-DD", "DT")); // Non-leap-year Feb 29
+    assert!(!matches_format("2023-02-31", "YYYY-MM-DD", "DT")); // Impossible calendar day
 }
 
 #[test]

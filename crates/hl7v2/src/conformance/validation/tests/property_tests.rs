@@ -19,6 +19,7 @@ use super::super::{
     is_within_range, validate_checksum, validate_data_type, validate_luhn_checksum,
     validate_mathematical_relationship,
 };
+use chrono::NaiveDate;
 use proptest::prelude::*;
 
 // ============================================================================
@@ -27,7 +28,13 @@ use proptest::prelude::*;
 
 /// Generate a valid HL7 date string (YYYYMMDD)
 fn valid_date_strategy() -> impl Strategy<Value = String> {
-    "[0-9]{4}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])"
+    (1i32..=9999, 1u32..=12, 1u32..=31).prop_filter_map(
+        "Valid calendar date",
+        |(year, month, day)| {
+            NaiveDate::from_ymd_opt(year, month, day)
+                .map(|_| format!("{year:04}{month:02}{day:02}"))
+        },
+    )
 }
 
 /// Generate a valid HL7 time string (HHMM or HHMMSS)
@@ -48,13 +55,7 @@ fn valid_time_strategy() -> impl Strategy<Value = String> {
 
 /// Generate a valid HL7 timestamp (YYYYMMDDHHMMSS)
 fn valid_timestamp_strategy() -> impl Strategy<Value = String> {
-    "[0-9]{4}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[0-2][0-9][0-5][0-9][0-5][0-9]".prop_filter(
-        "Valid timestamp",
-        |s| {
-            let hour: u32 = s[8..10].parse().unwrap_or(24);
-            hour <= 23
-        },
-    )
+    (valid_date_strategy(), valid_time_strategy()).prop_map(|(date, time)| format!("{date}{time}"))
 }
 
 /// Generate a numeric string
