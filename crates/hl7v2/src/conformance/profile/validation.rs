@@ -244,17 +244,19 @@ fn validate_field_in_constraint(
     allowed_values: &[String],
     issues: &mut Vec<Issue>,
 ) {
-    if let Some(value) = crate::query::get(msg, path) {
-        if !allowed_values.contains(&value.to_string()) {
-            issues.push(Issue::error(
-                "VALUE_NOT_IN_CONSTRAINT",
-                Some(path.to_string()),
-                format!(
-                    "Value '{}' for {} is not in allowed constraint values: {:?}",
-                    value, path, allowed_values
-                ),
-            ));
-        }
+    if let Some(value) = path_text_values(msg, path).into_iter().find(|value| {
+        !allowed_values
+            .iter()
+            .any(|allowed| allowed.as_str() == *value)
+    }) {
+        issues.push(Issue::error(
+            "VALUE_NOT_IN_CONSTRAINT",
+            Some(path.to_string()),
+            format!(
+                "Value '{}' for {} is not in allowed constraint values: {:?}",
+                value, path, allowed_values
+            ),
+        ));
     }
 }
 
@@ -266,17 +268,18 @@ fn validate_value_set(msg: &Message, valueset: &ValueSet, issues: &mut Vec<Issue
         return;
     }
 
-    if let Some(value) = crate::query::get(msg, &valueset.path) {
-        if !valueset.codes.contains(&value.to_string()) {
-            issues.push(Issue::error(
-                "VALUE_NOT_IN_SET",
-                Some(valueset.path.clone()),
-                format!(
-                    "Value '{}' for {} is not in allowed set: {:?}",
-                    value, valueset.path, valueset.codes
-                ),
-            ));
-        }
+    if let Some(value) = path_text_values(msg, &valueset.path)
+        .into_iter()
+        .find(|value| !valueset.codes.iter().any(|code| code.as_str() == *value))
+    {
+        issues.push(Issue::error(
+            "VALUE_NOT_IN_SET",
+            Some(valueset.path.clone()),
+            format!(
+                "Value '{}' for {} is not in allowed set: {:?}",
+                value, valueset.path, valueset.codes
+            ),
+        ));
     }
     // Note: We don't report an error if the field is missing but has a value set constraint
     // That would be handled by a separate presence constraint if needed
@@ -407,28 +410,26 @@ fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues:
     // Validate value sets with table precedence
     for valueset in &profile.valuesets {
         if let Some(table_id) = table_map.get(valueset.name.as_str()) {
-            if let Some(value) = crate::query::get(msg, &valueset.path) {
-                // Only validate if the field is not empty
-                if !value.is_empty() {
-                    // Check if the value exists in the table
-                    let is_valid = table_id.codes.iter().any(|entry| {
-                        entry.value == value
+            if let Some(value) = path_text_values(msg, &valueset.path)
+                .into_iter()
+                .filter(|value| !value.is_empty())
+                .find(|value| {
+                    !table_id.codes.iter().any(|entry| {
+                        entry.value == *value
                             && (entry.status.is_empty()
                                 || entry.status == "A"
                                 || entry.status == "active")
-                    });
-
-                    if !is_valid {
-                        issues.push(Issue::error(
-                            "VALUE_NOT_IN_HL7_TABLE",
-                            Some(valueset.path.clone()),
-                            format!(
-                                "Value '{}' for {} is not in HL7 table {} ({})",
-                                value, valueset.path, table_id.id, table_id.name
-                            ),
-                        ));
-                    }
-                }
+                    })
+                })
+            {
+                issues.push(Issue::error(
+                    "VALUE_NOT_IN_HL7_TABLE",
+                    Some(valueset.path.clone()),
+                    format!(
+                        "Value '{}' for {} is not in HL7 table {} ({})",
+                        value, valueset.path, table_id.id, table_id.name
+                    ),
+                ));
             }
         }
     }
