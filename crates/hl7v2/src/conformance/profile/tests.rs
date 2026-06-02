@@ -1335,6 +1335,33 @@ description: "profile metadata"
     }
 
     #[test]
+    fn test_lint_profile_yaml_warns_for_ignored_segment_keys() {
+        let y = r#"
+message_structure: "ADT_A01"
+version: "2.5.1"
+segments:
+  - id: "PID"
+    required: true
+    max_uses: 1
+"#;
+
+        let report = lint_profile_yaml(y);
+
+        assert!(report.valid, "warnings should not fail profile lint");
+        assert_eq!(report.warning_count, 1, "unexpected warnings: {report:?}");
+        assert_eq!(report.issues[0].code, "unknown_segment_key");
+        assert_eq!(report.issues[0].severity, ProfileLintSeverity::Warning);
+        assert_eq!(
+            report.issues[0].path.as_deref(),
+            Some("segments[0].max_uses")
+        );
+        assert!(
+            report.issues[0].message.contains("ignored"),
+            "warning should explain that max_uses is ignored: {report:?}"
+        );
+    }
+
+    #[test]
     fn test_lint_profile_yaml_warns_for_ignored_expression_guardrail_keys() {
         let y = r#"
 message_structure: "ADT_A01"
