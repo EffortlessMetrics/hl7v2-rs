@@ -23,8 +23,8 @@
     "hl7_table_count": 0
   },
   "segments": [
-    {"id": "MSH"},
-    {"id": "PID"}
+    {"id": "MSH", "required": false, "repetition": false},
+    {"id": "PID", "required": false, "repetition": false}
   ],
   "required_fields": [
     {"path": "PID.3", "conditional": false}

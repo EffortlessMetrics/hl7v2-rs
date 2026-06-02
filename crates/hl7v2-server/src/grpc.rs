@@ -1533,6 +1533,8 @@ fn proto_profile_explain_segment_from_rust(
 ) -> ProfileExplainSegment {
     ProfileExplainSegment {
         id: segment.id.clone(),
+        required: segment.required,
+        repetition: segment.repetition,
     }
 }
 

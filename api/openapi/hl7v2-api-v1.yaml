@@ -1221,6 +1221,17 @@ components:
           type: array
           items:
             type: object
+            required:
+              - id
+              - required
+              - repetition
+            properties:
+              id:
+                type: string
+              required:
+                type: boolean
+              repetition:
+                type: boolean
         required_fields:
           type: array
           items:

@@ -121,6 +121,9 @@ async fn test_profile_explain_schema_version_2_explains_inline_profile() {
     assert_eq!(body["message_structure"], "ADT_A01");
     assert_eq!(body["version"], "2.5.1");
     assert_eq!(body["summary"]["segment_count"], 4);
+    assert_eq!(body["segments"][0]["id"], "MSH");
+    assert_eq!(body["segments"][0]["required"], true);
+    assert_eq!(body["segments"][0]["repetition"], false);
     assert_eq!(body["lint"]["valid"], true);
     assert_eq!(body["profile_sha256"].as_str().unwrap().len(), 64);
     assert!(!body_text.contains("ADT^A01 test profile"));

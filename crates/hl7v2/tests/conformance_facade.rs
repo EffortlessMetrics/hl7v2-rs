@@ -6,8 +6,8 @@ use hl7v2::conformance::datatype::datetime::{
     parse_hl7_ts_with_precision,
 };
 use hl7v2::{
-    ProfileFixtureExpectation, ProfileTestCaseReport, ProfileTestReport, Severity,
-    ValidationReport, explain_profile, lint_profile_yaml, load_profile_checked, parse,
+    ProfileExplainSegment, ProfileFixtureExpectation, ProfileTestCaseReport, ProfileTestReport,
+    Severity, ValidationReport, explain_profile, lint_profile_yaml, load_profile_checked, parse,
     run_profile_fixture_tests, validate,
 };
 use std::error::Error;
@@ -356,7 +356,9 @@ version: "2.5"
 message_type: "ADT^A01"
 segments:
   - id: "MSH"
+    required: true
   - id: "PID"
+    repetition: true
 constraints:
   - path: "PID.3"
     required: true
@@ -372,6 +374,23 @@ valuesets:
     require_eq(report.profile.as_str(), "profiles/adt.yaml", "profile")?;
     require_eq(report.message_structure.as_str(), "ADT_A01", "structure")?;
     require_eq(report.summary.segment_count, 2, "segment count")?;
+    let msh_segment = report
+        .segments
+        .first()
+        .ok_or_else(|| std::io::Error::other("expected MSH segment"))?;
+    let pid_segment = report
+        .segments
+        .get(1)
+        .ok_or_else(|| std::io::Error::other("expected PID segment"))?;
+    require_eq(msh_segment.id.as_str(), "MSH", "first segment id")?;
+    require(msh_segment.required, "MSH should be required")?;
+    require(!msh_segment.repetition, "MSH should not be repeating")?;
+    require_eq(pid_segment.id.as_str(), "PID", "second segment id")?;
+    require(
+        !pid_segment.required,
+        "PID should not be required by default",
+    )?;
+    require(pid_segment.repetition, "PID should be repeating")?;
     require_eq(
         report.summary.required_field_count,
         1,
@@ -391,6 +410,23 @@ valuesets:
     require_eq(v2.schema_version.as_str(), "2", "schema version")?;
     require_eq(v2.tool_name.as_str(), "test-surface", "tool name")?;
     require_eq(v2.tool_version.as_str(), "0.0.0", "tool version")?;
+
+    Ok(())
+}
+
+#[test]
+fn profile_explain_segment_deserializes_legacy_id_only_shape() -> Result<(), Box<dyn Error>> {
+    let segment: ProfileExplainSegment = serde_json::from_str(r#"{"id":"MSH"}"#)?;
+
+    require_eq(segment.id.as_str(), "MSH", "segment id")?;
+    require(
+        !segment.required,
+        "legacy segment explain records should default required to false",
+    )?;
+    require(
+        !segment.repetition,
+        "legacy segment explain records should default repetition to false",
+    )?;
 
     Ok(())
 }

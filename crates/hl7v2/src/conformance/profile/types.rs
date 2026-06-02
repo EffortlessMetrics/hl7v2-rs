@@ -534,6 +534,12 @@ pub struct ProfileExplainSummary {
 pub struct ProfileExplainSegment {
     /// Segment identifier, such as `MSH` or `PID`.
     pub id: String,
+    /// Whether this profile marks the segment as required.
+    #[serde(default)]
+    pub required: bool,
+    /// Whether this profile marks the segment as repeating.
+    #[serde(default)]
+    pub repetition: bool,
 }
 
 /// A required field recorded in a profile explain report.
