@@ -657,6 +657,49 @@ constraints:
     }
 
     #[tokio::test]
+    async fn test_grpc_validate_maps_segment_occurrence_path_to_location() {
+        let service = service();
+        let profile = r#"
+message_structure: "ADT_A01"
+version: "2.5"
+segments:
+  - id: "MSH"
+  - id: "PID"
+    repetition: false
+"#;
+        let message = b"MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||19700101|M\rPID|2||987654^^^HOSP^MR||Doe^Jane||19750101|F\r";
+
+        let request = Request::new(ValidateRequest {
+            message: message.to_vec(),
+            profile: profile.to_string(),
+            mllp_framed: false,
+            options: None,
+            report_schema_version: 2,
+        });
+
+        let response = service.validate(request).await.expect("RPC should succeed");
+        let inner = response.into_inner();
+
+        assert!(!inner.valid);
+        assert_eq!(inner.errors.len(), 1);
+        assert_eq!(inner.errors[0].code, "SEGMENT_REPETITION_NOT_ALLOWED");
+
+        let location = inner.errors[0]
+            .location
+            .as_ref()
+            .expect("Segment occurrence issue location should exist");
+        assert_eq!(location.segment, "PID");
+        assert_eq!(location.field, 0);
+        assert_eq!(location.repetition, 2);
+        assert_eq!(location.component, 0);
+
+        let report_v2 = inner
+            .validation_report_v2
+            .expect("Validation report v2 should exist");
+        assert_eq!(report_v2.issues[0].path.as_deref(), Some("PID[2]"));
+    }
+
+    #[tokio::test]
     async fn test_grpc_profile_lint_accepts_valid_profile() {
         let service = service();
         let response = service
