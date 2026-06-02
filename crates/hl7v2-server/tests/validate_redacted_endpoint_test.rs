@@ -245,7 +245,7 @@ segments:
     required: true
   - id: "NK1"
     required: true
-    max_uses: 2
+    repetition: true
 "#;
     let policy = r#"
 [[rules]]
@@ -292,7 +292,7 @@ segments:
     required: true
   - id: "NK1"
     required: true
-    max_uses: 2
+    repetition: true
 "#;
     let policy = r#"
 [[rules]]

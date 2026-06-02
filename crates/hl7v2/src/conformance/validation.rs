@@ -311,6 +311,16 @@ fn message_type(message: &Message) -> String {
 }
 
 fn segment_index_for_path(message: &Message, path: &str) -> Option<usize> {
+    if let Some((segment, segment_repetition)) = segment_occurrence_for_path(path) {
+        return message
+            .segments
+            .iter()
+            .enumerate()
+            .filter(|(_index, actual)| actual.id_str() == segment)
+            .nth(segment_repetition.checked_sub(1)?)
+            .map(|(index, _segment)| index);
+    }
+
     let located = crate::query::path::parse_located_path(path).ok()?;
     let segment_repetition = located.segment_repetition.unwrap_or(1);
 
@@ -321,6 +331,35 @@ fn segment_index_for_path(message: &Message, path: &str) -> Option<usize> {
         .filter(|(_index, segment)| segment.id_str() == located.path.segment)
         .nth(segment_repetition.checked_sub(1)?)
         .map(|(index, _segment)| index)
+}
+
+fn segment_occurrence_for_path(path: &str) -> Option<(String, usize)> {
+    let path = path.trim();
+    if path.is_empty() || path.contains('.') || path.contains('-') {
+        return None;
+    }
+
+    let (segment, repetition) = if let Some(start) = path.find('[') {
+        if !path.ends_with(']') {
+            return None;
+        }
+        let segment = &path[..start];
+        let repetition = &path[start + 1..path.len().checked_sub(1)?];
+        (segment, repetition.parse::<usize>().ok()?)
+    } else {
+        (path, 1)
+    };
+
+    if segment.is_empty()
+        || repetition == 0
+        || !segment
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric())
+    {
+        return None;
+    }
+
+    Some((segment.to_ascii_uppercase(), repetition))
 }
 
 fn field_index_for_path(path: &str) -> Option<usize> {
@@ -1385,6 +1424,11 @@ OBX|3|ST|CODE3^Third||\r",
                     Some("OBX[3]-5".to_string()),
                     "Third OBX observation value is required".to_string(),
                 ),
+                Issue::error(
+                    "SEGMENT_REPETITION_NOT_ALLOWED",
+                    Some("OBX[3]".to_string()),
+                    "Third OBX segment is not allowed by the profile".to_string(),
+                ),
             ],
         );
 
@@ -1394,6 +1438,9 @@ OBX|3|ST|CODE3^Third||\r",
         assert_eq!(report.issues[1].path.as_deref(), Some("OBX[3]-5"));
         assert_eq!(report.issues[1].segment_index, Some(4));
         assert_eq!(report.issues[1].field_index, Some(5));
+        assert_eq!(report.issues[2].path.as_deref(), Some("OBX[3]"));
+        assert_eq!(report.issues[2].segment_index, Some(4));
+        assert_eq!(report.issues[2].field_index, None);
     }
 
     #[test]

@@ -3341,7 +3341,7 @@ version: "2.5"
 segments:
   - id: "MSH"
   - id: "NK1"
-    max_uses: 2
+    repetition: true
   - id: "NTE"
 "#,
         );

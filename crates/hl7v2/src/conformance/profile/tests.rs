@@ -70,6 +70,35 @@ OBX|1|ST|STATUS^Status||Final\r",
     }
 
     #[test]
+    fn test_segment_repetition_flag_rejects_extra_occurrence() {
+        let y = r#"
+message_structure: "adt_single_pid"
+version: "2.5.1"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "PID"
+    repetition: false
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|APP|FAC|EHR|FAC|20250101000000||ADT^A01|MSG1|P|2.5.1\r\
+PID|1||111^^^HOSP^MR||One^Patient||19800101|F\r\
+PID|2||222^^^HOSP^MR||Two^Patient||19820101|M\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected repeated PID segment to violate profile: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "SEGMENT_REPETITION_NOT_ALLOWED");
+        assert_eq!(probs[0].path.as_deref(), Some("PID[2]"));
+    }
+
+    #[test]
     fn test_cross_field_equals() {
         let y = r#"
 message_structure: "xfield"

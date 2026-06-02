@@ -6,7 +6,7 @@ use super::*;
 pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
     let mut issues = Vec::new();
 
-    validate_required_segments(msg, profile, &mut issues);
+    validate_segment_specs(msg, profile, &mut issues);
 
     // Validate constraints (including conditional ones)
     for constraint in &profile.constraints {
@@ -83,24 +83,35 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
     issues
 }
 
-fn validate_required_segments(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
+fn validate_segment_specs(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
     for segment in &profile.segments {
-        if !segment.required {
-            continue;
-        }
-        if msg
+        let mut occurrence_count = 0;
+
+        for _ in msg
             .segments
             .iter()
-            .any(|actual| actual.id_str() == segment.id)
+            .filter(|actual| actual.id_str() == segment.id)
         {
-            continue;
+            occurrence_count += 1;
+            if occurrence_count > 1 && !segment.repetition {
+                issues.push(Issue::error(
+                    "SEGMENT_REPETITION_NOT_ALLOWED",
+                    Some(format!("{}[{occurrence_count}]", segment.id)),
+                    format!(
+                        "Segment {} repeats but the profile does not permit repetition",
+                        segment.id
+                    ),
+                ));
+            }
         }
 
-        issues.push(Issue::error(
-            "MISSING_REQUIRED_SEGMENT",
-            Some(segment.id.clone()),
-            format!("Required segment {} is missing", segment.id),
-        ));
+        if segment.required && occurrence_count == 0 {
+            issues.push(Issue::error(
+                "MISSING_REQUIRED_SEGMENT",
+                Some(segment.id.clone()),
+                format!("Required segment {} is missing", segment.id),
+            ));
+        }
     }
 }
 
@@ -113,6 +124,10 @@ struct RepetitionSemanticsCase {
 
 #[cfg(test)]
 const PROFILE_REPETITION_SEMANTICS: &[RepetitionSemanticsCase] = &[
+    RepetitionSemanticsCase {
+        validation_path: "segments.repetition",
+        collector: "segment_occurrence_count",
+    },
     RepetitionSemanticsCase {
         validation_path: "constraints.required",
         collector: "required_path_has_value",
@@ -1685,8 +1700,10 @@ mod repetition_semantics_tests {
             "required_path_has_value",
             "field_component_counts",
             "check_rule_condition",
+            "segment_occurrence_count",
         ];
         const EXPECTED_PATHS: &[&str] = &[
+            "segments.repetition",
             "constraints.required",
             "constraints.when",
             "constraints.in",
