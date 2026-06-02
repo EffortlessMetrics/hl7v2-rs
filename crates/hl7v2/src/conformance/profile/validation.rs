@@ -278,6 +278,21 @@ fn first_condition_value_matching<'a>(
         .find(|value| predicate(value))
 }
 
+fn first_condition_pair_matching<'a>(
+    msg: &'a Message,
+    path1: &str,
+    path2: &str,
+    mut predicate: impl FnMut(&str, &str) -> bool,
+) -> Option<(&'a str, &'a str)> {
+    let values1 = condition_text_values(msg, path1);
+    let values2 = condition_text_values(msg, path2);
+
+    values1
+        .into_iter()
+        .zip(values2)
+        .find(|(value1, value2)| predicate(value1, value2))
+}
+
 fn field_condition_text_values(
     field: &Field,
     repetition: Option<usize>,
@@ -1016,23 +1031,21 @@ fn evaluate_custom_rule_script(
             let path1 = &captures[1];
             let path2 = &captures[2];
 
-            if let (Some(value1), Some(value2)) =
-                (crate::query::get(msg, path1), crate::query::get(msg, path2))
+            if let Some((value1, value2)) =
+                first_condition_pair_matching(msg, path1, path2, |value1, value2| value1 != value2)
             {
-                if value1 != value2 {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path1.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' does not equal field {} value '{}'",
-                                path1, value1, path2, value2
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path1.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' does not equal field {} value '{}'",
+                            path1, value1, path2, value2
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -1141,20 +1154,23 @@ fn evaluate_custom_rule_script(
             let path1 = &captures[1];
             let path2 = &captures[2];
 
-            if let (Some(value1), Some(value2)) =
-                (crate::query::get(msg, path1), crate::query::get(msg, path2))
+            if let Some((value1, value2)) =
+                first_condition_pair_matching(msg, path1, path2, |value1, value2| {
+                    !is_valid_age_range(value1, value2)
+                })
             {
-                if !is_valid_age_range(value1, value2) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path1.to_string()),
-                        if rule.description.is_empty() {
-                            format!("Age range between {} and {} is not valid", path1, path2)
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path1.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Age range between {} value '{}' and {} value '{}' is not valid",
+                            path1, value1, path2, value2
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
