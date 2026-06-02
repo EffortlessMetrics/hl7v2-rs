@@ -18,6 +18,7 @@ pub fn lint_profile_yaml(yaml: &str) -> ProfileLintReport {
 
     let mut issues = Vec::new();
     lint_unknown_profile_keys(&root, &mut issues);
+    lint_unknown_segment_keys(&root, &mut issues);
     lint_unknown_expression_guardrail_keys(&root, &mut issues);
 
     let profile = match serde_yaml::from_value::<Profile>(root) {
@@ -339,6 +340,37 @@ fn lint_unknown_expression_guardrail_keys(
                 Some(format!("expression_guardrails.{key}")),
                 format!("expression_guardrails key '{key}' is ignored by the profile loader"),
             ));
+        }
+    }
+}
+
+fn lint_unknown_segment_keys(root: &serde_yaml::Value, issues: &mut Vec<ProfileLintIssue>) {
+    let Some(mapping) = root.as_mapping() else {
+        return;
+    };
+    let segments_key = serde_yaml::Value::String("segments".to_string());
+    let Some(segments) = mapping
+        .get(&segments_key)
+        .and_then(serde_yaml::Value::as_sequence)
+    else {
+        return;
+    };
+
+    let known_keys = ["id", "required", "repetition"];
+
+    for (index, segment) in segments.iter().enumerate() {
+        let Some(segment_mapping) = segment.as_mapping() else {
+            continue;
+        };
+
+        for key in segment_mapping.keys().filter_map(serde_yaml::Value::as_str) {
+            if !known_keys.contains(&key) {
+                issues.push(ProfileLintIssue::warning(
+                    "unknown_segment_key",
+                    Some(format!("segments[{index}].{key}")),
+                    format!("segment key '{key}' is ignored by the profile loader"),
+                ));
+            }
         }
     }
 }
