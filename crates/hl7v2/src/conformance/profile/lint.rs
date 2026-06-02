@@ -18,6 +18,7 @@ pub fn lint_profile_yaml(yaml: &str) -> ProfileLintReport {
 
     let mut issues = Vec::new();
     lint_unknown_profile_keys(&root, &mut issues);
+    lint_unknown_expression_guardrail_keys(&root, &mut issues);
 
     let profile = match serde_yaml::from_value::<Profile>(root) {
         Ok(profile) => profile,
@@ -304,6 +305,37 @@ fn lint_unknown_profile_keys(root: &serde_yaml::Value, issues: &mut Vec<ProfileL
                 "unknown_top_level_key",
                 Some(key.to_string()),
                 format!("top-level key '{key}' is ignored by the profile loader"),
+            ));
+        }
+    }
+}
+
+fn lint_unknown_expression_guardrail_keys(
+    root: &serde_yaml::Value,
+    issues: &mut Vec<ProfileLintIssue>,
+) {
+    let Some(mapping) = root.as_mapping() else {
+        return;
+    };
+    let expression_guardrails_key = serde_yaml::Value::String("expression_guardrails".to_string());
+    let Some(expression_guardrails) = mapping
+        .get(&expression_guardrails_key)
+        .and_then(serde_yaml::Value::as_mapping)
+    else {
+        return;
+    };
+
+    let known_keys = ["max_depth", "max_length", "allow_custom_scripts"];
+
+    for key in expression_guardrails
+        .keys()
+        .filter_map(serde_yaml::Value::as_str)
+    {
+        if !known_keys.contains(&key) {
+            issues.push(ProfileLintIssue::warning(
+                "unknown_expression_guardrail_key",
+                Some(format!("expression_guardrails.{key}")),
+                format!("expression_guardrails key '{key}' is ignored by the profile loader"),
             ));
         }
     }
