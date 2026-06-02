@@ -301,8 +301,10 @@ pub struct HL7Table {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HL7TableEntry {
     /// Code value.
+    #[serde(alias = "code")]
     pub value: String,
     /// Code description.
+    #[serde(alias = "display")]
     pub description: String,
     /// Entry status (`A` active, `D` deprecated, `R` restricted).
     #[serde(default)]
