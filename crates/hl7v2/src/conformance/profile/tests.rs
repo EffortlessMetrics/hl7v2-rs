@@ -98,6 +98,109 @@ OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~H|||F\r",
     }
 
     #[test]
+    fn test_cross_field_require_action_accepts_later_repetitions() {
+        let y = r#"
+message_structure: "xfield_require_action_repetitions"
+version: "2.5.1"
+segments:
+  - id: "NTE"
+cross_field_rules:
+  - id: "process-note-required"
+    description: "Processed messages require a note"
+    conditions:
+      - field: "MSH.11"
+        operator: "eq"
+        value: "P"
+    actions:
+      - field: "NTE.3"
+        action: "require"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+NTE|1||~Clinically high\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert!(
+            probs.is_empty(),
+            "later non-empty NTE.3 repetition should satisfy require action: {probs:?}"
+        );
+    }
+
+    #[test]
+    fn test_cross_field_prohibit_action_checks_later_repetitions() {
+        let y = r#"
+message_structure: "xfield_prohibit_action_repetitions"
+version: "2.5.1"
+segments:
+  - id: "NTE"
+cross_field_rules:
+  - id: "process-note-prohibited"
+    description: "Processed messages prohibit a note"
+    conditions:
+      - field: "MSH.11"
+        operator: "eq"
+        value: "P"
+    actions:
+      - field: "NTE.3"
+        action: "prohibit"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+NTE|1||~Forbidden note\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected prohibit action issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CROSS_FIELD_VALIDATION_ERROR");
+        assert_eq!(probs[0].path.as_deref(), Some("NTE.3"));
+    }
+
+    #[test]
+    fn test_cross_field_validate_action_checks_later_repetitions() {
+        let y = r#"
+message_structure: "xfield_validate_action_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+cross_field_rules:
+  - id: "numeric-observation-required"
+    description: "Processed observations must stay numeric"
+    conditions:
+      - field: "MSH.11"
+        operator: "eq"
+        value: "P"
+    actions:
+      - field: "OBX.5"
+        action: "validate"
+        datatype: "NM"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2~BAD|10^9/L|4.0-11.0|H|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected validate action issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CROSS_FIELD_VALIDATION_ERROR");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.5"));
+    }
+
+    #[test]
     fn test_temporal_before_with_partial_precision() {
         // Test message with different timestamp precisions
         let mut msg = String::new();

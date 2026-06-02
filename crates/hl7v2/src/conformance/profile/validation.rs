@@ -81,6 +81,109 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
     issues
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RepetitionSemanticsCase {
+    validation_path: &'static str,
+    collector: &'static str,
+}
+
+#[cfg(test)]
+const PROFILE_REPETITION_SEMANTICS: &[RepetitionSemanticsCase] = &[
+    RepetitionSemanticsCase {
+        validation_path: "constraints.required",
+        collector: "required_path_has_value",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "constraints.when",
+        collector: "condition_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "constraints.in",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "constraints.pattern",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "constraints.components",
+        collector: "field_component_counts",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "valuesets.inline",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "valuesets.hl7_tables_with_precedence",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "valuesets.legacy_hl7_table",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "datatypes.basic",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "datatypes.advanced",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "lengths",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "cross_field.conditions",
+        collector: "check_rule_condition",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "cross_field.actions.require",
+        collector: "required_path_has_value",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "cross_field.actions.prohibit",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "cross_field.actions.validate",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "temporal_rules",
+        collector: "first_condition_pair_matching",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "contextual.context",
+        collector: "condition_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "contextual.require",
+        collector: "required_path_has_value",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "contextual.prohibit",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "contextual.validate_datatype",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "contextual.validate_valueset",
+        collector: "path_text_values",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "custom_rules.unary_predicates",
+        collector: "first_condition_value_matching",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "custom_rules.pair_predicates",
+        collector: "first_condition_pair_matching",
+    },
+];
+
 /// Validate that a required field is present
 fn validate_field_required(msg: &Message, path: &str, issues: &mut Vec<Issue>) {
     if !required_path_has_value(msg, path) {
@@ -767,28 +870,26 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
     // Check value sets that reference this table by name
     for valueset in &profile.valuesets {
         if valueset.name == table.id {
-            if let Some(value) = crate::query::get(msg, &valueset.path) {
-                // Only validate if the field is not empty
-                if !value.is_empty() {
-                    // Check if the value exists in the table
-                    let is_valid = table.codes.iter().any(|entry| {
-                        entry.value == value
-                            && (entry.status.is_empty()
-                                || entry.status == "A"
-                                || entry.status == "active")
-                    });
-
-                    if !is_valid {
-                        issues.push(Issue::error(
-                            "VALUE_NOT_IN_HL7_TABLE",
-                            Some(valueset.path.clone()),
-                            format!(
-                                "Value '{}' for {} is not in HL7 table {} ({})",
-                                value, valueset.path, table.id, table.name
-                            ),
-                        ));
-                    }
-                }
+            if let Some(value) = path_text_values(msg, &valueset.path)
+                .into_iter()
+                .find(|value| {
+                    !value.is_empty()
+                        && !table.codes.iter().any(|entry| {
+                            entry.value == *value
+                                && (entry.status.is_empty()
+                                    || entry.status == "A"
+                                    || entry.status == "active")
+                        })
+                })
+            {
+                issues.push(Issue::error(
+                    "VALUE_NOT_IN_HL7_TABLE",
+                    Some(valueset.path.clone()),
+                    format!(
+                        "Value '{}' for {} is not in HL7 table {} ({})",
+                        value, valueset.path, table.id, table.name
+                    ),
+                ));
             }
         }
     }
@@ -796,10 +897,24 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
 
 /// Validate temporal rule (date/time relationships)
 fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<Issue>) {
-    let before_values = condition_text_values(msg, &rule.before);
-    let after_values = condition_text_values(msg, &rule.after);
+    if let Some((before_value, after_value)) = first_condition_pair_matching(
+        msg,
+        &rule.before,
+        &rule.after,
+        |before_value, after_value| {
+            let (Some(before_time), Some(after_time)) =
+                (parse_datetime(before_value), parse_datetime(after_value))
+            else {
+                return true;
+            };
 
-    for (before_value, after_value) in before_values.into_iter().zip(after_values) {
+            if rule.allow_equal {
+                before_time > after_time
+            } else {
+                before_time >= after_time
+            }
+        },
+    ) {
         let (Some(before_time), Some(after_time)) =
             (parse_datetime(before_value), parse_datetime(after_value))
         else {
@@ -829,7 +944,6 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
                     before_value, rule.before, after_value, rule.after
                 ),
             ));
-            return;
         }
     }
 }
@@ -1358,86 +1472,75 @@ fn execute_rule_action(
     issues: &mut Vec<Issue>,
 ) {
     match action.action.as_str() {
-        "require" => {
-            // Check if the required field exists and is not empty
-            if let Some(value) = crate::query::get(msg, &action.field) {
-                if value.is_empty() {
-                    issues.push(Issue::error(
-                        "CROSS_FIELD_VALIDATION_ERROR",
-                        Some(action.field.clone()),
-                        action.message.clone().unwrap_or_else(|| {
-                            format!(
-                                "Field {} is required by cross-field rule {}",
-                                action.field, rule.id
-                            )
-                        }),
-                    ));
-                }
-            } else {
+        "require" if !required_path_has_value(msg, &action.field) => {
+            issues.push(Issue::error(
+                "CROSS_FIELD_VALIDATION_ERROR",
+                Some(action.field.clone()),
+                action.message.clone().unwrap_or_else(|| {
+                    format!(
+                        "Field {} is required by cross-field rule {}",
+                        action.field, rule.id
+                    )
+                }),
+            ));
+        }
+        "prohibit"
+            if path_text_values(msg, &action.field)
+                .into_iter()
+                .any(|value| !value.is_empty()) =>
+        {
+            issues.push(Issue::error(
+                "CROSS_FIELD_VALIDATION_ERROR",
+                Some(action.field.clone()),
+                action.message.clone().unwrap_or_else(|| {
+                    format!(
+                        "Field {} is prohibited by cross-field rule {}",
+                        action.field, rule.id
+                    )
+                }),
+            ));
+        }
+        "require" | "prohibit" => {}
+        "validate" => {
+            // Apply additional validation based on action parameters
+            let values = path_text_values(msg, &action.field);
+
+            // Validate data type if specified
+            if let Some(datatype) = &action.datatype
+                && let Some(_value) = values
+                    .iter()
+                    .copied()
+                    .find(|value| !value.is_empty() && !validate_data_type(value, datatype))
+            {
                 issues.push(Issue::error(
                     "CROSS_FIELD_VALIDATION_ERROR",
                     Some(action.field.clone()),
                     action.message.clone().unwrap_or_else(|| {
                         format!(
-                            "Field {} is required by cross-field rule {}",
-                            action.field, rule.id
+                            "Field {} does not match data type {} required by cross-field rule {}",
+                            action.field, datatype, rule.id
                         )
                     }),
                 ));
             }
-        }
-        "prohibit" => {
-            // Check if the prohibited field exists and is not empty
-            if let Some(value) = crate::query::get(msg, &action.field) {
-                if !value.is_empty() {
-                    issues.push(Issue::error(
-                        "CROSS_FIELD_VALIDATION_ERROR",
-                        Some(action.field.clone()),
-                        action.message.clone().unwrap_or_else(|| {
-                            format!(
-                                "Field {} is prohibited by cross-field rule {}",
-                                action.field, rule.id
-                            )
-                        }),
-                    ));
-                }
-            }
-            // If the field doesn't exist at all, that's fine (it's not present)
-        }
-        "validate" => {
-            // Apply additional validation based on action parameters
-            if let Some(value) = crate::query::get(msg, &action.field) {
-                // Only validate if the field is not empty
-                if !value.is_empty() {
-                    // Validate data type if specified
-                    if let Some(datatype) = &action.datatype {
-                        if !validate_data_type(value, datatype) {
-                            issues.push(Issue::error(
-                                "CROSS_FIELD_VALIDATION_ERROR",
-                                Some(action.field.clone()),
-                                action.message.clone().unwrap_or_else(||
-                                    format!("Field {} does not match data type {} required by cross-field rule {}",
-                                           action.field, datatype, rule.id)),
-                            ));
-                        }
-                    }
 
-                    // Validate against value set if specified
-                    if let Some(valueset_name) = &action.valueset {
-                        // Find the value set in the profile
-                        if let Some(valueset) = find_valueset_by_name(profile, valueset_name) {
-                            if !valueset.codes.contains(&value.to_string()) {
-                                issues.push(Issue::error(
-                                    "CROSS_FIELD_VALIDATION_ERROR",
-                                    Some(action.field.clone()),
-                                    action.message.clone().unwrap_or_else(||
-                                        format!("Value '{}' for {} is not in value set {} required by cross-field rule {}",
-                                               value, action.field, valueset_name, rule.id)),
-                                ));
-                            }
-                        }
-                    }
-                }
+            // Validate against value set if specified
+            if let Some(valueset_name) = &action.valueset
+                && let Some(valueset) = find_valueset_by_name(profile, valueset_name)
+                && let Some(value) = values.iter().copied().find(|value| {
+                    !value.is_empty() && !valueset.codes.iter().any(|code| code.as_str() == *value)
+                })
+            {
+                issues.push(Issue::error(
+                    "CROSS_FIELD_VALIDATION_ERROR",
+                    Some(action.field.clone()),
+                    action.message.clone().unwrap_or_else(|| {
+                        format!(
+                            "Value '{}' for {} is not in value set {} required by cross-field rule {}",
+                            value, action.field, valueset_name, rule.id
+                        )
+                    }),
+                ));
             }
         }
         _ => {
@@ -1541,4 +1644,79 @@ fn find_valueset_by_name<'a>(profile: &'a Profile, name: &str) -> Option<&'a Val
         .valuesets
         .iter()
         .find(|valueset| valueset.name == name)
+}
+
+#[cfg(test)]
+mod repetition_semantics_tests {
+    use std::collections::BTreeSet;
+
+    use super::PROFILE_REPETITION_SEMANTICS;
+
+    #[test]
+    fn profile_repetition_semantics_matrix_is_explicit() {
+        const ALLOWED_COLLECTORS: &[&str] = &[
+            "path_text_values",
+            "condition_text_values",
+            "first_condition_value_matching",
+            "first_condition_pair_matching",
+            "required_path_has_value",
+            "field_component_counts",
+            "check_rule_condition",
+        ];
+        const EXPECTED_PATHS: &[&str] = &[
+            "constraints.required",
+            "constraints.when",
+            "constraints.in",
+            "constraints.pattern",
+            "constraints.components",
+            "valuesets.inline",
+            "valuesets.hl7_tables_with_precedence",
+            "valuesets.legacy_hl7_table",
+            "datatypes.basic",
+            "datatypes.advanced",
+            "lengths",
+            "cross_field.conditions",
+            "cross_field.actions.require",
+            "cross_field.actions.prohibit",
+            "cross_field.actions.validate",
+            "temporal_rules",
+            "contextual.context",
+            "contextual.require",
+            "contextual.prohibit",
+            "contextual.validate_datatype",
+            "contextual.validate_valueset",
+            "custom_rules.unary_predicates",
+            "custom_rules.pair_predicates",
+        ];
+
+        let mut seen = BTreeSet::new();
+        for case in PROFILE_REPETITION_SEMANTICS {
+            assert!(
+                ALLOWED_COLLECTORS.contains(&case.collector),
+                "unexpected collector {} for {}",
+                case.collector,
+                case.validation_path
+            );
+            assert_ne!(
+                case.collector, "crate::query::get",
+                "scalar query lookup is not a profile repetition collector"
+            );
+            assert_ne!(
+                case.collector, "scalar_query_get",
+                "scalar query lookup is not a profile repetition collector"
+            );
+            assert!(
+                seen.insert(case.validation_path),
+                "duplicate repetition semantics path {}",
+                case.validation_path
+            );
+        }
+
+        for &path in EXPECTED_PATHS {
+            assert!(
+                seen.contains(path),
+                "missing repetition semantics path {path}"
+            );
+        }
+    }
 }
