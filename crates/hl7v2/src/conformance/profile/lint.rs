@@ -180,10 +180,8 @@ pub fn explain_profile(
             .valuesets
             .iter()
             .map(|valueset| {
-                let table_code_count = table_code_counts
-                    .get(valueset.name.as_str())
-                    .copied()
-                    .unwrap_or(0);
+                let table_id = valueset_hl7_table_id(valueset);
+                let table_code_count = table_code_counts.get(table_id).copied().unwrap_or(0);
                 let source = if !valueset.codes.is_empty() {
                     "inline"
                 } else if table_code_count > 0 {
@@ -275,6 +273,14 @@ fn compute_profile_sha256(value: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(value.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+fn valueset_hl7_table_id(valueset: &ValueSet) -> &str {
+    valueset
+        .hl7_table
+        .as_deref()
+        .filter(|table_id| !table_id.trim().is_empty())
+        .unwrap_or(valueset.name.as_str())
 }
 
 fn lint_unknown_profile_keys(root: &serde_yaml::Value, issues: &mut Vec<ProfileLintIssue>) {
@@ -556,12 +562,13 @@ fn lint_value_sets(profile: &Profile, issues: &mut Vec<ProfileLintIssue>) {
             ));
         }
 
-        if valueset.codes.is_empty() && !table_ids.contains(valueset.name.as_str()) {
+        let table_id = valueset_hl7_table_id(valueset);
+        if valueset.codes.is_empty() && !table_ids.contains(table_id) {
             issues.push(ProfileLintIssue::warning(
                 "empty_valueset_without_table",
                 Some(format!("valuesets[{index}]")),
                 format!(
-                    "value set '{}' has no inline codes and does not reference an hl7_tables id",
+                    "value set '{}' has no inline codes and does not reference an existing hl7_tables id",
                     valueset.name
                 ),
             ));

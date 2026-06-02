@@ -1733,10 +1733,9 @@ fn build_profile_explain_report(
             .valuesets
             .iter()
             .map(|valueset| {
-                let table_code_count = table_code_counts
-                    .get(valueset.name.as_str())
-                    .copied()
-                    .unwrap_or(0);
+                let table_id =
+                    valueset_hl7_table_id(valueset.name.as_str(), valueset.hl7_table.as_deref());
+                let table_code_count = table_code_counts.get(table_id).copied().unwrap_or(0);
                 let source = if !valueset.codes.is_empty() {
                     "inline"
                 } else if table_code_count > 0 {
@@ -1816,6 +1815,12 @@ fn build_profile_explain_report(
                 .collect(),
         },
     }
+}
+
+fn valueset_hl7_table_id<'a>(name: &'a str, hl7_table: Option<&'a str>) -> &'a str {
+    hl7_table
+        .filter(|table_id| !table_id.trim().is_empty())
+        .unwrap_or(name)
 }
 
 fn profile_lint_issue_is_ignored_or_unsupported(issue: &ProfileLintIssue) -> bool {

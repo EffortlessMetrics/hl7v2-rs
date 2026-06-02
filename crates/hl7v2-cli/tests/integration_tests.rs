@@ -928,6 +928,55 @@ hl7_tables:
     }
 
     #[test]
+    fn test_profile_explain_json_reports_explicit_hl7_table_reference() {
+        let dir = create_temp_dir();
+        let profile_file = create_temp_profile(
+            &dir,
+            "profile.yaml",
+            r#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: PID
+valuesets:
+  - path: PID.8
+    name: Administrative Sex
+    hl7_table: HL70001
+hl7_tables:
+  - id: HL70001
+    name: Administrative Sex
+    version: "2.5.1"
+    codes:
+      - value: M
+        description: Male
+      - value: F
+        description: Female
+"#,
+        );
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute profile explain");
+
+        assert!(output.status.success());
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile explain output should be JSON");
+        assert_eq!(report["value_sets"][0]["name"], "Administrative Sex");
+        assert_eq!(report["value_sets"][0]["source"], "hl7_table");
+        assert_eq!(report["value_sets"][0]["inline_code_count"], 0);
+        assert_eq!(report["value_sets"][0]["table_code_count"], 2);
+        assert_eq!(report["lint"]["valid"], true);
+    }
+
+    #[test]
     fn test_profile_explain_json_schema_version_2_adds_provenance() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
