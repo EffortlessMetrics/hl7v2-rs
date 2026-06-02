@@ -62,6 +62,42 @@ cross_field_rules:
     }
 
     #[test]
+    fn test_cross_field_condition_checks_later_repetitions() {
+        let y = r#"
+message_structure: "xfield_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+  - id: "NTE"
+cross_field_rules:
+  - id: "abnormal-note-required"
+    description: "Abnormal observations require a note"
+    conditions:
+      - field: "OBX.8"
+        operator: "eq"
+        value: "H"
+    actions:
+      - field: "NTE.3"
+        action: "require"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~H|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected cross-field issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CROSS_FIELD_VALIDATION_ERROR");
+        assert_eq!(probs[0].path.as_deref(), Some("NTE.3"));
+    }
+
+    #[test]
     fn test_temporal_before_with_partial_precision() {
         // Test message with different timestamp precisions
         let mut msg = String::new();
