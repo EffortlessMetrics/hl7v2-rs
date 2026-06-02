@@ -127,6 +127,13 @@ fn test_unescape_multiple_sequences() {
 }
 
 #[test]
+fn test_unescape_formatted_text_line_break() {
+    let delims = Delims::default();
+    let unescaped = unescape_text("Line one\\.br\\Line two", &delims).unwrap();
+    assert_eq!(unescaped, "Line one\nLine two");
+}
+
+#[test]
 fn test_unescape_no_special_chars() {
     let delims = Delims::default();
     let unescaped = unescape_text("normal text", &delims).unwrap();
@@ -422,9 +429,17 @@ fn test_unescape_unicode() {
 #[test]
 fn test_escape_newlines() {
     let delims = Delims::default();
-    // Newlines are not delimiters, should not be escaped
+    // Newlines cannot be emitted literally inside an HL7 field.
     let escaped = escape_text("line1\nline2\rline3", &delims);
-    assert_eq!(escaped, "line1\nline2\rline3");
+    assert_eq!(escaped, "line1\\.br\\line2\\.br\\line3");
+}
+
+#[test]
+fn test_needs_escaping_line_breaks() {
+    let delims = Delims::default();
+
+    assert!(needs_escaping("line1\nline2", &delims));
+    assert!(needs_escaping("line1\rline2", &delims));
 }
 
 #[test]

@@ -11,6 +11,7 @@
 //! - `\R\` - Repetition separator
 //! - `\E\` - Escape character
 //! - `\T\` - Subcomponent separator
+//! - `\.br\` - Formatted text line break
 //!
 //! # Example
 //!
@@ -66,6 +67,8 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
         delims.rep,
         delims.esc,
         delims.sub,
+        '\n',
+        '\r',
     ];
 
     let first_idx = match text.find(&delims_arr[..]) {
@@ -79,7 +82,8 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
     // Bulk copy the clean prefix
     result.push_str(&text[..first_idx]);
 
-    for ch in text[first_idx..].chars() {
+    let mut chars = text[first_idx..].chars().peekable();
+    while let Some(ch) = chars.next() {
         match ch {
             c if c == delims.field => {
                 result.push(delims.esc);
@@ -104,6 +108,19 @@ pub fn escape_text(text: &str, delims: &Delims) -> String {
             c if c == delims.sub => {
                 result.push(delims.esc);
                 result.push('T');
+                result.push(delims.esc);
+            }
+            '\n' => {
+                result.push(delims.esc);
+                result.push_str(".br");
+                result.push(delims.esc);
+            }
+            '\r' => {
+                if chars.peek().copied() == Some('\n') {
+                    chars.next();
+                }
+                result.push(delims.esc);
+                result.push_str(".br");
                 result.push(delims.esc);
             }
             _ => result.push(ch),
@@ -203,6 +220,9 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
                 "T" => {
                     result.push(delims.sub);
                 }
+                ".br" => {
+                    result.push('\n');
+                }
                 _ => {
                     // Unknown escape sequences are passed through
                     result.push(delims.esc);
@@ -227,7 +247,7 @@ pub fn unescape_text(text: &str, delims: &Delims) -> Result<String, Error> {
 ///
 /// # Returns
 ///
-/// `true` if the text contains any delimiter characters
+/// `true` if the text contains any delimiter or formatted line-break characters
 pub fn needs_escaping(text: &str, delims: &Delims) -> bool {
     text.contains(
         &[
@@ -236,6 +256,8 @@ pub fn needs_escaping(text: &str, delims: &Delims) -> bool {
             delims.rep,
             delims.esc,
             delims.sub,
+            '\n',
+            '\r',
         ][..],
     )
 }
