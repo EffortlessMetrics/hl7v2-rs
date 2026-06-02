@@ -766,6 +766,21 @@ fn test_check_rule_condition_eq() {
 }
 
 #[test]
+fn test_check_rule_condition_eq_checks_later_repetitions() {
+    let msg = parse_test_message(
+        "MSH|^~\\&|App|Fac|Recv|Fac|20230101||ADT^A01|1|P|2.5\rPID|1||12345^^^MRN~99999^^^ALT||Doe^John\r",
+    );
+
+    let condition = RuleCondition {
+        field: "PID.3.1".to_string(),
+        operator: "eq".to_string(),
+        value: Some("99999".to_string()),
+        values: None,
+    };
+    assert!(check_rule_condition(&msg, &condition));
+}
+
+#[test]
 fn test_check_rule_condition_ne() {
     let msg = parse_test_message(
         "MSH|^~\\&|App|Fac|Recv|Fac|20230101||ADT^A01|1|P|2.5\rPID|1||12345^^^MRN||Doe^John\r",

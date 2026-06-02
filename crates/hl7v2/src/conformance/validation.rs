@@ -32,7 +32,7 @@
     reason = "Pre-existing validation implementation debt moved during module collapse; cleanup is separate from this behavior-preserving change."
 )]
 
-use crate::model::Message;
+use crate::model::{Atom, Field, Message, Rep, Segment};
 use chrono::{NaiveDate, NaiveDateTime};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -946,6 +946,106 @@ pub fn get_nonempty<'a>(msg: &'a Message, path: &str) -> Option<&'a str> {
     })
 }
 
+fn get_nonempty_values<'a>(msg: &'a Message, path: &str) -> Vec<&'a str> {
+    let Ok(path) = crate::query::path::parse_located_path(path) else {
+        return Vec::new();
+    };
+
+    if path.path.is_msh() && path.path.field == 1 {
+        return get_nonempty(msg, &path.to_path_string())
+            .into_iter()
+            .collect();
+    }
+
+    let Some(segment) = condition_segment(msg, &path) else {
+        return Vec::new();
+    };
+    let Some(field) = condition_field(segment, &path.path) else {
+        return Vec::new();
+    };
+
+    condition_field_values(
+        field,
+        path.path.repetition,
+        path.path.component,
+        path.path.subcomponent,
+    )
+    .into_iter()
+    .filter_map(trim_nonempty)
+    .collect()
+}
+
+fn condition_segment<'a>(
+    msg: &'a Message,
+    path: &crate::query::path::LocatedPath,
+) -> Option<&'a Segment> {
+    let segment_repetition = path.segment_repetition.unwrap_or(1);
+    if segment_repetition == 0 {
+        return None;
+    }
+
+    msg.segments
+        .iter()
+        .filter(|segment| segment.id_str() == path.path.segment)
+        .nth(segment_repetition - 1)
+}
+
+fn condition_field<'a>(segment: &'a Segment, path: &crate::query::path::Path) -> Option<&'a Field> {
+    let field_index = if path.is_msh() {
+        path.msh_stored_field_index()?
+    } else {
+        path.field.checked_sub(1)?
+    };
+
+    segment.fields.get(field_index)
+}
+
+fn condition_field_values(
+    field: &Field,
+    repetition: Option<usize>,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
+) -> Vec<&str> {
+    if let Some(repetition) = repetition {
+        return repetition
+            .checked_sub(1)
+            .and_then(|index| field.reps.get(index))
+            .and_then(|rep| condition_rep_value(rep, component, subcomponent))
+            .into_iter()
+            .collect();
+    }
+
+    field
+        .reps
+        .iter()
+        .filter_map(|rep| condition_rep_value(rep, component, subcomponent))
+        .collect()
+}
+
+fn condition_rep_value(
+    rep: &Rep,
+    component: Option<usize>,
+    subcomponent: Option<usize>,
+) -> Option<&str> {
+    let component_index = component.unwrap_or(1).checked_sub(1)?;
+    let subcomponent_index = subcomponent.unwrap_or(1).checked_sub(1)?;
+    let atom = rep
+        .comps
+        .get(component_index)?
+        .subs
+        .get(subcomponent_index)?;
+
+    match atom {
+        Atom::Text(text) => Some(text.as_str()),
+        Atom::Null => None,
+    }
+}
+
+fn trim_nonempty(value: &str) -> Option<&str> {
+    let value = value.trim();
+    if value.is_empty() { None } else { Some(value) }
+}
+
 // ============================================================================
 // Validation Rule Types (for profile-based validation)
 // ============================================================================
@@ -1020,7 +1120,7 @@ pub struct RuleAction {
 /// Check if a rule condition is met
 pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
     // Left-hand side (path) value:
-    let lhs = get_nonempty(msg, &condition.field);
+    let lhs_values = get_nonempty_values(msg, &condition.field);
 
     // Right-hand value(s):
     let rhs_first = condition.value.as_deref();
@@ -1030,64 +1130,45 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
 
     match condition.operator.as_str() {
         // value/string ops
-        "eq" => match (lhs, rhs_first) {
-            (Some(l), Some(r)) => l == r,
-            (None, Some(r)) => r.is_empty(), // treat empty LHS equal to empty RHS
-            (Some(l), None) => l.is_empty(),
-            (None, None) => true,
+        "eq" => match rhs_first {
+            Some(rhs) => {
+                lhs_values.iter().any(|lhs| lhs == &rhs)
+                    || (lhs_values.is_empty() && rhs.is_empty())
+            }
+            None => lhs_values.is_empty(),
         },
-        "ne" => match (lhs, rhs_first) {
-            (Some(l), Some(r)) => l != r,
-            (None, Some(r)) => !r.is_empty(),
-            (Some(l), None) => !l.is_empty(),
-            (None, None) => false,
+        "ne" => match rhs_first {
+            Some(rhs) => {
+                lhs_values.iter().any(|lhs| lhs != &rhs)
+                    || (lhs_values.is_empty() && !rhs.is_empty())
+            }
+            None => !lhs_values.is_empty(),
         },
         "contains" => {
             let needle = rhs_first.unwrap_or_default();
-            lhs.map(|l| l.contains(needle)).unwrap_or(false)
+            lhs_values.iter().any(|lhs| lhs.contains(needle))
         }
-        "in" => lhs.map(|l| rhs_list.contains(&l)).unwrap_or(false),
+        "in" => lhs_values.iter().any(|lhs| rhs_list.contains(lhs)),
         "matches_regex" => {
-            if let (Some(l), Some(pat)) = (lhs, rhs_first) {
+            if let Some(pat) = rhs_first {
                 // compile per-call for simplicity; optimize later with a cache if needed
-                Regex::new(pat).map(|re| re.is_match(l)).unwrap_or(false)
+                Regex::new(pat)
+                    .map(|re| lhs_values.iter().any(|lhs| re.is_match(lhs)))
+                    .unwrap_or(false)
             } else {
                 false
             }
         }
 
         // existence
-        "exists" => lhs.is_some(),
-        "not_exists" => lhs.is_none(),
+        "exists" => !lhs_values.is_empty(),
+        "not_exists" => lhs_values.is_empty(),
 
         // temporal: accepts HL7 TS or YYYYMMDD
-        "is_date" => lhs.and_then(parse_hl7_ts_with_precision).is_some(),
-        "before" => {
-            // Try to parse left-hand side
-            if let Some(lhs_ts) = lhs.and_then(parse_hl7_ts_with_precision) {
-                // Right-hand side can be either a literal value or a field path
-                let rhs_value = if let Some(rhs_field) = rhs_first {
-                    // Check if rhs_field is a valid field path by trying to get its value
-                    if let Some(rhs_val) = get_nonempty(msg, rhs_field) {
-                        Some(rhs_val)
-                    } else {
-                        // Treat as literal value
-                        Some(rhs_field)
-                    }
-                } else {
-                    None
-                };
-
-                // Try to parse right-hand side
-                if let Some(rhs_ts) = rhs_value.and_then(parse_hl7_ts_with_precision) {
-                    compare_timestamps_for_before(&lhs_ts, &rhs_ts)
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        }
+        "is_date" => lhs_values
+            .iter()
+            .any(|lhs| parse_hl7_ts_with_precision(lhs).is_some()),
+        "before" => check_before_condition(msg, &lhs_values, rhs_first),
         // numeric range over integers OR date range over TS
         "within_range" => {
             if rhs_list.len() != 2 {
@@ -1096,16 +1177,22 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
             let a = rhs_list[0];
             let b = rhs_list[1];
             // Try dates first
-            if let (Some(l), Some(lo), Some(hi)) =
-                (lhs.and_then(parse_hl7_ts), parse_hl7_ts(a), parse_hl7_ts(b))
+            if let (Some(lo), Some(hi)) = (parse_hl7_ts(a), parse_hl7_ts(b))
+                && lhs_values
+                    .iter()
+                    .filter_map(|lhs| parse_hl7_ts(lhs))
+                    .any(|lhs| lhs >= lo && lhs <= hi)
             {
-                return l >= lo && l <= hi;
+                return true;
             }
             // Fallback to integer range
-            if let (Some(l), Ok(lo), Ok(hi)) = (lhs, a.parse::<i64>(), b.parse::<i64>())
-                && let Ok(li) = l.parse::<i64>()
+            if let (Ok(lo), Ok(hi)) = (a.parse::<i64>(), b.parse::<i64>())
+                && lhs_values
+                    .iter()
+                    .filter_map(|lhs| lhs.parse::<i64>().ok())
+                    .any(|lhs| lhs >= lo && lhs <= hi)
             {
-                return li >= lo && li <= hi;
+                return true;
             }
             false
         }
@@ -1114,6 +1201,41 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
             false
         }
     }
+}
+
+fn check_before_condition(msg: &Message, lhs_values: &[&str], rhs_first: Option<&str>) -> bool {
+    let Some(rhs) = rhs_first else {
+        return false;
+    };
+    let rhs_values = get_nonempty_values(msg, rhs);
+
+    if rhs_values.is_empty() {
+        return lhs_values
+            .iter()
+            .any(|lhs| is_before_condition_value(lhs, rhs));
+    }
+
+    if rhs_values.len() == 1 {
+        return lhs_values
+            .iter()
+            .any(|lhs| is_before_condition_value(lhs, rhs_values[0]));
+    }
+
+    lhs_values
+        .iter()
+        .zip(rhs_values)
+        .any(|(lhs, rhs)| is_before_condition_value(lhs, rhs))
+}
+
+fn is_before_condition_value(lhs: &str, rhs: &str) -> bool {
+    let Some(lhs_ts) = parse_hl7_ts_with_precision(lhs) else {
+        return false;
+    };
+    let Some(rhs_ts) = parse_hl7_ts_with_precision(rhs) else {
+        return false;
+    };
+
+    compare_timestamps_for_before(&lhs_ts, &rhs_ts)
 }
 
 // ============================================================================
