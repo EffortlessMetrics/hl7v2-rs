@@ -2312,11 +2312,6 @@ fn format_profile_explain_report(
         ReportFormat::Json => Ok(serde_json::to_string_pretty(report)?),
         ReportFormat::Yaml => Ok(serde_yaml::to_string(report)?),
         ReportFormat::Text => {
-            let segment_ids = report
-                .segments
-                .iter()
-                .map(|segment| segment.id.clone())
-                .collect::<Vec<_>>();
             let required_paths = report
                 .required_fields
                 .iter()
@@ -2337,7 +2332,7 @@ fn format_profile_explain_report(
             lines.push(format!(
                 "  Segments: {} ({})",
                 report.summary.segment_count,
-                format_string_list(&segment_ids)
+                format_profile_explain_segment_list(&report.segments)
             ));
             lines.push(format!(
                 "  Required fields: {} ({})",
@@ -2404,6 +2399,32 @@ fn format_profile_explain_report(
             Ok(lines.join("\n"))
         }
     }
+}
+
+fn format_profile_explain_segment_list(segments: &[ProfileExplainSegment]) -> String {
+    if segments.is_empty() {
+        return "<none>".to_string();
+    }
+
+    segments
+        .iter()
+        .map(|segment| {
+            let mut flags = Vec::new();
+            if segment.required {
+                flags.push("required");
+            }
+            if segment.repetition {
+                flags.push("repeating");
+            }
+
+            if flags.is_empty() {
+                segment.id.clone()
+            } else {
+                format!("{} ({})", segment.id, flags.join(", "))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn format_string_list(values: &[String]) -> String {
