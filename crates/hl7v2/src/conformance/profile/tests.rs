@@ -567,6 +567,40 @@ PID|1||123^^^HOSP^MR||Doe^Jane||19800101|X\r",
     }
 
     #[test]
+    fn test_hl7_table_entries_accept_code_display_aliases() {
+        let y = r#"
+message_structure: "adt_table_entry_aliases"
+version: "2.5.1"
+segments:
+  - id: "PID"
+valuesets:
+  - path: "PID.8"
+    name: "Administrative Sex"
+    hl7_table: "HL70001"
+hl7_tables:
+  - id: "HL70001"
+    name: "Administrative Sex"
+    version: "2.5.1"
+    codes:
+      - code: "M"
+        display: "Male"
+      - code: "F"
+        display: "Female"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|ADT|FAC|EHR|FAC|20250101000000||ADT^A01|MSG1|P|2.5.1\r\
+PID|1||123^^^HOSP^MR||Doe^Jane||19800101|X\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(probs.len(), 1, "expected table alias issue: {probs:?}");
+        assert_eq!(probs[0].code, "VALUE_NOT_IN_HL7_TABLE");
+        assert_eq!(probs[0].path.as_deref(), Some("PID.8"));
+    }
+
+    #[test]
     fn test_advanced_datatype_checks_later_repetitions() {
         let y = r#"
 message_structure: "oru_repetitions"

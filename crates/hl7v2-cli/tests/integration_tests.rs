@@ -977,6 +977,36 @@ hl7_tables:
     }
 
     #[test]
+    fn test_profile_explain_json_accepts_public_example_table_entries() {
+        let profile_file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/profiles/ADT_A01.yaml");
+
+        let mut cmd = cli_command();
+        let output = cmd
+            .args([
+                "profile",
+                "explain",
+                profile_file.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("Failed to execute profile explain");
+
+        assert!(
+            output.status.success(),
+            "profile explain failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let report: serde_json::Value =
+            serde_json::from_slice(&output.stdout).expect("profile explain output should be JSON");
+        assert_eq!(report["message_structure"], "ADT_A01");
+        assert_eq!(report["summary"]["hl7_table_count"], 3);
+        assert_eq!(report["value_sets"][0]["source"], "hl7_table");
+        assert_eq!(report["value_sets"][0]["table_code_count"], 4);
+    }
+
+    #[test]
     fn test_profile_explain_json_schema_version_2_adds_provenance() {
         let dir = create_temp_dir();
         let profile_file = create_temp_profile(&dir, "profile.yaml", PID3_REQUIRED_PROFILE);
