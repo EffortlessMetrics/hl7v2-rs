@@ -169,13 +169,15 @@ fn merge_profiles(parent: Profile, child: Profile) -> Profile {
     }
 }
 
-/// Merge segment specifications, removing duplicates by ID
+/// Merge segment specifications, with child specs overriding parent specs by ID
 fn merge_segment_specs(parent: Vec<SegmentSpec>, child: Vec<SegmentSpec>) -> Vec<SegmentSpec> {
     let mut result: Vec<SegmentSpec> = parent;
 
-    // Add child segments that don't already exist in parent
+    // Add child segments, replacing any with the same ID.
     for child_segment in child {
-        if !result.iter().any(|s| s.id == child_segment.id) {
+        if let Some(pos) = result.iter().position(|s| s.id == child_segment.id) {
+            result[pos] = child_segment;
+        } else {
             result.push(child_segment);
         }
     }

@@ -26,6 +26,13 @@
       "type": "string",
       "description": "Human-readable description of this profile"
     },
+    "segments": {
+      "type": "array",
+      "description": "Segment declarations for validation",
+      "items": {
+        "$ref": "#/definitions/segment"
+      }
+    },
     "constraints": {
       "type": "array",
       "description": "Field-level constraints for validation",
@@ -52,6 +59,29 @@
     }
   },
   "definitions": {
+    "segment": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "HL7 segment identifier",
+          "pattern": "^[A-Z][A-Z0-9]{2}$",
+          "examples": ["MSH", "PID", "OBX"]
+        },
+        "required": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the segment must appear in messages validated by this profile"
+        },
+        "repetition": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the profile permits repeated occurrences of this segment"
+        }
+      },
+      "additionalProperties": true
+    },
     "constraint": {
       "type": "object",
       "required": ["path"],

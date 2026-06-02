@@ -136,6 +136,12 @@ pub struct Profile {
 pub struct SegmentSpec {
     /// Segment identifier (for example, `MSH`).
     pub id: String,
+    /// Whether this segment must appear in messages validated by this profile.
+    #[serde(default)]
+    pub required: bool,
+    /// Whether this profile permits repeated occurrences of this segment.
+    #[serde(default)]
+    pub repetition: bool,
 }
 
 /// Constraint on a field path
