@@ -202,8 +202,11 @@ pub struct LengthConstraint {
 pub struct ValueSet {
     /// Field path where this value set applies.
     pub path: String,
-    /// Name of the value set.
+    /// Name of the value set. For table-backed sets, this may be a display label.
     pub name: String,
+    /// HL7 table ID used when `name` is not the table identifier.
+    #[serde(default)]
+    pub hl7_table: Option<String>,
     /// Codes can be defined inline OR reference an HL7 table by name
     #[serde(default)]
     pub codes: Vec<String>,

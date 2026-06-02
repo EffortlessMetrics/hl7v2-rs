@@ -756,7 +756,7 @@ fn validate_advanced_data_type(
 
 /// Validate HL7 tables with precedence support
 fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
-    // Create a mapping of value set names to HL7 tables
+    // Create a mapping of HL7 table IDs to table definitions.
     let mut table_map: std::collections::HashMap<&str, &HL7Table> =
         std::collections::HashMap::new();
     for table in &profile.hl7_tables {
@@ -765,7 +765,7 @@ fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues:
 
     // Validate value sets with table precedence
     for valueset in &profile.valuesets {
-        if let Some(table_id) = table_map.get(valueset.name.as_str()) {
+        if let Some(table_id) = table_map.get(valueset_hl7_table_id(valueset)) {
             if let Some(value) = path_text_values(msg, &valueset.path)
                 .into_iter()
                 .filter(|value| !value.is_empty())
@@ -789,6 +789,14 @@ fn validate_hl7_tables_with_precedence(msg: &Message, profile: &Profile, issues:
             }
         }
     }
+}
+
+fn valueset_hl7_table_id(valueset: &ValueSet) -> &str {
+    valueset
+        .hl7_table
+        .as_deref()
+        .filter(|table_id| !table_id.trim().is_empty())
+        .unwrap_or(valueset.name.as_str())
 }
 
 /// Validate that a field value does not exceed the maximum length
