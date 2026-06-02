@@ -705,7 +705,43 @@ fn proto_location_from_issue_path(path: &str) -> Location {
         };
     }
 
+    if let Some(location) = proto_segment_occurrence_location_from_issue_path(path) {
+        return location;
+    }
+
     proto_location_from_legacy_issue_path(path)
+}
+
+fn proto_segment_occurrence_location_from_issue_path(path: &str) -> Option<Location> {
+    let path = path.trim();
+    if path.is_empty() || path.contains('.') || path.contains('-') {
+        return None;
+    }
+
+    let has_repetition_selector = path.contains('[');
+    let (segment, repetition) = if has_repetition_selector {
+        let without_closing_bracket = path.strip_suffix(']')?;
+        let (segment, repetition) = without_closing_bracket.split_once('[')?;
+        let repetition = repetition.parse::<usize>().ok()?;
+        (segment, repetition)
+    } else {
+        (path, 0)
+    };
+
+    if segment.is_empty()
+        || (has_repetition_selector && repetition == 0)
+        || !segment.chars().all(|ch| ch.is_ascii_alphanumeric())
+    {
+        return None;
+    }
+
+    Some(Location {
+        segment: segment.to_ascii_uppercase(),
+        field: 0,
+        component: 0,
+        repetition: usize_to_i32(repetition),
+        byte_offset: 0,
+    })
 }
 
 fn proto_location_from_legacy_issue_path(path: &str) -> Location {
