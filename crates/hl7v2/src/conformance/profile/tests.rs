@@ -541,6 +541,72 @@ OBX|1~2|NM|WBC^White Blood Count||\r",
     }
 
     #[test]
+    fn test_contextual_rule_checks_later_context_repetitions() {
+        let y = r#"
+message_structure: "oru_contextual_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+contextual_rules:
+  - id: "high-flag-note"
+    description: ""
+    context_field: "OBX.8"
+    context_value: "H"
+    target_field: "NTE.3"
+    validation_type: "require"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~H|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected contextual issue for later context repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CONTEXTUAL_VALIDATION_ERROR");
+        assert_eq!(probs[0].path.as_deref(), Some("NTE.3"));
+    }
+
+    #[test]
+    fn test_contextual_rule_validates_later_target_repetitions() {
+        let y = r#"
+message_structure: "oru_contextual_target_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+contextual_rules:
+  - id: "high-flag-numeric-value"
+    description: ""
+    context_field: "OBX.8"
+    context_value: "H"
+    target_field: "OBX.5"
+    validation_type: "validate_datatype"
+    parameters:
+      datatype: "NM"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2~BAD|10^9/L|4.0-11.0|H|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected contextual datatype issue for later target repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CONTEXTUAL_VALIDATION_ERROR");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.5"));
+    }
+
+    #[test]
     fn test_custom_rule_length_checks_later_repetitions() {
         let y = r#"
 message_structure: "oru_custom_repetitions"
