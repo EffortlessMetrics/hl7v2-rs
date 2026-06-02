@@ -130,6 +130,76 @@ cross_field_rules:
     }
 
     #[test]
+    fn test_temporal_rule_checks_later_repetitions() {
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20240101~20250101\r");
+        msg.push_str("ORC|RE|||20240201~20240101\r");
+
+        let y = r#"
+message_structure: "temporal_rule_repetitions"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 date should be before ORC date"
+    before: "PV1.10"
+    after: "ORC.4"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected temporal rule issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "TEMPORAL_RULE_VIOLATION");
+        assert_eq!(probs[0].path.as_deref(), Some("PV1.10"));
+    }
+
+    #[test]
+    fn test_temporal_rule_reports_invalid_later_repetition() {
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M||||||||||||||||\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20240101~BAD\r");
+        msg.push_str("ORC|RE|||20240201~20250101\r");
+
+        let y = r#"
+message_structure: "temporal_rule_invalid_repetitions"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 date should be before ORC date"
+    before: "PV1.10"
+    after: "ORC.4"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected invalid datetime issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "INVALID_DATETIME");
+        assert_eq!(probs[0].path.as_deref(), Some("PV1.10"));
+    }
+
+    #[test]
     fn debug_compare_same_dates() {
         let date_str = "20241201";
         let ts1 = parse_hl7_ts_with_precision(date_str).unwrap();

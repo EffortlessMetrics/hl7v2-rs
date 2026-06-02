@@ -796,41 +796,40 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
 
 /// Validate temporal rule (date/time relationships)
 fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<Issue>) {
-    if let (Some(before_value), Some(after_value)) = (
-        crate::query::get(msg, &rule.before),
-        crate::query::get(msg, &rule.after),
-    ) {
-        // Parse the date/time values
-        if let (Some(before_time), Some(after_time)) =
-            (parse_datetime(before_value), parse_datetime(after_value))
-        {
-            // Check if before_time should be before after_time
-            let is_valid = if rule.allow_equal {
-                before_time <= after_time
-            } else {
-                before_time < after_time
-            };
+    let before_values = condition_text_values(msg, &rule.before);
+    let after_values = condition_text_values(msg, &rule.after);
 
-            if !is_valid {
-                issues.push(Issue::error(
-                    "TEMPORAL_RULE_VIOLATION",
-                    Some(rule.before.clone()),
-                    format!(
-                        "Value '{}' for {} should be before {} for {}",
-                        before_value, rule.before, after_value, rule.after
-                    ),
-                ));
-            }
-        } else {
-            // Handle the case where the date/time parsing fails
+    for (before_value, after_value) in before_values.into_iter().zip(after_values) {
+        let (Some(before_time), Some(after_time)) =
+            (parse_datetime(before_value), parse_datetime(after_value))
+        else {
             issues.push(Issue::error(
                 "INVALID_DATETIME",
                 Some(rule.before.clone()),
                 format!(
-                    "Invalid date/time value for {} or {}",
-                    rule.before, rule.after
+                    "Invalid date/time value '{}' for {} or '{}' for {}",
+                    before_value, rule.before, after_value, rule.after
                 ),
             ));
+            return;
+        };
+
+        let is_valid = if rule.allow_equal {
+            before_time <= after_time
+        } else {
+            before_time < after_time
+        };
+
+        if !is_valid {
+            issues.push(Issue::error(
+                "TEMPORAL_RULE_VIOLATION",
+                Some(rule.before.clone()),
+                format!(
+                    "Value '{}' for {} should be before {} for {}",
+                    before_value, rule.before, after_value, rule.after
+                ),
+            ));
+            return;
         }
     }
 }
