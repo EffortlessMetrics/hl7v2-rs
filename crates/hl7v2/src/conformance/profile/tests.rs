@@ -1235,4 +1235,40 @@ description: "profile metadata"
                 .any(|issue| issue.path.as_deref() == Some("rules"))
         );
     }
+
+    #[test]
+    fn test_lint_profile_yaml_warns_for_ignored_expression_guardrail_keys() {
+        let y = r#"
+message_structure: "ADT_A01"
+version: "2.5.1"
+segments:
+  - id: "MSH"
+expression_guardrails:
+  max_complexity: 10
+  max_nesting_depth: 3
+  allow_field_comparisons: true
+"#;
+
+        let report = lint_profile_yaml(y);
+        let ignored_guardrail_paths = report
+            .issues
+            .iter()
+            .filter(|issue| issue.code == "unknown_expression_guardrail_key")
+            .filter_map(|issue| issue.path.as_deref())
+            .collect::<Vec<_>>();
+
+        assert!(
+            report.valid,
+            "ignored guardrail warnings should not fail profile lint: {report:?}"
+        );
+        assert_eq!(report.warning_count, 3, "unexpected warnings: {report:?}");
+        assert_eq!(
+            ignored_guardrail_paths,
+            vec![
+                "expression_guardrails.max_complexity",
+                "expression_guardrails.max_nesting_depth",
+                "expression_guardrails.allow_field_comparisons",
+            ]
+        );
+    }
 }
