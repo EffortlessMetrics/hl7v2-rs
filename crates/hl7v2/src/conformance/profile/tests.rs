@@ -500,6 +500,80 @@ OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|OK~N|||F\r",
     }
 
     #[test]
+    fn test_custom_rule_in_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_custom_in_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+custom_rules:
+  - id: "abnormal-flag-values"
+    description: ""
+    script: "field(OBX.8) in ['N', 'H']"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|N~BAD|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected custom rule issue for later repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CUSTOM_RULE_VIOLATION");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+    }
+
+    #[test]
+    fn test_custom_rule_unary_predicates_check_later_repetitions() {
+        let cases = [
+            ("field(OBX.8).matches_regex('^N$')", "N~BAD"),
+            ("field(OBX.8).starts_with('N')", "N~BAD"),
+            ("field(OBX.8).ends_with('N')", "N~BAD"),
+            ("field(OBX.8).is_numeric()", "7~BAD"),
+            ("field(OBX.8).is_phone_number()", "555-123-4567~BAD"),
+            ("field(OBX.8).is_email()", "ops@example.org~BAD"),
+            ("field(OBX.8).is_ssn()", "123-45-6789~BAD"),
+            ("field(OBX.8).is_valid_birth_date()", "19800101~29990101"),
+            ("field(OBX.8) between 1 and 5", "3~9"),
+        ];
+
+        for (script, value) in cases {
+            let y = format!(
+                r#"
+message_structure: "oru_custom_predicate_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+custom_rules:
+  - id: "predicate"
+    description: ""
+    script: "{script}"
+"#
+            );
+            let message = format!(
+                "MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|ST|FLAG^Flag||text|unit|range|{value}|||F\r"
+            );
+            let msg = parse(message.as_bytes()).unwrap();
+            let p: Profile = load_profile(&y).unwrap();
+            let probs = validate(&msg, &p);
+
+            assert_eq!(
+                probs.len(),
+                1,
+                "expected custom rule issue for script {script}: {probs:?}"
+            );
+            assert_eq!(probs[0].code, "CUSTOM_RULE_VIOLATION");
+            assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+        }
+    }
+
+    #[test]
     fn test_custom_rule_length_keeps_unqualified_path_scalar() {
         let y = r#"
 message_structure: "oru_custom_scalar"

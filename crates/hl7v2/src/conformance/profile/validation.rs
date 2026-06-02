@@ -268,6 +268,16 @@ fn condition_text_values<'a>(msg: &'a Message, path: &str) -> Vec<&'a str> {
     )
 }
 
+fn first_condition_value_matching<'a>(
+    msg: &'a Message,
+    path: &str,
+    mut predicate: impl FnMut(&str) -> bool,
+) -> Option<&'a str> {
+    condition_text_values(msg, path)
+        .into_iter()
+        .find(|value| predicate(value))
+}
+
 fn field_condition_text_values(
     field: &Field,
     repetition: Option<usize>,
@@ -838,9 +848,8 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let required_length: usize = captures[2].parse().map_err(|_| ())?;
 
-            if let Some(value) = condition_text_values(msg, path)
-                .into_iter()
-                .find(|value| value.len() <= required_length)
+            if let Some(value) =
+                first_condition_value_matching(msg, path, |value| value.len() <= required_length)
             {
                 issues.push(Issue::error(
                     "CUSTOM_RULE_VIOLATION",
@@ -868,28 +877,28 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let values_str = &captures[2];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                // Parse the allowed values
-                let allowed_values: Vec<&str> = values_str
-                    .split(',')
-                    .map(str::trim)
-                    .map(|s| s.trim_matches('\''))
-                    .collect();
+            // Parse the allowed values
+            let allowed_values: Vec<&str> = values_str
+                .split(',')
+                .map(str::trim)
+                .map(|s| s.trim_matches('\''))
+                .collect();
 
-                if !allowed_values.contains(&value) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' is not in allowed set {:?}",
-                                path, value, allowed_values
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) =
+                first_condition_value_matching(msg, path, |value| !allowed_values.contains(&value))
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' is not in allowed set {:?}",
+                            path, value, allowed_values
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -902,22 +911,22 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let pattern = &captures[2];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                let regex = Regex::new(pattern).map_err(|_| ())?;
-                if !regex.is_match(value) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' does not match pattern '{}'",
-                                path, value, pattern
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            let regex = Regex::new(pattern).map_err(|_| ())?;
+            if let Some(value) =
+                first_condition_value_matching(msg, path, |value| !regex.is_match(value))
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' does not match pattern '{}'",
+                            path, value, pattern
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -930,21 +939,21 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let prefix = &captures[2];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if !value.starts_with(prefix) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' does not start with '{}'",
-                                path, value, prefix
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) =
+                first_condition_value_matching(msg, path, |value| !value.starts_with(prefix))
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' does not start with '{}'",
+                            path, value, prefix
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -957,21 +966,21 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let suffix = &captures[2];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if !value.ends_with(suffix) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' does not end with '{}'",
-                                path, value, suffix
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) =
+                first_condition_value_matching(msg, path, |value| !value.ends_with(suffix))
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' does not end with '{}'",
+                            path, value, suffix
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -983,18 +992,18 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if !value.chars().all(|c| c.is_ascii_digit()) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!("Field {} value '{}' is not numeric", path, value)
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) = first_condition_value_matching(msg, path, |value| {
+                !value.chars().all(|c| c.is_ascii_digit())
+            }) {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!("Field {} value '{}' is not numeric", path, value)
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -1035,21 +1044,21 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if !is_phone_number(value) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' is not a valid phone number",
-                                path, value
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) =
+                first_condition_value_matching(msg, path, |value| !is_phone_number(value))
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' is not a valid phone number",
+                            path, value
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -1061,21 +1070,20 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if !is_email(value) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' is not a valid email address",
-                                path, value
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) = first_condition_value_matching(msg, path, |value| !is_email(value))
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' is not a valid email address",
+                            path, value
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -1087,18 +1095,16 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if !is_ssn(value) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!("Field {} value '{}' is not a valid SSN", path, value)
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) = first_condition_value_matching(msg, path, |value| !is_ssn(value)) {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!("Field {} value '{}' is not a valid SSN", path, value)
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -1110,18 +1116,18 @@ fn evaluate_custom_rule_script(
         if let Some(captures) = re.captures(script) {
             let path = &captures[1];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if !is_valid_birth_date(value) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!("Field {} value '{}' is not a valid birth date", path, value)
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) =
+                first_condition_value_matching(msg, path, |value| !is_valid_birth_date(value))
+            {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!("Field {} value '{}' is not a valid birth date", path, value)
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -1163,21 +1169,21 @@ fn evaluate_custom_rule_script(
             let min_val = &captures[2];
             let max_val = &captures[3];
 
-            if let Some(value) = crate::query::get(msg, path) {
-                if !is_within_range(value, min_val, max_val) {
-                    issues.push(Issue::error(
-                        "CUSTOM_RULE_VIOLATION",
-                        Some(path.to_string()),
-                        if rule.description.is_empty() {
-                            format!(
-                                "Field {} value '{}' is not between {} and {}",
-                                path, value, min_val, max_val
-                            )
-                        } else {
-                            rule.description.clone()
-                        },
-                    ));
-                }
+            if let Some(value) = first_condition_value_matching(msg, path, |value| {
+                !is_within_range(value, min_val, max_val)
+            }) {
+                issues.push(Issue::error(
+                    "CUSTOM_RULE_VIOLATION",
+                    Some(path.to_string()),
+                    if rule.description.is_empty() {
+                        format!(
+                            "Field {} value '{}' is not between {} and {}",
+                            path, value, min_val, max_val
+                        )
+                    } else {
+                        rule.description.clone()
+                    },
+                ));
             }
             return Ok(());
         }
@@ -1205,9 +1211,9 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
             let path = &rule.script[6..path_end];
             let length_str = &rule.script[path_end + 13..];
             if let Ok(required_length) = length_str.parse::<usize>()
-                && let Some(value) = condition_text_values(msg, path)
-                    .into_iter()
-                    .find(|value| value.len() <= required_length)
+                && let Some(value) = first_condition_value_matching(msg, path, |value| {
+                    value.len() <= required_length
+                })
             {
                 issues.push(Issue::error(
                     "CUSTOM_RULE_VIOLATION",
@@ -1229,31 +1235,31 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
         // Pattern: "field(PATH) in ['A', 'B', 'C']"
         if let Some(path_end) = rule.script.find(") in [") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = crate::query::get(msg, path) {
-                // Extract the allowed values
-                let values_part = &rule.script[path_end + 7..];
-                if let Some(values_str) = values_part.strip_suffix("]") {
-                    // Split by comma and remove quotes
-                    let allowed_values: Vec<&str> = values_str
-                        .split(',')
-                        .map(str::trim)
-                        .map(|s| s.trim_matches('\''))
-                        .collect();
+            // Extract the allowed values
+            let values_part = &rule.script[path_end + 7..];
+            if let Some(values_str) = values_part.strip_suffix("]") {
+                // Split by comma and remove quotes
+                let allowed_values: Vec<&str> = values_str
+                    .split(',')
+                    .map(str::trim)
+                    .map(|s| s.trim_matches('\''))
+                    .collect();
 
-                    if !allowed_values.contains(&value) {
-                        issues.push(Issue::error(
-                            "CUSTOM_RULE_VIOLATION",
-                            Some(path.to_string()),
-                            if rule.description.is_empty() {
-                                format!(
-                                    "Field {} value '{}' is not in allowed set {:?}",
-                                    path, value, allowed_values
-                                )
-                            } else {
-                                rule.description.clone()
-                            },
-                        ));
-                    }
+                if let Some(value) = first_condition_value_matching(msg, path, |value| {
+                    !allowed_values.contains(&value)
+                }) {
+                    issues.push(Issue::error(
+                        "CUSTOM_RULE_VIOLATION",
+                        Some(path.to_string()),
+                        if rule.description.is_empty() {
+                            format!(
+                                "Field {} value '{}' is not in allowed set {:?}",
+                                path, value, allowed_values
+                            )
+                        } else {
+                            rule.description.clone()
+                        },
+                    ));
                 }
             }
         }
@@ -1261,27 +1267,27 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
         // Pattern: "field(PATH).matches_regex('PATTERN')"
         if let Some(path_end) = rule.script.find(").matches_regex(") {
             let path = &rule.script[6..path_end];
-            if let Some(value) = crate::query::get(msg, path) {
-                // Extract the regex pattern
-                let pattern_part = &rule.script[path_end + 15..];
-                if pattern_part.starts_with('\'') && pattern_part.ends_with("')") {
-                    let pattern = &pattern_part[1..pattern_part.len() - 2];
-                    // Simple regex matching (in a real implementation, we would use regex crate)
-                    if !value.contains(pattern) && pattern != ".*" {
-                        // This is a very simplified check - just for demonstration
-                        issues.push(Issue::error(
-                            "CUSTOM_RULE_VIOLATION",
-                            Some(path.to_string()),
-                            if rule.description.is_empty() {
-                                format!(
-                                    "Field {} value '{}' does not match pattern '{}'",
-                                    path, value, pattern
-                                )
-                            } else {
-                                rule.description.clone()
-                            },
-                        ));
-                    }
+            // Extract the regex pattern
+            let pattern_part = &rule.script[path_end + 15..];
+            if pattern_part.starts_with('\'') && pattern_part.ends_with("')") {
+                let pattern = &pattern_part[1..pattern_part.len() - 2];
+                // Simple regex matching (in a real implementation, we would use regex crate)
+                if let Some(value) = first_condition_value_matching(msg, path, |value| {
+                    !value.contains(pattern) && pattern != ".*"
+                }) {
+                    // This is a very simplified check - just for demonstration
+                    issues.push(Issue::error(
+                        "CUSTOM_RULE_VIOLATION",
+                        Some(path.to_string()),
+                        if rule.description.is_empty() {
+                            format!(
+                                "Field {} value '{}' does not match pattern '{}'",
+                                path, value, pattern
+                            )
+                        } else {
+                            rule.description.clone()
+                        },
+                    ));
                 }
             }
         }
