@@ -574,6 +574,64 @@ OBX|1|ST|FLAG^Flag||text|unit|range|{value}|||F\r"
     }
 
     #[test]
+    fn test_custom_rule_field_equality_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_custom_pair_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+custom_rules:
+  - id: "flag-pairs-match"
+    description: ""
+    script: "field(OBX.8) == field(OBX.9)"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|ST|FLAG^Flag||text|unit|range|N~BAD|N~N||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected custom rule issue for later paired repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CUSTOM_RULE_VIOLATION");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+    }
+
+    #[test]
+    fn test_custom_rule_age_range_checks_later_repetitions() {
+        let y = r#"
+message_structure: "oru_custom_pair_repetitions"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+custom_rules:
+  - id: "age-range"
+    description: ""
+    script: "is_valid_age_range(field(OBX.7), field(OBX.8))"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|ST|DATES^Dates||text|unit|19800101~20250101|20200101~20240101||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected custom rule issue for later age-range repetition: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CUSTOM_RULE_VIOLATION");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.7"));
+    }
+
+    #[test]
     fn test_custom_rule_length_keeps_unqualified_path_scalar() {
         let y = r#"
 message_structure: "oru_custom_scalar"
