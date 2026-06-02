@@ -6,6 +6,8 @@ use super::*;
 pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
     let mut issues = Vec::new();
 
+    validate_required_segments(msg, profile, &mut issues);
+
     // Validate constraints (including conditional ones)
     for constraint in &profile.constraints {
         if should_validate_constraint(msg, constraint) {
@@ -79,6 +81,27 @@ pub fn validate(msg: &Message, profile: &Profile) -> Vec<Issue> {
     }
 
     issues
+}
+
+fn validate_required_segments(msg: &Message, profile: &Profile, issues: &mut Vec<Issue>) {
+    for segment in &profile.segments {
+        if !segment.required {
+            continue;
+        }
+        if msg
+            .segments
+            .iter()
+            .any(|actual| actual.id_str() == segment.id)
+        {
+            continue;
+        }
+
+        issues.push(Issue::error(
+            "MISSING_REQUIRED_SEGMENT",
+            Some(segment.id.clone()),
+            format!("Required segment {} is missing", segment.id),
+        ));
+    }
 }
 
 #[cfg(test)]

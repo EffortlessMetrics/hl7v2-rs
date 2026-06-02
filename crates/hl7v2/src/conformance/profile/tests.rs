@@ -40,6 +40,36 @@ constraints:
     }
 
     #[test]
+    fn test_required_segment_specs_report_missing_segments() {
+        let y = r#"
+message_structure: "oru_required_segments"
+version: "2.5.1"
+segments:
+  - id: "MSH"
+    required: true
+  - id: "PID"
+    required: true
+  - id: "PV1"
+    required: false
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|ST|STATUS^Status||Final\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected only missing required PID segment: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "MISSING_REQUIRED_SEGMENT");
+        assert_eq!(probs[0].path.as_deref(), Some("PID"));
+    }
+
+    #[test]
     fn test_cross_field_equals() {
         let y = r#"
 message_structure: "xfield"
@@ -963,7 +993,10 @@ custom_rules:
 
 #[cfg(test)]
 mod profile_load_error_tests {
-    use super::super::{ProfileLoadError, load_profile_checked, load_profile_with_inheritance};
+    use super::super::{
+        ProfileLoadError, load_profile_checked, load_profile_with_inheritance, validate,
+    };
+    use crate::parse;
 
     #[test]
     fn test_load_profile_checked_valid() {
@@ -1081,6 +1114,42 @@ segments:
             Err(ProfileLoadError::InheritanceCycle(ref cycle))
                 if cycle == "base -> loop -> base"
         ));
+    }
+
+    #[test]
+    fn test_load_profile_with_inheritance_child_segment_flags_override_parent() {
+        let child = r#"
+message_structure: "CHILD"
+version: "2.5.1"
+parent: "base"
+segments:
+  - id: "PID"
+    required: true
+"#;
+
+        let profile = load_profile_with_inheritance(child, |name| match name {
+            "base" => load_profile_checked(
+                r#"
+message_structure: "BASE"
+version: "2.5.1"
+segments:
+  - id: "PID"
+"#,
+            ),
+            other => Err(ProfileLoadError::ParentNotFound(other.to_string())),
+        })
+        .unwrap();
+
+        let message =
+            parse(b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r").unwrap();
+        let issues = validate(&message, &profile);
+
+        assert!(
+            issues.iter().any(|issue| {
+                issue.code == "MISSING_REQUIRED_SEGMENT" && issue.path.as_deref() == Some("PID")
+            }),
+            "expected child required segment flag to survive inheritance: {issues:?}"
+        );
     }
 }
 
