@@ -220,6 +220,15 @@ const PROFILE_REPETITION_SEMANTICS: &[RepetitionSemanticsCase] = &[
         validation_path: "custom_rules.pair_predicates",
         collector: "first_condition_pair_matching",
     },
+    // MSH-1 is delimiter metadata, not a stored repeated field.
+    RepetitionSemanticsCase {
+        validation_path: "helpers.condition_text_values.msh_field_separator",
+        collector: "justified_msh_field_separator_scalar_lookup",
+    },
+    RepetitionSemanticsCase {
+        validation_path: "helpers.path_text_values.msh_field_separator",
+        collector: "justified_msh_field_separator_scalar_lookup",
+    },
 ];
 
 /// Validate that a required field is present
@@ -1701,6 +1710,7 @@ mod repetition_semantics_tests {
             "field_component_counts",
             "check_rule_condition",
             "segment_occurrence_count",
+            "justified_msh_field_separator_scalar_lookup",
         ];
         const EXPECTED_PATHS: &[&str] = &[
             "segments.repetition",
@@ -1727,6 +1737,8 @@ mod repetition_semantics_tests {
             "contextual.validate_valueset",
             "custom_rules.unary_predicates",
             "custom_rules.pair_predicates",
+            "helpers.condition_text_values.msh_field_separator",
+            "helpers.path_text_values.msh_field_separator",
         ];
 
         let mut seen = BTreeSet::new();
@@ -1758,5 +1770,28 @@ mod repetition_semantics_tests {
                 "missing repetition semantics path {path}"
             );
         }
+    }
+
+    #[test]
+    fn profile_validation_query_lookups_are_classified() {
+        let source = include_str!("validation.rs");
+        let scalar_query_get = concat!("crate::query::", "get(");
+
+        assert!(
+            !source.contains(scalar_query_get),
+            "profile validation must use repetition-aware collectors, not scalar query get"
+        );
+
+        let located_query_get = concat!("crate::query::", "get_located(");
+        let located_lookup_count = source.matches(located_query_get).count();
+        let justified_lookup_count = PROFILE_REPETITION_SEMANTICS
+            .iter()
+            .filter(|case| case.collector == "justified_msh_field_separator_scalar_lookup")
+            .count();
+
+        assert_eq!(
+            located_lookup_count, justified_lookup_count,
+            "profile validation get_located fallbacks must be classified in the repetition semantics matrix"
+        );
     }
 }
