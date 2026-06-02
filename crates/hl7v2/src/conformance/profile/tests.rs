@@ -1362,6 +1362,35 @@ segments:
     }
 
     #[test]
+    fn test_lint_profile_yaml_warns_for_ignored_constraint_keys() {
+        let y = r#"
+message_structure: "ADT_A01"
+version: "2.5.1"
+segments:
+  - id: "PID"
+constraints:
+  - path: "PID.3"
+    required: true
+    datatype: "CX"
+"#;
+
+        let report = lint_profile_yaml(y);
+
+        assert!(report.valid, "warnings should not fail profile lint");
+        assert_eq!(report.warning_count, 1, "unexpected warnings: {report:?}");
+        assert_eq!(report.issues[0].code, "unknown_constraint_key");
+        assert_eq!(report.issues[0].severity, ProfileLintSeverity::Warning);
+        assert_eq!(
+            report.issues[0].path.as_deref(),
+            Some("constraints[0].datatype")
+        );
+        assert!(
+            report.issues[0].message.contains("ignored"),
+            "warning should explain that datatype is ignored: {report:?}"
+        );
+    }
+
+    #[test]
     fn test_lint_profile_yaml_warns_for_ignored_expression_guardrail_keys() {
         let y = r#"
 message_structure: "ADT_A01"
