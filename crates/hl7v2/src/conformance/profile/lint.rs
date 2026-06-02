@@ -137,6 +137,8 @@ pub fn explain_profile(
             .iter()
             .map(|segment| ProfileExplainSegment {
                 id: segment.id.clone(),
+                required: segment.required,
+                repetition: segment.repetition,
             })
             .collect(),
         required_fields,

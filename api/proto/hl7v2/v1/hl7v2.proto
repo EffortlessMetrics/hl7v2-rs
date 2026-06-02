@@ -378,6 +378,8 @@ message ProfileExplainSummary {
 
 message ProfileExplainSegment {
   string id = 1;
+  bool required = 2;
+  bool repetition = 3;
 }
 
 message ProfileExplainRequiredField {

@@ -111,7 +111,9 @@ message_structure: "ADT_A01"
 version: "2.5"
 segments:
   - id: "MSH"
+    required: true
   - id: "PID"
+    repetition: true
 constraints:
   - path: "PID.3"
     required: true
@@ -790,7 +792,11 @@ unknown_top_level: "ignored"
         assert_eq!(summary.required_field_count, 1);
         assert_eq!(summary.field_constraint_count, 1);
         assert_eq!(report.segments[0].id, "MSH");
+        assert!(report.segments[0].required);
+        assert!(!report.segments[0].repetition);
         assert_eq!(report.segments[1].id, "PID");
+        assert!(!report.segments[1].required);
+        assert!(report.segments[1].repetition);
         assert_eq!(report.required_fields[0].path, "PID.3");
         assert!(!report.required_fields[0].conditional);
         assert_eq!(report.field_constraints[0].path, "PID.3");

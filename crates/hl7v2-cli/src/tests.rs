@@ -450,6 +450,43 @@ constraints:
         }
     }
 
+    mod profile_explain_command {
+        use super::*;
+
+        #[test]
+        fn test_profile_explain_json_reports_segment_flags() {
+            let profile_yaml = r#"
+message_structure: ADT_A01
+version: "2.5.1"
+segments:
+  - id: MSH
+    required: true
+  - id: OBX
+    repetition: true
+"#;
+            let profile = hl7v2::load_profile_checked(profile_yaml).expect("profile should load");
+            let lint = hl7v2::lint_profile_yaml(profile_yaml);
+            let report = crate::build_profile_explain_report(
+                &PathBuf::from("profile.yaml"),
+                profile_yaml,
+                &profile,
+                &lint,
+            );
+            let output =
+                crate::format_profile_explain_report(&report, &crate::ReportFormat::Json, 1)
+                    .expect("profile explain should format as JSON");
+            let json: serde_json::Value =
+                serde_json::from_str(&output).expect("profile explain JSON should parse");
+
+            assert_eq!(json["segments"][0]["id"], "MSH");
+            assert_eq!(json["segments"][0]["required"], true);
+            assert_eq!(json["segments"][0]["repetition"], false);
+            assert_eq!(json["segments"][1]["id"], "OBX");
+            assert_eq!(json["segments"][1]["required"], false);
+            assert_eq!(json["segments"][1]["repetition"], true);
+        }
+    }
+
     // =========================================================================
     // ACK Generation Tests
     // =========================================================================

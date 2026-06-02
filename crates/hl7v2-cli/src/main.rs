@@ -176,6 +176,8 @@ struct ProfileExplainSummary {
 #[derive(serde::Serialize)]
 struct ProfileExplainSegment {
     id: String,
+    required: bool,
+    repetition: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -1690,6 +1692,8 @@ fn build_profile_explain_report(
             .iter()
             .map(|segment| ProfileExplainSegment {
                 id: segment.id.clone(),
+                required: segment.required,
+                repetition: segment.repetition,
             })
             .collect(),
         required_fields,
