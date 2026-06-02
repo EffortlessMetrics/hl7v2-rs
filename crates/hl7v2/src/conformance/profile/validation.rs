@@ -1453,110 +1453,86 @@ fn validate_contextual_rule(
     profile: &Profile,
     issues: &mut Vec<Issue>,
 ) {
-    // Check if the context field has the expected value
-    if let Some(context_value) = crate::query::get(msg, &rule.context_field) {
-        if context_value == rule.context_value {
-            // Apply the validation based on validation_type
-            match rule.validation_type.as_str() {
-                "require" => {
-                    // Check if the target field exists and is not empty
-                    if let Some(value) = crate::query::get(msg, &rule.target_field) {
-                        if value.is_empty() {
-                            issues.push(Issue::error(
-                                "CONTEXTUAL_VALIDATION_ERROR",
-                                Some(rule.target_field.clone()),
-                                if rule.description.is_empty() {
-                                    format!(
-                                        "Field {} is required when {} equals {}",
-                                        rule.target_field, rule.context_field, rule.context_value
-                                    )
-                                } else {
-                                    rule.description.clone()
-                                },
-                            ));
-                        }
-                    } else {
-                        issues.push(Issue::error(
-                            "CONTEXTUAL_VALIDATION_ERROR",
-                            Some(rule.target_field.clone()),
-                            if rule.description.is_empty() {
-                                format!(
-                                    "Field {} is required when {} equals {}",
-                                    rule.target_field, rule.context_field, rule.context_value
-                                )
-                            } else {
-                                rule.description.clone()
-                            },
-                        ));
-                    }
-                }
-                "prohibit" => {
-                    // Check if the target field exists and is not empty
-                    if let Some(value) = crate::query::get(msg, &rule.target_field) {
-                        if !value.is_empty() {
-                            issues.push(Issue::error(
-                                "CONTEXTUAL_VALIDATION_ERROR",
-                                Some(rule.target_field.clone()),
-                                if rule.description.is_empty() {
-                                    format!(
-                                        "Field {} is prohibited when {} equals {}",
-                                        rule.target_field, rule.context_field, rule.context_value
-                                    )
-                                } else {
-                                    rule.description.clone()
-                                },
-                            ));
-                        }
-                    }
-                    // If the field doesn't exist at all, that's fine (it's not present)
-                }
-                "validate_datatype" => {
-                    // Validate target field against specified data type
-                    if let Some(datatype) = rule.parameters.get("datatype") {
-                        if let Some(value) = crate::query::get(msg, &rule.target_field) {
-                            if !validate_data_type(value, datatype) {
-                                issues.push(Issue::error(
-                                    "CONTEXTUAL_VALIDATION_ERROR",
-                                    Some(rule.target_field.clone()),
-                                    if rule.description.is_empty() {
-                                        format!("Field {} does not match data type {} required when {} equals {}", 
-                                               rule.target_field, datatype, rule.context_field, rule.context_value)
-                                    } else {
-                                        rule.description.clone()
-                                    },
-                                ));
-                            }
-                        }
-                    }
-                }
-                "validate_valueset" => {
-                    // Validate target field against specified value set
-                    if let Some(valueset_name) = rule.parameters.get("valueset") {
-                        if let Some(value) = crate::query::get(msg, &rule.target_field) {
-                            // Find the value set in the profile
-                            if let Some(valueset) = find_valueset_by_name(profile, valueset_name) {
-                                if !valueset.codes.contains(&value.to_string()) {
-                                    issues.push(Issue::error(
-                                        "CONTEXTUAL_VALIDATION_ERROR",
-                                        Some(rule.target_field.clone()),
-                                        if rule.description.is_empty() {
-                                            format!("Value '{}' for {} is not in value set {} required when {} equals {}", 
-                                                   value, rule.target_field, valueset_name, rule.context_field, rule.context_value)
-                                        } else {
-                                            rule.description.clone()
-                                        },
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    // Unknown validation type, ignore
-                }
+    if !condition_text_values(msg, &rule.context_field)
+        .into_iter()
+        .any(|context_value| context_value == rule.context_value)
+    {
+        return;
+    }
+
+    match rule.validation_type.as_str() {
+        "require" if !required_path_has_value(msg, &rule.target_field) => {
+            issues.push(contextual_issue(
+                rule,
+                format!(
+                    "Field {} is required when {} equals {}",
+                    rule.target_field, rule.context_field, rule.context_value
+                ),
+            ));
+        }
+        "prohibit"
+            if path_text_values(msg, &rule.target_field)
+                .into_iter()
+                .any(|value| !value.is_empty()) =>
+        {
+            issues.push(contextual_issue(
+                rule,
+                format!(
+                    "Field {} is prohibited when {} equals {}",
+                    rule.target_field, rule.context_field, rule.context_value
+                ),
+            ));
+        }
+        "require" | "prohibit" => {}
+        "validate_datatype" => {
+            if let Some(datatype) = rule.parameters.get("datatype")
+                && path_text_values(msg, &rule.target_field)
+                    .into_iter()
+                    .any(|value| !validate_data_type(value, datatype))
+            {
+                issues.push(contextual_issue(
+                    rule,
+                    format!(
+                        "Field {} does not match data type {} required when {} equals {}",
+                        rule.target_field, datatype, rule.context_field, rule.context_value
+                    ),
+                ));
             }
         }
+        "validate_valueset" => {
+            if let Some(valueset_name) = rule.parameters.get("valueset")
+                && let Some(valueset) = find_valueset_by_name(profile, valueset_name)
+                && let Some(value) = path_text_values(msg, &rule.target_field)
+                    .into_iter()
+                    .find(|value| !valueset.codes.iter().any(|code| code.as_str() == *value))
+            {
+                issues.push(contextual_issue(
+                    rule,
+                    format!(
+                        "Value '{}' for {} is not in value set {} required when {} equals {}",
+                        value,
+                        rule.target_field,
+                        valueset_name,
+                        rule.context_field,
+                        rule.context_value
+                    ),
+                ));
+            }
+        }
+        _ => {}
     }
+}
+
+fn contextual_issue(rule: &ContextualRule, fallback: String) -> Issue {
+    Issue::error(
+        "CONTEXTUAL_VALIDATION_ERROR",
+        Some(rule.target_field.clone()),
+        if rule.description.is_empty() {
+            fallback
+        } else {
+            rule.description.clone()
+        },
+    )
 }
 
 /// Find a value set by name within a profile
