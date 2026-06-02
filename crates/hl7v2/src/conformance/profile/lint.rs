@@ -19,6 +19,7 @@ pub fn lint_profile_yaml(yaml: &str) -> ProfileLintReport {
     let mut issues = Vec::new();
     lint_unknown_profile_keys(&root, &mut issues);
     lint_unknown_segment_keys(&root, &mut issues);
+    lint_unknown_constraint_keys(&root, &mut issues);
     lint_unknown_expression_guardrail_keys(&root, &mut issues);
 
     let profile = match serde_yaml::from_value::<Profile>(root) {
@@ -369,6 +370,40 @@ fn lint_unknown_segment_keys(root: &serde_yaml::Value, issues: &mut Vec<ProfileL
                     "unknown_segment_key",
                     Some(format!("segments[{index}].{key}")),
                     format!("segment key '{key}' is ignored by the profile loader"),
+                ));
+            }
+        }
+    }
+}
+
+fn lint_unknown_constraint_keys(root: &serde_yaml::Value, issues: &mut Vec<ProfileLintIssue>) {
+    let Some(mapping) = root.as_mapping() else {
+        return;
+    };
+    let constraints_key = serde_yaml::Value::String("constraints".to_string());
+    let Some(constraints) = mapping
+        .get(&constraints_key)
+        .and_then(serde_yaml::Value::as_sequence)
+    else {
+        return;
+    };
+
+    let known_keys = ["path", "required", "components", "in", "when", "pattern"];
+
+    for (index, constraint) in constraints.iter().enumerate() {
+        let Some(constraint_mapping) = constraint.as_mapping() else {
+            continue;
+        };
+
+        for key in constraint_mapping
+            .keys()
+            .filter_map(serde_yaml::Value::as_str)
+        {
+            if !known_keys.contains(&key) {
+                issues.push(ProfileLintIssue::warning(
+                    "unknown_constraint_key",
+                    Some(format!("constraints[{index}].{key}")),
+                    format!("constraint key '{key}' is ignored by the profile loader"),
                 ));
             }
         }
