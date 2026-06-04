@@ -18,7 +18,7 @@
 )]
 
 use crate::model::*;
-use crate::{get, get_presence, parse, parse_batch, parse_file_batch, parse_mllp};
+use crate::{get, get_presence, parse, parse_batch, parse_file_batch, parse_mllp, write};
 
 // =============================================================================
 // Basic Message Parsing Tests
@@ -224,6 +224,37 @@ fn test_escape_special_chars() {
     assert!(
         value.contains('|'),
         "Should contain unescaped field separator"
+    );
+}
+
+#[test]
+fn test_vendor_oru_text_unescapes_formatted_line_break() {
+    let hl7 =
+        include_bytes!("../../../../../test_data/dirty-real-world/after/vendor-oru-null-text.hl7");
+    let normalized = String::from_utf8_lossy(hl7).replace('\n', "\r");
+    let message = parse(normalized.as_bytes()).unwrap();
+    let value = get(&message, "OBX.5").unwrap();
+
+    assert_eq!(value, "Line one\nLine two with escaped delimiters | ^ &");
+    assert!(!value.contains("\\.br\\"));
+}
+
+#[test]
+fn test_vendor_oru_formatted_line_break_roundtrips() {
+    let hl7 =
+        include_bytes!("../../../../../test_data/dirty-real-world/after/vendor-oru-null-text.hl7");
+    let normalized = String::from_utf8_lossy(hl7).replace('\n', "\r");
+    let message = parse(normalized.as_bytes()).unwrap();
+
+    let serialized = write(&message);
+    let serialized_text = String::from_utf8(serialized).unwrap();
+    assert!(serialized_text.contains("\\.br\\"));
+    assert!(!serialized_text.contains("Line one\nLine two"));
+
+    let reparsed = parse(serialized_text.as_bytes()).unwrap();
+    assert_eq!(
+        get(&reparsed, "OBX.5"),
+        Some("Line one\nLine two with escaped delimiters | ^ &")
     );
 }
 
