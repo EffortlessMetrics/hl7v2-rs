@@ -5552,9 +5552,9 @@ fn check_first_use_by_surface_guide() -> Result<()> {
     )?;
     let summary = read_json_file(&corpus_summary)?;
     let summary_label = path_to_arg(&corpus_summary)?;
-    ensure_json_path_u64(&summary, &["file_count"], 37, &summary_label)?;
+    ensure_json_path_u64(&summary, &["file_count"], 40, &summary_label)?;
     ensure_json_path_u64(&summary, &["message_count"], 14, &summary_label)?;
-    ensure_json_path_u64(&summary, &["parse_error_count"], 23, &summary_label)?;
+    ensure_json_path_u64(&summary, &["parse_error_count"], 26, &summary_label)?;
     ensure_json_has_key(&summary, "message_types", &summary_label)?;
     ensure_file_lacks_phi_sentinels(&corpus_summary)?;
 
