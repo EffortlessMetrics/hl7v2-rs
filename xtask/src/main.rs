@@ -5536,8 +5536,12 @@ fn check_first_use_by_surface_guide() -> Result<()> {
 
     let profile = workspace_root.join("profiles/generic.yaml");
     let valid_message = workspace_root.join("test_data/valid_message.hl7");
+    let invalid_message = workspace_root.join("test_data/invalid_message.hl7");
+    let first_use_policy = guide_root.join("safe-analysis.toml");
     ensure_existing_file(&profile)?;
     ensure_existing_file(&valid_message)?;
+    ensure_existing_file(&invalid_message)?;
+    fs::write(&first_use_policy, FIRST_USE_REDACTION_POLICY)?;
 
     let profile_lint = reports.join("cli-profile-lint.json");
     run_cli_guide_command(
@@ -5579,6 +5583,153 @@ fn check_first_use_by_surface_guide() -> Result<()> {
     ensure_json_path_u64(&validation, &["issue_count"], 0, &validation_label)?;
     ensure_file_lacks_phi_sentinels(&validation_report)?;
 
+    let parse = run_cli_guide_command_capture(
+        "First Use By Surface CLI parse",
+        vec![
+            "parse".to_string(),
+            path_to_arg(&valid_message)?,
+            "--json".to_string(),
+        ],
+    )?;
+    let parse_json: serde_json::Value = serde_json::from_str(&parse)?;
+    let parse_label = "First Use By Surface CLI parse";
+    ensure_json_path_string(&parse_json, &["meta", "delims", "field"], "|", parse_label)?;
+    ensure_json_has_key(&parse_json, "segments", parse_label)?;
+
+    let normalized_message = reports.join("cli-normalized.hl7");
+    run_cli_guide_command(
+        "First Use By Surface CLI norm",
+        vec![
+            "norm".to_string(),
+            path_to_arg(&valid_message)?,
+            "--canonical-delims".to_string(),
+            "--output".to_string(),
+            path_to_arg(&normalized_message)?,
+        ],
+    )?;
+    ensure_existing_file(&normalized_message)?;
+    if fs::read_to_string(&normalized_message)?.is_empty() {
+        return Err(anyhow!("First Use By Surface CLI norm output was empty"));
+    }
+
+    let redact_report = reports.join("cli-redact.json");
+    run_cli_guide_command(
+        "First Use By Surface CLI redact",
+        vec![
+            "redact".to_string(),
+            path_to_arg(&valid_message)?,
+            "--policy".to_string(),
+            path_to_arg(&first_use_policy)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--schema-version".to_string(),
+            "2".to_string(),
+            "--output".to_string(),
+            path_to_arg(&redact_report)?,
+        ],
+    )?;
+    let redact = read_json_file(&redact_report)?;
+    let redact_label = path_to_arg(&redact_report)?;
+    ensure_json_path_bool(&redact, &["receipt", "phi_removed"], true, &redact_label)?;
+    ensure_file_lacks_phi_sentinels(&redact_report)?;
+
+    let diff = reports.join("cli-corpus-diff.json");
+    run_cli_guide_command(
+        "First Use By Surface CLI corpus diff",
+        vec![
+            "corpus".to_string(),
+            "diff".to_string(),
+            path_to_arg(&valid_message)?,
+            path_to_arg(&invalid_message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&diff)?,
+        ],
+    )?;
+    let diff_json: serde_json::Value = read_json_file(&diff)?;
+    let diff_label = path_to_arg(&diff)?;
+    ensure_json_path_string(&diff_json, &["diff_version"], "1", &diff_label)?;
+    ensure_json_object_array_contains_string_i64_field(
+        &diff_json,
+        &["field_presence"],
+        "path",
+        "PID.5",
+        "message_count_delta",
+        -1,
+        &diff_label,
+    )?;
+
+    let cli_bundle = guide_root.join("bundle");
+    if cli_bundle.exists() {
+        fs::remove_dir_all(&cli_bundle)?;
+    }
+    let bundle_summary = reports.join("cli-support-bundle-summary.json");
+    run_cli_guide_command(
+        "First Use By Surface CLI support-bundle",
+        vec![
+            "support-bundle".to_string(),
+            path_to_arg(&valid_message)?,
+            "--profile".to_string(),
+            path_to_arg(&profile)?,
+            "--redact-policy".to_string(),
+            path_to_arg(&first_use_policy)?,
+            "--out".to_string(),
+            path_to_arg(&cli_bundle)?,
+            "--output".to_string(),
+            path_to_arg(&bundle_summary)?,
+        ],
+    )?;
+    let bundle_summary_json = read_json_file(&bundle_summary)?;
+    let bundle_summary_label = path_to_arg(&bundle_summary)?;
+    ensure_json_path_string(
+        &bundle_summary_json,
+        &["bundle_version"],
+        "1",
+        &bundle_summary_label,
+    )?;
+    ensure_json_path_bool(
+        &bundle_summary_json,
+        &["redaction_phi_removed"],
+        true,
+        &bundle_summary_label,
+    )?;
+    for artifact in [
+        "message.redacted.hl7",
+        "validation-report.json",
+        "field-paths.json",
+        "profile.yaml",
+        "redaction-receipt.json",
+        "environment.json",
+        "replay.sh",
+        "replay.ps1",
+        "README.md",
+        "SAFE-SHARING.md",
+        "manifest.json",
+    ] {
+        let artifact_path = cli_bundle.join(artifact);
+        ensure_existing_file(&artifact_path)?;
+    }
+
+    let replay_report = reports.join("cli-replay-report.json");
+    run_cli_guide_command(
+        "First Use By Surface CLI replay",
+        vec![
+            "replay".to_string(),
+            path_to_arg(&cli_bundle)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&replay_report)?,
+        ],
+    )?;
+    let replay = read_json_file(&replay_report)?;
+    let replay_label = path_to_arg(&replay_report)?;
+    ensure_json_path_bool(&replay, &["reproduced"], true, &replay_label)?;
+    ensure_file_lacks_phi_sentinels(&replay_report)?;
+
     let corpus_summary = reports.join("cli-corpus-summary.json");
     run_cli_guide_command(
         "First Use By Surface CLI corpus summary",
@@ -5595,8 +5746,8 @@ fn check_first_use_by_surface_guide() -> Result<()> {
     let summary = read_json_file(&corpus_summary)?;
     let summary_label = path_to_arg(&corpus_summary)?;
     ensure_json_path_u64(&summary, &["file_count"], 40, &summary_label)?;
-    ensure_json_path_u64(&summary, &["message_count"], 14, &summary_label)?;
-    ensure_json_path_u64(&summary, &["parse_error_count"], 26, &summary_label)?;
+    ensure_json_path_u64(&summary, &["message_count"], 8, &summary_label)?;
+    ensure_json_path_u64(&summary, &["parse_error_count"], 32, &summary_label)?;
     ensure_json_has_key(&summary, "message_types", &summary_label)?;
     ensure_file_lacks_phi_sentinels(&corpus_summary)?;
 
@@ -5650,6 +5801,12 @@ fn check_first_use_by_surface_guide() -> Result<()> {
             "cli_installed_doctor",
             "cli_profile_lint",
             "cli_validation_report",
+            "cli_parse",
+            "cli_norm",
+            "cli_redact",
+            "cli_corpus_diff",
+            "cli_support_bundle",
+            "cli_replay",
             "cli_corpus_summary",
             "server_print_config"
         ],
