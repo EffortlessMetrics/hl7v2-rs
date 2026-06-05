@@ -5492,6 +5492,48 @@ fn check_first_use_by_surface_guide() -> Result<()> {
     ensure_json_has_key(&doctor_json, "checks", &doctor_label)?;
     ensure_file_lacks_phi_sentinels(&doctor_report)?;
 
+    let installed_cli_root = guide_root.join("installed-cli");
+    if installed_cli_root.exists() {
+        fs::remove_dir_all(&installed_cli_root)?;
+    }
+    run_command(
+        "cargo",
+        &[
+            "install",
+            "--path",
+            "crates/hl7v2-cli",
+            "--locked",
+            "--bin",
+            "hl7v2-cli",
+            "--force",
+            "--root",
+            path_to_arg(&installed_cli_root)?.as_str(),
+        ],
+    )?;
+    let installed_cli = if cfg!(windows) {
+        installed_cli_root.join("bin").join("hl7v2-cli.exe")
+    } else {
+        installed_cli_root.join("bin").join("hl7v2-cli")
+    };
+    let installed_doctor_report = reports.join("cli-installed-doctor.json");
+    let installed_cli_path = path_to_arg(&installed_cli)?;
+    let installed_doctor_output = path_to_arg(&installed_doctor_report)?;
+    let installed_doctor_args = [
+        "doctor".to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+        "--output".to_string(),
+        installed_doctor_output,
+    ];
+    let installed_doctor_arg_refs: Vec<&str> =
+        installed_doctor_args.iter().map(String::as_str).collect();
+    run_program_with_env_in_dir(&installed_cli_path, &installed_doctor_arg_refs, &[], None)?;
+    let installed_doctor_json: serde_json::Value = read_json_file(&installed_doctor_report)?;
+    let installed_doctor_label = path_to_arg(&installed_doctor_report)?;
+    ensure_json_has_key(&installed_doctor_json, "version", &installed_doctor_label)?;
+    ensure_json_has_key(&installed_doctor_json, "checks", &installed_doctor_label)?;
+    ensure_file_lacks_phi_sentinels(&installed_doctor_report)?;
+
     let profile = workspace_root.join("profiles/generic.yaml");
     let valid_message = workspace_root.join("test_data/valid_message.hl7");
     ensure_existing_file(&profile)?;
@@ -5605,6 +5647,7 @@ fn check_first_use_by_surface_guide() -> Result<()> {
         "source_checkout_routes": [
             "rust_user_journey",
             "cli_doctor",
+            "cli_installed_doctor",
             "cli_profile_lint",
             "cli_validation_report",
             "cli_corpus_summary",
