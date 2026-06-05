@@ -5171,7 +5171,13 @@ fn check_first_10_minutes_guide() -> Result<()> {
     ensure_json_path_u64(
         &invalid_validation_json,
         &["issue_count"],
-        1,
+        2,
+        "First 10 Minutes invalid message validation",
+    )?;
+    ensure_json_object_array_contains_fields(
+        &invalid_validation_json,
+        &["issues"],
+        &[("code", "too_few_components"), ("path", "PID.5")],
         "First 10 Minutes invalid message validation",
     )?;
     ensure_json_object_array_contains_fields(
@@ -5366,7 +5372,7 @@ fn check_first_10_minutes_guide() -> Result<()> {
     ensure_json_path_bool(
         &bundle_summary_json,
         &["validation_valid"],
-        true,
+        false,
         "First 10 Minutes support bundle",
     )?;
     ensure_json_path_bool(
