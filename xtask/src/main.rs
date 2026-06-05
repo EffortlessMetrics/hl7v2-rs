@@ -5596,6 +5596,27 @@ fn check_first_use_by_surface_guide() -> Result<()> {
     ensure_json_path_string(&parse_json, &["meta", "delims", "field"], "|", parse_label)?;
     ensure_json_has_key(&parse_json, "segments", parse_label)?;
 
+    let inspect = run_cli_guide_command_capture(
+        "First Use By Surface CLI inspect",
+        vec![
+            "inspect".to_string(),
+            path_to_arg(&valid_message)?,
+            "--json".to_string(),
+        ],
+    )?;
+    let inspect_json: serde_json::Value = serde_json::from_str(&inspect)?;
+    ensure_json_path_string(
+        &inspect_json,
+        &["meta", "delims", "field"],
+        "|",
+        "First Use By Surface CLI inspect",
+    )?;
+    if inspect_json != parse_json {
+        return Err(anyhow!(
+            "inspect output should be equivalent to parse output for supported JSON mode"
+        ));
+    }
+
     let normalized_message = reports.join("cli-normalized.hl7");
     run_cli_guide_command(
         "First Use By Surface CLI norm",
@@ -5729,6 +5750,23 @@ fn check_first_use_by_surface_guide() -> Result<()> {
     let replay_label = path_to_arg(&replay_report)?;
     ensure_json_path_bool(&replay, &["reproduced"], true, &replay_label)?;
     ensure_file_lacks_phi_sentinels(&replay_report)?;
+
+    let receipt_report = reports.join("cli-receipt-report.json");
+    run_cli_guide_command(
+        "First Use By Surface CLI receipt",
+        vec![
+            "receipt".to_string(),
+            path_to_arg(&cli_bundle)?,
+            "--format".to_string(),
+            "json".to_string(),
+            "--output".to_string(),
+            path_to_arg(&receipt_report)?,
+        ],
+    )?;
+    let receipt = read_json_file(&receipt_report)?;
+    let receipt_label = path_to_arg(&receipt_report)?;
+    ensure_json_path_bool(&receipt, &["reproduced"], true, &receipt_label)?;
+    ensure_file_lacks_phi_sentinels(&receipt_report)?;
 
     let corpus_summary = reports.join("cli-corpus-summary.json");
     run_cli_guide_command(
