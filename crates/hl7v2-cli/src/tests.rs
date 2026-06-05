@@ -47,11 +47,59 @@ mod cli_unit_tests {
         }
 
         #[test]
+        fn test_parse_command_accepts_inspect_alias() {
+            use crate::{Cli, Commands};
+            use clap::Parser;
+
+            let parsed = Cli::try_parse_from(["hl7v2-cli", "inspect", "input.hl7"]);
+            assert!(matches!(
+                parsed,
+                Ok(Cli {
+                    command: Commands::Parse { .. }
+                })
+            ));
+        }
+
+        #[test]
         fn test_validate_command_requires_profile() {
             // Test that validate command requires a profile argument
             use crate::Cli;
             let schema = Cli::command();
             assert!(schema.get_subcommands().any(|c| c.get_name() == "val"));
+        }
+
+        #[test]
+        fn test_validate_command_accepts_validate_alias() {
+            use crate::{Cli, Commands};
+            use clap::Parser;
+
+            let parsed = Cli::try_parse_from([
+                "hl7v2-cli",
+                "validate",
+                "input.hl7",
+                "--profile",
+                "profile.yaml",
+            ]);
+            assert!(matches!(
+                parsed,
+                Ok(Cli {
+                    command: Commands::Val { .. }
+                })
+            ));
+        }
+
+        #[test]
+        fn test_norm_command_accepts_normalize_alias() {
+            use crate::{Cli, Commands};
+            use clap::Parser;
+
+            let parsed = Cli::try_parse_from(["hl7v2-cli", "normalize", "input.hl7"]);
+            assert!(matches!(
+                parsed,
+                Ok(Cli {
+                    command: Commands::Norm { .. }
+                })
+            ));
         }
 
         #[test]
@@ -271,6 +319,20 @@ mod cli_unit_tests {
                     .get_subcommands()
                     .any(|command| command.get_name() == "replay")
             );
+        }
+
+        #[test]
+        fn test_replay_command_accepts_receipt_alias() {
+            use crate::{Cli, Commands};
+            use clap::Parser;
+
+            let parsed = Cli::try_parse_from(["hl7v2-cli", "receipt", "issue-bundle"]);
+            assert!(matches!(
+                parsed,
+                Ok(Cli {
+                    command: Commands::Replay { .. }
+                })
+            ));
         }
     }
 
