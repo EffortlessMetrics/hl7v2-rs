@@ -103,22 +103,29 @@ Source-checkout command shape:
 cargo run -q -p hl7v2-cli -- doctor --format json
 ```
 
-Then run the full CLI evidence loop:
+Then run the full CLI evidence loop (in addition to the commands already listed):
 
 ```bash
+hl7v2-cli parse test_data/valid_message.hl7 --json
+hl7v2-cli norm test_data/valid_message.hl7 --canonical-delims --output /tmp/valid.hl7
+hl7v2-cli redact test_data/valid_message.hl7 --policy target/ignore-policy.toml --format json
 hl7v2-cli profile lint profiles/generic.yaml --report json
 hl7v2-cli val test_data/valid_message.hl7 --profile profiles/generic.yaml --report json
+hl7v2-cli corpus diff test_data/valid_message.hl7 test_data/invalid_message.hl7 --profile profiles/generic.yaml --format json
+hl7v2-cli support-bundle test_data/valid_message.hl7 --profile profiles/generic.yaml --redact-policy path/to/safe-analysis.toml --out target/cli-support-bundle --schema-version 2 --output target/cli-support-bundle-summary.json
+hl7v2-cli replay target/cli-support-bundle --format json --output target/cli-replay-report.json
 hl7v2-cli corpus summarize test_data --format json
 ```
 
-For the copy/paste ten-minute flow that adds corpus fingerprint, corpus diff,
-redacted bundle, and replay proof, use
+For the copy/paste ten-minute flow that adds corpus fingerprint, redacted bundle,
+and replay proof, use
 [First 10 Minutes](first-10-minutes.md).
 
 First useful receipt:
 
 ```text
-doctor JSON + profile lint JSON + validation report JSON + corpus summary JSON
+doctor JSON + parse JSON + normalize output + redact JSON + profile lint JSON
+validation report JSON + corpus diff JSON + replay report JSON + corpus summary JSON
 ```
 
 ## Server
