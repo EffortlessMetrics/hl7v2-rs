@@ -174,7 +174,7 @@ const PROFILE_REPETITION_SEMANTICS: &[RepetitionSemanticsCase] = &[
     },
     RepetitionSemanticsCase {
         validation_path: "cross_field.conditions",
-        collector: "check_rule_condition",
+        collector: "condition_text_values",
     },
     RepetitionSemanticsCase {
         validation_path: "cross_field.actions.require",
