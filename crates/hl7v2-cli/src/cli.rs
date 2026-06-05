@@ -17,6 +17,7 @@ pub(crate) struct Cli {
 #[derive(Subcommand, Debug)]
 pub(crate) enum Commands {
     /// Parse HL7 v2 message and output JSON
+    #[command(visible_alias = "inspect")]
     Parse {
         /// Input HL7 file
         input: PathBuf,
@@ -47,6 +48,7 @@ pub(crate) enum Commands {
     },
 
     /// Normalize HL7 v2 message
+    #[command(visible_alias = "normalize")]
     Norm {
         /// Input HL7 file
         input: PathBuf,
@@ -73,6 +75,7 @@ pub(crate) enum Commands {
     },
 
     /// Validate HL7 v2 message against profile
+    #[command(visible_alias = "validate")]
     Val {
         /// Input HL7 file
         input: PathBuf,
@@ -295,6 +298,7 @@ pub(crate) enum Commands {
     },
 
     /// Replay a redacted evidence bundle and verify it reproduces
+    #[command(visible_alias = "receipt")]
     Replay {
         /// Evidence bundle directory
         bundle: PathBuf,

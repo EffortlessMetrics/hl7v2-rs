@@ -347,7 +347,7 @@ async fn main() {
         )
         .init();
 
-    let cli = Cli::parse();
+    let cli = Cli::parse_from(normalize_cli_args(std::env::args().collect()));
 
     let result = match &cli.command {
         Commands::Parse {
@@ -614,6 +614,57 @@ async fn main() {
     if let Err(e) = result {
         eprintln!("Error: {}", e);
         process::exit(classify_cli_error(e.as_ref()));
+    }
+}
+
+fn normalize_cli_args(mut args: Vec<String>) -> Vec<String> {
+    if args.get(1).is_some_and(|arg| arg == "diff") {
+        args.insert(1, "corpus".to_string());
+    }
+    args
+}
+
+#[cfg(test)]
+mod normalize_cli_args_tests {
+    use super::normalize_cli_args;
+
+    #[test]
+    fn test_diff_alias_expands_to_corpus_diff() {
+        let args = normalize_cli_args(vec![
+            "hl7v2-cli".to_string(),
+            "diff".to_string(),
+            "before".to_string(),
+            "after".to_string(),
+        ]);
+
+        assert_eq!(
+            args,
+            vec![
+                "hl7v2-cli".to_string(),
+                "corpus".to_string(),
+                "diff".to_string(),
+                "before".to_string(),
+                "after".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_non_diff_command_passthrough() {
+        let args = normalize_cli_args(vec![
+            "hl7v2-cli".to_string(),
+            "parse".to_string(),
+            "file.hl7".to_string(),
+        ]);
+
+        assert_eq!(
+            args,
+            vec![
+                "hl7v2-cli".to_string(),
+                "parse".to_string(),
+                "file.hl7".to_string(),
+            ]
+        );
     }
 }
 

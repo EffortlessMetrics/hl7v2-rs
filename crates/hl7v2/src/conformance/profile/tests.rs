@@ -121,6 +121,40 @@ cross_field_rules:
     }
 
     #[test]
+    fn test_cross_field_condition_uses_first_component_for_unqualified_path() {
+        let y = r#"
+message_structure: "xfield"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+  - id: "NTE"
+cross_field_rules:
+  - id: "value-only-first-component"
+    description: "Require note when first component is H"
+    conditions:
+      - field: "OBX.2"
+        operator: "eq"
+        value: "H"
+    actions:
+      - field: "NTE.3"
+        action: "require"
+"#;
+        let p: Profile = load_profile(y).unwrap();
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|NM^H|WBC^White Blood Count||7.2|10^9/L|4.0-11.0|||\r\
+NTE|1||\r",
+        )
+        .unwrap();
+        let probs = validate(&msg, &p);
+
+        assert!(
+            probs.is_empty(),
+            "cross-field conditions should use first component only: {probs:?}"
+        );
+    }
+
+    #[test]
     fn test_cross_field_condition_checks_later_repetitions() {
         let y = r#"
 message_structure: "xfield_repetitions"
