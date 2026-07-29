@@ -111,7 +111,11 @@ mod help_and_version {
             .success()
             .stdout(predicate::str::contains(
                 "val <file> <profile> [options] - Validate an HL7 message",
-            ));
+            ))
+            .stdout(predicate::str::contains("Processing:"))
+            .stdout(predicate::str::contains("Validation:"))
+            .stdout(predicate::str::contains("Generation:"))
+            .stdout(predicate::str::contains("System:"));
     }
 }
 
