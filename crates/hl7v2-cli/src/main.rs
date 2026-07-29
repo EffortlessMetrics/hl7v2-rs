@@ -2822,7 +2822,7 @@ fn interactive_mode() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  ack <file> [options]    - Generate an ACK for an HL7 message");
                 println!();
                 println!("Validation:");
-                println!("  val <file> <profile>    - Validate an HL7 message");
+                println!("  val <file> <profile> [options] - Validate an HL7 message");
                 println!();
                 println!("Generation:");
                 println!("  gen <profile> [options] - Generate synthetic messages");
