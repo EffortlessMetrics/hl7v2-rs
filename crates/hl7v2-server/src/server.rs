@@ -777,10 +777,7 @@ mod tests {
 
         assert_eq!(server.config.bind_address, "127.0.0.1:8080");
         assert_eq!(server.config.max_body_size, 1024 * 1024);
-        assert_eq!(
-            server.config.max_message_size,
-            2048
-        );
+        assert_eq!(server.config.max_message_size, 2048);
     }
 
     #[test]
