@@ -12,6 +12,7 @@ use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, Any, CorsLayer},
+    limit::RequestBodyLimitLayer,
     trace::TraceLayer,
 };
 use utoipa_swagger_ui::SwaggerUi;
@@ -91,6 +92,9 @@ pub(crate) fn build_router_with_body_limit(state: Arc<AppState>, max_body_size: 
         .route("/ready", get(ready_handler))
         .route("/metrics", get(metrics_handler))
         .nest("/hl7", api_routes)
+        // Keep the extractor limit for its 413 rejection behavior and also
+        // wrap every request body so raw-body consumers cannot bypass it.
+        .layer(RequestBodyLimitLayer::new(max_body_size))
         .layer(DefaultBodyLimit::max(max_body_size))
         .with_state(state)
         // Middleware layers (bottom to top execution order)
@@ -222,6 +226,40 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(body.to_vec()).unwrap();
         assert!(body_str.contains("\"status\":\"healthy\""));
+    }
+
+    #[tokio::test]
+    async fn test_configured_http_body_limit_applies_before_body_consumers() {
+        let metrics_handle = crate::metrics::init_metrics_recorder();
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
+            cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
+        });
+
+        let app = build_router_with_body_limit(state, 64);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
+                    .uri("/health")
+                    .method("GET")
+                    .header("Content-Length", "65")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 
     #[tokio::test]
