@@ -400,6 +400,14 @@ Clients must include the key:
 curl -H "X-API-Key: ${HL7V2_API_KEY}" http://localhost:8080/hl7/parse ...
 ```
 
+### Startup Security Warnings
+
+At startup, the server logs a warning when API-key authentication is disabled
+and when `BIND_ADDRESS` resolves to an unspecified address such as
+`0.0.0.0:8080` or `[::]:8080`. These warnings do not change the existing
+compatibility defaults. For production, configure `HL7V2_API_KEY`, restrict
+network exposure, and terminate TLS at a trusted reverse proxy.
+
 ### TLS/HTTPS
 
 Use a reverse proxy (nginx, Traefik) for TLS termination:
