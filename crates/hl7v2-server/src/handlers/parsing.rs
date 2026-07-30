@@ -70,11 +70,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn message_size_limit_includes_exact_boundary_and_rejects_overage() {
-        assert!(enforce_message_size(b"1234", 4).is_ok());
-        assert!(matches!(
-            enforce_message_size(b"12345", 4),
-            Err(AppError::MessageTooLarge { actual: 5, max: 4 })
-        ));
+    fn message_size_limit_includes_exact_boundary_and_rejects_overage() -> Result<(), String> {
+        enforce_message_size(b"1234", 4).map_err(|error| error.to_string())?;
+        match enforce_message_size(b"12345", 4) {
+            Err(AppError::MessageTooLarge { actual: 5, max: 4 }) => Ok(()),
+            Ok(()) => Err("message overage was accepted".to_string()),
+            Err(error) => Err(format!("unexpected message size error: {error}")),
+        }
     }
 }
