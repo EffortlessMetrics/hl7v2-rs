@@ -167,7 +167,7 @@ spec:
 Apply changes:
 
 ```bash
-kubectl apply -f infrastructure/k8s/deployment.yaml
+kubectl apply -n hl7v2-system -f infrastructure/k8s/deployment.yaml
 ```
 
 ### Horizontal Pod Autoscaling
