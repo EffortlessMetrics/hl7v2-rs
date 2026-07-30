@@ -353,7 +353,7 @@ hl7v2-cli ack <input.hl7> --code AE > error_ack.hl7
 - **Compression**: Gzip compression for responses
 - **OpenAPI 3.1 spec**: Complete API documentation at `api/openapi/hl7v2-api-v1.yaml`
 - **Docker ready**: Containerized deployment with Nix-built images
-- **Kubernetes ready**: Helm charts and manifests in `infrastructure/k8s/`
+- **Kubernetes ready**: Versioned deployment manifests in `infrastructure/k8s/`
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment guide.
 
