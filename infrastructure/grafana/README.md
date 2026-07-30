@@ -140,7 +140,7 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 #### Step 2: Deploy HL7v2 Server ServiceMonitor
 
 ```yaml
-# infrastructure/k8s/servicemonitor.yaml
+# Save this manifest as target/servicemonitor.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -161,7 +161,7 @@ spec:
 Apply:
 
 ```bash
-kubectl apply -f infrastructure/k8s/servicemonitor.yaml
+kubectl apply -f target/servicemonitor.yaml
 ```
 
 #### Step 3: Import Dashboards
