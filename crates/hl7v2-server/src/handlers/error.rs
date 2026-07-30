@@ -17,6 +17,9 @@ pub enum AppError {
     /// Message parsing error (malformed HL7, invalid structure, etc.)
     Parse(String),
 
+    /// Raw HL7 message exceeded the configured application-level limit.
+    MessageTooLarge { actual: usize, max: usize },
+
     /// Profile loading error (YAML syntax, missing fields, etc.)
     ProfileLoad(String),
 
@@ -97,6 +100,14 @@ impl IntoResponse for AppError {
                 "The request message could not be parsed as HL7 v2. Raw message content is not echoed.",
                 Some("message"),
                 "Check the MSH segment, segment terminators, encoding, and mllp_framed setting.",
+            ),
+            AppError::MessageTooLarge { actual, max } => (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "MESSAGE_TOO_LARGE",
+                format!("message size {actual} bytes exceeds maximum of {max} bytes"),
+                "The HL7 message exceeded the configured application-level size limit and was not parsed.",
+                Some("message"),
+                "Reduce the message size or configure a reviewed larger message limit.",
             ),
             // Profile load error is a client error since the profile is provided in the request.
             // Keep the public message stable and avoid echoing parser detail derived from profile YAML.
@@ -228,6 +239,10 @@ impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AppError::Parse(msg) => write!(f, "Parse error: {}", msg),
+            AppError::MessageTooLarge { actual, max } => write!(
+                f,
+                "Message size {actual} bytes exceeds maximum of {max} bytes"
+            ),
             AppError::ProfileLoad(_) => {
                 write!(f, "Profile load error: {PROFILE_LOAD_SAFE_MESSAGE}")
             }
@@ -327,6 +342,14 @@ mod tests {
         assert_eq!(
             AppError::Parse("oops".to_string()).to_string(),
             "Parse error: oops"
+        );
+        assert_eq!(
+            AppError::MessageTooLarge {
+                actual: 11,
+                max: 10
+            }
+            .to_string(),
+            "Message size 11 bytes exceeds maximum of 10 bytes"
         );
         assert_eq!(
             AppError::Validation("bad".to_string()).to_string(),

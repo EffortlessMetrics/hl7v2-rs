@@ -18,7 +18,13 @@ pub(super) fn parse_request_message_with_metrics(
     message_bytes: &[u8],
     mllp_framed: bool,
     operation: &'static str,
+    max_message_size: usize,
 ) -> Result<hl7v2::Message, AppError> {
+    if let Err(error) = enforce_message_size(message_bytes, max_message_size) {
+        crate::metrics::record_parse_failure(operation);
+        return Err(error);
+    }
+
     match parse_request_message(message_bytes, mllp_framed) {
         Ok(message) => {
             crate::metrics::record_parse_success(operation, message_bytes.len());
@@ -29,6 +35,20 @@ pub(super) fn parse_request_message_with_metrics(
             Err(error)
         }
     }
+}
+
+pub(super) fn enforce_message_size(
+    message_bytes: &[u8],
+    max_message_size: usize,
+) -> Result<(), AppError> {
+    if message_bytes.len() > max_message_size {
+        return Err(AppError::MessageTooLarge {
+            actual: message_bytes.len(),
+            max: max_message_size,
+        });
+    }
+
+    Ok(())
 }
 
 pub(super) fn redact_message_with_metrics(
@@ -42,5 +62,19 @@ pub(super) fn redact_message_with_metrics(
             crate::metrics::record_redaction_failure(operation);
             Err(AppError::Redaction(error))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn message_size_limit_includes_exact_boundary_and_rejects_overage() {
+        assert!(enforce_message_size(b"1234", 4).is_ok());
+        assert!(matches!(
+            enforce_message_size(b"12345", 4),
+            Err(AppError::MessageTooLarge { actual: 5, max: 4 })
+        ));
     }
 }

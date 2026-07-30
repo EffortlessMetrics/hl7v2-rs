@@ -42,6 +42,13 @@ fn print_config_outputs_sanitized_effective_config_and_exits()
     {
         return Err(std::io::Error::other("print-config did not mark API key configured").into());
     }
+    if config
+        .get("max_message_size")
+        .and_then(serde_json::Value::as_u64)
+        != Some(50 * 1024 * 1024)
+    {
+        return Err(std::io::Error::other("print-config did not include max message size").into());
+    }
     let cors = config.get("cors_allowed_origins");
     if cors
         .and_then(|value| value.get("mode"))

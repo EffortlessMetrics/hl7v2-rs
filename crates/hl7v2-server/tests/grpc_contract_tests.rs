@@ -65,6 +65,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(handle),
             api_key: None,
+            max_message_size: ServerConfig::default().max_message_size,
             cors_allowed_origins: Default::default(),
             readiness_checks: ServerConfig::default().readiness_checks(),
             bundle_output_root,

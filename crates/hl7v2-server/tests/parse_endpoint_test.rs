@@ -278,6 +278,49 @@ async fn test_parse_empty_request_body_returns_400() {
 }
 
 #[tokio::test]
+async fn test_parse_rejects_message_over_configured_application_limit() {
+    let app = common::create_test_router_with_message_size_limit(64);
+    let message = format!(
+        "{}{}",
+        common::fixtures::MINIMAL_VALID,
+        "ZTX|oversized\r".repeat(8)
+    );
+    let request_body = json!({
+        "message": message,
+        "mllp_framed": false
+    });
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/hl7/parse")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(
+        body.get("code").and_then(Value::as_str),
+        Some("MESSAGE_TOO_LARGE")
+    );
+    assert!(
+        body.get("safe_detail")
+            .and_then(Value::as_str)
+            .is_some_and(|detail| detail.contains("configured application-level size limit"))
+    );
+}
+
+#[tokio::test]
 async fn test_parse_invalid_json_returns_400() {
     let app = common::create_test_router();
 

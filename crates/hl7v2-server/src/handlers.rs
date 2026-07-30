@@ -60,13 +60,14 @@ pub async fn ready_handler(State(state): State<Arc<AppState>>) -> impl IntoRespo
 
 /// Handler for POST /hl7/parse
 pub async fn parse_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<ParseRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let message = parse_request_message_with_metrics(
         request.message.as_bytes(),
         request.mllp_framed,
         crate::metrics::operation::PARSE,
+        state.max_message_size,
     )?;
 
     // Extract metadata
@@ -102,7 +103,7 @@ pub async fn parse_handler(
 
 /// Handler for POST /hl7/validate
 pub async fn validate_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<ValidateRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let report_schema_version = requested_report_schema_version(request.report_schema_version)?;
@@ -110,6 +111,7 @@ pub async fn validate_handler(
         request.message.as_bytes(),
         request.mllp_framed,
         crate::metrics::operation::VALIDATE,
+        state.max_message_size,
     )?;
 
     // Extract metadata
@@ -177,6 +179,7 @@ pub async fn validate_redacted_handler(
         &raw_input,
         request.mllp_framed,
         crate::metrics::operation::VALIDATE_REDACTED,
+        state.max_message_size,
     )?;
     let log_context = MessageLogContext::from_message(&message);
     let receipt = redact_message_with_metrics(
@@ -269,6 +272,7 @@ pub async fn bundle_handler(
         &raw_input,
         request.mllp_framed,
         crate::metrics::operation::BUNDLE,
+        state.max_message_size,
     )?;
     let log_context = MessageLogContext::from_message(&message);
     let receipt = redact_message_with_metrics(
@@ -463,13 +467,14 @@ pub async fn corpus_diff_handler(
 
 /// Handler for POST /hl7/ack
 pub async fn ack_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<AckRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let message = parse_request_message_with_metrics(
         request.message.as_bytes(),
         request.mllp_framed,
         crate::metrics::operation::ACK,
+        state.max_message_size,
     )?;
     let log_context = MessageLogContext::from_message(&message);
     let ack_code = map_ack_code(request.code);
@@ -522,6 +527,7 @@ pub async fn ack_policy_handler(
         &raw_input,
         request.mllp_framed,
         crate::metrics::operation::ACK_POLICY,
+        state.max_message_size,
     ) {
         Ok(message) => {
             let validation = validate_message_with_profile(
@@ -597,10 +603,14 @@ pub async fn ack_policy_handler(
 
 /// Handler for POST /hl7/normalize
 pub async fn normalize_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<NormalizeRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let message_bytes = request.message.as_bytes();
+    if let Err(error) = enforce_message_size(message_bytes, state.max_message_size) {
+        crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
+        return Err(error);
+    }
     let input = if request.mllp_framed {
         hl7v2::unwrap_mllp(message_bytes)
             .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?

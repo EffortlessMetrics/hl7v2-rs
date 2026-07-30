@@ -49,6 +49,7 @@ fn test_router(policy: AckPolicyConfig, api_key: Option<&str>) -> axum::Router {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: api_key.map(str::to_string),
+        max_message_size: ServerConfig::default().max_message_size,
         cors_allowed_origins: CorsAllowedOrigins::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,

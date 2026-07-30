@@ -33,6 +33,7 @@ fn test_router(api_key: Option<&str>, cors_allowed_origins: CorsAllowedOrigins) 
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: api_key.map(str::to_string),
+        max_message_size: hl7v2_server::ServerConfig::default().max_message_size,
         cors_allowed_origins,
         readiness_checks: hl7v2_server::ServerConfig::default().readiness_checks(),
         bundle_output_root: None,

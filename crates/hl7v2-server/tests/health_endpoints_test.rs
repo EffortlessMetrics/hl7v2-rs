@@ -192,6 +192,7 @@ async fn test_ready_endpoint_returns_503_when_startup_check_failed() {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        max_message_size: hl7v2_server::ServerConfig::default().max_message_size,
         cors_allowed_origins: Default::default(),
         readiness_checks: vec![ReadinessCheck::fail(
             "configured_profiles",
@@ -245,6 +246,7 @@ async fn test_ready_endpoint_does_not_expose_configured_profile_path_when_not_re
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        max_message_size: config.max_message_size,
         cors_allowed_origins: Default::default(),
         readiness_checks: config.readiness_checks(),
         bundle_output_root: None,

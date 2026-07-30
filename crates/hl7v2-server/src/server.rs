@@ -31,6 +31,8 @@ pub struct AppState {
     pub metrics_handle: Arc<PrometheusHandle>,
     /// Optional API key for authentication
     pub api_key: Option<String>,
+    /// Maximum raw HL7 message size accepted by message-processing handlers.
+    pub max_message_size: usize,
     /// CORS origin policy for browser clients
     pub cors_allowed_origins: CorsAllowedOrigins,
     /// Startup readiness checks.
@@ -99,6 +101,8 @@ pub struct ServerConfig {
     pub bind_address: String,
     /// Maximum request body size in bytes
     pub max_body_size: usize,
+    /// Maximum raw HL7 message size in bytes
+    pub max_message_size: usize,
     /// Optional API key for authentication
     pub api_key: Option<String>,
     /// CORS origin policy
@@ -119,7 +123,8 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             bind_address: "0.0.0.0:8080".to_string(),
-            max_body_size: 10 * 1024 * 1024, // 10MB
+            max_body_size: 10 * 1024 * 1024,    // 10MB
+            max_message_size: 50 * 1024 * 1024, // 50MB
             api_key: None,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             profile_paths: Vec::new(),
@@ -138,6 +143,8 @@ pub struct PublicServerConfig {
     pub bind_address: String,
     /// Maximum request body size in bytes.
     pub max_body_size: usize,
+    /// Maximum raw HL7 message size in bytes.
+    pub max_message_size: usize,
     /// Whether an API key is configured without exposing the secret.
     pub api_key_configured: bool,
     /// CORS origin policy.
@@ -180,19 +187,37 @@ struct FileServerConfig {
     port: Option<u16>,
     api_key: Option<String>,
     bundle_output_root: Option<PathBuf>,
+    max_message_size: Option<usize>,
 }
 
 impl ServerConfig {
     /// Build server configuration from supported environment variables.
     pub fn from_env() -> Result<Self> {
         let config_path = std::env::var_os("HL7V2_CONFIG").map(PathBuf::from);
-        Self::from_sources(
+        let max_message_size = std::env::var("HL7V2_MAX_MESSAGE_SIZE")
+            .ok()
+            .map(|value| {
+                let parsed = value.parse::<usize>().map_err(|error| {
+                    crate::Error::Config(format!(
+                        "HL7V2_MAX_MESSAGE_SIZE must be a positive integer: {error}"
+                    ))
+                })?;
+                if parsed == 0 {
+                    return Err(crate::Error::Config(
+                        "HL7V2_MAX_MESSAGE_SIZE must be greater than zero".to_string(),
+                    ));
+                }
+                Ok(parsed)
+            })
+            .transpose()?;
+        Self::from_sources_with_message_size(
             config_path.as_deref(),
             std::env::var("BIND_ADDRESS").ok(),
             std::env::var("HL7V2_API_KEY").ok(),
             std::env::var("HL7V2_CORS_ALLOWED_ORIGINS").ok(),
             std::env::var_os("HL7V2_PROFILE_PATHS"),
             std::env::var_os("HL7V2_BUNDLE_OUTPUT_ROOT"),
+            max_message_size,
         )
     }
 
@@ -204,6 +229,26 @@ impl ServerConfig {
         cors_allowed_origins: Option<String>,
         profile_paths: Option<OsString>,
         bundle_output_root: Option<OsString>,
+    ) -> Result<Self> {
+        Self::from_sources_with_message_size(
+            config_path,
+            bind_address,
+            api_key,
+            cors_allowed_origins,
+            profile_paths,
+            bundle_output_root,
+            None,
+        )
+    }
+
+    fn from_sources_with_message_size(
+        config_path: Option<&Path>,
+        bind_address: Option<String>,
+        api_key: Option<String>,
+        cors_allowed_origins: Option<String>,
+        profile_paths: Option<OsString>,
+        bundle_output_root: Option<OsString>,
+        max_message_size: Option<usize>,
     ) -> Result<Self> {
         let mut config = if let Some(path) = config_path {
             let mut config = Self::from_config_file(path)?;
@@ -231,6 +276,10 @@ impl ServerConfig {
 
         if let Some(bundle_output_root) = bundle_output_root {
             config.bundle_output_root = Some(PathBuf::from(bundle_output_root));
+        }
+
+        if let Some(max_message_size) = max_message_size {
+            config.max_message_size = max_message_size;
         }
 
         Ok(config)
@@ -262,6 +311,9 @@ impl ServerConfig {
         if let Some(bundle_output_root) = file_config.server.bundle_output_root {
             config.bundle_output_root = Some(bundle_output_root);
         }
+        if let Some(max_message_size) = file_config.server.max_message_size {
+            config.max_message_size = max_message_size;
+        }
         config.ack_policy = file_config.ack;
         config.quarantine = file_config.quarantine;
 
@@ -273,6 +325,7 @@ impl ServerConfig {
         PublicServerConfig {
             bind_address: self.bind_address.clone(),
             max_body_size: self.max_body_size,
+            max_message_size: self.max_message_size,
             api_key_configured: self.api_key.is_some(),
             cors_allowed_origins: public_cors_allowed_origins(&self.cors_allowed_origins),
             profile_paths: self.profile_paths.clone(),
@@ -498,6 +551,7 @@ impl Server {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: config.api_key.clone(),
+            max_message_size: config.max_message_size,
             cors_allowed_origins: config.cors_allowed_origins.clone(),
             readiness_checks: config.readiness_checks(),
             bundle_output_root: config.bundle_output_root.clone(),
@@ -651,6 +705,12 @@ impl ServerBuilder {
         self
     }
 
+    /// Set the maximum raw HL7 message size.
+    pub fn max_message_size(mut self, size: usize) -> Self {
+        self.config.max_message_size = size;
+        self
+    }
+
     /// Set the API key for authentication
     pub fn api_key(mut self, api_key: Option<String>) -> Self {
         self.config.api_key = api_key;
@@ -712,10 +772,15 @@ mod tests {
         let server = Server::builder()
             .bind("127.0.0.1:8080")
             .max_body_size(1024 * 1024)
+            .max_message_size(2048)
             .build();
 
         assert_eq!(server.config.bind_address, "127.0.0.1:8080");
         assert_eq!(server.config.max_body_size, 1024 * 1024);
+        assert_eq!(
+            server.config.max_message_size,
+            2048
+        );
     }
 
     #[test]
@@ -723,6 +788,7 @@ mod tests {
         let config = ServerConfig::default();
         assert_eq!(config.bind_address, "0.0.0.0:8080");
         assert_eq!(config.max_body_size, 10 * 1024 * 1024);
+        assert_eq!(config.max_message_size, 50 * 1024 * 1024);
         assert_eq!(config.cors_allowed_origins, CorsAllowedOrigins::Any);
         assert!(config.profile_paths.is_empty());
     }
@@ -750,6 +816,7 @@ mod tests {
 host = "127.0.0.1"
 port = 18080
 api_key = "file-secret"
+max_message_size = 12345
 
 [ack]
 mode = "enhanced"
@@ -779,6 +846,7 @@ write_bundle = false
 
         assert_eq!(config.bind_address, "0.0.0.0:19090");
         assert_eq!(config.api_key.as_deref(), Some("env-secret"));
+        assert_eq!(config.max_message_size, 12345);
         assert_eq!(config.bundle_output_root, Some(PathBuf::from("bundles")));
         assert_eq!(
             config.ack_policy.mode,
