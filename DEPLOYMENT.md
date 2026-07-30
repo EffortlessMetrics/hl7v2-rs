@@ -92,10 +92,13 @@ the local Compose values in `infrastructure/docker/sidecar.env.example`.
 
 ### Basic Deployment
 
-Apply the manifests:
+Create the namespace and the ConfigMaps referenced by the checked-in deployment
+bundle before applying it. The repository provides the deployment resource
+bundle, but not environment-specific profile or server configuration data.
 
 ```bash
-kubectl apply -f infrastructure/k8s/deployment.yaml
+kubectl create namespace hl7v2-system --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -n hl7v2-system -f infrastructure/k8s/deployment.yaml
 ```
 
 `infrastructure/k8s/deployment.yaml` is a version-tagged example aligned to the
@@ -113,15 +116,17 @@ deployment smoke receipt after the rendered manifest is applied.
 
 ### With Ingress
 
-```bash
-kubectl apply -f infrastructure/k8s/ingress.yaml
-```
+The repository does not include an Ingress manifest. Configure an Ingress
+resource for your cluster and route it to the `hl7v2-server` Service on port
+`80`; keep controller-specific TLS and hostname settings in your deployment
+repository.
 
 ### Full Stack with Monitoring
 
 ```bash
-# Apply all manifests
-kubectl apply -f infrastructure/k8s/
+# Apply the checked-in deployment bundle (Deployment, Service, ServiceAccount,
+# HPA, and PDB)
+kubectl apply -n hl7v2-system -f infrastructure/k8s/deployment.yaml
 
 # Verify deployment
 kubectl get pods -n hl7v2-system
@@ -167,40 +172,13 @@ kubectl apply -f infrastructure/k8s/deployment.yaml
 
 ### Horizontal Pod Autoscaling
 
-Create HPA:
-
-```yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: hl7v2-server-hpa
-  namespace: hl7v2-system
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: hl7v2-server
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-```
-
-Apply:
+The checked-in `infrastructure/k8s/deployment.yaml` already includes an HPA
+targeting `hl7v2-server` with 3–10 replicas and CPU/memory targets. Adjust that
+resource in the deployment bundle or your rendered deployment overlay, then
+reapply:
 
 ```bash
-kubectl apply -f hpa.yaml
+kubectl apply -n hl7v2-system -f infrastructure/k8s/deployment.yaml
 ```
 
 ## Nix Deployment
