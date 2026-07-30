@@ -6,7 +6,7 @@ use crate::models::{
 use crate::{
     Result,
     grpc::{Hl7ServiceImpl, proto::hl7_service_server::Hl7ServiceServer},
-    routes::build_router,
+    routes::build_router_with_body_limit,
 };
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
@@ -527,7 +527,7 @@ impl Server {
         info!("Server listening on {}", addr);
 
         // Build router
-        let app = build_router(self.state);
+        let app = build_router_with_body_limit(self.state, self.config.max_body_size);
 
         // Serve
         axum::serve(
