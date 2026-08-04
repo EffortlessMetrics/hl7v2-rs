@@ -107,7 +107,7 @@ impl Hl7Service for Hl7ServiceImpl {
 
         let message_bytes =
             grpc_message_bytes(&req.message, req.mllp_framed, self.state.max_message_size)
-                .map_err(grpc_status_from_app_error)?;
+                .map_err(grpc_status_from_request_error)?;
 
         let message = rust_parse(message_bytes)
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
@@ -233,7 +233,7 @@ impl Hl7Service for Hl7ServiceImpl {
                 .map_err(Status::invalid_argument)?;
 
         enforce_grpc_profile_fixture_sizes(&req.fixtures, self.state.max_message_size)
-            .map_err(grpc_status_from_app_error)?;
+            .map_err(grpc_status_from_request_error)?;
 
         let profile = hl7v2::load_profile_checked(&req.profile)
             .map_err(|_error| Status::invalid_argument(crate::PROFILE_LOAD_SAFE_MESSAGE))?;
@@ -271,7 +271,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let raw_input = req.message;
         let message_bytes =
             grpc_message_bytes(&raw_input, req.mllp_framed, self.state.max_message_size)
-                .map_err(grpc_status_from_app_error)?;
+                .map_err(grpc_status_from_request_error)?;
 
         let mut message = rust_parse(message_bytes)
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {e}")))?;
@@ -366,7 +366,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let raw_input = req.message;
         let message_bytes =
             grpc_message_bytes(&raw_input, req.mllp_framed, self.state.max_message_size)
-                .map_err(grpc_status_from_app_error)?;
+                .map_err(grpc_status_from_request_error)?;
         let mut message = rust_parse(message_bytes)
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {e}")))?;
 
@@ -450,7 +450,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let ids =
             validated_grpc_corpus_message_ids(&req.messages).map_err(Status::invalid_argument)?;
         enforce_grpc_corpus_message_sizes(&req.messages, self.state.max_message_size)
-            .map_err(grpc_status_from_app_error)?;
+            .map_err(grpc_status_from_request_error)?;
         let messages = grpc_corpus_message_refs(&req.messages, &ids);
         let summary =
             hl7v2::synthetic::corpus::summarize_corpus_messages("<inline-corpus>", &messages);
@@ -477,7 +477,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let ids =
             validated_grpc_corpus_message_ids(&req.messages).map_err(Status::invalid_argument)?;
         enforce_grpc_corpus_message_sizes(&req.messages, self.state.max_message_size)
-            .map_err(grpc_status_from_app_error)?;
+            .map_err(grpc_status_from_request_error)?;
         let messages = grpc_corpus_message_refs(&req.messages, &ids);
         let mut fingerprint =
             hl7v2::synthetic::corpus::fingerprint_corpus_messages("<inline-corpus>", &messages);
@@ -510,9 +510,9 @@ impl Hl7Service for Hl7ServiceImpl {
         let after_ids =
             validated_grpc_corpus_message_ids(&req.after).map_err(Status::invalid_argument)?;
         enforce_grpc_corpus_message_sizes(&req.before, self.state.max_message_size)
-            .map_err(grpc_status_from_app_error)?;
+            .map_err(grpc_status_from_request_error)?;
         enforce_grpc_corpus_message_sizes(&req.after, self.state.max_message_size)
-            .map_err(grpc_status_from_app_error)?;
+            .map_err(grpc_status_from_request_error)?;
         let before_messages = grpc_corpus_message_refs(&req.before, &before_ids);
         let after_messages = grpc_corpus_message_refs(&req.after, &after_ids);
         let mut before_fingerprint = hl7v2::synthetic::corpus::fingerprint_corpus_messages(
@@ -555,7 +555,7 @@ impl Hl7Service for Hl7ServiceImpl {
         let req = request.into_inner();
 
         let message_bytes = grpc_message_bytes(&req.message, false, self.state.max_message_size)
-            .map_err(grpc_status_from_app_error)?;
+            .map_err(grpc_status_from_request_error)?;
         let message = rust_parse(message_bytes)
             .map_err(|e| Status::invalid_argument(format!("Failed to parse HL7: {}", e)))?;
 
@@ -592,7 +592,7 @@ impl Hl7Service for Hl7ServiceImpl {
             .unwrap_or(true);
 
         let message_bytes = grpc_message_bytes(&req.message, false, self.state.max_message_size)
-            .map_err(grpc_status_from_app_error)?;
+            .map_err(grpc_status_from_request_error)?;
         let normalized_bytes = hl7v2::normalize(message_bytes, canonical)
             .map_err(|e| Status::invalid_argument(format!("Failed to normalize HL7: {}", e)))?;
 
@@ -629,13 +629,13 @@ fn grpc_message_bytes(
     message: &[u8],
     mllp_framed: bool,
     max_message_size: usize,
-) -> Result<&[u8], crate::handlers::AppError> {
+) -> Result<&[u8], crate::handlers::RequestError> {
     crate::handlers::enforce_decoded_message_size(message, mllp_framed, max_message_size)
 }
 
-fn grpc_status_from_app_error(error: crate::handlers::AppError) -> Status {
+fn grpc_status_from_request_error(error: crate::handlers::RequestError) -> Status {
     match error {
-        crate::handlers::AppError::Parse(message) => {
+        crate::handlers::RequestError::App(crate::handlers::AppError::Parse(message)) => {
             let detail = message
                 .strip_prefix("MLLP parse error: ")
                 .unwrap_or(message.as_str());
@@ -648,7 +648,7 @@ fn grpc_status_from_app_error(error: crate::handlers::AppError) -> Status {
 fn enforce_grpc_profile_fixture_sizes(
     fixtures: &[ProfileTestFixture],
     max_message_size: usize,
-) -> Result<(), crate::handlers::AppError> {
+) -> Result<(), crate::handlers::RequestError> {
     for fixture in fixtures {
         crate::handlers::enforce_decoded_message_size_if_valid_mllp(
             &fixture.message,
@@ -663,7 +663,7 @@ fn enforce_grpc_profile_fixture_sizes(
 fn enforce_grpc_corpus_message_sizes(
     messages: &[CorpusMessageInput],
     max_message_size: usize,
-) -> Result<(), crate::handlers::AppError> {
+) -> Result<(), crate::handlers::RequestError> {
     for message in messages {
         let raw_bytes = message.message.as_slice();
         let mllp_framed = hl7v2::is_mllp_framed(raw_bytes);
@@ -687,7 +687,8 @@ fn parse_grpc_message_response(
         {
             Ok(message_bytes) => message_bytes,
             Err(error) => {
-                let code = if matches!(error, crate::handlers::AppError::MessageTooLarge { .. }) {
+                let code = if matches!(error, crate::handlers::RequestError::MessageTooLarge { .. })
+                {
                     "MESSAGE_TOO_LARGE"
                 } else {
                     "MLLP_ERROR"

@@ -1,4 +1,4 @@
-use crate::handlers::error::AppError;
+use crate::handlers::error::{AppError, RequestError};
 use crate::models::RedactionReceipt;
 use crate::redaction::redact_message;
 
@@ -7,12 +7,12 @@ pub(super) fn parse_request_message_with_metrics(
     mllp_framed: bool,
     operation: &'static str,
     max_message_size: usize,
-) -> Result<hl7v2::Message, AppError> {
+) -> Result<hl7v2::Message, RequestError> {
     let decoded_bytes = match decode_message_bytes(message_bytes, mllp_framed) {
         Ok(decoded_bytes) => decoded_bytes,
         Err(error) => {
             crate::metrics::record_parse_failure(operation);
-            return Err(error);
+            return Err(RequestError::App(error));
         }
     };
 
@@ -28,7 +28,7 @@ pub(super) fn parse_request_message_with_metrics(
         }
         Err(error) => {
             crate::metrics::record_parse_failure(operation);
-            Err(error)
+            Err(RequestError::App(error))
         }
     }
 }
@@ -61,9 +61,9 @@ fn parse_decoded_message(
 pub(super) fn enforce_message_size(
     message_bytes: &[u8],
     max_message_size: usize,
-) -> Result<(), AppError> {
+) -> Result<(), RequestError> {
     if message_bytes.len() > max_message_size {
-        return Err(AppError::MessageTooLarge {
+        return Err(RequestError::MessageTooLarge {
             actual: message_bytes.len(),
             max: max_message_size,
         });
@@ -94,7 +94,7 @@ mod tests {
     fn message_size_limit_includes_exact_boundary_and_rejects_overage() -> Result<(), String> {
         enforce_message_size(b"1234", 4).map_err(|error| error.to_string())?;
         match enforce_message_size(b"12345", 4) {
-            Err(AppError::MessageTooLarge { actual: 5, max: 4 }) => Ok(()),
+            Err(RequestError::MessageTooLarge { actual: 5, max: 4 }) => Ok(()),
             Ok(()) => Err("message overage was accepted".to_string()),
             Err(error) => Err(format!("unexpected message size error: {error}")),
         }
