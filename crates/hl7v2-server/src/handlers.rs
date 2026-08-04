@@ -654,14 +654,19 @@ pub async fn normalize_handler(
     Json(request): Json<NormalizeRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let message_bytes = request.message.as_bytes();
-    let input = decode_message_bytes(message_bytes, request.mllp_framed)?;
+    let input = decode_message_bytes(message_bytes, request.mllp_framed).inspect_err(|_error| {
+        crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
+    })?;
     if let Err(error) = enforce_message_size(input, state.max_message_size) {
         crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
         return Err(error);
     }
 
-    let normalized_bytes = hl7v2::normalize(input, request.options.canonical_delimiters)
-        .map_err(|e| AppError::Parse(format!("Normalize error: {}", e)))?;
+    let normalized_bytes =
+        hl7v2::normalize(input, request.options.canonical_delimiters).map_err(|e| {
+            crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
+            AppError::Parse(format!("Normalize error: {}", e))
+        })?;
     let normalized_message = hl7v2::parse(&normalized_bytes).map_err(|e| {
         crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
         AppError::Parse(format!("Normalized message parse error: {}", e))

@@ -9,6 +9,7 @@ fn print_config_outputs_sanitized_effective_config_and_exits()
         .env("HL7V2_API_KEY", "super-secret")
         .env("HL7V2_CORS_ALLOWED_ORIGINS", "https://app.example")
         .env_remove("HL7V2_CONFIG")
+        .env_remove("HL7V2_MAX_MESSAGE_SIZE")
         .env_remove("HL7V2_PROFILE_PATHS")
         .output()?;
 
