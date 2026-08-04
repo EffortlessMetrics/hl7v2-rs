@@ -129,7 +129,7 @@ impl std::io::Write for CapturedLogs {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         self.0
             .lock()
-            .map_err(|_| std::io::Error::other("log capture lock poisoned"))?
+            .map_err(|err| std::io::Error::other(format!("log capture lock poisoned: {err}")))?
             .extend_from_slice(bytes);
         Ok(bytes.len())
     }
@@ -182,7 +182,7 @@ async fn request_tracing_records_metadata_without_body() -> Result<(), String> {
     let output = String::from_utf8(
         logs.0
             .lock()
-            .map_err(|_| "log capture lock poisoned".to_string())?
+            .map_err(|err| format!("log capture lock poisoned: {err}"))?
             .clone(),
     )
     .map_err(|err| err.to_string())?;
