@@ -23,6 +23,10 @@ mod validation;
 
 use ack_policy::*;
 use corpus::*;
+#[doc(hidden)]
+#[deprecated(
+    note = "handlers::AppError is an internal compatibility surface; use the root server APIs and stable HTTP/gRPC error contracts"
+)]
 pub use error::AppError;
 use metadata::extract_metadata;
 #[cfg(test)]
