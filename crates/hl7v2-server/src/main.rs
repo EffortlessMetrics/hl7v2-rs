@@ -1,6 +1,7 @@
 //! HL7v2 HTTP/REST API server binary.
 
 use hl7v2_server::{Server, ServerConfig};
+use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -28,8 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if config.api_key.is_some() {
         tracing::info!("API key authentication enabled");
     } else {
-        tracing::warn!("API key authentication disabled (public access enabled)");
+        tracing::warn!(
+            bind_address = %config.bind_address,
+            "API key authentication is disabled; /hl7 routes are publicly accessible"
+        );
     }
+    log_bind_security_warning(&config.bind_address);
     tracing::info!("CORS allowed origins: {:?}", config.cors_allowed_origins);
 
     // Create and run server
@@ -38,6 +43,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     server.serve().await?;
 
     Ok(())
+}
+
+fn log_bind_security_warning(bind_address: &str) {
+    if bind_address_is_unspecified(bind_address) {
+        tracing::warn!(
+            bind_address = %bind_address,
+            "server is bound to all network interfaces; restrict network exposure and terminate TLS at a trusted proxy"
+        );
+    }
+}
+
+fn bind_address_is_unspecified(bind_address: &str) -> bool {
+    bind_address
+        .parse::<SocketAddr>()
+        .map(|address| address.ip().is_unspecified())
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -149,5 +170,13 @@ mod tests {
         assert_eq!(parse_log_format("pretty"), Some(LogFormat::Text));
         assert_eq!(parse_log_format(""), Some(LogFormat::Text));
         assert_eq!(parse_log_format("xml"), None);
+    }
+
+    #[test]
+    fn bind_security_warning_only_matches_unspecified_addresses() {
+        assert!(bind_address_is_unspecified("0.0.0.0:8080"));
+        assert!(bind_address_is_unspecified("[::]:8080"));
+        assert!(!bind_address_is_unspecified("127.0.0.1:8080"));
+        assert!(!bind_address_is_unspecified("not-an-address"));
     }
 }
