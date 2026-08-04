@@ -161,12 +161,24 @@ fn describe_metrics() {
 /// * `status` - The HTTP status code (e.g., "200", "400")
 /// * `duration_seconds` - Request duration in seconds
 pub fn record_request(endpoint: &str, status: &str, duration_seconds: f64) {
-    metrics::counter!("hl7v2_requests_total", "endpoint" => endpoint.to_string(), "status" => status.to_string())
-        .increment(1);
+    record_request_with_shared_labels(
+        Arc::<str>::from(endpoint),
+        Arc::<str>::from(status),
+        duration_seconds,
+    );
+}
+
+fn record_request_with_shared_labels(endpoint: Arc<str>, status: Arc<str>, duration_seconds: f64) {
+    metrics::counter!(
+        "hl7v2_requests_total",
+        "endpoint" => Arc::clone(&endpoint),
+        "status" => Arc::clone(&status)
+    )
+    .increment(1);
 
     metrics::histogram!(
         "hl7v2_request_duration_seconds",
-        "endpoint" => endpoint.to_string()
+        "endpoint" => endpoint
     )
     .record(duration_seconds);
 }
@@ -274,16 +286,16 @@ pub mod middleware {
     /// Metrics middleware that records request metrics
     pub async fn metrics_middleware(request: Request, next: Next) -> Response {
         let start = Instant::now();
-        let path = request.uri().path().to_string();
+        let path = Arc::<str>::from(request.uri().path());
 
         // Process the request
         let response = next.run(request).await;
 
         // Record metrics
         let duration = start.elapsed();
-        let status = response.status().as_u16().to_string();
+        let status = Arc::<str>::from(response.status().as_u16().to_string());
 
-        record_request(&path, &status, duration.as_secs_f64());
+        record_request_with_shared_labels(path, status, duration.as_secs_f64());
 
         response
     }
