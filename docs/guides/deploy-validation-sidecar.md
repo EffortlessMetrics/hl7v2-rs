@@ -147,6 +147,7 @@ Expected fields:
 {
   "bind_address": "127.0.0.1:18080",
   "max_body_size": 10485760,
+  "max_message_size": 52428800,
   "api_key_configured": true,
   "profile_paths": [
     "profiles/generic.yaml"
