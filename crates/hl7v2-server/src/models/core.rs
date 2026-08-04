@@ -12,12 +12,12 @@ use super::{
 };
 
 /// Health check response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct HealthResponse {
     /// Service status
     pub status: HealthStatus,
     /// Service version
-    pub version: String,
+    pub version: &'static str,
     /// Uptime in seconds
     pub uptime_seconds: u64,
 }

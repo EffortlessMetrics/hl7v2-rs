@@ -124,6 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   loopback (`127.0.0.1:8080`). Explicit network binds, including container
   deployment settings, remain unchanged; set `BIND_ADDRESS`, `server.host`, or
   `--host` when remote access is required.
+- Health responses now borrow the compile-time server version instead of
+  allocating a new string for each health request.
 
 ### Fixed
 

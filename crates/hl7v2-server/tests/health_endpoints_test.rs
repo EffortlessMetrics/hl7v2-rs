@@ -96,6 +96,33 @@ async fn test_health_endpoint_contains_status() {
 }
 
 #[tokio::test]
+async fn test_health_endpoint_contains_version() {
+    let app = common::create_test_router();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+    assert!(
+        body_str.contains(env!("CARGO_PKG_VERSION")),
+        "Health response should contain the server package version"
+    );
+}
+
+#[tokio::test]
 async fn test_health_endpoint_contains_uptime() {
     let app = common::create_test_router();
 
