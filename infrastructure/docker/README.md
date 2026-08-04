@@ -63,7 +63,11 @@ docker run --rm \
 ```
 
 The image runs as the non-root `hl7v2` user and includes a Docker healthcheck
-for `/ready`.
+for `/ready`. This direct invocation intentionally uses the image's built-in
+defaults: it does not mount the checked-in server configuration or profiles and
+does not provide persistent evidence-bundle or quarantine volumes. Use the
+Compose workflow above for the configured readiness, validation, bundle/replay,
+and corpus-diff smoke coverage.
 
 ## Compose service
 
