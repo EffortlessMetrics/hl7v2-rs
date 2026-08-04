@@ -34,6 +34,7 @@ fn create_test_router() -> axum::Router {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        max_message_size: ServerConfig::default().max_message_size,
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
@@ -880,7 +881,7 @@ mod server_integration {
     use tokio::net::TcpListener;
 
     #[tokio::test]
-    async fn test_server_starts_and_responds() {
+    async fn test_server_starts_and_responds() -> Result<(), Box<dyn std::error::Error>> {
         init_tracing();
 
         // Find available port
@@ -892,6 +893,7 @@ mod server_integration {
         let config = ServerConfig {
             bind_address: addr.to_string(),
             max_body_size: 10 * 1024 * 1024,
+            max_message_size: 50 * 1024 * 1024,
             api_key: None,
             cors_allowed_origins: Default::default(),
             profile_paths: Vec::new(),
@@ -902,7 +904,7 @@ mod server_integration {
         };
 
         // Build server
-        let server = Server::new(config);
+        let server = Server::new(config)?;
 
         // Spawn server task
         let server_task = tokio::spawn(async move { server.serve().await });
@@ -925,6 +927,7 @@ mod server_integration {
 
         // Abort server task
         server_task.abort();
+        Ok(())
     }
 }
 
