@@ -57,6 +57,86 @@ pub enum AppError {
     Internal(String),
 }
 
+/// Errors that can cross the internal request-processing boundary.
+///
+/// `MessageTooLarge` intentionally stays out of [`AppError`]. The latter is
+/// retained as a hidden, deprecated compatibility surface, so adding a public
+/// enum variant would break downstream exhaustive matches. Transport adapters
+/// convert this internal error directly to the stable HTTP/gRPC contracts.
+#[derive(Debug)]
+pub(crate) enum RequestError {
+    App(AppError),
+    MessageTooLarge { actual: usize, max: usize },
+}
+
+impl From<AppError> for RequestError {
+    fn from(error: AppError) -> Self {
+        Self::App(error)
+    }
+}
+
+impl RequestError {
+    pub(crate) fn into_response(self) -> Response {
+        match self {
+            Self::App(error) => error.into_response(),
+            Self::MessageTooLarge { actual, max } => message_too_large_response(actual, max),
+        }
+    }
+}
+
+impl std::fmt::Display for RequestError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::App(error) => error.fmt(formatter),
+            Self::MessageTooLarge { actual, max } => {
+                write!(
+                    formatter,
+                    "Message size {actual} bytes exceeds maximum of {max} bytes"
+                )
+            }
+        }
+    }
+}
+
+fn error_response(
+    status: StatusCode,
+    code: &str,
+    message: String,
+    safe_detail: Option<&str>,
+    location: Option<&str>,
+    next_action: &str,
+) -> Response {
+    tracing::warn!(
+        target: "hl7v2_server::evidence",
+        event = audit::EVENT_ERROR,
+        status = status.as_u16(),
+        error_code = code,
+        "request failed"
+    );
+
+    let mut error = ErrorResponse::new(code, message).with_suggested_next_action(next_action);
+    if let Some(safe_detail) = safe_detail {
+        error = error.with_safe_detail(safe_detail);
+    }
+    if let Some(location) = location {
+        error = error.with_location(location);
+    }
+    (status, Json(error)).into_response()
+}
+
+pub(crate) fn message_too_large_response(actual: usize, max: usize) -> Response {
+    error_response(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "MESSAGE_TOO_LARGE",
+        format!("message size {actual} bytes exceeds maximum of {max} bytes"),
+        Some(
+            "The HL7 message exceeded the configured application-level size limit and was not parsed.",
+        ),
+        Some("message"),
+        "Reduce the message size or configure a reviewed larger message limit.",
+    )
+}
+
 impl From<crate::evidence::EvidenceBundleError> for AppError {
     fn from(error: crate::evidence::EvidenceBundleError) -> Self {
         match error {
@@ -206,21 +286,14 @@ impl IntoResponse for AppError {
             ),
         };
 
-        tracing::warn!(
-            target: "hl7v2_server::evidence",
-            event = audit::EVENT_ERROR,
-            status = status.as_u16(),
-            error_code = code,
-            "request failed"
-        );
-
-        let mut error = ErrorResponse::new(code, message)
-            .with_safe_detail(safe_detail)
-            .with_suggested_next_action(next_action);
-        if let Some(location) = location {
-            error = error.with_location(location);
-        }
-        (status, Json(error)).into_response()
+        error_response(
+            status,
+            code,
+            message,
+            Some(safe_detail),
+            location,
+            next_action,
+        )
     }
 }
 
@@ -271,6 +344,7 @@ impl From<hl7v2::conformance::profile::ProfileLoadError> for AppError {
 mod tests {
     use super::*;
     use crate::evidence::EvidenceBundleError;
+    use http_body_util::BodyExt;
 
     #[test]
     fn from_evidence_bundle_error_maps_each_variant_to_a_bundle_app_error() {
@@ -395,6 +469,25 @@ mod tests {
         assert!(
             !display.contains(raw_detail),
             "display must not leak inner detail, got {display}"
+        );
+    }
+
+    #[tokio::test]
+    async fn message_too_large_response_preserves_transport_contract() {
+        let response = message_too_large_response(11, 10);
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["code"], "MESSAGE_TOO_LARGE");
+        assert_eq!(
+            body["message"],
+            "message size 11 bytes exceeds maximum of 10 bytes"
+        );
+        assert!(
+            body["safe_detail"]
+                .as_str()
+                .is_some_and(|detail| detail.contains("configured application-level size limit"))
         );
     }
 
