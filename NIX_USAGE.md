@@ -109,7 +109,7 @@ nix build .#checks.x86_64-linux.test    # Tests
 
 - **`packages.default`**: Main Rust package with all binaries
   - `hl7v2-server` - HTTP/REST API server
-  - `hl7v2-cli` - Command-line interface (future)
+  - `hl7v2-cli` - Command-line interface
 - **`packages.docker`**: Layered Docker image optimized for caching
 
 ### Development Shells
