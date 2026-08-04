@@ -2,34 +2,46 @@
 
 use regex::Regex;
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock, RwLock};
 
 const MAX_CACHED_PATTERNS: usize = 256;
 
 #[derive(Debug)]
 struct RegexCache {
-    entries: Mutex<HashMap<String, Regex>>,
+    entries: RwLock<HashMap<String, Regex>>,
 }
 
 impl RegexCache {
     fn new() -> Self {
         Self {
-            entries: Mutex::new(HashMap::new()),
+            entries: RwLock::new(HashMap::new()),
         }
     }
 
     fn get_or_compile(&self, pattern: &str) -> Option<Regex> {
-        let Ok(mut entries) = self.entries.lock() else {
-            return Regex::new(pattern).ok();
-        };
-
-        if let Some(regex) = entries.get(pattern) {
+        if let Ok(entries) = self.entries.read()
+            && let Some(regex) = entries.get(pattern)
+        {
             return Some(regex.clone());
         }
 
+        // Compilation is deliberately outside the write lock so an expensive
+        // first-use pattern does not block cache hits for other patterns.
         let regex = Regex::new(pattern).ok()?;
-        if entries.len() >= MAX_CACHED_PATTERNS {
-            entries.clear();
+        let Ok(mut entries) = self.entries.write() else {
+            return Some(regex);
+        };
+
+        // Another thread may have compiled the same pattern while this one
+        // was outside the lock. Prefer the cached value in that case.
+        if let Some(cached) = entries.get(pattern) {
+            return Some(cached.clone());
+        }
+
+        if entries.len() >= MAX_CACHED_PATTERNS
+            && let Some(evicted_pattern) = entries.keys().next().cloned()
+        {
+            entries.remove(&evicted_pattern);
         }
         entries.insert(pattern.to_owned(), regex.clone());
         Some(regex)
@@ -38,7 +50,7 @@ impl RegexCache {
     #[cfg(test)]
     fn len(&self) -> usize {
         self.entries
-            .lock()
+            .read()
             .map(|entries| entries.len())
             .unwrap_or(0)
     }
@@ -65,5 +77,16 @@ mod tests {
         assert!(cache.get_or_compile(r"^MRN\d+$").is_some());
         assert!(cache.get_or_compile("[").is_none());
         assert_eq!(cache.len(), 1);
+    }
+
+    #[test]
+    fn evicts_one_pattern_without_exceeding_the_bound() {
+        let cache = RegexCache::new();
+
+        for index in 0..=super::MAX_CACHED_PATTERNS {
+            assert!(cache.get_or_compile(&format!(r"^value-{index}$")).is_some());
+        }
+
+        assert_eq!(cache.len(), super::MAX_CACHED_PATTERNS);
     }
 }
