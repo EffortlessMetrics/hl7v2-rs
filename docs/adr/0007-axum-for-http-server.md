@@ -171,7 +171,7 @@ pub async fn run_server(config: ServerConfig) -> Result<(), Error> {
         .route("/hl7/validate", post(validate_handler))
         .route("/hl7/ack", post(ack_handler))
         .with_state(state)
-        // Metadata-only tracing; request and response bodies are never logged.
+        // Metadata-only tracing; path and status are logged, never request or response data.
         .layer(axum::middleware::from_fn(hl7v2_server::middleware::trace_request))
         .layer(tower_http::cors::CorsLayer::permissive());
 
@@ -208,7 +208,7 @@ use tower::ServiceBuilder;
 use tower_http::{cors, compression, timeout};
 
 let middleware = ServiceBuilder::new()
-    // Use the server's metadata-only tracing middleware; never log bodies.
+    // Use the server's metadata-only tracing middleware; never log request data.
     .layer(axum::middleware::from_fn(hl7v2_server::middleware::trace_request))
     .layer(cors::CorsLayer::permissive())
     .layer(compression::CompressionLayer::new())

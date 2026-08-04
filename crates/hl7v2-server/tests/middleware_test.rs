@@ -119,6 +119,9 @@ fn server_tracing_uses_metadata_only_middleware() -> Result<(), String> {
     if !middleware_source.contains("status = %response.status()") {
         return Err("request tracing must record response status metadata".to_string());
     }
+    if middleware_source.contains("uri = %uri") {
+        return Err("request tracing must not record the raw URI or query string".to_string());
+    }
     Ok(())
 }
 
@@ -148,7 +151,7 @@ impl<'a> MakeWriter<'a> for CapturedLogs {
 }
 
 #[tokio::test]
-async fn request_tracing_records_metadata_without_body() -> Result<(), String> {
+async fn request_tracing_records_metadata_without_request_data() -> Result<(), String> {
     let logs = CapturedLogs::default();
     let subscriber = tracing_subscriber::fmt()
         .with_ansi(false)
@@ -161,13 +164,14 @@ async fn request_tracing_records_metadata_without_body() -> Result<(), String> {
         )
         .layer(axum::middleware::from_fn(trace_request));
     let sentinel = "SENTINEL_REQUEST_BODY_SHOULD_NOT_BE_LOGGED";
+    let query_sentinel = "SENTINEL_QUERY_SHOULD_NOT_BE_LOGGED";
 
     let response = {
         let _default = tracing::subscriber::set_default(subscriber);
         app.oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/health")
+                .uri(format!("/health?token={query_sentinel}"))
                 .body(Body::from(sentinel))
                 .map_err(|err| err.to_string())?,
         )
@@ -187,7 +191,7 @@ async fn request_tracing_records_metadata_without_body() -> Result<(), String> {
     )
     .map_err(|err| err.to_string())?;
     if !output.contains("method=POST")
-        || !output.contains("uri=/health")
+        || !output.contains("path=/health")
         || !output.contains("status=204")
     {
         return Err(format!(
@@ -196,6 +200,9 @@ async fn request_tracing_records_metadata_without_body() -> Result<(), String> {
     }
     if output.contains(sentinel) {
         return Err("request body sentinel was emitted in tracing output".to_string());
+    }
+    if output.contains(query_sentinel) {
+        return Err("request query sentinel was emitted in tracing output".to_string());
     }
     Ok(())
 }

@@ -25,18 +25,18 @@ use crate::server::AppState;
 /// Wraps each request in a tracing span with request metadata.
 pub async fn trace_request(request: Request, next: Next) -> Response {
     let method = request.method().clone();
-    let uri = request.uri().clone();
+    let path = request.uri().path().to_owned();
     let span = info_span!(
         "HTTP request",
         method = %method,
-        uri = %uri,
+        path = %path,
     );
 
     async move {
         let response = next.run(request).await;
         info!(
             method = %method,
-            uri = %uri,
+            path = %path,
             status = %response.status(),
             "HTTP request completed"
         );
