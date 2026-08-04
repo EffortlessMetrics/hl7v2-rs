@@ -2805,7 +2805,8 @@ constraints:
             .expect("test listener should have a local address");
         let server = hl7v2_server::Server::builder()
             .bind(addr.to_string())
-            .build();
+            .build()
+            .expect("test server configuration should be valid");
         let server_task =
             tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
 
@@ -2848,7 +2849,8 @@ constraints:
         let server = hl7v2_server::Server::builder()
             .bind(addr.to_string())
             .max_body_size(32)
-            .build();
+            .build()
+            .expect("test server configuration should be valid");
         let server_task =
             tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
 
@@ -2891,7 +2893,8 @@ constraints:
         let server = hl7v2_server::Server::builder()
             .bind(addr.to_string())
             .api_key(Some("grpc-secret".to_string()))
-            .build();
+            .build()
+            .expect("test server configuration should be valid");
         let server_task =
             tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
 
@@ -2936,7 +2939,8 @@ constraints:
         let server = hl7v2_server::Server::builder()
             .bind(addr.to_string())
             .api_key(Some(api_key.to_string()))
-            .build();
+            .build()
+            .expect("test server configuration should be valid");
         let server_task =
             tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
 

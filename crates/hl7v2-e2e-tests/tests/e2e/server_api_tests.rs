@@ -904,7 +904,7 @@ mod server_integration {
         };
 
         // Build server
-        let server = Server::new(config);
+        let server = Server::new(config).expect("test server configuration should be valid");
 
         // Spawn server task
         let server_task = tokio::spawn(async move { server.serve().await });

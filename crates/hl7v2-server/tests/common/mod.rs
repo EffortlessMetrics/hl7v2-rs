@@ -24,7 +24,7 @@ pub fn create_test_server() -> Server {
         ack_policy: Default::default(),
         quarantine: Default::default(),
     };
-    Server::new(config)
+    Server::new(config).expect("default test server configuration should be valid")
 }
 
 /// Create a test router for integration testing

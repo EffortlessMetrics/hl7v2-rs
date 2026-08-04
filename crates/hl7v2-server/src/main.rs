@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("CORS allowed origins: {:?}", config.cors_allowed_origins);
 
     // Create and run server
-    let server = Server::new(config);
+    let server = Server::new(config)?;
 
     server.serve().await?;
 

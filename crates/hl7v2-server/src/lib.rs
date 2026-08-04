@@ -24,7 +24,7 @@
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let server = Server::builder()
 //!         .bind("0.0.0.0:8080")
-//!         .build();
+//!         .build()?;
 //!
 //!     server.serve().await?;
 //!     Ok(())
