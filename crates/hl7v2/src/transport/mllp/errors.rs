@@ -23,6 +23,15 @@ pub enum MllpError {
     /// Connection timeout.
     #[error("Connection timeout")]
     Timeout,
+
+    /// The streaming frame buffer would exceed its configured limit.
+    #[error("MLLP buffer limit exceeded: attempted {attempted_size} bytes, maximum {max_size}")]
+    BufferLimitExceeded {
+        /// Maximum number of bytes allowed in the streaming buffer.
+        max_size: usize,
+        /// Number of bytes that would have been buffered.
+        attempted_size: usize,
+    },
 }
 
 impl From<std::io::Error> for MllpError {

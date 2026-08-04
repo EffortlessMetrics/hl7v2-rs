@@ -115,6 +115,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added gRPC profile lint parity with shared profile lint reports and opt-in
   v2 provenance.
 
+### Changed
+
+- Changed `MllpFrameIterator::extend` to return a typed error when input would
+  exceed its default 10 MiB buffer limit. Callers that previously appended
+  without handling a result must now handle or propagate `MllpError`.
+
 ### Fixed
 
 - Corrected the README CLI feature list to document supported first-use

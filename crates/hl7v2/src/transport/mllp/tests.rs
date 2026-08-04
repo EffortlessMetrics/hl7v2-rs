@@ -250,6 +250,7 @@ fn test_frame_iterator_new() {
 fn test_frame_iterator_default() {
     let iter = MllpFrameIterator::default();
     assert_eq!(iter.buffer_len(), 0);
+    assert_eq!(iter.max_buffer_size(), 10 * 1024 * 1024);
 }
 
 #[test]
@@ -259,7 +260,7 @@ fn test_frame_iterator_single_message() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
 
-    iter.extend(&framed);
+    assert!(iter.extend(&framed).is_ok());
 
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(&msg, hl7);
@@ -278,8 +279,8 @@ fn test_frame_iterator_multiple_messages() {
     let framed_2 = wrap_mllp(hl7_2);
 
     // Add both messages
-    iter.extend(&framed_1);
-    iter.extend(&framed_2);
+    assert!(iter.extend(&framed_1).is_ok());
+    assert!(iter.extend(&framed_2).is_ok());
 
     // Extract first message
     let msg_1 = iter.next_message().unwrap().unwrap();
@@ -301,11 +302,11 @@ fn test_frame_iterator_partial_message() {
     let framed = wrap_mllp(hl7);
 
     // Add partial message
-    iter.extend(&framed[..5]);
+    assert!(iter.extend(&framed[..5]).is_ok());
     assert!(iter.next_message().is_none());
 
     // Add the rest
-    iter.extend(&framed[5..]);
+    assert!(iter.extend(&framed[5..]).is_ok());
 
     // Now we can extract
     let msg = iter.next_message().unwrap().unwrap();
@@ -321,7 +322,7 @@ fn test_frame_iterator_byte_by_byte() {
 
     // Add byte by byte
     for byte in &framed {
-        iter.extend(&[*byte]);
+        assert!(iter.extend(&[*byte]).is_ok());
         if iter.buffer_len() < framed.len() {
             assert!(iter.next_message().is_none());
         }
@@ -336,7 +337,7 @@ fn test_frame_iterator_byte_by_byte() {
 fn test_frame_iterator_clear() {
     let mut iter = MllpFrameIterator::new();
 
-    iter.extend(b"some data");
+    assert!(iter.extend(b"some data").is_ok());
     assert!(iter.buffer_len() > 0);
 
     iter.clear();
@@ -349,11 +350,31 @@ fn test_frame_iterator_buffer_len() {
 
     assert_eq!(iter.buffer_len(), 0);
 
-    iter.extend(b"test");
+    assert!(iter.extend(b"test").is_ok());
     assert_eq!(iter.buffer_len(), 4);
 
-    iter.extend(b"more");
+    assert!(iter.extend(b"more").is_ok());
     assert_eq!(iter.buffer_len(), 8);
+}
+
+#[test]
+fn test_frame_iterator_rejects_input_beyond_limit_without_mutating_buffer() {
+    let mut iter = MllpFrameIterator::with_max_buffer_size(4);
+
+    assert!(iter.extend(b"123").is_ok());
+    let error = iter.extend(b"45");
+
+    assert_eq!(
+        error,
+        Err(MllpError::BufferLimitExceeded {
+            max_size: 4,
+            attempted_size: 5,
+        })
+    );
+    assert_eq!(iter.buffer_len(), 3);
+
+    assert!(iter.extend(b"4").is_ok());
+    assert_eq!(iter.buffer_len(), 4);
 }
 
 #[test]
@@ -363,7 +384,7 @@ fn test_frame_iterator_next_frame() {
     let hl7 = b"MSH|^~\\&|TEST\r";
     let framed = wrap_mllp(hl7);
 
-    iter.extend(&framed);
+    assert!(iter.extend(&framed).is_ok());
 
     let frame = iter.next_frame().unwrap();
     assert_eq!(frame, framed);
@@ -456,7 +477,7 @@ fn test_frame_iterator_concatenated_messages() {
     let mut combined = framed_1.clone();
     combined.extend_from_slice(&framed_2);
 
-    iter.extend(&combined);
+    assert!(iter.extend(&combined).is_ok());
 
     // Extract first message
     let msg_1 = iter.next_message().unwrap().unwrap();
@@ -488,7 +509,7 @@ fn test_frame_iterator_large_message() {
     let content: Vec<u8> = (0..50000).map(|i| (i % 256) as u8).collect();
     let framed = wrap_mllp(&content);
 
-    iter.extend(&framed);
+    assert!(iter.extend(&framed).is_ok());
 
     let msg = iter.next_message().unwrap().unwrap();
     assert_eq!(msg.as_slice(), content.as_slice());
