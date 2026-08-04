@@ -60,6 +60,13 @@ This document provides a transparent view of which features are fully implemente
 - Internal/dev crates: benches, e2e tests, test utilities, examples, and
   `xtask`.
 
+The supported `hl7v2-server` Rust integration surface is the root-level
+`Server`, `ServerBuilder`, `ServerConfig`, `AppState`, `build_router`, and
+documented model types. The `handlers` module is an internal compatibility
+surface, while `handlers::AppError` is hidden and deprecated; neither is a
+supported Rust extension point. HTTP and gRPC response contracts are the
+supported request-error boundary.
+
 Binding backend crates are real language-boundary APIs, but they are not the
 recommended Rust API. `xtask publish-plan --surface bindings` reports this
 separate graph. Current `hl7v2-python` metadata describes it as the PyO3

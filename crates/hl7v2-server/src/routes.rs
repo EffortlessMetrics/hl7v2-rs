@@ -2,6 +2,7 @@
 
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     http::HeaderValue,
     middleware,
     routing::{get, post},
@@ -11,7 +12,7 @@ use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, Any, CorsLayer},
-    trace::TraceLayer,
+    limit::RequestBodyLimitLayer,
 };
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -22,14 +23,19 @@ use crate::handlers::{
     ready_handler, replay_handler, validate_handler, validate_redacted_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
-use crate::server::{AppState, CorsAllowedOrigins};
+use crate::middleware::{auth_middleware, create_concurrency_limit_layer, trace_request};
+use crate::server::{AppState, CorsAllowedOrigins, ServerConfig};
 
 /// OpenAPI specification content
 const OPENAPI_YAML: &str = include_str!(env!("HL7V2_OPENAPI_YAML"));
 
 /// Build the application router
 pub fn build_router(state: Arc<AppState>) -> Router {
+    build_router_with_body_limit(state, ServerConfig::default().max_body_size)
+}
+
+/// Build the application router with an explicit HTTP request-body limit.
+pub(crate) fn build_router_with_body_limit(state: Arc<AppState>, max_body_size: usize) -> Router {
     // Rate limit configuration: 100 requests per minute per IP
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
@@ -85,14 +91,18 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/ready", get(ready_handler))
         .route("/metrics", get(metrics_handler))
         .nest("/hl7", api_routes)
+        // Keep the extractor limit for its 413 rejection behavior and also
+        // wrap every request body so raw-body consumers cannot bypass it.
+        .layer(RequestBodyLimitLayer::new(max_body_size))
+        .layer(DefaultBodyLimit::max(max_body_size))
         .with_state(state)
         // Middleware layers (bottom to top execution order)
         .layer(middleware::from_fn(metrics_middleware))
         .layer(CompressionLayer::new())
         .layer(cors_layer)
-        .layer(TraceLayer::new_for_http())
         .layer(GovernorLayer::new(governor_conf))
-        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
+        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first
+        .layer(middleware::from_fn(trace_request)) // Request tracing remains outermost
 }
 
 /// Build CORS layer
@@ -134,6 +144,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: Some(api_key.clone()),
+            max_message_size: crate::server::ServerConfig::default().max_message_size,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
@@ -187,6 +198,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
+            max_message_size: crate::server::ServerConfig::default().max_message_size,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
@@ -218,12 +230,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_configured_http_body_limit_applies_before_body_consumers() {
+        let metrics_handle = crate::metrics::init_metrics_recorder();
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
+            max_message_size: crate::server::ServerConfig::default().max_message_size,
+            cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
+        });
+
+        let app = build_router_with_body_limit(state, 64);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
+                    .uri("/health")
+                    .method("GET")
+                    .header("Content-Length", "65")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    }
+
+    #[tokio::test]
     async fn test_parse_endpoint() {
         let metrics_handle = crate::metrics::init_metrics_recorder();
         let state = Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
+            max_message_size: crate::server::ServerConfig::default().max_message_size,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
@@ -271,6 +319,41 @@ mod tests {
         assert_eq!(response_data.metadata.version, "2.5");
         assert_eq!(response_data.metadata.sending_application, "SendingApp");
         assert!(response_data.message.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_configured_http_body_limit_rejects_oversized_request() {
+        let metrics_handle = crate::metrics::init_metrics_recorder();
+        let state = Arc::new(AppState {
+            start_time: Instant::now(),
+            metrics_handle: Arc::new(metrics_handle),
+            api_key: None,
+            max_message_size: crate::server::ServerConfig::default().max_message_size,
+            cors_allowed_origins: CorsAllowedOrigins::default(),
+            readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
+            bundle_output_root: None,
+            ack_policy: Default::default(),
+            quarantine: Default::default(),
+        });
+
+        let app = build_router_with_body_limit(state, 64);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [127, 0, 0, 1],
+                        8080,
+                    ))))
+                    .uri("/hl7/parse")
+                    .method("POST")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(parse_request_payload()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 
     #[tokio::test]
