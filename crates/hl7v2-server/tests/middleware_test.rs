@@ -13,6 +13,7 @@ use axum::{
 use hl7v2_server::{
     handlers::{parse_handler, validate_handler},
     metrics::{init_metrics_recorder, metrics_handler},
+    middleware::trace_request,
     server::{AppState, ServerConfig},
 };
 use std::sync::Arc;
@@ -23,8 +24,8 @@ use tower_governor::governor::GovernorConfigBuilder;
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
-    trace::TraceLayer,
 };
+use tracing_subscriber::fmt::MakeWriter;
 use utoipa_swagger_ui::SwaggerUi;
 
 /// Build a test router with configurable rate limiting and concurrency limiting
@@ -100,9 +101,111 @@ fn build_test_router(
                 .allow_methods(Any)
                 .allow_headers(Any),
         )
-        .layer(TraceLayer::new_for_http())
         .layer(tower_governor::GovernorLayer::new(governor_conf.clone())) // Rate limiting
-        .layer(ConcurrencyLimitLayer::new(max_concurrency)) // Concurrency limiting
+        .layer(ConcurrencyLimitLayer::new(max_concurrency)) // Concurrency limiting applied first
+        .layer(axum::middleware::from_fn(trace_request)) // Request tracing remains outermost
+}
+
+#[test]
+fn server_tracing_uses_metadata_only_middleware() -> Result<(), String> {
+    let routes_source = include_str!("../src/routes.rs");
+    if routes_source.contains("TraceLayer::new_for_http()") {
+        return Err("server routes must not use the generic TraceLayer".to_string());
+    }
+    if !routes_source.contains("middleware::from_fn(trace_request)") {
+        return Err("server routes must install trace_request".to_string());
+    }
+
+    let middleware_source = include_str!("../src/middleware.rs");
+    if !middleware_source.contains("status = %response.status()") {
+        return Err("request tracing must record response status metadata".to_string());
+    }
+    if middleware_source.contains("uri = %uri") {
+        return Err("request tracing must not record the raw URI or query string".to_string());
+    }
+    Ok(())
+}
+
+#[derive(Clone, Default)]
+struct CapturedLogs(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for CapturedLogs {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0
+            .lock()
+            .map_err(|err| std::io::Error::other(format!("log capture lock poisoned: {err}")))?
+            .extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl<'a> MakeWriter<'a> for CapturedLogs {
+    type Writer = Self;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        self.clone()
+    }
+}
+
+#[tokio::test]
+async fn request_tracing_records_metadata_without_request_data() -> Result<(), String> {
+    let logs = CapturedLogs::default();
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(logs.clone())
+        .finish();
+    let app = axum::Router::new()
+        .route(
+            "/health",
+            axum::routing::post(|| async { StatusCode::NO_CONTENT }),
+        )
+        .layer(axum::middleware::from_fn(trace_request));
+    let sentinel = "SENTINEL_REQUEST_BODY_SHOULD_NOT_BE_LOGGED";
+    let query_sentinel = "SENTINEL_QUERY_SHOULD_NOT_BE_LOGGED";
+
+    let response = {
+        let _default = tracing::subscriber::set_default(subscriber);
+        app.oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/health?token={query_sentinel}"))
+                .body(Body::from(sentinel))
+                .map_err(|err| err.to_string())?,
+        )
+        .await
+        .map_err(|err| err.to_string())?
+    };
+
+    if response.status() != StatusCode::NO_CONTENT {
+        return Err(format!("unexpected response status: {}", response.status()));
+    }
+
+    let output = String::from_utf8(
+        logs.0
+            .lock()
+            .map_err(|err| format!("log capture lock poisoned: {err}"))?
+            .clone(),
+    )
+    .map_err(|err| err.to_string())?;
+    if !output.contains("method=POST")
+        || !output.contains("path=/health")
+        || !output.contains("status=204")
+    {
+        return Err(format!(
+            "request metadata missing from captured logs: {output}"
+        ));
+    }
+    if output.contains(sentinel) {
+        return Err("request body sentinel was emitted in tracing output".to_string());
+    }
+    if output.contains(query_sentinel) {
+        return Err("request query sentinel was emitted in tracing output".to_string());
+    }
+    Ok(())
 }
 
 #[tokio::test]

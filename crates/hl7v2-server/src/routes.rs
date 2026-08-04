@@ -11,7 +11,6 @@ use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, Any, CorsLayer},
-    trace::TraceLayer,
 };
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -22,7 +21,7 @@ use crate::handlers::{
     ready_handler, replay_handler, validate_handler, validate_redacted_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
+use crate::middleware::{auth_middleware, create_concurrency_limit_layer, trace_request};
 use crate::server::{AppState, CorsAllowedOrigins};
 
 /// OpenAPI specification content
@@ -90,9 +89,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(middleware::from_fn(metrics_middleware))
         .layer(CompressionLayer::new())
         .layer(cors_layer)
-        .layer(TraceLayer::new_for_http())
         .layer(GovernorLayer::new(governor_conf))
-        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
+        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first
+        .layer(middleware::from_fn(trace_request)) // Request tracing remains outermost
 }
 
 /// Build CORS layer

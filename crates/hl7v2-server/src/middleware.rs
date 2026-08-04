@@ -14,7 +14,7 @@ use axum::{
 };
 use http::StatusCode;
 use std::sync::Arc;
-use tracing::info_span;
+use tracing::{Instrument, info, info_span};
 
 use subtle::ConstantTimeEq;
 
@@ -24,14 +24,26 @@ use crate::server::AppState;
 ///
 /// Wraps each request in a tracing span with request metadata.
 pub async fn trace_request(request: Request, next: Next) -> Response {
+    let method = request.method().clone();
+    let path = request.uri().path().to_owned();
     let span = info_span!(
         "HTTP request",
-        method = %request.method(),
-        uri = %request.uri(),
+        method = %method,
+        path = %path,
     );
 
-    let _enter = span.enter();
-    next.run(request).await
+    async move {
+        let response = next.run(request).await;
+        info!(
+            method = %method,
+            path = %path,
+            status = %response.status(),
+            "HTTP request completed"
+        );
+        response
+    }
+    .instrument(span)
+    .await
 }
 
 /// API key authentication middleware
