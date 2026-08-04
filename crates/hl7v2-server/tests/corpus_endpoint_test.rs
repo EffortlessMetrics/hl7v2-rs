@@ -86,7 +86,15 @@ fn post_json(path: &str, request_body: Value) -> Request<Body> {
 }
 
 async fn post_corpus(path: &str, request_body: Value) -> (StatusCode, Value, String) {
-    let app = common::create_test_router();
+    post_corpus_with_max(path, request_body, 50 * 1024 * 1024).await
+}
+
+async fn post_corpus_with_max(
+    path: &str,
+    request_body: Value,
+    max_message_size: usize,
+) -> (StatusCode, Value, String) {
+    let app = common::create_test_router_with_message_size_limit(max_message_size);
     let response = app.oneshot(post_json(path, request_body)).await.unwrap();
     let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
@@ -331,6 +339,31 @@ async fn test_corpus_summarize_accepts_inline_messages_without_echoing_payloads(
     assert!(!body_text.contains("Doe"));
     assert!(!body_text.contains("MRN123"));
     assert!(!body_text.contains(common::fixtures::INVALID_MALFORMED));
+}
+
+#[tokio::test]
+async fn test_corpus_summarize_enforces_decoded_message_size_for_mllp_message() {
+    let framed =
+        String::from_utf8(hl7v2::wrap_mllp(common::fixtures::ADT_A01_VALID.as_bytes())).unwrap();
+    let request_body = json!({
+        "messages": [{ "id": "adt-1", "message": framed }]
+    });
+
+    let (status, body, _) = post_corpus_with_max(
+        "/hl7/corpus/summarize",
+        request_body,
+        common::fixtures::ADT_A01_VALID.len().saturating_sub(1),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(body["code"], "MESSAGE_TOO_LARGE");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("exceeds maximum")
+    );
 }
 
 #[tokio::test]
