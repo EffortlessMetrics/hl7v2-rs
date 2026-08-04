@@ -33,7 +33,7 @@ cargo run --bin hl7v2-server
 ### Environment Variables
 
 ```bash
-export BIND_ADDRESS="0.0.0.0:8080"        # Bind address (default: 127.0.0.1:8080)
+export BIND_ADDRESS="0.0.0.0:8080"        # Bind address (default: 0.0.0.0:8080)
 export HL7V2_MAX_CONCURRENT="100"         # Max concurrent requests (default: 100)
 export HL7V2_MAX_BODY_SIZE="1048576"      # Max body size in bytes (default: 1MB)
 export HL7V2_API_KEY="your-secret-key"    # API key for authentication (optional)
