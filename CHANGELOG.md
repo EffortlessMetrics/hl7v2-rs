@@ -118,6 +118,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   version so the flake no longer emits a floating `latest` image tag.
 - Pinned the Kubernetes deployment image tag and version labels to v1.5.0
   instead of the previous floating `latest` image reference.
+- Corrected Kubernetes deployment guidance to create and target the documented
+  `hl7v2-system` namespace, and removed references to unshipped dashboards.
 - Removed the remaining Grafana documentation example that defaulted the
   administrator password to `admin`.
 - Pinned Python wheel proof workflows to Rust 1.95.0 so public Python package

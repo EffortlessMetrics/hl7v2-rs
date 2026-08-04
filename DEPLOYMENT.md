@@ -94,7 +94,8 @@ the local Compose values in `infrastructure/docker/sidecar.env.example`.
 Apply the manifests:
 
 ```bash
-kubectl apply -f infrastructure/k8s/deployment.yaml
+kubectl create namespace hl7v2-system --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply --namespace hl7v2-system -f infrastructure/k8s/deployment.yaml
 ```
 
 `infrastructure/k8s/deployment.yaml` is a version-tagged example aligned to the
@@ -104,7 +105,7 @@ template with an image digest from the release image receipt before applying:
 ```bash
 HL7V2_IMAGE_DIGEST='ghcr.io/effortlessmetrics/hl7v2-rs@sha256:<receipted-digest>'
 envsubst < infrastructure/k8s/deployment.digest.example.yaml > target/hl7v2-deployment.digest.yaml
-kubectl apply -f target/hl7v2-deployment.digest.yaml
+kubectl apply --namespace hl7v2-system -f target/hl7v2-deployment.digest.yaml
 ```
 
 Do not use the digest template as a deployment success claim by itself. Record a
@@ -120,7 +121,7 @@ Ingress resource appropriate for your cluster separately, targeting the
 
 ```bash
 # Apply the checked-in deployment and Service resources
-kubectl apply -f infrastructure/k8s/deployment.yaml
+kubectl apply --namespace hl7v2-system -f infrastructure/k8s/deployment.yaml
 
 # Verify deployment
 kubectl get pods -n hl7v2-system
@@ -165,12 +166,13 @@ spec:
 Apply changes:
 
 ```bash
-kubectl apply -f infrastructure/k8s/deployment.yaml
+kubectl apply --namespace hl7v2-system -f infrastructure/k8s/deployment.yaml
 ```
 
 ### Horizontal Pod Autoscaling
 
-Create HPA:
+The checked-in `infrastructure/k8s/deployment.yaml` already includes an HPA.
+To use a separate customized HPA, save the following example as `hpa.yaml`:
 
 ```yaml
 apiVersion: autoscaling/v2
@@ -200,10 +202,10 @@ spec:
         averageUtilization: 80
 ```
 
-Apply:
+Apply the separately saved HPA example:
 
 ```bash
-kubectl apply -f hpa.yaml
+kubectl apply --namespace hl7v2-system -f hpa.yaml
 ```
 
 ## Nix Deployment
@@ -349,7 +351,9 @@ Import dashboards from `infrastructure/grafana/`:
 
 1. **HL7v2 Server Overview**: Request rates, latencies, error rates
 2. **HL7v2 Validation**: Validation success/failure rates by bounded operation
-3. **HL7v2 Performance**: P50/P95/P99 latencies, throughput
+
+The server overview dashboard includes the primary performance panels; no
+separate performance dashboard is shipped.
 
 ### Health Checks
 
