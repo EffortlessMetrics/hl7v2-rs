@@ -114,6 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reject unknown and empty HL7 datatype identifiers during conformance and
+  profile validation while preserving the supported `AD` and `XTN` validators.
 - Derived the Nix package version and Docker image tag from the workspace
   version so the flake no longer emits a floating `latest` image tag.
 - Pinned the Kubernetes deployment image tag and version labels to v1.5.0
