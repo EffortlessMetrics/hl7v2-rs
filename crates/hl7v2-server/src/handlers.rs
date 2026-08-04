@@ -33,6 +33,36 @@ use quarantine::*;
 use schema_versions::*;
 use validation::*;
 
+/// Decode an optional MLLP envelope and apply the configured application-level
+/// message limit to the decoded HL7 payload.
+pub(crate) fn enforce_decoded_message_size(
+    message_bytes: &[u8],
+    mllp_framed: bool,
+    max_message_size: usize,
+) -> Result<&[u8], AppError> {
+    let decoded_bytes = decode_message_bytes(message_bytes, mllp_framed)?;
+    enforce_message_size(decoded_bytes, max_message_size)?;
+    Ok(decoded_bytes)
+}
+
+/// Apply the message limit while preserving corpus/profile analysis of
+/// malformed MLLP fixtures as parse-error results.
+pub(crate) fn enforce_decoded_message_size_if_valid_mllp(
+    message_bytes: &[u8],
+    mllp_framed: bool,
+    max_message_size: usize,
+) -> Result<(), AppError> {
+    if mllp_framed {
+        if let Ok(decoded_bytes) = hl7v2::unwrap_mllp(message_bytes) {
+            enforce_message_size(decoded_bytes, max_message_size)?;
+        }
+    } else {
+        enforce_message_size(message_bytes, max_message_size)?;
+    }
+
+    Ok(())
+}
+
 /// Handler for GET /health
 pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let uptime = state.start_time.elapsed().as_secs();
@@ -384,11 +414,12 @@ pub async fn replay_handler(
 
 /// Handler for POST /hl7/corpus/summarize
 pub async fn corpus_summarize_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<CorpusSummaryRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let schema_version = requested_corpus_summary_schema_version(request.summary_schema_version)?;
     let ids = validated_corpus_message_ids(&request.messages, "messages", "message")?;
+    enforce_corpus_message_sizes(&request.messages, state.max_message_size)?;
     let messages = corpus_message_refs(&request.messages, &ids);
     let summary = hl7v2::synthetic::corpus::summarize_corpus_messages("<inline-corpus>", &messages);
     let response = if schema_version == 2 {
@@ -403,12 +434,13 @@ pub async fn corpus_summarize_handler(
 
 /// Handler for POST /hl7/corpus/fingerprint
 pub async fn corpus_fingerprint_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<CorpusFingerprintRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let schema_version =
         requested_corpus_fingerprint_schema_version(request.fingerprint_schema_version)?;
     let ids = validated_corpus_message_ids(&request.messages, "messages", "message")?;
+    enforce_corpus_message_sizes(&request.messages, state.max_message_size)?;
     let messages = corpus_message_refs(&request.messages, &ids);
     let mut fingerprint =
         hl7v2::synthetic::corpus::fingerprint_corpus_messages("<inline-corpus>", &messages);
@@ -431,12 +463,14 @@ pub async fn corpus_fingerprint_handler(
 
 /// Handler for POST /hl7/corpus/diff
 pub async fn corpus_diff_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<CorpusDiffRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let schema_version = requested_corpus_diff_schema_version(request.diff_schema_version)?;
     let before_ids = validated_corpus_message_ids(&request.before, "before", "before")?;
     let after_ids = validated_corpus_message_ids(&request.after, "after", "after")?;
+    enforce_corpus_message_sizes(&request.before, state.max_message_size)?;
+    enforce_corpus_message_sizes(&request.after, state.max_message_size)?;
     let before_messages = corpus_message_refs(&request.before, &before_ids);
     let after_messages = corpus_message_refs(&request.after, &after_ids);
     let mut before_fingerprint =
@@ -463,6 +497,19 @@ pub async fn corpus_diff_handler(
     .map_err(|error| AppError::Internal(format!("could not serialize corpus diff: {error}")))?;
 
     Ok((StatusCode::OK, Json(response)))
+}
+
+fn enforce_corpus_message_sizes(
+    messages: &[CorpusMessageInput],
+    max_message_size: usize,
+) -> Result<(), AppError> {
+    for message in messages {
+        let raw_bytes = message.message.as_bytes();
+        let mllp_framed = hl7v2::is_mllp_framed(raw_bytes);
+        enforce_decoded_message_size_if_valid_mllp(raw_bytes, mllp_framed, max_message_size)?;
+    }
+
+    Ok(())
 }
 
 /// Handler for POST /hl7/ack
