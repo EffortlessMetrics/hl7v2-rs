@@ -881,7 +881,7 @@ mod server_integration {
     use tokio::net::TcpListener;
 
     #[tokio::test]
-    async fn test_server_starts_and_responds() {
+    async fn test_server_starts_and_responds() -> Result<(), Box<dyn std::error::Error>> {
         init_tracing();
 
         // Find available port
@@ -904,7 +904,7 @@ mod server_integration {
         };
 
         // Build server
-        let server = Server::new(config).expect("test server configuration should be valid");
+        let server = Server::new(config)?;
 
         // Spawn server task
         let server_task = tokio::spawn(async move { server.serve().await });
@@ -927,6 +927,7 @@ mod server_integration {
 
         // Abort server task
         server_task.abort();
+        Ok(())
     }
 }
 
