@@ -27,7 +27,7 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2", features = [
     "synthetic",
     "redact",
 ] }
-pyo3 = { version = "0.24.1", features = ["extension-module"] }
+pyo3 = { version = "0.29", features = ["extension-module"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

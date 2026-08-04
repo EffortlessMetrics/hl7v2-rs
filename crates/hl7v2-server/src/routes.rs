@@ -13,7 +13,6 @@ use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, Any, CorsLayer},
     limit::RequestBodyLimitLayer,
-    trace::TraceLayer,
 };
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -24,7 +23,7 @@ use crate::handlers::{
     ready_handler, replay_handler, validate_handler, validate_redacted_handler,
 };
 use crate::metrics::{metrics_handler, middleware::metrics_middleware};
-use crate::middleware::{auth_middleware, create_concurrency_limit_layer};
+use crate::middleware::{auth_middleware, create_concurrency_limit_layer, trace_request};
 use crate::server::{AppState, CorsAllowedOrigins, ServerConfig};
 
 /// OpenAPI specification content
@@ -101,9 +100,9 @@ pub(crate) fn build_router_with_body_limit(state: Arc<AppState>, max_body_size: 
         .layer(middleware::from_fn(metrics_middleware))
         .layer(CompressionLayer::new())
         .layer(cors_layer)
-        .layer(TraceLayer::new_for_http())
         .layer(GovernorLayer::new(governor_conf))
-        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
+        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first
+        .layer(middleware::from_fn(trace_request)) // Request tracing remains outermost
 }
 
 /// Build CORS layer
@@ -145,6 +144,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: Some(api_key.clone()),
+            max_message_size: crate::server::ServerConfig::default().max_message_size,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
@@ -198,6 +198,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
+            max_message_size: crate::server::ServerConfig::default().max_message_size,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
@@ -269,6 +270,7 @@ mod tests {
             start_time: Instant::now(),
             metrics_handle: Arc::new(metrics_handle),
             api_key: None,
+            max_message_size: crate::server::ServerConfig::default().max_message_size,
             cors_allowed_origins: CorsAllowedOrigins::default(),
             readiness_checks: crate::server::ServerConfig::default().readiness_checks(),
             bundle_output_root: None,
