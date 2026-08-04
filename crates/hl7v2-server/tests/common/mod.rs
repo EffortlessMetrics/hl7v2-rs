@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Create a test server instance with default configuration
-pub fn create_test_server() -> Server {
+pub fn create_test_server() -> hl7v2_server::Result<Server> {
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
         max_body_size: 1024 * 1024,              // 1MB
