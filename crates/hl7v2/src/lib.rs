@@ -53,6 +53,7 @@ pub mod conformance {
 
     pub mod datatype;
     pub mod profile;
+    pub(crate) mod regex_cache;
     pub mod validation;
 }
 

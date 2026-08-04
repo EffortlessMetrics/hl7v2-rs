@@ -43,7 +43,6 @@
 pub mod datetime;
 
 pub use datetime as hl7v2_datetime;
-use regex::Regex;
 
 /// Error type for data type validation
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -252,7 +251,7 @@ impl DataTypeValidator {
 
         // Check pattern
         if let Some(pattern) = &self.pattern
-            && let Ok(regex) = Regex::new(pattern)
+            && let Some(regex) = crate::conformance::regex_cache::get(pattern)
             && !regex.is_match(value)
         {
             return Err(DataTypeError::PatternMismatch {
@@ -303,7 +302,7 @@ pub fn validate_datatype(value: &str, datatype: &str) -> bool {
         "HD" => is_hierarchic_designator(value),
         "AD" => is_address(value),
         "XTN" => is_phone_number(value),
-        _ => true, // Unknown data type, assume valid
+        _ => false, // Unknown data type, reject it
     }
 }
 
@@ -786,10 +785,10 @@ mod tests {
     }
 
     #[test]
-    fn validate_datatype_unknown_arm_returns_true() {
-        // Unknown data types should be assumed valid.
-        assert!(validate_datatype("anything-goes", "ZZZ"));
-        assert!(validate_datatype("", ""));
+    fn validate_datatype_unknown_arm_is_rejected() {
+        // Unknown data types must not bypass validation.
+        assert!(!validate_datatype("anything-goes", "ZZZ"));
+        assert!(!validate_datatype("", ""));
     }
 
     // ------------------------------------------------------------------

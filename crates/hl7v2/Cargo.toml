@@ -32,7 +32,7 @@ profile-core = [
     "dep:lru",
     "dep:async-lock",
 ]
-persistent-cache = ["profile-core", "dep:sqlx", "dep:sha2", "dep:hex"]
+persistent-cache = ["profile-core", "dep:sha2", "dep:hex"]
 ack = ["dep:chrono"]
 normalize = []
 batch = []
@@ -84,12 +84,6 @@ reqwest = { version = "0.12", default-features = false, features = [
 ], optional = true }
 lru = { version = "0.16", optional = true }
 async-lock = { version = "3.4", optional = true }
-sqlx = { version = "0.8.6", features = [
-    "runtime-tokio",
-    "postgres",
-    "chrono",
-    "migrate",
-], optional = true }
 hex = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 metrics = { workspace = true, optional = true }
