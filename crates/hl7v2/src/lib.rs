@@ -28,6 +28,9 @@
 //! - `redact` - redaction helpers.
 //! - `lifecycle` - lifecycle and archive metadata helpers.
 //! - `experimental-guard` - experimental guard/anomaly detection APIs.
+//! - `tracing` - optional tracing spans for parser entry points.
+//! - `metrics` - optional parser latency, size, item-count, and error metrics.
+//! - `observability` - enables both `tracing` and `metrics`.
 
 pub mod model;
 
@@ -40,6 +43,9 @@ pub mod parser;
 pub mod writer;
 
 pub mod query;
+
+#[cfg(feature = "metrics")]
+mod observability;
 
 #[cfg(any(feature = "profile", feature = "profile-core"))]
 pub mod conformance {

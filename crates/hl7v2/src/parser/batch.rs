@@ -9,7 +9,7 @@
 
 use crate::model::{Batch, Delims, Error, FileBatch};
 
-use super::message::{SegmentLine, parse, segment_line_spans};
+use super::message::{SegmentLine, parse_inner, segment_line_spans};
 use super::segment::parse_segment;
 
 /// Parse HL7 v2 batch from bytes.
@@ -21,7 +21,23 @@ use super::segment::parse_segment;
 /// # Returns
 ///
 /// The parsed `Batch`, or an error if parsing fails
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(bytes), fields(input_bytes = bytes.len()))
+)]
 pub fn parse_batch(bytes: &[u8]) -> Result<Batch, Error> {
+    #[cfg(feature = "metrics")]
+    let observation = crate::observability::ParseObservation::start("batch", bytes.len());
+    let result = parse_batch_inner(bytes);
+    #[cfg(feature = "metrics")]
+    observation.finish(
+        &result,
+        result.as_ref().ok().map(|batch| batch.messages.len()),
+    );
+    result
+}
+
+fn parse_batch_inner(bytes: &[u8]) -> Result<Batch, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
     let lines = segment_line_spans(text);
 
@@ -35,7 +51,7 @@ pub fn parse_batch(bytes: &[u8]) -> Result<Batch, Error> {
     if first_line.text.starts_with("BHS") {
         parse_batch_with_header(text, &lines)
     } else if first_line.text.starts_with("MSH") {
-        let message = parse(bytes)?;
+        let message = parse_inner(bytes)?;
         Ok(Batch {
             header: None,
             messages: vec![message],
@@ -55,7 +71,26 @@ pub fn parse_batch(bytes: &[u8]) -> Result<Batch, Error> {
 /// # Returns
 ///
 /// The parsed `FileBatch`, or an error if parsing fails
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(bytes), fields(input_bytes = bytes.len()))
+)]
 pub fn parse_file_batch(bytes: &[u8]) -> Result<FileBatch, Error> {
+    #[cfg(feature = "metrics")]
+    let observation = crate::observability::ParseObservation::start("file_batch", bytes.len());
+    let result = parse_file_batch_inner(bytes);
+    #[cfg(feature = "metrics")]
+    observation.finish(
+        &result,
+        result
+            .as_ref()
+            .ok()
+            .map(|file_batch| file_batch.batches.len()),
+    );
+    result
+}
+
+fn parse_file_batch_inner(bytes: &[u8]) -> Result<FileBatch, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
     let lines = segment_line_spans(text);
 
@@ -69,7 +104,7 @@ pub fn parse_file_batch(bytes: &[u8]) -> Result<FileBatch, Error> {
     if first_line.text.starts_with("FHS") {
         parse_file_batch_with_header(text, &lines)
     } else if first_line.text.starts_with("BHS") || first_line.text.starts_with("MSH") {
-        let batch_data = parse_batch(bytes)?;
+        let batch_data = parse_batch_inner(bytes)?;
         Ok(FileBatch {
             header: None,
             batches: vec![batch_data],
@@ -144,7 +179,7 @@ fn push_pending_message(
     } else {
         "Failed to parse message in batch"
     };
-    let message = parse(segment_window(source, current_message_lines)?).map_err(|e| {
+    let message = parse_inner(segment_window(source, current_message_lines)?).map_err(|e| {
         Error::BatchParseError {
             details: format!("{}: {}", detail, e),
         }
@@ -216,10 +251,10 @@ fn push_pending_batch(
     }
 
     let batch_bytes = segment_window(source, current_batch_lines)?;
-    match parse_batch(batch_bytes) {
+    match parse_batch_inner(batch_bytes) {
         Ok(batch) => batches.push(batch),
         Err(e) => {
-            let message = parse(batch_bytes).map_err(|_| e)?;
+            let message = parse_inner(batch_bytes).map_err(|_| e)?;
             batches.push(Batch {
                 header: None,
                 messages: vec![message],

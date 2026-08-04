@@ -1300,6 +1300,7 @@ dependencies = [
  "futures",
  "hex",
  "lru",
+ "metrics",
  "proptest",
  "rand 0.10.2",
  "rand_distr",
@@ -1314,6 +1315,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
+ "tracing",
  "uuid",
  "wiremock",
 ]

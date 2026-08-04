@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added opt-in parser observability features for bounded tracing spans and
+  metrics covering parse attempts, latency, input size, item counts, and fixed
+  error kinds.
 - Added gRPC enhanced ACK parity for commit ACK codes `CA`, `CE`, and `CR`
   alongside the existing `AA`, `AE`, and `AR` application ACK codes.
 - Added shared dirty real-world corpus fixture categories and CLI parity coverage

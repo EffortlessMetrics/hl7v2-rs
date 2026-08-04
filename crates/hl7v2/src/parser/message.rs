@@ -32,7 +32,23 @@ use super::segment::parse_segment;
 /// let message = parse(hl7).unwrap();
 /// assert_eq!(message.segments.len(), 2);
 /// ```
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(bytes), fields(input_bytes = bytes.len()))
+)]
 pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
+    #[cfg(feature = "metrics")]
+    let observation = crate::observability::ParseObservation::start("message", bytes.len());
+    let result = parse_inner(bytes);
+    #[cfg(feature = "metrics")]
+    observation.finish(
+        &result,
+        result.as_ref().ok().map(|message| message.segments.len()),
+    );
+    result
+}
+
+pub(super) fn parse_inner(bytes: &[u8]) -> Result<Message, Error> {
     let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
     let lines = segment_lines(text);
 
@@ -99,10 +115,26 @@ pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
 /// let message = parse_mllp(&framed).unwrap();
 /// assert_eq!(message.segments.len(), 1);
 /// ```
+#[cfg_attr(
+    feature = "tracing",
+    tracing::instrument(level = "debug", skip(bytes), fields(input_bytes = bytes.len()))
+)]
 pub fn parse_mllp(bytes: &[u8]) -> Result<Message, Error> {
+    #[cfg(feature = "metrics")]
+    let observation = crate::observability::ParseObservation::start("mllp", bytes.len());
+    let result = parse_mllp_inner(bytes);
+    #[cfg(feature = "metrics")]
+    observation.finish(
+        &result,
+        result.as_ref().ok().map(|message| message.segments.len()),
+    );
+    result
+}
+
+fn parse_mllp_inner(bytes: &[u8]) -> Result<Message, Error> {
     let hl7_content =
         crate::transport::mllp::unwrap_mllp(bytes).map_err(|e| Error::Framing(e.to_string()))?;
-    parse(hl7_content)
+    parse_inner(hl7_content)
 }
 
 #[derive(Clone, Copy)]
