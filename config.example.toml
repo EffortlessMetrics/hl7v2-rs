@@ -3,7 +3,8 @@
 [server]
 host = "127.0.0.1"
 port = 8080
-# api_key = "secret-key"
+# Generate a unique key before enabling API-key authentication.
+# api_key = "CHANGE_ME_TO_A_SECURE_RANDOM_STRING"
 # bundle_output_root = "bundles"
 # max_message_size = 52428800 # 50 MiB application-level HL7 message limit
 
