@@ -4,15 +4,15 @@
 //! from local files or remote URLs with ETag-based caching.
 
 #![expect(
-    clippy::missing_panics_doc,
     clippy::unwrap_used,
     reason = "Pre-existing profile loader panic-family debt moved from hl7v2-prof; cleanup is separate from this behavior-preserving module collapse."
 )]
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_lock::RwLock;
+use async_lock::{Mutex, RwLock};
 use lru::LruCache;
 
 pub use super::ProfileLoadError;
@@ -25,7 +25,7 @@ const DEFAULT_CACHE_SIZE: usize = 100;
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 
 /// Cache entry containing the profile and its ETag.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct CacheEntry {
     /// The loaded profile
     profile: Profile,
@@ -37,6 +37,85 @@ struct CacheEntry {
         reason = "Raw profile content is retained for compatibility with the existing loader cache shape."
     )]
     raw_content: String,
+}
+
+/// Profile cache storage with concurrent entry reads and serialized LRU updates.
+///
+/// `LruCache::get` promotes a hit and therefore requires mutable access. Keeping
+/// the entries separate from the recency index lets cache hits clone their value
+/// under a shared read lock while limiting exclusive access to the small index
+/// update. The public loader API still observes normal LRU promotion semantics.
+#[derive(Debug)]
+struct ProfileCache {
+    entries: RwLock<HashMap<String, CacheEntry>>,
+    recency: Mutex<LruCache<String, ()>>,
+}
+
+impl ProfileCache {
+    fn new(capacity: usize) -> Self {
+        let capacity = std::num::NonZeroUsize::new(capacity)
+            .unwrap_or(std::num::NonZeroUsize::new(1).unwrap());
+        Self {
+            entries: RwLock::new(HashMap::new()),
+            recency: Mutex::new(LruCache::new(capacity)),
+        }
+    }
+
+    async fn get_with<T>(&self, key: &str, project: impl FnOnce(&CacheEntry) -> T) -> Option<T> {
+        // Check and promote in the recency index first. Writers hold this
+        // same lock while updating both structures, so cancellation cannot
+        // leave a partial mutation. An eviction can still race after this
+        // guard is dropped; a missing entry then falls back to a reload.
+        let present = {
+            let mut recency = self.recency.lock().await;
+            recency.get(key).is_some()
+        };
+        if !present {
+            return None;
+        }
+
+        self.entries.read().await.get(key).map(project)
+    }
+
+    async fn insert(&self, key: String, entry: CacheEntry) {
+        let mut recency = self.recency.lock().await;
+        let mut entries = self.entries.write().await;
+        let evicted_key = if recency.contains(&key) {
+            None
+        } else if recency.len() == recency.cap().get() {
+            recency.pop_lru().map(|(evicted, _)| evicted)
+        } else {
+            None
+        };
+        recency.put(key.clone(), ());
+
+        entries.insert(key, entry);
+        if let Some(evicted_key) = evicted_key {
+            entries.remove(&evicted_key);
+        }
+    }
+
+    async fn contains(&self, key: &str) -> bool {
+        self.entries.read().await.contains_key(key)
+    }
+
+    async fn remove(&self, key: &str) -> Option<CacheEntry> {
+        let mut recency = self.recency.lock().await;
+        let mut entries = self.entries.write().await;
+        recency.pop(key);
+        entries.remove(key)
+    }
+
+    async fn clear(&self) {
+        let mut recency = self.recency.lock().await;
+        let mut entries = self.entries.write().await;
+        recency.clear();
+        entries.clear();
+    }
+
+    async fn len(&self) -> usize {
+        self.entries.read().await.len()
+    }
 }
 
 /// Result of a profile load operation.
@@ -118,10 +197,7 @@ impl ProfileLoaderBuilder {
             .unwrap_or_default();
 
         ProfileLoader {
-            cache: Arc::new(RwLock::new(LruCache::new(
-                std::num::NonZeroUsize::new(self.cache_size)
-                    .unwrap_or(std::num::NonZeroUsize::new(1).unwrap()),
-            ))),
+            cache: Arc::new(ProfileCache::new(self.cache_size)),
             client,
             timeout: self.timeout,
         }
@@ -159,7 +235,7 @@ impl ProfileLoaderBuilder {
 /// }
 /// ```
 pub struct ProfileLoader {
-    cache: Arc<RwLock<LruCache<String, CacheEntry>>>,
+    cache: Arc<ProfileCache>,
     client: reqwest::Client,
     timeout: Duration,
 }
@@ -201,11 +277,8 @@ impl ProfileLoader {
 
     /// Set the maximum number of profiles to keep in the cache.
     pub fn with_cache_size(self, size: usize) -> Self {
-        let new_cache = LruCache::new(
-            std::num::NonZeroUsize::new(size).unwrap_or(std::num::NonZeroUsize::new(1).unwrap()),
-        );
         Self {
-            cache: Arc::new(RwLock::new(new_cache)),
+            cache: Arc::new(ProfileCache::new(size)),
             client: self.client,
             timeout: self.timeout,
         }
@@ -227,10 +300,11 @@ impl ProfileLoader {
     /// Load a profile from a remote URL.
     pub async fn load_from_url(&self, url: &str) -> Result<LoadResult, ProfileLoadError> {
         // Check cache first
-        let etag = {
-            let mut cache = self.cache.write().await;
-            cache.get(url).and_then(|e| e.etag.clone())
-        };
+        let etag = self
+            .cache
+            .get_with(url, |entry| entry.etag.clone())
+            .await
+            .flatten();
 
         // Prepare request
         let mut request = self.client.get(url);
@@ -244,12 +318,15 @@ impl ProfileLoader {
         // Handle response
         if response.status() == reqwest::StatusCode::NOT_MODIFIED {
             // Profile hasn't changed, return from cache
-            let mut cache = self.cache.write().await;
-            if let Some(entry) = cache.get(url) {
+            if let Some((profile, etag)) = self
+                .cache
+                .get_with(url, |entry| (entry.profile.clone(), entry.etag.clone()))
+                .await
+            {
                 return Ok(LoadResult {
-                    profile: entry.profile.clone(),
+                    profile,
                     from_cache: true,
-                    etag: entry.etag.clone(),
+                    etag,
                 });
             }
         }
@@ -274,15 +351,16 @@ impl ProfileLoader {
 
         // Update cache
         {
-            let mut cache = self.cache.write().await;
-            cache.put(
-                url.to_string(),
-                CacheEntry {
-                    profile: profile.clone(),
-                    etag: new_etag.clone(),
-                    raw_content: content,
-                },
-            );
+            self.cache
+                .insert(
+                    url.to_string(),
+                    CacheEntry {
+                        profile: profile.clone(),
+                        etag: new_etag.clone(),
+                        raw_content: content,
+                    },
+                )
+                .await;
         }
 
         Ok(LoadResult {
@@ -298,10 +376,13 @@ impl ProfileLoader {
         // but we still cache them by path to avoid re-parsing.
 
         {
-            let mut cache = self.cache.write().await;
-            if let Some(entry) = cache.get(path) {
+            if let Some(profile) = self
+                .cache
+                .get_with(path, |entry| entry.profile.clone())
+                .await
+            {
                 return Ok(LoadResult {
-                    profile: entry.profile.clone(),
+                    profile,
                     from_cache: true,
                     etag: None,
                 });
@@ -318,15 +399,16 @@ impl ProfileLoader {
 
         // Update cache
         {
-            let mut cache = self.cache.write().await;
-            cache.put(
-                path.to_string(),
-                CacheEntry {
-                    profile: profile.clone(),
-                    etag: None,
-                    raw_content: content,
-                },
-            );
+            self.cache
+                .insert(
+                    path.to_string(),
+                    CacheEntry {
+                        profile: profile.clone(),
+                        etag: None,
+                        raw_content: content,
+                    },
+                )
+                .await;
         }
 
         Ok(LoadResult {
@@ -347,27 +429,22 @@ impl ProfileLoader {
 
     /// Check if a profile is currently in the cache.
     pub async fn is_cached(&self, source: &str) -> bool {
-        let cache = self.cache.read().await;
-        // LruCache::contains is non-mutating and doesn't affect LRU order
-        cache.contains(source)
+        self.cache.contains(source).await
     }
 
     /// Invalidate a profile in the cache.
     pub async fn invalidate(&self, source: &str) -> bool {
-        let mut cache = self.cache.write().await;
-        cache.pop(source).is_some()
+        self.cache.remove(source).await.is_some()
     }
 
     /// Clear the profile cache.
     pub async fn clear_cache(&self) {
-        let mut cache = self.cache.write().await;
-        cache.clear();
+        self.cache.clear().await;
     }
 
     /// Get the current number of profiles in the cache.
     pub async fn cache_size(&self) -> usize {
-        let cache = self.cache.read().await;
-        cache.len()
+        self.cache.len().await
     }
 
     /// Prefetch a profile into the cache.
@@ -418,7 +495,7 @@ mod tests {
             .unwrap_or(std::num::NonZeroUsize::new(1).unwrap());
 
         ProfileLoader {
-            cache: Arc::new(RwLock::new(LruCache::new(cache_size))),
+            cache: Arc::new(ProfileCache::new(cache_size.get())),
             client: reqwest::Client::builder()
                 .no_proxy()
                 .timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECS))
@@ -614,6 +691,54 @@ mod tests {
         // p1 should be evicted now
         let result = loader.load(p1.to_str().unwrap()).await.unwrap();
         assert!(!result.from_cache);
+    }
+
+    #[tokio::test]
+    async fn test_lru_cache_hit_promotes_entry() {
+        let loader = ProfileLoader::builder().cache_size(2).build();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let p1 = temp_dir.path().join("p1.yaml");
+        let p2 = temp_dir.path().join("p2.yaml");
+        let p3 = temp_dir.path().join("p3.yaml");
+        let yaml = "message_structure: ADT_A01\nversion: '2.5'\nsegments: []";
+        std::fs::write(&p1, yaml).unwrap();
+        std::fs::write(&p2, yaml).unwrap();
+        std::fs::write(&p3, yaml).unwrap();
+
+        loader.load(p1.to_str().unwrap()).await.unwrap();
+        loader.load(p2.to_str().unwrap()).await.unwrap();
+        assert!(loader.load(p1.to_str().unwrap()).await.unwrap().from_cache);
+        loader.load(p3.to_str().unwrap()).await.unwrap();
+
+        assert!(loader.load(p1.to_str().unwrap()).await.unwrap().from_cache);
+        assert!(!loader.load(p2.to_str().unwrap()).await.unwrap().from_cache);
+    }
+
+    #[tokio::test]
+    async fn cancelled_insert_keeps_entry_and_recency_indexes_consistent() {
+        let cache = Arc::new(ProfileCache::new(2));
+        let profile =
+            load_profile("message_structure: ADT_A01\nversion: '2.5'\nsegments: []").unwrap();
+        let entry = CacheEntry {
+            profile,
+            etag: None,
+            raw_content: String::new(),
+        };
+        let entries_guard = cache.entries.write().await;
+        let pending_cache = Arc::clone(&cache);
+        let task = tokio::spawn(async move {
+            pending_cache.insert("cancelled".to_owned(), entry).await;
+        });
+
+        for _ in 0..10 {
+            tokio::task::yield_now().await;
+        }
+        task.abort();
+        assert!(task.await.is_err());
+        drop(entries_guard);
+
+        assert_eq!(cache.len().await, 0);
+        assert!(!cache.recency.lock().await.contains("cancelled"));
     }
 
     #[tokio::test]

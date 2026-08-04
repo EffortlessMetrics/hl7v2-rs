@@ -114,6 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reduced profile-cache read contention while preserving LRU hit promotion and
+  bounded eviction behavior during concurrent loads.
 - Reduced repeated profile-regex compilation contention with bounded shared
   caching that keeps invalid patterns out, limits retained program size, and
   evicts entries incrementally.
