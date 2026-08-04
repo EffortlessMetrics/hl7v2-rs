@@ -30,6 +30,9 @@ assert_eq!(get(&msg, "PID.5.1"), Some("Doe"));
 | `redact` | Redaction helpers |
 | `lifecycle` | Lifecycle and archive metadata helpers |
 | `experimental-guard` | Experimental guard/anomaly detection APIs |
+| `tracing` | Optional tracing spans for parser entry points |
+| `metrics` | Optional parser latency, size, item-count, and error metrics |
+| `observability` | Enables both `tracing` and `metrics` |
 
 ## API layout
 
