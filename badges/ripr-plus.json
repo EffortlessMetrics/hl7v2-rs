@@ -1,6 +1,6 @@
 {
-  "color": "red",
+  "color": "lightgrey",
   "label": "ripr+",
-  "message": "error",
+  "message": "needs test-efficiency",
   "schemaVersion": 1
 }
