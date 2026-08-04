@@ -388,7 +388,9 @@ pub fn validate_data_type(value: &str, datatype: &str) -> bool {
         "PN" => is_person_name(value),           // Person name
         "CX" => is_extended_id(value),           // Extended composite ID with check digit
         "HD" => is_hierarchic_designator(value), // Hierarchic designator
-        _ => false,                              // Unknown data type, reject it
+        "AD" => crate::conformance::datatype::validate_datatype(value, "AD"),
+        "XTN" => crate::conformance::datatype::validate_datatype(value, "XTN"),
+        _ => false, // Unknown data type, reject it
     }
 }
 
