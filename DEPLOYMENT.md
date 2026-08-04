@@ -105,6 +105,7 @@ template with an image digest from the release image receipt before applying:
 
 ```bash
 HL7V2_IMAGE_DIGEST='ghcr.io/effortlessmetrics/hl7v2-rs@sha256:<receipted-digest>'
+mkdir -p target
 envsubst < infrastructure/k8s/deployment.digest.example.yaml > target/hl7v2-deployment.digest.yaml
 kubectl apply --namespace hl7v2-system -f target/hl7v2-deployment.digest.yaml
 ```
@@ -121,10 +122,7 @@ Ingress resource appropriate for your cluster separately, targeting the
 ### Deployment verification
 
 ```bash
-# Apply the checked-in deployment and Service resources
-kubectl apply --namespace hl7v2-system -f infrastructure/k8s/deployment.yaml
-
-# Verify deployment
+# Verify the deployment selected in the deployment steps above
 kubectl get pods -n hl7v2-system
 kubectl get svc -n hl7v2-system
 

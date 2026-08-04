@@ -139,6 +139,12 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 
 #### Step 2: Deploy HL7v2 Server ServiceMonitor
 
+Create the output directory before saving this external manifest:
+
+```bash
+mkdir -p target
+```
+
 ```yaml
 # Save this manifest as target/servicemonitor.yaml
 apiVersion: monitoring.coreos.com/v1
