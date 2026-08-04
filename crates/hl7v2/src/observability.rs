@@ -26,6 +26,13 @@ impl ParseObservation {
     }
 
     pub(crate) fn finish<T>(self, result: &Result<T, Error>, item_count: Option<usize>) {
+        metrics::counter!(
+            "hl7v2_parser_parse_total",
+            "operation" => self.operation,
+            "outcome" => outcome(result)
+        )
+        .increment(1);
+
         metrics::histogram!(
             "hl7v2_parser_parse_duration_seconds",
             "operation" => self.operation
@@ -64,6 +71,10 @@ impl ParseObservation {
     }
 }
 
+fn outcome<T>(result: &Result<T, Error>) -> &'static str {
+    if result.is_ok() { "success" } else { "error" }
+}
+
 fn error_kind(error: &Error) -> &'static str {
     match error {
         Error::InvalidSegmentId => "invalid_segment_id",
@@ -91,7 +102,7 @@ fn error_kind(error: &Error) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::error_kind;
+    use super::{error_kind, outcome};
     use crate::model::Error;
 
     #[test]
@@ -106,5 +117,11 @@ mod tests {
             error_kind(&Error::Framing("secret payload".to_string())),
             "framing"
         );
+    }
+
+    #[test]
+    fn parse_outcome_has_a_fixed_vocabulary() {
+        assert_eq!(outcome::<()>(&Ok(())), "success");
+        assert_eq!(outcome::<()>(&Err(Error::InvalidSegmentId)), "error");
     }
 }

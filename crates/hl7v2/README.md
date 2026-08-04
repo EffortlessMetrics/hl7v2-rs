@@ -34,6 +34,25 @@ assert_eq!(get(&msg, "PID.5.1"), Some("Doe"));
 | `metrics` | Optional parser latency, size, item-count, and error metrics |
 | `observability` | Enables both `tracing` and `metrics` |
 
+### Parser observability
+
+Enable `observability` to emit parser metrics and debug spans. Metric labels are
+bounded to the parser operation (`message`, `mllp`, `batch`, or `file_batch`),
+the parse outcome (`success` or `error`), and the fixed error kind vocabulary.
+Message contents are never emitted as labels or span fields.
+
+| Metric | Type | Labels | Notes |
+|--------|------|--------|-------|
+| `hl7v2_parser_parse_total` | Counter | `operation`, `outcome` | Every public parser entry-point attempt |
+| `hl7v2_parser_parse_duration_seconds` | Histogram | `operation` | Successful and failed attempts |
+| `hl7v2_parser_parse_input_bytes` | Histogram | `operation` | Raw input size, including MLLP framing when applicable |
+| `hl7v2_parser_parse_items` | Histogram | `operation` | Successful message, batch-message, or file-batch counts |
+| `hl7v2_parser_parse_errors_total` | Counter | `operation`, `kind` | Failed attempts with a fixed, non-sensitive error kind |
+
+The crate uses the `metrics` facade; applications must install their preferred
+recorder. The `tracing` feature adds the same entry-point boundaries as debug
+spans and skips the raw input bytes.
+
 ## API layout
 
 Common operations are available at the crate root:
