@@ -88,7 +88,6 @@ the local Compose values in `infrastructure/docker/sidecar.env.example`.
 
 - Kubernetes cluster (1.24+)
 - kubectl configured
-- Helm 3 (optional, for advanced deployment)
 
 ### Basic Deployment
 
@@ -111,17 +110,17 @@ kubectl apply -f target/hl7v2-deployment.digest.yaml
 Do not use the digest template as a deployment success claim by itself. Record a
 deployment smoke receipt after the rendered manifest is applied.
 
-### With Ingress
+### With an external Ingress
+
+The repository does not ship an Ingress or Helm chart. Create or apply an
+Ingress resource appropriate for your cluster separately, targeting the
+`hl7v2-server` Service created by `infrastructure/k8s/deployment.yaml`.
+
+### Deployment verification
 
 ```bash
-kubectl apply -f infrastructure/k8s/ingress.yaml
-```
-
-### Full Stack with Monitoring
-
-```bash
-# Apply all manifests
-kubectl apply -f infrastructure/k8s/
+# Apply the checked-in deployment and Service resources
+kubectl apply -f infrastructure/k8s/deployment.yaml
 
 # Verify deployment
 kubectl get pods -n hl7v2-system
@@ -133,6 +132,10 @@ kubectl logs -n hl7v2-system -l app=hl7v2-server --tail=100 -f
 # Port-forward for local testing
 kubectl port-forward -n hl7v2-system svc/hl7v2-server 8080:80
 ```
+
+Do not apply `deployment.digest.example.yaml` directly. Render it with a
+receipted image digest first, as shown above. Monitoring resources are managed
+separately from these application manifests.
 
 ### Customizing Deployment
 
