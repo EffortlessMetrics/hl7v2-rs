@@ -159,6 +159,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- Clarified that the direct Docker image example is a minimal built-in-defaults
+  start, while the Compose workflow provides the mounted configuration,
+  profiles, and persistent evidence workflow.
 - Clarified the non-Nix developer setup path, including `just` installation,
   `xtask` fallbacks, optional local quality tools, and OpenSSL/pkg-config
   troubleshooting boundaries.
