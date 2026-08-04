@@ -261,7 +261,7 @@ The following 12 crates define error types with thiserror:
 | `hl7v2-stream` | `StreamError` | BufferOverflow, InvalidFrame |
 | `hl7v2-mllp` | `MllpError` | FramingError, IncompleteMessage |
 | `hl7v2-corpus` | `CorpusError` | NotFound, ParseFailed |
-| `hl7v2-server` | `AppError` | Internal, BadRequest, NotFound |
+| `hl7v2-server` | handler `AppError` | Internal implementation detail; hidden/deprecated compatibility surface, not supported Rust API |
 | `hl7v2-test-utils` | `TestError` | FixtureNotFound, SetupFailed |
 
 ### Workspace Dependency Management

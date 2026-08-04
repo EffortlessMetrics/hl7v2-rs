@@ -50,6 +50,11 @@ mod audit;
 
 pub mod evidence;
 pub mod grpc;
+/// Internal HTTP handler implementation.
+///
+/// This compatibility module remains loadable for older consumers, but it is
+/// not part of the supported `hl7v2-server` Rust API. Use the root-level
+/// server types and the documented HTTP/gRPC contracts instead.
 pub mod handlers;
 pub mod metrics;
 pub mod middleware;
