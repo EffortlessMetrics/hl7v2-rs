@@ -2,11 +2,12 @@
 
 //! Bounded reuse of compiled profile regexes.
 
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
 const MAX_CACHED_PATTERNS: usize = 256;
+const MAX_CACHED_REGEX_BYTES: usize = 64 * 1024;
 
 #[derive(Debug)]
 struct RegexCache {
@@ -29,7 +30,19 @@ impl RegexCache {
 
         // Compilation is deliberately outside the write lock so an expensive
         // first-use pattern does not block cache hits for other patterns.
-        let regex = Regex::new(pattern).ok()?;
+        // Keep the retained cache bounded by compiled-program size as well as
+        // entry count. If a valid pattern exceeds the cache budget, compile it
+        // with the historical unrestricted behavior but do not retain it.
+        let (regex, cacheable) = match RegexBuilder::new(pattern)
+            .size_limit(MAX_CACHED_REGEX_BYTES)
+            .build()
+        {
+            Ok(regex) => (regex, true),
+            Err(_) => (Regex::new(pattern).ok()?, false),
+        };
+        if !cacheable {
+            return Some(regex);
+        }
         let Ok(mut entries) = self.entries.write() else {
             return Some(regex);
         };
@@ -90,5 +103,20 @@ mod tests {
         }
 
         assert_eq!(cache.len(), super::MAX_CACHED_PATTERNS);
+    }
+
+    #[test]
+    fn does_not_retain_a_valid_pattern_that_exceeds_the_compile_budget() {
+        let cache = RegexCache::new();
+        let pattern = format!(
+            "(?:{})",
+            (0..2_000)
+                .map(|index| format!("value-{index}"))
+                .collect::<Vec<_>>()
+                .join("|")
+        );
+
+        assert!(cache.get_or_compile(&pattern).is_some());
+        assert_eq!(cache.len(), 0);
     }
 }
