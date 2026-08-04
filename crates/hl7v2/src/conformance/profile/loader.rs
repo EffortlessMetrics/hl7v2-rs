@@ -62,9 +62,10 @@ impl ProfileCache {
     }
 
     async fn get_with<T>(&self, key: &str, project: impl FnOnce(&CacheEntry) -> T) -> Option<T> {
-        // Check and promote in the recency index first. A writer holds this
-        // same lock while updating both structures, so an entry read below
-        // cannot observe a newly evicted key as a cache hit.
+        // Check and promote in the recency index first. Writers hold this
+        // same lock while updating both structures, so cancellation cannot
+        // leave a partial mutation. An eviction can still race after this
+        // guard is dropped; a missing entry then falls back to a reload.
         let present = {
             let mut recency = self.recency.lock().await;
             recency.get(key).is_some()
@@ -78,6 +79,7 @@ impl ProfileCache {
 
     async fn insert(&self, key: String, entry: CacheEntry) {
         let mut recency = self.recency.lock().await;
+        let mut entries = self.entries.write().await;
         let evicted_key = if recency.contains(&key) {
             None
         } else if recency.len() == recency.cap().get() {
@@ -87,7 +89,6 @@ impl ProfileCache {
         };
         recency.put(key.clone(), ());
 
-        let mut entries = self.entries.write().await;
         entries.insert(key, entry);
         if let Some(evicted_key) = evicted_key {
             entries.remove(&evicted_key);
@@ -100,15 +101,16 @@ impl ProfileCache {
 
     async fn remove(&self, key: &str) -> Option<CacheEntry> {
         let mut recency = self.recency.lock().await;
-        recency.pop(key);
         let mut entries = self.entries.write().await;
+        recency.pop(key);
         entries.remove(key)
     }
 
     async fn clear(&self) {
         let mut recency = self.recency.lock().await;
+        let mut entries = self.entries.write().await;
         recency.clear();
-        self.entries.write().await.clear();
+        entries.clear();
     }
 
     async fn len(&self) -> usize {
@@ -710,6 +712,33 @@ mod tests {
 
         assert!(loader.load(p1.to_str().unwrap()).await.unwrap().from_cache);
         assert!(!loader.load(p2.to_str().unwrap()).await.unwrap().from_cache);
+    }
+
+    #[tokio::test]
+    async fn cancelled_insert_keeps_entry_and_recency_indexes_consistent() {
+        let cache = Arc::new(ProfileCache::new(2));
+        let profile =
+            load_profile("message_structure: ADT_A01\nversion: '2.5'\nsegments: []").unwrap();
+        let entry = CacheEntry {
+            profile,
+            etag: None,
+            raw_content: String::new(),
+        };
+        let entries_guard = cache.entries.write().await;
+        let pending_cache = Arc::clone(&cache);
+        let task = tokio::spawn(async move {
+            pending_cache.insert("cancelled".to_owned(), entry).await;
+        });
+
+        for _ in 0..10 {
+            tokio::task::yield_now().await;
+        }
+        task.abort();
+        assert!(task.await.is_err());
+        drop(entries_guard);
+
+        assert_eq!(cache.len().await, 0);
+        assert!(!cache.recency.lock().await.contains("cancelled"));
     }
 
     #[tokio::test]
