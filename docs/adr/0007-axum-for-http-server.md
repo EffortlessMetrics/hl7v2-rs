@@ -171,7 +171,8 @@ pub async fn run_server(config: ServerConfig) -> Result<(), Error> {
         .route("/hl7/validate", post(validate_handler))
         .route("/hl7/ack", post(ack_handler))
         .with_state(state)
-        .layer(tower_http::trace::TraceLayer::new_for_http())
+        // Metadata-only tracing; request and response bodies are never logged.
+        .layer(axum::middleware::from_fn(hl7v2_server::middleware::trace_request))
         .layer(tower_http::cors::CorsLayer::permissive());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
@@ -204,10 +205,11 @@ async fn parse_handler(
 
 ```rust
 use tower::ServiceBuilder;
-use tower_http::{trace, cors, compression, timeout};
+use tower_http::{cors, compression, timeout};
 
 let middleware = ServiceBuilder::new()
-    .layer(trace::TraceLayer::new_for_http())
+    // Use the server's metadata-only tracing middleware; never log bodies.
+    .layer(axum::middleware::from_fn(hl7v2_server::middleware::trace_request))
     .layer(cors::CorsLayer::permissive())
     .layer(compression::CompressionLayer::new())
     .layer(timeout::TimeoutLayer::new(Duration::from_secs(30)))
