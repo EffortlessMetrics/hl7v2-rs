@@ -74,7 +74,7 @@ pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResp
 
     let response = HealthResponse {
         status: HealthStatus::Healthy,
-        version: env!("CARGO_PKG_VERSION").to_string(),
+        version: env!("CARGO_PKG_VERSION"),
         uptime_seconds: uptime,
     };
 
