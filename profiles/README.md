@@ -26,7 +26,7 @@ From an installed CLI:
 # Check the profile before using it as an interface contract
 hl7v2-cli profile lint profiles/adt_a01.yaml
 
-# Inspect its resolved structure and rules
+# Inspect its local structure and rules (without expanding inherited rules)
 hl7v2-cli profile explain profiles/adt_a01.yaml --format json
 
 # Validate a message against it
