@@ -43,7 +43,6 @@
 pub mod datetime;
 
 pub use datetime as hl7v2_datetime;
-use regex::Regex;
 
 /// Error type for data type validation
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -252,7 +251,7 @@ impl DataTypeValidator {
 
         // Check pattern
         if let Some(pattern) = &self.pattern
-            && let Ok(regex) = Regex::new(pattern)
+            && let Some(regex) = crate::conformance::regex_cache::get(pattern)
             && !regex.is_match(value)
         {
             return Err(DataTypeError::PatternMismatch {
