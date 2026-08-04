@@ -68,7 +68,9 @@ jobs:
     name: SAST (Semgrep)
     runs-on: ubuntu-latest
     container:
-      image: returntocorp/semgrep
+      # Keep the release tag for readability and the digest for reproducibility.
+      # Refresh both values together when updating Semgrep.
+      image: returntocorp/semgrep:1.172.0@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b
     steps:
       - uses: actions/checkout@v6
 
