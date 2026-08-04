@@ -11,10 +11,11 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Create a test server instance with default configuration
-pub fn create_test_server() -> Server {
+pub fn create_test_server() -> hl7v2_server::Result<Server> {
     let config = ServerConfig {
         bind_address: "127.0.0.1:0".to_string(), // Use random port for tests
         max_body_size: 1024 * 1024,              // 1MB
+        max_message_size: ServerConfig::default().max_message_size,
         api_key: None,
         cors_allowed_origins: Default::default(),
         profile_paths: Vec::new(),
@@ -28,11 +29,17 @@ pub fn create_test_server() -> Server {
 
 /// Create a test router for integration testing
 pub fn create_test_router() -> Router {
+    create_test_router_with_message_size_limit(ServerConfig::default().max_message_size)
+}
+
+/// Create a test router with an explicit application-level HL7 message limit.
+pub fn create_test_router_with_message_size_limit(max_message_size: usize) -> Router {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        max_message_size,
         cors_allowed_origins: Default::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,

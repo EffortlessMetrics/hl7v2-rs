@@ -1,8 +1,11 @@
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde::Serialize;
+use std::sync::Arc;
 
 use crate::handlers::error::AppError;
 use crate::models::{ProfileExplainRequest, ProfileLintRequest, ProfileTestRequest};
+use crate::server::AppState;
+use axum::extract::State;
 
 use super::schema_versions::{
     requested_profile_explain_report_schema_version, requested_profile_lint_report_schema_version,
@@ -53,11 +56,21 @@ pub(crate) async fn profile_explain_handler(
 }
 
 pub(crate) async fn profile_test_handler(
+    State(state): State<Arc<AppState>>,
     Json(request): Json<ProfileTestRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let report_schema_version =
         requested_profile_test_report_schema_version(request.report_schema_version)?;
     let profile = hl7v2::load_profile_checked(&request.profile).map_err(AppError::from)?;
+    for fixture in &request.fixtures {
+        if let Err(error) = super::enforce_decoded_message_size_if_valid_mllp(
+            fixture.message.as_bytes(),
+            fixture.mllp_framed,
+            state.max_message_size,
+        ) {
+            return Ok(error.into_response());
+        }
+    }
     let report = profile_test_report_from_inline_fixtures(&request.fixtures, &profile)?;
     let response = if report_schema_version == 2 {
         evidence_json(
@@ -68,7 +81,7 @@ pub(crate) async fn profile_test_handler(
         evidence_json(&report, "profile test report")?
     };
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 fn evidence_json<T: Serialize>(value: &T, label: &str) -> Result<serde_json::Value, AppError> {
