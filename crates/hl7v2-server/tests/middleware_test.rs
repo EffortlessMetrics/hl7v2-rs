@@ -162,7 +162,8 @@ async fn request_tracing_records_metadata_without_body() -> Result<(), String> {
         .layer(axum::middleware::from_fn(trace_request));
     let sentinel = "SENTINEL_REQUEST_BODY_SHOULD_NOT_BE_LOGGED";
 
-    let response = tracing::subscriber::with_default(subscriber, || async {
+    let response = {
+        let _default = tracing::subscriber::set_default(subscriber);
         app.oneshot(
             Request::builder()
                 .method("POST")
@@ -171,9 +172,8 @@ async fn request_tracing_records_metadata_without_body() -> Result<(), String> {
                 .map_err(|err| err.to_string())?,
         )
         .await
-        .map_err(|err| err.to_string())
-    })
-    .await?;
+        .map_err(|err| err.to_string())?
+    };
 
     if response.status() != StatusCode::NO_CONTENT {
         return Err(format!("unexpected response status: {}", response.status()));
