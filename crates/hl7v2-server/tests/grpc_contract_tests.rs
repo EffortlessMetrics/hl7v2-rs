@@ -419,6 +419,30 @@ reason = "synthetic dirty-corpus note is useful for support triage"
         assert_eq!(parse_response.errors[0].code, "MESSAGE_TOO_LARGE");
         assert!(parse_response.errors[0].message.contains("exceeds maximum"));
 
+        let validate_error = service
+            .validate(Request::new(ValidateRequest {
+                message: SAMPLE_MSG.to_vec(),
+                profile: PROFILE.to_string(),
+                mllp_framed: false,
+                options: None,
+                report_schema_version: 0,
+            }))
+            .await
+            .expect_err("oversized validate message should fail");
+        assert_eq!(validate_error.code(), Code::InvalidArgument);
+        assert!(validate_error.message().contains("exceeds maximum"));
+
+        let ack_error = service
+            .generate_ack(Request::new(GenerateAckRequest {
+                message: SAMPLE_MSG.to_vec(),
+                code: generate_ack_request::AckCode::Aa as i32,
+                error_message: None,
+            }))
+            .await
+            .expect_err("oversized ACK message should fail");
+        assert_eq!(ack_error.code(), Code::InvalidArgument);
+        assert!(ack_error.message().contains("exceeds maximum"));
+
         let profile_error = service
             .profile_test(Request::new(ProfileTestRequest {
                 profile: PROFILE.to_string(),
