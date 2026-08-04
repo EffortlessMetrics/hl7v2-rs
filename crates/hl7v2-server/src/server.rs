@@ -22,6 +22,9 @@ use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server as TonicServer;
 use tracing::info;
 
+const DEFAULT_BIND_HOST: &str = "127.0.0.1";
+const DEFAULT_BIND_PORT: u16 = 8080;
+
 /// Application state shared across handlers
 #[derive(Clone)]
 pub struct AppState {
@@ -97,7 +100,8 @@ impl CorsAllowedOrigins {
 /// HTTP server configuration
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
-    /// Address to bind to (e.g., "0.0.0.0:8080")
+    /// Address to bind to. Defaults to loopback; use an explicit network
+    /// address such as `0.0.0.0:8080` when remote access is required.
     pub bind_address: String,
     /// Maximum request body size in bytes
     pub max_body_size: usize,
@@ -122,7 +126,7 @@ pub struct ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            bind_address: "0.0.0.0:8080".to_string(),
+            bind_address: default_bind_address(),
             max_body_size: 10 * 1024 * 1024,    // 10MB
             max_message_size: 50 * 1024 * 1024, // 50MB
             api_key: None,
@@ -303,10 +307,10 @@ impl ServerConfig {
 
         let mut config = Self::default();
         if let Some(host) = file_config.server.host {
-            let port = file_config.server.port.unwrap_or(8080);
+            let port = file_config.server.port.unwrap_or(DEFAULT_BIND_PORT);
             config.bind_address = format!("{host}:{port}");
         } else if let Some(port) = file_config.server.port {
-            config.bind_address = format!("0.0.0.0:{port}");
+            config.bind_address = format!("{DEFAULT_BIND_HOST}:{port}");
         }
         if let Some(api_key) = file_config.server.api_key {
             config.api_key = Some(api_key);
@@ -388,6 +392,10 @@ fn split_profile_paths(paths: OsString) -> Vec<String> {
         .map(|path| path.to_string_lossy().trim().to_string())
         .filter(|path| !path.is_empty())
         .collect()
+}
+
+fn default_bind_address() -> String {
+    format!("{DEFAULT_BIND_HOST}:{DEFAULT_BIND_PORT}")
 }
 
 fn public_cors_allowed_origins(origins: &CorsAllowedOrigins) -> PublicCorsAllowedOrigins {
@@ -798,7 +806,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = ServerConfig::default();
-        assert_eq!(config.bind_address, "0.0.0.0:8080");
+        assert_eq!(config.bind_address, "127.0.0.1:8080");
         assert_eq!(config.max_body_size, 10 * 1024 * 1024);
         assert_eq!(config.max_message_size, 50 * 1024 * 1024);
         assert_eq!(config.cors_allowed_origins, CorsAllowedOrigins::Any);
@@ -941,6 +949,18 @@ write_bundle = false
         );
         assert_eq!(config.config_source, Some(path.display().to_string()));
 
+        fs::remove_file(path).expect("config fixture should be removed");
+    }
+
+    #[test]
+    fn server_config_port_only_uses_loopback_default_host() {
+        let path = temp_file_path("server-config-port-only.toml");
+        fs::write(&path, "[server]\nport = 18080\n").expect("config fixture should be written");
+
+        let config = ServerConfig::from_sources(Some(&path), None, None, None, None, None)
+            .expect("config should load");
+
+        assert_eq!(config.bind_address, "127.0.0.1:18080");
         fs::remove_file(path).expect("config fixture should be removed");
     }
 

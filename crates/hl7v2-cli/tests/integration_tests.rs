@@ -6078,7 +6078,7 @@ mod serve_command {
             .success()
             .stdout(predicate::str::contains("default: http"))
             .stdout(predicate::str::contains("default: 8080"))
-            .stdout(predicate::str::contains("default: 0.0.0.0"));
+            .stdout(predicate::str::contains("default: 127.0.0.1"));
     }
 
     #[test]
