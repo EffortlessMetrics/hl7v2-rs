@@ -9,6 +9,7 @@ fn print_config_outputs_sanitized_effective_config_and_exits()
         .env("HL7V2_API_KEY", "super-secret")
         .env("HL7V2_CORS_ALLOWED_ORIGINS", "https://app.example")
         .env_remove("HL7V2_CONFIG")
+        .env_remove("HL7V2_MAX_MESSAGE_SIZE")
         .env_remove("HL7V2_PROFILE_PATHS")
         .output()?;
 
@@ -41,6 +42,13 @@ fn print_config_outputs_sanitized_effective_config_and_exits()
         != Some(true)
     {
         return Err(std::io::Error::other("print-config did not mark API key configured").into());
+    }
+    if config
+        .get("max_message_size")
+        .and_then(serde_json::Value::as_u64)
+        != Some(50 * 1024 * 1024)
+    {
+        return Err(std::io::Error::other("print-config did not include max message size").into());
     }
     let cors = config.get("cors_allowed_origins");
     if cors

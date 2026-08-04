@@ -52,6 +52,21 @@ are not metric labels.
 The server reuses the same evidence contracts as the CLI and `hl7v2` library
 instead of defining a server-only report language.
 
+## Public Rust API boundary
+
+The supported Rust integration surface is the root-level API: `Server`,
+`ServerBuilder`, `ServerConfig`, `AppState`, `build_router`, and the documented
+model types. The `handlers` module is retained as an internal compatibility
+surface, and `handlers::AppError` is hidden and deprecated for older consumers;
+new code must not depend on either surface.
+
+Request failures are supported through the stable HTTP and gRPC response
+contracts, including the externally observable message-size status/code
+contracts. `handlers::AppError` is not a supported Rust extension point, so
+future request-error cases must not be added as public enum variants. This
+keeps structured request-error evolution semver-safe for the published server
+crate while preserving the existing server integration surface.
+
 Structured logs are emitted for parse, validation, redacted validation, bundle,
 replay, ACK, and ACK-policy workflows. They include message type, validation
 status, issue counts, redaction status, and hashed correlation identifiers. Raw
