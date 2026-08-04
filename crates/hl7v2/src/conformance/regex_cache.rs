@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Bounded reuse of compiled profile regexes.
 
 use regex::Regex;
