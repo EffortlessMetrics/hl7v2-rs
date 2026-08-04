@@ -25,7 +25,7 @@ const DEFAULT_CACHE_SIZE: usize = 100;
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 
 /// Cache entry containing the profile and its ETag.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct CacheEntry {
     /// The loaded profile
     profile: Profile,
@@ -61,7 +61,7 @@ impl ProfileCache {
         }
     }
 
-    async fn get(&self, key: &str) -> Option<CacheEntry> {
+    async fn get_with<T>(&self, key: &str, project: impl FnOnce(&CacheEntry) -> T) -> Option<T> {
         // Check and promote in the recency index first. A writer holds this
         // same lock while updating both structures, so an entry read below
         // cannot observe a newly evicted key as a cache hit.
@@ -73,7 +73,7 @@ impl ProfileCache {
             return None;
         }
 
-        self.entries.read().await.get(key).cloned()
+        self.entries.read().await.get(key).map(project)
     }
 
     async fn insert(&self, key: String, entry: CacheEntry) {
@@ -298,7 +298,11 @@ impl ProfileLoader {
     /// Load a profile from a remote URL.
     pub async fn load_from_url(&self, url: &str) -> Result<LoadResult, ProfileLoadError> {
         // Check cache first
-        let etag = { self.cache.get(url).await.and_then(|e| e.etag) };
+        let etag = self
+            .cache
+            .get_with(url, |entry| entry.etag.clone())
+            .await
+            .flatten();
 
         // Prepare request
         let mut request = self.client.get(url);
@@ -312,11 +316,15 @@ impl ProfileLoader {
         // Handle response
         if response.status() == reqwest::StatusCode::NOT_MODIFIED {
             // Profile hasn't changed, return from cache
-            if let Some(entry) = self.cache.get(url).await {
+            if let Some((profile, etag)) = self
+                .cache
+                .get_with(url, |entry| (entry.profile.clone(), entry.etag.clone()))
+                .await
+            {
                 return Ok(LoadResult {
-                    profile: entry.profile.clone(),
+                    profile,
                     from_cache: true,
-                    etag: entry.etag.clone(),
+                    etag,
                 });
             }
         }
@@ -366,9 +374,13 @@ impl ProfileLoader {
         // but we still cache them by path to avoid re-parsing.
 
         {
-            if let Some(entry) = self.cache.get(path).await {
+            if let Some(profile) = self
+                .cache
+                .get_with(path, |entry| entry.profile.clone())
+                .await
+            {
                 return Ok(LoadResult {
-                    profile: entry.profile.clone(),
+                    profile,
                     from_cache: true,
                     etag: None,
                 });
