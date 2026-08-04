@@ -114,6 +114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reject zero `max_message_size` values across environment, file, builder, and
+  server-construction paths with a configuration error instead of accepting an
+  unusable server limit.
 - Derived the Nix package version and Docker image tag from the workspace
   version so the flake no longer emits a floating `latest` image tag.
 - Pinned the Kubernetes deployment image tag and version labels to v1.5.0

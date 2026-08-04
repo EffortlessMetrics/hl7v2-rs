@@ -854,8 +854,7 @@ mod tests {
             .expect("config fixture should be written");
 
         let error = ServerConfig::from_sources(Some(&path), None, None, None, None, None)
-            .err()
-            .expect("zero file message size must be rejected");
+            .expect_err("zero file message size must be rejected");
 
         assert_eq!(
             error.to_string(),
