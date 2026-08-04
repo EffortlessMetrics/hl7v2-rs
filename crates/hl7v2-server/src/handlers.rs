@@ -540,7 +540,7 @@ pub async fn ack_policy_handler(
             let decision = ack_policy_decision_for_validation(policy, &report)?;
             (message, Some(report), decision)
         }
-        Err(error) if policy.rejects(AckPolicyRejectCondition::ParseError) => {
+        Err(error @ AppError::Parse(_)) if policy.rejects(AckPolicyRejectCondition::ParseError) => {
             let message = parse_msh_for_ack_policy(&raw_input, request.mllp_framed)
                 .map_err(|_fallback_error| error)?;
             let decision = ack_policy_reject_decision(policy, AckPolicyReason::ParseError, 0);
