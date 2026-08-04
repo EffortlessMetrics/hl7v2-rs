@@ -31,7 +31,7 @@ pub struct AppState {
     pub metrics_handle: Arc<PrometheusHandle>,
     /// Optional API key for authentication
     pub api_key: Option<String>,
-    /// Maximum raw HL7 message size accepted by message-processing handlers.
+    /// Maximum decoded HL7 message size accepted by message-processing handlers.
     pub max_message_size: usize,
     /// CORS origin policy for browser clients
     pub cors_allowed_origins: CorsAllowedOrigins,
@@ -101,7 +101,7 @@ pub struct ServerConfig {
     pub bind_address: String,
     /// Maximum request body size in bytes
     pub max_body_size: usize,
-    /// Maximum raw HL7 message size in bytes
+    /// Maximum decoded HL7 message size in bytes
     pub max_message_size: usize,
     /// Optional API key for authentication
     pub api_key: Option<String>,
@@ -143,7 +143,7 @@ pub struct PublicServerConfig {
     pub bind_address: String,
     /// Maximum request body size in bytes.
     pub max_body_size: usize,
-    /// Maximum raw HL7 message size in bytes.
+    /// Maximum decoded HL7 message size in bytes.
     pub max_message_size: usize,
     /// Whether an API key is configured without exposing the secret.
     pub api_key_configured: bool,
@@ -705,7 +705,7 @@ impl ServerBuilder {
         self
     }
 
-    /// Set the maximum raw HL7 message size.
+    /// Set the maximum decoded HL7 message size.
     pub fn max_message_size(mut self, size: usize) -> Self {
         self.config.max_message_size = size;
         self

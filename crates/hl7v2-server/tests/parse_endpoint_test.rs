@@ -321,6 +321,76 @@ async fn test_parse_rejects_message_over_configured_application_limit() {
 }
 
 #[tokio::test]
+async fn test_parse_accepts_mllp_payload_at_decoded_size_limit() {
+    let app =
+        common::create_test_router_with_message_size_limit(common::fixtures::MINIMAL_VALID.len());
+    let framed = hl7v2::wrap_mllp(common::fixtures::MINIMAL_VALID.as_bytes());
+    let message = String::from_utf8(framed).unwrap();
+    let request_body = json!({
+        "message": message,
+        "mllp_framed": true
+    });
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/hl7/parse")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_parse_reports_decoded_size_for_oversized_mllp_payload() {
+    let payload = common::fixtures::MINIMAL_VALID.as_bytes();
+    let app = common::create_test_router_with_message_size_limit(payload.len() - 1);
+    let framed = hl7v2::wrap_mllp(payload);
+    let request_body = json!({
+        "message": String::from_utf8(framed).unwrap(),
+        "mllp_framed": true
+    });
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/hl7/parse")
+                .method("POST")
+                .header("Content-Type", "application/json")
+                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    let expected = format!(
+        "message size {} bytes exceeds maximum of {} bytes",
+        payload.len(),
+        payload.len() - 1
+    );
+    assert_eq!(
+        body.get("message").and_then(Value::as_str),
+        Some(expected.as_str())
+    );
+}
+
+#[tokio::test]
 async fn test_parse_invalid_json_returns_400() {
     let app = common::create_test_router();
 

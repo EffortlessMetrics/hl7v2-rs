@@ -607,16 +607,11 @@ pub async fn normalize_handler(
     Json(request): Json<NormalizeRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let message_bytes = request.message.as_bytes();
-    if let Err(error) = enforce_message_size(message_bytes, state.max_message_size) {
+    let input = decode_message_bytes(message_bytes, request.mllp_framed)?;
+    if let Err(error) = enforce_message_size(input, state.max_message_size) {
         crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
         return Err(error);
     }
-    let input = if request.mllp_framed {
-        hl7v2::unwrap_mllp(message_bytes)
-            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
-    } else {
-        message_bytes
-    };
 
     let normalized_bytes = hl7v2::normalize(input, request.options.canonical_delimiters)
         .map_err(|e| AppError::Parse(format!("Normalize error: {}", e)))?;
@@ -676,12 +671,23 @@ mod tests {
 
     #[test]
     fn parse_request_message_accepts_plain_and_mllp_facade_paths() {
-        let plain = parse_request_message(SAMPLE_MESSAGE.as_bytes(), false)
-            .expect("plain message should parse");
+        let plain = parse_request_message_with_metrics(
+            SAMPLE_MESSAGE.as_bytes(),
+            false,
+            crate::metrics::operation::PARSE,
+            usize::MAX,
+        )
+        .expect("plain message should parse");
         assert_eq!(plain.segments[0].id_str(), "MSH");
 
         let framed = hl7v2::wrap_mllp(SAMPLE_MESSAGE.as_bytes());
-        let mllp = parse_request_message(&framed, true).expect("MLLP message should parse");
+        let mllp = parse_request_message_with_metrics(
+            &framed,
+            true,
+            crate::metrics::operation::PARSE,
+            usize::MAX,
+        )
+        .expect("MLLP message should parse");
         assert_eq!(mllp.segments[0].id_str(), "MSH");
     }
 
@@ -697,8 +703,13 @@ mod tests {
 
     #[test]
     fn metadata_helpers_use_facade_queries() {
-        let message =
-            parse_request_message(SAMPLE_MESSAGE.as_bytes(), false).expect("message should parse");
+        let message = parse_request_message_with_metrics(
+            SAMPLE_MESSAGE.as_bytes(),
+            false,
+            crate::metrics::operation::PARSE,
+            usize::MAX,
+        )
+        .expect("message should parse");
 
         let metadata = extract_metadata(&message).expect("metadata should extract");
         assert_eq!(metadata.message_type, "ADT^A01");

@@ -17,7 +17,7 @@ pub enum AppError {
     /// Message parsing error (malformed HL7, invalid structure, etc.)
     Parse(String),
 
-    /// Raw HL7 message exceeded the configured application-level limit.
+    /// Decoded HL7 message exceeded the configured application-level limit.
     MessageTooLarge { actual: usize, max: usize },
 
     /// Profile loading error (YAML syntax, missing fields, etc.)

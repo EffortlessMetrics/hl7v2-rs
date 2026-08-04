@@ -36,7 +36,7 @@ cargo run --bin hl7v2-server
 export BIND_ADDRESS="0.0.0.0:8080"        # Bind address (default: 127.0.0.1:8080)
 export HL7V2_MAX_CONCURRENT="100"         # Max concurrent requests (default: 100)
 export HL7V2_MAX_BODY_SIZE="1048576"      # Max body size in bytes (default: 1MB)
-export HL7V2_MAX_MESSAGE_SIZE="52428800"  # Max raw HL7 message size (default: 50MiB)
+export HL7V2_MAX_MESSAGE_SIZE="52428800"  # Max decoded HL7 message size (default: 50MiB)
 export HL7V2_API_KEY="your-secret-key"    # API key for authentication (optional)
 export RUST_LOG="info"                    # Log level: trace, debug, info, warn, error
 ```
