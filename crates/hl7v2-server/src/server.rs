@@ -190,27 +190,25 @@ struct FileServerConfig {
     max_message_size: Option<usize>,
 }
 
-fn parse_max_message_size_env(value: &str) -> Result<usize> {
-    let parsed = value.parse::<usize>().map_err(|error| {
-        crate::Error::Config(format!(
-            "HL7V2_MAX_MESSAGE_SIZE must be a positive integer: {error}"
-        ))
-    })?;
-    if parsed == 0 {
-        return Err(crate::Error::Config(
-            "HL7V2_MAX_MESSAGE_SIZE must be greater than zero".to_string(),
-        ));
-    }
-    Ok(parsed)
-}
-
 impl ServerConfig {
     /// Build server configuration from supported environment variables.
     pub fn from_env() -> Result<Self> {
         let config_path = std::env::var_os("HL7V2_CONFIG").map(PathBuf::from);
         let max_message_size = std::env::var("HL7V2_MAX_MESSAGE_SIZE")
             .ok()
-            .map(|value| parse_max_message_size_env(&value))
+            .map(|value| {
+                let parsed = value.parse::<usize>().map_err(|error| {
+                    crate::Error::Config(format!(
+                        "HL7V2_MAX_MESSAGE_SIZE must be a positive integer: {error}"
+                    ))
+                })?;
+                if parsed == 0 {
+                    return Err(crate::Error::Config(
+                        "HL7V2_MAX_MESSAGE_SIZE must be greater than zero".to_string(),
+                    ));
+                }
+                Ok(parsed)
+            })
             .transpose()?;
         Self::from_sources_with_message_size(
             config_path.as_deref(),
@@ -284,7 +282,6 @@ impl ServerConfig {
             config.max_message_size = max_message_size;
         }
 
-        config.validate()?;
         Ok(config)
     }
 
@@ -320,17 +317,7 @@ impl ServerConfig {
         config.ack_policy = file_config.ack;
         config.quarantine = file_config.quarantine;
 
-        config.validate()?;
         Ok(config)
-    }
-
-    fn validate(&self) -> Result<()> {
-        if self.max_message_size == 0 {
-            return Err(crate::Error::Config(
-                "max_message_size must be greater than zero".to_string(),
-            ));
-        }
-        Ok(())
     }
 
     /// Return a sanitized public view of this configuration.
@@ -555,9 +542,8 @@ pub struct Server {
 }
 
 impl Server {
-    /// Create a new server with the given configuration.
-    pub fn new(config: ServerConfig) -> Result<Self> {
-        config.validate()?;
+    /// Create a new server with the given configuration
+    pub fn new(config: ServerConfig) -> Self {
         // Initialize Prometheus metrics recorder
         let metrics_handle = crate::metrics::init_metrics_recorder();
 
@@ -573,7 +559,7 @@ impl Server {
             quarantine: config.quarantine.clone(),
         });
 
-        Ok(Self { config, state })
+        Self { config, state }
     }
 
     /// Create a server builder
@@ -765,8 +751,8 @@ impl ServerBuilder {
         self
     }
 
-    /// Build the server after validating its configuration.
-    pub fn build(self) -> Result<Server> {
+    /// Build the server
+    pub fn build(self) -> Server {
         Server::new(self.config)
     }
 }
@@ -787,8 +773,7 @@ mod tests {
             .bind("127.0.0.1:8080")
             .max_body_size(1024 * 1024)
             .max_message_size(2048)
-            .build()
-            .expect("positive message size should build");
+            .build();
 
         assert_eq!(server.config.bind_address, "127.0.0.1:8080");
         assert_eq!(server.config.max_body_size, 1024 * 1024);
@@ -803,64 +788,6 @@ mod tests {
         assert_eq!(config.max_message_size, 50 * 1024 * 1024);
         assert_eq!(config.cors_allowed_origins, CorsAllowedOrigins::Any);
         assert!(config.profile_paths.is_empty());
-    }
-
-    #[test]
-    fn zero_message_size_is_rejected_by_builder() {
-        let error = Server::builder()
-            .max_message_size(0)
-            .build()
-            .err()
-            .expect("zero message size must be rejected");
-
-        assert_eq!(
-            error.to_string(),
-            "Configuration error: max_message_size must be greater than zero"
-        );
-    }
-
-    #[test]
-    fn zero_message_size_is_rejected_at_server_construction() {
-        let config = ServerConfig {
-            max_message_size: 0,
-            ..ServerConfig::default()
-        };
-
-        let error = Server::new(config)
-            .err()
-            .expect("zero message size must be rejected");
-
-        assert_eq!(
-            error.to_string(),
-            "Configuration error: max_message_size must be greater than zero"
-        );
-    }
-
-    #[test]
-    fn environment_message_size_parser_rejects_zero_and_preserves_positive_values() {
-        let error = parse_max_message_size_env("0")
-            .expect_err("zero environment message size must be rejected");
-        assert_eq!(
-            error.to_string(),
-            "Configuration error: HL7V2_MAX_MESSAGE_SIZE must be greater than zero"
-        );
-        assert_eq!(parse_max_message_size_env("2048").unwrap(), 2048);
-    }
-
-    #[test]
-    fn zero_message_size_is_rejected_from_config_file() {
-        let path = temp_file_path("server-config-zero-message-size.toml");
-        fs::write(&path, "[server]\nmax_message_size = 0\n")
-            .expect("config fixture should be written");
-
-        let error = ServerConfig::from_sources(Some(&path), None, None, None, None, None)
-            .expect_err("zero file message size must be rejected");
-
-        assert_eq!(
-            error.to_string(),
-            "Configuration error: max_message_size must be greater than zero"
-        );
-        fs::remove_file(path).expect("config fixture should be removed");
     }
 
     #[test]
