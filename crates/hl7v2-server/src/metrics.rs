@@ -172,7 +172,7 @@ fn record_request_with_shared_labels(endpoint: Arc<str>, status: Arc<str>, durat
     metrics::counter!(
         "hl7v2_requests_total",
         "endpoint" => Arc::clone(&endpoint),
-        "status" => Arc::clone(&status)
+        "status" => status
     )
     .increment(1);
 
