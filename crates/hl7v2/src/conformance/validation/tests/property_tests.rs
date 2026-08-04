@@ -595,9 +595,9 @@ proptest! {
 
 proptest! {
     #[test]
-    fn test_data_type_unknown_always_passes(value in ".*", datatype in "[A-Z]{4,10}") {
-        // Unknown data types should assume valid
-        prop_assert!(validate_data_type(&value, &datatype));
+    fn test_data_type_unknown_is_rejected(value in ".*", datatype in "[A-Z]{4,10}") {
+        // Unknown data types must not bypass validation.
+        prop_assert!(!validate_data_type(&value, &datatype));
     }
 }
 

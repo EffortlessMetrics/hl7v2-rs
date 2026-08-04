@@ -40,6 +40,26 @@ constraints:
     }
 
     #[test]
+    fn test_unknown_profile_datatype_is_reported() {
+        let y = r#"
+message_structure: "unknown_datatype"
+version: "2.5.1"
+segments:
+  - id: "PID"
+datatypes:
+  - path: "PID.7"
+    type: "UNKNOWN"
+"#;
+        let msg = parse(adt_a01_msg().as_bytes()).unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(probs.len(), 1, "unexpected problems: {probs:?}");
+        assert_eq!(probs[0].code, "INVALID_DATA_TYPE");
+        assert_eq!(probs[0].path.as_deref(), Some("PID.7"));
+    }
+
+    #[test]
     fn test_required_segment_specs_report_missing_segments() {
         let y = r#"
 message_structure: "oru_required_segments"

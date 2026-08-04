@@ -101,6 +101,22 @@ mod help_and_version {
             assert_help_contains(args, expected);
         }
     }
+
+    #[test]
+    fn interactive_help_describes_validation_options() {
+        let mut cmd = cli_command();
+        cmd.arg("interactive")
+            .write_stdin("help\nexit\n")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "val <file> <profile> [options] - Validate an HL7 message",
+            ))
+            .stdout(predicate::str::contains("Processing:"))
+            .stdout(predicate::str::contains("Validation:"))
+            .stdout(predicate::str::contains("Generation:"))
+            .stdout(predicate::str::contains("System:"));
+    }
 }
 
 // =========================================================================
