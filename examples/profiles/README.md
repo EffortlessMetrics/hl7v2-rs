@@ -8,7 +8,7 @@ This directory contains reference conformance profiles demonstrating the capabil
 
 ```bash
 # Using the CLI (when available)
-hl7v2-cli validate --profile examples/profiles/ADT_A01.yaml --message message.hl7
+hl7v2-cli val message.hl7 --profile examples/profiles/ADT_A01.yaml
 
 # Using the HTTP API
 curl -X POST http://localhost:8080/hl7/validate \
