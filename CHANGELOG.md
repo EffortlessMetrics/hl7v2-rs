@@ -114,6 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reduced profile-cache read contention while preserving LRU hit promotion and
+  bounded eviction behavior during concurrent loads.
 - Derived the Nix package version and Docker image tag from the workspace
   version so the flake no longer emits a floating `latest` image tag.
 - Pinned the Kubernetes deployment image tag and version labels to v1.5.0
