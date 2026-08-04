@@ -89,9 +89,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(middleware::from_fn(metrics_middleware))
         .layer(CompressionLayer::new())
         .layer(cors_layer)
-        .layer(middleware::from_fn(trace_request))
         .layer(GovernorLayer::new(governor_conf))
-        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first (last in stack)
+        .layer(create_concurrency_limit_layer()) // Concurrency limiting applied first
+        .layer(middleware::from_fn(trace_request)) // Request tracing remains outermost
 }
 
 /// Build CORS layer

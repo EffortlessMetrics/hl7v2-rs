@@ -25,6 +25,7 @@ use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
 };
+use tracing_subscriber::fmt::MakeWriter;
 use utoipa_swagger_ui::SwaggerUi;
 
 /// Build a test router with configurable rate limiting and concurrency limiting
@@ -99,9 +100,9 @@ fn build_test_router(
                 .allow_methods(Any)
                 .allow_headers(Any),
         )
-        .layer(axum::middleware::from_fn(trace_request))
         .layer(tower_governor::GovernorLayer::new(governor_conf.clone())) // Rate limiting
-        .layer(ConcurrencyLimitLayer::new(max_concurrency)) // Concurrency limiting
+        .layer(ConcurrencyLimitLayer::new(max_concurrency)) // Concurrency limiting applied first
+        .layer(axum::middleware::from_fn(trace_request)) // Request tracing remains outermost
 }
 
 #[test]
@@ -117,6 +118,84 @@ fn server_tracing_uses_metadata_only_middleware() -> Result<(), String> {
     let middleware_source = include_str!("../src/middleware.rs");
     if !middleware_source.contains("status = %response.status()") {
         return Err("request tracing must record response status metadata".to_string());
+    }
+    Ok(())
+}
+
+#[derive(Clone, Default)]
+struct CapturedLogs(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for CapturedLogs {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0
+            .lock()
+            .map_err(|_| std::io::Error::other("log capture lock poisoned"))?
+            .extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl<'a> MakeWriter<'a> for CapturedLogs {
+    type Writer = Self;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        self.clone()
+    }
+}
+
+#[tokio::test]
+async fn request_tracing_records_metadata_without_body() -> Result<(), String> {
+    let logs = CapturedLogs::default();
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(logs.clone())
+        .finish();
+    let app = axum::Router::new()
+        .route(
+            "/health",
+            axum::routing::post(|| async { StatusCode::NO_CONTENT }),
+        )
+        .layer(axum::middleware::from_fn(trace_request));
+    let sentinel = "SENTINEL_REQUEST_BODY_SHOULD_NOT_BE_LOGGED";
+
+    let response = tracing::subscriber::with_default(subscriber, async {
+        app.oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/health")
+                .body(Body::from(sentinel))
+                .map_err(|err| err.to_string())?,
+        )
+        .await
+        .map_err(|err| err.to_string())
+    })
+    .await?;
+
+    if response.status() != StatusCode::NO_CONTENT {
+        return Err(format!("unexpected response status: {}", response.status()));
+    }
+
+    let output = String::from_utf8(
+        logs.0
+            .lock()
+            .map_err(|_| "log capture lock poisoned".to_string())?
+            .clone(),
+    )
+    .map_err(|err| err.to_string())?;
+    if !output.contains("method=POST")
+        || !output.contains("uri=/health")
+        || !output.contains("status=204")
+    {
+        return Err(format!(
+            "request metadata missing from captured logs: {output}"
+        ));
+    }
+    if output.contains(sentinel) {
+        return Err("request body sentinel was emitted in tracing output".to_string());
     }
     Ok(())
 }

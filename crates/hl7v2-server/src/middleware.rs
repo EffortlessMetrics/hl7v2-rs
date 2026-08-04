@@ -32,14 +32,18 @@ pub async fn trace_request(request: Request, next: Next) -> Response {
         uri = %uri,
     );
 
-    let response = next.run(request).instrument(span).await;
-    info!(
-        method = %method,
-        uri = %uri,
-        status = %response.status(),
-        "HTTP request completed"
-    );
-    response
+    async move {
+        let response = next.run(request).await;
+        info!(
+            method = %method,
+            uri = %uri,
+            status = %response.status(),
+            "HTTP request completed"
+        );
+        response
+    }
+    .instrument(span)
+    .await
 }
 
 /// API key authentication middleware
