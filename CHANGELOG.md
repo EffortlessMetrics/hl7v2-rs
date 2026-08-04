@@ -117,6 +117,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Corrected the README CLI feature list to document supported first-use
+  diagnostics instead of the unsupported interactive REPL claim.
 - Reduced profile-cache read contention while preserving LRU hit promotion and
   bounded eviction behavior during concurrent loads.
 - Reduced repeated profile-regex compilation contention with bounded shared
