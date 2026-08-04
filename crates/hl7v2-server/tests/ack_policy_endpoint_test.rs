@@ -44,11 +44,20 @@ const PARTIAL_PARSE_MESSAGE: &str =
     "MSH|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|202605030101||ADT^A01|CTRL123|P|2.5\rPI";
 
 fn test_router(policy: AckPolicyConfig, api_key: Option<&str>) -> axum::Router {
+    test_router_with_max_message_size(policy, api_key, ServerConfig::default().max_message_size)
+}
+
+fn test_router_with_max_message_size(
+    policy: AckPolicyConfig,
+    api_key: Option<&str>,
+    max_message_size: usize,
+) -> axum::Router {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: api_key.map(str::to_string),
+        max_message_size,
         cors_allowed_origins: CorsAllowedOrigins::default(),
         readiness_checks: ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
@@ -187,6 +196,21 @@ async fn test_ack_policy_rejects_parse_error_when_msh_is_usable() {
             .contains("MSA|AR|CTRL123")
     );
     assert_no_phi(&body_text);
+}
+
+#[tokio::test]
+async fn test_ack_policy_preserves_message_size_rejection() {
+    let response =
+        test_router_with_max_message_size(AckPolicyConfig::default(), None, SAMPLE_MSG.len() - 1)
+            .oneshot(ack_policy_request(SAMPLE_MSG, VALID_PROFILE))
+            .await
+            .unwrap();
+
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["code"], "MESSAGE_TOO_LARGE");
+    assert!(body["ack_message"].is_null());
 }
 
 #[tokio::test]

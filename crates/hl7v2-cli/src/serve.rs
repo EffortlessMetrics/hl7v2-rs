@@ -142,7 +142,7 @@ fn build_server_from_cli_args(
     max_body_size: usize,
 ) -> Result<Server, Box<dyn std::error::Error>> {
     let config = server_config_from_cli_args(bind_address, max_body_size)?;
-    Ok(Server::new(config))
+    Ok(Server::new(config)?)
 }
 
 fn server_config_from_cli_args(

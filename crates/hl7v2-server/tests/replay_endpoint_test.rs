@@ -167,6 +167,7 @@ fn test_router(bundle_output_root: Option<PathBuf>) -> axum::Router {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: None,
+        max_message_size: hl7v2_server::ServerConfig::default().max_message_size,
         cors_allowed_origins: CorsAllowedOrigins::default(),
         readiness_checks: hl7v2_server::ServerConfig::default().readiness_checks(),
         bundle_output_root,

@@ -23,7 +23,12 @@ mod validation;
 
 use ack_policy::*;
 use corpus::*;
+#[doc(hidden)]
+#[deprecated(
+    note = "handlers::AppError is an internal compatibility surface; use the root server APIs and stable HTTP/gRPC error contracts"
+)]
 pub use error::AppError;
+pub(crate) use error::RequestError;
 use metadata::extract_metadata;
 #[cfg(test)]
 use metadata::joined_components;
@@ -32,6 +37,36 @@ pub(crate) use profile::*;
 use quarantine::*;
 use schema_versions::*;
 use validation::*;
+
+/// Decode an optional MLLP envelope and apply the configured application-level
+/// message limit to the decoded HL7 payload.
+pub(crate) fn enforce_decoded_message_size(
+    message_bytes: &[u8],
+    mllp_framed: bool,
+    max_message_size: usize,
+) -> Result<&[u8], RequestError> {
+    let decoded_bytes = decode_message_bytes(message_bytes, mllp_framed)?;
+    enforce_message_size(decoded_bytes, max_message_size)?;
+    Ok(decoded_bytes)
+}
+
+/// Apply the message limit while preserving corpus/profile analysis of
+/// malformed MLLP fixtures as parse-error results.
+pub(crate) fn enforce_decoded_message_size_if_valid_mllp(
+    message_bytes: &[u8],
+    mllp_framed: bool,
+    max_message_size: usize,
+) -> Result<(), RequestError> {
+    if mllp_framed {
+        if let Ok(decoded_bytes) = hl7v2::unwrap_mllp(message_bytes) {
+            enforce_message_size(decoded_bytes, max_message_size)?;
+        }
+    } else {
+        enforce_message_size(message_bytes, max_message_size)?;
+    }
+
+    Ok(())
+}
 
 /// Handler for GET /health
 pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -60,14 +95,18 @@ pub async fn ready_handler(State(state): State<Arc<AppState>>) -> impl IntoRespo
 
 /// Handler for POST /hl7/parse
 pub async fn parse_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<ParseRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let message = parse_request_message_with_metrics(
+    let message = match parse_request_message_with_metrics(
         request.message.as_bytes(),
         request.mllp_framed,
         crate::metrics::operation::PARSE,
-    )?;
+        state.max_message_size,
+    ) {
+        Ok(message) => message,
+        Err(error) => return Ok(error.into_response()),
+    };
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
@@ -97,20 +136,24 @@ pub async fn parse_handler(
         warnings: Vec::new(),
     };
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 /// Handler for POST /hl7/validate
 pub async fn validate_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<ValidateRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let report_schema_version = requested_report_schema_version(request.report_schema_version)?;
-    let message = parse_request_message_with_metrics(
+    let message = match parse_request_message_with_metrics(
         request.message.as_bytes(),
         request.mllp_framed,
         crate::metrics::operation::VALIDATE,
-    )?;
+        state.max_message_size,
+    ) {
+        Ok(message) => message,
+        Err(error) => return Ok(error.into_response()),
+    };
 
     // Extract metadata
     let metadata = extract_metadata(&message)?;
@@ -159,7 +202,7 @@ pub async fn validate_handler(
         metadata,
     };
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 /// Handler for POST /hl7/validate-redacted
@@ -173,11 +216,15 @@ pub async fn validate_redacted_handler(
     let quarantine_schema_version =
         requested_quarantine_schema_version(request.quarantine_schema_version)?;
     let raw_input = request.message.into_bytes();
-    let mut message = parse_request_message_with_metrics(
+    let mut message = match parse_request_message_with_metrics(
         &raw_input,
         request.mllp_framed,
         crate::metrics::operation::VALIDATE_REDACTED,
-    )?;
+        state.max_message_size,
+    ) {
+        Ok(message) => message,
+        Err(error) => return Ok(error.into_response()),
+    };
     let log_context = MessageLogContext::from_message(&message);
     let receipt = redact_message_with_metrics(
         &mut message,
@@ -249,7 +296,7 @@ pub async fn validate_redacted_handler(
         redacted_hl7: request.include_redacted_hl7.then_some(redacted_hl7),
     };
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 /// Handler for POST /hl7/bundle
@@ -265,11 +312,15 @@ pub async fn bundle_handler(
         .ok_or(AppError::BundleOutputNotConfigured)?;
 
     let raw_input = request.message.into_bytes();
-    let mut message = parse_request_message_with_metrics(
+    let mut message = match parse_request_message_with_metrics(
         &raw_input,
         request.mllp_framed,
         crate::metrics::operation::BUNDLE,
-    )?;
+        state.max_message_size,
+    ) {
+        Ok(message) => message,
+        Err(error) => return Ok(error.into_response()),
+    };
     let log_context = MessageLogContext::from_message(&message);
     let receipt = redact_message_with_metrics(
         &mut message,
@@ -323,7 +374,7 @@ pub async fn bundle_handler(
         "wrote redacted evidence bundle"
     );
 
-    Ok((StatusCode::CREATED, Json(summary)))
+    Ok((StatusCode::CREATED, Json(summary)).into_response())
 }
 
 /// Handler for POST /hl7/replay
@@ -380,11 +431,14 @@ pub async fn replay_handler(
 
 /// Handler for POST /hl7/corpus/summarize
 pub async fn corpus_summarize_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<CorpusSummaryRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let schema_version = requested_corpus_summary_schema_version(request.summary_schema_version)?;
     let ids = validated_corpus_message_ids(&request.messages, "messages", "message")?;
+    if let Err(error) = enforce_corpus_message_sizes(&request.messages, state.max_message_size) {
+        return Ok(error.into_response());
+    }
     let messages = corpus_message_refs(&request.messages, &ids);
     let summary = hl7v2::synthetic::corpus::summarize_corpus_messages("<inline-corpus>", &messages);
     let response = if schema_version == 2 {
@@ -394,17 +448,20 @@ pub async fn corpus_summarize_handler(
     }
     .map_err(|error| AppError::Internal(format!("could not serialize corpus summary: {error}")))?;
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 /// Handler for POST /hl7/corpus/fingerprint
 pub async fn corpus_fingerprint_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<CorpusFingerprintRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let schema_version =
         requested_corpus_fingerprint_schema_version(request.fingerprint_schema_version)?;
     let ids = validated_corpus_message_ids(&request.messages, "messages", "message")?;
+    if let Err(error) = enforce_corpus_message_sizes(&request.messages, state.max_message_size) {
+        return Ok(error.into_response());
+    }
     let messages = corpus_message_refs(&request.messages, &ids);
     let mut fingerprint =
         hl7v2::synthetic::corpus::fingerprint_corpus_messages("<inline-corpus>", &messages);
@@ -422,17 +479,23 @@ pub async fn corpus_fingerprint_handler(
         AppError::Internal(format!("could not serialize corpus fingerprint: {error}"))
     })?;
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 /// Handler for POST /hl7/corpus/diff
 pub async fn corpus_diff_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<CorpusDiffRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let schema_version = requested_corpus_diff_schema_version(request.diff_schema_version)?;
     let before_ids = validated_corpus_message_ids(&request.before, "before", "before")?;
     let after_ids = validated_corpus_message_ids(&request.after, "after", "after")?;
+    if let Err(error) = enforce_corpus_message_sizes(&request.before, state.max_message_size) {
+        return Ok(error.into_response());
+    }
+    if let Err(error) = enforce_corpus_message_sizes(&request.after, state.max_message_size) {
+        return Ok(error.into_response());
+    }
     let before_messages = corpus_message_refs(&request.before, &before_ids);
     let after_messages = corpus_message_refs(&request.after, &after_ids);
     let mut before_fingerprint =
@@ -458,19 +521,36 @@ pub async fn corpus_diff_handler(
     }
     .map_err(|error| AppError::Internal(format!("could not serialize corpus diff: {error}")))?;
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
+}
+
+fn enforce_corpus_message_sizes(
+    messages: &[CorpusMessageInput],
+    max_message_size: usize,
+) -> Result<(), RequestError> {
+    for message in messages {
+        let raw_bytes = message.message.as_bytes();
+        let mllp_framed = hl7v2::is_mllp_framed(raw_bytes);
+        enforce_decoded_message_size_if_valid_mllp(raw_bytes, mllp_framed, max_message_size)?;
+    }
+
+    Ok(())
 }
 
 /// Handler for POST /hl7/ack
 pub async fn ack_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<AckRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let message = parse_request_message_with_metrics(
+    let message = match parse_request_message_with_metrics(
         request.message.as_bytes(),
         request.mllp_framed,
         crate::metrics::operation::ACK,
-    )?;
+        state.max_message_size,
+    ) {
+        Ok(message) => message,
+        Err(error) => return Ok(error.into_response()),
+    };
     let log_context = MessageLogContext::from_message(&message);
     let ack_code = map_ack_code(request.code);
 
@@ -507,7 +587,7 @@ pub async fn ack_handler(
         "generated ACK"
     );
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 /// Handler for POST /hl7/ack-policy
@@ -522,6 +602,7 @@ pub async fn ack_policy_handler(
         &raw_input,
         request.mllp_framed,
         crate::metrics::operation::ACK_POLICY,
+        state.max_message_size,
     ) {
         Ok(message) => {
             let validation = validate_message_with_profile(
@@ -534,13 +615,16 @@ pub async fn ack_policy_handler(
             let decision = ack_policy_decision_for_validation(policy, &report)?;
             (message, Some(report), decision)
         }
-        Err(error) if policy.rejects(AckPolicyRejectCondition::ParseError) => {
+        Err(RequestError::App(error @ AppError::Parse(_)))
+            if policy.rejects(AckPolicyRejectCondition::ParseError) =>
+        {
             let message = parse_msh_for_ack_policy(&raw_input, request.mllp_framed)
                 .map_err(|_fallback_error| error)?;
             let decision = ack_policy_reject_decision(policy, AckPolicyReason::ParseError, 0);
             (message, None, decision)
         }
-        Err(error) => return Err(error),
+        Err(RequestError::App(error)) => return Err(error),
+        Err(error) => return Ok(error.into_response()),
     };
     let log_context = MessageLogContext::from_message(&message);
 
@@ -592,24 +676,28 @@ pub async fn ack_policy_handler(
         metadata,
     };
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 /// Handler for POST /hl7/normalize
 pub async fn normalize_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<NormalizeRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let message_bytes = request.message.as_bytes();
-    let input = if request.mllp_framed {
-        hl7v2::unwrap_mllp(message_bytes)
-            .map_err(|e| AppError::Parse(format!("MLLP parse error: {}", e)))?
-    } else {
-        message_bytes
-    };
+    let input = decode_message_bytes(message_bytes, request.mllp_framed).inspect_err(|_error| {
+        crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
+    })?;
+    if let Err(error) = enforce_message_size(input, state.max_message_size) {
+        crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
+        return Ok(error.into_response());
+    }
 
-    let normalized_bytes = hl7v2::normalize(input, request.options.canonical_delimiters)
-        .map_err(|e| AppError::Parse(format!("Normalize error: {}", e)))?;
+    let normalized_bytes =
+        hl7v2::normalize(input, request.options.canonical_delimiters).map_err(|e| {
+            crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
+            AppError::Parse(format!("Normalize error: {}", e))
+        })?;
     let normalized_message = hl7v2::parse(&normalized_bytes).map_err(|e| {
         crate::metrics::record_parse_failure(crate::metrics::operation::NORMALIZE);
         AppError::Parse(format!("Normalized message parse error: {}", e))
@@ -644,7 +732,7 @@ pub async fn normalize_handler(
         "normalized HL7 message"
     );
 
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::OK, Json(response)).into_response())
 }
 
 #[cfg(test)]
@@ -666,12 +754,23 @@ mod tests {
 
     #[test]
     fn parse_request_message_accepts_plain_and_mllp_facade_paths() {
-        let plain = parse_request_message(SAMPLE_MESSAGE.as_bytes(), false)
-            .expect("plain message should parse");
+        let plain = parse_request_message_with_metrics(
+            SAMPLE_MESSAGE.as_bytes(),
+            false,
+            crate::metrics::operation::PARSE,
+            usize::MAX,
+        )
+        .expect("plain message should parse");
         assert_eq!(plain.segments[0].id_str(), "MSH");
 
         let framed = hl7v2::wrap_mllp(SAMPLE_MESSAGE.as_bytes());
-        let mllp = parse_request_message(&framed, true).expect("MLLP message should parse");
+        let mllp = parse_request_message_with_metrics(
+            &framed,
+            true,
+            crate::metrics::operation::PARSE,
+            usize::MAX,
+        )
+        .expect("MLLP message should parse");
         assert_eq!(mllp.segments[0].id_str(), "MSH");
     }
 
@@ -687,8 +786,13 @@ mod tests {
 
     #[test]
     fn metadata_helpers_use_facade_queries() {
-        let message =
-            parse_request_message(SAMPLE_MESSAGE.as_bytes(), false).expect("message should parse");
+        let message = parse_request_message_with_metrics(
+            SAMPLE_MESSAGE.as_bytes(),
+            false,
+            crate::metrics::operation::PARSE,
+            usize::MAX,
+        )
+        .expect("message should parse");
 
         let metadata = extract_metadata(&message).expect("metadata should extract");
         assert_eq!(metadata.message_type, "ADT^A01");

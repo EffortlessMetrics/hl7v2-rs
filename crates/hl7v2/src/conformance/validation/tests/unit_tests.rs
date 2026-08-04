@@ -221,10 +221,18 @@ fn test_validate_data_type_hd() {
 }
 
 #[test]
-fn test_validate_data_type_unknown() {
-    // Unknown data types should return true (assume valid)
-    assert!(validate_data_type("anything", "UNKNOWN_TYPE"));
-    assert!(validate_data_type("", "CUSTOM"));
+fn test_validate_data_type_ad_and_xtn() {
+    assert!(validate_data_type("123 Main St", "AD"));
+    assert!(!validate_data_type("ctrl\x01char", "AD"));
+    assert!(validate_data_type("5551234", "XTN"));
+    assert!(!validate_data_type("123", "XTN"));
+}
+
+#[test]
+fn test_validate_data_type_unknown_is_rejected() {
+    // Unknown data types must not bypass validation.
+    assert!(!validate_data_type("anything", "UNKNOWN_TYPE"));
+    assert!(!validate_data_type("", "CUSTOM"));
 }
 
 // ============================================================================
