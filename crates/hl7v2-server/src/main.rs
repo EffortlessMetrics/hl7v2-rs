@@ -1,6 +1,7 @@
 //! HL7v2 HTTP/REST API server binary.
 
 use hl7v2_server::{Server, ServerConfig};
+use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -28,16 +29,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if config.api_key.is_some() {
         tracing::info!("API key authentication enabled");
     } else {
-        tracing::warn!("API key authentication disabled (public access enabled)");
+        tracing::warn!(
+            bind_address = %config.bind_address,
+            "API key authentication is disabled; /hl7 routes are publicly accessible"
+        );
     }
+    log_bind_security_warning(&config.bind_address);
     tracing::info!("CORS allowed origins: {:?}", config.cors_allowed_origins);
 
     // Create and run server
-    let server = Server::new(config);
+    let server = Server::new(config)?;
 
     server.serve().await?;
 
     Ok(())
+}
+
+fn log_bind_security_warning(bind_address: &str) {
+    if bind_address_is_unspecified(bind_address) {
+        tracing::warn!(
+            bind_address = %bind_address,
+            "server is bound to all network interfaces; restrict network exposure and terminate TLS at a trusted proxy"
+        );
+    }
+}
+
+fn bind_address_is_unspecified(bind_address: &str) -> bool {
+    bind_address
+        .parse::<SocketAddr>()
+        .map(|address| address.ip().is_unspecified())
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,7 +91,7 @@ where
 }
 
 fn usage() -> &'static str {
-    "Usage: hl7v2-server [--print-config]\n\nOptions:\n  --print-config  Print sanitized effective server configuration as JSON and exit\n  -h, --help      Print help\n\nEnvironment:\n  HL7V2_CONFIG                Optional TOML/YAML config file with [server], [ack], and [quarantine] settings\n  BIND_ADDRESS                Override bind address, for example 0.0.0.0:8080\n  HL7V2_API_KEY               API key for protected /hl7/* routes\n  HL7V2_CORS_ALLOWED_ORIGINS  Comma-separated CORS origins, or * for any\n  HL7V2_PROFILE_PATHS         Profile files that must load before readiness passes\n  HL7V2_BUNDLE_OUTPUT_ROOT    Existing writable directory for server-generated evidence bundles\n  RUST_LOG                    tracing filter, for example hl7v2_server=info,tower_http=debug\n  RUST_LOG_FORMAT             set to json for JSON logs; any other value uses text logs"
+    "Usage: hl7v2-server [--print-config]\n\nOptions:\n  --print-config  Print sanitized effective server configuration as JSON and exit\n  -h, --help      Print help\n\nEnvironment:\n  HL7V2_CONFIG                Optional TOML/YAML config file with [server], [ack], and [quarantine] settings\n  BIND_ADDRESS                Override bind address, for example 0.0.0.0:8080\n  HL7V2_API_KEY               API key for protected /hl7/* routes\n  HL7V2_CORS_ALLOWED_ORIGINS  Comma-separated CORS origins, or * for any\n  HL7V2_MAX_MESSAGE_SIZE      Maximum decoded HL7 message size in bytes (default: 50 MiB)\n  HL7V2_PROFILE_PATHS         Profile files that must load before readiness passes\n  HL7V2_BUNDLE_OUTPUT_ROOT    Existing writable directory for server-generated evidence bundles\n  RUST_LOG                    tracing filter, for example hl7v2_server=info,tower_http=debug\n  RUST_LOG_FORMAT             set to json for JSON logs; any other value uses text logs"
 }
 
 fn init_tracing() {
@@ -149,5 +170,13 @@ mod tests {
         assert_eq!(parse_log_format("pretty"), Some(LogFormat::Text));
         assert_eq!(parse_log_format(""), Some(LogFormat::Text));
         assert_eq!(parse_log_format("xml"), None);
+    }
+
+    #[test]
+    fn bind_security_warning_only_matches_unspecified_addresses() {
+        assert!(bind_address_is_unspecified("0.0.0.0:8080"));
+        assert!(bind_address_is_unspecified("[::]:8080"));
+        assert!(!bind_address_is_unspecified("127.0.0.1:8080"));
+        assert!(!bind_address_is_unspecified("not-an-address"));
     }
 }

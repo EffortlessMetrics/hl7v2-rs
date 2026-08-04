@@ -43,7 +43,15 @@ fn post_json(path: &str, request_body: Value) -> Request<Body> {
 }
 
 async fn post_profile(path: &str, request_body: Value) -> (StatusCode, Value, String) {
-    let app = common::create_test_router();
+    post_profile_with_max(path, request_body, 50 * 1024 * 1024).await
+}
+
+async fn post_profile_with_max(
+    path: &str,
+    request_body: Value,
+    max_message_size: usize,
+) -> (StatusCode, Value, String) {
+    let app = common::create_test_router_with_message_size_limit(max_message_size);
     let response = app.oneshot(post_json(path, request_body)).await.unwrap();
     let status = response.status();
     let body = response.into_body().collect().await.unwrap().to_bytes();
@@ -200,6 +208,36 @@ async fn test_profile_test_schema_version_2_runs_inline_fixtures_without_payload
     assert_eq!(body["cases"][0]["path"], "valid/adt.hl7");
     assert_eq!(body["cases"][1]["expected_report"]["matched"], true);
     assert!(!body_text.contains("Doe^John"));
+}
+
+#[tokio::test]
+async fn test_profile_test_enforces_decoded_message_size_for_mllp_fixture() {
+    let framed = hl7v2::wrap_mllp(PROFILE_TEST_VALID_MESSAGE.as_bytes());
+    let framed = String::from_utf8(framed).unwrap();
+    let request_body = json!({
+        "profile": PROFILE_TEST_PROFILE,
+        "fixtures": [{
+            "message": framed,
+            "expectation": "valid",
+            "mllp_framed": true
+        }]
+    });
+
+    let (status, body, _) = post_profile_with_max(
+        "/hl7/profile/test",
+        request_body,
+        PROFILE_TEST_VALID_MESSAGE.len().saturating_sub(1),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(body["code"], "MESSAGE_TOO_LARGE");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("exceeds maximum")
+    );
 }
 
 #[tokio::test]

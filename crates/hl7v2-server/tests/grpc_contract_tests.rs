@@ -48,7 +48,11 @@ mod tests {
 
     /// Helper to create a mock AppState
     fn mock_state() -> Arc<AppState> {
-        mock_state_with_bundle_output_root(None)
+        mock_state_with_message_size_limit(ServerConfig::default().max_message_size)
+    }
+
+    fn mock_state_with_message_size_limit(max_message_size: usize) -> Arc<AppState> {
+        mock_state_with_roots_and_message_size(None, Default::default(), max_message_size)
     }
 
     fn mock_state_with_bundle_output_root(bundle_output_root: Option<PathBuf>) -> Arc<AppState> {
@@ -59,12 +63,25 @@ mod tests {
         bundle_output_root: Option<PathBuf>,
         quarantine: QuarantineConfig,
     ) -> Arc<AppState> {
+        mock_state_with_roots_and_message_size(
+            bundle_output_root,
+            quarantine,
+            ServerConfig::default().max_message_size,
+        )
+    }
+
+    fn mock_state_with_roots_and_message_size(
+        bundle_output_root: Option<PathBuf>,
+        quarantine: QuarantineConfig,
+        max_message_size: usize,
+    ) -> Arc<AppState> {
         let recorder = PrometheusBuilder::new().build_recorder();
         let handle = recorder.handle();
         Arc::new(AppState {
             start_time: Instant::now(),
             metrics_handle: Arc::new(handle),
             api_key: None,
+            max_message_size,
             cors_allowed_origins: Default::default(),
             readiness_checks: ServerConfig::default().readiness_checks(),
             bundle_output_root,
@@ -183,6 +200,10 @@ reason = "synthetic dirty-corpus note is useful for support triage"
 
     fn service() -> Hl7ServiceImpl {
         Hl7ServiceImpl::new(mock_state())
+    }
+
+    fn service_with_message_size_limit(max_message_size: usize) -> Hl7ServiceImpl {
+        Hl7ServiceImpl::new(mock_state_with_message_size_limit(max_message_size))
     }
 
     fn service_with_bundle_output_root(root: PathBuf) -> Hl7ServiceImpl {
@@ -378,6 +399,89 @@ reason = "synthetic dirty-corpus note is useful for support triage"
             fixture.malformed_message.rest_code.as_str()
         );
         fixture.assert_no_forbidden("gRPC parse safe error", &format!("{inner:?}"));
+    }
+
+    #[tokio::test]
+    async fn test_grpc_message_processing_routes_enforce_decoded_message_size() {
+        let max_message_size = SAMPLE_MSG.len().saturating_sub(1);
+        let service = service_with_message_size_limit(max_message_size);
+
+        let parse_response = service
+            .parse(Request::new(ParseRequest {
+                message: hl7v2::wrap_mllp(SAMPLE_MSG),
+                mllp_framed: true,
+                options: None,
+            }))
+            .await
+            .expect("parse RPC should return a response")
+            .into_inner();
+        assert!(!parse_response.success);
+        assert_eq!(parse_response.errors[0].code, "MESSAGE_TOO_LARGE");
+        assert!(parse_response.errors[0].message.contains("exceeds maximum"));
+
+        let validate_error = service
+            .validate(Request::new(ValidateRequest {
+                message: SAMPLE_MSG.to_vec(),
+                profile: PROFILE.to_string(),
+                mllp_framed: false,
+                options: None,
+                report_schema_version: 0,
+            }))
+            .await
+            .expect_err("oversized validate message should fail");
+        assert_eq!(validate_error.code(), Code::InvalidArgument);
+        assert!(validate_error.message().contains("exceeds maximum"));
+
+        let ack_error = service
+            .generate_ack(Request::new(GenerateAckRequest {
+                message: SAMPLE_MSG.to_vec(),
+                code: generate_ack_request::AckCode::Aa as i32,
+                error_message: None,
+            }))
+            .await
+            .expect_err("oversized ACK message should fail");
+        assert_eq!(ack_error.code(), Code::InvalidArgument);
+        assert!(ack_error.message().contains("exceeds maximum"));
+
+        let profile_error = service
+            .profile_test(Request::new(ProfileTestRequest {
+                profile: PROFILE.to_string(),
+                fixtures: vec![ProfileTestFixture {
+                    name: "oversized.hl7".to_string(),
+                    message: SAMPLE_MSG.to_vec(),
+                    expectation: profile_test_fixture::Expectation::Valid as i32,
+                    mllp_framed: false,
+                    expected_report_json: None,
+                }],
+                report_schema_version: 0,
+            }))
+            .await
+            .expect_err("oversized profile fixture should fail");
+        assert_eq!(profile_error.code(), Code::InvalidArgument);
+        assert!(profile_error.message().contains("exceeds maximum"));
+
+        let corpus_error = service
+            .corpus_summarize(Request::new(CorpusSummarizeRequest {
+                messages: vec![CorpusMessageInput {
+                    id: Some("oversized".to_string()),
+                    message: SAMPLE_MSG.to_vec(),
+                }],
+                summary_schema_version: 0,
+            }))
+            .await
+            .expect_err("oversized corpus message should fail");
+        assert_eq!(corpus_error.code(), Code::InvalidArgument);
+        assert!(corpus_error.message().contains("exceeds maximum"));
+
+        let normalize_error = service
+            .normalize(Request::new(NormalizeRequest {
+                message: SAMPLE_MSG.to_vec(),
+                options: None,
+            }))
+            .await
+            .expect_err("oversized normalize message should fail");
+        assert_eq!(normalize_error.code(), Code::InvalidArgument);
+        assert!(normalize_error.message().contains("exceeds maximum"));
     }
 
     #[tokio::test]
@@ -2725,7 +2829,8 @@ constraints:
             .expect("test listener should have a local address");
         let server = hl7v2_server::Server::builder()
             .bind(addr.to_string())
-            .build();
+            .build()
+            .expect("test server configuration should be valid");
         let server_task =
             tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
 
@@ -2768,7 +2873,8 @@ constraints:
         let server = hl7v2_server::Server::builder()
             .bind(addr.to_string())
             .max_body_size(32)
-            .build();
+            .build()
+            .expect("test server configuration should be valid");
         let server_task =
             tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
 
@@ -2811,7 +2917,8 @@ constraints:
         let server = hl7v2_server::Server::builder()
             .bind(addr.to_string())
             .api_key(Some("grpc-secret".to_string()))
-            .build();
+            .build()
+            .expect("test server configuration should be valid");
         let server_task =
             tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
 
@@ -2856,7 +2963,8 @@ constraints:
         let server = hl7v2_server::Server::builder()
             .bind(addr.to_string())
             .api_key(Some(api_key.to_string()))
-            .build();
+            .build()
+            .expect("test server configuration should be valid");
         let server_task =
             tokio::spawn(async move { server.serve_grpc_with_listener(listener).await });
 

@@ -28,11 +28,24 @@ segments:
 "#;
 
 fn test_router(api_key: Option<&str>, cors_allowed_origins: CorsAllowedOrigins) -> axum::Router {
+    test_router_with_message_size_limit(
+        api_key,
+        cors_allowed_origins,
+        hl7v2_server::ServerConfig::default().max_message_size,
+    )
+}
+
+fn test_router_with_message_size_limit(
+    api_key: Option<&str>,
+    cors_allowed_origins: CorsAllowedOrigins,
+    max_message_size: usize,
+) -> axum::Router {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
         metrics_handle: Arc::new(metrics_handle),
         api_key: api_key.map(str::to_string),
+        max_message_size,
         cors_allowed_origins,
         readiness_checks: hl7v2_server::ServerConfig::default().readiness_checks(),
         bundle_output_root: None,
@@ -194,6 +207,23 @@ async fn test_http_normalize_optional_mllp_framing() {
     let framed = body["normalized_message"].as_str().unwrap().as_bytes();
     assert_eq!(framed[0], hl7v2::MLLP_START);
     assert_eq!(hl7v2::unwrap_mllp(framed).unwrap(), SAMPLE_MSG.as_bytes());
+}
+
+#[tokio::test]
+async fn test_http_normalize_accepts_mllp_payload_at_decoded_size_limit() {
+    let framed_message = String::from_utf8(hl7v2::wrap_mllp(SAMPLE_MSG.as_bytes())).unwrap();
+    let (status, body) = post_json(
+        test_router_with_message_size_limit(None, CorsAllowedOrigins::default(), SAMPLE_MSG.len()),
+        "/hl7/normalize",
+        json!({
+            "message": framed_message,
+            "mllp_framed": true
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["normalized_message"].is_string());
 }
 
 #[tokio::test]
