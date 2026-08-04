@@ -339,7 +339,7 @@ hl7v2-cli ack <input.hl7> --code AE > error_ack.hl7
 
 - **Unified command interface**: parse, normalize, validate, lint profiles, acknowledge, generate, summarize corpora
 - **Input/output formats**: Raw HL7, JSON, MLLP framing
-- **Interactive mode**: Command-line REPL for exploratory use
+- **First-use diagnostics**: `hl7v2-cli doctor` checks a sample, profile, and optional server URL
 - **File I/O**: Read from files or stdin, write to files or stdout
 
 ### HTTP/REST API Server (`hl7v2-server`)
