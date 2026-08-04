@@ -1081,4 +1081,47 @@ fn test_write_allocation_efficiency() {
 
     // Verify the output is reasonable (not excessively large due to over-allocation)
     assert!(bytes.len() < 1000);
+    assert_eq!(bytes.capacity(), bytes.len());
+}
+
+#[test]
+fn test_write_batch_capacity_covers_nested_serialization() {
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![Segment {
+            id: *b"MSH",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("value|é")],
+        }],
+        charsets: vec![],
+    };
+    let batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![Field::from_text("header")],
+        }),
+        messages: vec![message.clone()],
+        trailer: Some(Segment {
+            id: *b"BTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
+    let file_batch = FileBatch {
+        header: Some(Segment {
+            id: *b"FHS",
+            fields: vec![Field::from_text("file")],
+        }),
+        batches: vec![batch.clone()],
+        trailer: Some(Segment {
+            id: *b"FTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
+
+    let message_bytes = write(&message);
+    let batch_bytes = write_batch(&batch);
+    let file_batch_bytes = write_file_batch(&file_batch);
+
+    assert_eq!(message_bytes.capacity(), message_bytes.len());
+    assert_eq!(batch_bytes.capacity(), batch_bytes.len());
+    assert_eq!(file_batch_bytes.capacity(), file_batch_bytes.len());
 }

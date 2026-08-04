@@ -59,8 +59,14 @@ pub use json::{to_json, to_json_string, to_json_string_pretty};
 /// let bytes = write(&message);
 /// ```
 pub fn write(msg: &Message) -> Vec<u8> {
-    let mut buf = Vec::new();
+    let mut buf = Vec::with_capacity(message_capacity(msg));
 
+    write_message_into(msg, &mut buf);
+
+    buf
+}
+
+fn write_message_into(msg: &Message, buf: &mut Vec<u8>) {
     // Write segments
     for segment in &msg.segments {
         // Write segment ID
@@ -81,21 +87,19 @@ pub fn write(msg: &Message) -> Vec<u8> {
             for field in segment.fields.iter().skip(1) {
                 // Skip the encoding characters field
                 buf.push(msg.delims.field as u8);
-                write_field(&mut buf, field, &msg.delims);
+                write_field(buf, field, &msg.delims);
             }
         } else {
             // Write fields
             for field in &segment.fields {
                 buf.push(msg.delims.field as u8);
-                write_field(&mut buf, field, &msg.delims);
+                write_field(buf, field, &msg.delims);
             }
         }
 
         // End segment with carriage return
         buf.push(b'\r');
     }
-
-    buf
 }
 
 /// Write HL7 message with MLLP framing.
@@ -135,8 +139,14 @@ pub fn write_mllp(msg: &Message) -> Vec<u8> {
 ///
 /// The serialized HL7 batch bytes
 pub fn write_batch(batch: &Batch) -> Vec<u8> {
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(batch_capacity(batch));
 
+    write_batch_into(batch, &mut result);
+
+    result
+}
+
+fn write_batch_into(batch: &Batch, result: &mut Vec<u8>) {
     // Write BHS if present
     if let Some(header) = &batch.header {
         result.extend_from_slice(&header.id);
@@ -147,13 +157,13 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
             &Delims::default()
         };
         result.push(delims.field as u8);
-        write_segment_fields(header, &mut result, delims);
+        write_segment_fields(header, result, delims);
         result.push(b'\r');
     }
 
     // Write all messages
     for message in &batch.messages {
-        result.extend(write(message));
+        write_message_into(message, result);
     }
 
     // Write BTS if present
@@ -165,11 +175,9 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
             &Delims::default()
         };
         result.push(delims.field as u8);
-        write_segment_fields(trailer, &mut result, delims);
+        write_segment_fields(trailer, result, delims);
         result.push(b'\r');
     }
-
-    result
 }
 
 /// Write file batch to bytes.
@@ -182,20 +190,26 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
 ///
 /// The serialized HL7 file batch bytes
 pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(file_batch_capacity(file_batch));
 
+    write_file_batch_into(file_batch, &mut result);
+
+    result
+}
+
+fn write_file_batch_into(file_batch: &FileBatch, result: &mut Vec<u8>) {
     // Write FHS if present
     if let Some(header) = &file_batch.header {
         result.extend_from_slice(&header.id);
         let delims = get_delimiters_from_file_batch(file_batch);
         result.push(delims.field as u8);
-        write_segment_fields(header, &mut result, &delims);
+        write_segment_fields(header, result, &delims);
         result.push(b'\r');
     }
 
     // Write all batches
     for batch in &file_batch.batches {
-        result.extend(write_batch(batch));
+        write_batch_into(batch, result);
     }
 
     // Write FTS if present
@@ -203,16 +217,156 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
         result.extend_from_slice(&trailer.id);
         let delims = get_delimiters_from_file_batch(file_batch);
         result.push(delims.field as u8);
-        write_segment_fields(trailer, &mut result, &delims);
+        write_segment_fields(trailer, result, &delims);
         result.push(b'\r');
     }
-
-    result
 }
 
 // ============================================================================
 // Internal helper functions
 // ============================================================================
+
+fn message_capacity(msg: &Message) -> usize {
+    msg.segments.iter().fold(0usize, |capacity, segment| {
+        capacity.saturating_add(segment_capacity(
+            segment,
+            &msg.delims,
+            segment.id == *b"MSH",
+        ))
+    })
+}
+
+fn batch_capacity(batch: &Batch) -> usize {
+    let default_delims = Delims::default();
+    let delims = batch
+        .messages
+        .first()
+        .map_or(&default_delims, |message| &message.delims);
+    let mut capacity: usize = 0;
+
+    if let Some(header) = &batch.header {
+        capacity = capacity.saturating_add(segment_fields_capacity(header, delims));
+    }
+    for message in &batch.messages {
+        capacity = capacity.saturating_add(message_capacity(message));
+    }
+    if let Some(trailer) = &batch.trailer {
+        capacity = capacity.saturating_add(segment_fields_capacity(trailer, delims));
+    }
+
+    capacity
+}
+
+fn file_batch_capacity(file_batch: &FileBatch) -> usize {
+    let delims = get_delimiters_from_file_batch(file_batch);
+    let mut capacity: usize = 0;
+
+    if let Some(header) = &file_batch.header {
+        capacity = capacity.saturating_add(segment_fields_capacity(header, &delims));
+    }
+    for batch in &file_batch.batches {
+        capacity = capacity.saturating_add(batch_capacity(batch));
+    }
+    if let Some(trailer) = &file_batch.trailer {
+        capacity = capacity.saturating_add(segment_fields_capacity(trailer, &delims));
+    }
+
+    capacity
+}
+
+fn segment_capacity(segment: &Segment, delims: &Delims, is_msh: bool) -> usize {
+    let mut capacity = segment.id.len();
+    if is_msh {
+        capacity = capacity.saturating_add(5);
+        for field in segment.fields.iter().skip(1) {
+            capacity = capacity
+                .saturating_add(1)
+                .saturating_add(field_capacity(field, delims));
+        }
+    } else {
+        for field in &segment.fields {
+            capacity = capacity
+                .saturating_add(1)
+                .saturating_add(field_capacity(field, delims));
+        }
+    }
+    capacity.saturating_add(1)
+}
+
+fn segment_fields_capacity(segment: &Segment, delims: &Delims) -> usize {
+    let fields_capacity =
+        segment
+            .fields
+            .iter()
+            .enumerate()
+            .fold(0usize, |capacity, (index, field)| {
+                capacity
+                    .saturating_add(if index > 0 { 1 } else { 0 })
+                    .saturating_add(field_capacity(field, delims))
+            });
+    segment
+        .id
+        .len()
+        .saturating_add(1)
+        .saturating_add(fields_capacity)
+        .saturating_add(1)
+}
+
+fn field_capacity(field: &Field, delims: &Delims) -> usize {
+    field
+        .reps
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, repetition)| {
+            capacity
+                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(rep_capacity(repetition, delims))
+        })
+}
+
+fn rep_capacity(rep: &Rep, delims: &Delims) -> usize {
+    rep.comps
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, component)| {
+            capacity
+                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(comp_capacity(component, delims))
+        })
+}
+
+fn comp_capacity(comp: &Comp, delims: &Delims) -> usize {
+    comp.subs
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, atom)| {
+            capacity
+                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(atom_capacity(atom, delims))
+        })
+}
+
+fn atom_capacity(atom: &Atom, delims: &Delims) -> usize {
+    match atom {
+        Atom::Text(text) => text.chars().fold(0usize, |capacity, character| {
+            let character_capacity = if [
+                delims.field,
+                delims.comp,
+                delims.rep,
+                delims.esc,
+                delims.sub,
+            ]
+            .contains(&character)
+            {
+                delims.esc.len_utf8().saturating_mul(2).saturating_add(1)
+            } else {
+                character.len_utf8()
+            };
+            capacity.saturating_add(character_capacity)
+        }),
+        Atom::Null => 2,
+    }
+}
 
 /// Write a field to bytes (with escaping)
 fn write_field(output: &mut Vec<u8>, field: &Field, delims: &Delims) {
