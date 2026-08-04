@@ -114,6 +114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reduced repeated profile-regex compilation contention with bounded shared
+  caching that keeps invalid patterns out, limits retained program size, and
+  evicts entries incrementally.
 - Reject unknown and empty HL7 datatype identifiers during conformance and
   profile validation while preserving the supported `AD` and `XTN` validators.
 - Added startup warnings for disabled API-key authentication and unspecified

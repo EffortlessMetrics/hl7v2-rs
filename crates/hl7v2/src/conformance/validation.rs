@@ -32,9 +32,9 @@
     reason = "Pre-existing validation implementation debt moved during module collapse; cleanup is separate from this behavior-preserving change."
 )]
 
+use crate::conformance::regex_cache;
 use crate::model::{Atom, Field, Message, Rep, Segment};
 use chrono::{NaiveDate, NaiveDateTime};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 /// Severity of validation issues
@@ -647,7 +647,7 @@ pub fn is_within_range(value: &str, min: &str, max: &str) -> bool {
 pub fn matches_complex_pattern(value: &str, patterns: &[&str]) -> bool {
     // All patterns must match
     patterns.iter().all(|pattern| {
-        if let Ok(regex) = Regex::new(pattern) {
+        if let Some(regex) = regex_cache::get(pattern) {
             regex.is_match(value)
         } else {
             false
@@ -1192,8 +1192,7 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
         "in" => lhs_values.iter().any(|lhs| rhs_list.contains(lhs)),
         "matches_regex" => {
             if let Some(pat) = rhs_first {
-                // compile per-call for simplicity; optimize later with a cache if needed
-                Regex::new(pat)
+                regex_cache::get(pat)
                     .map(|re| lhs_values.iter().any(|lhs| re.is_match(lhs)))
                     .unwrap_or(false)
             } else {

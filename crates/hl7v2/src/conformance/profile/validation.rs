@@ -514,7 +514,7 @@ fn validate_field_pattern_constraint(
     pattern: &str,
     issues: &mut Vec<Issue>,
 ) {
-    let Ok(regex) = Regex::new(pattern) else {
+    let Some(regex) = crate::conformance::regex_cache::get(pattern) else {
         return;
     };
 
@@ -709,7 +709,7 @@ fn validate_advanced_data_type(
 
     // Check regex pattern if specified
     if let Some(pattern) = &datatype.pattern
-        && let Ok(regex) = Regex::new(pattern)
+        && let Some(regex) = crate::conformance::regex_cache::get(pattern)
         && let Some(value) = values.iter().copied().find(|value| !regex.is_match(value))
     {
         issues.push(Issue::error(
@@ -1094,7 +1094,7 @@ fn evaluate_custom_rule_script(
             let path = &captures[1];
             let pattern = &captures[2];
 
-            let regex = Regex::new(pattern).map_err(|_| ())?;
+            let regex = crate::conformance::regex_cache::get(pattern).ok_or(())?;
             if let Some(value) =
                 first_condition_value_matching(msg, path, |value| !regex.is_match(value))
             {
