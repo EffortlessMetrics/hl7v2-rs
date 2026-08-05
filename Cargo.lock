@@ -1327,6 +1327,7 @@ dependencies = [
  "criterion",
  "futures",
  "hl7v2",
+ "hl7v2-server",
  "rand 0.10.2",
  "serde_json",
  "tokio",
