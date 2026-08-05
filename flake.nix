@@ -135,9 +135,10 @@
             # Use the tracked repository hooks, which delegate to xtask.
             # This keeps Nix and non-Nix development on one hook workflow and
             # also works in linked worktrees where .git is a file.
-            if git rev-parse --git-dir >/dev/null 2>&1 && [ -f .githooks/pre-commit ]; then
-              git config core.hooksPath .githooks
-              chmod +x .githooks/pre-commit .githooks/pre-push 2>/dev/null || true
+            if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" &&
+              [ -f "$REPO_ROOT/.githooks/pre-commit" ]; then
+              git -C "$REPO_ROOT" config core.hooksPath .githooks
+              chmod +x "$REPO_ROOT"/.githooks/pre-commit "$REPO_ROOT"/.githooks/pre-push 2>/dev/null || true
               echo "✅ Using repository hooks from .githooks"
             fi
           '';
