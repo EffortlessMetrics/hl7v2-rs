@@ -124,7 +124,7 @@ async fn test_auth_invalid_api_key_fails() {
 }
 
 #[tokio::test]
-async fn test_health_public_metrics_requires_api_key() {
+async fn test_health_public_metrics_requires_api_key() -> Result<(), Box<dyn std::error::Error>> {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
@@ -166,11 +166,9 @@ async fn test_health_public_metrics_requires_api_key() {
                     8080,
                 ))))
                 .uri("/metrics")
-                .body(axum::body::Body::empty())
-                .unwrap(),
+                .body(axum::body::Body::empty())?,
         )
-        .await
-        .unwrap();
+        .await?;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 
     let response = app
@@ -182,10 +180,10 @@ async fn test_health_public_metrics_requires_api_key() {
                 ))))
                 .uri("/metrics")
                 .header("X-API-Key", "secret-key")
-                .body(axum::body::Body::empty())
-                .unwrap(),
+                .body(axum::body::Body::empty())?,
         )
-        .await
-        .unwrap();
+        .await?;
     assert_eq!(response.status(), StatusCode::OK);
+
+    Ok(())
 }
