@@ -23,6 +23,7 @@ use super::*;
 #[cfg(test)]
 mod to_json_tests {
     use super::*;
+    use crate::parse;
 
     #[test]
     fn test_empty_message() {
@@ -244,6 +245,17 @@ mod to_json_tests {
 
         let json_str = to_json_string(&message);
         assert!(json_str.contains("__NULL__"));
+    }
+
+    #[test]
+    fn canonical_fixture_matches_json_writer_output() -> Result<(), Box<dyn std::error::Error>> {
+        let message = parse(include_bytes!("../../../../../test_data/valid_message.hl7"))?;
+        let expected: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../../test_data/canonical_message.json"
+        ))?;
+
+        assert_eq!(to_json(&message), expected);
+        Ok(())
     }
 }
 
