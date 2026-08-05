@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         tracing::warn!(
             bind_address = %config.bind_address,
-            "API key authentication is disabled; /hl7 routes are publicly accessible"
+            "API key authentication is disabled; /hl7 and /metrics routes are publicly accessible"
         );
     }
     log_bind_security_warning(&config.bind_address);
@@ -91,7 +91,7 @@ where
 }
 
 fn usage() -> &'static str {
-    "Usage: hl7v2-server [--print-config]\n\nOptions:\n  --print-config  Print sanitized effective server configuration as JSON and exit\n  -h, --help      Print help\n\nEnvironment:\n  HL7V2_CONFIG                Optional TOML/YAML config file with [server], [ack], and [quarantine] settings\n  BIND_ADDRESS                Override bind address (default: 127.0.0.1:8080)\n  HL7V2_API_KEY               API key for protected /hl7/* routes\n  HL7V2_CORS_ALLOWED_ORIGINS  Comma-separated CORS origins, or * for any\n  HL7V2_MAX_MESSAGE_SIZE      Maximum decoded HL7 message size in bytes (default: 50 MiB)\n  HL7V2_PROFILE_PATHS         Profile files that must load before readiness passes\n  HL7V2_BUNDLE_OUTPUT_ROOT    Existing writable directory for server-generated evidence bundles\n  RUST_LOG                    tracing filter, for example hl7v2_server=info,tower_http=debug\n  RUST_LOG_FORMAT             set to json for JSON logs; any other value uses text logs"
+    "Usage: hl7v2-server [--print-config]\n\nOptions:\n  --print-config  Print sanitized effective server configuration as JSON and exit\n  -h, --help      Print help\n\nEnvironment:\n  HL7V2_CONFIG                Optional TOML/YAML config file with [server], [ack], and [quarantine] settings\n  BIND_ADDRESS                Override bind address (default: 127.0.0.1:8080)\n  HL7V2_API_KEY               API key for protected /hl7/* and /metrics routes\n  HL7V2_CORS_ALLOWED_ORIGINS  Comma-separated CORS origins, or * for any\n  HL7V2_MAX_MESSAGE_SIZE      Maximum decoded HL7 message size in bytes (default: 50 MiB)\n  HL7V2_PROFILE_PATHS         Profile files that must load before readiness passes\n  HL7V2_BUNDLE_OUTPUT_ROOT    Existing writable directory for server-generated evidence bundles\n  RUST_LOG                    tracing filter, for example hl7v2_server=info,tower_http=debug\n  RUST_LOG_FORMAT             set to json for JSON logs; any other value uses text logs"
 }
 
 fn init_tracing() {

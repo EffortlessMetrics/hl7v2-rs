@@ -19,7 +19,8 @@ Useful release-candidate workflows include:
 - `POST /hl7/bundle` for server-created redacted evidence bundles under a
   configured bundle output root.
 - `POST /hl7/ack-policy` for policy-driven ACK/NAK decisions.
-- `/metrics` for Prometheus metrics.
+- `/metrics` for Prometheus metrics; it requires `X-API-Key` when
+  `HL7V2_API_KEY` is configured, while `/health` and `/ready` remain public.
 
 The gRPC service implements `Parse`, `ParseStream`, `Validate`, `ProfileLint`,
 `ProfileExplain`, `ProfileTest`, `ValidateRedacted`, `CreateEvidenceBundle`,

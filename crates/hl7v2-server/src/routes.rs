@@ -70,6 +70,17 @@ pub(crate) fn build_router_with_body_limit(state: Arc<AppState>, max_body_size: 
         ));
     }
 
+    // Metrics can expose operational details, so apply the same API-key
+    // protection when authentication is configured. Health and readiness
+    // remain public for load-balancer and orchestration probes.
+    let mut metrics_routes = Router::new().route("/metrics", get(metrics_handler));
+    if state.api_key.is_some() {
+        metrics_routes = metrics_routes.route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
+    }
+
     let cors_layer = build_cors_layer(&state.cors_allowed_origins);
 
     // Main router
@@ -89,7 +100,7 @@ pub(crate) fn build_router_with_body_limit(state: Arc<AppState>, max_body_size: 
         )
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
-        .route("/metrics", get(metrics_handler))
+        .merge(metrics_routes)
         .nest("/hl7", api_routes)
         // Keep the extractor limit for its 413 rejection behavior and also
         // wrap every request body so raw-body consumers cannot bypass it.
@@ -189,6 +200,38 @@ mod tests {
         let status = response.status();
         let body = response.into_body().collect().await.unwrap().to_bytes();
         (status, body.to_vec())
+    }
+
+    async fn request_metrics(app: Router, api_key: Option<&str>) -> StatusCode {
+        let mut request = Request::builder()
+            .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                8080,
+            ))))
+            .uri("/metrics")
+            .body(Body::empty())
+            .unwrap();
+
+        if let Some(key) = api_key {
+            request
+                .headers_mut()
+                .insert("X-API-Key", axum::http::HeaderValue::from_str(key).unwrap());
+        }
+
+        app.oneshot(request).await.unwrap().status()
+    }
+
+    async fn request_public_probe(app: Router, uri: &str) -> StatusCode {
+        let request = Request::builder()
+            .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                8080,
+            ))))
+            .uri(uri)
+            .body(Body::empty())
+            .unwrap();
+
+        app.oneshot(request).await.unwrap().status()
     }
 
     #[tokio::test]
@@ -379,5 +422,40 @@ mod tests {
         assert_eq!(response_data.metadata.version, "2.5");
         assert_eq!(response_data.metadata.sending_application, "SendingApp");
         assert!(response_data.message.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_metrics_endpoint_rejects_missing_api_key() {
+        let (app, _) = build_test_router_with_api_key("server::metrics-auth::missing-key");
+
+        assert_eq!(request_metrics(app, None).await, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_metrics_endpoint_rejects_invalid_api_key() {
+        let (app, _) = build_test_router_with_api_key("server::metrics-auth::invalid-key");
+
+        assert_eq!(
+            request_metrics(app, Some("not-the-configured-key")).await,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    #[tokio::test]
+    async fn test_metrics_endpoint_accepts_valid_deterministic_api_key() {
+        let (app, key) = build_test_router_with_api_key("server::metrics-auth::valid-key");
+
+        assert_eq!(request_metrics(app, Some(&key)).await, StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_health_and_ready_remain_public_when_api_key_is_configured() {
+        let (app, _) = build_test_router_with_api_key("server::metrics-auth::public-probes");
+
+        assert_eq!(
+            request_public_probe(app.clone(), "/health").await,
+            StatusCode::OK
+        );
+        assert_eq!(request_public_probe(app, "/ready").await, StatusCode::OK);
     }
 }
