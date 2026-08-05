@@ -254,7 +254,9 @@ mod to_json_tests {
             "../../../../../test_data/canonical_message.json"
         ))?;
 
-        assert_eq!(to_json(&message), expected);
+        if to_json(&message) != expected {
+            return Err(std::io::Error::other("canonical fixture drifted from JSON writer").into());
+        }
         Ok(())
     }
 }
