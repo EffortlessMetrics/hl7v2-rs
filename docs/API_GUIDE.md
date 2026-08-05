@@ -12,7 +12,9 @@ By default, the server runs on `http://localhost:8080`. All API paths are relati
 
 ## Authentication
 
-If `HL7V2_API_KEY` is configured on the server, all requests to `/hl7/*` routes must include the `X-API-Key` header.
+If `HL7V2_API_KEY` is configured on the server, requests to `/hl7/*` and
+`/metrics` must include the `X-API-Key` header. `/health` and `/ready` remain
+public for load-balancer and orchestration probes.
 
 ```bash
 -H "X-API-Key: your-secret-api-key"
@@ -478,6 +480,8 @@ curl http://localhost:8080/ready
 **Prometheus Metrics:**
 ```bash
 curl http://localhost:8080/metrics
+# When HL7V2_API_KEY is configured:
+curl -H "X-API-Key: your-secret-api-key" http://localhost:8080/metrics
 # Returns: hl7v2_requests_total{endpoint="/hl7/parse",status="200"} 42 ...
 ```
 

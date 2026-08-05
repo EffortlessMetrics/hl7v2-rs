@@ -19,9 +19,9 @@ info:
     X-API-Key: <your-api-key>
     ```
 
-    Health, readiness, metrics, and API documentation endpoints are public by
-    design so load balancers, scrapers, and local operators can inspect service
-    state without application credentials.
+    Health, readiness, and API documentation endpoints are public by design so
+    load balancers and local operators can inspect service state. Metrics
+    require the X-API-Key header when the server is configured with an API key.
 
     ## Rate Limiting
 
@@ -87,7 +87,7 @@ paths:
   /metrics:
     get:
       summary: Prometheus metrics
-      description: Returns metrics in Prometheus text format
+      description: Returns metrics in Prometheus text format. Requires the X-API-Key header when API-key authentication is configured.
       tags: [health]
       operationId: getMetrics
       responses:
@@ -97,6 +97,8 @@ paths:
             text/plain:
               schema:
                 type: string
+        '401':
+          description: Missing or invalid API key when authentication is configured
 
   /hl7/parse:
     post:

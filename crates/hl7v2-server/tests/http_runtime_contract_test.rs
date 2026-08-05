@@ -351,8 +351,25 @@ async fn test_new_hl7_routes_require_api_key_when_configured() {
 }
 
 #[tokio::test]
-async fn test_metrics_stays_public_when_api_key_is_configured() {
+async fn test_metrics_requires_api_key_when_configured() {
     let app = test_router(Some("secret-key"), CorsAllowedOrigins::default());
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/metrics")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
     let response = app
         .oneshot(
             Request::builder()
@@ -361,6 +378,7 @@ async fn test_metrics_stays_public_when_api_key_is_configured() {
                     8080,
                 ))))
                 .uri("/metrics")
+                .header("X-API-Key", "secret-key")
                 .body(Body::empty())
                 .unwrap(),
         )

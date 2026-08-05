@@ -117,6 +117,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed the REST `/metrics` endpoint to require `X-API-Key` when API-key
+  authentication is configured; `/health` and `/ready` remain public probes.
 - Changed `MllpFrameIterator::extend` to return a typed error when input would
   exceed its default 10 MiB buffer limit. Callers that previously appended
   without handling a result must now handle or propagate `MllpError`.
