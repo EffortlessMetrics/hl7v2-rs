@@ -377,6 +377,15 @@ hl7v2-python
   PyO3 binding backend; builds the public hl7v2 Python distribution
 ```
 
+The workspace also contains internal support surfaces used to develop and
+verify the public crates:
+
+- `hl7v2-bench`: Criterion benchmarks for parsing, transport, queries, JSON,
+  and related performance work.
+- `hl7v2-e2e-tests`: black-box end-to-end coverage for workspace behavior.
+- `hl7v2-test-utils`: shared test fixtures and helpers.
+- `xtask`: repository-local setup, validation, policy, and evidence commands.
+
 Retired compatibility crate names should not gain new behavior. See
 [ADR-015](docs/adr/0015-collapse-public-crate-surface.md) and
 [the module map](docs/architecture/module-map.md) for the migration policy.
