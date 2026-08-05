@@ -8,6 +8,7 @@
     reason = "Pre-existing profile loader panic-family debt moved from hl7v2-prof; cleanup is separate from this behavior-preserving module collapse."
 )]
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,6 +24,9 @@ const DEFAULT_CACHE_SIZE: usize = 100;
 
 /// Default request timeout in seconds
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
+
+/// Default User-Agent sent for remote profile requests.
+const DEFAULT_USER_AGENT: &str = concat!("hl7v2-rs/", env!("CARGO_PKG_VERSION"));
 
 /// Cache entry containing the profile and its ETag.
 #[derive(Debug)]
@@ -151,7 +155,7 @@ pub struct LoadResult {
 pub struct ProfileLoaderBuilder {
     cache_size: usize,
     timeout: Duration,
-    user_agent: String,
+    user_agent: Cow<'static, str>,
 }
 
 impl Default for ProfileLoaderBuilder {
@@ -159,7 +163,7 @@ impl Default for ProfileLoaderBuilder {
         Self {
             cache_size: DEFAULT_CACHE_SIZE,
             timeout: Duration::from_secs(DEFAULT_TIMEOUT_SECS),
-            user_agent: format!("hl7v2-rs/{}", env!("CARGO_PKG_VERSION")),
+            user_agent: Cow::Borrowed(DEFAULT_USER_AGENT),
         }
     }
 }
@@ -184,7 +188,7 @@ impl ProfileLoaderBuilder {
 
     /// Set the User-Agent header for remote profile requests.
     pub fn user_agent(mut self, user_agent: impl Into<String>) -> Self {
-        self.user_agent = user_agent.into();
+        self.user_agent = Cow::Owned(user_agent.into());
         self
     }
 
@@ -192,7 +196,7 @@ impl ProfileLoaderBuilder {
     pub fn build(self) -> ProfileLoader {
         let client = reqwest::Client::builder()
             .timeout(self.timeout)
-            .user_agent(self.user_agent)
+            .user_agent(self.user_agent.as_ref())
             .build()
             .unwrap_or_default();
 
@@ -502,6 +506,22 @@ mod tests {
                 .build()
                 .unwrap_or_default(),
             timeout: Duration::from_secs(DEFAULT_TIMEOUT_SECS),
+        }
+    }
+
+    #[test]
+    fn default_user_agent_is_borrowed_and_custom_value_is_owned()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let default_builder = ProfileLoaderBuilder::default();
+        match default_builder.user_agent {
+            Cow::Borrowed(value) if value == DEFAULT_USER_AGENT => {}
+            _ => return Err("default User-Agent should use the static value".into()),
+        }
+
+        let custom_builder = ProfileLoaderBuilder::default().user_agent("custom-agent");
+        match custom_builder.user_agent {
+            Cow::Owned(value) if value == "custom-agent" => Ok(()),
+            _ => Err("custom User-Agent should remain owned".into()),
         }
     }
 
