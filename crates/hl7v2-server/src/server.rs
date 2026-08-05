@@ -418,11 +418,28 @@ fn is_valid_cors_origin(origin: &str) -> bool {
         return false;
     };
 
-    !scheme.is_empty()
-        && !authority.host().is_empty()
-        && !authority.as_str().contains('@')
-        && uri.path().is_empty()
-        && uri.query().is_none()
+    let host = authority.host();
+    let valid_port = match authority.as_str().strip_prefix(host) {
+        Some("") => true,
+        Some(port) => port
+            .strip_prefix(':')
+            .is_some_and(|port| !port.is_empty() && port.parse::<u16>().is_ok()),
+        None => false,
+    };
+
+    if scheme.is_empty() || host.is_empty() || authority.as_str().contains('@') || !valid_port {
+        return false;
+    }
+
+    let Some((_, rest)) = origin.split_once("://") else {
+        return false;
+    };
+    let mut components = rest.splitn(2, ['/', '?', '#']);
+    let Some(raw_authority) = components.next() else {
+        return false;
+    };
+
+    raw_authority == authority.as_str() && components.next().is_none()
 }
 
 fn split_profile_paths(paths: OsString) -> Vec<String> {
