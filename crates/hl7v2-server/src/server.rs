@@ -8,7 +8,7 @@ use crate::{
     grpc::{Hl7ServiceImpl, proto::hl7_service_server::Hl7ServiceServer},
     routes::build_router_with_body_limit,
 };
-use axum::http::HeaderValue;
+use axum::http::{HeaderValue, Uri};
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
@@ -342,6 +342,11 @@ impl ServerConfig {
                         "CORS origin at index {index} must not be empty"
                     )));
                 }
+                if !is_valid_cors_origin(origin) {
+                    return Err(crate::Error::Config(format!(
+                        "CORS origin at index {index} is invalid"
+                    )));
+                }
                 HeaderValue::from_str(origin).map_err(|error| {
                     crate::Error::Config(format!(
                         "CORS origin at index {index} is invalid: {error}"
@@ -400,6 +405,24 @@ impl ServerConfig {
 
         checks
     }
+}
+
+fn is_valid_cors_origin(origin: &str) -> bool {
+    let Ok(uri) = origin.parse::<Uri>() else {
+        return false;
+    };
+    let Some(scheme) = uri.scheme_str() else {
+        return false;
+    };
+    let Some(authority) = uri.authority() else {
+        return false;
+    };
+
+    !scheme.is_empty()
+        && !authority.host().is_empty()
+        && !authority.as_str().contains('@')
+        && uri.path().is_empty()
+        && uri.query().is_none()
 }
 
 fn split_profile_paths(paths: OsString) -> Vec<String> {
@@ -902,15 +925,28 @@ mod tests {
     #[test]
     fn server_config_rejects_invalid_cors_origin()
     -> std::result::Result<(), Box<dyn std::error::Error>> {
-        let invalid_origin = format!("https://app.example,{}", '\u{0001}');
-        let error =
-            match ServerConfig::from_sources(None, None, None, Some(invalid_origin), None, None) {
+        let invalid_origins = [
+            "https://app.example/path".to_string(),
+            "not an origin".to_string(),
+            "https://app.example:bad".to_string(),
+            format!("https://app.example,{}", '\u{0001}'),
+        ];
+        for invalid_origin in invalid_origins {
+            let error = match ServerConfig::from_sources(
+                None,
+                None,
+                None,
+                Some(invalid_origin),
+                None,
+                None,
+            ) {
                 Ok(_) => return Err("invalid CORS origin should be rejected".into()),
                 Err(error) => error,
             };
 
-        if !error.to_string().contains("CORS origin") {
-            return Err(format!("unexpected configuration error: {error}").into());
+            if !error.to_string().contains("CORS origin") {
+                return Err(format!("unexpected configuration error: {error}").into());
+            }
         }
         Ok(())
     }
