@@ -8,26 +8,7 @@
       "type": "object",
       "required": ["delims"],
       "properties": {
-        "version": {
-          "type": ["string", "null"]
-        },
-        "message_type": {
-          "type": ["string", "null"]
-        },
-        "control_id": {
-          "type": ["string", "null"]
-        },
-        "processing_id": {
-          "type": ["string", "null"],
-          "enum": ["P", "T", "D", null]
-        },
         "charsets": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "profile_ids": {
           "type": "array",
           "items": {
             "type": "string"

@@ -160,6 +160,19 @@ jobs:
             -d 'target/contracts/config/*.json' \
             --spec=draft7
 
+      - name: Validate Canonical Message Fixture
+        run: |
+          ajv validate -c ajv-formats \
+            -s schemas/message.schema.json \
+            -r schemas/segment_field.schema.json \
+            -d test_data/canonical_message.json \
+            --spec=draft7
+          ajv validate -c ajv-formats \
+            -s schemas/message/message-v1.schema.json \
+            -r schemas/segment_field.schema.json \
+            -d test_data/canonical_message.json \
+            --spec=draft7
+
       - name: Validate Evidence Fixtures
         run: cargo run -p xtask -- evidence-schema-check
 

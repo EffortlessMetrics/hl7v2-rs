@@ -19,11 +19,16 @@ Defines the structure of HL7v2 validation profiles including:
 - Cross-field validation rules
 - Parent profile inheritance
 
-### Message (`message/message-v1.schema.json`)
-JSON representation of a parsed HL7v2 message:
-- Delimiters configuration
-- Segments with fields/components/subcomponents
-- Presence semantics (missing/empty/null/value)
+### Message (`message.schema.json` and `message/message-v1.schema.json`)
+The canonical JSON representation emitted by `hl7v2::writer::json`:
+- Delimiters and character sets under `meta`
+- Segments with numeric field keys
+- Repetitions, components, subcomponents, and the `__NULL__` atom marker
+
+The root `message.schema.json` is retained for compatibility with existing
+schema tooling. The versioned `message-v1.schema.json` has the same shape;
+neither schema invents metadata fields that are not present in the `Message`
+model or emitted by the JSON writer.
 
 ### Error (`error/error-v1.schema.json`)
 Standardized error response format:
