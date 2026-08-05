@@ -53,6 +53,8 @@ The easiest way to get started with monitoring:
 Set `PROMETHEUS_IMAGE` and `GRAFANA_IMAGE` to versioned or digest-pinned
 image references before running this stack. The placeholders intentionally fail
 if unset so the monitoring example does not drift back to floating tags.
+Use a Prometheus 3.x image for the `ENVIRONMENT` external-label expansion shown
+below.
 
 ```yaml
 # docker-compose.yml (monitoring stack)
@@ -61,6 +63,8 @@ version: '3.8'
 services:
   prometheus:
     image: "${PROMETHEUS_IMAGE:?set PROMETHEUS_IMAGE to a versioned or digest-pinned prom/prometheus image}"
+    environment:
+      ENVIRONMENT: "${ENVIRONMENT:-production}"
     volumes:
       - ./infrastructure/grafana/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./infrastructure/grafana/alerts:/etc/prometheus/alerts

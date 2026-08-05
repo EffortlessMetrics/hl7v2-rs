@@ -5,7 +5,7 @@ global:
   evaluation_interval: 15s
   external_labels:
     cluster: 'hl7v2-production'
-    environment: '{{ env }}'
+    environment: '${ENVIRONMENT}'
 
 # Alertmanager configuration (optional)
 alerting:
