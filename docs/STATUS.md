@@ -19,7 +19,7 @@ This document provides a transparent view of which features are fully implemente
 
 ### 🚀 Connectivity
 - ✅ **MLLP Over TCP**: Fully implemented async client and server.
-- ✅ **TLS Support**: Secure framing using `rustls`.
+- 🟡 **TLS/HTTPS Termination**: `hl7v2-server` serves HTTP/gRPC without terminating TLS; deploy it behind a trusted TLS reverse proxy. MLLP is provided over plain TCP, and native TLS-wrapped MLLP is not currently part of the transport surface. Remote profile loading uses HTTPS separately.
 - ✅ **HTTP REST API**: Axum-based JSON endpoints for parse, validate, ACK, and normalize.
 - 🟡 **gRPC Service**: v1.5.0 unary RPCs have contract tests. Current `main` serves gRPC with `hl7v2 serve --mode grpc`, implements `ParseStream` as one request message into one response message, `GenerateAck`, `Normalize`, `ProfileLint`, `ProfileExplain`, and `ProfileTest` for inline profile evidence, `ValidateRedacted` with opt-in v2 validation, redaction receipt, and configured quarantine output evidence, `CreateEvidenceBundle` for configured-root evidence bundle creation, `ReplayEvidenceBundle` for configured-root evidence replay, `CorpusSummarize` for inline corpus summary evidence, `CorpusFingerprint` for inline corpus fingerprint evidence, and `CorpusDiff` for inline before/after corpus diff evidence with opt-in v2 provenance.
 
