@@ -97,8 +97,8 @@ pub use transport::mllp::{
     is_mllp_framed, unwrap_mllp, unwrap_mllp_owned, wrap_mllp,
 };
 pub use writer::{
-    to_json, to_json_string, to_json_string_pretty, write, write_batch, write_file_batch,
-    write_mllp,
+    JsonError, from_json, from_json_string, to_json, to_json_string, to_json_string_pretty, write,
+    write_batch, write_file_batch, write_mllp,
 };
 
 #[cfg(feature = "normalize")]

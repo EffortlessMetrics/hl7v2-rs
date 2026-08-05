@@ -404,6 +404,117 @@ mod custom_delims_tests {
 }
 
 // ============================================================================
+// from_json Tests
+// ============================================================================
+
+#[cfg(test)]
+mod from_json_tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn roundtrips_canonical_json_with_sparse_fields_and_nested_atoms() -> Result<(), Box<dyn Error>>
+    {
+        let original = Message {
+            delims: Delims {
+                field: '*',
+                comp: ':',
+                rep: '+',
+                esc: '%',
+                sub: '#',
+            },
+            segments: vec![
+                Segment {
+                    id: *b"MSH",
+                    fields: vec![
+                        Field::from_text(":~%#"),
+                        Field::new(),
+                        Field::from_text("SENDER"),
+                    ],
+                },
+                Segment {
+                    id: *b"PID",
+                    fields: vec![
+                        Field::new(),
+                        Field {
+                            reps: vec![
+                                Rep {
+                                    comps: vec![Comp {
+                                        subs: vec![Atom::Text("Doe".to_owned()), Atom::Null],
+                                    }],
+                                },
+                                Rep {
+                                    comps: vec![Comp::from_text("John")],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+            charsets: vec!["ASCII".to_owned(), "UTF-8".to_owned()],
+        };
+
+        let decoded = from_json(&to_json(&original))?;
+
+        if decoded == original {
+            Ok(())
+        } else {
+            Err(std::io::Error::other("canonical JSON roundtrip changed the message").into())
+        }
+    }
+
+    #[test]
+    fn from_json_string_decodes_canonical_output() -> Result<(), Box<dyn Error>> {
+        let original = Message::with_segments(vec![Segment {
+            id: *b"PID",
+            fields: vec![Field::from_text("123")],
+        }]);
+
+        let decoded = from_json_string(&to_json_string(&original))?;
+
+        if decoded == original {
+            Ok(())
+        } else {
+            Err(std::io::Error::other("JSON string roundtrip changed the message").into())
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_field_numbering() -> Result<(), Box<dyn Error>> {
+        let value = serde_json::json!({
+            "meta": {"delims": {"field": "|", "comp": "^", "rep": "~", "esc": "\\", "sub": "&"}},
+            "segments": [{"id": "MSH", "fields": {"1": [[ ["invalid"] ]]}}]
+        });
+
+        match from_json(&value) {
+            Ok(_) => Err(std::io::Error::other("invalid MSH field numbering was accepted").into()),
+            Err(_) => Ok(()),
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_delimiters_and_atom_types() -> Result<(), Box<dyn Error>> {
+        let invalid_delims = serde_json::json!({
+            "meta": {"delims": {"field": "|", "comp": "|", "rep": "~", "esc": "\\", "sub": "&"}},
+            "segments": []
+        });
+        if from_json(&invalid_delims).is_ok() {
+            return Err(std::io::Error::other("duplicate delimiters were accepted").into());
+        }
+
+        let invalid_atom = serde_json::json!({
+            "meta": {"delims": {"field": "|", "comp": "^", "rep": "~", "esc": "\\", "sub": "&"}},
+            "segments": [{"id": "PID", "fields": {"1": [[[42]]]}}]
+        });
+        if from_json(&invalid_atom).is_ok() {
+            return Err(std::io::Error::other("non-string atom was accepted").into());
+        }
+
+        Ok(())
+    }
+}
+
+// ============================================================================
 // Segment ID Tests
 // ============================================================================
 
