@@ -36,10 +36,9 @@ cargo run --bin hl7v2-server
 # Omit BIND_ADDRESS for the local loopback default (127.0.0.1:8080).
 # For container or network exposure, set an explicit all-interface bind:
 export BIND_ADDRESS="0.0.0.0:8080"
-export HL7V2_MAX_CONCURRENT="100"         # Max concurrent requests (default: 100)
-export HL7V2_MAX_BODY_SIZE="1048576"      # Max body size in bytes (default: 1MB)
 export HL7V2_MAX_MESSAGE_SIZE="52428800"  # Max decoded HL7 message size (default: 50MiB)
-export HL7V2_API_KEY="your-secret-key"    # API key for authentication (optional)
+export HL7V2_API_KEY="$(openssl rand -base64 32)" # Generate a unique API key when needed
+export HL7V2_CORS_ALLOWED_ORIGINS="https://app.example" # Optional browser-origin allowlist
 export RUST_LOG="info"                    # Log level: trace, debug, info, warn, error
 ```
 
@@ -158,8 +157,8 @@ spec:
             memory: "512Mi"
             cpu: "1000m"
         env:
-        - name: HL7V2_MAX_CONCURRENT
-          value: "200"  # Increase concurrency limit
+        - name: HL7V2_MAX_MESSAGE_SIZE
+          value: "52428800"  # 50 MiB decoded HL7 message limit
         - name: RUST_LOG
           value: "info"
 ```
@@ -241,26 +240,20 @@ For NixOS deployments, see [NIX_USAGE.md](NIX_USAGE.md) for complete guide.
 BIND_ADDRESS="0.0.0.0:8080"  # Listen on all interfaces
 ```
 
-**Concurrency Limiting:**
-```bash
-HL7V2_MAX_CONCURRENT="100"  # Max concurrent requests (see ADR-012)
-```
-
 **Request Limits:**
 ```bash
-HL7V2_MAX_BODY_SIZE="1048576"  # 1MB in bytes
 HL7V2_MAX_MESSAGE_SIZE="52428800"  # 50MiB application-level HL7 message limit
 ```
 
 **Authentication (Optional):**
 ```bash
-HL7V2_API_KEY="your-secret-api-key-here"
+HL7V2_API_KEY="$(openssl rand -base64 32)"
 ```
 
 When set, all requests must include `X-API-Key` header:
 
 ```bash
-curl -H "X-API-Key: your-secret-api-key-here" http://localhost:8080/hl7/parse ...
+curl -H "X-API-Key: ${HL7V2_API_KEY}" http://localhost:8080/hl7/parse ...
 ```
 
 ### Logging Configuration
@@ -291,9 +284,9 @@ Create `config.toml`:
 
 ```toml
 [server]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 8080
-# api_key = "your-secret-api-key-here"
+# api_key = "GENERATE_A_UNIQUE_SECRET_AND_STORE_IT_OUTSIDE_SOURCE_CONTROL"
 
 [logging]
 level = "info"
@@ -515,17 +508,6 @@ does not protect non-browser clients or replace `X-API-Key`.
 
 ## Performance Tuning
 
-### Concurrency Limit
-
-Adjust based on capacity testing:
-
-```bash
-# Default: 100 concurrent requests
-export HL7V2_MAX_CONCURRENT="200"
-```
-
-See [ADR-012: Rate Limiting and Backpressure Strategy](docs/adr/0012-rate-limiting-and-backpressure.md) for guidance.
-
 ### Resource Limits
 
 **Kubernetes:**
@@ -686,11 +668,8 @@ curl -X POST http://localhost:8080/hl7/parse \
 # Monitor memory usage
 docker stats hl7v2-server
 
-# Reduce max body size
-export HL7V2_MAX_BODY_SIZE="524288"  # 512KB
-
-# Reduce concurrency limit
-export HL7V2_MAX_CONCURRENT="50"
+# Reduce the application-level decoded HL7 message limit
+export HL7V2_MAX_MESSAGE_SIZE="524288"  # 512KiB
 ```
 
 ### Debug Mode
