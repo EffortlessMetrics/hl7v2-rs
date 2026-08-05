@@ -349,7 +349,7 @@ hl7v2-cli ack <input.hl7> --code AE > error_ack.hl7
 - **Prometheus metrics**: Request counts, latencies, error rates
 - **Redacted structured logs**: Evidence workflow logs hash message control IDs and bundle IDs while avoiding raw HL7, profile YAML, redaction policy TOML, and configured filesystem roots by default
 - **Concurrency limiting**: Built-in backpressure (100 concurrent requests default)
-- **CORS support**: Configurable allowed origins, with permissive local default
+- **CORS support**: Configurable allowed origins; the permissive local default emits a startup warning and can be narrowed with `HL7V2_CORS_ALLOWED_ORIGINS`
 - **Compression**: Gzip compression for responses
 - **OpenAPI 3.1 spec**: Complete API documentation at `api/openapi/hl7v2-api-v1.yaml`
 - **Docker ready**: Containerized deployment with Nix-built images

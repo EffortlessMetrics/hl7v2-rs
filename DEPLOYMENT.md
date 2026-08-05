@@ -481,6 +481,21 @@ spec:
 
 ### Security Best Practices
 
+#### CORS policy
+
+The server currently permits any origin, method, and header when
+`HL7V2_CORS_ALLOWED_ORIGINS` is unset or set to `*`. Startup emits a warning
+when this permissive policy is active. For browser clients in a trusted
+deployment, set an explicit comma-separated origin allowlist instead:
+
+```bash
+export HL7V2_CORS_ALLOWED_ORIGINS="https://app.example,https://ops.example"
+```
+
+CORS is a browser policy, not authentication. Keep API-key authentication,
+network policy, and TLS termination configured separately; an origin allowlist
+does not protect non-browser clients or replace `X-API-Key`.
+
 ✅ **DO**:
 - Use API key authentication in production
 - Deploy behind HTTPS/TLS reverse proxy
@@ -488,13 +503,14 @@ spec:
 - Use network policies to restrict access
 - Enable audit logging
 - Rotate API keys regularly
+- Set `HL7V2_CORS_ALLOWED_ORIGINS` to explicit trusted origins when browser access is required
 - Monitor for security events
 
 ❌ **DON'T**:
 - Expose server directly to public internet
 - Use HTTP in production
 - Share API keys across environments
-- Disable CORS without good reason
+- Leave the permissive CORS default enabled for an internet-facing browser client without reviewing the warning
 - Run as root user
 
 ## Performance Tuning
