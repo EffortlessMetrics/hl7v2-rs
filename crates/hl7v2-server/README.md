@@ -65,7 +65,9 @@ HL7V2_CORS_ALLOWED_ORIGINS="https://app.example,https://ops.example" \\
 ```
 
 CORS does not authenticate requests. Configure `HL7V2_API_KEY`, network
-controls, and TLS termination independently.
+controls, and TLS termination independently. Invalid configured origins are
+rejected as configuration errors; a manually constructed invalid state fails
+closed by disabling CORS rather than panicking.
 
 ## Public Rust API boundary
 

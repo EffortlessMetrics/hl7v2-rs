@@ -8,6 +8,7 @@ use crate::{
     grpc::{Hl7ServiceImpl, proto::hl7_service_server::Hl7ServiceServer},
     routes::build_router_with_body_limit,
 };
+use axum::http::{HeaderValue, Uri};
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
@@ -334,6 +335,25 @@ impl ServerConfig {
                 "max_message_size must be greater than zero".to_string(),
             ));
         }
+        if let CorsAllowedOrigins::List(origins) = &self.cors_allowed_origins {
+            for (index, origin) in origins.iter().enumerate() {
+                if origin.is_empty() {
+                    return Err(crate::Error::Config(format!(
+                        "CORS origin at index {index} must not be empty"
+                    )));
+                }
+                if !is_valid_cors_origin(origin) {
+                    return Err(crate::Error::Config(format!(
+                        "CORS origin at index {index} is invalid"
+                    )));
+                }
+                HeaderValue::from_str(origin).map_err(|error| {
+                    crate::Error::Config(format!(
+                        "CORS origin at index {index} is invalid: {error}"
+                    ))
+                })?;
+            }
+        }
         Ok(())
     }
 
@@ -385,6 +405,41 @@ impl ServerConfig {
 
         checks
     }
+}
+
+fn is_valid_cors_origin(origin: &str) -> bool {
+    let Ok(uri) = origin.parse::<Uri>() else {
+        return false;
+    };
+    let Some(scheme) = uri.scheme_str() else {
+        return false;
+    };
+    let Some(authority) = uri.authority() else {
+        return false;
+    };
+
+    let host = authority.host();
+    let valid_port = match authority.as_str().strip_prefix(host) {
+        Some("") => true,
+        Some(port) => port
+            .strip_prefix(':')
+            .is_some_and(|port| !port.is_empty() && port.parse::<u16>().is_ok()),
+        None => false,
+    };
+
+    if scheme.is_empty() || host.is_empty() || authority.as_str().contains('@') || !valid_port {
+        return false;
+    }
+
+    let Some((_, rest)) = origin.split_once("://") else {
+        return false;
+    };
+    let mut components = rest.splitn(2, ['/', '?', '#']);
+    let Some(raw_authority) = components.next() else {
+        return false;
+    };
+
+    raw_authority == authority.as_str() && components.next().is_none()
 }
 
 fn split_profile_paths(paths: OsString) -> Vec<String> {
@@ -882,6 +937,35 @@ mod tests {
                 "https://ops.example".to_string()
             ])
         );
+    }
+
+    #[test]
+    fn server_config_rejects_invalid_cors_origin()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let invalid_origins = [
+            "https://app.example/path".to_string(),
+            "not an origin".to_string(),
+            "https://app.example:bad".to_string(),
+            format!("https://app.example,{}", '\u{0001}'),
+        ];
+        for invalid_origin in invalid_origins {
+            let error = match ServerConfig::from_sources(
+                None,
+                None,
+                None,
+                Some(invalid_origin),
+                None,
+                None,
+            ) {
+                Ok(_) => return Err("invalid CORS origin should be rejected".into()),
+                Err(error) => error,
+            };
+
+            if !error.to_string().contains("CORS origin") {
+                return Err(format!("unexpected configuration error: {error}").into());
+            }
+        }
+        Ok(())
     }
 
     #[test]

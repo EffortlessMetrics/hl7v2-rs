@@ -123,14 +123,19 @@ fn build_cors_layer(origins: &CorsAllowedOrigins) -> CorsLayer {
     match origins {
         CorsAllowedOrigins::Any => layer.allow_origin(Any),
         CorsAllowedOrigins::List(origins) => {
-            let origins = origins
+            let parsed_origins = origins
                 .iter()
-                .map(|origin| {
-                    HeaderValue::from_str(origin)
-                        .expect("CORS allowed origin must be a valid header value")
-                })
-                .collect::<Vec<_>>();
-            layer.allow_origin(AllowOrigin::list(origins))
+                .map(|origin| HeaderValue::from_str(origin))
+                .collect::<Result<Vec<_>, _>>();
+            match parsed_origins {
+                Ok(origins) => layer.allow_origin(AllowOrigin::list(origins)),
+                Err(_) => {
+                    tracing::error!(
+                        "CORS allowlist contains an invalid origin; refusing to enable CORS"
+                    );
+                    CorsLayer::new()
+                }
+            }
         }
     }
 }
