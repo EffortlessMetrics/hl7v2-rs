@@ -559,21 +559,13 @@ pub fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
             if !has_exact_digits(year, 4) {
                 return false;
             }
-            // Check month (2 digits)
-            let Some(month) = parse_fixed_u32(month, 2) else {
-                return false;
-            };
-            if !(1..=12).contains(&month) {
+            if !has_exact_digits(month, 2) || !has_exact_digits(day, 2) {
                 return false;
             }
-            // Check day (2 digits)
-            let Some(day) = parse_fixed_u32(day, 2) else {
-                return false;
-            };
-            if !(1..=31).contains(&day) {
-                return false;
-            }
-            true
+
+            // Reuse the canonical HL7 date parser so month lengths and leap
+            // years are validated instead of accepting every day through 31.
+            hl7v2_datetime::is_valid_hl7_date(&format!("{year}{month}{day}"))
         }
         ("TM", "HH:MM:SS") => {
             // Check if value matches HH:MM:SS format
@@ -999,6 +991,10 @@ mod tests {
         // Day out of range
         assert!(!matches_format("2025-01-32", "YYYY-MM-DD", "DT"));
         assert!(!matches_format("2025-01-00", "YYYY-MM-DD", "DT"));
+        // Calendar-invalid dates
+        assert!(!matches_format("2025-02-29", "YYYY-MM-DD", "DT"));
+        assert!(!matches_format("2025-04-31", "YYYY-MM-DD", "DT"));
+        assert!(matches_format("2024-02-29", "YYYY-MM-DD", "DT"));
     }
 
     #[test]
