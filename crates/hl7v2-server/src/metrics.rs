@@ -37,6 +37,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use metrics::Label;
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
 use std::sync::{Arc, OnceLock};
 
@@ -163,24 +164,113 @@ fn describe_metrics() {
 pub fn record_request(endpoint: &str, status: &str, duration_seconds: f64) {
     record_request_with_shared_labels(
         Arc::<str>::from(endpoint),
-        Arc::<str>::from(status),
+        status_label(status),
         duration_seconds,
     );
 }
 
-fn record_request_with_shared_labels(endpoint: Arc<str>, status: Arc<str>, duration_seconds: f64) {
+fn record_request_with_shared_labels(endpoint: Arc<str>, status: Label, duration_seconds: f64) {
     metrics::counter!(
         "hl7v2_requests_total",
-        "endpoint" => Arc::clone(&endpoint),
-        "status" => status
+        vec![Label::new("endpoint", Arc::clone(&endpoint)), status]
     )
     .increment(1);
 
     metrics::histogram!(
         "hl7v2_request_duration_seconds",
-        "endpoint" => endpoint
+        vec![Label::new("endpoint", endpoint)]
     )
     .record(duration_seconds);
+}
+
+fn status_label(status: &str) -> Label {
+    if status.len() == 3
+        && !status.starts_with('0')
+        && let Ok(code) = status.parse::<u16>()
+        && let Some(label) = static_status_label_for_code(code)
+    {
+        return label;
+    }
+
+    Label::new("status", Arc::<str>::from(status))
+}
+
+fn static_status_label_for_code(code: u16) -> Option<Label> {
+    let status = match code {
+        100 => "100",
+        101 => "101",
+        102 => "102",
+        103 => "103",
+        200 => "200",
+        201 => "201",
+        202 => "202",
+        203 => "203",
+        204 => "204",
+        205 => "205",
+        206 => "206",
+        207 => "207",
+        208 => "208",
+        226 => "226",
+        300 => "300",
+        301 => "301",
+        302 => "302",
+        303 => "303",
+        304 => "304",
+        305 => "305",
+        307 => "307",
+        308 => "308",
+        400 => "400",
+        401 => "401",
+        402 => "402",
+        403 => "403",
+        404 => "404",
+        405 => "405",
+        406 => "406",
+        407 => "407",
+        408 => "408",
+        409 => "409",
+        410 => "410",
+        411 => "411",
+        412 => "412",
+        413 => "413",
+        414 => "414",
+        415 => "415",
+        416 => "416",
+        417 => "417",
+        418 => "418",
+        421 => "421",
+        422 => "422",
+        423 => "423",
+        424 => "424",
+        425 => "425",
+        426 => "426",
+        428 => "428",
+        429 => "429",
+        431 => "431",
+        451 => "451",
+        500 => "500",
+        501 => "501",
+        502 => "502",
+        503 => "503",
+        504 => "504",
+        505 => "505",
+        506 => "506",
+        507 => "507",
+        508 => "508",
+        510 => "510",
+        511 => "511",
+        _ => return None,
+    };
+
+    Some(Label::from_static_parts("status", status))
+}
+
+fn status_label_for_code(status: StatusCode) -> Label {
+    if let Some(label) = static_status_label_for_code(status.as_u16()) {
+        return label;
+    }
+
+    Label::new("status", Arc::<str>::from(status.as_u16().to_string()))
 }
 
 /// Record a successfully parsed HL7 message for an evidence workflow.
@@ -293,7 +383,7 @@ pub mod middleware {
 
         // Record metrics
         let duration = start.elapsed();
-        let status = Arc::<str>::from(response.status().as_u16().to_string());
+        let status = status_label_for_code(response.status());
 
         record_request_with_shared_labels(path, status, duration.as_secs_f64());
 
@@ -324,6 +414,21 @@ mod tests {
         // Test recording a request
         record_request("/hl7/parse", "200", 0.05);
         // No panic means success
+    }
+
+    #[test]
+    fn status_labels_preserve_common_and_custom_values() -> Result<(), String> {
+        for (input, expected) in [("200", "200"), ("599", "599"), ("0200", "0200")] {
+            let (_, value) = status_label(input).into_parts();
+            if value.as_ref() != expected {
+                return Err(format!(
+                    "status label value was {:?}, expected {expected}",
+                    value.as_ref()
+                ));
+            }
+        }
+
+        Ok(())
     }
 
     #[test]

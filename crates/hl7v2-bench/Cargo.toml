@@ -23,6 +23,7 @@ hl7v2 = { version = "1.5.0", path = "../hl7v2", features = [
     "network",
     "synthetic",
 ] }
+hl7v2-server = { version = "1.5.0", path = "../hl7v2-server" }
 
 # Async runtime for network benchmarks
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros", "time", "net", "io-util", "sync"] }
@@ -76,4 +77,8 @@ harness = false
 
 [[bench]]
 name = "template"
+harness = false
+
+[[bench]]
+name = "metrics"
 harness = false
