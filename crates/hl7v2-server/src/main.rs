@@ -1,6 +1,6 @@
 //! HL7v2 HTTP/REST API server binary.
 
-use hl7v2_server::{Server, ServerConfig};
+use hl7v2_server::{CorsAllowedOrigins, Server, ServerConfig};
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -36,6 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     log_bind_security_warning(&config.bind_address);
     tracing::info!("CORS allowed origins: {:?}", config.cors_allowed_origins);
+    log_cors_security_warning(&config.cors_allowed_origins);
 
     // Create and run server
     let server = Server::new(config)?;
@@ -59,6 +60,18 @@ fn bind_address_is_unspecified(bind_address: &str) -> bool {
         .parse::<SocketAddr>()
         .map(|address| address.ip().is_unspecified())
         .unwrap_or(false)
+}
+
+fn log_cors_security_warning(origins: &CorsAllowedOrigins) {
+    if cors_policy_is_permissive(origins) {
+        tracing::warn!(
+            "CORS allows any origin, method, and header; set HL7V2_CORS_ALLOWED_ORIGINS to a comma-separated allowlist for browser clients"
+        );
+    }
+}
+
+fn cors_policy_is_permissive(origins: &CorsAllowedOrigins) -> bool {
+    matches!(origins, CorsAllowedOrigins::Any)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,5 +191,17 @@ mod tests {
         assert!(bind_address_is_unspecified("[::]:8080"));
         assert!(!bind_address_is_unspecified("127.0.0.1:8080"));
         assert!(!bind_address_is_unspecified("not-an-address"));
+    }
+
+    #[test]
+    fn cors_security_warning_only_matches_permissive_policy()
+    -> Result<(), Box<dyn std::error::Error>> {
+        if !cors_policy_is_permissive(&CorsAllowedOrigins::Any) {
+            return Err("Any CORS policy should be treated as permissive".into());
+        }
+        if cors_policy_is_permissive(&CorsAllowedOrigins::list(["https://app.example"])) {
+            return Err("an explicit CORS origin list should not be treated as permissive".into());
+        }
+        Ok(())
     }
 }

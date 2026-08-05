@@ -20,6 +20,11 @@ public for load-balancer and orchestration probes.
 -H "X-API-Key: your-secret-api-key"
 ```
 
+For browser clients, `HL7V2_CORS_ALLOWED_ORIGINS` controls the allowed origin
+list. If it is unset, the server keeps its permissive compatibility default and
+logs a startup warning. Set it to a comma-separated list of trusted origins;
+this policy does not replace API-key authentication.
+
 ---
 
 ## Endpoints

@@ -53,6 +53,20 @@ are not metric labels.
 The server reuses the same evidence contracts as the CLI and `hl7v2` library
 instead of defining a server-only report language.
 
+### CORS and authentication
+
+When `HL7V2_CORS_ALLOWED_ORIGINS` is unset, the server allows any origin,
+method, and header for browser requests and emits a startup warning. Set the
+variable to a comma-separated list of trusted origins to narrow that policy:
+
+```bash
+HL7V2_CORS_ALLOWED_ORIGINS="https://app.example,https://ops.example" \\
+  hl7v2-server
+```
+
+CORS does not authenticate requests. Configure `HL7V2_API_KEY`, network
+controls, and TLS termination independently.
+
 ## Public Rust API boundary
 
 The supported Rust integration surface is the root-level API: `Server`,
