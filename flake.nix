@@ -132,33 +132,19 @@
             echo "  kubectl apply -f infrastructure/k8s/ - Deploy to Kubernetes"
             echo ""
 
-            # Set up pre-commit hooks
-            if [ ! -f .git/hooks/pre-commit ]; then
-              echo "Setting up pre-commit hooks..."
-              cat > .git/hooks/pre-commit << 'EOF'
-#!/usr/bin/env bash
-set -e
-
-echo "Running pre-commit checks..."
-
-# Format check
-cargo fmt --all -- --check
-
-# Clippy
-cargo clippy --all-targets --all-features -- -D warnings
-
-# Tests
-cargo test --all
-
-# Schema validation (if schema exists)
-if command -v ajv &> /dev/null && [ -f schemas/profile/profile-v1.schema.json ]; then
-  ajv validate -s schemas/profile/profile-v1.schema.json -d 'examples/profiles/*.yaml' || true
-fi
-
-echo "✅ Pre-commit checks passed!"
-EOF
-              chmod +x .git/hooks/pre-commit
-              echo "✅ Pre-commit hooks installed"
+            # Use the tracked repository hooks, which delegate to xtask.
+            # This keeps Nix and non-Nix development on one hook workflow and
+            # also works in linked worktrees where .git is a file.
+            if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" &&
+              [ -f "$REPO_ROOT/.githooks/pre-commit" ] &&
+              [ -f "$REPO_ROOT/.githooks/pre-push" ]; then
+              if chmod +x "$REPO_ROOT"/.githooks/pre-commit "$REPO_ROOT"/.githooks/pre-push &&
+                git -C "$REPO_ROOT" config extensions.worktreeConfig true &&
+                git -C "$REPO_ROOT" config --worktree core.hooksPath .githooks; then
+                echo "✅ Using repository hooks from .githooks"
+              else
+                echo "⚠️ Could not configure repository hooks from .githooks" >&2
+              fi
             fi
           '';
 

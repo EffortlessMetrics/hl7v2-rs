@@ -35,7 +35,7 @@ This provides:
 - **Utilities**: jq, yq, just, watchexec
 
 The shell also:
-- Sets up git pre-commit hooks automatically
+- Configures the tracked `.githooks/` workflow automatically when the repository hooks are present
 - Displays helpful command reference
 - Configures Rust environment variables
 
@@ -165,16 +165,19 @@ The flake supports:
 
 Darwin builds include necessary Apple SDK frameworks.
 
-## Pre-Commit Hooks
+## Repository Hooks
 
-The development shell automatically installs git pre-commit hooks that run:
+When the tracked `.githooks/` directory is present, `nix develop` enables
+Git's worktree configuration and sets the current worktree's `core.hooksPath`
+to use it. The hooks delegate to the repository's `xtask` workflow, so Nix and
+non-Nix development use the same behavior:
 
-1. **Format check**: `cargo fmt --all -- --check`
-2. **Linting**: `cargo clippy --all-targets --all-features -- -D warnings`
-3. **Tests**: `cargo test --all`
-4. **Schema validation**: Validates YAML profiles against JSON schema (if available)
+1. **Pre-commit**: `cargo run -p xtask -- hook-pre-commit`
+2. **Pre-push**: `cargo run -p xtask -- hook-pre-push`
 
-Hooks are installed on first `nix develop` entry.
+The pre-commit command only runs when staged Rust or Cargo files are present,
+and it restages files after lint fixes. Run `just setup` (or
+`cargo run -p xtask -- setup`) to configure the same hook path explicitly.
 
 ## CI/CD Integration
 
