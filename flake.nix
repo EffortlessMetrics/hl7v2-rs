@@ -136,10 +136,15 @@
             # This keeps Nix and non-Nix development on one hook workflow and
             # also works in linked worktrees where .git is a file.
             if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" &&
-              [ -f "$REPO_ROOT/.githooks/pre-commit" ]; then
-              git -C "$REPO_ROOT" config core.hooksPath .githooks
-              chmod +x "$REPO_ROOT"/.githooks/pre-commit "$REPO_ROOT"/.githooks/pre-push 2>/dev/null || true
-              echo "✅ Using repository hooks from .githooks"
+              [ -f "$REPO_ROOT/.githooks/pre-commit" ] &&
+              [ -f "$REPO_ROOT/.githooks/pre-push" ]; then
+              if chmod +x "$REPO_ROOT"/.githooks/pre-commit "$REPO_ROOT"/.githooks/pre-push &&
+                git -C "$REPO_ROOT" config extensions.worktreeConfig true &&
+                git -C "$REPO_ROOT" config --worktree core.hooksPath .githooks; then
+                echo "✅ Using repository hooks from .githooks"
+              else
+                echo "⚠️ Could not configure repository hooks from .githooks" >&2
+              fi
             fi
           '';
 

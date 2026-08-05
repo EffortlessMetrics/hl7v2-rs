@@ -167,9 +167,10 @@ Darwin builds include necessary Apple SDK frameworks.
 
 ## Repository Hooks
 
-When the tracked `.githooks/` directory is present, `nix develop` configures
-`core.hooksPath` to use it. The hooks delegate to the repository's `xtask`
-workflow, so Nix and non-Nix development use the same behavior:
+When the tracked `.githooks/` directory is present, `nix develop` enables
+Git's worktree configuration and sets the current worktree's `core.hooksPath`
+to use it. The hooks delegate to the repository's `xtask` workflow, so Nix and
+non-Nix development use the same behavior:
 
 1. **Pre-commit**: `cargo run -p xtask -- hook-pre-commit`
 2. **Pre-push**: `cargo run -p xtask -- hook-pre-push`
