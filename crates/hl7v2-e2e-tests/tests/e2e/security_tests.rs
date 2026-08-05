@@ -124,7 +124,7 @@ async fn test_auth_invalid_api_key_fails() {
 }
 
 #[tokio::test]
-async fn test_health_metrics_public() {
+async fn test_health_public_metrics_requires_api_key() {
     let metrics_handle = hl7v2_server::metrics::init_metrics_recorder();
     let state = Arc::new(AppState {
         start_time: Instant::now(),
@@ -156,7 +156,23 @@ async fn test_health_metrics_public() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
-    // Metrics should be public (standard for internal scraping)
+    // Metrics should require the configured API key.
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/metrics")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
     let response = app
         .oneshot(
             Request::builder()
@@ -165,6 +181,7 @@ async fn test_health_metrics_public() {
                     8080,
                 ))))
                 .uri("/metrics")
+                .header("X-API-Key", "secret-key")
                 .body(axum::body::Body::empty())
                 .unwrap(),
         )
