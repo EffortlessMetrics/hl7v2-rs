@@ -15,6 +15,11 @@ let msg = parse(b"MSH|^~\\&|App||Fac||20250128||ADT^A01|123|P|2.5.1\rPID|1||PAT1
 assert_eq!(get(&msg, "PID.5.1"), Some("Doe"));
 ```
 
+The canonical JSON facade supports both directions. Use `to_json` or
+`to_json_string` to export a message, and `from_json` or `from_json_string` to
+reconstruct a message from that same representation. Reverse conversion
+returns `hl7v2::JsonError` for malformed structure or invalid delimiters.
+
 ## Features
 
 | Feature | Description |

@@ -1,6 +1,9 @@
 #![cfg(feature = "json")]
 
-use hl7v2::{Comp, Delims, Field, Message, Rep, Segment, parse, to_json, to_json_string_pretty};
+use hl7v2::{
+    Comp, Delims, Field, Message, Rep, Segment, from_json, from_json_string, parse, to_json,
+    to_json_string, to_json_string_pretty,
+};
 use std::error::Error;
 use std::fmt::Debug;
 
@@ -105,6 +108,34 @@ fn json_facade_preserves_msh_field_numbering() -> Result<(), Box<dyn Error>> {
     require_eq(fields.get("2"), Some(&msh2), "MSH-2 encoding characters")?;
     require_eq(fields.get("3"), Some(&msh3), "MSH-3 sending application")?;
     require_eq(fields.get("10"), Some(&msh10), "MSH-10 control id")?;
+
+    Ok(())
+}
+
+#[test]
+fn json_facade_roundtrips_through_root_exports() -> Result<(), Box<dyn Error>> {
+    let original = Message {
+        delims: Delims::default(),
+        segments: vec![Segment {
+            id: *b"PID",
+            fields: vec![Field {
+                reps: vec![Rep {
+                    comps: vec![Comp {
+                        subs: vec![hl7v2::Atom::Text("Doe".to_owned()), hl7v2::Atom::Null],
+                    }],
+                }],
+            }],
+        }],
+        charsets: vec!["UTF-8".to_owned()],
+    };
+
+    let value = to_json(&original);
+    require_eq(from_json(&value)?, original.clone(), "value roundtrip")?;
+    require_eq(
+        from_json_string(&to_json_string(&original))?,
+        original,
+        "string roundtrip",
+    )?;
 
     Ok(())
 }

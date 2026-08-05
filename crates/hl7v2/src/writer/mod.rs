@@ -35,7 +35,9 @@ use crate::model::*;
 
 pub mod json;
 
-pub use json::{to_json, to_json_string, to_json_string_pretty};
+pub use json::{
+    JsonError, from_json, from_json_string, to_json, to_json_string, to_json_string_pretty,
+};
 
 /// Write HL7 message to bytes.
 ///
