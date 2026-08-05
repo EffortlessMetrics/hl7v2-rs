@@ -220,7 +220,7 @@ fn create_ack_msh_segment(original: &Message) -> Result<Segment, Error> {
                     subs: vec![Atom::Text("ACK".to_string())],
                 },
                 Comp {
-                    subs: vec![Atom::Text(message_type.clone())],
+                    subs: vec![Atom::Text(message_type)],
                 },
             ],
         }],
