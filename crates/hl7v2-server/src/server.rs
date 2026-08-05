@@ -8,6 +8,7 @@ use crate::{
     grpc::{Hl7ServiceImpl, proto::hl7_service_server::Hl7ServiceServer},
     routes::build_router_with_body_limit,
 };
+use axum::http::HeaderValue;
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
@@ -333,6 +334,20 @@ impl ServerConfig {
             return Err(crate::Error::Config(
                 "max_message_size must be greater than zero".to_string(),
             ));
+        }
+        if let CorsAllowedOrigins::List(origins) = &self.cors_allowed_origins {
+            for (index, origin) in origins.iter().enumerate() {
+                if origin.is_empty() {
+                    return Err(crate::Error::Config(format!(
+                        "CORS origin at index {index} must not be empty"
+                    )));
+                }
+                HeaderValue::from_str(origin).map_err(|error| {
+                    crate::Error::Config(format!(
+                        "CORS origin at index {index} is invalid: {error}"
+                    ))
+                })?;
+            }
         }
         Ok(())
     }
@@ -882,6 +897,22 @@ mod tests {
                 "https://ops.example".to_string()
             ])
         );
+    }
+
+    #[test]
+    fn server_config_rejects_invalid_cors_origin()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let invalid_origin = format!("https://app.example,{}", '\u{0001}');
+        let error =
+            match ServerConfig::from_sources(None, None, None, Some(invalid_origin), None, None) {
+                Ok(_) => return Err("invalid CORS origin should be rejected".into()),
+                Err(error) => error,
+            };
+
+        if !error.to_string().contains("CORS origin") {
+            return Err(format!("unexpected configuration error: {error}").into());
+        }
+        Ok(())
     }
 
     #[test]

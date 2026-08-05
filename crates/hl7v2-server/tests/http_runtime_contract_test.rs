@@ -459,3 +459,33 @@ async fn test_cors_uses_configured_origin_list() {
             .is_none()
     );
 }
+
+#[tokio::test]
+async fn test_invalid_cors_origin_fails_closed_without_router_panic() {
+    let app = test_router(
+        None,
+        CorsAllowedOrigins::List(vec!["https://app.example".to_string(), "\u{1}".to_string()]),
+    );
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri("/health")
+                .header("Origin", "https://app.example")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .is_none()
+    );
+}
