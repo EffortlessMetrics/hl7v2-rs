@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Writer UTF-8 promotion
+
+on:
+  push:
+    branches:
+      - codex/977-writer-utf8-delimiters
+
+permissions:
+  contents: read
+
+concurrency:
+  group: writer-utf8-promotion
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: "${{ github.event.head_commit.message == 'chore: run writer UTF-8 promotion' }}"
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: 1.95.0
+          components: rustfmt, clippy
+
+      - name: Apply accepted swarm semantic change
+        run: |
+          git remote add swarm https://github.com/EffortlessMetrics/hl7v2-rs-swarm.git
+          git fetch --no-tags swarm e07e42e5a429337fe2541f97cdccb631358c2185
+          git cherry-pick e07e42e5a429337fe2541f97cdccb631358c2185
+          cargo fmt --all
+
+      - name: Verify writer behavior
+        run: |
+          cargo test -p hl7v2 --lib writer
+          cargo check -p hl7v2 --all-targets --all-features
+          cargo clippy -p hl7v2 --all-targets --all-features -- -D warnings
+          cargo fmt --all -- --check
+
+      - name: Collapse to a source-only commit
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "EffortlessSteven"
+          git config user.email "git@effortlesssteven.com"
+          git rm .github/workflows/writer-utf8-promotion.yml
+          git reset --soft origin/main
+          git commit -m "fix(writer): encode delimiters without truncation"
+          git push --force-with-lease "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
