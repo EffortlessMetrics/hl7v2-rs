@@ -78,7 +78,7 @@ jobs:
 
       - name: Verify configuration loading
         run: |
-          cargo test -p hl7v2-cli config::tests::
+          cargo test -p hl7v2-cli --bin hl7v2-cli config::tests::
           cargo check -p hl7v2-cli --all-targets
           cargo fmt --all -- --check
 
