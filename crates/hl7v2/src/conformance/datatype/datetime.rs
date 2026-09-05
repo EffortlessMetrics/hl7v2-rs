@@ -747,20 +747,18 @@ mod tests {
             parse_hl7_tm("12305"),
             Err(DateTimeError::InvalidTimeFormat(_))
         ));
-        assert!(matches!(
-            parse_hl7_tm("12.5"),
-            Err(DateTimeError::InvalidTimeFormat(_))
-        ));
+        parse_hl7_tm("12.5").expect_err("fraction before complete seconds is invalid");
         assert!(!is_valid_hl7_time("12305"));
         assert!(!is_valid_hl7_time("1230."));
         assert!(!is_valid_hl7_time("123045.."));
 
-        assert!(parse_hl7_tm("123045").is_ok());
+        parse_hl7_tm("123045").expect("complete seconds are valid");
         assert!(is_valid_hl7_time("123045.5"));
         assert!(is_valid_hl7_time("123045.1234"));
 
-        assert!(parse_hl7_ts("2025010112305").is_err());
-        assert!(parse_hl7_ts_with_precision("2025010112305").is_err());
+        parse_hl7_ts("2025010112305").expect_err("partial TS seconds are invalid");
+        parse_hl7_ts_with_precision("2025010112305")
+            .expect_err("partial precision-aware TS seconds are invalid");
         assert!(!is_valid_hl7_timestamp("2025010112305"));
         assert!(is_valid_hl7_timestamp("20250101123045"));
     }
