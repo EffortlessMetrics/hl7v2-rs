@@ -1,7 +1,6 @@
 //! Cross-surface regression coverage for field-repetition redaction.
 
-mod common;
-
+use assert_cmd::Command;
 use serde_json::Value;
 use std::fs;
 use std::io;
@@ -18,6 +17,10 @@ segments:
   - id: "MSH"
   - id: "OBX"
 "#;
+
+fn cli_command() -> TestResult<Command> {
+    Ok(Command::cargo_bin("hl7v2-cli")?)
+}
 
 fn require(condition: bool, message: &'static str) -> TestResult {
     if condition {
@@ -48,7 +51,7 @@ reason = "remove observation component"
 }
 
 fn run_redact(message: &Path, policy: &Path) -> TestResult<(String, u64)> {
-    let output = common::cli_command()
+    let output = cli_command()?
         .arg("redact")
         .arg(message)
         .arg("--policy")
@@ -82,7 +85,7 @@ fn run_bundle(
     profile: &Path,
     out: &Path,
 ) -> TestResult<(String, u64)> {
-    let output = common::cli_command()
+    let output = cli_command()?
         .arg("support-bundle")
         .arg(message)
         .arg("--profile")
