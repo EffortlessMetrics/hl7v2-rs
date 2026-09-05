@@ -1125,3 +1125,167 @@ fn test_write_batch_capacity_covers_nested_serialization() {
     assert_eq!(batch_bytes.capacity(), batch_bytes.len());
     assert_eq!(file_batch_bytes.capacity(), file_batch_bytes.len());
 }
+
+// ============================================================================
+// Batch/file envelope delimiter regressions
+// ============================================================================
+
+#[test]
+fn test_write_batch_preserves_bhs_encoding_characters() {
+    let batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("SENDAPP")],
+        }),
+        messages: vec![Message {
+            delims: Delims::default(),
+            segments: vec![Segment {
+                id: *b"MSH",
+                fields: vec![Field::from_text("^~\\&"), Field::from_text("APP")],
+            }],
+            charsets: vec![],
+        }],
+        trailer: None,
+    };
+
+    let bytes = write_batch(&batch);
+    assert_eq!(bytes.capacity(), bytes.len());
+    let result = String::from_utf8(bytes).unwrap();
+
+    assert!(result.starts_with("BHS|^~\\&|SENDAPP\rMSH|^~\\&|APP\r"));
+    assert!(!result.contains("BHS|^~\\E\\&"));
+}
+
+#[test]
+fn test_write_file_batch_preserves_fhs_and_bhs_encoding_characters() {
+    let file_batch = FileBatch {
+        header: Some(Segment {
+            id: *b"FHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("FILE")],
+        }),
+        batches: vec![Batch {
+            header: Some(Segment {
+                id: *b"BHS",
+                fields: vec![Field::from_text("^~\\&"), Field::from_text("BATCH")],
+            }),
+            messages: vec![Message {
+                delims: Delims::default(),
+                segments: vec![Segment {
+                    id: *b"MSH",
+                    fields: vec![Field::from_text("^~\\&"), Field::from_text("APP")],
+                }],
+                charsets: vec![],
+            }],
+            trailer: Some(Segment {
+                id: *b"BTS",
+                fields: vec![Field::from_text("1")],
+            }),
+        }],
+        trailer: Some(Segment {
+            id: *b"FTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
+
+    let bytes = write_file_batch(&file_batch);
+    assert_eq!(bytes.capacity(), bytes.len());
+    let result = String::from_utf8(bytes).unwrap();
+
+    assert!(result.starts_with("FHS|^~\\&|FILE\rBHS|^~\\&|BATCH\r"));
+    assert!(!result.contains("FHS|^~\\E\\&"));
+    assert!(!result.contains("BHS|^~\\E\\&"));
+}
+
+#[test]
+fn test_write_batch_header_encoding_characters_follow_delims() {
+    let delims = Delims {
+        field: '!',
+        comp: '*',
+        rep: '~',
+        esc: '\\',
+        sub: '&',
+    };
+    let batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("SENDAPP")],
+        }),
+        messages: vec![Message {
+            delims,
+            segments: vec![Segment {
+                id: *b"MSH",
+                fields: vec![Field::from_text("ignored"), Field::from_text("APP")],
+            }],
+            charsets: vec![],
+        }],
+        trailer: None,
+    };
+
+    let result = String::from_utf8(write_batch(&batch)).unwrap();
+    assert!(result.starts_with("BHS!*~\\&!SENDAPP\rMSH!*~\\&!APP\r"));
+    assert!(!result.starts_with("BHS!^~\\&"));
+}
+
+#[test]
+fn test_write_file_batch_declares_one_delimiter_set_for_every_envelope() {
+    let delims = Delims {
+        field: '!',
+        comp: '*',
+        rep: '~',
+        esc: '\\',
+        sub: '&',
+    };
+    let empty_batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("EMPTY")],
+        }),
+        messages: vec![],
+        trailer: Some(Segment {
+            id: *b"BTS",
+            fields: vec![Field::from_text("0")],
+        }),
+    };
+    let populated_batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("FULL")],
+        }),
+        messages: vec![Message {
+            delims,
+            segments: vec![Segment {
+                id: *b"MSH",
+                fields: vec![Field::from_text("ignored"), Field::from_text("APP")],
+            }],
+            charsets: vec![],
+        }],
+        trailer: Some(Segment {
+            id: *b"BTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
+    let file_batch = FileBatch {
+        header: Some(Segment {
+            id: *b"FHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("FILE")],
+        }),
+        batches: vec![empty_batch, populated_batch],
+        trailer: Some(Segment {
+            id: *b"FTS",
+            fields: vec![Field::from_text("2")],
+        }),
+    };
+
+    let bytes = write_file_batch(&file_batch);
+    assert_eq!(bytes.capacity(), bytes.len());
+    let result = String::from_utf8(bytes).unwrap();
+    let lines: Vec<_> = result.split_terminator('\r').collect();
+
+    assert_eq!(lines[0], "FHS!*~\\&!FILE");
+    assert_eq!(lines[1], "BHS!*~\\&!EMPTY");
+    assert_eq!(lines[2], "BTS!0");
+    assert_eq!(lines[3], "BHS!*~\\&!FULL");
+    assert_eq!(lines[4], "MSH!*~\\&!APP");
+    assert_eq!(lines[5], "BTS!1");
+    assert_eq!(lines[6], "FTS!2");
+}
