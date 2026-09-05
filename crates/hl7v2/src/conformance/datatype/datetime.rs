@@ -249,6 +249,15 @@ pub fn parse_hl7_tm(s: &str) -> Result<(u32, u32, u32, Option<u32>), DateTimeErr
             (time_tail, None)
         };
 
+        // HHMM[SS[.S[S[S[S]]]]] permits seconds only as a complete
+        // two-digit field. Reject a partial tail before numeric parsing so TM,
+        // TS, and precision-aware TS validation agree.
+        if sec_part.len() != 2 {
+            return Err(DateTimeError::InvalidTimeFormat(format!(
+                "Seconds must be two digits, got '{sec_part}'"
+            )));
+        }
+
         let sec: u32 = sec_part
             .parse()
             .map_err(|_err| DateTimeError::TimeOutOfRange("Invalid second".to_string()))?;
@@ -730,6 +739,30 @@ mod tests {
     fn parse_hl7_tm_rejects_second_out_of_range() {
         let err = parse_hl7_tm("125960").expect_err("second 60");
         assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_partial_seconds_and_misplaced_fraction() {
+        assert!(matches!(
+            parse_hl7_tm("12305"),
+            Err(DateTimeError::InvalidTimeFormat(_))
+        ));
+        assert!(matches!(
+            parse_hl7_tm("12.5"),
+            Err(DateTimeError::InvalidTimeFormat(_))
+        ));
+        assert!(!is_valid_hl7_time("12305"));
+        assert!(!is_valid_hl7_time("1230."));
+        assert!(!is_valid_hl7_time("123045.."));
+
+        assert!(parse_hl7_tm("123045").is_ok());
+        assert!(is_valid_hl7_time("123045.5"));
+        assert!(is_valid_hl7_time("123045.1234"));
+
+        assert!(parse_hl7_ts("2025010112305").is_err());
+        assert!(parse_hl7_ts_with_precision("2025010112305").is_err());
+        assert!(!is_valid_hl7_timestamp("2025010112305"));
+        assert!(is_valid_hl7_timestamp("20250101123045"));
     }
 
     #[test]

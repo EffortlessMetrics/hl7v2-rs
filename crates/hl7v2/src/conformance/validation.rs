@@ -417,42 +417,7 @@ pub fn is_date(value: &str) -> bool {
 
 /// Check if value is a valid time (HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\] format)
 pub fn is_time(value: &str) -> bool {
-    if value.is_empty() || value.len() > 16 {
-        return false;
-    }
-
-    // Check if all characters are valid (digits, period)
-    if !value.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        return false;
-    }
-
-    // Must start with at least 4 digits (HHMM)
-    if value.len() < 4 {
-        return false;
-    }
-
-    // Extract hour and minute
-    let hour = &value[0..2];
-    let minute = &value[2..4];
-
-    // Basic validation
-    if hour > "23" {
-        return false;
-    }
-
-    if minute > "59" {
-        return false;
-    }
-
-    // If seconds are present
-    if value.len() >= 6 {
-        let second = &value[4..6];
-        if second > "59" {
-            return false;
-        }
-    }
-
-    true
+    value.trim() == value && crate::conformance::datatype::datetime::parse_hl7_tm(value).is_ok()
 }
 
 /// Check if value is a valid timestamp (YYYYMMDD\[HHMM\[SS\[.S\[S\[S\[S\]\]\]\]\]\] format)
@@ -1318,6 +1283,27 @@ mod legacy_tests {
         assert!(!is_time("2400")); // Invalid hour
         assert!(!is_time("1260")); // Invalid minute
         assert!(!is_time("123")); // Too short
+    }
+
+    #[test]
+    fn test_is_time_uses_canonical_tm_grammar() {
+        assert!(!is_time("12.5"));
+        assert!(!is_time("1.30"));
+        assert!(!is_time("1230.."));
+        assert!(!is_time("1230."));
+        assert!(!is_time("123045.."));
+        assert!(!is_time("12305"));
+        assert!(!is_time(" 1230"));
+        assert!(!is_time("1230 "));
+
+        assert!(is_time("1230"));
+        assert!(is_time("235959"));
+        assert!(is_time("123045.5"));
+        assert!(is_time("123045.1234"));
+
+        assert!(!is_timestamp("2025010112.5"));
+        assert!(!is_timestamp("2025010112305"));
+        assert!(is_timestamp("20250101123045.5"));
     }
 
     #[test]
