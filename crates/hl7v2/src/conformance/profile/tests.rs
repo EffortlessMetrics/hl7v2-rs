@@ -1050,13 +1050,29 @@ OBX|1|ST|FLAG^Flag||text|unit|range|{value}|||F\r"
         let profile: Profile = load_profile(y)?;
         let problems = validate(&msg, &profile);
 
-        assert_eq!(
-            problems.len(),
-            1,
-            "invalid-regex custom rule must not be silently dropped: {problems:?}"
-        );
-        assert_eq!(problems[0].code, "CUSTOM_RULE_VIOLATION");
-        assert_eq!(problems[0].path.as_deref(), Some("OBX.8"));
+        if problems.len() != 1 {
+            return Err(std::io::Error::other(
+                "invalid-regex custom rule was silently dropped or duplicated",
+            )
+            .into());
+        }
+        let Some(problem) = problems.first() else {
+            return Err(
+                std::io::Error::other("invalid-regex custom rule produced no violation").into(),
+            );
+        };
+        if problem.code != "CUSTOM_RULE_VIOLATION" {
+            return Err(std::io::Error::other(
+                "invalid-regex fallback produced the wrong issue code",
+            )
+            .into());
+        }
+        if problem.path.as_deref() != Some("OBX.8") {
+            return Err(std::io::Error::other(
+                "invalid-regex fallback reported the wrong field path",
+            )
+            .into());
+        }
         Ok(())
     }
 
@@ -1076,12 +1092,15 @@ OBX|1|ST|FLAG^Flag||text|unit|range|{value}|||F\r"
         };
 
         let issues = validate(&msg, &profile);
-        assert!(
-            issues
-                .iter()
-                .all(|issue| issue.code != "CUSTOM_RULE_VIOLATION"),
-            "malformed regex rule should be skipped: {issues:?}"
-        );
+        if issues
+            .iter()
+            .any(|issue| issue.code == "CUSTOM_RULE_VIOLATION")
+        {
+            return Err(std::io::Error::other(
+                "malformed regex rule should be skipped without a violation",
+            )
+            .into());
+        }
         Ok(())
     }
 
