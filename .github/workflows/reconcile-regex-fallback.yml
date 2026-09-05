@@ -1,0 +1,122 @@
+name: Reconcile regex fallback
+
+on:
+  push:
+    branches:
+      - codex/977-regex-fallback
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Apply source-first regex fallback fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          from textwrap import dedent, indent
+
+          validation = Path("crates/hl7v2/src/conformance/profile/validation.rs")
+          text = validation.read_text(encoding="utf-8")
+          old = (
+              "            // Extract the regex pattern\n"
+              "            let pattern_part = &rule.script[path_end + 15..];\n"
+              "            if pattern_part.starts_with('\\'') && pattern_part.ends_with(\"')\") {\n"
+              "                let pattern = &pattern_part[1..pattern_part.len() - 2];\n"
+          )
+          new = (
+              "            // `).matches_regex(` is 16 bytes. Skip the complete marker so\n"
+              "            // `pattern_part` begins at the opening quote rather than `(`.\n"
+              "            let pattern_part = &rule.script[path_end + 16..];\n"
+              "            // A degenerate `pattern_part == \"')\"` satisfies both delimiter\n"
+              "            // checks but cannot yield the interior slice. `get` fails closed.\n"
+              "            if pattern_part.starts_with('\\'')\n"
+              "                && pattern_part.ends_with(\"')\")\n"
+              "                && let Some(pattern) = pattern_part.get(1..pattern_part.len() - 2)\n"
+              "            {\n"
+          )
+          if text.count(old) != 1:
+              raise SystemExit("expected one matches_regex fallback block")
+          validation.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          tests_path = Path("crates/hl7v2/src/conformance/profile/tests.rs")
+          text = tests_path.read_text(encoding="utf-8")
+          marker = "    #[test]\n    fn test_custom_rule_field_equality_checks_later_repetitions() {"
+          tests = indent(dedent(r'''
+          #[test]
+          fn test_custom_rule_matches_regex_fallback_is_not_silently_dropped()
+          -> Result<(), Box<dyn std::error::Error>> {
+              let y = r#"
+          message_structure: "oru_regex_fallback"
+          version: "2.5.1"
+          segments:
+            - id: "OBX"
+          custom_rules:
+            - id: "regex-fallback"
+              description: ""
+              script: "field(OBX.8).matches_regex('[bad')"
+          "#;
+              let msg = parse(
+                  b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\rOBX|1|ST|FLAG^Flag||text|unit|range|hello|||F\r",
+              )?;
+              let profile: Profile = load_profile(y)?;
+              let problems = validate(&msg, &profile);
+
+              assert_eq!(
+                  problems.len(),
+                  1,
+                  "invalid-regex custom rule must not be silently dropped: {problems:?}"
+              );
+              assert_eq!(problems[0].code, "CUSTOM_RULE_VIOLATION");
+              assert_eq!(problems[0].path.as_deref(), Some("OBX.8"));
+              Ok(())
+          }
+
+          #[test]
+          fn custom_rule_matches_regex_degenerate_pattern_does_not_panic()
+          -> Result<(), Box<dyn std::error::Error>> {
+              use super::super::CustomRule;
+
+              let msg = parse(adt_a01_msg().as_bytes())?;
+              let profile = Profile {
+                  custom_rules: vec![CustomRule {
+                      id: "degenerate".to_string(),
+                      description: String::new(),
+                      script: "field(PID.5).matches_regex(')".to_string(),
+                  }],
+                  ..Profile::default()
+              };
+
+              let issues = validate(&msg, &profile);
+              assert!(
+                  issues
+                      .iter()
+                      .all(|issue| issue.code != "CUSTOM_RULE_VIOLATION"),
+                  "malformed regex rule should be skipped: {issues:?}"
+              );
+              Ok(())
+          }
+
+          '''), "    ")
+          if text.count(marker) != 1:
+              raise SystemExit("expected one regex regression insertion point")
+          tests_path.write_text(text.replace(marker, tests + marker, 1), encoding="utf-8")
+          PY
+
+          cargo fmt --all
+          rm .github/workflows/reconcile-regex-fallback.yml
+          git config user.name EffortlessSteven
+          git config user.email git@effortlesssteven.com
+          git add crates/hl7v2/src/conformance/profile/validation.rs crates/hl7v2/src/conformance/profile/tests.rs .github/workflows/reconcile-regex-fallback.yml
+          git diff --cached --check
+          git commit -m "fix(profile): repair custom regex fallback parsing"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
