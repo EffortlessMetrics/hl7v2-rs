@@ -653,8 +653,17 @@ mod tests {
             .first()
             .ok_or_else(|| std::io::Error::other("expected one generated message"))?;
 
-        assert_eq!(crate::get(msg, "PID.3"), Some("MRNVAL"));
-        assert_ne!(crate::get(msg, "PID.2"), Some("MRNVAL"));
+        if crate::get(msg, "PID.3") != Some("MRNVAL") {
+            return Err(std::io::Error::other(
+                "PID.3 did not receive the configured value-source override",
+            )
+            .into());
+        }
+        if crate::get(msg, "PID.2") == Some("MRNVAL") {
+            return Err(
+                std::io::Error::other("value-source override was shifted into PID.2").into(),
+            );
+        }
         Ok(())
     }
 }
