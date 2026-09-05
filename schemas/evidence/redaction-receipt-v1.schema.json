@@ -44,7 +44,7 @@
         "matched_count": {
           "type": "integer",
           "minimum": 0,
-          "description": "Number of matching values affected by the action."
+          "description": "Number of matching segments containing a selected target; several selected field repetitions in one segment count once."
         },
         "optional": {
           "type": "boolean",

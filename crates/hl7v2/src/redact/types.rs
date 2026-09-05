@@ -6,6 +6,10 @@ pub struct RedactionConfig {
     /// Replacement string for redacted fields.
     pub replacement: String,
     /// List of field paths to redact, for example `PID.5` or `PID.7`.
+    ///
+    /// Component and subcomponent paths without a field repetition selector
+    /// apply to every repetition. Use `PID.13[2].1` to select only the first
+    /// component of the second repetition.
     pub fields: Vec<String>,
 }
 
@@ -146,7 +150,9 @@ pub struct RedactionActionReceipt {
     pub action: RedactionAction,
     /// Policy reason for the action.
     pub reason: String,
-    /// Number of matching values affected by this action.
+    /// Number of matching segments containing a selected target.
+    ///
+    /// Several field repetitions selected within one segment count once.
     pub matched_count: usize,
     /// Whether missing matches are acceptable.
     pub optional: bool,
@@ -185,6 +191,10 @@ pub struct SafeAnalysisPolicy {
 }
 
 /// One rule in a safe-analysis redaction policy.
+///
+/// Component and subcomponent paths without a field repetition selector apply
+/// to every repetition. An explicit selector, such as `OBX.5[2].1`, limits the
+/// rule to that repetition.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SafeAnalysisPolicyRule {
     pub(crate) path: String,

@@ -13,21 +13,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-#[derive(serde::Deserialize)]
-struct SafeAnalysisPolicy {
-    rules: Vec<SafeAnalysisPolicyRule>,
-}
-
-#[derive(serde::Deserialize)]
-struct SafeAnalysisPolicyRule {
-    path: String,
-    action: RedactionAction,
-    #[serde(default)]
-    reason: Option<String>,
-    #[serde(default)]
-    optional: bool,
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 enum RedactionAction {
@@ -307,8 +292,7 @@ pub(super) fn redact_command(
     let contents = fs::read(input)?;
     let mut message = parse(&contents)?;
     let policy_text = fs::read_to_string(policy)?;
-    let redaction_policy = policy::load_safe_analysis_policy(&policy_text)?;
-    let receipt = policy::apply_safe_analysis_policy(&mut message, &redaction_policy)?;
+    let receipt = policy::redact_message(&mut message, &policy_text)?;
     let redacted_hl7 = String::from_utf8(write(&message))?;
 
     match format {
@@ -384,11 +368,8 @@ pub(super) fn bundle_command(
     let profile_yaml = fs::read_to_string(profile)?;
     let loaded_profile = load_profile_checked(&profile_yaml)?;
     let policy_text = fs::read_to_string(redact_policy)?;
-    let redaction_policy = policy::load_safe_analysis_policy(&policy_text)?;
-
     let mut redacted_message = message.clone();
-    let redaction_receipt =
-        policy::apply_safe_analysis_policy(&mut redacted_message, &redaction_policy)?;
+    let redaction_receipt = policy::redact_message(&mut redacted_message, &policy_text)?;
     let redacted_hl7 = String::from_utf8(write(&redacted_message))?;
     let field_trace = policy::build_field_path_trace(&redacted_message, &redaction_receipt);
     let validation_report = ValidationReport::from_issues(
@@ -1109,280 +1090,52 @@ Before sending this bundle:\n\n\
 }
 
 mod policy {
-    //! Safe-analysis policy loading, application, and path tracing.
+    //! Canonical safe-analysis execution plus CLI-only field-path tracing.
 
     use super::*;
 
-    pub(super) fn load_safe_analysis_policy(
-        policy_text: &str,
-    ) -> Result<SafeAnalysisPolicy, Box<dyn std::error::Error>> {
-        let mut policy: SafeAnalysisPolicy = toml::from_str(policy_text)?;
-        if policy.rules.is_empty() {
-            return Err(
-                std::io::Error::other("redaction policy must contain at least one rule").into(),
-            );
-        }
-
-        let mut seen_paths = BTreeSet::new();
-        for rule in &mut policy.rules {
-            let parsed_path = parse_redaction_path(&rule.path).map_err(std::io::Error::other)?;
-            rule.path = parsed_path.canonical_path.clone();
-            if !seen_paths.insert(rule.path.clone()) {
-                return Err(std::io::Error::other(format!(
-                    "redaction policy contains duplicate rule for {}",
-                    rule.path
-                ))
-                .into());
-            }
-            if rule.reason.as_deref().unwrap_or("").trim().is_empty() {
-                return Err(std::io::Error::other(format!(
-                    "redaction rule {} must include a reason",
-                    rule.path
-                ))
-                .into());
-            }
-            if rule.action == RedactionAction::Retain
-                && redaction_path_targets_builtin_sensitive_field(&parsed_path)
-            {
-                return Err(std::io::Error::other(format!(
-                    "redaction rule {} cannot retain a built-in sensitive field",
-                    rule.path
-                ))
-                .into());
-            }
-        }
-
-        Ok(policy)
-    }
-
-    pub(super) fn apply_safe_analysis_policy(
+    pub(super) fn redact_message(
         message: &mut Message,
-        policy: &SafeAnalysisPolicy,
+        policy_text: &str,
     ) -> Result<RedactionReceipt, Box<dyn std::error::Error>> {
-        validate_safe_analysis_policy_covers_sensitive_fields(message, policy)?;
-
-        let mut actions = Vec::new();
-        let mut phi_removed = false;
-        let mut errors = Vec::new();
-
-        for rule in &policy.rules {
-            let parsed_path = parse_redaction_path(&rule.path).map_err(std::io::Error::other)?;
-            let mut matched_count = 0_usize;
-            let mut segment_match_count = 0_usize;
-
-            for segment in &mut message.segments {
-                if segment.id_str() != parsed_path.segment_id {
-                    continue;
-                }
-                segment_match_count = segment_match_count.saturating_add(1);
-                if let Some(segment_repetition) = parsed_path.segment_repetition
-                    && segment_match_count != segment_repetition
-                {
-                    continue;
-                }
-
-                let Some(field_index) =
-                    modeled_field_index(&parsed_path.segment_id, parsed_path.field_index)
-                else {
-                    continue;
-                };
-                let Some(field) = segment.fields.get_mut(field_index) else {
-                    continue;
-                };
-
-                if apply_redaction_target(field, &parsed_path, rule.action, &message.delims) {
-                    matched_count = matched_count.saturating_add(1);
-                    if rule.action != RedactionAction::Retain {
-                        phi_removed = true;
-                    }
-                }
-            }
-
-            let status = match (matched_count, rule.action) {
-                (0, _) => RedactionActionStatus::NotFound,
-                (_, RedactionAction::Retain) => RedactionActionStatus::Retained,
-                _ => RedactionActionStatus::Applied,
-            };
-
-            if matched_count == 0 && !rule.optional && rule.action != RedactionAction::Retain {
-                errors.push(format!(
-                    "redaction rule {} matched no fields; mark optional=true if absence is expected",
-                    rule.path
-                ));
-            }
-
-            actions.push(RedactionActionReceipt {
-                path: rule.path.clone(),
-                action: rule.action,
-                reason: rule.reason.clone().unwrap_or_default(),
-                matched_count,
-                optional: rule.optional,
-                status,
-            });
-        }
-
-        if !errors.is_empty() {
-            return Err(std::io::Error::other(errors.join("; ")).into());
-        }
+        let receipt = hl7v2::redact::redact_message_safe_analysis(message, policy_text)?;
 
         Ok(RedactionReceipt {
-            phi_removed,
+            phi_removed: receipt.phi_removed,
             hash_algorithm: "sha256",
-            actions,
+            actions: receipt
+                .actions
+                .into_iter()
+                .map(|receipt| {
+                    let action = map_action(receipt.action);
+                    let status = map_status(receipt.status);
+                    RedactionActionReceipt {
+                        path: receipt.path,
+                        action,
+                        reason: receipt.reason,
+                        matched_count: receipt.matched_count,
+                        optional: receipt.optional,
+                        status,
+                    }
+                })
+                .collect(),
         })
     }
 
-    fn validate_safe_analysis_policy_covers_sensitive_fields(
-        message: &Message,
-        policy: &SafeAnalysisPolicy,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let protected_paths: Vec<_> = policy
-            .rules
-            .iter()
-            .filter(|rule| rule.action != RedactionAction::Retain)
-            .filter_map(|rule| parse_redaction_path(&rule.path).ok())
-            .collect();
-        let present_sensitive_paths = present_sensitive_paths(message);
-        let missing_paths: BTreeSet<_> = present_sensitive_paths
-            .iter()
-            .filter(|path| {
-                !protected_paths
-                    .iter()
-                    .any(|protected| protected_path_covers_sensitive_occurrence(protected, path))
-            })
-            .map(|path| path.base_path)
-            .collect();
-
-        if missing_paths.is_empty() {
-            return Ok(());
+    fn map_action(action: hl7v2::redact::RedactionAction) -> RedactionAction {
+        match action {
+            hl7v2::redact::RedactionAction::Hash => RedactionAction::Hash,
+            hl7v2::redact::RedactionAction::Drop => RedactionAction::Drop,
+            hl7v2::redact::RedactionAction::Retain => RedactionAction::Retain,
         }
-
-        Err(std::io::Error::other(format!(
-            "redaction policy does not protect present sensitive field(s): {}",
-            missing_paths.into_iter().collect::<Vec<_>>().join(", ")
-        ))
-        .into())
     }
 
-    struct PresentSensitivePath {
-        base_path: &'static str,
-        segment_id: String,
-        segment_repetition: usize,
-        field_index: usize,
-    }
-
-    fn present_sensitive_paths(message: &Message) -> Vec<PresentSensitivePath> {
-        let mut paths = Vec::new();
-        for base_path in safe_analysis_sensitive_paths() {
-            let Ok(parsed) = parse_redaction_path(base_path) else {
-                continue;
-            };
-            let Some(modeled_field_index) =
-                modeled_field_index(&parsed.segment_id, parsed.field_index)
-            else {
-                continue;
-            };
-            let mut segment_repetition = 0_usize;
-            for segment in &message.segments {
-                if segment.id_str() != parsed.segment_id {
-                    continue;
-                }
-                segment_repetition = segment_repetition.saturating_add(1);
-                let Some(field) = segment.fields.get(modeled_field_index) else {
-                    continue;
-                };
-                if field_to_text(field, &message.delims).is_empty() {
-                    continue;
-                }
-                paths.push(PresentSensitivePath {
-                    base_path,
-                    segment_id: parsed.segment_id.clone(),
-                    segment_repetition,
-                    field_index: parsed.field_index,
-                });
-            }
+    fn map_status(status: hl7v2::redact::RedactionActionStatus) -> RedactionActionStatus {
+        match status {
+            hl7v2::redact::RedactionActionStatus::Applied => RedactionActionStatus::Applied,
+            hl7v2::redact::RedactionActionStatus::Retained => RedactionActionStatus::Retained,
+            hl7v2::redact::RedactionActionStatus::NotFound => RedactionActionStatus::NotFound,
         }
-        paths
-    }
-
-    fn safe_analysis_sensitive_paths() -> BTreeSet<&'static str> {
-        [
-            "PID.3", "PID.5", "PID.7", "PID.11", "PID.13", "PID.14", "PID.19", "NK1.2", "NK1.4",
-            "NK1.5",
-        ]
-        .into_iter()
-        .collect()
-    }
-
-    fn redaction_path_targets_builtin_sensitive_field(path: &ParsedRedactionPath) -> bool {
-        if path.component.is_some() || path.subcomponent.is_some() {
-            return false;
-        }
-        safe_analysis_sensitive_paths()
-            .iter()
-            .filter_map(|sensitive_path| parse_redaction_path(sensitive_path).ok())
-            .any(|sensitive_path| {
-                path.segment_id == sensitive_path.segment_id
-                    && path.field_index == sensitive_path.field_index
-            })
-    }
-
-    fn protected_path_covers_sensitive_occurrence(
-        protected: &ParsedRedactionPath,
-        sensitive: &PresentSensitivePath,
-    ) -> bool {
-        if protected.segment_id != sensitive.segment_id
-            || protected.field_index != sensitive.field_index
-        {
-            return false;
-        }
-        if protected.component.is_some()
-            || protected.subcomponent.is_some()
-            || protected.field_repetition.is_some()
-        {
-            return false;
-        }
-        protected
-            .segment_repetition
-            .is_none_or(|repetition| repetition == sensitive.segment_repetition)
-    }
-
-    struct ParsedRedactionPath {
-        segment_id: String,
-        segment_repetition: Option<usize>,
-        field_index: usize,
-        field_repetition: Option<usize>,
-        component: Option<usize>,
-        subcomponent: Option<usize>,
-        canonical_path: String,
-    }
-
-    fn parse_redaction_path(path: &str) -> Result<ParsedRedactionPath, String> {
-        let located = hl7v2::parse_located_path(path).map_err(|error| {
-            if !path.contains('.') && !path.contains('-') {
-                format!("redaction path '{path}' must use SEG.field or SEG-FIELD syntax")
-            } else {
-                format!("redaction path '{path}' is invalid: {error}")
-            }
-        })?;
-
-        if located.path.segment == "MSH" && located.path.field < 3 {
-            return Err(format!(
-                "redaction path '{path}' targets MSH.1/MSH.2, which are delimiter metadata and not redacted by this command"
-            ));
-        }
-
-        let canonical_path = located.to_path_string();
-
-        Ok(ParsedRedactionPath {
-            segment_id: located.path.segment,
-            segment_repetition: located.segment_repetition,
-            field_index: located.path.field,
-            field_repetition: located.path.repetition,
-            component: located.path.component,
-            subcomponent: located.path.subcomponent,
-            canonical_path,
-        })
     }
 
     pub(super) fn message_field_text(
@@ -1398,87 +1151,6 @@ mod policy {
             .fields
             .get(field_index)?;
         Some(field_to_text(field, &message.delims))
-    }
-
-    fn apply_redaction_target(
-        field: &mut Field,
-        path: &ParsedRedactionPath,
-        action: RedactionAction,
-        delims: &hl7v2::Delims,
-    ) -> bool {
-        let Some(target) = select_target(field, path) else {
-            return false;
-        };
-
-        match action {
-            RedactionAction::Hash => target.hash(delims),
-            RedactionAction::Drop => target.replace_with_text(String::new()),
-            RedactionAction::Retain => {}
-        }
-
-        true
-    }
-
-    enum RedactionTarget<'a> {
-        Field(&'a mut Field),
-        Rep(&'a mut Rep),
-        Comp(&'a mut Comp),
-        Atom(&'a mut Atom),
-    }
-
-    impl RedactionTarget<'_> {
-        fn hash(self, delims: &hl7v2::Delims) {
-            let value = match &self {
-                Self::Field(field) => field_to_text(field, delims),
-                Self::Rep(rep) => rep_to_text(rep, delims),
-                Self::Comp(comp) => comp_to_text(comp, delims),
-                Self::Atom(atom) => atom_to_text(atom).to_string(),
-            };
-            self.replace_with_text(format!("hash:sha256:{}", compute_sha256(&value)));
-        }
-
-        fn replace_with_text(self, replacement: String) {
-            match self {
-                Self::Field(field) => {
-                    *field = Field::from_text(replacement);
-                }
-                Self::Rep(rep) => {
-                    *rep = Rep::from_text(replacement);
-                }
-                Self::Comp(comp) => {
-                    *comp = Comp::from_text(replacement);
-                }
-                Self::Atom(atom) => {
-                    *atom = Atom::Text(replacement);
-                }
-            }
-        }
-    }
-
-    fn select_target<'a>(
-        field: &'a mut Field,
-        path: &ParsedRedactionPath,
-    ) -> Option<RedactionTarget<'a>> {
-        if path.field_repetition.is_none() && path.component.is_none() {
-            return Some(RedactionTarget::Field(field));
-        }
-
-        let rep_index = path.field_repetition.unwrap_or(1).checked_sub(1)?;
-        let rep = field.reps.get_mut(rep_index)?;
-        let Some(component) = path.component else {
-            return Some(RedactionTarget::Rep(rep));
-        };
-
-        let component_index = component.checked_sub(1)?;
-        let comp = rep.comps.get_mut(component_index)?;
-        let Some(subcomponent) = path.subcomponent else {
-            return Some(RedactionTarget::Comp(comp));
-        };
-
-        let subcomponent_index = subcomponent.checked_sub(1)?;
-        comp.subs
-            .get_mut(subcomponent_index)
-            .map(RedactionTarget::Atom)
     }
 
     pub(super) fn build_field_path_trace(
