@@ -12,11 +12,9 @@ jobs:
   apply:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout branch
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - name: Unify public predicates with the canonical TM parser
         shell: bash
         run: |
@@ -77,9 +75,7 @@ jobs:
               raise SystemExit("expected one public is_time implementation")
           text = text.replace(old, new, 1)
 
-          marker = '''    #[test]
-              fn test_is_timestamp() {'''
-          marker = dedent(marker)
+          marker = "    #[test]\n    fn test_is_timestamp() {"
           tests = dedent('''
               #[test]
               fn test_is_time_uses_canonical_tm_grammar() {
@@ -109,10 +105,9 @@ jobs:
 
           datetime = Path("crates/hl7v2/src/conformance/datatype/datetime.rs")
           text = datetime.read_text(encoding="utf-8")
-          old = '''        let sec: u32 = sec_part
-                      .parse()
-          '''
-          new = '''        // HHMM[SS[.S[S[S[S]]]]] permits seconds only as a complete
+          old = "        let sec: u32 = sec_part\n            .parse()\n"
+          new = dedent('''
+                  // HHMM[SS[.S[S[S[S]]]]] permits seconds only as a complete
                   // two-digit field. Reject a partial tail before numeric parsing so TM,
                   // TS, and precision-aware TS validation agree.
                   if sec_part.len() != 2 {
@@ -123,14 +118,12 @@ jobs:
 
                   let sec: u32 = sec_part
                       .parse()
-          '''
+          ''')
           if text.count(old) != 1:
               raise SystemExit("expected one TM seconds parse point")
           text = text.replace(old, new, 1)
 
-          marker = '''    #[test]
-              fn parse_hl7_tm_rejects_non_numeric_hours() {'''
-          marker = dedent(marker)
+          marker = "    #[test]\n    fn parse_hl7_tm_rejects_non_numeric_hours() {"
           tests = dedent('''
               #[test]
               fn parse_hl7_tm_rejects_partial_seconds_and_misplaced_fraction() {
@@ -161,7 +154,6 @@ jobs:
               raise SystemExit("expected one datetime TM test insertion point")
           datetime.write_text(text.replace(marker, tests + marker, 1), encoding="utf-8")
           PY
-
           cargo fmt --all
           rm .github/workflows/reconcile-tm-ts-grammar.yml
           git config user.name EffortlessSteven
