@@ -27,23 +27,23 @@ jobs:
 
           path = Path("crates/hl7v2/src/synthetic/template.rs")
           text = path.read_text(encoding="utf-8")
-          old = dedent('''
-              } else {
-                  // For other segments, process all fields
-                  for (offset, field_template) in field_templates.iter().enumerate() {
-                      let field_number = offset
-                          .checked_add(2)
-          ''').lstrip()
-          new = dedent('''
-              } else {
-                  // For other segments, process all fields. `field_templates` holds the
-                  // fields after the segment ID, so offset 0 is field 1 (for example,
-                  // PID-1). MSH is different because MSH-1 is the field separator and
-                  // MSH-2 is emitted separately above.
-                  for (offset, field_template) in field_templates.iter().enumerate() {
-                      let field_number = offset
-                          .checked_add(1)
-          ''').lstrip()
+          old = (
+              "    } else {\n"
+              "        // For other segments, process all fields\n"
+              "        for (offset, field_template) in field_templates.iter().enumerate() {\n"
+              "            let field_number = offset\n"
+              "                .checked_add(2)\n"
+          )
+          new = (
+              "    } else {\n"
+              "        // For other segments, process all fields. `field_templates` holds the\n"
+              "        // fields after the segment ID, so offset 0 is field 1 (for example,\n"
+              "        // PID-1). MSH is different because MSH-1 is the field separator and\n"
+              "        // MSH-2 is emitted separately above.\n"
+              "        for (offset, field_template) in field_templates.iter().enumerate() {\n"
+              "            let field_number = offset\n"
+              "                .checked_add(1)\n"
+          )
           if text.count(old) != 1:
               raise SystemExit("expected one non-MSH field-number block")
           text = text.replace(old, new, 1)
