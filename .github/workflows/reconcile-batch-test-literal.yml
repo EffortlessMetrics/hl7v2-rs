@@ -1,0 +1,43 @@
+name: Reconcile batch witness
+
+on:
+  push:
+    branches:
+      - codex/977-batch-header-fields
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Repair test format literal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path("crates/hl7v2/src/batch.rs")
+          text = path.read_text(encoding="utf-8")
+          old = '// BHS-9 = Batch Name, BHS-10 = Comment, BHS-11 = Control ID.\\n            "BHS'
+          new = '// BHS-9 = Batch Name, BHS-10 = Comment, BHS-11 = Control ID.\n            "BHS'
+          if text.count(old) != 1:
+              raise SystemExit("expected one escaped-newline test comment")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+          cargo fmt --all
+          rm .github/workflows/reconcile-batch-test-literal.yml
+          git config user.name EffortlessSteven
+          git config user.email git@effortlesssteven.com
+          git add crates/hl7v2/src/batch.rs .github/workflows/reconcile-batch-test-literal.yml
+          git diff --cached --check
+          git commit -m "test(batch): keep the metadata fixture as the format literal"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
