@@ -712,7 +712,8 @@ message RedactionActionReceipt {
   // Policy reason for the action
   string reason = 3;
 
-  // Number of matching values affected by this action
+  // Number of matching segments containing a selected target; several
+  // selected field repetitions in one segment count once
   uint32 matched_count = 4;
 
   // Whether missing matches are acceptable

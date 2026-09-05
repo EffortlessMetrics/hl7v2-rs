@@ -302,17 +302,11 @@ fn apply_redaction_target(
     action: RedactionAction,
     delims: &hl7v2::Delims,
 ) -> bool {
-    let Some(target) = select_target(field, path) else {
-        return false;
-    };
-
-    match action {
+    for_each_target(field, path, |target| match action {
         RedactionAction::Hash => target.hash(delims),
         RedactionAction::Drop => target.replace_with_text(String::new()),
         RedactionAction::Retain => {}
-    }
-
-    true
+    })
 }
 
 enum RedactionTarget<'a> {
@@ -351,16 +345,44 @@ impl RedactionTarget<'_> {
     }
 }
 
-fn select_target<'a>(
-    field: &'a mut Field,
+fn for_each_target(
+    field: &mut Field,
     path: &ParsedRedactionPath,
-) -> Option<RedactionTarget<'a>> {
+    mut visit: impl FnMut(RedactionTarget<'_>),
+) -> bool {
     if path.field_repetition.is_none() && path.component.is_none() {
-        return Some(RedactionTarget::Field(field));
+        visit(RedactionTarget::Field(field));
+        return true;
     }
 
-    let rep_index = path.field_repetition.unwrap_or(1).checked_sub(1)?;
-    let rep = field.reps.get_mut(rep_index)?;
+    if let Some(repetition) = path.field_repetition {
+        let Some(index) = repetition.checked_sub(1) else {
+            return false;
+        };
+        let Some(rep) = field.reps.get_mut(index) else {
+            return false;
+        };
+        let Some(target) = select_rep_target(rep, path) else {
+            return false;
+        };
+        visit(target);
+        return true;
+    }
+
+    let mut matched = false;
+    for rep in &mut field.reps {
+        if let Some(target) = select_rep_target(rep, path) {
+            visit(target);
+            matched = true;
+        }
+    }
+    matched
+}
+
+fn select_rep_target<'a>(
+    rep: &'a mut Rep,
+    path: &ParsedRedactionPath,
+) -> Option<RedactionTarget<'a>> {
     let Some(component) = path.component else {
         return Some(RedactionTarget::Rep(rep));
     };
@@ -421,4 +443,51 @@ fn compute_sha256(value: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(value.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::redact_message;
+    use std::io;
+
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+    fn require(condition: bool, message: &'static str) -> TestResult {
+        if condition {
+            Ok(())
+        } else {
+            Err(io::Error::other(message).into())
+        }
+    }
+
+    #[test]
+    fn server_redaction_covers_every_field_repetition() -> TestResult {
+        let mut message = hl7v2::parse(
+            b"MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\rOBX|1|ST|A||Alpha^one~Beta^two",
+        )?;
+        let receipt = redact_message(
+            &mut message,
+            r#"
+[[rules]]
+path = "OBX.5.1"
+action = "drop"
+reason = "Remove every first component"
+"#,
+        )
+        .map_err(io::Error::other)?;
+        let written = String::from_utf8(hl7v2::write(&message))?;
+        let action = receipt
+            .actions
+            .first()
+            .ok_or_else(|| io::Error::other("missing server redaction receipt"))?;
+
+        require(
+            written.contains("OBX|1|ST|A||^one~^two"),
+            "server left a later field repetition unredacted",
+        )?;
+        require(
+            action.matched_count == 1,
+            "server receipt must count the containing segment once",
+        )
+    }
 }

@@ -537,7 +537,9 @@ pub struct RedactionActionReceipt {
     pub action: RedactionAction,
     /// Policy reason for the action.
     pub reason: String,
-    /// Number of matching values affected by this action.
+    /// Number of matching segments containing a selected target.
+    ///
+    /// Several field repetitions selected within one segment count once.
     pub matched_count: usize,
     /// Whether missing matches are acceptable.
     pub optional: bool,
