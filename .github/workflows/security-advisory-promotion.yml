@@ -38,13 +38,13 @@ jobs:
               raise SystemExit(f"expected one lru requirement, found {text.count(old)}")
           path.write_text(text.replace(old, new, 1))
           PY
-          cargo update -p lru@0.16.4 --precise 0.18.2
+          cargo update -p lru@0.16.4
           cargo update -p h2@0.4.15 --precise 0.4.16
-          cargo update -p chacha20@0.10.1 --precise 0.10.0
+          cargo update -p chacha20@0.10.1 --precise 0.10.2
           cargo fmt --all
-          cargo tree -i lru@0.18.2
+          cargo tree -i lru@0.18.4
           cargo tree -i h2@0.4.16
-          cargo tree -i chacha20@0.10.0
+          cargo tree -i chacha20@0.10.2
       - name: Install security tools
         run: |
           cargo install cargo-audit --version 0.22.1 --locked
