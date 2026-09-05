@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: PR 986 lint repair
+
+on:
+  push:
+    branches:
+      - codex/977-tm-ts-grammar
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    if: "${{ github.event.head_commit.message == 'chore: run PR 986 lint repair' }}"
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: 1.95.0
+          components: rustfmt, clippy
+      - name: Repair result assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("crates/hl7v2/src/conformance/datatype/datetime.rs")
+          text = path.read_text()
+          replacements = {
+              '        assert!(parse_hl7_tm("123045").is_ok());':
+                  '        parse_hl7_tm("123045").expect("complete seconds are valid");',
+              '        assert!(parse_hl7_ts("2025010112305").is_err());':
+                  '        parse_hl7_ts("2025010112305").expect_err("partial TS seconds are invalid");',
+              '        assert!(parse_hl7_ts_with_precision("2025010112305").is_err());':
+                  '        parse_hl7_ts_with_precision("2025010112305")\n            .expect_err("partial precision-aware TS seconds are invalid");',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f"expected one occurrence: {old}")
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+          cargo fmt --all
+      - name: Verify grammar repair
+        run: |
+          cargo test -p hl7v2 --lib parse_hl7_tm_rejects_partial_seconds_and_misplaced_fraction
+          cargo test -p hl7v2 --lib test_is_time_uses_canonical_tm_grammar
+          cargo clippy -p hl7v2 --all-targets --all-features -- -D warnings
+          cargo fmt --all -- --check
+      - name: Commit source-only repair
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "EffortlessSteven"
+          git config user.email "git@effortlesssteven.com"
+          git rm .github/workflows/pr-986-lint-repair.yml
+          git add crates/hl7v2/src/conformance/datatype/datetime.rs
+          git commit -m "test(conformance): use lint-safe result assertions"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
