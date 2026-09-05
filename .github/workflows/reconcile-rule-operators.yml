@@ -27,54 +27,51 @@ jobs:
 
           validation = Path("crates/hl7v2/src/conformance/validation.rs")
           text = validation.read_text(encoding="utf-8")
-          old = '''        // existence
-                  "exists" => !lhs_values.is_empty(),
-                  "not_exists" => lhs_values.is_empty(),
-          '''
-          new = '''        // numeric comparisons: true if any left-hand value satisfies the
-                  // relation against the right-hand value. Non-numeric operands compare
-                  // false rather than failing open.
-                  "gt" | "lt" | "ge" | "le" => match rhs_first {
-                      Some(rhs) => lhs_values.iter().any(|lhs| {
-                          validate_mathematical_relationship(lhs, rhs, condition.operator.as_str())
-                      }),
-                      None => false,
-                  },
-
-                  // existence
-                  "exists" => !lhs_values.is_empty(),
-                  "not_exists" | "missing" => lhs_values.is_empty(),
-          '''
-          old = dedent(old)
-          new = dedent(new)
+          old = (
+              "        // existence\n"
+              '        "exists" => !lhs_values.is_empty(),\n'
+              '        "not_exists" => lhs_values.is_empty(),\n'
+          )
+          new = (
+              "        // numeric comparisons: true if any left-hand value satisfies the\n"
+              "        // relation against the right-hand value. Non-numeric operands compare\n"
+              "        // false rather than failing open.\n"
+              '        "gt" | "lt" | "ge" | "le" => match rhs_first {\n'
+              "            Some(rhs) => lhs_values.iter().any(|lhs| {\n"
+              "                validate_mathematical_relationship(lhs, rhs, condition.operator.as_str())\n"
+              "            }),\n"
+              "            None => false,\n"
+              "        },\n\n"
+              "        // existence\n"
+              '        "exists" => !lhs_values.is_empty(),\n'
+              '        "not_exists" | "missing" => lhs_values.is_empty(),\n'
+          )
           if text.count(old) != 1:
               raise SystemExit("expected one rule-condition existence block")
           validation.write_text(text.replace(old, new, 1), encoding="utf-8")
 
           lint = Path("crates/hl7v2/src/conformance/profile/lint.rs")
           text = lint.read_text(encoding="utf-8")
-          old = '''        "eq" | "ne" | "contains" | "in" | "exists" | "not_exists" | "is_date" | "before"
-                  | "within_range" => {}
-          '''
-          new = '''        "eq" | "ne" | "gt" | "lt" | "ge" | "le" | "contains" | "in" | "exists"
-                  | "not_exists" | "missing" | "is_date" | "before" | "within_range" => {}
-          '''
-          old = dedent(old)
-          new = dedent(new)
+          old = (
+              '        "eq" | "ne" | "contains" | "in" | "exists" | "not_exists" | "is_date" | "before"\n'
+              '        | "within_range" => {}\n'
+          )
+          new = (
+              '        "eq" | "ne" | "gt" | "lt" | "ge" | "le" | "contains" | "in" | "exists"\n'
+              '        | "not_exists" | "missing" | "is_date" | "before" | "within_range" => {}\n'
+          )
           if text.count(old) != 1:
               raise SystemExit("expected one rule-condition lint allowlist")
           lint.write_text(text.replace(old, new, 1), encoding="utf-8")
 
           unit_tests = Path("crates/hl7v2/src/conformance/validation/tests/unit_tests.rs")
           text = unit_tests.read_text(encoding="utf-8")
-          marker = '''#[test]
-          fn test_check_rule_condition_contains() {'''
-          marker = dedent(marker)
-          tests = dedent('''
+          marker = "#[test]\nfn test_check_rule_condition_contains() {"
+          tests = dedent(r'''
           #[test]
           fn test_check_rule_condition_numeric_comparisons() {
               let msg = parse_test_message(
-                  "MSH|^~\\\\&|App|Fac|Recv|Fac|20230101||ORU^R01|1|P|2.5\\rOBX|1|NM|GLU^Glucose||10|mg/dL\\r",
+                  "MSH|^~\\&|App|Fac|Recv|Fac|20230101||ORU^R01|1|P|2.5\rOBX|1|NM|GLU^Glucose||10|mg/dL\r",
               );
 
               let cond = |operator: &str, value: &str| RuleCondition {
@@ -98,7 +95,7 @@ jobs:
           #[test]
           fn test_check_rule_condition_missing_is_alias_for_not_exists() {
               let msg = parse_test_message(
-                  "MSH|^~\\\\&|App|Fac|Recv|Fac|20230101||ADT^A01|1|P|2.5\\rPID|1||12345^^^MRN||Doe^John\\r",
+                  "MSH|^~\\&|App|Fac|Recv|Fac|20230101||ADT^A01|1|P|2.5\rPID|1||12345^^^MRN||Doe^John\r",
               );
 
               let missing = RuleCondition {
@@ -125,9 +122,7 @@ jobs:
 
           profile_tests = Path("crates/hl7v2/src/conformance/profile/tests.rs")
           text = profile_tests.read_text(encoding="utf-8")
-          marker = '''    #[test]
-              fn test_lint_profile_yaml_sanitizes_yaml_error_messages() {'''
-          marker = dedent(marker)
+          marker = "    #[test]\n    fn test_lint_profile_yaml_sanitizes_yaml_error_messages() {"
           test = indent(dedent('''
           #[test]
           fn test_lint_profile_yaml_accepts_numeric_and_missing_operators() {
