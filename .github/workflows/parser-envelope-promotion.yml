@@ -27,7 +27,170 @@ jobs:
           toolchain: 1.95.0
           components: rustfmt, clippy
       - name: Apply parser envelope contract
-        run: python .github/parser_envelope_promotion.py
+        run: |
+          python .github/parser_envelope_promotion.py
+          python - <<'PY'
+          from pathlib import Path
+
+          batch_path = Path("crates/hl7v2/src/parser/batch.rs")
+          batch = batch_path.read_text()
+          marker = "#[cfg(test)]\nmod tests {"
+          start = batch.rfind(marker)
+          if start < 0:
+              raise SystemExit("generated batch test module not found")
+          batch_tests = r'''#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn contract_error(details: impl Into<String>) -> Error {
+        Error::BatchParseError {
+            details: details.into(),
+        }
+    }
+
+    #[test]
+    fn file_batch_inherits_custom_delimiters_into_message_less_batch() -> Result<(), Error> {
+        let input = b"FHS!*~\\&!FILE\rBHS!*~\\&!EMPTY\rBTS!0\rBHS!*~\\&!FULL\rMSH!*~\\&!APP\rBTS!1\rFTS!2\r";
+        let file_batch = parse_file_batch(input)?;
+
+        if file_batch.batches.len() != 2 {
+            return Err(contract_error("expected two nested batches"));
+        }
+        let first_batch = file_batch
+            .batches
+            .first()
+            .ok_or_else(|| contract_error("missing leading batch"))?;
+        if !first_batch.messages.is_empty() {
+            return Err(contract_error("leading batch must remain message-less"));
+        }
+        let first_header = first_batch
+            .header
+            .as_ref()
+            .ok_or_else(|| contract_error("missing leading BHS"))?;
+        let first_encoding = first_header
+            .fields
+            .first()
+            .ok_or_else(|| contract_error("missing BHS encoding field"))?;
+        if first_encoding.first_text() != Some("*~\\&") {
+            return Err(contract_error("BHS encoding field did not inherit FHS delimiters"));
+        }
+
+        let second_batch = file_batch
+            .batches
+            .get(1)
+            .ok_or_else(|| contract_error("missing populated batch"))?;
+        let message = second_batch
+            .messages
+            .first()
+            .ok_or_else(|| contract_error("missing nested message"))?;
+        let actual = (
+            message.delims.field,
+            message.delims.comp,
+            message.delims.rep,
+            message.delims.esc,
+            message.delims.sub,
+        );
+        let expected = ('!', '*', '~', '\\', '&');
+        if actual != expected {
+            return Err(contract_error("nested MSH delimiters did not match the file envelope"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn file_batch_rejects_conflicting_batch_delimiter_declaration() -> Result<(), Error> {
+        let input = b"FHS|^~\\&|FILE\rBHS!*~\\&!BATCH\rBTS!0\rFTS|1\r";
+
+        match parse_file_batch(input) {
+            Err(Error::BatchParseError { details })
+                if details.contains("BHS delimiter declaration conflicts") =>
+            {
+                Ok(())
+            }
+            Err(other) => Err(other),
+            Ok(_) => Err(contract_error("conflicting BHS delimiters were accepted")),
+        }
+    }
+
+    #[test]
+    fn file_batch_rejects_conflicting_message_delimiter_declaration() -> Result<(), Error> {
+        let input = b"FHS|^~\\&|FILE\rBHS|^~\\&|BATCH\rMSH!*~\\&!APP\rBTS|1\rFTS|1\r";
+
+        match parse_file_batch(input) {
+            Err(Error::BatchParseError { details })
+                if details.contains("MSH delimiter declaration conflicts") =>
+            {
+                Ok(())
+            }
+            Err(other) => Err(other),
+            Ok(_) => Err(contract_error("conflicting MSH delimiters were accepted")),
+        }
+    }
+}
+'''
+          batch_path.write_text(batch[:start] + batch_tests)
+
+          segment_path = Path("crates/hl7v2/src/parser/segment.rs")
+          segment = segment_path.read_text()
+          start = segment.rfind(marker)
+          if start < 0:
+              raise SystemExit("generated segment test module not found")
+          segment_tests = r'''#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn contract_error(details: impl Into<String>) -> Error {
+        Error::BatchParseError {
+            details: details.into(),
+        }
+    }
+
+    #[test]
+    fn envelope_headers_store_encoding_characters_as_one_logical_field() -> Result<(), Error> {
+        let delims = Delims::default();
+
+        for segment_id in ["MSH", "BHS", "FHS"] {
+            let line = format!("{}|^~\\&|APP", segment_id);
+            let segment = parse_segment(&line, &delims)?;
+            let field = segment
+                .fields
+                .first()
+                .ok_or_else(|| contract_error("missing encoding-character field"))?;
+            if field.first_text() != Some("^~\\&") || field.reps.len() != 1 {
+                return Err(contract_error(format!(
+                    "{} encoding characters are not one logical field",
+                    segment_id
+                )));
+            }
+            let repetition = field
+                .reps
+                .first()
+                .ok_or_else(|| contract_error("missing encoding-character repetition"))?;
+            if repetition.comps.len() != 1 {
+                return Err(contract_error(format!(
+                    "{} encoding characters split into components",
+                    segment_id
+                )));
+            }
+            let component = repetition
+                .comps
+                .first()
+                .ok_or_else(|| contract_error("missing encoding-character component"))?;
+            if component.subs.len() != 1 {
+                return Err(contract_error(format!(
+                    "{} encoding characters split into subcomponents",
+                    segment_id
+                )));
+            }
+        }
+
+        Ok(())
+    }
+}
+'''
+          segment_path.write_text(segment[:start] + segment_tests)
+          PY
       - name: Format
         run: cargo fmt --all
       - name: Verify parser envelope behavior
