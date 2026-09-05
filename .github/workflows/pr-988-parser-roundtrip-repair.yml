@@ -168,7 +168,7 @@ jobs:
           tests += r'''
 
           #[test]
-          fn test_write_then_parse_batch_round_trips_encoding_header() -> Result<(), crate::model::Error> {
+          fn test_write_then_parse_batch_round_trips_encoding_header() {
               let batch = Batch {
                   header: Some(Segment {
                       id: *b"BHS",
@@ -189,7 +189,8 @@ jobs:
               };
 
               let bytes = write_batch(&batch);
-              let parsed = crate::parser::parse_batch(&bytes)?;
+              let parsed = crate::parser::parse_batch(&bytes)
+                  .expect("batch emitted by writer should parse");
 
               assert_eq!(
                   parsed
@@ -201,12 +202,10 @@ jobs:
               );
               assert_eq!(parsed.messages.len(), 1);
               assert_eq!(parsed.messages[0].delims, Delims::default());
-              Ok(())
           }
 
           #[test]
-          fn test_write_then_parse_file_batch_round_trips_custom_envelope(
-          ) -> Result<(), crate::model::Error> {
+          fn test_write_then_parse_file_batch_round_trips_custom_envelope() {
               let delims = Delims {
                   field: '!',
                   comp: '*',
@@ -260,7 +259,8 @@ jobs:
               };
 
               let bytes = write_file_batch(&file_batch);
-              let parsed = crate::parser::parse_file_batch(&bytes)?;
+              let parsed = crate::parser::parse_file_batch(&bytes)
+                  .expect("file batch emitted by writer should parse");
 
               assert_eq!(
                   parsed
@@ -281,7 +281,6 @@ jobs:
                       .and_then(Field::first_text),
                   Some("*~\\&")
               );
-              Ok(())
           }
           '''
           tests_path.write_text(tests)
