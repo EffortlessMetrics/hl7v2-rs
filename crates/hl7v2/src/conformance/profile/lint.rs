@@ -785,8 +785,8 @@ fn lint_rule_condition(
     lint_hl7_path(&condition.field, format!("{base_path}.field"), issues);
 
     match condition.operator.as_str() {
-        "eq" | "ne" | "contains" | "in" | "exists" | "not_exists" | "is_date" | "before"
-        | "within_range" => {}
+        "eq" | "ne" | "gt" | "lt" | "ge" | "le" | "contains" | "in" | "exists" | "not_exists"
+        | "missing" | "is_date" | "before" | "within_range" => {}
         "matches_regex" => match &condition.value {
             Some(pattern) => lint_regex(
                 pattern,

@@ -1411,6 +1411,61 @@ table_precedence:
     }
 
     #[test]
+    fn test_lint_profile_yaml_accepts_numeric_and_missing_operators() {
+        let y = r#"
+    message_structure: "xfield_operators"
+    version: "2.5.1"
+    segments:
+      - id: "OBX"
+    cross_field_rules:
+      - id: "gt-rule"
+        description: ""
+        conditions:
+          - field: "OBX.5"
+            operator: "gt"
+            value: "5"
+        actions: []
+      - id: "lt-rule"
+        description: ""
+        conditions:
+          - field: "OBX.5"
+            operator: "lt"
+            value: "50"
+        actions: []
+      - id: "ge-rule"
+        description: ""
+        conditions:
+          - field: "OBX.5"
+            operator: "ge"
+            value: "5"
+        actions: []
+      - id: "le-rule"
+        description: ""
+        conditions:
+          - field: "OBX.5"
+            operator: "le"
+            value: "50"
+        actions: []
+      - id: "missing-rule"
+        description: ""
+        conditions:
+          - field: "OBX.99"
+            operator: "missing"
+        actions: []
+    "#;
+
+        let report = lint_profile_yaml(y);
+
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|issue| issue.code == "unknown_rule_condition_operator"),
+            "numeric/missing operators must be recognized by the linter: {report:?}"
+        );
+    }
+
+    #[test]
     fn test_lint_profile_yaml_sanitizes_yaml_error_messages() {
         let y = "patient_name: Jane Secret\nmrn: MRN-SECRET-123\ninvalid: yaml: structure:";
 
