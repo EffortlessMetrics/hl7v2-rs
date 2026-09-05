@@ -707,7 +707,7 @@ fn lint_temporal_rules(profile: &Profile, issues: &mut Vec<ProfileLintIssue>) {
                 Some(format!("{base_path}.tolerance")),
                 format!(
                     "temporal rule tolerance '{tolerance}' is not a non-negative integer \
-                     followed by a unit (s, m, h, d), for example '30s' or '5m'"
+                     followed by a unit (s, m, h, d, y), for example '30s', '5m', or '1y'"
                 ),
             ));
         }

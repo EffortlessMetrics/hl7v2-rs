@@ -1,4 +1,5 @@
 use crate::model::{Atom, Comp, Field, Message, Rep, Segment};
+use chrono::Datelike;
 use regex::Regex;
 
 use super::*;
@@ -950,56 +951,106 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
     }
 }
 
-/// Parse a temporal tolerance string such as `30s`, `5m`, `2h`, or `1d` into a
-/// [`chrono::Duration`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum TemporalTolerance {
+    /// Exact elapsed-time tolerance.
+    Fixed(chrono::Duration),
+    /// Calendar-year tolerance, preserving month/day/time where possible.
+    CalendarYears(u32),
+}
+
+impl TemporalTolerance {
+    pub(super) fn deadline_after(
+        self,
+        after: chrono::DateTime<chrono::Utc>,
+    ) -> chrono::DateTime<chrono::Utc> {
+        match self {
+            Self::Fixed(duration) => after
+                .checked_add_signed(duration)
+                .unwrap_or(chrono::DateTime::<chrono::Utc>::MAX_UTC),
+            Self::CalendarYears(years) => {
+                let Ok(years) = i32::try_from(years) else {
+                    return chrono::DateTime::<chrono::Utc>::MAX_UTC;
+                };
+                let Some(target_year) = after.year().checked_add(years) else {
+                    return chrono::DateTime::<chrono::Utc>::MAX_UTC;
+                };
+
+                if let Some(deadline) = after.with_year(target_year) {
+                    return deadline;
+                }
+
+                // Clamp leap day to the last valid day of February in
+                // a non-leap target year while preserving the time.
+                if after.month() == 2 && after.day() == 29 {
+                    return after
+                        .with_day(28)
+                        .and_then(|date| date.with_year(target_year))
+                        .unwrap_or(chrono::DateTime::<chrono::Utc>::MAX_UTC);
+                }
+
+                chrono::DateTime::<chrono::Utc>::MAX_UTC
+            }
+        }
+    }
+}
+
+/// Parse a temporal tolerance such as `30s`, `5m`, `2h`, `1d`, or `1y`.
 ///
-/// The accepted grammar is a non-negative integer followed by a single-character
-/// unit suffix (`s`econds, `m`inutes, `h`ours, `d`ays). Returns `None` for
-/// empty, negative, non-numeric, unknown-unit, or overflowing values so callers
-/// can decide how to treat a malformed value.
-pub(super) fn parse_tolerance(raw: &str) -> Option<chrono::Duration> {
-    // Split off the final *character* (not byte) so a multi-byte unit such as
-    // "5€" cannot land mid-codepoint and panic in a byte-indexed split.
+/// Seconds, minutes, hours, and days are exact elapsed durations. Years
+/// are calendar years so shipped rules such as `1y` and `150y` retain
+/// their stated meaning across leap years; February 29 clamps to
+/// February 28 when the target year is not a leap year.
+///
+/// The grammar is a non-negative ASCII integer followed by one unit
+/// character (`s`, `m`, `h`, `d`, or `y`). Returns `None` for malformed
+/// or overflowing values.
+pub(super) fn parse_tolerance(raw: &str) -> Option<TemporalTolerance> {
+    // Split off the final character rather than a byte so malformed
+    // multibyte suffixes cannot create an invalid UTF-8 boundary.
     let mut chars = raw.trim().chars();
     let unit = chars.next_back()?;
-    let amount: i64 = chars.as_str().parse().ok()?;
-    if amount < 0 {
+    let amount_text = chars.as_str();
+    if amount_text.is_empty() || !amount_text.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
     }
-    match unit {
+
+    if unit == 'y' {
+        return amount_text
+            .parse::<u32>()
+            .ok()
+            .map(TemporalTolerance::CalendarYears);
+    }
+
+    let amount = amount_text.parse::<i64>().ok()?;
+    let duration = match unit {
         's' => chrono::Duration::try_seconds(amount),
         'm' => chrono::Duration::try_minutes(amount),
         'h' => chrono::Duration::try_hours(amount),
         'd' => chrono::Duration::try_days(amount),
         _ => None,
-    }
+    }?;
+    Some(TemporalTolerance::Fixed(duration))
 }
 
 /// Validate temporal rule (date/time relationships)
 fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<Issue>) {
     // A configured tolerance widens the allowed window: `before` may be up to
-    // `tolerance` later than `after` (for example, to absorb clock skew between
-    // two feeds) and still be considered compliant. A malformed tolerance is
-    // treated as zero here; `lint_temporal_rule` surfaces the bad value at
-    // authoring time so it is not silently ignored.
+    // `tolerance` later than `after` and still be compliant. A malformed
+    // value does not widen runtime acceptance; profile lint reports the
+    // configuration error separately.
     let tolerance = rule
         .tolerance
         .as_deref()
         .and_then(parse_tolerance)
-        .unwrap_or_else(chrono::Duration::zero);
+        .unwrap_or(TemporalTolerance::Fixed(chrono::Duration::zero()));
 
-    // Is this ordered pair a violation? A reverse delta up to and *including*
-    // the tolerance is compliant; `allow_equal` governs only exact equality at
-    // `after` (the zero-delta baseline), independent of the tolerance window.
-    // Shared by the search predicate and the final check so the two cannot
-    // drift. If adding the tolerance would overflow the calendar, the deadline
-    // is clamped to the maximum representable instant so the full tolerance is
-    // preserved rather than silently dropped.
+    // Shared by the search predicate and final check so the two cannot
+    // drift. `allow_equal` governs exact equality at `after`; the upper
+    // tolerance boundary itself is inclusive.
     let violates = |before_time: chrono::DateTime<chrono::Utc>,
                     after_time: chrono::DateTime<chrono::Utc>| {
-        let deadline = after_time
-            .checked_add_signed(tolerance)
-            .unwrap_or(chrono::DateTime::<chrono::Utc>::MAX_UTC);
+        let deadline = tolerance.deadline_after(after_time);
         before_time > deadline || (!rule.allow_equal && before_time == after_time)
     };
 

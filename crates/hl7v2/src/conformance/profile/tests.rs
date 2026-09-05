@@ -598,17 +598,43 @@ temporal_rules:
 
     #[test]
     fn test_parse_tolerance_grammar_and_malformed_inputs() {
-        use super::super::validation::parse_tolerance;
+        use super::super::validation::{TemporalTolerance, parse_tolerance};
 
-        assert_eq!(parse_tolerance("30s"), chrono::Duration::try_seconds(30));
-        assert_eq!(parse_tolerance("5m"), chrono::Duration::try_minutes(5));
-        assert_eq!(parse_tolerance("2h"), chrono::Duration::try_hours(2));
-        assert_eq!(parse_tolerance("1d"), chrono::Duration::try_days(1));
-        assert_eq!(parse_tolerance(" 5m "), chrono::Duration::try_minutes(5));
-        assert_eq!(parse_tolerance("0s"), chrono::Duration::try_seconds(0));
+        assert_eq!(
+            parse_tolerance("30s"),
+            chrono::Duration::try_seconds(30).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("5m"),
+            chrono::Duration::try_minutes(5).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("2h"),
+            chrono::Duration::try_hours(2).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("1d"),
+            chrono::Duration::try_days(1).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("1y"),
+            Some(TemporalTolerance::CalendarYears(1))
+        );
+        assert_eq!(
+            parse_tolerance("150y"),
+            Some(TemporalTolerance::CalendarYears(150))
+        );
+        assert_eq!(
+            parse_tolerance(" 5m "),
+            chrono::Duration::try_minutes(5).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("0s"),
+            chrono::Duration::try_seconds(0).map(TemporalTolerance::Fixed)
+        );
 
-        // Malformed values must return None without panicking. "5€" and "€" in
-        // particular exercise the multi-byte-character boundary path.
+        // Malformed values must return None without panicking. Multibyte
+        // suffixes exercise the character-boundary path.
         for bad in [
             "",
             "  ",
@@ -616,13 +642,40 @@ temporal_rules:
             "m",
             "5min",
             "-5m",
+            "+5m",
             "5x",
             "€",
             "5€",
             "9999999999999999999d",
+            "9999999999999999999y",
         ] {
             assert_eq!(parse_tolerance(bad), None, "expected None for {bad:?}");
         }
+    }
+
+    #[test]
+    fn test_calendar_year_tolerance_preserves_repository_semantics() {
+        use super::super::validation::parse_tolerance;
+        use chrono::{TimeZone, Utc};
+
+        let leap_day = Utc
+            .with_ymd_and_hms(2024, 2, 29, 12, 30, 45)
+            .single()
+            .unwrap();
+        let one_year = parse_tolerance("1y").unwrap();
+        assert_eq!(
+            one_year.deadline_after(leap_day),
+            Utc.with_ymd_and_hms(2025, 2, 28, 12, 30, 45)
+                .single()
+                .unwrap()
+        );
+
+        let birth = Utc.with_ymd_and_hms(1875, 9, 5, 0, 0, 0).single().unwrap();
+        let one_hundred_fifty_years = parse_tolerance("150y").unwrap();
+        assert_eq!(
+            one_hundred_fifty_years.deadline_after(birth),
+            Utc.with_ymd_and_hms(2025, 9, 5, 0, 0, 0).single().unwrap()
+        );
     }
 
     #[test]
@@ -1731,6 +1784,11 @@ temporal_rules:
     before: "PV1.10"
     after: "ORC.4"
     tolerance: "5m"
+  - id: "good-year-tolerance"
+    description: ""
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "1y"
 "#;
 
         let report = lint_profile_yaml(y);
@@ -1741,12 +1799,37 @@ temporal_rules:
             .filter_map(|issue| issue.path.as_deref())
             .collect();
 
-        // Only the malformed "5min" tolerance is flagged; the valid "5m" is not.
+        // Only malformed "5min" is flagged; both fixed and calendar-year units are valid.
         assert_eq!(
             tolerance_issues,
             vec!["temporal_rules[0].tolerance"],
             "unexpected tolerance lint issues: {report:?}"
         );
+    }
+
+    #[test]
+    fn shipped_profile_tolerances_match_runtime_grammar() {
+        for (name, yaml) in [
+            (
+                "ADT_A01",
+                include_str!("../../../../../examples/profiles/ADT_A01.yaml"),
+            ),
+            (
+                "ORU_R01",
+                include_str!("../../../../../examples/profiles/ORU_R01.yaml"),
+            ),
+        ] {
+            let report = lint_profile_yaml(yaml);
+            let tolerance_issues: Vec<_> = report
+                .issues
+                .iter()
+                .filter(|issue| issue.code == "invalid_temporal_tolerance")
+                .collect();
+            assert!(
+                tolerance_issues.is_empty(),
+                "{name} contains unsupported temporal tolerance syntax: {tolerance_issues:?}"
+            );
+        }
     }
 
     #[test]
