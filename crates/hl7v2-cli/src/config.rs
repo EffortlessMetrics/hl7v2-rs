@@ -140,7 +140,7 @@ mod tests {
         let config: Config = toml::from_str(include_str!("../../../config.example.toml"))
             .expect("config.example.toml should match Config");
 
-        assert_example_config(config);
+        assert_example_config(config, "127.0.0.1");
     }
 
     #[test]
@@ -152,7 +152,7 @@ mod tests {
 
         let config = load_config(&path).expect("TOML config should load");
 
-        assert_example_config(config);
+        assert_example_config(config, "127.0.0.1");
     }
 
     #[test]
@@ -167,11 +167,11 @@ mod tests {
 
         let config = load_config(&path).expect("YAML config should load");
 
-        assert_example_config(config);
+        assert_example_config(config, "0.0.0.0");
     }
 
-    fn assert_example_config(config: Config) {
-        assert_eq!(config.server.host, "0.0.0.0");
+    fn assert_example_config(config: Config, expected_host: &str) {
+        assert_eq!(config.server.host, expected_host);
         assert_eq!(config.server.port, 8080);
         assert_eq!(config.cli.default_version, "2.5.1");
         assert_eq!(config.cli.output_format, "text");
