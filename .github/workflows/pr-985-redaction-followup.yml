@@ -49,6 +49,9 @@ jobs:
           textwrap.dedent = rust_aware_dedent
           runpy.run_path(".github/pr-985-followup.py", run_name="__main__")
           PY
+          sed -i \
+            's/use std::collections::BTreeMap;/use std::collections::{BTreeMap, BTreeSet};/' \
+            crates/hl7v2-cli/src/evidence_bundle.rs
 
       - name: Format
         run: cargo fmt --all
