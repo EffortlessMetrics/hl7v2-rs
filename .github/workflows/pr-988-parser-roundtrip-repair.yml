@@ -39,34 +39,13 @@ jobs:
 
           segment_path = Path("crates/hl7v2/src/parser/segment.rs")
           segment = segment_path.read_text()
-          old_segment = '''    let mut fields = parse_fields(fields_str, delims).map_err(|e| Error::ParseError {
-              segment_id: String::from_utf8_lossy(&id).to_string(),
-              field_index: 0,
-              source: Box::new(e),
-          })?;
-
-          if &id == b"MSH"
-              && let Some(first_field) = fields.first_mut()
-          {
-              *first_field = msh_encoding_field(delims);
-          }
-
-          Ok(Segment { id, fields })
-          }
-
-          fn msh_encoding_field(delims: &Delims) -> Field {
-              let encoding_chars = String::from_iter([delims.comp, delims.rep, delims.esc, delims.sub]);
-
-              Field {
-                  reps: vec![Rep {
-                      comps: vec![Comp {
-                          subs: vec![Atom::Text(encoding_chars)],
-                      }],
-                  }],
-              }
-          }
-          '''
-          new_segment = '''    let fields = if is_encoding_header(&id) {
+          start_marker = "    let mut fields = parse_fields(fields_str, delims)"
+          end_marker = "\nfn parse_fields("
+          if start_marker not in segment:
+              raise SystemExit("segment parser start marker not found")
+          start = segment.index(start_marker)
+          end = segment.index(end_marker, start)
+          replacement = '''    let fields = if is_encoding_header(&id) {
               parse_encoding_header_fields(fields_str, delims)
           } else {
               parse_fields(fields_str, delims)
@@ -122,27 +101,16 @@ jobs:
               }
           }
           '''
-          if segment.count(old_segment) != 1:
-              raise SystemExit(f"segment parser block: expected 1 match, found {segment.count(old_segment)}")
-          segment_path.write_text(segment.replace(old_segment, new_segment, 1))
+          segment_path.write_text(segment[:start] + replacement + segment[end:])
 
           batch_path = Path("crates/hl7v2/src/parser/batch.rs")
           batch = batch_path.read_text()
-          old_batch_header = '''fn parse_batch_with_header(source: &str, lines: &[SegmentLine<'_>]) -> Result<Batch, Error> {
-              if !lines
-                  .first()
-                  .is_some_and(|line| line.text.starts_with("BHS"))
-              {
-                  return Err(Error::InvalidBatchHeader {
-                      details: "Batch must start with BHS segment".to_string(),
-                  });
-              }
 
-              let delims = find_and_parse_delimiters(lines).map_err(|e| Error::BatchParseError {
-                  details: format!("Failed to parse delimiters: {}", e),
-              })?;
-          '''
-          new_batch_header = '''fn parse_batch_with_header(source: &str, lines: &[SegmentLine<'_>]) -> Result<Batch, Error> {
+          batch_start = batch.index(
+              "fn parse_batch_with_header(source: &str, lines: &[SegmentLine<'_>]) -> Result<Batch, Error> {"
+          )
+          batch_end = batch.index("\n    let mut header", batch_start)
+          batch_prefix = '''fn parse_batch_with_header(source: &str, lines: &[SegmentLine<'_>]) -> Result<Batch, Error> {
               let Some(first_line) = lines.first() else {
                   return Err(Error::InvalidBatchHeader {
                       details: "Batch must start with BHS segment".to_string(),
@@ -161,24 +129,15 @@ jobs:
                   details: format!("Failed to parse BHS delimiters: {}", e),
               })?;
           '''
-          if batch.count(old_batch_header) != 1:
-              raise SystemExit(f"batch header block: expected 1 match, found {batch.count(old_batch_header)}")
-          batch = batch.replace(old_batch_header, new_batch_header, 1)
+          batch = batch[:batch_start] + batch_prefix + batch[batch_end:]
 
-          old_file_header = '''    if !lines
-                  .first()
-                  .is_some_and(|line| line.text.starts_with("FHS"))
-              {
-                  return Err(Error::InvalidBatchHeader {
-                      details: "File batch must start with FHS segment".to_string(),
-                  });
-              }
-
-              let delims = find_and_parse_delimiters(lines).map_err(|e| Error::BatchParseError {
-                  details: format!("Failed to parse delimiters: {}", e),
-              })?;
-          '''
-          new_file_header = '''    let Some(first_line) = lines.first() else {
+          file_start = batch.index("fn parse_file_batch_with_header(")
+          file_end = batch.index("\n    let mut header", file_start)
+          file_prefix = '''fn parse_file_batch_with_header(
+              source: &str,
+              lines: &[SegmentLine<'_>],
+          ) -> Result<FileBatch, Error> {
+              let Some(first_line) = lines.first() else {
                   return Err(Error::InvalidBatchHeader {
                       details: "File batch must start with FHS segment".to_string(),
                   });
@@ -190,40 +149,26 @@ jobs:
               }
 
               // FHS-1/FHS-2 are authoritative for the file envelope. Nested
-              // BHS headers carry the same declaration and can therefore parse
+              // BHS headers declare their own batch envelope and therefore parse
               // even when a leading batch contains no messages.
               let delims = Delims::parse_from_msh(first_line.text).map_err(|e| Error::BatchParseError {
                   details: format!("Failed to parse FHS delimiters: {}", e),
               })?;
           '''
-          if batch.count(old_file_header) != 1:
-              raise SystemExit(f"file header block: expected 1 match, found {batch.count(old_file_header)}")
-          batch = batch.replace(old_file_header, new_file_header, 1)
+          batch = batch[:file_start] + file_prefix + batch[file_end:]
 
-          obsolete_finder = '''fn find_and_parse_delimiters(lines: &[SegmentLine<'_>]) -> Result<Delims, Error> {
-              for line in lines {
-                  if line.text.starts_with("MSH") {
-                      return Delims::parse_from_msh(line.text);
-                  }
-              }
-              Ok(Delims::default())
-          }
-
-          '''
-          if batch.count(obsolete_finder) != 1:
-              raise SystemExit(f"obsolete delimiter finder: expected 1 match, found {batch.count(obsolete_finder)}")
-          batch_path.write_text(batch.replace(obsolete_finder, "", 1))
+          finder_start = batch.index("fn find_and_parse_delimiters(")
+          finder_end = batch.index("fn segment_window", finder_start)
+          batch_path.write_text(batch[:finder_start] + batch[finder_end:])
 
           tests_path = Path("crates/hl7v2/src/writer/tests.rs")
           tests = tests_path.read_text()
-          marker = '''    assert_eq!(lines[6], "FTS!2");
-          }
-          '''
-          additions = r'''    assert_eq!(lines[6], "FTS!2");
-          }
+          if "fn test_write_then_parse_batch_round_trips_encoding_header()" in tests:
+              raise SystemExit("round-trip tests already present")
+          tests += r'''
 
           #[test]
-          fn test_write_then_parse_batch_round_trips_encoding_header() {
+          fn test_write_then_parse_batch_round_trips_encoding_header() -> Result<(), crate::model::Error> {
               let batch = Batch {
                   header: Some(Segment {
                       id: *b"BHS",
@@ -244,7 +189,7 @@ jobs:
               };
 
               let bytes = write_batch(&batch);
-              let parsed = crate::parser::parse_batch(&bytes).unwrap();
+              let parsed = crate::parser::parse_batch(&bytes)?;
 
               assert_eq!(
                   parsed
@@ -256,10 +201,12 @@ jobs:
               );
               assert_eq!(parsed.messages.len(), 1);
               assert_eq!(parsed.messages[0].delims, Delims::default());
+              Ok(())
           }
 
           #[test]
-          fn test_write_then_parse_file_batch_round_trips_custom_envelope() {
+          fn test_write_then_parse_file_batch_round_trips_custom_envelope(
+          ) -> Result<(), crate::model::Error> {
               let delims = Delims {
                   field: '!',
                   comp: '*',
@@ -313,7 +260,7 @@ jobs:
               };
 
               let bytes = write_file_batch(&file_batch);
-              let parsed = crate::parser::parse_file_batch(&bytes).unwrap();
+              let parsed = crate::parser::parse_file_batch(&bytes)?;
 
               assert_eq!(
                   parsed
@@ -334,11 +281,10 @@ jobs:
                       .and_then(Field::first_text),
                   Some("*~\\&")
               );
+              Ok(())
           }
           '''
-          if tests.count(marker) != 1:
-              raise SystemExit(f"writer test insertion marker: expected 1 match, found {tests.count(marker)}")
-          tests_path.write_text(tests.replace(marker, additions, 1))
+          tests_path.write_text(tests)
           PY
           cargo fmt --all
 
