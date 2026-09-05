@@ -31,11 +31,324 @@ jobs:
           toolchain: 1.95.0
           components: rustfmt, clippy
 
-      - name: Apply accepted swarm semantic change
+      - name: Adapt the accepted invariant to the current writer
+        shell: bash
         run: |
-          git remote add swarm https://github.com/EffortlessMetrics/hl7v2-rs-swarm.git
-          git fetch --no-tags swarm e07e42e5a429337fe2541f97cdccb631358c2185
-          git cherry-pick e07e42e5a429337fe2541f97cdccb631358c2185
+          python - <<'PY'
+          from pathlib import Path
+
+          mod_path = Path("crates/hl7v2/src/writer/mod.rs")
+          text = mod_path.read_text()
+
+          replacements = {
+              "buf.push(msg.delims.field as u8);": "push_delim(buf, msg.delims.field);",
+              "buf.push(msg.delims.comp as u8);": "push_delim(buf, msg.delims.comp);",
+              "buf.push(msg.delims.rep as u8);": "push_delim(buf, msg.delims.rep);",
+              "buf.push(msg.delims.esc as u8);": "push_delim(buf, msg.delims.esc);",
+              "buf.push(msg.delims.sub as u8);": "push_delim(buf, msg.delims.sub);",
+              "result.push(delims.field as u8);": "push_delim(result, delims.field);",
+              "output.push(delims.rep as u8);": "push_delim(output, delims.rep);",
+              "output.push(delims.comp as u8);": "push_delim(output, delims.comp);",
+              "output.push(delims.sub as u8);": "push_delim(output, delims.sub);",
+              "output.push(delims.field as u8);": "push_delim(output, delims.field);",
+          }
+          expected_counts = {
+              "buf.push(msg.delims.field as u8);": 3,
+              "buf.push(msg.delims.comp as u8);": 1,
+              "buf.push(msg.delims.rep as u8);": 1,
+              "buf.push(msg.delims.esc as u8);": 1,
+              "buf.push(msg.delims.sub as u8);": 1,
+              "result.push(delims.field as u8);": 4,
+              "output.push(delims.rep as u8);": 1,
+              "output.push(delims.comp as u8);": 1,
+              "output.push(delims.sub as u8);": 1,
+              "output.push(delims.field as u8);": 1,
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != expected_counts[old]:
+                  raise SystemExit(f"{old}: expected {expected_counts[old]}, found {count}")
+              text = text.replace(old, new)
+
+          marker = "fn message_capacity(msg: &Message) -> usize {"
+          helper = '''/// Append a delimiter character's UTF-8 bytes without truncating its code point.\nfn push_delim(output: &mut Vec<u8>, delimiter: char) {\n    let mut encoded = [0_u8; 4];\n    output.extend_from_slice(delimiter.encode_utf8(&mut encoded).as_bytes());\n}\n\n'''
+          if text.count(marker) != 1:
+              raise SystemExit("message_capacity marker did not match exactly once")
+          text = text.replace(marker, helper + marker, 1)
+
+          old_segment = '''fn segment_capacity(segment: &Segment, delims: &Delims, is_msh: bool) -> usize {
+    let mut capacity = segment.id.len();
+    if is_msh {
+        capacity = capacity.saturating_add(5);
+        for field in segment.fields.iter().skip(1) {
+            capacity = capacity
+                .saturating_add(1)
+                .saturating_add(field_capacity(field, delims));
+        }
+    } else {
+        for field in &segment.fields {
+            capacity = capacity
+                .saturating_add(1)
+                .saturating_add(field_capacity(field, delims));
+        }
+    }
+    capacity.saturating_add(1)
+}
+'''
+          new_segment = '''fn segment_capacity(segment: &Segment, delims: &Delims, is_msh: bool) -> usize {
+    let mut capacity = segment.id.len();
+    if is_msh {
+        capacity = capacity
+            .saturating_add(delims.field.len_utf8())
+            .saturating_add(delims.comp.len_utf8())
+            .saturating_add(delims.rep.len_utf8())
+            .saturating_add(delims.esc.len_utf8())
+            .saturating_add(delims.sub.len_utf8());
+        for field in segment.fields.iter().skip(1) {
+            capacity = capacity
+                .saturating_add(delims.field.len_utf8())
+                .saturating_add(field_capacity(field, delims));
+        }
+    } else {
+        for field in &segment.fields {
+            capacity = capacity
+                .saturating_add(delims.field.len_utf8())
+                .saturating_add(field_capacity(field, delims));
+        }
+    }
+    capacity.saturating_add(1)
+}
+'''
+          old_fields = '''fn segment_fields_capacity(segment: &Segment, delims: &Delims) -> usize {
+    let fields_capacity =
+        segment
+            .fields
+            .iter()
+            .enumerate()
+            .fold(0usize, |capacity, (index, field)| {
+                capacity
+                    .saturating_add(if index > 0 { 1 } else { 0 })
+                    .saturating_add(field_capacity(field, delims))
+            });
+    segment
+        .id
+        .len()
+        .saturating_add(1)
+        .saturating_add(fields_capacity)
+        .saturating_add(1)
+}
+'''
+          new_fields = '''fn segment_fields_capacity(segment: &Segment, delims: &Delims) -> usize {
+    let fields_capacity =
+        segment
+            .fields
+            .iter()
+            .enumerate()
+            .fold(0usize, |capacity, (index, field)| {
+                capacity
+                    .saturating_add(if index > 0 {
+                        delims.field.len_utf8()
+                    } else {
+                        0
+                    })
+                    .saturating_add(field_capacity(field, delims))
+            });
+    segment
+        .id
+        .len()
+        .saturating_add(delims.field.len_utf8())
+        .saturating_add(fields_capacity)
+        .saturating_add(1)
+}
+'''
+          old_field = '''fn field_capacity(field: &Field, delims: &Delims) -> usize {
+    field
+        .reps
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, repetition)| {
+            capacity
+                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(rep_capacity(repetition, delims))
+        })
+}
+'''
+          new_field = '''fn field_capacity(field: &Field, delims: &Delims) -> usize {
+    field
+        .reps
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, repetition)| {
+            capacity
+                .saturating_add(if index > 0 { delims.rep.len_utf8() } else { 0 })
+                .saturating_add(rep_capacity(repetition, delims))
+        })
+}
+'''
+          old_rep = '''fn rep_capacity(rep: &Rep, delims: &Delims) -> usize {
+    rep.comps
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, component)| {
+            capacity
+                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(comp_capacity(component, delims))
+        })
+}
+'''
+          new_rep = '''fn rep_capacity(rep: &Rep, delims: &Delims) -> usize {
+    rep.comps
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, component)| {
+            capacity
+                .saturating_add(if index > 0 {
+                    delims.comp.len_utf8()
+                } else {
+                    0
+                })
+                .saturating_add(comp_capacity(component, delims))
+        })
+}
+'''
+          old_comp = '''fn comp_capacity(comp: &Comp, delims: &Delims) -> usize {
+    comp.subs
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, atom)| {
+            capacity
+                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(atom_capacity(atom, delims))
+        })
+}
+'''
+          new_comp = '''fn comp_capacity(comp: &Comp, delims: &Delims) -> usize {
+    comp.subs
+        .iter()
+        .enumerate()
+        .fold(0usize, |capacity, (index, atom)| {
+            capacity
+                .saturating_add(if index > 0 { delims.sub.len_utf8() } else { 0 })
+                .saturating_add(atom_capacity(atom, delims))
+        })
+}
+'''
+          for old, new, label in (
+              (old_segment, new_segment, "segment capacity"),
+              (old_fields, new_fields, "segment fields capacity"),
+              (old_field, new_field, "field capacity"),
+              (old_rep, new_rep, "repetition capacity"),
+              (old_comp, new_comp, "component capacity"),
+          ):
+              if text.count(old) != 1:
+                  raise SystemExit(f"{label} did not match exactly once")
+              text = text.replace(old, new, 1)
+
+          if " as u8" in text:
+              raise SystemExit("writer still contains a truncating char-to-byte cast")
+          mod_path.write_text(text)
+
+          tests_path = Path("crates/hl7v2/src/writer/tests.rs")
+          tests = tests_path.read_text()
+          test_block = r'''
+
+#[test]
+fn test_write_non_ascii_delimiters_are_utf8_encoded() {
+    let delims = Delims {
+        field: 'あ',
+        comp: '界',
+        rep: 'Ж',
+        esc: '§',
+        sub: 'ß',
+    };
+    let message = Message {
+        delims,
+        segments: vec![
+            Segment {
+                id: *b"MSH",
+                fields: vec![Field::from_text("ignored"), Field::from_text("APP")],
+            },
+            Segment {
+                id: *b"PID",
+                fields: vec![
+                    Field {
+                        reps: vec![
+                            Rep {
+                                comps: vec![
+                                    Comp {
+                                        subs: vec![Atom::text("alpha"), Atom::text("beta")],
+                                    },
+                                    Comp::from_text("gamma"),
+                                ],
+                            },
+                            Rep::from_text("delta"),
+                        ],
+                    },
+                    Field::from_text("xあy"),
+                ],
+            },
+        ],
+        charsets: vec![],
+    };
+
+    let text = String::from_utf8(write(&message)).unwrap();
+
+    assert_eq!(
+        text,
+        "MSHあ界Ж§ßあAPP\rPIDあalphaßbeta界gammaЖdeltaあx§F§y\r"
+    );
+}
+
+#[test]
+fn test_batch_and_file_writers_use_utf8_field_delimiters() {
+    let delims = Delims {
+        field: 'あ',
+        ..Delims::default()
+    };
+    let message = Message {
+        delims,
+        segments: vec![Segment {
+            id: *b"PID",
+            fields: vec![Field::from_text("1"), Field::from_text("2")],
+        }],
+        charsets: vec![],
+    };
+    let batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![Field::from_text("ENC"), Field::from_text("APP")],
+        }),
+        messages: vec![message],
+        trailer: Some(Segment {
+            id: *b"BTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
+    let batch_text = String::from_utf8(write_batch(&batch)).unwrap();
+    assert_eq!(batch_text, "BHSあENCあAPP\rPIDあ1あ2\rBTSあ1\r");
+
+    let file_batch = FileBatch {
+        header: Some(Segment {
+            id: *b"FHS",
+            fields: vec![Field::from_text("ENC")],
+        }),
+        batches: vec![batch],
+        trailer: Some(Segment {
+            id: *b"FTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
+    let file_text = String::from_utf8(write_file_batch(&file_batch)).unwrap();
+    assert_eq!(
+        file_text,
+        "FHSあENC\rBHSあENCあAPP\rPIDあ1あ2\rBTSあ1\rFTSあ1\r"
+    );
+}
+'''
+          if "test_write_non_ascii_delimiters_are_utf8_encoded" in tests:
+              raise SystemExit("UTF-8 writer tests already exist")
+          tests_path.write_text(tests.rstrip() + test_block + "\n")
+          PY
           cargo fmt --all
 
       - name: Verify writer behavior
@@ -53,6 +366,6 @@ jobs:
           git config user.name "EffortlessSteven"
           git config user.email "git@effortlesssteven.com"
           git rm .github/workflows/writer-utf8-promotion.yml
-          git reset --soft origin/main
+          git add crates/hl7v2/src/writer/mod.rs crates/hl7v2/src/writer/tests.rs
           git commit -m "fix(writer): encode delimiters without truncation"
-          git push --force-with-lease "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
