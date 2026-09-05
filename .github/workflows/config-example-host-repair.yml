@@ -53,17 +53,25 @@ jobs:
               '        assert_example_config(config, "0.0.0.0");',
               1,
           )
+
           old_signature = "    fn assert_example_config(config: Config) {"
           new_signature = "    fn assert_example_config(config: Config, expected_host: &str) {"
+          if text.count(old_signature) != 1:
+              raise SystemExit(
+                  f"helper signature: expected one occurrence, found {text.count(old_signature)}"
+              )
+          text = text.replace(old_signature, new_signature, 1)
+
           old_assertion = '        assert_eq!(config.server.host, "0.0.0.0");'
-          new_assertion = "        assert_eq!(config.server.host, expected_host);"
-          for old, new, label in (
-              (old_signature, new_signature, "helper signature"),
-              (old_assertion, new_assertion, "host assertion"),
-          ):
-              if text.count(old) != 1:
-                  raise SystemExit(f"{label}: expected one occurrence, found {text.count(old)}")
-              text = text.replace(old, new, 1)
+          helper_start = text.index(new_signature)
+          assertion_start = text.find(old_assertion, helper_start)
+          if assertion_start < 0:
+              raise SystemExit("shared helper host assertion was not found after its signature")
+          text = (
+              text[:assertion_start]
+              + "        assert_eq!(config.server.host, expected_host);"
+              + text[assertion_start + len(old_assertion):]
+          )
           path.write_text(text)
           PY
           cargo fmt --all
