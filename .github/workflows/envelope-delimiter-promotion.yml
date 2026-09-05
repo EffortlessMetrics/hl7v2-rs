@@ -27,7 +27,18 @@ jobs:
           toolchain: 1.95.0
           components: rustfmt, clippy
       - name: Apply deterministic source patch
-        run: python .github/envelope_delimiter_promotion.py
+        run: |
+          python .github/envelope_delimiter_promotion.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("crates/hl7v2/src/writer/mod.rs")
+          text = path.read_text()
+          old = "Vec::with_capacity(batch_capacity_with_delims(batch, &delims))"
+          new = "Vec::with_capacity(batch_capacity(batch))"
+          if text.count(old) != 1:
+              raise SystemExit(f"expected one standalone batch capacity call, found {text.count(old)}")
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Format
         run: cargo fmt --all
       - name: Verify envelope writer behavior
