@@ -47,9 +47,7 @@ jobs:
           PY
           cargo update -p lru
           cargo update -p h2
-          cargo update -p rand
-          cargo update -p rand_chacha
-          cargo update -p chacha20
+          cargo update -p chacha20@0.10.1 --precise 0.10.0
           cargo fmt --all
 
       - name: Install security tools
