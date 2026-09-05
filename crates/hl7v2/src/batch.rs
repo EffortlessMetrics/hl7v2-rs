@@ -99,9 +99,9 @@ pub struct BatchInfo {
     pub file_creation_time: Option<String>,
     /// Security (from FHS-8)
     pub security: Option<String>,
-    /// Batch name/ID (from FHS/BHS-10)
+    /// Batch name/ID/type (from BHS-9 / FHS-9)
     pub batch_name: Option<String>,
-    /// Batch comment (from FHS/BHS-11)
+    /// Batch comment (from BHS-10 / FHS-10)
     pub batch_comment: Option<String>,
     /// Number of messages (from BTS-1 or FTS-1)
     pub message_count: Option<usize>,
@@ -646,9 +646,9 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
     // fields[4] = Receiving Facility (BHS-6 / FHS-6)
     // fields[5] = Date/Time (BHS-7 / FHS-7)
     // fields[6] = Security (BHS-8 / FHS-8)
-    // fields[7] = (BHS-9 / FHS-9 — unused)
-    // fields[8] = Name/ID (BHS-10 / FHS-10)
-    // fields[9] = Batch Comment (BHS-11 / FHS-11)
+    // fields[7] = Batch Name/ID/Type (BHS-9 / FHS-9)
+    // fields[8] = Batch Comment (BHS-10 / FHS-10)
+    // fields[9] = Batch Control ID (BHS-11 / FHS-11 — unused)
     if let Some(encoding_characters) = fields.first() {
         info.encoding_characters = Some((*encoding_characters).to_string());
     }
@@ -673,10 +673,10 @@ fn extract_batch_info(line: &str, segment_type: &str) -> Result<BatchInfo, Batch
     if let Some(security) = fields.get(6) {
         info.security = Some((*security).to_string());
     }
-    if let Some(batch_name) = fields.get(8) {
+    if let Some(batch_name) = fields.get(7) {
         info.batch_name = Some((*batch_name).to_string());
     }
-    if let Some(batch_comment) = fields.get(9) {
+    if let Some(batch_comment) = fields.get(8) {
         info.batch_comment = Some((*batch_comment).to_string());
     }
 
@@ -761,7 +761,7 @@ mod tests {
     fn parse_single_batch_preserves_header_and_trailer_metadata()
     -> Result<(), Box<dyn std::error::Error>> {
         let data = format!(
-            "BHS*:+\\&*SEND*SFAC*RECV*RFAC*202605030101*SEC**BATCH42*Nightly import\r{}\rBTS*1*done\r",
+            // BHS-9 = Batch Name, BHS-10 = Comment, BHS-11 = Control ID.\n            "BHS*:+\\&*SEND*SFAC*RECV*RFAC*202605030101*SEC*BATCH42*Nightly import*CTRLID\r{}\rBTS*1*done\r",
             message("CTRL1")
         );
         let batch = parse_batch(data.as_bytes())?;
