@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+# One-shot branch repair; this workflow deletes itself after a successful repair.
 name: PR 986 lint repair
 
 on:
