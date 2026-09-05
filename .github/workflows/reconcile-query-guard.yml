@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   apply:
-    if: github.event.head_commit.message == 'chore(reconciliation): stage query guard patch runner'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
