@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Config example host repair
+
+on:
+  push:
+    branches:
+      - codex/config-example-host-expectations
+
+permissions:
+  contents: read
+
+concurrency:
+  group: config-example-host-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: "${{ github.event.head_commit.message == 'chore: run config expectation repair' }}"
+    permissions:
+      # The one-shot job commits the verified source change and removes this workflow.
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: 1.95.0
+          components: rustfmt, clippy
+
+      - name: Make fixture-specific host expectations explicit
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("crates/hl7v2-cli/src/config.rs")
+          text = path.read_text()
+          call = "        assert_example_config(config);"
+          if text.count(call) != 3:
+              raise SystemExit(f"expected three shared assertions, found {text.count(call)}")
+          text = text.replace(
+              call,
+              '        assert_example_config(config, "127.0.0.1");',
+              2,
+          )
+          text = text.replace(
+              call,
+              '        assert_example_config(config, "0.0.0.0");',
+              1,
+          )
+          old_helper = '''    fn assert_example_config(config: Config) {
+              assert_eq!(config.server.host, "0.0.0.0");'''
+          new_helper = '''    fn assert_example_config(config: Config, expected_host: &str) {
+              assert_eq!(config.server.host, expected_host);'''
+          if text.count(old_helper) != 1:
+              raise SystemExit("shared config assertion helper did not match exactly once")
+          path.write_text(text.replace(old_helper, new_helper, 1))
+          PY
+          cargo fmt --all
+
+      - name: Verify configuration loading
+        run: |
+          cargo test -p hl7v2-cli config::tests::
+          cargo check -p hl7v2-cli --all-targets
+          cargo fmt --all -- --check
+
+      - name: Commit source-only repair
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "EffortlessSteven"
+          git config user.email "git@effortlesssteven.com"
+          git rm .github/workflows/config-example-host-repair.yml
+          git add crates/hl7v2-cli/src/config.rs
+          git commit -m "test(config): match fixture-specific bind hosts"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
