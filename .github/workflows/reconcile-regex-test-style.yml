@@ -1,0 +1,99 @@
+name: Reconcile regex test style
+
+on:
+  push:
+    branches:
+      - codex/977-regex-fallback
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Return regression failures without assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path("crates/hl7v2/src/conformance/profile/tests.rs")
+          text = path.read_text(encoding="utf-8")
+          old = '''        assert_eq!(
+                      problems.len(),
+                      1,
+                      "invalid-regex custom rule must not be silently dropped: {problems:?}"
+                  );
+                  assert_eq!(problems[0].code, "CUSTOM_RULE_VIOLATION");
+                  assert_eq!(problems[0].path.as_deref(), Some("OBX.8"));
+                  Ok(())
+          '''
+          new = '''        if problems.len() != 1 {
+                      return Err(std::io::Error::other(
+                          "invalid-regex custom rule was silently dropped or duplicated",
+                      )
+                      .into());
+                  }
+                  let Some(problem) = problems.first() else {
+                      return Err(std::io::Error::other(
+                          "invalid-regex custom rule produced no violation",
+                      )
+                      .into());
+                  };
+                  if problem.code != "CUSTOM_RULE_VIOLATION" {
+                      return Err(std::io::Error::other(
+                          "invalid-regex fallback produced the wrong issue code",
+                      )
+                      .into());
+                  }
+                  if problem.path.as_deref() != Some("OBX.8") {
+                      return Err(std::io::Error::other(
+                          "invalid-regex fallback reported the wrong field path",
+                      )
+                      .into());
+                  }
+                  Ok(())
+          '''
+          if text.count(old) != 1:
+              raise SystemExit("expected one invalid-regex assertion block")
+          text = text.replace(old, new, 1)
+
+          old = '''        assert!(
+                      issues
+                          .iter()
+                          .all(|issue| issue.code != "CUSTOM_RULE_VIOLATION"),
+                      "malformed regex rule should be skipped: {issues:?}"
+                  );
+                  Ok(())
+          '''
+          new = '''        if issues
+                      .iter()
+                      .any(|issue| issue.code == "CUSTOM_RULE_VIOLATION")
+                  {
+                      return Err(std::io::Error::other(
+                          "malformed regex rule should be skipped without a violation",
+                      )
+                      .into());
+                  }
+                  Ok(())
+          '''
+          if text.count(old) != 1:
+              raise SystemExit("expected one degenerate-regex assertion block")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+          cargo fmt --all
+          rm .github/workflows/reconcile-regex-test-style.yml
+          git config user.name EffortlessSteven
+          git config user.email git@effortlesssteven.com
+          git add crates/hl7v2/src/conformance/profile/tests.rs .github/workflows/reconcile-regex-test-style.yml
+          git diff --cached --check
+          git commit -m "test(profile): return regex fallback failures"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
