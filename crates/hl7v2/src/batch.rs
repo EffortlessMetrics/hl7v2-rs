@@ -761,7 +761,8 @@ mod tests {
     fn parse_single_batch_preserves_header_and_trailer_metadata()
     -> Result<(), Box<dyn std::error::Error>> {
         let data = format!(
-            // BHS-9 = Batch Name, BHS-10 = Comment, BHS-11 = Control ID.\n            "BHS*:+\\&*SEND*SFAC*RECV*RFAC*202605030101*SEC*BATCH42*Nightly import*CTRLID\r{}\rBTS*1*done\r",
+            // BHS-9 = Batch Name, BHS-10 = Comment, BHS-11 = Control ID.
+            "BHS*:+\\&*SEND*SFAC*RECV*RFAC*202605030101*SEC*BATCH42*Nightly import*CTRLID\r{}\rBTS*1*done\r",
             message("CTRL1")
         );
         let batch = parse_batch(data.as_bytes())?;
