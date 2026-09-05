@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# One-shot branch helper. The successful product commit removes this workflow.
+name: Clean envelope delimiter promotion
+
+on:
+  push:
+    branches:
+      - codex/977-envelope-delimiters-clean
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    if: "${{ github.event.head_commit.message == 'chore: run clean envelope delimiter promotion' }}"
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: 1.95.0
+          components: rustfmt, clippy
+      - name: Apply only the semantic writer diff
+        run: |
+          git diff --ignore-space-at-eol \
+            origin/main origin/codex/977-envelope-delimiters \
+            -- crates/hl7v2/src/writer/mod.rs crates/hl7v2/src/writer/tests.rs \
+            > /tmp/envelope-writer.patch
+          test -s /tmp/envelope-writer.patch
+          git apply --ignore-space-change --whitespace=nowarn /tmp/envelope-writer.patch
+          git diff --check
+          read additions deletions < <(git diff --numstat -- \
+            crates/hl7v2/src/writer/mod.rs crates/hl7v2/src/writer/tests.rs | \
+            awk '{a += $1; d += $2} END {print a + 0, d + 0}')
+          echo "semantic diff: +${additions} -${deletions}"
+          test "$additions" -le 260
+          test "$deletions" -le 180
+      - name: Verify the writer contract
+        run: |
+          cargo test -p hl7v2 --lib writer::tests::test_write_batch_preserves_bhs_encoding_characters
+          cargo test -p hl7v2 --lib writer::tests::test_write_file_batch_preserves_fhs_and_bhs_encoding_characters
+          cargo test -p hl7v2 --lib writer::tests::test_write_batch_header_encoding_characters_follow_delims
+          cargo test -p hl7v2 --lib writer::tests::test_write_file_batch_declares_one_delimiter_set_for_every_envelope
+          cargo test -p hl7v2 --lib writer
+          cargo check -p hl7v2 --all-targets --all-features
+          cargo clippy -p hl7v2 --all-targets --all-features -- -D warnings
+          cargo fmt --all -- --check
+      - name: Commit the source-only change
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "EffortlessSteven"
+          git config user.email "git@effortlesssteven.com"
+          git rm .github/workflows/envelope-delimiter-clean-promotion.yml
+          git add crates/hl7v2/src/writer/mod.rs crates/hl7v2/src/writer/tests.rs
+          git commit -m "fix(writer): keep batch envelope delimiters authoritative"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
