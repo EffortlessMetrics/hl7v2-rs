@@ -1032,6 +1032,79 @@ OBX|1|ST|FLAG^Flag||text|unit|range|{value}|||F\r"
     }
 
     #[test]
+    fn test_custom_rule_matches_regex_fallback_is_not_silently_dropped()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let y = r#"
+    message_structure: "oru_regex_fallback"
+    version: "2.5.1"
+    segments:
+      - id: "OBX"
+    custom_rules:
+      - id: "regex-fallback"
+        description: ""
+        script: "field(OBX.8).matches_regex('[bad')"
+    "#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\rOBX|1|ST|FLAG^Flag||text|unit|range|hello|||F\r",
+        )?;
+        let profile: Profile = load_profile(y)?;
+        let problems = validate(&msg, &profile);
+
+        if problems.len() != 1 {
+            return Err(std::io::Error::other(
+                "invalid-regex custom rule was silently dropped or duplicated",
+            )
+            .into());
+        }
+        let Some(problem) = problems.first() else {
+            return Err(
+                std::io::Error::other("invalid-regex custom rule produced no violation").into(),
+            );
+        };
+        if problem.code != "CUSTOM_RULE_VIOLATION" {
+            return Err(std::io::Error::other(
+                "invalid-regex fallback produced the wrong issue code",
+            )
+            .into());
+        }
+        if problem.path.as_deref() != Some("OBX.8") {
+            return Err(std::io::Error::other(
+                "invalid-regex fallback reported the wrong field path",
+            )
+            .into());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn custom_rule_matches_regex_degenerate_pattern_does_not_panic()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use super::super::CustomRule;
+
+        let msg = parse(adt_a01_msg().as_bytes())?;
+        let profile = Profile {
+            custom_rules: vec![CustomRule {
+                id: "degenerate".to_string(),
+                description: String::new(),
+                script: "field(PID.5).matches_regex(')".to_string(),
+            }],
+            ..Profile::default()
+        };
+
+        let issues = validate(&msg, &profile);
+        if issues
+            .iter()
+            .any(|issue| issue.code == "CUSTOM_RULE_VIOLATION")
+        {
+            return Err(std::io::Error::other(
+                "malformed regex rule should be skipped without a violation",
+            )
+            .into());
+        }
+        Ok(())
+    }
+
+    #[test]
     fn test_custom_rule_field_equality_checks_later_repetitions() {
         let y = r#"
 message_structure: "oru_custom_pair_repetitions"
