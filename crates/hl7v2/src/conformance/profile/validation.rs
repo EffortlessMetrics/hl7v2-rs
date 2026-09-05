@@ -950,8 +950,59 @@ fn validate_hl7_table(msg: &Message, table: &HL7Table, profile: &Profile, issues
     }
 }
 
+/// Parse a temporal tolerance string such as `30s`, `5m`, `2h`, or `1d` into a
+/// [`chrono::Duration`].
+///
+/// The accepted grammar is a non-negative integer followed by a single-character
+/// unit suffix (`s`econds, `m`inutes, `h`ours, `d`ays). Returns `None` for
+/// empty, negative, non-numeric, unknown-unit, or overflowing values so callers
+/// can decide how to treat a malformed value.
+pub(super) fn parse_tolerance(raw: &str) -> Option<chrono::Duration> {
+    // Split off the final *character* (not byte) so a multi-byte unit such as
+    // "5€" cannot land mid-codepoint and panic in a byte-indexed split.
+    let mut chars = raw.trim().chars();
+    let unit = chars.next_back()?;
+    let amount: i64 = chars.as_str().parse().ok()?;
+    if amount < 0 {
+        return None;
+    }
+    match unit {
+        's' => chrono::Duration::try_seconds(amount),
+        'm' => chrono::Duration::try_minutes(amount),
+        'h' => chrono::Duration::try_hours(amount),
+        'd' => chrono::Duration::try_days(amount),
+        _ => None,
+    }
+}
+
 /// Validate temporal rule (date/time relationships)
 fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<Issue>) {
+    // A configured tolerance widens the allowed window: `before` may be up to
+    // `tolerance` later than `after` (for example, to absorb clock skew between
+    // two feeds) and still be considered compliant. A malformed tolerance is
+    // treated as zero here; `lint_temporal_rule` surfaces the bad value at
+    // authoring time so it is not silently ignored.
+    let tolerance = rule
+        .tolerance
+        .as_deref()
+        .and_then(parse_tolerance)
+        .unwrap_or_else(chrono::Duration::zero);
+
+    // Is this ordered pair a violation? A reverse delta up to and *including*
+    // the tolerance is compliant; `allow_equal` governs only exact equality at
+    // `after` (the zero-delta baseline), independent of the tolerance window.
+    // Shared by the search predicate and the final check so the two cannot
+    // drift. If adding the tolerance would overflow the calendar, the deadline
+    // is clamped to the maximum representable instant so the full tolerance is
+    // preserved rather than silently dropped.
+    let violates = |before_time: chrono::DateTime<chrono::Utc>,
+                    after_time: chrono::DateTime<chrono::Utc>| {
+        let deadline = after_time
+            .checked_add_signed(tolerance)
+            .unwrap_or(chrono::DateTime::<chrono::Utc>::MAX_UTC);
+        before_time > deadline || (!rule.allow_equal && before_time == after_time)
+    };
+
     if let Some((before_value, after_value)) = first_condition_pair_matching(
         msg,
         &rule.before,
@@ -963,11 +1014,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
                 return true;
             };
 
-            if rule.allow_equal {
-                before_time > after_time
-            } else {
-                before_time >= after_time
-            }
+            violates(before_time, after_time)
         },
     ) {
         let (Some(before_time), Some(after_time)) =
@@ -984,13 +1031,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
             return;
         };
 
-        let is_valid = if rule.allow_equal {
-            before_time <= after_time
-        } else {
-            before_time < after_time
-        };
-
-        if !is_valid {
+        if violates(before_time, after_time) {
             issues.push(Issue::error(
                 "TEMPORAL_RULE_VIOLATION",
                 Some(rule.before.clone()),
