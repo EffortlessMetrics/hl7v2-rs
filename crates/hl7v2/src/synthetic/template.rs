@@ -216,10 +216,13 @@ fn generate_segment(
             fields.push(field);
         }
     } else {
-        // For other segments, process all fields
+        // For other segments, process all fields. `field_templates` holds the
+        // fields after the segment ID, so offset 0 is field 1 (for example,
+        // PID-1). MSH is different because MSH-1 is the field separator and
+        // MSH-2 is emitted separately above.
         for (offset, field_template) in field_templates.iter().enumerate() {
             let field_number = offset
-                .checked_add(2)
+                .checked_add(1)
                 .ok_or_else(|| Error::InvalidFieldFormat {
                     details: "field number overflow".to_string(),
                 })?;
@@ -621,4 +624,37 @@ pub fn create_manifest(
     }
 
     manifest
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Template, ValueSource, generate};
+    use std::collections::HashMap;
+
+    #[test]
+    fn value_source_maps_to_named_non_msh_field() -> Result<(), Box<dyn std::error::Error>> {
+        let mut values: HashMap<String, Vec<ValueSource>> = HashMap::new();
+        values.insert(
+            "PID.3".to_string(),
+            vec![ValueSource::Fixed("MRNVAL".to_string())],
+        );
+        let template = Template {
+            name: "regression".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|APP".to_string(),
+                "PID|1||ORIGMRN||Doe^John".to_string(),
+            ],
+            values,
+        };
+
+        let messages = generate(&template, 42, 1)?;
+        let msg = messages
+            .first()
+            .ok_or_else(|| std::io::Error::other("expected one generated message"))?;
+
+        assert_eq!(crate::get(msg, "PID.3"), Some("MRNVAL"));
+        assert_ne!(crate::get(msg, "PID.2"), Some("MRNVAL"));
+        Ok(())
+    }
 }
