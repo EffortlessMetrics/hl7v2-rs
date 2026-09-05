@@ -1,0 +1,172 @@
+name: Reconcile TM and TS grammar
+
+on:
+  push:
+    branches:
+      - codex/977-tm-ts-grammar
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Unify public predicates with the canonical TM parser
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          validation = Path("crates/hl7v2/src/conformance/validation.rs")
+          text = validation.read_text(encoding="utf-8")
+          old = dedent('''
+          pub fn is_time(value: &str) -> bool {
+              if value.is_empty() || value.len() > 16 {
+                  return false;
+              }
+
+              // Check if all characters are valid (digits, period)
+              if !value.chars().all(|c| c.is_ascii_digit() || c == '.') {
+                  return false;
+              }
+
+              // Must start with at least 4 digits (HHMM)
+              if value.len() < 4 {
+                  return false;
+              }
+
+              // Extract hour and minute
+              let hour = &value[0..2];
+              let minute = &value[2..4];
+
+              // Basic validation
+              if hour > "23" {
+                  return false;
+              }
+
+              if minute > "59" {
+                  return false;
+              }
+
+              // If seconds are present
+              if value.len() >= 6 {
+                  let second = &value[4..6];
+                  if second > "59" {
+                      return false;
+                  }
+              }
+
+              true
+          }
+          ''')
+          new = dedent('''
+          pub fn is_time(value: &str) -> bool {
+              value.trim() == value
+                  && crate::conformance::datatype::datetime::parse_hl7_tm(value).is_ok()
+          }
+          ''')
+          if text.count(old) != 1:
+              raise SystemExit("expected one public is_time implementation")
+          text = text.replace(old, new, 1)
+
+          marker = '''    #[test]
+              fn test_is_timestamp() {'''
+          marker = dedent(marker)
+          tests = dedent('''
+              #[test]
+              fn test_is_time_uses_canonical_tm_grammar() {
+                  assert!(!is_time("12.5"));
+                  assert!(!is_time("1.30"));
+                  assert!(!is_time("1230.."));
+                  assert!(!is_time("1230."));
+                  assert!(!is_time("123045.."));
+                  assert!(!is_time("12305"));
+                  assert!(!is_time(" 1230"));
+                  assert!(!is_time("1230 "));
+
+                  assert!(is_time("1230"));
+                  assert!(is_time("235959"));
+                  assert!(is_time("123045.5"));
+                  assert!(is_time("123045.1234"));
+
+                  assert!(!is_timestamp("2025010112.5"));
+                  assert!(!is_timestamp("2025010112305"));
+                  assert!(is_timestamp("20250101123045.5"));
+              }
+
+          ''')
+          if text.count(marker) != 1:
+              raise SystemExit("expected one legacy timestamp test insertion point")
+          validation.write_text(text.replace(marker, tests + marker, 1), encoding="utf-8")
+
+          datetime = Path("crates/hl7v2/src/conformance/datatype/datetime.rs")
+          text = datetime.read_text(encoding="utf-8")
+          old = '''        let sec: u32 = sec_part
+                      .parse()
+          '''
+          new = '''        // HHMM[SS[.S[S[S[S]]]]] permits seconds only as a complete
+                  // two-digit field. Reject a partial tail before numeric parsing so TM,
+                  // TS, and precision-aware TS validation agree.
+                  if sec_part.len() != 2 {
+                      return Err(DateTimeError::InvalidTimeFormat(format!(
+                          "Seconds must be two digits, got '{sec_part}'"
+                      )));
+                  }
+
+                  let sec: u32 = sec_part
+                      .parse()
+          '''
+          if text.count(old) != 1:
+              raise SystemExit("expected one TM seconds parse point")
+          text = text.replace(old, new, 1)
+
+          marker = '''    #[test]
+              fn parse_hl7_tm_rejects_non_numeric_hours() {'''
+          marker = dedent(marker)
+          tests = dedent('''
+              #[test]
+              fn parse_hl7_tm_rejects_partial_seconds_and_misplaced_fraction() {
+                  assert!(matches!(
+                      parse_hl7_tm("12305"),
+                      Err(DateTimeError::InvalidTimeFormat(_))
+                  ));
+                  assert!(matches!(
+                      parse_hl7_tm("12.5"),
+                      Err(DateTimeError::InvalidTimeFormat(_))
+                  ));
+                  assert!(!is_valid_hl7_time("12305"));
+                  assert!(!is_valid_hl7_time("1230."));
+                  assert!(!is_valid_hl7_time("123045.."));
+
+                  assert!(parse_hl7_tm("123045").is_ok());
+                  assert!(is_valid_hl7_time("123045.5"));
+                  assert!(is_valid_hl7_time("123045.1234"));
+
+                  assert!(parse_hl7_ts("2025010112305").is_err());
+                  assert!(parse_hl7_ts_with_precision("2025010112305").is_err());
+                  assert!(!is_valid_hl7_timestamp("2025010112305"));
+                  assert!(is_valid_hl7_timestamp("20250101123045"));
+              }
+
+          ''')
+          if text.count(marker) != 1:
+              raise SystemExit("expected one datetime TM test insertion point")
+          datetime.write_text(text.replace(marker, tests + marker, 1), encoding="utf-8")
+          PY
+
+          cargo fmt --all
+          rm .github/workflows/reconcile-tm-ts-grammar.yml
+          git config user.name EffortlessSteven
+          git config user.email git@effortlesssteven.com
+          git add crates/hl7v2/src/conformance/validation.rs crates/hl7v2/src/conformance/datatype/datetime.rs .github/workflows/reconcile-tm-ts-grammar.yml
+          git diff --cached --check
+          git commit -m "fix(conformance): unify TM and TS grammar checks"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
