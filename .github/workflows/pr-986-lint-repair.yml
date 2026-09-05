@@ -33,6 +33,8 @@ jobs:
           path = Path("crates/hl7v2/src/conformance/datatype/datetime.rs")
           text = path.read_text()
           replacements = {
+              '        assert!(matches!(\n            parse_hl7_tm("12.5"),\n            Err(DateTimeError::InvalidTimeFormat(_))\n        ));':
+                  '        parse_hl7_tm("12.5")\n            .expect_err("fraction before complete seconds is invalid");',
               '        assert!(parse_hl7_tm("123045").is_ok());':
                   '        parse_hl7_tm("123045").expect("complete seconds are valid");',
               '        assert!(parse_hl7_ts("2025010112305").is_err());':
