@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   repair:
-    if: github.event.head_commit.message == 'chore: run PR 985 redaction follow-up'
+    if: "${{ github.event.head_commit.message == 'chore: run PR 985 redaction follow-up' }}"
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
