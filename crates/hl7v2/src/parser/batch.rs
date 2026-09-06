@@ -66,7 +66,7 @@ fn parse_batch_inner(bytes: &[u8]) -> Result<Batch, Error> {
 ///
 /// # Arguments
 ///
-/// * `bytes` - The raw HL7 file batch bytes
+/// * `bytes` - The raw HL7 batch bytes
 ///
 /// # Returns
 ///
@@ -275,8 +275,9 @@ fn push_pending_batch(
         if batch_delims != *file_delims {
             std::hint::cold_path();
             return Err(Error::InvalidBatchHeader {
-                details: "Nested BHS delimiter declaration does not match containing FHS declaration"
-                    .to_string(),
+                details:
+                    "Nested BHS delimiter declaration does not match containing FHS declaration"
+                        .to_string(),
             });
         }
 
