@@ -696,6 +696,21 @@ fn lint_temporal_rules(profile: &Profile, issues: &mut Vec<ProfileLintIssue>) {
         lint_rule_id(rule.id.as_str(), &mut ids, &base_path, issues);
         lint_hl7_path(&rule.before, format!("{base_path}.before"), issues);
         lint_hl7_path(&rule.after, format!("{base_path}.after"), issues);
+
+        // A tolerance is now applied by validate_temporal_rule; reject malformed
+        // values here so the knob is not silently ignored at validation time.
+        if let Some(tolerance) = &rule.tolerance
+            && super::validation::parse_tolerance(tolerance).is_none()
+        {
+            issues.push(ProfileLintIssue::error(
+                "invalid_temporal_tolerance",
+                Some(format!("{base_path}.tolerance")),
+                format!(
+                    "temporal rule tolerance '{tolerance}' is not a non-negative integer \
+                     followed by a unit (s, m, h, d, y), for example '30s', '5m', or '1y'"
+                ),
+            ));
+        }
     }
 }
 

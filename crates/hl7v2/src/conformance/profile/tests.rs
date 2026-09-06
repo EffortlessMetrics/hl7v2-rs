@@ -452,6 +452,233 @@ temporal_rules:
     }
 
     #[test]
+    fn test_temporal_rule_tolerance_absorbs_small_reverse_delta() {
+        // PV1.10 is 30s *after* ORC.4 (the "wrong" order), but a 5m tolerance
+        // widens the allowed window, so it must be treated as compliant.
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20250101000030\r");
+        msg.push_str("ORC|RE|||20250101000000\r");
+
+        let y = r#"
+message_structure: "temporal_tolerance"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 should be before ORC within tolerance"
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "5m"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert!(
+            probs.is_empty(),
+            "tolerance should absorb the 30s reverse delta: {probs:?}"
+        );
+    }
+
+    #[test]
+    fn test_temporal_rule_tolerance_smaller_than_delta_still_violates() {
+        // Same 30s reverse delta, but a 10s tolerance is too small, so the
+        // violation must still be reported.
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20250101000030\r");
+        msg.push_str("ORC|RE|||20250101000000\r");
+
+        let y = r#"
+message_structure: "temporal_tolerance"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 should be before ORC within tolerance"
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "10s"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "expected violation beyond tolerance: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "TEMPORAL_RULE_VIOLATION");
+    }
+
+    #[test]
+    fn test_temporal_rule_tolerance_boundary_is_inclusive() {
+        // PV1.10 is exactly `tolerance` (30s) later than ORC.4. "up to
+        // tolerance" is inclusive, so with allow_equal defaulting to false this
+        // must be compliant (the allow_equal flag governs only exact equality at
+        // ORC.4, not the tolerance boundary).
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20250101000030\r");
+        msg.push_str("ORC|RE|||20250101000000\r");
+
+        let y = r#"
+message_structure: "temporal_tolerance"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 should be before ORC within tolerance"
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "30s"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert!(
+            probs.is_empty(),
+            "a reverse delta exactly equal to the tolerance must be accepted: {probs:?}"
+        );
+    }
+
+    #[test]
+    fn test_temporal_rule_tolerance_overflow_clamps_to_max() {
+        // A tolerance so large that `after + tolerance` overflows the calendar
+        // must clamp the deadline to the maximum instant (so `before` stays
+        // within tolerance), not silently collapse back to a zero window.
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20250101000030\r");
+        msg.push_str("ORC|RE|||20250101000000\r");
+
+        let y = r#"
+message_structure: "temporal_tolerance"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 should be before ORC within tolerance"
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "200000000d"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert!(
+            probs.is_empty(),
+            "an overflowing tolerance must clamp the deadline, not drop it: {probs:?}"
+        );
+    }
+
+    #[test]
+    fn test_parse_tolerance_grammar_and_malformed_inputs() {
+        use super::super::validation::{TemporalTolerance, parse_tolerance};
+
+        assert_eq!(
+            parse_tolerance("30s"),
+            chrono::Duration::try_seconds(30).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("5m"),
+            chrono::Duration::try_minutes(5).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("2h"),
+            chrono::Duration::try_hours(2).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("1d"),
+            chrono::Duration::try_days(1).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("1y"),
+            Some(TemporalTolerance::CalendarYears(1))
+        );
+        assert_eq!(
+            parse_tolerance("150y"),
+            Some(TemporalTolerance::CalendarYears(150))
+        );
+        assert_eq!(
+            parse_tolerance(" 5m "),
+            chrono::Duration::try_minutes(5).map(TemporalTolerance::Fixed)
+        );
+        assert_eq!(
+            parse_tolerance("0s"),
+            chrono::Duration::try_seconds(0).map(TemporalTolerance::Fixed)
+        );
+
+        // Malformed values must return None without panicking. Multibyte
+        // suffixes exercise the character-boundary path.
+        for bad in [
+            "",
+            "  ",
+            "5",
+            "m",
+            "5min",
+            "-5m",
+            "+5m",
+            "5x",
+            "€",
+            "5€",
+            "9999999999999999999d",
+            "9999999999999999999y",
+        ] {
+            assert_eq!(parse_tolerance(bad), None, "expected None for {bad:?}");
+        }
+    }
+
+    #[test]
+    fn test_calendar_year_tolerance_preserves_repository_semantics() {
+        use super::super::validation::parse_tolerance;
+        use chrono::{TimeZone, Utc};
+
+        let leap_day = Utc
+            .with_ymd_and_hms(2024, 2, 29, 12, 30, 45)
+            .single()
+            .unwrap();
+        let one_year = parse_tolerance("1y").unwrap();
+        assert_eq!(
+            one_year.deadline_after(leap_day),
+            Utc.with_ymd_and_hms(2025, 2, 28, 12, 30, 45)
+                .single()
+                .unwrap()
+        );
+
+        let birth = Utc.with_ymd_and_hms(1875, 9, 5, 0, 0, 0).single().unwrap();
+        let one_hundred_fifty_years = parse_tolerance("150y").unwrap();
+        assert_eq!(
+            one_hundred_fifty_years.deadline_after(birth),
+            Utc.with_ymd_and_hms(2025, 9, 5, 0, 0, 0).single().unwrap()
+        );
+    }
+
+    #[test]
     fn debug_compare_same_dates() {
         let date_str = "20241201";
         let ts1 = parse_hl7_ts_with_precision(date_str).unwrap();
@@ -1536,6 +1763,73 @@ table_precedence:
                 .any(|issue| issue.code == "unknown_rule_condition_operator"),
             "numeric/missing operators must be recognized by the linter: {report:?}"
         );
+    }
+
+    #[test]
+    fn test_lint_profile_yaml_flags_malformed_temporal_tolerance() {
+        let y = r#"
+message_structure: "temporal_tolerance_lint"
+version: "2.5.1"
+segments:
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "bad-tolerance"
+    description: ""
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "5min"
+  - id: "good-tolerance"
+    description: ""
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "5m"
+  - id: "good-year-tolerance"
+    description: ""
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "1y"
+"#;
+
+        let report = lint_profile_yaml(y);
+        let tolerance_issues: Vec<&str> = report
+            .issues
+            .iter()
+            .filter(|issue| issue.code == "invalid_temporal_tolerance")
+            .filter_map(|issue| issue.path.as_deref())
+            .collect();
+
+        // Only malformed "5min" is flagged; both fixed and calendar-year units are valid.
+        assert_eq!(
+            tolerance_issues,
+            vec!["temporal_rules[0].tolerance"],
+            "unexpected tolerance lint issues: {report:?}"
+        );
+    }
+
+    #[test]
+    fn shipped_profile_tolerances_match_runtime_grammar() {
+        for (name, yaml) in [
+            (
+                "ADT_A01",
+                include_str!("../../../../../examples/profiles/ADT_A01.yaml"),
+            ),
+            (
+                "ORU_R01",
+                include_str!("../../../../../examples/profiles/ORU_R01.yaml"),
+            ),
+        ] {
+            let report = lint_profile_yaml(yaml);
+            let tolerance_issues: Vec<_> = report
+                .issues
+                .iter()
+                .filter(|issue| issue.code == "invalid_temporal_tolerance")
+                .collect();
+            assert!(
+                tolerance_issues.is_empty(),
+                "{name} contains unsupported temporal tolerance syntax: {tolerance_issues:?}"
+            );
+        }
     }
 
     #[test]
