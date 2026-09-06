@@ -82,7 +82,7 @@ fn write_message_into(msg: &Message, buf: &mut Vec<u8>) {
         } else {
             // Write fields
             for field in &segment.fields {
-                buf.push(msg.delims.field as u8);
+                push_delimiter(buf, msg.delims.field);
                 write_field(buf, field, &msg.delims);
             }
         }
@@ -154,7 +154,7 @@ fn write_batch_with_delims(batch: &Batch, result: &mut Vec<u8>, delims: &Delims)
     // BTS has no encoding-characters field.
     if let Some(trailer) = &batch.trailer {
         result.extend_from_slice(&trailer.id);
-        result.push(delims.field as u8);
+        push_delimiter(result, delims.field);
         write_segment_fields(trailer, result, delims);
         result.push(b'\r');
     }
@@ -198,7 +198,7 @@ fn write_file_batch_into(file_batch: &FileBatch, result: &mut Vec<u8>) {
     // Write FTS if present
     if let Some(trailer) = &file_batch.trailer {
         result.extend_from_slice(&trailer.id);
-        result.push(delims.field as u8);
+        push_delimiter(result, delims.field);
         write_segment_fields(trailer, result, &delims);
         result.push(b'\r');
     }
@@ -259,16 +259,16 @@ fn file_batch_capacity(file_batch: &FileBatch) -> usize {
 fn segment_capacity(segment: &Segment, delims: &Delims, is_msh: bool) -> usize {
     let mut capacity = segment.id.len();
     if is_msh {
-        capacity = capacity.saturating_add(5);
+        capacity = capacity.saturating_add(encoding_header_delimiters_capacity(delims));
         for field in segment.fields.iter().skip(1) {
             capacity = capacity
-                .saturating_add(1)
+                .saturating_add(delims.field.len_utf8())
                 .saturating_add(field_capacity(field, delims));
         }
     } else {
         for field in &segment.fields {
             capacity = capacity
-                .saturating_add(1)
+                .saturating_add(delims.field.len_utf8())
                 .saturating_add(field_capacity(field, delims));
         }
     }
@@ -283,13 +283,17 @@ fn segment_fields_capacity(segment: &Segment, delims: &Delims) -> usize {
             .enumerate()
             .fold(0usize, |capacity, (index, field)| {
                 capacity
-                    .saturating_add(if index > 0 { 1 } else { 0 })
+                    .saturating_add(if index > 0 {
+                        delims.field.len_utf8()
+                    } else {
+                        0
+                    })
                     .saturating_add(field_capacity(field, delims))
             });
     segment
         .id
         .len()
-        .saturating_add(1)
+        .saturating_add(delims.field.len_utf8())
         .saturating_add(fields_capacity)
         .saturating_add(1)
 }
@@ -301,7 +305,7 @@ fn field_capacity(field: &Field, delims: &Delims) -> usize {
         .enumerate()
         .fold(0usize, |capacity, (index, repetition)| {
             capacity
-                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(if index > 0 { delims.rep.len_utf8() } else { 0 })
                 .saturating_add(rep_capacity(repetition, delims))
         })
 }
@@ -312,7 +316,7 @@ fn rep_capacity(rep: &Rep, delims: &Delims) -> usize {
         .enumerate()
         .fold(0usize, |capacity, (index, component)| {
             capacity
-                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(if index > 0 { delims.comp.len_utf8() } else { 0 })
                 .saturating_add(comp_capacity(component, delims))
         })
 }
@@ -323,7 +327,7 @@ fn comp_capacity(comp: &Comp, delims: &Delims) -> usize {
         .enumerate()
         .fold(0usize, |capacity, (index, atom)| {
             capacity
-                .saturating_add(if index > 0 { 1 } else { 0 })
+                .saturating_add(if index > 0 { delims.sub.len_utf8() } else { 0 })
                 .saturating_add(atom_capacity(atom, delims))
         })
 }
@@ -350,11 +354,30 @@ fn atom_capacity(atom: &Atom, delims: &Delims) -> usize {
     }
 }
 
+fn encoding_header_delimiters_capacity(delims: &Delims) -> usize {
+    [
+        delims.field,
+        delims.comp,
+        delims.rep,
+        delims.esc,
+        delims.sub,
+    ]
+    .into_iter()
+    .fold(0usize, |capacity, delimiter| {
+        capacity.saturating_add(delimiter.len_utf8())
+    })
+}
+
+fn push_delimiter(output: &mut Vec<u8>, delimiter: char) {
+    let mut encoded = [0; 4];
+    output.extend_from_slice(delimiter.encode_utf8(&mut encoded).as_bytes());
+}
+
 /// Write a field to bytes (with escaping)
 fn write_field(output: &mut Vec<u8>, field: &Field, delims: &Delims) {
     for (i, rep) in field.reps.iter().enumerate() {
         if i > 0 {
-            output.push(delims.rep as u8);
+            push_delimiter(output, delims.rep);
         }
         write_rep(output, rep, delims);
     }
@@ -364,7 +387,7 @@ fn write_field(output: &mut Vec<u8>, field: &Field, delims: &Delims) {
 fn write_rep(output: &mut Vec<u8>, rep: &Rep, delims: &Delims) {
     for (i, comp) in rep.comps.iter().enumerate() {
         if i > 0 {
-            output.push(delims.comp as u8);
+            push_delimiter(output, delims.comp);
         }
         write_comp(output, comp, delims);
     }
@@ -374,7 +397,7 @@ fn write_rep(output: &mut Vec<u8>, rep: &Rep, delims: &Delims) {
 fn write_comp(output: &mut Vec<u8>, comp: &Comp, delims: &Delims) {
     for (i, atom) in comp.subs.iter().enumerate() {
         if i > 0 {
-            output.push(delims.sub as u8);
+            push_delimiter(output, delims.sub);
         }
         write_atom(output, atom, delims);
     }
@@ -401,14 +424,14 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 /// deliberately: passing `^~\&` through `write_field` would escape the escape
 /// character and corrupt the delimiter declaration itself.
 fn write_encoding_header_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims) {
-    output.push(delims.field as u8);
-    output.push(delims.comp as u8);
-    output.push(delims.rep as u8);
-    output.push(delims.esc as u8);
-    output.push(delims.sub as u8);
+    push_delimiter(output, delims.field);
+    push_delimiter(output, delims.comp);
+    push_delimiter(output, delims.rep);
+    push_delimiter(output, delims.esc);
+    push_delimiter(output, delims.sub);
 
     for field in segment.fields.iter().skip(1) {
-        output.push(delims.field as u8);
+        push_delimiter(output, delims.field);
         write_field(output, field, delims);
     }
 }
@@ -417,7 +440,7 @@ fn write_encoding_header_fields(segment: &Segment, output: &mut Vec<u8>, delims:
 fn write_segment_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims) {
     for (i, field) in segment.fields.iter().enumerate() {
         if i > 0 {
-            output.push(delims.field as u8);
+            push_delimiter(output, delims.field);
         }
         write_field(output, field, delims);
     }
@@ -445,6 +468,9 @@ fn get_delimiters_from_file_batch(file_batch: &FileBatch) -> Delims {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod utf8_tests;
 
 #[cfg(test)]
 mod integration_tests {
