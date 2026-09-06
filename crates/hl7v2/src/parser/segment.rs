@@ -67,10 +67,7 @@ fn is_encoding_header(id: &[u8; 3]) -> bool {
     id == b"MSH" || id == b"BHS" || id == b"FHS"
 }
 
-fn parse_encoding_header_fields(
-    fields_str: &str,
-    delims: &Delims,
-) -> Result<Vec<Field>, Error> {
+fn parse_encoding_header_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> {
     let encoding_chars = String::from_iter([delims.comp, delims.rep, delims.esc, delims.sub]);
     let Some(remainder) = fields_str.strip_prefix(&encoding_chars) else {
         std::hint::cold_path();
