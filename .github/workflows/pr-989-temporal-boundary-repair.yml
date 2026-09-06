@@ -1,0 +1,163 @@
+name: PR 989 temporal boundary repair
+
+on:
+  push:
+    branches: ['codex/977-temporal-tolerance']
+    paths:
+      - '.github/workflows/pr-989-temporal-boundary-repair.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-989-temporal-boundary-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: codex/977-temporal-tolerance
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt
+
+      - name: Apply and verify strict tolerance boundary
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          validation_path = Path('crates/hl7v2/src/conformance/profile/validation.rs')
+          validation = validation_path.read_text(encoding='utf-8')
+          old_comparator = '''    // Shared by the search predicate and final check so the two cannot
+    // drift. `allow_equal` governs exact equality at `after`; the upper
+    // tolerance boundary itself is inclusive.
+    let violates = |before_time: chrono::DateTime<chrono::Utc>,
+                    after_time: chrono::DateTime<chrono::Utc>| {
+        let deadline = tolerance.deadline_after(after_time);
+        before_time > deadline || (!rule.allow_equal && before_time == after_time)
+    };
+'''
+          new_comparator = '''    // Shared by the search predicate and final check so the two cannot
+    // drift. `allow_equal` governs equality at the tolerance deadline:
+    // strict rules require `before < after + tolerance`, while equal rules
+    // accept `before <= after + tolerance`.
+    let violates = |before_time: chrono::DateTime<chrono::Utc>,
+                    after_time: chrono::DateTime<chrono::Utc>| {
+        let deadline = tolerance.deadline_after(after_time);
+        if rule.allow_equal {
+            before_time > deadline
+        } else {
+            before_time >= deadline
+        }
+    };
+'''
+          if validation.count(old_comparator) != 1:
+              raise SystemExit('expected the temporal comparator exactly once')
+          validation_path.write_text(
+              validation.replace(old_comparator, new_comparator),
+              encoding='utf-8',
+          )
+
+          tests_path = Path('crates/hl7v2/src/conformance/profile/tests.rs')
+          tests = tests_path.read_text(encoding='utf-8')
+          pattern = re.compile(
+              r'''    #\[test\]\n    fn test_temporal_rule_tolerance_boundary_is_inclusive\(\) \{.*?\n    \}\n\n(?=    #\[test\]\n    fn test_temporal_rule_tolerance_overflow_clamps_to_max)''',
+              re.DOTALL,
+          )
+          replacement = r'''    #[test]
+    fn test_temporal_rule_tolerance_boundary_is_strict_by_default() {
+        // PV1.10 is exactly `tolerance` (30s) later than ORC.4. With
+        // allow_equal defaulting to false, strict ordering applies at the
+        // widened deadline and equality must still violate.
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20250101000030\r");
+        msg.push_str("ORC|RE|||20250101000000\r");
+
+        let y = r#"
+message_structure: "temporal_tolerance"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 should be strictly before the tolerance deadline"
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "30s"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "strict equality at the tolerance deadline must violate: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "TEMPORAL_RULE_VIOLATION");
+    }
+
+    #[test]
+    fn test_temporal_rule_tolerance_boundary_allows_equal_when_configured() {
+        // The same deadline equality becomes compliant only when the profile
+        // opts into equality explicitly.
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20250101000030\r");
+        msg.push_str("ORC|RE|||20250101000000\r");
+
+        let y = r#"
+message_structure: "temporal_tolerance"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 may equal the tolerance deadline"
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "30s"
+    allow_equal: true
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert!(
+            probs.is_empty(),
+            "allow_equal should accept equality at the tolerance deadline: {probs:?}"
+        );
+    }
+
+'''
+          tests, replacements = pattern.subn(replacement, tests)
+          if replacements != 1:
+              raise SystemExit(f'expected one tolerance-boundary test block, replaced {replacements}')
+          tests_path.write_text(tests, encoding='utf-8')
+          PY
+
+          git diff --check
+          cargo fmt --all -- --check
+          cargo test -p hl7v2 temporal_rule_tolerance_boundary
+
+          git config user.name EffortlessSteven
+          git config user.email git@effortlesssteven.com
+          git add crates/hl7v2/src/conformance/profile/validation.rs crates/hl7v2/src/conformance/profile/tests.rs
+          git commit -m 'fix(profile): enforce strict tolerance deadline'
+          git push origin HEAD:codex/977-temporal-tolerance
