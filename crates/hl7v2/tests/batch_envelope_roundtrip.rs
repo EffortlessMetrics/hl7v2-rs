@@ -1,5 +1,10 @@
 //! End-to-end batch envelope delimiter regression tests.
 
+#![expect(
+    clippy::panic_in_result_fn,
+    reason = "round-trip tests propagate parser errors and use assertions for decoded contract checks"
+)]
+
 use hl7v2::{
     Batch, Delims, Error, Field, FileBatch, Message, Segment, parse_batch, parse_file_batch,
     write_batch, write_file_batch,
