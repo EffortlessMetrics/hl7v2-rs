@@ -134,8 +134,7 @@ fn file_round_trips_custom_envelope_after_empty_batch() -> Result<(), Box<dyn st
 
 #[test]
 fn file_parser_rejects_nested_batch_with_conflicting_envelope_delimiters() {
-    let result =
-        parse_file_batch(b"FHS!*~\\&!FILE\rBHS|^~\\&|BATCH\rBTS|0\rFTS!1\r");
+    let result = parse_file_batch(b"FHS!*~\\&!FILE\rBHS|^~\\&|BATCH\rBTS|0\rFTS!1\r");
 
     assert!(matches!(result, Err(Error::InvalidBatchHeader { .. })));
 }
