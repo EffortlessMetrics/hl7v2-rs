@@ -49,22 +49,50 @@ pub(super) fn parse_segment(line: &str, delims: &Delims) -> Result<Segment, Erro
         });
     };
 
-    let mut fields = parse_fields(fields_str, delims).map_err(|e| Error::ParseError {
+    let fields = if is_encoding_header(&id) {
+        parse_encoding_header_fields(fields_str, delims)
+    } else {
+        parse_fields(fields_str, delims)
+    }
+    .map_err(|e| Error::ParseError {
         segment_id: String::from_utf8_lossy(&id).to_string(),
         field_index: 0,
         source: Box::new(e),
     })?;
 
-    if &id == b"MSH"
-        && let Some(first_field) = fields.first_mut()
-    {
-        *first_field = msh_encoding_field(delims);
-    }
-
     Ok(Segment { id, fields })
 }
 
-fn msh_encoding_field(delims: &Delims) -> Field {
+fn is_encoding_header(id: &[u8; 3]) -> bool {
+    id == b"MSH" || id == b"BHS" || id == b"FHS"
+}
+
+fn parse_encoding_header_fields(fields_str: &str, delims: &Delims) -> Result<Vec<Field>, Error> {
+    let encoding_chars = String::from_iter([delims.comp, delims.rep, delims.esc, delims.sub]);
+    let Some(remainder) = fields_str.strip_prefix(&encoding_chars) else {
+        std::hint::cold_path();
+        return Err(Error::InvalidFieldFormat {
+            details: "Encoding header does not declare the configured delimiters".to_string(),
+        });
+    };
+
+    let mut fields = vec![encoding_field(delims)];
+    if remainder.is_empty() {
+        return Ok(fields);
+    }
+
+    let Some(remaining_fields) = remainder.strip_prefix(delims.field) else {
+        std::hint::cold_path();
+        return Err(Error::InvalidFieldFormat {
+            details: "Encoding characters must be followed by the field separator".to_string(),
+        });
+    };
+
+    fields.extend(parse_fields(remaining_fields, delims)?);
+    Ok(fields)
+}
+
+fn encoding_field(delims: &Delims) -> Field {
     let encoding_chars = String::from_iter([delims.comp, delims.rep, delims.esc, delims.sub]);
 
     Field {

@@ -66,7 +66,7 @@ fn parse_batch_inner(bytes: &[u8]) -> Result<Batch, Error> {
 ///
 /// # Arguments
 ///
-/// * `bytes` - The raw HL7 file batch bytes
+/// * `bytes` - The raw HL7 batch bytes
 ///
 /// # Returns
 ///
@@ -116,19 +116,30 @@ fn parse_file_batch_inner(bytes: &[u8]) -> Result<FileBatch, Error> {
 }
 
 fn parse_batch_with_header(source: &str, lines: &[SegmentLine<'_>]) -> Result<Batch, Error> {
-    if !lines
-        .first()
-        .is_some_and(|line| line.text.starts_with("BHS"))
-    {
+    let Some(first_line) = lines.first() else {
+        return Err(Error::InvalidBatchHeader {
+            details: "Batch must start with BHS segment".to_string(),
+        });
+    };
+    if !first_line.text.starts_with("BHS") {
         return Err(Error::InvalidBatchHeader {
             details: "Batch must start with BHS segment".to_string(),
         });
     }
 
-    let delims = find_and_parse_delimiters(lines).map_err(|e| Error::BatchParseError {
-        details: format!("Failed to parse delimiters: {}", e),
-    })?;
+    let delims =
+        Delims::parse_from_msh(first_line.text).map_err(|e| Error::InvalidBatchHeader {
+            details: format!("Failed to parse BHS delimiters: {}", e),
+        })?;
 
+    parse_batch_with_delims(source, lines, &delims)
+}
+
+fn parse_batch_with_delims(
+    source: &str,
+    lines: &[SegmentLine<'_>],
+    delims: &Delims,
+) -> Result<Batch, Error> {
     let mut header = None;
     let mut messages = Vec::new();
     let mut trailer = None;
@@ -137,13 +148,13 @@ fn parse_batch_with_header(source: &str, lines: &[SegmentLine<'_>]) -> Result<Ba
     for line in lines {
         if line.text.starts_with("BHS") {
             let bhs_segment =
-                parse_segment(line.text, &delims).map_err(|e| Error::InvalidBatchHeader {
+                parse_segment(line.text, delims).map_err(|e| Error::InvalidBatchHeader {
                     details: format!("Failed to parse BHS segment: {}", e),
                 })?;
             header = Some(bhs_segment);
         } else if line.text.starts_with("BTS") {
             let bts_segment =
-                parse_segment(line.text, &delims).map_err(|e| Error::InvalidBatchTrailer {
+                parse_segment(line.text, delims).map_err(|e| Error::InvalidBatchTrailer {
                     details: format!("Failed to parse BTS segment: {}", e),
                 })?;
             trailer = Some(bts_segment);
@@ -193,18 +204,21 @@ fn parse_file_batch_with_header(
     source: &str,
     lines: &[SegmentLine<'_>],
 ) -> Result<FileBatch, Error> {
-    if !lines
-        .first()
-        .is_some_and(|line| line.text.starts_with("FHS"))
-    {
+    let Some(first_line) = lines.first() else {
+        return Err(Error::InvalidBatchHeader {
+            details: "File batch must start with FHS segment".to_string(),
+        });
+    };
+    if !first_line.text.starts_with("FHS") {
         return Err(Error::InvalidBatchHeader {
             details: "File batch must start with FHS segment".to_string(),
         });
     }
 
-    let delims = find_and_parse_delimiters(lines).map_err(|e| Error::BatchParseError {
-        details: format!("Failed to parse delimiters: {}", e),
-    })?;
+    let delims =
+        Delims::parse_from_msh(first_line.text).map_err(|e| Error::InvalidBatchHeader {
+            details: format!("Failed to parse FHS delimiters: {}", e),
+        })?;
 
     let mut header = None;
     let mut batches = Vec::new();
@@ -225,14 +239,14 @@ fn parse_file_batch_with_header(
                 })?;
             trailer = Some(fts_segment);
         } else if line.text.starts_with("BHS") {
-            push_pending_batch(source, &mut batches, &mut current_batch_lines)?;
+            push_pending_batch(source, &mut batches, &mut current_batch_lines, &delims)?;
             current_batch_lines.push(*line);
         } else {
             current_batch_lines.push(*line);
         }
     }
 
-    push_pending_batch(source, &mut batches, &mut current_batch_lines)?;
+    push_pending_batch(source, &mut batches, &mut current_batch_lines, &delims)?;
 
     Ok(FileBatch {
         header,
@@ -245,8 +259,31 @@ fn push_pending_batch(
     source: &str,
     batches: &mut Vec<Batch>,
     current_batch_lines: &mut Vec<SegmentLine<'_>>,
+    file_delims: &Delims,
 ) -> Result<(), Error> {
     if current_batch_lines.is_empty() {
+        return Ok(());
+    }
+
+    if let Some(first_line) = current_batch_lines.first()
+        && first_line.text.starts_with("BHS")
+    {
+        let batch_delims =
+            Delims::parse_from_msh(first_line.text).map_err(|e| Error::InvalidBatchHeader {
+                details: format!("Failed to parse nested BHS delimiters: {}", e),
+            })?;
+        if batch_delims != *file_delims {
+            std::hint::cold_path();
+            return Err(Error::InvalidBatchHeader {
+                details:
+                    "Nested BHS delimiter declaration does not match containing FHS declaration"
+                        .to_string(),
+            });
+        }
+
+        let batch = parse_batch_with_delims(source, current_batch_lines, file_delims)?;
+        batches.push(batch);
+        current_batch_lines.clear();
         return Ok(());
     }
 
@@ -264,15 +301,6 @@ fn push_pending_batch(
     }
     current_batch_lines.clear();
     Ok(())
-}
-
-fn find_and_parse_delimiters(lines: &[SegmentLine<'_>]) -> Result<Delims, Error> {
-    for line in lines {
-        if line.text.starts_with("MSH") {
-            return Delims::parse_from_msh(line.text);
-        }
-    }
-    Ok(Delims::default())
 }
 
 fn segment_window<'a>(source: &'a str, lines: &[SegmentLine<'_>]) -> Result<&'a [u8], Error> {
