@@ -3,7 +3,7 @@
 **Repository:** `EffortlessMetrics/hl7v2-rs`  
 **Status:** Pending activation; this change must remain draft until the activation receipts below are complete.  
 **Expected status context:** `license/cla`  
-**Repository CLA SHA-256:** `6f578e152ccec18ab1a1f131ee53fc00877352febb1f48fbc40e9e76dc6c001e`
+**Repository CLA SHA-256:** `de968d5421513b83e4655995e8e2bb95600a351b2768b89bc70aebedec744191`
 
 ## Decision
 
