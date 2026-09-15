@@ -476,8 +476,13 @@ This project is licensed under the GNU Affero General Public License, version 3 
 
 ## Contributing
 
-Intentional contributions require the [Individual CLA](CLA.md). Open a pull request
-and complete the GitHub-authenticated hosted CLA Assistant flow; the `license/cla`
-check must pass before merge. Contributions remain licensed under
-**AGPL-3.0-or-later**. Corporate contributions use a separate written agreement and
-maintainer-controlled authorization process.
+Every intentional contribution must be covered by the applicable contributor agreement.
+Individual contributors sign the [Individual CLA](CLA.md) through the hosted CLA
+Assistant GitHub App; open a pull request and follow the App's signing link. The
+`license/cla` check must pass before merge, and accepted contributions remain licensed
+under **AGPL-3.0-or-later**.
+
+If an employer or another entity owns or controls the relevant rights, do not use the
+individual form. Contact the maintainers privately before submitting the covered
+contribution so the separate corporate agreement and authorization process can be
+completed.
