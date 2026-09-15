@@ -1,0 +1,62 @@
+name: Apply bounded CLA README patch
+
+on:
+  push:
+    branches:
+      - chore/hosted-cla-assistant
+    paths:
+      - .github/workflows/patch-cla-readme.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/hosted-cla-assistant
+          fetch-depth: 0
+
+      - name: Replace the contributor-agreement paragraph
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("README.md")
+          text = path.read_text(encoding="utf-8")
+          old = """## Contributing
+
+          Intentional contributions require the [Individual CLA](CLA.md). Open a pull request
+          and complete the GitHub-authenticated hosted CLA Assistant flow; the `license/cla`
+          check must pass before merge. Contributions remain licensed under
+          **AGPL-3.0-or-later**. Corporate contributions use a separate written agreement and
+          maintainer-controlled authorization process."""
+          new = """## Contributing
+
+          Every intentional contribution must be covered by the applicable contributor agreement.
+          Individual contributors sign the [Individual CLA](CLA.md) through the hosted CLA
+          Assistant GitHub App; open a pull request and follow the App's signing link. The
+          `license/cla` check must pass before merge, and accepted contributions remain licensed
+          under **AGPL-3.0-or-later**.
+
+          If an employer or another entity owns or controls the relevant rights, do not use the
+          individual form. Contact the maintainers privately before submitting the covered
+          contribution so the separate corporate agreement and authorization process can be
+          completed."""
+          if text.count(old) != 1:
+              raise SystemExit("expected exactly one README contribution block")
+          path.write_text(text.replace(old, new), encoding="utf-8")
+          Path(".github/workflows/patch-cla-readme.yml").unlink()
+          PY
+
+      - name: Commit the bounded patch and remove this workflow
+        shell: bash
+        run: |
+          git config user.name "EffortlessSteven"
+          git config user.email "git@effortlesssteven.com"
+          git add README.md .github/workflows/patch-cla-readme.yml
+          git commit -m "docs(cla): distinguish individual and corporate paths"
+          git push origin HEAD:chore/hosted-cla-assistant
