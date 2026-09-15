@@ -476,6 +476,8 @@ This project is licensed under the GNU Affero General Public License, version 3 
 
 ## Contributing
 
-By submitting a contribution (pull request, patch, issue comment containing code, etc.),
-you agree to the terms in [CLA.md](CLA.md) and you license your contribution under
-**AGPL-3.0-or-later**.
+Intentional contributions require the [Individual CLA](CLA.md). Open a pull request
+and complete the GitHub-authenticated hosted CLA Assistant flow; the `license/cla`
+check must pass before merge. Contributions remain licensed under
+**AGPL-3.0-or-later**. Corporate contributions use a separate written agreement and
+maintainer-controlled authorization process.
