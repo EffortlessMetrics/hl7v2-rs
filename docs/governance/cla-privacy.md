@@ -1,6 +1,7 @@
 # Contributor Licensing Records Privacy Notice
 
-**Controller:** Effortless Metrics, Inc., operator of the `EffortlessMetrics` GitHub organization.  
+**Controller:** Effortless Metrics, Inc., operator of the `EffortlessMetrics` GitHub organization.
+
 **Applies to:** Contributor License Agreement records for `EffortlessMetrics/hl7v2-rs` and `EffortlessMetrics/hl7v2-rs-swarm`.
 
 ## Information collected
