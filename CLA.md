@@ -42,4 +42,4 @@ The hosted CLA Assistant service at `cla-assistant.io` presents this Agreement w
 
 Do not sign this individual Agreement on behalf of an employer or another entity. Corporate contributions require a separate written agreement and authorization process; contact the maintainers privately before submitting the covered Contribution.
 
-See [Contributor Licensing Records Privacy Notice](https://github.com/EffortlessMetrics/hl7v2-rs/blob/main/docs/governance/cla-privacy.md) for how licensing-record personal information is handled.
+See [Contributor Licensing Records Privacy Notice](docs/governance/cla-privacy.md) for how licensing-record personal information is handled.
