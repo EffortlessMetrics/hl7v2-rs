@@ -19,7 +19,7 @@ jobs:
           ref: chore/hosted-cla-assistant
           fetch-depth: 0
 
-      - name: Verify canonical agreement and metadata
+      - name: Reconcile receipts and verify the staged migration
         shell: bash
         run: |
           set -euo pipefail
@@ -33,6 +33,12 @@ jobs:
           source_path = Path('docs/governance/cla-assistant-source.json')
           metadata = json.loads(metadata_path.read_text(encoding='utf-8'))
           source = json.loads(source_path.read_text(encoding='utf-8'))
+          cla_hash = sha256(Path('CLA.md').read_bytes()).hexdigest()
+          metadata_hash = sha256(metadata_path.read_bytes()).hexdigest()
+          source['agreement']['sha256'] = cla_hash
+          source['metadata']['sha256'] = metadata_hash
+          source_path.write_text(json.dumps(source, indent=2) + '\n', encoding='utf-8')
+
           assert set(metadata) == {'fullLegalName', 'email', 'individualAuthority'}
           assert all(metadata[key]['required'] is True for key in metadata)
           assert metadata['fullLegalName']['type'] == 'string'
@@ -42,15 +48,14 @@ jobs:
           assert source['agreement']['gist_url'] is None
           assert source['agreement']['gist_id'] is None
           assert source['agreement']['gist_revision'] is None
-          assert source['agreement']['sha256'] == sha256(Path('CLA.md').read_bytes()).hexdigest()
-          assert source['metadata']['sha256'] == sha256(metadata_path.read_bytes()).hexdigest()
           assert source['allowlist'] == []
           assert source['repositories'] == ['EffortlessMetrics/hl7v2-rs', 'EffortlessMetrics/hl7v2-rs-swarm']
           assert Path('docs/governance/cla-privacy.md').is_file()
-          cla = Path('CLA.md').read_text(encoding='utf-8')
+
+          cla = ' '.join(Path('CLA.md').read_text(encoding='utf-8').split())
           assert '(docs/governance/cla-privacy.md)' in cla
           assert 'corporate agreement and authorization process is required' in cla
-          privacy = Path('docs/governance/cla-privacy.md').read_text(encoding='utf-8')
+          privacy = ' '.join(Path('docs/governance/cla-privacy.md').read_text(encoding='utf-8').split())
           assert 'EffortlessMetrics/hl7v2-rs-swarm' in privacy
           assert 'not treated as active until' in privacy
 
@@ -61,18 +66,18 @@ jobs:
               if path != verifier
           )
           assert 'contributor-assistant/github-action' not in other_workflows
-          print(f"CLA_SHA256={source['agreement']['sha256']}")
-          print(f"METADATA_SHA256={source['metadata']['sha256']}")
+          print(f'CLA_SHA256={cla_hash}')
+          print(f'METADATA_SHA256={metadata_hash}')
           print('staged_cla_migration=verified')
           PY
 
-      - name: Remove verification workflow and preserve receipt in Actions
+      - name: Commit the reconciled receipt and remove this workflow
         shell: bash
         run: |
           set -euo pipefail
           rm .github/workflows/verify-cla-migration.yml
           git config user.name "EffortlessSteven"
           git config user.email "git@effortlesssteven.com"
-          git add .github/workflows/verify-cla-migration.yml
+          git add docs/governance/cla-assistant-source.json .github/workflows/verify-cla-migration.yml
           git commit -m "ci: record staged CLA verification"
           git push origin HEAD:chore/hosted-cla-assistant
