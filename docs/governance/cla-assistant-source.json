@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-15",
+  "activation_state": "pending_hosted_service_configuration",
+  "service": "CLA Assistant",
+  "service_url": "https://cla-assistant.io/",
+  "status_context": "license/cla",
+  "repositories": [
+    "EffortlessMetrics/hl7v2-rs",
+    "EffortlessMetrics/hl7v2-rs-swarm"
+  ],
+  "agreement": {
+    "repository_path": "CLA.md",
+    "gist_url": null,
+    "gist_id": null,
+    "gist_revision": null,
+    "gist_filename": "CLA.md",
+    "sha256": "540f7e2b234c18274f84f588dba0b140befc4ccb7a3959e70ccbd1f7335b2fcc"
+  },
+  "metadata": {
+    "repository_path": "docs/governance/cla-assistant-metadata.json",
+    "gist_filename": "metadata",
+    "sha256": "d22c951e9ae4cf33643681f1710d5f4e026627525ea5e3c9f54546c1979d041f",
+    "required_fields": [
+      "fullLegalName",
+      "email",
+      "individualAuthority"
+    ]
+  },
+  "allowlist": [],
+  "activation_requirements": [
+    "Create the shared public Gist from the repository agreement and metadata payload.",
+    "Install and link the hosted CLA Assistant GitHub App to both repositories.",
+    "Observe a successful license/cla status on both migration pull requests.",
+    "Replace the pending Gist fields with the live URL, ID, and revision before merge.",
+    "Require license/cla on both default branches and pin the expected source to CLA Assistant."
+  ]
+}
