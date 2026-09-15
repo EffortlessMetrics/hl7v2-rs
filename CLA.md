@@ -30,7 +30,7 @@ You represent that:
 - You are legally entitled to grant the above licenses.
 - Each Contribution is your original creation, or you have sufficient rights to submit it under these terms.
 - Your Contribution does not violate any third-party rights.
-- If your employer has rights to intellectual property you create, you have obtained permission or a waiver sufficient for you to grant the rights in this Agreement in your individual capacity.
+- No employer or other entity owns or controls the rights that you grant under this Agreement. If an employer policy or contingent claim applies without giving the employer ownership or control of those rights, you have obtained any permission or waiver required for you to contribute in your individual capacity. If an employer or other entity does own or control the rights, the corporate agreement and authorization process is required instead.
 
 ## 6. No Obligation
 
@@ -38,7 +38,7 @@ You understand that the decision to include your Contribution in the Project is 
 
 ## 7. Signing
 
-The hosted CLA Assistant service at `cla-assistant.io` presents this Agreement when your first pull request requires a signature and whenever the linked Agreement changes. Sign through its GitHub-authenticated flow and provide the required full legal name, email address, and acknowledgement that you are signing in your individual capacity and have authority to grant the stated rights. GitHub identity and signing time are recorded by the service.
+The hosted CLA Assistant service at `cla-assistant.io` presents this Agreement when your first pull request requires a signature and again when a change to the linked Gist Agreement or its signing metadata requires re-signing. Sign through its GitHub-authenticated flow and provide the required full legal name, email address, and acknowledgement that you are signing in your individual capacity and have authority to grant the stated rights. GitHub identity and signing time are recorded by the service.
 
 Do not sign this individual Agreement on behalf of an employer or another entity. Corporate contributions require a separate written agreement and authorization process; contact the maintainers privately before submitting the covered Contribution.
 
