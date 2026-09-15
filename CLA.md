@@ -26,7 +26,7 @@ You represent that:
 - You are signing in your individual capacity and are legally entitled to grant the above licenses.
 - Each Contribution is your original creation, or you have sufficient rights to submit it under these terms.
 - Your Contribution does not violate any third-party rights.
-- If your employer has rights to intellectual property you create, you have received permission to submit and personally license the Contribution under this Agreement, or your employer has waived those rights for the Contribution.
+- If your employer ordinarily has rights to intellectual property you create, those rights have been waived for this Contribution so that you personally own and may license it.
 
 If an employer or another entity owns or controls the Contribution or will be the licensor, contact the maintainers before submitting. Do not use the individual signing flow as a substitute for an entity agreement or documented authorization.
 
