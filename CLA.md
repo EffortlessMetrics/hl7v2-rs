@@ -1,7 +1,9 @@
-# Contributor License Agreement
+# hl7v2-rs Individual Contributor License Agreement
 
-By submitting a contribution (pull request, patch, issue comment containing code,
-or any other form) to this project, you agree to the following terms:
+This Contributor License Agreement ("Agreement") governs original material intentionally
+submitted for inclusion in `EffortlessMetrics/hl7v2-rs` ("Project"). It is an individual
+agreement. Contributions owned by an employer or another entity require a separate
+written contribution path arranged with the maintainers.
 
 ## 1. Definitions
 
@@ -36,15 +38,34 @@ Contribution with the Project.
 
 You represent that:
 
-- You are legally entitled to grant the above licenses.
+- You are signing in your individual capacity and are legally entitled to grant the
+  above licenses.
 - Each Contribution is your original creation, or you have sufficient rights to submit
   it under these terms.
 - Your Contribution does not violate any third-party rights.
-- If your employer has rights to intellectual property you create, you have received
-  permission to submit Contributions on behalf of your employer, or your employer has
-  waived such rights for your Contributions to this Project.
+- If your employer ordinarily has rights to intellectual property you create, those
+  rights have been waived for this Contribution so that you personally own and may
+  license it.
+
+If an employer or another entity owns or controls the Contribution or will be the
+licensor, contact the maintainers before submitting. Do not use the individual signing
+flow as a substitute for an entity agreement or documented authorization.
 
 ## 6. No Obligation
 
 You understand that the decision to include your Contribution in the Project is
 entirely at the discretion of the Project maintainers.
+
+## 7. Signing
+
+Open a pull request. The hosted **CLA Assistant** GitHub App will link to the exact
+agreement version and ask you to authenticate through GitHub. Complete the required
+full legal name, email address, and acknowledgement:
+
+> I am signing in my individual capacity and have authority to grant the rights stated in this Agreement.
+
+The authenticated GitHub identity, signing time, and agreement version are recorded
+by the signing event. Do not enter a date or GitHub username separately.
+
+See [Contributor CLA Privacy Notice](CONTRIBUTOR_PRIVACY.md) for how licensing records
+are handled.

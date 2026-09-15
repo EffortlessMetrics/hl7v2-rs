@@ -10,8 +10,11 @@ Please follow the project [Code of Conduct](CODE_OF_CONDUCT.md) in all interacti
 
 hl7v2-rs is licensed under **AGPL-3.0-or-later**.
 
-By submitting a contribution, you agree to [CLA.md](CLA.md) and you license your
-contribution under **AGPL-3.0-or-later**.
+All intentionally submitted contributions require the repository [Individual CLA](CLA.md). Open a pull request and follow the signing link posted by the hosted CLA Assistant GitHub App. The individual flow requires a full legal name, email address, and acknowledgement of individual capacity and authority.
+
+Contributions owned by an employer or another entity require a separate written contribution path. Contact the maintainers before submitting; do not use the individual flow on the entity's behalf.
+
+Licensing records are handled under the [Contributor CLA Privacy Notice](CONTRIBUTOR_PRIVACY.md). Pull requests must pass the `license/cla` check once the hosted app is activated.
 
 ---
 
