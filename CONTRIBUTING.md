@@ -250,6 +250,7 @@ See ROADMAP.md for priority details.
 **Examples of good doc contributions**:
 - Expanded CLI usage examples
 - Tutorial for building a validator
+- Deployment guide
 - Architecture diagram
 - Performance tuning guide
 
