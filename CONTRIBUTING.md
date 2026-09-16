@@ -200,7 +200,7 @@ Stack overflow / panic
 - Check [ROADMAP.md](ROADMAP.md) - is it already planned?
 - Check existing issues
 
-### How to Report
+### How to Request
 
 [Use the Feature Request template](.github/ISSUE_TEMPLATE/feature_request.md)
 
@@ -293,7 +293,7 @@ See [TESTING.md](TESTING.md) for detailed procedures.
 ```rust
 #[test]
 fn test_feature_happy_path() {
-    let input = /* input */;
+    let input = /* ... */;
     let result = my_function(input).unwrap();
     assert_eq!(result, expected);
 }
@@ -338,7 +338,7 @@ See [TESTING.md](TESTING.md) for profiling tools.
 
 ## Getting Help
 
-- **Questions about contributing?** Open GitHub Discussions
+- **Questions about contributing?** Open a GitHub Discussion or Issue
 - **Need clarification on a task?** Comment on the related issue
 
 ---
@@ -421,7 +421,7 @@ We value all contributions—code, docs, testing, design discussion, etc.
 
 ## Questions?
 
-- **Code questions**: Open GitHub Discussions
+- **Code questions**: Open GitHub discussions
 - **Process questions**: Comment on issues/PRs
 - **General**: Check [ROADMAP.md](ROADMAP.md) and [docs/STATUS.md](docs/STATUS.md) first
 
