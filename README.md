@@ -486,3 +486,10 @@ If an employer or another entity owns or controls the relevant rights, do not us
 individual form. Contact the maintainers privately before submitting the covered
 contribution so the separate corporate agreement and authorization process can be
 completed.
+
+After a Corporate CLA is executed, the covered pull request remains blocked until
+maintainers verify the private authorization record and approve the audited,
+pull-request-only exception on the dedicated CLA ruleset. Corporate contributors are
+not placed on the CLA Assistant allowlist, and every ordinary review and CI rule still
+applies. Until that exception path is configured and approved for the pull request, the
+contribution cannot merge. See [Hosted CLA Assistant governance](docs/governance/cla-assistant.md).
