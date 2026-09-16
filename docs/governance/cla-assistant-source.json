@@ -28,11 +28,38 @@
     ]
   },
   "allowlist": [],
+  "enforcement": {
+    "EffortlessMetrics/hl7v2-rs": {
+      "baseline_ruleset_id": 13128501,
+      "baseline_ruleset_name": "main",
+      "baseline_ruleset_preserved": true,
+      "cla_ruleset_id": null,
+      "cla_ruleset_name": "cla",
+      "expected_source": "CLA Assistant GitHub App",
+      "corporate_bypass_team": "cla-corporate-approvers",
+      "corporate_bypass_mode": "pull_request",
+      "corporate_bypass_enabled": false
+    },
+    "EffortlessMetrics/hl7v2-rs-swarm": {
+      "baseline_ruleset_id": 16665265,
+      "baseline_ruleset_name": "main",
+      "baseline_ruleset_preserved": true,
+      "cla_ruleset_id": null,
+      "cla_ruleset_name": "cla",
+      "expected_source": "CLA Assistant GitHub App",
+      "corporate_bypass_team": "cla-corporate-approvers",
+      "corporate_bypass_mode": "pull_request",
+      "corporate_bypass_enabled": false
+    }
+  },
   "activation_requirements": [
     "Create the shared public Gist from the repository agreement and metadata payload.",
     "Install and link the hosted CLA Assistant GitHub App to both repositories.",
     "Observe a successful license/cla status on both migration pull requests.",
     "Replace the pending Gist fields with the live URL, ID, and revision before merge.",
-    "Require license/cla on both default branches and pin the expected source to CLA Assistant."
+    "Create a dedicated default-branch CLA ruleset in each repository requiring license/cla and pin the expected source to CLA Assistant.",
+    "Preserve both existing baseline rulesets unchanged and without bypass actors.",
+    "Leave both CLA rulesets without bypass actors unless the documented Corporate CLA process is activated.",
+    "Export the hosted signature registers to private storage and record the export dates."
   ]
 }
