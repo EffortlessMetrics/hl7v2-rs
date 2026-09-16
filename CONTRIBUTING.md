@@ -12,7 +12,9 @@ hl7v2-rs is licensed under **AGPL-3.0-or-later**.
 
 Every intentionally submitted contribution must be covered by the applicable contributor agreement. Individual contributors sign the [Individual CLA](CLA.md) through the hosted CLA Assistant GitHub App; open a pull request and follow the App's signing link. The `license/cla` check must pass before merge, and accepted contributions remain licensed under **AGPL-3.0-or-later**.
 
-If an employer or another entity owns or controls the relevant rights, do not use the individual form. Contact the maintainers privately before submitting the covered contribution so the separate corporate agreement and authorization process can be completed. See the [Contributor Licensing Records Privacy Notice](docs/governance/cla-privacy.md).
+If an employer or another entity owns or controls the relevant rights, do not use the individual form. Contact the maintainers privately before submitting the covered contribution so the separate corporate agreement and authorization process can be completed.
+
+After a Corporate CLA is executed, a covered pull request remains blocked until maintainers verify the private authorization record and approve the audited, pull-request-only exception on the dedicated CLA ruleset. Corporate contributors are not placed on the CLA Assistant allowlist, and every ordinary review and CI rule still applies. Until that exception path is configured and approved for the pull request, the contribution cannot merge. See [Hosted CLA Assistant governance](docs/governance/cla-assistant.md) and the [Contributor Licensing Records Privacy Notice](docs/governance/cla-privacy.md).
 
 ---
 
@@ -198,7 +200,7 @@ Stack overflow / panic
 - Check [ROADMAP.md](ROADMAP.md) - is it already planned?
 - Check existing issues
 
-### How to Request
+### How to Report
 
 [Use the Feature Request template](.github/ISSUE_TEMPLATE/feature_request.md)
 
@@ -291,7 +293,7 @@ See [TESTING.md](TESTING.md) for detailed procedures.
 ```rust
 #[test]
 fn test_feature_happy_path() {
-    let input = /* ... */;
+    let input = /* input */;
     let result = my_function(input).unwrap();
     assert_eq!(result, expected);
 }
@@ -336,7 +338,7 @@ See [TESTING.md](TESTING.md) for profiling tools.
 
 ## Getting Help
 
-- **Questions about contributing?** Open a GitHub Discussion or Issue
+- **Questions about contributing?** Open GitHub Discussions
 - **Need clarification on a task?** Comment on the related issue
 
 ---
@@ -419,7 +421,7 @@ We value all contributions—code, docs, testing, design discussion, etc.
 
 ## Questions?
 
-- **Code questions**: Open GitHub discussions
+- **Code questions**: Open GitHub Discussions
 - **Process questions**: Comment on issues/PRs
 - **General**: Check [ROADMAP.md](ROADMAP.md) and [docs/STATUS.md](docs/STATUS.md) first
 
