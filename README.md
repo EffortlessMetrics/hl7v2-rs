@@ -476,6 +476,20 @@ This project is licensed under the GNU Affero General Public License, version 3 
 
 ## Contributing
 
-By submitting a contribution (pull request, patch, issue comment containing code, etc.),
-you agree to the terms in [CLA.md](CLA.md) and you license your contribution under
-**AGPL-3.0-or-later**.
+Every intentional contribution must be covered by the applicable contributor agreement.
+Individual contributors sign the [Individual CLA](CLA.md) through the hosted CLA
+Assistant GitHub App; open a pull request and follow the App's signing link. The
+`license/cla` check must pass before merge, and accepted contributions remain licensed
+under **AGPL-3.0-or-later**.
+
+If an employer or another entity owns or controls the relevant rights, do not use the
+individual form. Contact the maintainers privately before submitting the covered
+contribution so the separate corporate agreement and authorization process can be
+completed.
+
+After a Corporate CLA is executed, the covered pull request remains blocked until
+maintainers verify the private authorization record and approve the audited,
+pull-request-only exception on the dedicated CLA ruleset. Corporate contributors are
+not placed on the CLA Assistant allowlist, and every ordinary review and CI rule still
+applies. Until that exception path is configured and approved for the pull request, the
+contribution cannot merge. See [Hosted CLA Assistant governance](docs/governance/cla-assistant.md).

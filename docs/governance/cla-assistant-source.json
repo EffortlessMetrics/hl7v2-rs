@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-15",
+  "activation_state": "pending_hosted_service_configuration",
+  "service": "CLA Assistant",
+  "service_url": "https://cla-assistant.io/",
+  "status_context": "license/cla",
+  "repositories": [
+    "EffortlessMetrics/hl7v2-rs",
+    "EffortlessMetrics/hl7v2-rs-swarm"
+  ],
+  "agreement": {
+    "repository_path": "CLA.md",
+    "gist_url": null,
+    "gist_id": null,
+    "gist_revision": null,
+    "gist_filename": "CLA.md",
+    "sha256": "f4b927bdc98148507b4cbc8288199c997e7064c37544fa30a9cc7218fb2293a5"
+  },
+  "metadata": {
+    "repository_path": "docs/governance/cla-assistant-metadata.json",
+    "gist_filename": "metadata",
+    "sha256": "d22c951e9ae4cf33643681f1710d5f4e026627525ea5e3c9f54546c1979d041f",
+    "required_fields": [
+      "fullLegalName",
+      "email",
+      "individualAuthority"
+    ]
+  },
+  "allowlist": [],
+  "enforcement": {
+    "EffortlessMetrics/hl7v2-rs": {
+      "baseline_ruleset_id": 13128501,
+      "baseline_ruleset_name": "main",
+      "baseline_ruleset_preserved": true,
+      "cla_ruleset_id": null,
+      "cla_ruleset_name": "cla",
+      "expected_source": "CLA Assistant GitHub App",
+      "corporate_bypass_team": "cla-corporate-approvers",
+      "corporate_bypass_mode": "pull_request",
+      "corporate_bypass_enabled": false
+    },
+    "EffortlessMetrics/hl7v2-rs-swarm": {
+      "baseline_ruleset_id": 16665265,
+      "baseline_ruleset_name": "main",
+      "baseline_ruleset_preserved": true,
+      "cla_ruleset_id": null,
+      "cla_ruleset_name": "cla",
+      "expected_source": "CLA Assistant GitHub App",
+      "corporate_bypass_team": "cla-corporate-approvers",
+      "corporate_bypass_mode": "pull_request",
+      "corporate_bypass_enabled": false
+    }
+  },
+  "activation_requirements": [
+    "Create the shared public Gist from the repository agreement and metadata payload.",
+    "Install and link the hosted CLA Assistant GitHub App to both repositories.",
+    "Observe a successful license/cla status on both migration pull requests.",
+    "Replace the pending Gist fields with the live URL, ID, and revision before merge.",
+    "Create a dedicated default-branch CLA ruleset in each repository requiring license/cla and pin the expected source to CLA Assistant.",
+    "Preserve both existing baseline rulesets unchanged and without bypass actors.",
+    "Leave both CLA rulesets without bypass actors unless the documented Corporate CLA process is activated.",
+    "Export the hosted signature registers to private storage and record the export dates."
+  ]
+}
