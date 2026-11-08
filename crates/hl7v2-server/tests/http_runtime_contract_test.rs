@@ -84,6 +84,61 @@ fn assert_ack_message_type(ack: &str) {
 }
 
 #[tokio::test]
+async fn test_swagger_docs_assets_and_contract_remain_available()
+-> Result<(), Box<dyn std::error::Error>> {
+    let api_key = hl7v2_test_utils::deterministic_api_key("swagger-docs-contract");
+    for configured_key in [None, Some(api_key.as_str())] {
+        let app = test_router(configured_key, CorsAllowedOrigins::default());
+        let request = |uri: &str| {
+            Request::builder()
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    [127, 0, 0, 1],
+                    8080,
+                ))))
+                .uri(uri)
+                .body(Body::empty())
+        };
+
+        let redirect = app.clone().oneshot(request("/api/docs")?).await?;
+        if redirect.status() != StatusCode::SEE_OTHER
+            || redirect.headers().get(axum::http::header::LOCATION)
+                != Some(&axum::http::HeaderValue::from_static("/api/docs/"))
+        {
+            return Err("Swagger docs must redirect to /api/docs/ with HTTP 303".into());
+        }
+
+        for (uri, marker) in [
+            ("/api/docs/", "Swagger UI"),
+            ("/api/docs/swagger-ui.css", ".swagger-ui"),
+            ("/api/docs/swagger-ui-bundle.js", "SwaggerUIBundle"),
+            ("/api/docs/swagger-initializer.js", "/api/openapi.yaml"),
+        ] {
+            let response = app.clone().oneshot(request(uri)?).await?;
+            if response.status() != StatusCode::OK {
+                return Err(format!("{uri} returned {}", response.status()).into());
+            }
+            let body = response.into_body().collect().await?.to_bytes();
+            if !std::str::from_utf8(&body)?.contains(marker) {
+                return Err(format!("{uri} is missing {marker}").into());
+            }
+        }
+
+        let response = app.oneshot(request("/api/openapi.yaml")?).await?;
+        if response.status() != StatusCode::OK
+            || response.headers().get(axum::http::header::CONTENT_TYPE)
+                != Some(&axum::http::HeaderValue::from_static("text/yaml"))
+        {
+            return Err("OpenAPI endpoint must return HTTP 200 with text/yaml content".into());
+        }
+        let body = response.into_body().collect().await?.to_bytes();
+        if std::str::from_utf8(&body)? != include_str!("../../../api/openapi/hl7v2-api-v1.yaml") {
+            return Err("OpenAPI endpoint must serve the checked-in contract unchanged".into());
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_http_ack_maps_codes_and_preserves_control_id() {
     for code in ["AA", "AE", "AR", "CA", "CE", "CR"] {
         let (status, body) = post_json(
