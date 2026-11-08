@@ -83,6 +83,7 @@ fn assert_ack_message_type(ack: &str) {
     assert_eq!(message_type, "ACK^ADT");
 }
 
+/// Guards Swagger UI assets and the checked-in OpenAPI contract across dependency upgrades.
 #[tokio::test]
 async fn test_swagger_docs_assets_and_contract_remain_available()
 -> Result<(), Box<dyn std::error::Error>> {
