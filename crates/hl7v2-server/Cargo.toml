@@ -45,8 +45,7 @@ serde_yaml = { workspace = true }
 # Additional dependencies
 http = "1.0"
 hyper = "1.0"
-utoipa-swagger-ui = { version = "9.0", features = ["axum"] }
-utoipa = { version = "5.4", features = ["yaml"] }
+utoipa-swagger-ui = { version = "10.0.2", features = ["axum"] }
 subtle = "2.6.1"
 tonic = { workspace = true }
 prost = { workspace = true }
